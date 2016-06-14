@@ -29,6 +29,7 @@ from core.util import TitleProcessor
 
 class NoveListAPI(object):
 
+    IS_CONFIGURED = None
     log = logging.getLogger("NoveList API")
     version = "2.2"
 
@@ -58,8 +59,10 @@ class NoveListAPI(object):
 
     @classmethod
     def is_configured(cls):
-        profile, password = cls.values()
-        return bool(profile and password)
+        if cls.IS_CONFIGURED is None:
+            profile, password = cls.values()
+            cls.IS_CONFIGURED = bool(profile and password)
+        return cls.IS_CONFIGURED
 
     def __init__(self, _db, profile, password):
         self._db = _db
@@ -380,8 +383,7 @@ class NoveListCoverageProvider(CoverageProvider):
         return DataSource.lookup(self._db, DataSource.NOVELIST)
 
     def process_item(self, identifier):
-
-        metadata, ignore = self.api.lookup(identifier)
+        metadata = self.api.lookup(identifier)
         if not metadata:
             # Either NoveList didn't recognize the identifier or
             # no interesting data came of this. Consider it covered.
@@ -392,6 +394,22 @@ class NoveListCoverageProvider(CoverageProvider):
             self.output_source, metadata.primary_identifier,
             strength=1
         )
+        # Create an edition with the NoveList metadata & NoveList identifier.
+        # This will capture equivalent ISBNs and less appealing metadata in
+        # its unfettered state on the NoveList identifier alone.
         edition, ignore = metadata.edition(self._db)
         metadata.apply(edition)
+
+        if edition.series or edition.series_position:
+            metadata.primary_identifier = identifier
+            # Series data from NoveList is appealing, but we need to avoid
+            # creating any potentially-inaccurate ISBN equivalencies on the
+            # license source identifier.
+            #
+            # So just remove the identifiers from the metadata object entirely.
+            metadata.identifiers = []
+            # Before creating an edition for the original identifier.
+            novelist_edition, ignore = metadata.edition(self._db)
+            metadata.apply(novelist_edition)
+
         return identifier

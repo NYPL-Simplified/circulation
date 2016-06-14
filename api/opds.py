@@ -29,6 +29,10 @@ from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
 from novelist import NoveListAPI
+from lanes import (
+    RecommendationLane,
+    SeriesLane,
+)
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -139,6 +143,22 @@ class CirculationManagerAnnotator(Annotator):
             m = self.url_for
         return m('feed', languages=lane.languages, lane_name=lane.name, order=order, _external=True)
 
+    def license_pool_lane_url(self, lane):
+        if isinstance(lane, RecommendationLane):
+            route = 'recommendations'
+        if isinstance(lane, SeriesLane):
+            route = 'series'
+        if not route:
+            raise ValueError("LicensePoolBasedLane-type not found")
+        data_source = lane.license_pool.data_source.name
+        identifier_type = lane.license_pool.identifier.type
+        identifier = lane.license_pool.identifier.identifier
+        return self.cdn_url_for(
+            route, data_source=data_source,
+            identifier_type=identifier_type,
+            identifier=identifier
+        )
+
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
                 self.active_holds_by_work.get(work))
@@ -201,6 +221,8 @@ class CirculationManagerAnnotator(Annotator):
             url = self.default_lane_url()
         elif lane.sublanes:
             url = self.groups_url(lane)
+        elif hasattr(lane, 'license_pool'):
+            url = self.license_pool_lane_url(lane)
         else:
             url = self.feed_url(lane)
         return url
@@ -245,19 +267,27 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
-        # Add a link for related recommendations if available.
-        if NoveListAPI.is_configured():
+        # Add a link for related books if available.
+        if self.related_books_available(active_license_pool):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
                 type=OPDSFeed.ACQUISITION_FEED_TYPE,
                 title='Recommended Works',
                 href=self.url_for(
-                    'recommendations',
+                    'related_books',
                     data_source=data_source_name, identifier_type=identifier.type,
                     identifier=identifier.identifier, _external=True
                 )
             )
+
+    @classmethod
+    def related_books_available(cls, license_pool):
+        """:return: bool asserting whether related books are available for a
+        particular work
+        """
+        series = license_pool.presentation_edition.series
+        return NoveListAPI.is_configured() or series
 
     def annotate_feed(self, feed, lane):
         if self.patron:

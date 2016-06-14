@@ -1,4 +1,6 @@
 from nose.tools import set_trace
+from sqlalchemy.orm import aliased
+
 import core.classifier as genres
 from config import Configuration
 from core.classifier import (
@@ -13,8 +15,9 @@ from core.lane import (
     LaneList,
 )
 from core.model import (
-    Work,
     Edition,
+    LicensePool,
+    Work,
 )
 
 from core.util import LanguageCodes
@@ -374,32 +377,161 @@ def lane_for_other_languages(_db, exclude_languages):
     lane.default_for_language = True
     return lane
 
+class LicensePoolBasedLane(Lane):
+    """A lane based on a particular LicensePool"""
 
-class RecommendationLane(Lane):
-    """A lane of works recommended for a particular work"""
+    DISPLAY_NAME = None
+    MAX_CACHE_AGE = 14*24*60*60      # two weeks
 
+    # Inside of groups feeds, we want to return a sample
+    # even if there's only a single result.
+    MINIMUM_SAMPLE_SIZE = 1
+
+    def __init__(self, _db, license_pool, full_name,
+                 display_name=None, sublanes=[], invisible=False):
+        self.license_pool = license_pool
+        display_name = display_name or self.DISPLAY_NAME
+        super(LicensePoolBasedLane, self).__init__(
+            _db, full_name, display_name=display_name,
+            sublanes=sublanes
+        )
+
+    def apply_filters(self, qu, facets=None, pagination=None,
+            work_model=Work, edition_model=Edition):
+        """Incorporates additional filters to be run on a query of all Works
+        in the db or materialized view
+
+        :return: query
+        """
+        raise NotImplementedError()
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of books for the feed"""
+
+        # Lane.featured_works searches for books along a variety of facets.
+        # Because LicensePoolBasedLanes are created for individual works as
+        # needed (instead of at app start), we need to avoid the relative
+        # slowness of those queries.
+        #
+        # We'll just ignore facets and return whatever we find.
+        if not use_materialized_works:
+            query = self.works()
+        else:
+            query = self.materialized_works()
+        if not query:
+            return []
+
+        return self.randomized_sample_works(query, use_min_size=True)
+
+
+class RelatedBooksLane(LicensePoolBasedLane):
+    """A lane of Works all related to the Work of a particular LicensePool
+
+    Sublanes currently include a SeriesLane and a RecommendationLane"""
+
+    DISPLAY_NAME = "Related Books"
+
+    def __init__(self, _db, license_pool, full_name, display_name=None,
+                 novelist_api=None):
+        sublanes = self._get_sublanes(_db, license_pool, novelist_api=novelist_api)
+        if not sublanes:
+            edition = license_pool.presentation_edition
+            raise ValueError(
+                "No related books for %s by %s" % (edition.title, edition.author)
+            )
+        super(RelatedBooksLane, self).__init__(
+            _db, license_pool, full_name,
+            display_name=display_name, sublanes=sublanes,
+            invisible=True
+        )
+
+    def _get_sublanes(self, _db, license_pool, novelist_api=None):
+        sublanes = []
+
+        # Create a recommendations sublane.
+        try:
+            lane_name = "Recommendations for %s by %s" % (
+                license_pool.work.title, license_pool.work.author
+            )
+            recommendation_lane = RecommendationLane(
+                _db, license_pool, lane_name, novelist_api=novelist_api
+            )
+            if recommendation_lane.recommendations:
+                sublanes.append(recommendation_lane)
+        except ValueError, e:
+            # NoveList isn't configured.
+            pass
+
+        # Create a series sublane.
+        series = license_pool.presentation_edition.series
+        if series:
+            sublanes.append(SeriesLane(_db, license_pool))
+
+        return sublanes
+
+    def apply_filters(self, qu, *args, **kwargs):
+        # This lane is composed entirely of sublanes and
+        # should only be used to create groups feeds.
+        return None
+
+
+class SeriesLane(LicensePoolBasedLane):
+    """A lane of Works in a series based on a particular LicensePool"""
+
+    def __init__(self, _db, license_pool):
+        series_name = license_pool.presentation_edition.series
+        full_name = display_name = series_name
+        super(SeriesLane, self).__init__(
+            _db, license_pool, full_name, display_name=display_name
+        )
+
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+        edition = self.license_pool.presentation_edition
+        series = edition.series
+        if not series:
+            return None
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # Aliasing Edition here allows this query to function
+        # regardless of work_model and existing joins.
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).filter(work_edition.series==series)
+        qu = qu.order_by(work_edition.series_position, work_edition.title)
+        return qu
+
+
+class RecommendationLane(LicensePoolBasedLane):
+    """A lane of recommended Works based on a particular LicensePool"""
+
+    DISPLAY_NAME = "Recommended Books"
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-            mock_api=None):
-        self.license_pool = license_pool
-        self.api = mock_api or NoveListAPI.from_config(_db)
-        display_name = display_name or "Related Works"
+            novelist_api=None):
+        self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, license_pool, full_name, display_name=display_name
         )
+        self.recommendations = self.fetch_recommendations()
 
-    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
-            edition_model=Edition):
-        identifier = self.license_pool.identifier
-        metadata = self.api.lookup(identifier)
+    def fetch_recommendations(self):
+        """Get identifiers of recommendations for this LicensePool"""
 
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        metadata = self.api.lookup(self.license_pool.identifier)
         if metadata:
             metadata.filter_recommendations(self._db)
-            if metadata.recommendations:
-                qu = Work.from_identifiers(
-                    self._db, metadata.recommendations, base_query=qu
-                )
-                return qu
-        return None
+            return metadata.recommendations
+        return []
+
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+
+        if not self.recommendations:
+            return None
+
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        if work_model != Work:
+            qu = qu.join(LicensePool.identifier)
+        qu = Work.from_identifiers(
+            self._db, self.recommendations, base_query=qu
+        )
+        return qu
