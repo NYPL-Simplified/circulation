@@ -38,17 +38,18 @@ class TestLanguageCodes(object):
 
         eq_("spa", c.two_to_three['es'])
         eq_("es", c.three_to_two['spa'])
-        eq_(["Spanish", "Castilian"], c.english_names['es'])
-        eq_(["Spanish", "Castilian"], c.english_names['spa'])
-        eq_([unicode("español", "utf-8"), "castellano"], c.native_names['es'])
-        eq_([unicode("español", "utf-8"), "castellano"], c.native_names['spa'])
+        eq_(['Spanish', 'Castilian'], c.english_names['es'])
+        eq_(['Spanish', 'Castilian'], c.english_names['spa'])
+        eq_([u"español", "castellano"], c.native_names['es'])
+        eq_([u"español", "castellano"], c.native_names['spa'])
 
         eq_("chi", c.two_to_three['zh'])
         eq_("zh", c.three_to_two['chi'])
         eq_(["Chinese"], c.english_names['zh'])
         eq_(["Chinese"], c.english_names['chi'])
-        eq_([unicode("äæ (Zhōngwén)", "utf-8"), unicode("æè", "utf-8"), unicode("æè", "utf-8")], c.native_names['zh'])
-        eq_([unicode("äæ (Zhōngwén)", "utf-8"), unicode("æè", "utf-8"), unicode("æè", "utf-8")], c.native_names['chi'])
+        # We don't have this translation yet.
+        eq_([], c.native_names['zh'])
+        eq_([], c.native_names['chi'])
 
         eq_(None, c.two_to_three['nosuchlanguage'])
         eq_(None, c.three_to_two['nosuchlanguage'])
@@ -78,10 +79,10 @@ class TestLanguageCodes(object):
         eq_("", m([]))
         eq_("English", m(["en"]))
         eq_("English", m(["eng"]))
-        eq_(unicode("español", "utf-8"), m(['es']))
-        eq_(unicode("English & español", "utf-8"), m(["eng", "spa"]))
-        eq_(unicode("español & English", "utf-8"), m("spa,eng"))
-        eq_(unicode("español, English, & äæ (Zhōngwén)", "utf-8"), m(["spa","eng","chi"]))
+        eq_(u"español", m(['es']))
+        eq_(u"English & español", m(["eng", "spa"]))
+        eq_(u"español & English", m("spa,eng"))
+        eq_(u"español, English, & Chinese", m(["spa","eng","chi"]))
         assert_raises(ValueError(m, ["eng, nxx"]))
 
 class DummyAuthor(object):
