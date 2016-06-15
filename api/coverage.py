@@ -16,7 +16,7 @@ from core.model import (
     LicensePool,
     WorkCoverageRecord,
 )
-from core.opds import (
+from core.util.opds_writer import (
     OPDSFeed
 )
 from core.external_search import (

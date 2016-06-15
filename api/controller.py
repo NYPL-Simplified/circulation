@@ -55,9 +55,10 @@ from core.model import (
     Work,
 )
 from core.opds import (
-    E,
     AcquisitionFeed,
-    OPDSFeed,
+)
+from core.util.opds_writer import (    
+     OPDSFeed,
 )
 from core.opensearch import OpenSearchDocument
 from core.util.flask_util import (
