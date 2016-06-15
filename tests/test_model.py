@@ -3734,3 +3734,58 @@ class TestCollection(DatabaseTest):
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+
+class TestMaterializedViews(DatabaseTest):
+
+    def test_license_data_source_is_stored_in_views(self):
+        """Verify that the data_source_name stored in the materialized views
+        is the DataSource associated with the LicensePool, not the
+        DataSource associated with the presentation Edition.
+        """
+
+        # Create an Identifier with two Editions.
+        identifier = self._identifier()
+
+        overdrive_edition, pool = self._edition(
+            with_license_pool=True, data_source_name=DataSource.OVERDRIVE
+        )
+        presentation_edition = self._edition(
+            data_source_name=DataSource.PRESENTATION_EDITION
+        )
+        presentation_edition.sort_title = "presentation edition title"
+
+        # Create a Work connected to the LicensePool but having an
+        # unrelated presentation_edition.
+        work = self._work(presentation_edition=presentation_edition)
+        work.license_pools = [pool]
+        work.presentation_ready = True
+        work.simple_opds_entry = '<entry>'
+
+        work.assign_genres_from_weights({classifier.Fantasy : 1})
+
+        # Make sure it shows up in the materialized view.
+        SessionManager.refresh_materialized_views(self._db)
+
+        from model import (
+            MaterializedWork as mwc,
+            MaterializedWorkWithGenre as mwgc,
+        )
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        # We would expect the data source to be Overdrive, since
+        # that's the edition associated with the LicensePool, and not
+        # the data source of the Work's presentation edition.
+        eq_(overdrive_edition.data_source.name, mw.name)
+        eq_(overdrive_edition.data_source.name, mwg.name)
+
+        # However, we would expect the title of the work to come from
+        # the presentation edition.
+        eq_("presentation edition title", mw.sort_title)
+
+        # And since the data_source_id is the ID of the data source
+        # associated with the presentation edition, we would expect it
+        # to be the data source ID of the presentation edition.
+        eq_(presentation_edition.data_source.id, mw.data_source_id)
+        eq_(presentation_edition.data_source.id, mwg.data_source_id)

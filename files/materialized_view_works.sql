@@ -31,8 +31,8 @@ as
 
    FROM works
      JOIN editions ON editions.id = works.presentation_edition_id
-     JOIN licensepools ON editions.data_source_id = licensepools.data_source_id AND editions.primary_identifier_id = licensepools.identifier_id
-     JOIN datasources ON editions.data_source_id = datasources.id
+     JOIN licensepools ON licensepools.work_id = works.id
+     JOIN datasources ON licensepools.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
   WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL
