@@ -19,7 +19,7 @@ from core.model import (
     LicensePool,
     Work,
 )
-from core.opds import OPDSFeed
+from core.util.opds_writer import OPDSFeed
 from core.opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
