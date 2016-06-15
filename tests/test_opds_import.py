@@ -23,13 +23,14 @@ from opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
-    StatusMessage,
+    OPDSImportMonitor,
 )
 from metadata_layer import (
     LinkData
 )
 from model import (
     Contributor,
+    CoverageRecord,
     DataSource,
     DeliveryMechanism,
     Hyperlink,
@@ -40,30 +41,30 @@ from model import (
     RightsStatus,
     Subject,
 )
+from coverage import CoverageFailure
 
 from s3 import DummyS3Uploader
 from testing import DummyHTTPClient
 
-class TestStatusMessage(object):
 
-    def test_constructor(self):
+class DoomedOPDSImporter(OPDSImporter):
+    def import_edition_from_metadata(self, metadata, *args):
+        if metadata.title == "Johnny Crow's Party":
+            # This import succeeds.
+            return super(DoomedOPDSImporter, self).import_edition_from_metadata(metadata, *args)
+        else:
+            # Any other import fails.
+            raise Exception("Utter failure!")
 
-        message = StatusMessage(200, "success")
-        eq_(True, message.success)
-        eq_(False, message.transient)
-
-        message = StatusMessage(201, "try later")
-        eq_(False, message.success)
-        eq_(True, message.transient)
-
-        message = StatusMessage(500, "oops")
-        eq_(False, message.success)
-        eq_(True, message.transient)
-
-        message = StatusMessage(404, "nope")
-        eq_(False, message.success)
-        eq_(False, message.transient)
-
+class DoomedWorkOPDSImporter(OPDSImporter):
+    """An OPDS Importer that imports editions but can't create works."""
+    def update_work_for_edition(self, edition, *args, **kwargs):
+        if edition.title == "Johnny Crow's Party":
+            # This import succeeds.
+            return super(DoomedWorkOPDSImporter, self).update_work_for_edition(edition, *args, **kwargs)
+        else:
+            # Any other import fails.
+            raise Exception("Utter work failure!")
 
 class TestSimplifiedOPDSLookup(object):
 
@@ -118,9 +119,39 @@ class OPDSImporterTest(DatabaseTest):
 
 class TestOPDSImporter(OPDSImporterTest):
 
+    def test_extract_next_links(self):
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        next_links = importer.extract_next_links(
+            self.content_server_mini_feed
+        )
+
+        eq_(1, len(next_links))
+        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+
+    def test_extract_last_update_dates(self):
+        importer = OPDSImporter(self._db, DataSource.NYT)
+        last_update_dates = importer.extract_last_update_dates(
+            self.content_server_mini_feed
+        )
+
+        eq_(3, len(last_update_dates))
+
+        identifier1, updated1 = last_update_dates[0]
+        identifier2, updated2 = last_update_dates[1]
+        identifier3, updated3 = last_update_dates[2]
+
+        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441", identifier1)
+        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated1)
+
+        eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557", identifier2)
+        eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated2)
+
+        eq_("http://www.gutenberg.org/ebooks/1984", identifier3)
+        eq_(None, updated3)
+
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
-        metadata, circulationdata, status_messages, next_link = importer.extract_feed_data(
+        metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
 
@@ -137,42 +168,79 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.NYT, c1._data_source)
         eq_(DataSource.NYT, c2._data_source)
 
-        [message] = status_messages.values()
-        eq_(202, message.status_code)
-        eq_(u"I'm working to locate a source for this identifier.", message.message)
-
-        eq_("http://localhost:5000/?after=327&size=100", next_link[0])
+        [failure] = failures.values()
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
 
     def test_extract_metadata_from_feedparser(self):
 
-        values_meta, values_circ, status_messages, next_link = OPDSImporter.extract_data_from_feedparser(
-            self.content_server_mini_feed, DataSource.OA_CONTENT_SERVER
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        values, failures = OPDSImporter.extract_data_from_feedparser(
+            self.content_server_mini_feed, data_source
         )
 
-        metadata = values_meta['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        metadata = values['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         eq_("The Green Mouse", metadata['title'])
         eq_("A Tale of Mousy Terror", metadata['subtitle'])
         eq_('en', metadata['language'])
         eq_('Project Gutenberg', metadata['publisher'])
 
-        circulation = values_circ['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        circulation = metadata['circulation']
         eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
 
-        message = status_messages['http://www.gutenberg.org/ebooks/1984']
-        eq_(202, message.status_code)
-        eq_(u"I'm working to locate a source for this identifier.", message.message)
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
+
+    def test_extract_metadata_from_feedparser_handles_exception(self):
+        class DoomedFeedparserOPDSImporter(OPDSImporter):
+            """An importer that can't extract metadata from feedparser."""
+            @classmethod
+            def _data_detail_for_feedparser_entry(cls, entry, data_source):
+                raise Exception("Utter failure!")
+
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        values, failures = DoomedFeedparserOPDSImporter.extract_data_from_feedparser(
+            self.content_server_mini_feed, data_source
+        )
+
+        # No metadata was extracted.
+        eq_(0, len(values.keys()))
+
+        # There are 3 failures, the 202 in the feed and 2 from exceptions.
+        eq_(3, len(failures))
+
+        # The regular status message is there.
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
+
+        # The first error message is there.
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        assert "Utter failure!" in failure.exception
+
+        # The second error message is there.
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        assert "Utter failure!" in failure.exception
 
     def test_extract_metadata_from_elementtree(self):
 
-        data = OPDSImporter.extract_metadata_from_elementtree(
-            self.content_server_feed
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        data, failures = OPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_feed, data_source
         )
 
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
+        eq_(0, len(failures))
 
         # We're going to do spot checks on a book and a periodical.
 
@@ -237,12 +305,53 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
 
+    def test_extract_metadata_from_elementtree_handles_exception(self):
+        class DoomedElementtreeOPDSImporter(OPDSImporter):
+            """An importer that can't extract metadata from elementttree."""
+            @classmethod
+            def _detail_for_elementtree_entry(cls, *args, **kwargs):
+                raise Exception("Utter failure!")
+
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        values, failures = DoomedElementtreeOPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_mini_feed, data_source
+        )
+
+        # No metadata was extracted.
+        eq_(0, len(values.keys()))
+
+        # There are 3 messages - every entry threw an exception.
+        eq_(3, len(failures))
+
+        # The entry with the 202 message threw an exception.
+        failure = failures['http://www.gutenberg.org/ebooks/1984']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        assert "Utter failure!" in failure.exception
+
+        # And so did the other entries.
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        assert "Utter failure!" in failure.exception
+
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        assert "Utter failure!" in failure.exception
+
+    def test_import_exception_if_unable_to_parse_feed(self):
+        feed = "I am not a feed."
+        importer = OPDSImporter(self._db)
+
+        assert_raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
+
 
     def test_import(self):
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
@@ -297,13 +406,13 @@ class TestOPDSImporter(OPDSImporterTest):
         classifier.classify(seven.subject)
 
         # If we import the same file again, we get the same list of Editions.
-        imported_editions_2, imported_pools_2, imported_works_2, error_messages_2, next_links_2 = (
+        imported_editions_2, pools_2, works_2, failures_2 = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
         # importing with a lendable data source makes license pools and works
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
@@ -329,8 +438,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
             mech.resource.url)
 
-
-
     def test_import_with_lendability(self):
         # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
         # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
@@ -340,30 +447,28 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # will create editions, but not license pools or works, because the 
         # metadata wrangler data source is not lendable
-        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
 
         importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
-        imported_editions_mw, imported_pools_mw, imported_works_mw, error_messages_mw, next_links_mw = (
-            importer_mw.import_from_feed(feed, cutoff_date=cutoff)
+        imported_editions_mw, pools_mw, works_mw, failures_mw = (
+            importer_mw.import_from_feed(feed)
         )
 
-        # Despite the cutoff, both books were imported, because they were new.
+        # Both books were imported, because they were new.
         eq_(2, len(imported_editions_mw))
 
-        # but pools and works weren't, because we passed the wrong data source
+        # But pools and works weren't created, because the data source isn't lendable.
         # 1 error message, because correctly didn't even get to trying to create pools, 
         # so no messages there, but do have that entry stub at end of sample xml file, 
         # which should fail with a message.
-        eq_(1, len(error_messages_mw))
-        eq_(0, len(imported_pools_mw))
-        eq_(0, len(imported_works_mw))
+        eq_(1, len(failures_mw))
+        eq_(0, len(pools_mw))
+        eq_(0, len(works_mw))
 
         # try again, with a license pool-acceptable data source
         importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions_g, imported_pools_g, imported_works_g, error_messages_g, next_links_g = (
-            importer_g.import_from_feed(feed, cutoff_date=cutoff)
+        imported_editions_g, pools_g, works_g, failures_g = (
+            importer_g.import_from_feed(feed)
         )
 
         # we made new editions, because we're now creating edition per data source, not overwriting
@@ -371,56 +476,53 @@ class TestOPDSImporter(OPDSImporterTest):
         # TODO: and we also created presentation editions, with author and title set
 
         # now pools and works are in, too
-        eq_(1, len(error_messages_g))
-        eq_(2, len(imported_pools_g))
-        eq_(2, len(imported_works_g))        
+        eq_(1, len(failures_g))
+        eq_(2, len(pools_g))
+        eq_(2, len(works_g))        
 
         # assert that bibframe datasource from feed was correctly overwritten
         # with data source I passed into the importer.
-        for pool in imported_pools_g:
+        for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
 
 
     def test_import_with_cutoff(self):
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # Despite the cutoff, both books were imported, because they were new.
         eq_(2, len(imported_editions))
-        eq_(2, len(imported_pools))
-        eq_(2, len(imported_works))        
+        eq_(2, len(pools))
+        eq_(2, len(works))        
 
         # But if we try it again...
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # None of the books were imported because they weren't updated
         # after the cutoff.
         eq_(0, len(imported_editions))
-        eq_(0, len(imported_pools))
-        eq_(0, len(imported_works))
+        eq_(0, len(pools))
+        eq_(0, len(works))
 
         # And if we change the cutoff...
-        # TODO:  we've messed with the cutoff date in import_editions_from_metadata, 
-        # and need to fix it before re-activating the assert.
         cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(feed, cutoff_date=cutoff)
         )
 
         # Both books were imported again.
         eq_(2, len(imported_editions))
-        eq_(2, len(imported_pools))
-        eq_(2, len(imported_works))
+        eq_(2, len(pools))
+        eq_(2, len(works))
 
-        assert (datetime.datetime.utcnow() - imported_pools[0].last_checked) < datetime.timedelta(seconds=10)
+        assert (datetime.datetime.utcnow() - pools[0].last_checked) < datetime.timedelta(seconds=10)
 
 
     def test_import_updates_metadata(self):
@@ -438,7 +540,7 @@ class TestOPDSImporter(OPDSImporterTest):
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE).import_from_feed(feed)
         )
 
@@ -455,13 +557,12 @@ class TestOPDSImporter(OPDSImporterTest):
         # Instead of importing this data as though it came from the
         # metadata wrangler, let's import it as though it came from the
         # open-access content server.
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
 
@@ -502,12 +603,11 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_import_and_make_presentation_ready(self):
         # Now let's tell the OPDS importer to make works presentation-ready
         # as soon as they're imported.
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
+        feed = self.content_server_mini_feed
         importer = OPDSImporter(
             self._db, data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        imported_editions, imported_pools, imported_works, error_messages, next_link = (
+        imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
@@ -521,44 +621,54 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_status_and_message(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
-        #imported, messages, next_link = OPDSImporter(self._db).import_from_feed(feed)
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, imported_pools, imported_works, failures = (
             OPDSImporter(self._db).import_from_feed(feed)
         )
 
-        [message] = error_messages.values()
-        eq_(404, message.status_code)
-        eq_("I've never heard of this work.", message.message)
+        [failure] = failures.values()
+        assert isinstance(failure, CoverageFailure)
+        eq_(True, failure.transient)
+        eq_("404: I've never heard of this work.", failure.exception)
 
 
-    def test_import_failure_becomes_status_message(self):
-        # Make sure that an exception during import stops the import process, 
-        # and generates a meaningful error message.
+    def test_import_edition_failure_becomes_coverage_failure(self):
+        # Make sure that an exception during import generates a
+        # meaningful error message.
 
-        class DoomedOPDSImporter(OPDSImporter):
-            def import_edition_from_metadata(self, metadata, *args):
-                if metadata.title == "Johnny Crow's Party":
-                    # This import succeeds.
-                    return super(DoomedOPDSImporter, self).import_edition_from_metadata(metadata, *args)
-                else:
-                    # Any other import fails.
-                    raise Exception("Utter failure!")
+        feed = self.content_server_mini_feed
 
-        path = os.path.join(self.resource_path, "content_server_mini.opds")
-        feed = open(path).read()
-
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             DoomedOPDSImporter(self._db).import_from_feed(feed)
         )
 
         # Only one book was imported, the other failed.
         eq_(1, len(imported_editions))
 
-        # The other failed to import, and became a StatusMessage
-        message = error_messages['http://www.gutenberg.org/ebooks/10441']
-        eq_(500, message.status_code)
-        assert "Utter failure!" in message.message
+        # The other failed to import, and became a CoverageFailure
+        failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        assert "Utter failure!" in failure.exception
 
+    def test_import_work_failure_becomes_coverage_failure(self):
+        # Make sure that an exception while updating a work for an
+        # imported edition generates a meaningful error message.
+
+        feed = self.content_server_mini_feed
+        importer = DoomedWorkOPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER)
+
+        imported_editions, pools, works, failures = (
+            importer.import_from_feed(feed)
+        )
+
+        # One work was created, the other failed.
+        eq_(1, len(works))
+
+        # There's an error message for the work that failed. 
+        failure = failures['http://www.gutenberg.org/ebooks/10441']
+        assert isinstance(failure, CoverageFailure)
+        eq_(False, failure.transient)
+        assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
 
@@ -620,11 +730,11 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             media_type=Representation.EPUB_MEDIA_TYPE,
         )
         http.queue_response(
-            200, content='I am 10441.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE
+            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
         )
         http.queue_response(
-            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+            200, content='I am 10441.epub.images',
+            media_type=Representation.EPUB_MEDIA_TYPE
         )
 
         s3 = DummyS3Uploader()
@@ -634,39 +744,47 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             mirror=s3, http_get=http.do_get
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed)
         )
-        e1 = imported_editions[1]
-        e2 = imported_editions[0]
+        e1 = imported_editions[0]
+        e2 = imported_editions[1]
 
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
         # image was not requested, since we were going to make our own
         # thumbnail anyway.
         eq_(http.requests, [
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10441.epub.images',
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
         ])
 
-        [e1_oa_link] = e1.primary_identifier.links
-        [e2_oa_link, e2_image_link, e2_description_link] = sorted(
-            e2.primary_identifier.links, key=lambda x: x.rel
+        [e1_oa_link, e1_image_link, e1_description_link] = sorted(
+            e1.primary_identifier.links, key=lambda x: x.rel
         )
+        [e2_oa_link] = e2.primary_identifier.links
 
         # The two open-access links were mirrored to S3, as was the
         # original SVG image and its PNG thumbnail.
-        imported_representations = [e2_image_link.resource.representation,e2_image_link.resource.representation.thumbnails[0],e2_oa_link.resource.representation,e1_oa_link.resource.representation,]
+        imported_representations = [
+            e1_oa_link.resource.representation,
+            e1_image_link.resource.representation,
+            e1_image_link.resource.representation.thumbnails[0],
+            e2_oa_link.resource.representation,
+        ]
         eq_(imported_representations, s3.uploaded)
 
 
         eq_(4, len(s3.uploaded))
+        eq_("I am 10441.epub.images", s3.content[0])
+        eq_(svg, s3.content[1])
+        eq_("I am 10557.epub.images", s3.content[3])
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        url0 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url1 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url2 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
+        url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
         eq_([url0, url1, url2, url3], uploaded_urls)
@@ -689,11 +807,11 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             304, media_type=Representation.EPUB_MEDIA_TYPE
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
-        eq_([e2, e1], imported_editions)
+        eq_([e1, e2], imported_editions)
 
         # Nothing new has been uploaded
         eq_(4, len(s3.uploaded))
@@ -705,23 +823,188 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         http.queue_response(
-            200, content="I am a new version of 10441.epub.images",
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
-
-        http.queue_response(
             200, content=svg,
             media_type=Representation.SVG_MEDIA_TYPE
         )
 
-        imported_editions, imported_pools, imported_works, error_messages, next_links = (
+        http.queue_response(
+            200, content="I am a new version of 10441.epub.images",
+            media_type=Representation.EPUB_MEDIA_TYPE
+        )
+
+        imported_editions, pools, works, failures = (
             importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
         )
 
-        eq_([e2, e1], imported_editions)
+        eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
+        eq_("I am a new version of 10441.epub.images", s3.content[4])
+        eq_(svg, s3.content[5])
+        eq_("I am a new version of 10557.epub.images", s3.content[7])
 
 
+class TestOPDSImportMonitor(OPDSImporterTest):
+
+    def setup(self):
+        super(TestOPDSImportMonitor, self).setup()
+        feed = self.content_server_mini_feed
+        # Remove the last entry, since it's a message and will always be new.
+        last_entry_start = feed.rfind('<entry>')
+        last_entry_end = feed.rfind('</entry>') + len('</entry>')
+        self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
 
 
+    def test_check_for_new_data(self):
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        feed = self.content_server_mini_feed_without_message
 
+        # Nothing has been imported yet, so all data is new.
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # Now import the editions.
+        monitor.importer.import_from_feed(feed)
+        eq_(2, self._db.query(Edition).count())
+
+        # There's no cutoff date and no CoverageRecords,
+        # but the data has already been imported.
+        eq_(False, monitor.check_for_new_data(feed))
+
+        # If there's a cutoff date that's after the updated
+        # dates in the feed, the data still isn't new.
+        eq_(False, monitor.check_for_new_data(feed, datetime.datetime(2016, 1, 1, 1, 1, 1)))
+
+        # But if the cutoff is before the updated time...
+        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
+
+        editions = self._db.query(Edition).all()
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        # If there's a CoverageRecord, that's after the updated
+        # dates, there's nothing new.
+        record, ignore = CoverageRecord.add_for(
+            editions[0], data_source, CoverageRecord.IMPORT_OPERATION
+        )
+        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        eq_(False, monitor.check_for_new_data(feed))
+
+        # If only one of the entries has a CoverageRecord, the other
+        # uses the cutoff date.
+        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
+
+        # If the CoverageRecord is before the updated date, there's
+        # new data.
+        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # If the CoverageRecord is a failure, it still works.
+        record.exception = "Failure"
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # If only one CoverageRecord is before the entry's updated date, there's
+        # still new data.
+        record, ignore = CoverageRecord.add_for(
+            editions[1], data_source, CoverageRecord.IMPORT_OPERATION
+        )
+        record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
+
+
+    def test_follow_one_link(self):
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        feed = self.content_server_mini_feed_without_message
+
+        # If there's new data, follow_one_link extracts the next links.
+
+        http = DummyHTTPClient()
+        http.queue_response(200, content=feed)
+
+        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
+        
+        eq_(1, len(next_links))
+        eq_("http://localhost:5000/?after=327&size=100", next_links[0])
+
+        eq_(feed, content)
+
+        # Now import the editions.
+        monitor.importer.import_from_feed(feed)
+        eq_(2, self._db.query(Edition).count())
+
+        # If there's no new data, follow_one_link returns no next links and no content.
+        http.queue_response(200, content=feed)
+
+        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
+
+        eq_(0, len(next_links))
+        eq_(None, content)
+
+
+    def test_import_one_feed(self):
+        # Check coverage records are created.
+
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, DoomedOPDSImporter)
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        feed = self.content_server_mini_feed
+
+        monitor.import_one_feed(feed, None)
+        
+        editions = self._db.query(Edition).all()
+        
+        # One edition has been imported
+        eq_(1, len(editions))
+
+        # That edition has a CoverageRecord.
+        record = CoverageRecord.lookup(
+            editions[0].primary_identifier, data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
+        eq_(CoverageRecord.SUCCESS, record.status)
+        eq_(None, record.exception)
+
+        # The 202 status message in the feed caused a transient failure.
+        # The exception caused a persistent failure.
+
+        coverage_records = self._db.query(CoverageRecord).filter(
+            CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION,
+            CoverageRecord.status != CoverageRecord.SUCCESS
+        )
+        eq_(
+            sorted([CoverageRecord.TRANSIENT_FAILURE, 
+                    CoverageRecord.PERSISTENT_FAILURE]),
+            sorted([x.status for x in coverage_records])
+        )
+    
+        identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
+        failure = CoverageRecord.lookup(
+            identifier, data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
+        assert "Utter failure!" in failure.exception
+
+
+    def test_run_once(self):
+        class MockOPDSImportMonitor(OPDSImportMonitor):
+            def __init__(self, *args, **kwargs):
+                super(MockOPDSImportMonitor, self).__init__(*args, **kwargs)
+                self.responses = []
+                self.imports = []
+
+            def queue_response(self, response):
+                self.responses.append(response)
+
+            def follow_one_link(self, link, cutoff_date=None, do_get=None):
+                return self.responses.pop()
+
+            def import_one_feed(self, feed, start):
+                self.imports.append(feed)
+
+        monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        
+        monitor.queue_response([[], "last page"])
+        monitor.queue_response([["second next link"], "second page"])
+        monitor.queue_response([["next link"], "first page"])
+
+        monitor.run_once(None, None)
+
+        # Feeds are imported in reverse order
+        eq_(["last page", "second page", "first page"], monitor.imports)

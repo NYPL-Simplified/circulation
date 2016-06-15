@@ -25,6 +25,7 @@ from config import (
 )
 
 from model import (
+    BaseCoverageRecord,
     CirculationEvent,
     Classification,
     Collection,
@@ -1483,10 +1484,22 @@ class TestWork(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_set_presentation_ready(self):
+
         work = self._work(with_license_pool=True)
+
+        search = DummyExternalSearchIndex()
+        # This is how the work will be represented in the dummy search
+        # index.
+        index_key = (search.works_index, 
+                     DummyExternalSearchIndex.work_document_type,
+                     work.id)
+
         presentation = work.presentation_edition
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
+
+        # The work has been added to the search index.
+        eq_([index_key], search.docs.keys())
         
         # This work is presentation ready because it has a title
         # and a fiction status.
@@ -1494,22 +1507,33 @@ class TestWork(DatabaseTest):
         # Remove the title, and the work stops being presentation
         # ready.
         presentation.title = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # The work has been removed from the search index.
+        eq_([], search.docs.keys())
+
+        # Restore the title, and everything is fixed.
         presentation.title = u"foo"
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)        
+        eq_([index_key], search.docs.keys())
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
         work.fiction = None
-        work.set_presentation_ready_based_on_content()
+        work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
+        # It's gone from the search index again.
+        eq_([], search.docs.keys())
+
+        # Restore the fiction status, and everything is fixed.
         work.fiction = False
-        work.set_presentation_ready_based_on_content()
-        eq_(True, work.presentation_ready)        
+        work.set_presentation_ready_based_on_content(search_index_client=search)
+
+        eq_(True, work.presentation_ready)
+        eq_([index_key], search.docs.keys())
 
     def test_assign_genres_from_weights(self):
         work = self._work()
@@ -1734,6 +1758,31 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+    def test_missing_coverage_from(self):
+        operation = 'the_operation'
+
+        # Here's a work with a coverage record.
+        work = self._work(with_license_pool=True)
+
+        # It needs coverage.
+        eq_([work], Work.missing_coverage_from(self._db, operation).all())
+
+        # Let's give it coverage.
+        record = self._work_coverage_record(work, operation)
+
+        # It no longer needs coverage!
+        eq_([], Work.missing_coverage_from(self._db, operation).all())
+
+        # But if we disqualify coverage records created before a 
+        # certain time, it might need coverage again.
+        cutoff = record.timestamp + datetime.timedelta(seconds=1)
+
+        eq_(
+            [work], Work.missing_coverage_from(
+                self._db, operation, count_as_missing_before=cutoff
+            ).all()
+        )
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -3346,6 +3395,83 @@ class TestPatron(DatabaseTest):
             patron._external_type = None
 
 
+class TestBaseCoverageRecord(DatabaseTest):
+
+    def test_not_covered(self):
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+
+        # Here are four identifiers with four relationships to a
+        # certain coverage provider: no coverage at all, successful
+        # coverage, a transient failure and a permanent failure.
+
+        no_coverage = self._identifier()
+
+        success = self._identifier()
+        success_record = self._coverage_record(success, source)
+        success_record.timestamp = (
+            datetime.datetime.now() - datetime.timedelta(seconds=3600)
+        )
+        eq_(CoverageRecord.SUCCESS, success_record.status)
+
+        transient = self._identifier()
+        transient_record = self._coverage_record(
+            transient, source, status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        eq_(CoverageRecord.TRANSIENT_FAILURE, transient_record.status)
+
+        persistent = self._identifier()
+        persistent_record = self._coverage_record(
+            persistent, source, status = BaseCoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(CoverageRecord.PERSISTENT_FAILURE, persistent_record.status)
+        
+        # Here's a query that finds all four.
+        qu = self._db.query(Identifier).outerjoin(CoverageRecord)
+        eq_(4, qu.count())
+
+        def check_not_covered(expect, **kwargs):
+            missing = CoverageRecord.not_covered(**kwargs)
+            eq_(sorted(expect), sorted(qu.filter(missing).all()))
+
+        # By default, not_covered() only finds the identifier with no
+        # coverage and the one with a transient failure.
+        check_not_covered([no_coverage, transient])
+
+        # If we pass in different values for covered_status, we change what
+        # counts as 'coverage'. In this case, we allow transient failures
+        # to count as 'coverage'.
+        check_not_covered(
+            [no_coverage],
+            count_as_covered=[CoverageRecord.PERSISTENT_FAILURE, 
+                              CoverageRecord.TRANSIENT_FAILURE,
+                              CoverageRecord.SUCCESS]
+        )
+
+        # Here, only success counts as 'coverage'.
+        check_not_covered(
+            [no_coverage, transient, persistent],
+            count_as_covered=CoverageRecord.SUCCESS
+        )
+
+        # We can also say that coverage doesn't count if it was achieved before
+        # a certain time. Here, we'll show that passing in the timestamp
+        # of the 'success' record means that record still counts as covered.
+        check_not_covered(
+            [no_coverage, transient],
+            count_as_not_covered_if_covered_before=success_record.timestamp
+        )
+
+        # But if we pass in a time one second later, the 'success'
+        # record no longer counts as covered.
+        one_second_after = (
+            success_record.timestamp + datetime.timedelta(seconds=1)
+        )
+        check_not_covered(
+            [success, no_coverage, transient],
+            count_as_not_covered_if_covered_before=one_second_after
+        )        
+
+
 class TestCoverageRecord(DatabaseTest):
 
     def test_lookup(self):
@@ -3395,6 +3521,13 @@ class TestCoverageRecord(DatabaseTest):
         record4 = CoverageRecord.lookup(edition.primary_identifier, source)
         eq_(record3, record4)
 
+        # We can change the status.
+        record5, is_new = CoverageRecord.add_for(
+            edition, source, operation, 
+            status=CoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(record5, record)
+        eq_(CoverageRecord.PERSISTENT_FAILURE, record.status)
 
 class TestWorkCoverageRecord(DatabaseTest):
 
@@ -3440,6 +3573,12 @@ class TestWorkCoverageRecord(DatabaseTest):
         record4 = WorkCoverageRecord.lookup(work, None)
         eq_(record3, record4)
 
+        # We can change the status.
+        record5, is_new = WorkCoverageRecord.add_for(
+            work, operation, status=WorkCoverageRecord.PERSISTENT_FAILURE
+        )
+        eq_(record5, record)
+        eq_(WorkCoverageRecord.PERSISTENT_FAILURE, record.status)
 
 class TestComplaint(DatabaseTest):
 

@@ -5,6 +5,10 @@ import logging
 import os
 import random
 import requests
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError,
+)
 import sys
 import time
 
@@ -158,20 +162,38 @@ class IdentifierInputScript(Script):
     """A script that takes identifiers as command line inputs."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
-        parser = cls.arg_parser()
-        parsed = parser.parse_args(cmd_args)
-        return cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+    def read_stdin_lines(self, stdin):
+        """Read lines from a (possibly mocked, possibly empty) standard input."""
+        if stdin is not sys.stdin or not os.isatty(0):
+            # A file has been redirected into standard input. Grab its
+            # lines.
+            lines = [x.strip() for x in stdin.readlines()]
+        else:
+            lines = []
+        return lines
 
     @classmethod
-    def look_up_identifiers(cls, _db, parsed, *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        stdin = cls.read_stdin_lines(stdin)
+        return cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
+
+    @classmethod
+    def look_up_identifiers(cls, _db, parsed, stdin_identifier_strings, *args, **kwargs):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
+            identifier_strings = parsed.identifier_strings
+            if stdin_identifier_strings:
+                identifier_strings = (
+                    identifier_strings + stdin_identifier_strings
+                )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, parsed.identifier_strings,
+                _db, parsed.identifier_type, identifier_strings,
                 *args, **kwargs
             )
         else:
@@ -264,10 +286,12 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parser
 
     @classmethod
-    def parse_command_line(cls, _db, cmd_args=None, *args, **kwargs):
+    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
-        parsed = cls.look_up_identifiers(_db, parsed, *args, **kwargs)
+        stdin = cls.read_stdin_lines(stdin)
+        parsed = cls.look_up_identifiers(_db, parsed, stdin, *args, **kwargs)
         if parsed.cutoff_time:
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
@@ -281,17 +305,32 @@ class RunCoverageProviderScript(IdentifierInputScript):
             else:
                 self.identifier_type = None
                 self.identifier_types = []
+            kwargs = self.extract_additional_command_line_arguments(args)
             provider = provider(
-                self._db, input_identifier_types=self.identifier_types, 
-                cutoff_time=args.cutoff_time
+                self._db, 
+                cutoff_time=args.cutoff_time,
+                **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
         self.identifiers = args.identifiers
 
+    def extract_additional_command_line_arguments(self, args):
+        """A hook method for subclasses.
+        
+        Turns command-line arguments into additional keyword arguments
+        to the CoverageProvider constructor.
+
+        By default, pass in a value used only by CoverageProvider
+        (as opposed to WorkCoverageProvider).
+        """
+        return {
+            "input_identifier_types" : self.identifier_types, 
+        }
+
     def do_run(self):
         if self.identifiers:
-            self.provider.run_on_identifiers(self.identifiers)
+            self.provider.run_on_specific_identifiers(self.identifiers)
         else:
             self.provider.run()
 
@@ -715,6 +754,11 @@ class SubjectAssignmentScript(SubjectInputScript):
 
 
 class OPDSWriterScript(Script):
+    """
+    Reads the  DAISY Consortium/Book Industry Study Group epub accessibility test webpage, 
+    scrapes the epub links, and gnerates an OPDS feed with those links.
+    """
+
     FEED_BASE_URL = "http://localhost:5000/"
     FEED_TITLE = "Accessibility Test EPUBS"
     BOOK_SCHEMA = "http://schema.org/Book"
@@ -726,16 +770,21 @@ class OPDSWriterScript(Script):
 
 
     def obtain_test_epubs(self):
+        """
+        Returns either an lxml feed of test epubs, or None on connection error.
+        """
         entries = []
 
         url = "http://epubtest.org/testsuite/"
-        r  = requests.get(url)
+        try:
+            r  = requests.get(url)
+        except ConnectionError:
+            self.log.debug('Could not read url "%s"' % url)
+            return None
 
         data = r.text
 
         soup = BeautifulSoup(data)
-
-        print soup.title.string
 
         parent_div = soup.body
         kwargs = {}
@@ -747,7 +796,6 @@ class OPDSWriterScript(Script):
         for link in parent_div.find_all(name='a'):
             title = link.contents[0]
             if title.startswith('EPUBTEST'):
-                print title
                 url = link.get('href')
 
                 entry = self.E.entry(
@@ -762,28 +810,50 @@ class OPDSWriterScript(Script):
         return entries
 
 
-    def write_feed(self, entries):
-
-        #opds_feed = OpdsFeed("EPUB 3 Test Documents", self.FEED_BASE_URL, None)
+    def write_feed(self, entries, print_to=None):
+        """
+        Writes an lxml feed to standard output or file.
+        Returns a unicode string representation of the feed.
+        """
         for entry in entries:
             self.opds_feed.feed.append(entry)
 
         feed_str = unicode(self.opds_feed)
-        print "FEED STRING"
-        print feed_str
-        print "|||||\n\n\n\n\n"
+        if print_to and print_to == 'stdout':
+            print "FEED STRING"
+            print feed_str
+            print "|||||\n\n\n\n\n"
 
-        open("darya_epub_tests.xml", "w").write(
-            feed_str
-        )
+        elif print_to:
+            # assume the string passed is the file path to write to
+            open(print_to, "w").write(
+                feed_str
+            )
+        return feed_str
 
 
-    def do_all(self):
-
+    def scrape_web_to_feed(self, print_to=None):
+        """
+        Calls methods to scrape a webpage for epub links and generate 
+        an xml feed string.
+        """
+        feed_str = ''
         entries = self.obtain_test_epubs()
         if entries:
-            self.write_feed(entries)
+            feed_str += self.write_feed(entries, print_to)
+
+        return feed_str
 
 
+
+class MockStdin(object):
+    """Mock a list of identifiers passed in on standard input."""
+    def __init__(self, *lines):
+        self.lines = lines
+
+    def readlines(self):
+        lines = self.lines
+        self.lines = []
+        return lines
 
 

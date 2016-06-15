@@ -423,14 +423,14 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         threem_api = threem_api or ThreeMAPI(_db)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, threem_api, DataSource.THREEM,
-            workset_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            batch_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_item(self, identifier):
         metadata = self.api.bibliographic_lookup(identifier)
         if not metadata:
             return CoverageFailure(
-                self, identifier, "3M bibliographic lookup failed.",
-                transient=True
+                identifier, "3M bibliographic lookup failed.",
+                data_source=self.output_source, transient=True
             )
         return self.set_metadata(identifier, metadata)

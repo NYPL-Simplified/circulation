@@ -1,5 +1,9 @@
 import json
 from flask import Flask
+from flask.ext.babel import (
+    Babel,
+    lazy_gettext as _
+)
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -150,6 +154,7 @@ class TestComplaintController(DatabaseTest):
         self.controller = ComplaintController()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.app = Flask(__name__)
+        Babel(self.app)
 
     def test_no_license_pool(self):
         with self.app.test_request_context("/"):
@@ -194,6 +199,7 @@ class TestLoadMethods(object):
 
     def setup(self):
         self.app = Flask(__name__)
+        Babel(self.app)
 
 
     def test_load_facets_from_request(self):
@@ -219,12 +225,12 @@ class TestLoadMethods(object):
         with self.app.test_request_context('/?size=string'):
             pagination = load_pagination_from_request()
             eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid size: string", pagination.detail)
+            eq_("Invalid page size: string", str(pagination.detail))
 
         with self.app.test_request_context('/?after=string'):
             pagination = load_pagination_from_request()
             eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid offset: string", pagination.detail)
+            eq_("Invalid offset: string", str(pagination.detail))
 
         with self.app.test_request_context('/?size=5000'):
             pagination = load_pagination_from_request()
@@ -235,6 +241,7 @@ class TestErrorHandler(object):
 
     def setup(self):
         self.app = Flask(__name__)
+        Babel(self.app)
 
     def raise_exception(self, cls=Exception):
         """Simulate an exception that happens deep within the stack."""
@@ -269,7 +276,7 @@ class TestErrorHandler(object):
 
             def as_problem_detail_document(self, debug):
                 return INVALID_URN.detailed(
-                    "detail info",
+                    _("detail info"),
                     debug_message="A debug_message which should only appear in debug mode."
                 )
 

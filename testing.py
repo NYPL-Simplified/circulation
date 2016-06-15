@@ -42,6 +42,7 @@ from classifier import Classifier
 from coverage import (
     CoverageProvider,
     CoverageFailure,
+    WorkCoverageProvider,
 )
 from external_search import DummyExternalSearchIndex
 import mock
@@ -293,21 +294,34 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
         return work
 
-    def _coverage_record(self, edition, coverage_source, operation=None):
+    def _coverage_record(self, edition, coverage_source, operation=None,
+                         status=CoverageRecord.SUCCESS):
+        if isinstance(edition, Identifier):
+            identifier = edition
+        else:
+            identifier = edition.primary_identifier
         record, ignore = get_one_or_create(
             self._db, CoverageRecord,
-            identifier=edition.primary_identifier,
+            identifier=identifier,
             data_source=coverage_source,
             operation=operation,
-            create_method_kwargs = dict(timestamp=datetime.utcnow()))
+            create_method_kwargs = dict(
+                timestamp=datetime.utcnow(),
+                status=status,
+            )
+        )
         return record
 
-    def _work_coverage_record(self, work, operation=None):
+    def _work_coverage_record(self, work, operation=None, 
+                              status=CoverageRecord.SUCCESS):
         record, ignore = get_one_or_create(
             self._db, WorkCoverageRecord,
             work=work,
             operation=operation,
-            create_method_kwargs = dict(timestamp=datetime.utcnow())
+            create_method_kwargs = dict(
+                timestamp=datetime.utcnow(),
+                status=status,
+            )
         )
         return record
 
@@ -635,9 +649,17 @@ class InstrumentedCoverageProvider(CoverageProvider):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
 
-    def run_once(self, offset):
-        super(InstrumentedCoverageProvider, self).run_once(offset)
-        return None
+    def process_item(self, item):
+        self.attempts.append(item)
+        return item
+
+class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
+    """A CoverageProvider that keeps track of every item it tried
+    to cover.
+    """
+    def __init__(self, _db, *args, **kwargs):
+        super(InstrumentedWorkCoverageProvider, self).__init__(_db, *args, **kwargs)
+        self.attempts = []
 
     def process_item(self, item):
         self.attempts.append(item)
@@ -646,10 +668,18 @@ class InstrumentedCoverageProvider(CoverageProvider):
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
 
+class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    """A WorkCoverageProvider that does nothing and always succeeds."""
+
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "What did you expect?", False)
+        return CoverageFailure(item, "What did you expect?", self.output_source, False)
+
+class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(item, "What did you expect?", None, False)
 
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
@@ -658,7 +688,12 @@ class BrokenCoverageProvider(InstrumentedCoverageProvider):
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(self, item, "Oops!", True)
+        return CoverageFailure(item, "Oops!", self.output_source, True)
+
+class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    def process_item(self, item):
+        self.attempts.append(item)
+        return CoverageFailure(item, "Oops!", None, True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""

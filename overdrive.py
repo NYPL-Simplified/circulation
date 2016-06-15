@@ -868,7 +868,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         # part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, overdrive_api, DataSource.OVERDRIVE,
-            workset_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            batch_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
         )
 
     def process_item(self, identifier):
@@ -880,7 +880,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             error = "Invalid Overdrive ID: %s" % identifier.identifier
 
         if error:
-            return CoverageFailure(self, identifier, error, transient=False)
+            return CoverageFailure(identifier, error, data_source=self.output_source, transient=False)
 
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
@@ -888,7 +888,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
-            return CoverageFailure(self, identifier, e, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         return self.set_metadata(
             identifier, metadata, 

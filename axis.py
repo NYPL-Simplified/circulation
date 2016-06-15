@@ -237,7 +237,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(
             _db, axis_360_api, DataSource.AXIS_360,
-            workset_size=25, 
+            batch_size=25, 
             metadata_replacement_policy=metadata_replacement_policy,
             **kwargs
         )
@@ -268,7 +268,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
                     self._db, Identifier.AXIS_360_ID, identifier_string
                 )
                 result = CoverageFailure(
-                    self, identifier, "Book not in collection", transient=False
+                    identifier, "Book not in collection", data_source=self.output_source, transient=False
                 )
                 batch_results.append(result)
         return batch_results

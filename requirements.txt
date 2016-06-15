@@ -19,3 +19,4 @@ cairosvg
 mock
 py-bcrypt
 beautifulsoup4
+Flask-Babel

@@ -507,7 +507,6 @@ class TestFastQueryCount(DatabaseTest):
         eq_(1, fast_query_count(qu))
 
     def test_distinct(self):
-
         e1 = self._edition(title="The title", authors="Author 1")
         e2 = self._edition(title="The title", authors="Author 1")
         e3 = self._edition(title="The title", authors="Author 2")
@@ -527,4 +526,3 @@ class TestFastQueryCount(DatabaseTest):
         # the query will return three editions.
         qu3 = qu.distinct(Edition.title, Edition.author)
         eq_(qu3.count(), fast_query_count(qu3))
-

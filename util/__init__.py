@@ -9,6 +9,7 @@ import pkgutil
 import os
 import re
 import string
+from sqlalchemy import distinct
 from sqlalchemy.sql.functions import func
 
 def batch(iterable, size=1):
@@ -24,17 +25,15 @@ def fast_query_count(query):
     statement = query.enable_eagerloads(False).statement
     distinct_columns = statement._distinct
     new_columns = [func.count()]
-    count_q = statement.with_only_columns(new_columns).order_by(None)
     if isinstance(distinct_columns, list):
-        # TODO: We currently can't create a reliable count for queries
-        # that include specific distinct columns.  Just calculate the
-        # count the normal way.
-        return query.count()
+        # When using distinct to select from the db, the distinct
+        # columns need to be incorporated into the count itself.
+        new_columns = [func.count(distinct(func.concat(*distinct_columns)))]
 
-        # We didn't need GROUP BY when we were selecting rows made
-        # distinct by a list of columns, but now that we're selecting
-        # an aggregate function we do need to GROUP BY those columns.
-        # count_q = count_q.group_by(*distinct_columns)
+        # Then we can remove the distinct criteria from the statement
+        # itself by setting it to its default value, False.
+        statement._distinct = False
+    count_q = statement.with_only_columns(new_columns).order_by(None)
     count = query.session.execute(count_q).scalar()
     return count
 

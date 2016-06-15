@@ -234,7 +234,6 @@ class SessionManager(object):
                     self.works_id, self.sort_title, self.sort_author, self.language,
                     )).encode("utf8")
 
-
         globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
@@ -839,8 +838,67 @@ class DataSource(Base):
 
             yield obj
 
+class BaseCoverageRecord(object):
+    """Contains useful constants used by both CoverageRecord and 
+    WorkCoverageRecord.
+    """
+    
+    SUCCESS = 'success'
+    TRANSIENT_FAILURE = 'transient failure'
+    PERSISTENT_FAILURE = 'persistent failure'    
 
-class CoverageRecord(Base):
+    ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
+    # By default, count coverage as present if it ended in
+    # success or in persistent failure. Do not count coverage
+    # as present if it ended in transient failure.
+    DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
+
+    status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
+                       name='coverage_status')
+
+    @classmethod
+    def not_covered(cls, count_as_covered=None, 
+                    count_as_not_covered_if_covered_before=None):
+        """Filter a query to find only items without coverage records.
+
+        :param count_as_covered: A list of constants that indicate
+           types of coverage records that should count as 'coverage'
+           for purposes of this query.
+
+        :param count_as_not_covered_if_covered_before: If a coverage record
+           exists, but is older than the given date, do not count it as
+           covered.
+
+        :return: A clause that can be passed in to Query.filter().
+        """
+        if not count_as_covered:
+            count_as_covered = cls.DEFAULT_COUNT_AS_COVERED
+        elif isinstance(count_as_covered, basestring):
+            count_as_covered = [count_as_covered]
+
+        # If there is no coverage record, then of course the item is
+        # not covered.
+        missing = cls.id==None
+
+        # If we're looking for specific coverage statuses, then a
+        # record does not count if it has some other status.
+        missing = or_(
+            missing, ~cls.status.in_(count_as_covered)
+        )
+
+        # If the record's timestamp is before the cutoff time, we
+        # don't count it as covered, regardless of which status it
+        # has.
+        if count_as_not_covered_if_covered_before:
+            missing = or_(
+                missing, cls.timestamp < count_as_not_covered_if_covered_before
+            )
+
+        return missing
+
+
+class CoverageRecord(Base, BaseCoverageRecord):
     """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
@@ -848,6 +906,7 @@ class CoverageRecord(Base):
     CHOOSE_COVER_OPERATION = 'choose-cover'
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
+    IMPORT_OPERATION = 'import'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -860,7 +919,10 @@ class CoverageRecord(Base):
     operation = Column(String(255), default=None)
         
     timestamp = Column(DateTime, index=True)
+
+    status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
+    
 
     __table_args__ = (
         UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
@@ -904,7 +966,8 @@ class CoverageRecord(Base):
         )
 
     @classmethod
-    def add_for(self, edition, data_source, operation=None, timestamp=None):
+    def add_for(self, edition, data_source, operation=None, timestamp=None,
+                status=BaseCoverageRecord.SUCCESS):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -921,12 +984,13 @@ class CoverageRecord(Base):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
 Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
 
-class WorkCoverageRecord(Base):
+class WorkCoverageRecord(Base, BaseCoverageRecord):
     """A record of some operation that was performed on a Work.
 
     This is similar to CoverageRecord, which operates on Identifiers,
@@ -949,6 +1013,8 @@ class WorkCoverageRecord(Base):
     operation = Column(String(255), index=True, default=None)
         
     timestamp = Column(DateTime, index=True)
+
+    status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
 
     __table_args__ = (
@@ -978,7 +1044,8 @@ class WorkCoverageRecord(Base):
         )
 
     @classmethod
-    def add_for(self, work, operation, timestamp=None):
+    def add_for(self, work, operation, timestamp=None, 
+                status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
         timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
@@ -987,6 +1054,7 @@ class WorkCoverageRecord(Base):
             operation=operation,
             on_multiple='interchangeable'
         )
+        coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
@@ -1665,26 +1733,24 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            count_as_missing_before=None
+            count_as_covered=None, count_as_missing_before=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
+
+        :param count_as_covered: Identifiers will be counted as
+        covered if their CoverageRecords have a status in this list.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
                       CoverageRecord.operation==operation)
-        q = _db.query(Identifier).outerjoin(CoverageRecord, clause)
+        qu = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
-            q = q.filter(Identifier.type.in_(identifier_types))
-
-        missing = CoverageRecord.id==None
-        if count_as_missing_before:
-            missing = or_(
-                missing, CoverageRecord.timestamp < count_as_missing_before
-            )
-
-        q2 = q.filter(missing)
-        return q2
+            qu = qu.filter(Identifier.type.in_(identifier_types))
+        missing = CoverageRecord.not_covered(
+            count_as_covered, count_as_missing_before
+        )
+        return qu.filter(missing)
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly
@@ -3086,6 +3152,25 @@ class Work(Base):
                 len(self.license_pools))).encode("utf8")
 
     @classmethod
+    def missing_coverage_from(
+            cls, _db, operation=None, count_as_covered=None,
+            count_as_missing_before=None
+    ):
+        """Find Works which have no WorkCoverageRecord for the given
+        `operation`.
+        """
+
+        clause = and_(Work.id==WorkCoverageRecord.work_id,
+                      WorkCoverageRecord.operation==operation)
+        q = _db.query(Work).outerjoin(WorkCoverageRecord, clause)
+
+        missing = WorkCoverageRecord.not_covered(
+            count_as_covered, count_as_missing_before
+        )
+        q2 = q.filter(missing)
+        return q2
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID.
@@ -3550,8 +3635,6 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
-            if not search_index_client:
-                search_index_client = ExternalSearchIndex()
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3628,13 +3711,16 @@ class Work(Base):
         )
 
 
-    def update_external_index(self, client):
+    def update_external_index(self, client, add_coverage_record=True):
+        client = client or ExternalSearchIndex()
+
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
         if not client.works_index:
             # There is no index set up on this instance.
             return
+        present_in_index = False
         if self.presentation_ready:
             doc = self.to_search_document()
             if doc:
@@ -3646,6 +3732,7 @@ class Work(Base):
                 else:
                     logging.info("Indexed work %d (%s)", self.id, self.title)
                 client.index(**args)
+                present_in_index = True
             else:
                 logging.warn(
                     "Could not generate a search document for allegedly presentation-ready work %d (%s).",
@@ -3654,18 +3741,21 @@ class Work(Base):
         else:
             if client.exists(**args):
                 client.delete(**args)
-        WorkCoverageRecord.add_for(
-            self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
-        )
+        if add_coverage_record and present_in_index:
+            WorkCoverageRecord.add_for(
+                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+            )
+        return present_in_index
 
-    def set_presentation_ready(self, as_of=None):
+    def set_presentation_ready(self, as_of=None, search_index_client=None):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
+        self.update_external_index(search_index_client)
 
-    def set_presentation_ready_based_on_content(self):
+    def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
         be ready based on its data.
 
@@ -3684,8 +3774,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
+            # This will remove the work from the search index.
+            self.update_external_index(search_index_client)
         else:
-            self.set_presentation_ready()
+            self.set_presentation_ready(search_index_client=search_index_client)
 
     def calculate_quality(self, flattened_data, default_quality=0):
         _db = Session.object_session(self)
@@ -4990,6 +5082,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = 'groups'
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
+    SERIES_TYPE = 'series'
 
     log = logging.getLogger("CachedFeed")
 

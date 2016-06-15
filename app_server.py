@@ -9,6 +9,7 @@ import subprocess
 from lxml import etree
 from functools import wraps
 from flask import url_for, make_response
+from flask.ext.babel import lazy_gettext as _
 from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
@@ -122,7 +123,7 @@ def load_facets(order, availability, collection, config=Configuration):
     )
     if order and not order in order_facets:
         return INVALID_INPUT.detailed(
-            "I don't know how to order a feed by '%s'" % order,
+            _("I don't know how to order a feed by '%(order)s'", order=order),
             400
         )
     availability_facets = config.enabled_facets(
@@ -130,7 +131,7 @@ def load_facets(order, availability, collection, config=Configuration):
     )
     if availability and not availability in availability_facets:
         return INVALID_INPUT.detailed(
-            "I don't understand the availability term '%s'" % availability,
+            _("I don't understand the availability term '%(availability)s'", availability=availability),
             400
         )
 
@@ -139,7 +140,7 @@ def load_facets(order, availability, collection, config=Configuration):
     )
     if collection and not collection in collection_facets:
         return INVALID_INPUT.detailed(
-            "I don't understand which collection '%s' refers to." % collection,
+            _("I don't understand which collection '%(collection)s' refers to.", collection=collection),
             400
         )
     return Facets(
@@ -151,13 +152,13 @@ def load_pagination(size, offset):
     try:
         size = int(size)
     except ValueError:
-        return INVALID_INPUT.detailed("Invalid size: %s" % size)
+        return INVALID_INPUT.detailed(_("Invalid page size: %(size)s", size=size))
     size = min(size, 100)
     if offset:
         try:
             offset = int(offset)
         except ValueError:
-            return INVALID_INPUT.detailed("Invalid offset: %s" % offset)
+            return INVALID_INPUT.detailed(_("Invalid offset: %(offset)s", offset=offset))
     return Pagination(offset, size)
 
 def returns_problem_detail(f):
@@ -224,8 +225,8 @@ class ErrorHandler(object):
             if self.debug:
                 body = tb
             else:
-                body = 'An internal error occured'
-            response = make_response(body, 500, {"Content-Type": "text/plain"})
+                body = _('An internal error occured')
+            response = make_response(unicode(body), 500, {"Content-Type": "text/plain"})
 
         log_method("Exception in web app: %s", exception, exc_info=exception)
         return response
@@ -457,21 +458,21 @@ class ComplaintController(object):
     def register(self, license_pool, raw_data):
 
         if license_pool is None:
-            return problem(None, 400, "No license pool specified")
+            return problem(None, 400, _("No license pool specified"))
 
         _db = Session.object_session(license_pool)
         try:
             data = json.loads(raw_data)
         except ValueError, e:
-            return problem(None, 400, "Invalid problem detail document")
+            return problem(None, 400, _("Invalid problem detail document"))
 
         type = data.get('type')
         source = data.get('source')
         detail = data.get('detail')
         if not type:
-            return problem(None, 400, "No problem type specified.")
+            return problem(None, 400, _("No problem type specified."))
         if type not in Complaint.VALID_TYPES:
-            return problem(None, 400, "Unrecognized problem type: %s" % type)
+            return problem(None, 400, _("Unrecognized problem type: %(type)s", type=type))
 
         complaint = None
         try:
@@ -479,7 +480,7 @@ class ComplaintController(object):
             _db.commit()
         except ValueError, e:
             return problem(
-                None, 400, "Error registering complaint: %s" % str(e)
+                None, 400, _("Error registering complaint: %(error)s", error=str(e))
             )
 
-        return make_response("Success", 201, {"Content-Type": "text/plain"})
+        return make_response(unicode(_("Success")), 201, {"Content-Type": "text/plain"})

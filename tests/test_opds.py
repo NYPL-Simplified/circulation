@@ -59,6 +59,7 @@ from classifier import (
 )
 from external_search import DummyExternalSearchIndex
 import xml.etree.ElementTree as ET
+from flask.ext.babel import lazy_gettext as _
 
 class TestAnnotator(Annotator):
 
@@ -120,8 +121,12 @@ class TestAnnotatorWithGroup(TestAnnotator):
 
     def group_uri(self, work, license_pool, identifier):
         lanes = self.lanes_by_work.get(work, None)
+
         if lanes:
             lane_name = lanes[0]['lane'].display_name
+            additional_lanes = lanes[1:]
+            if additional_lanes:
+                self.lanes_by_work[work] = additional_lanes
         else:
             lane_name = str(work.id)
         return ("http://group/%s" % lane_name,
@@ -276,7 +281,7 @@ class TestAnnotators(DatabaseTest):
         alternative_headline = feed['entries'][0]['schema_alternativeheadline']
         eq_(work.presentation_edition.subtitle, alternative_headline)
 
-        # If there's no series title, the series tag isn't included.
+        # If there's no subtitle, the subtitle tag isn't included.
         work.presentation_edition.subtitle = None
         work.calculate_opds_entries()
         raw_feed = unicode(AcquisitionFeed(
@@ -357,14 +362,18 @@ class TestOPDS(DatabaseTest):
          ]
         )
 
+        mock_top_level = Lane(
+            self._db, '', display_name='', sublanes=self.lanes.lanes,
+            include_all=False, invisible=True
+        )
+
         class FakeConf(object):
             name = None
             display_name = None
-            sublanes = None
-            pass
+            sublanes = self.lanes
+            top_level_lane = mock_top_level
 
         self.conf = FakeConf()
-        self.conf.sublanes = self.lanes
 
     def test_acquisition_link(self):
         m = AcquisitionFeed.acquisition_link
@@ -737,8 +746,8 @@ class TestOPDS(DatabaseTest):
         """Test the ability to include messages (with HTTP-style status code)
         for a given URI in lieu of a proper ODPS entry.
         """
-        messages = { "urn:foo" : (400, "msg1"),
-                     "urn:bar" : (500, "msg2")}
+        messages = { "urn:foo" : (400, _("msg1")),
+                     "urn:bar" : (500, _("msg2"))}
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [], messages_by_urn=messages)
         parsed = feedparser.parse(unicode(feed))
@@ -811,11 +820,11 @@ class TestOPDS(DatabaseTest):
         a given lane.
         """
         fantasy_lane = self.lanes.by_languages['']['Fantasy']
+        fantasy_lane.include_all_feed = False
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
-
         with temp_config() as config:
             config['policies'] = {}
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
@@ -831,13 +840,12 @@ class TestOPDS(DatabaseTest):
                 force_refresh=False, use_materialized_works=False
             )
             eq_(CachedFeed.PAGE_TYPE, feed.type)
-
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
                 force_refresh=True, use_materialized_works=False
             )
             parsed = feedparser.parse(cached_groups.content)
-            
+
             # There are two entries, one for each work.
             e1, e2 = parsed['entries']
 

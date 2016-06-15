@@ -22,6 +22,7 @@ from scripts import (
     OPDSWriterScript, 
     RunCoverageProviderScript,
     WorkProcessingScript,
+    MockStdin,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -72,10 +73,13 @@ class TestIdentifierInputScript(DatabaseTest):
     def test_parse_command_line(self):
         i1 = self._identifier()
         i2 = self._identifier()
+        # We pass in one identifier on the command line...
         cmd_args = ["--identifier-type",
-                    i1.type, i1.identifier, i2.identifier]
+                    i1.type, i1.identifier]
+        # ...and another one into standard input.
+        stdin = MockStdin(i2.identifier)
         parsed = IdentifierInputScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, stdin
         )
         eq_([i1, i2], parsed.identifiers)
         eq_(i1.type, parsed.identifier_type)
@@ -83,7 +87,7 @@ class TestIdentifierInputScript(DatabaseTest):
     def test_parse_command_line_no_identifiers(self):
         cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
         parsed = IdentifierInputScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, MockStdin()
         )
         eq_([], parsed.identifiers)
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
@@ -96,7 +100,7 @@ class TestRunCoverageProviderScript(DatabaseTest):
         cmd_args = ["--cutoff-time", "2016-05-01", "--identifier-type", 
                     identifier.type, identifier.identifier]
         parsed = RunCoverageProviderScript.parse_command_line(
-            self._db, cmd_args
+            self._db, cmd_args, MockStdin()
         )
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
@@ -134,9 +138,12 @@ class TestWorkProcessingScript(DatabaseTest):
 
 class TestOpdsWriterScript(DatabaseTest):
 
-    def test_all(self):
+    def test_scrape_web_to_feed(self):
+        # Make sure the OPDS feed generated from scraping the EPub accessibility test page is 
+        # either a block of text with expected titles, or None (if running test 
+        # without an internet connection, the result of web scraping will be None).
         opds_writer = OPDSWriterScript(title="EPUB 3 Test Documents", url=OPDSWriterScript.FEED_BASE_URL)
-        opds_writer.do_all()
-        pass
+        feed_xml = opds_writer.scrape_web_to_feed()
+        assert '<title>EPUBTEST' in feed_xml or not feed_xml
 
 
