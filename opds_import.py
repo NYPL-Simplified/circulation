@@ -887,7 +887,7 @@ class OPDSImportMonitor(Monitor):
         """
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
-        return response.status_code, response.content_type, response.content
+        return response.status_code, response.headers, response.content
 
     def check_for_new_data(self, feed, cutoff_date=None):
         """Check if the feed contains any entries that haven't been imported yet
