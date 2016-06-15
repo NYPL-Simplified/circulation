@@ -907,6 +907,15 @@ class OPDSImportMonitor(Monitor):
                     identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
                 )
 
+            # If there was a transient failure last time we tried to import this book,
+            # try again regardless of whether the feed has changed.
+            if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
+                new_data = True
+                break
+
+            # If our last attempt was a success or a persistent failure, we only want to import again
+            # if something changed since then.
+
             # If we have a CoverageRecord, that's the most reliable indicator of the last time we tried
             # to import this book. But if we imported the book before we started creating CoverageRecords
             # for imports, we can still use the monitor's timestamp as the cutoff.

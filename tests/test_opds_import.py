@@ -894,15 +894,27 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
 
+        # If a CoverageRecord is a transient failure, we try again
+        # regardless of whether it's been updated.
+        for r in [record, record2]:
+            r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
+            r.exception = "Failure!"
+            r.status = CoverageRecord.TRANSIENT_FAILURE
+        eq_(True, monitor.check_for_new_data(feed))
+
+        # If a CoverageRecord is a persistent failure, we check
+        # if the feed has changed since the timestamp.
+        for r in [record, record2]:
+            r.status = CoverageRecord.PERSISTENT_FAILURE
+        eq_(False, monitor.check_for_new_data(feed))
+
+        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
+        eq_(True, monitor.check_for_new_data(feed))
+
         # If only one of the entries has a CoverageRecord, the other
         # uses the cutoff date.
-        record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         self._db.delete(record2)
         eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
-
-        # If the CoverageRecord is a failure, it still works.
-        record.exception = "Failure"
-        eq_(True, monitor.check_for_new_data(feed))
 
 
     def test_follow_one_link(self):
