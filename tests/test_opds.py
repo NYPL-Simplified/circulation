@@ -38,13 +38,15 @@ from lane import (
 )
 
 from opds import (    
-     AtomFeed,
      AcquisitionFeed,
      Annotator,
      LookupAcquisitionFeed,
-     OPDSFeed,
      VerboseAnnotator,
-     simplified_ns,
+)
+
+from util.opds_writer import (    
+     AtomFeed,
+     OPDSFeed,
 )
 
 from classifier import (
@@ -795,7 +797,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(cached_works.content)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
@@ -865,7 +867,7 @@ class TestOPDS(DatabaseTest):
             # The feed has breadcrumb links
             ancestors = fantasy_lane.visible_ancestors()
             root = ET.fromstring(cached_groups.content)
-            breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+            breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
             links = breadcrumbs.getchildren()
             eq_(len(ancestors) + 1, len(links))
             eq_(annotator.top_level_title(), links[0].get("title"))
@@ -964,7 +966,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(feed)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 2, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))

@@ -1,17 +1,20 @@
 import argparse
 import datetime
-import os
+import log # This sets the appropriate log format and level.
 import logging
+import os
+import random
+import requests
 import sys
+import time
+
+from bs4 import BeautifulSoup
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
-import time
 
 from config import Configuration, CannotLoadConfiguration
-import log # This sets the appropriate log format and level.
-import random
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one_or_create,
@@ -32,6 +35,8 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from util.opds_writer import OPDSFeed
+
 from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
@@ -696,6 +701,8 @@ class Explain(IdentifierInputScript):
         for genre in work.genres:
             print " ", genre
 
+
+
 class SubjectAssignmentScript(SubjectInputScript):
 
     def run(self):
@@ -704,3 +711,79 @@ class SubjectAssignmentScript(SubjectInputScript):
             self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
+
+
+
+class OPDSWriterScript(Script):
+    FEED_BASE_URL = "http://localhost:5000/"
+    FEED_TITLE = "Accessibility Test EPUBS"
+    BOOK_SCHEMA = "http://schema.org/Book"
+
+
+    def __init__(self, title, url):
+        self.opds_feed = OPDSFeed(title, url)
+        self.E = self.opds_feed.E
+
+
+    def obtain_test_epubs(self):
+        entries = []
+
+        url = "http://epubtest.org/testsuite/"
+        r  = requests.get(url)
+
+        data = r.text
+
+        soup = BeautifulSoup(data)
+
+        print soup.title.string
+
+        parent_div = soup.body
+        kwargs = {}
+
+        additional_type = Edition.medium_to_additional_type.get("Book")
+        additional_type_field = "{%s}additionalType" % OPDSFeed.SCHEMA_NS
+        kwargs[additional_type_field] = additional_type
+
+        for link in parent_div.find_all(name='a'):
+            title = link.contents[0]
+            if title.startswith('EPUBTEST'):
+                print title
+                url = link.get('href')
+
+                entry = self.E.entry(
+                    self.E.id(url),
+                    self.E.title(title or OPDSFeed.NO_TITLE),
+                    self.E.updated(self.opds_feed._strftime(datetime.datetime.utcnow())),
+                    self.E.link(href=url, type="application/epub+zip", rel="http://opds-spec.org/acquisition/open-access", ),
+                    **kwargs
+                )
+                entries.append(entry)
+
+        return entries
+
+
+    def write_feed(self, entries):
+
+        #opds_feed = OpdsFeed("EPUB 3 Test Documents", self.FEED_BASE_URL, None)
+        for entry in entries:
+            self.opds_feed.feed.append(entry)
+
+        feed_str = unicode(self.opds_feed)
+        print "FEED STRING"
+        print feed_str
+        print "|||||\n\n\n\n\n"
+
+        open("darya_epub_tests.xml", "w").write(
+            feed_str
+        )
+
+
+    def do_all(self):
+
+        entries = self.obtain_test_epubs()
+        if entries:
+            self.write_feed(entries)
+
+
+
+

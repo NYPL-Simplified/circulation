@@ -48,7 +48,7 @@ from model import (
     RightsStatus,
 )
 from util.http import HTTP
-from opds import OPDSFeed
+from util.opds_writer import OPDSFeed
 from s3 import S3Uploader
 
 class AccessNotAuthenticated(Exception):

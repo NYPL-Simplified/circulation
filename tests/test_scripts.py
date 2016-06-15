@@ -19,8 +19,12 @@ from scripts import (
     Script,
     CustomListManagementScript,
     IdentifierInputScript,
+    OPDSWriterScript, 
     RunCoverageProviderScript,
     WorkProcessingScript,
+)
+from util.opds_writer import (
+    OPDSFeed,
 )
 
 class TestScript(DatabaseTest):
@@ -125,3 +129,14 @@ class TestWorkProcessingScript(DatabaseTest):
             self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
         )
         eq_([g1], one_gutenberg.all())
+
+
+
+class TestOpdsWriterScript(DatabaseTest):
+
+    def test_all(self):
+        opds_writer = OPDSWriterScript(title="EPUB 3 Test Documents", url=OPDSWriterScript.FEED_BASE_URL)
+        opds_writer.do_all()
+        pass
+
+
