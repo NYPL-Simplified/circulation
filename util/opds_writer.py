@@ -42,15 +42,6 @@ class AtomFeed(object):
         return date.strftime(self.TIME_FORMAT)
 
 
-    def __init__(self, title, url):
-        self.feed = self.E.feed(
-            self.E.id(url),
-            self.E.title(title),
-            self.E.updated(self._strftime(datetime.datetime.utcnow())),
-            self.E.link(href=url, rel="self"),
-        )
-
-
     @classmethod
     def add_link_to_feed(cls, feed, children=None, **kwargs):
         link = cls.E.link(**kwargs)
@@ -70,6 +61,74 @@ class AtomFeed(object):
                 link.append(i)
 
 
+    @classmethod
+    def author(cls, *args, **kwargs):
+        return cls.E.author(*args, **kwargs)
+
+
+    @classmethod
+    def category(cls, *args, **kwargs):
+        return cls.E.category(*args, **kwargs)
+
+
+    @classmethod
+    def entry(cls, *args, **kwargs):
+        return cls.E.entry(*args, **kwargs)
+
+
+    @classmethod
+    def id(cls, *args, **kwargs):
+        return cls.E.id(*args, **kwargs)
+
+
+    @classmethod
+    def link(cls, *args, **kwargs):
+        return cls.E.link(*args, **kwargs)
+
+
+    @classmethod
+    def makeelement(cls, *args, **kwargs):
+        return cls.E._makeelement(*args, **kwargs)
+
+
+    @classmethod
+    def name(cls, *args, **kwargs):
+        return cls.E.name(*args, **kwargs)
+
+
+    @classmethod
+    def schema_(cls, field_name):
+        return "{%s}%s" % (cls.SCHEMA_NS, field_name)
+
+    @classmethod
+    def summary(cls, *args, **kwargs):
+        return cls.E.summary(*args, **kwargs)
+
+
+    @classmethod
+    def title(cls, *args, **kwargs):
+        return cls.E.title(*args, **kwargs)
+
+
+    @classmethod
+    def update(cls, *args, **kwargs):
+        return cls.E.update(*args, **kwargs)
+
+
+    @classmethod
+    def updated(cls, *args, **kwargs):
+        return cls.E.updated(*args, **kwargs)
+
+
+    def __init__(self, title, url):
+        self.feed = self.E.feed(
+            self.E.id(url),
+            self.E.title(title),
+            self.E.updated(self._strftime(datetime.datetime.utcnow())),
+            self.E.link(href=url, rel="self"),
+        )
+
+
     def __unicode__(self):
         if not self.feed:
             return None
@@ -82,17 +141,17 @@ class AtomFeed(object):
 class OPDSFeed(AtomFeed):
 
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
-    #NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
+    NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
     ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
 
     GROUP_REL = "collection"
-    #FEATURED_REL = "http://opds-spec.org/featured"
-    #RECOMMENDED_REL = "http://opds-spec.org/recommended"
-    #POPULAR_REL = "http://opds-spec.org/sort/popular"
+    FEATURED_REL = "http://opds-spec.org/featured"
+    RECOMMENDED_REL = "http://opds-spec.org/recommended"
+    POPULAR_REL = "http://opds-spec.org/sort/popular"
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
     ACQUISITION_REL = "http://opds-spec.org/acquisition"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
-    #FULL_IMAGE_REL = "http://opds-spec.org/image" 
+    FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
