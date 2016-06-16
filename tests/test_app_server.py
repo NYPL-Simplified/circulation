@@ -236,6 +236,17 @@ class TestLoadMethods(object):
             pagination = load_pagination_from_request()
             eq_(100, pagination.size)
 
+    def test_load_pagination_from_request_default_size(self):
+        with self.app.test_request_context('/?size=50&after=10'):
+            pagination = load_pagination_from_request(default_size=10)
+            eq_(50, pagination.size)
+            eq_(10, pagination.offset)
+
+        with self.app.test_request_context('/'):
+            pagination = load_pagination_from_request(default_size=10)
+            eq_(10, pagination.size)
+            eq_(0, pagination.offset)
+
 
 class TestErrorHandler(object):
 
