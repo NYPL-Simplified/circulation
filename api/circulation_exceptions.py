@@ -161,7 +161,14 @@ class NoAcceptableFormat(CannotFulfill):
     """We can't fulfill the patron's loan because the book is not available
     in an acceptable format.
     """
-    status_code = 500
+    status_code = 400
+
+class FulfilledOnIncompatiblePlatform(CannotFulfill):
+    """We can't fulfill the patron's loan because the loan was already
+    fulfilled on an incompatible platform (i.e. Kindle) in a way that's
+    exclusive to that platform.
+    """
+    status_code = 451
 
 class NoActiveLoan(CannotFulfill):
     """We can't fulfill the patron's loan because they don't have an

@@ -12,6 +12,7 @@ from api.overdrive import (
 from api.circulation import (
     CirculationAPI,
 )
+from api.circulation_exceptions import *
 
 from . import (
     DatabaseTest,
@@ -24,7 +25,7 @@ from core.model import (
     LicensePool,
 )
 
-class TestOverdriveAPI(DatabaseTest):
+class OverdriveAPITest(DatabaseTest):
 
     @classmethod
     def sample_data(self, filename):
@@ -34,6 +35,8 @@ class TestOverdriveAPI(DatabaseTest):
     def sample_json(self, filename):
         data = self.sample_data(filename)
         return data, json.loads(data)
+
+class TestOverdriveAPI(OverdriveAPITest):
 
     def test_update_availability(self):
         """Test the Overdrive implementation of the update_availability
@@ -219,14 +222,27 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
 
+class TestExtractData(OverdriveAPITest):
+
     def test_get_download_link(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
         url = DummyOverdriveAPI.get_download_link(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
         
-        assert_raises(IOError, DummyOverdriveAPI.get_download_link,
-            json, "no-such-format", "http://foo.com/")
+        assert_raises(
+            NoAcceptableFormat, 
+            DummyOverdriveAPI.get_download_link,
+            json, "no-such-format", "http://foo.com/"
+        )
+
+    def test_get_download_link_raises_exception_if_loan_fulfilled_on_incompatible_platform(self):
+        data, json = self.sample_json("checkout_response_book_fulfilled_on_kindle.json")
+        assert_raises(
+            FulfilledOnIncompatiblePlatform,
+            DummyOverdriveAPI.get_download_link,
+            json, "ebook-epub-adobe", "http://foo.com/"            
+        )
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
@@ -236,6 +252,24 @@ class TestOverdriveAPI(DatabaseTest):
         eq_(10, expires.month)
         eq_(4, expires.day)
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
+
+    def test_process_checkout_data(self):
+        data, json = self.sample_json("shelf_with_book_already_fulfilled_on_kindle.json")
+        [on_kindle, not_on_kindle] = json["checkouts"]
+
+        # The book already fulfilled on Kindle doesn't get turned into
+        # LoanInfo.
+        eq_(None, DummyOverdriveAPI.process_checkout_data(on_kindle))
+
+        # The book not yet fulfilled does show up as a LoanInfo.
+        loan_info = DummyOverdriveAPI.process_checkout_data(not_on_kindle)
+        eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
+
+        # TODO: In the future both of these tests should return a
+        # LoanInfo with appropriate FulfillmentInfo. The calling code
+        # would then decide whether or not to show the loan.
+
+class TestSyncBookshelf(OverdriveAPITest):
 
     def test_sync_bookshelf_creates_local_loans(self):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
@@ -371,4 +405,3 @@ class TestOverdriveAPI(DatabaseTest):
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert threem_hold in patron.holds
-
