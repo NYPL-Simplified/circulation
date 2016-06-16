@@ -302,7 +302,7 @@ class CirculationManagerController(object):
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm=%s' % _("Library card"),
+        headers= { 'WWW-Authenticate' : 'Basic realm="%s"' % _("Library card"),
                    'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
         return Response(data, 401, headers)
 
