@@ -92,7 +92,7 @@ class OverdriveAPI(object):
     # in any format.
     INCOMPATIBLE_PLATFORM_FORMATS = set(["ebook-kindle"])
 
-    OVERDRIVE_READ_FORMAT = "overdrive-read"
+    OVERDRIVE_READ_FORMAT = "ebook-overdrive"
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
