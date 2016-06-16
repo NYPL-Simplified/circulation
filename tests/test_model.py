@@ -3738,6 +3738,44 @@ class TestCollection(DatabaseTest):
 
 class TestMaterializedViews(DatabaseTest):
 
+    def test_license_pool_is_works_preferred_license_pool(self):
+        """Verify that the license_pool_id stored in the materialized views
+        identifiers the LicensePool associated with the Work's
+        presentation edition, not some other LicensePool.
+        """
+        # Create a Work with two LicensePools
+        work = self._work(with_license_pool=True)
+        [pool1] = work.license_pools
+        edition2, pool2 = self._edition(with_license_pool=True)
+        work.license_pools.append(pool1)
+        eq_(pool1, work.presentation_edition.license_pool)
+        work.presentation_ready = True
+        work.simple_opds_entry = '<entry>'
+        work.assign_genres_from_weights({classifier.Fantasy : 1})
+
+        # Make sure the Work shows up in the materialized view.
+        SessionManager.refresh_materialized_views(self._db)
+
+        from model import (
+            MaterializedWork as mwc,
+            MaterializedWorkWithGenre as mwgc,
+        )
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        eq_(pool1.id, mw.license_pool_id)
+        eq_(pool1.id, mwg.license_pool_id)
+
+        # If we change the Work's preferred edition, we change the
+        # license_pool_id that gets stored in the materialized views.
+        work.set_presentation_edition(edition2)
+        SessionManager.refresh_materialized_views(self._db)
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        eq_(pool2.id, mw.license_pool_id)
+        eq_(pool2.id, mwg.license_pool_id)
+
     def test_license_data_source_is_stored_in_views(self):
         """Verify that the data_source_name stored in the materialized views
         is the DataSource associated with the LicensePool, not the
