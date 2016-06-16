@@ -34,7 +34,7 @@ as
 
    FROM works
      JOIN editions ON editions.id = works.presentation_edition_id
-     JOIN licensepools ON licensepools.work_id = works.id
+     JOIN licensepools ON editions.id = licensepools.presentation_edition_id
      JOIN datasources ON licensepools.data_source_id = datasources.id
      JOIN identifiers on editions.primary_identifier_id = identifiers.id
      JOIN workgenres ON works.id = workgenres.work_id
