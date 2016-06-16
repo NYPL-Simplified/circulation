@@ -347,14 +347,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         self.raise_exception_on_error(data)
         return data
 
+    @classmethod
+    def _pd(cls, d):
+        """Stupid method to parse a date.""" 
+        if not d:
+            return d
+        return datetime.datetime.strptime(d, cls.TIME_FORMAT)
+
     def patron_activity(self, patron, pin):
-
-        def pd(d):
-            """Stupid method to parse a date.""" 
-            if not d:
-                return d
-            return datetime.datetime.strptime(d, self.TIME_FORMAT)
-
         try:
             loans = self.get_patron_checkouts(patron, pin)
             holds = self.get_patron_holds(patron, pin)
@@ -370,21 +370,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             holds = {}
 
         for checkout in loans.get('checkouts', []):
-            overdrive_identifier = checkout['reserveId'].lower()
-            start = pd(checkout.get('checkoutDate'))
-            end = pd(checkout.get('expires'))
-            yield LoanInfo(
-                Identifier.OVERDRIVE_ID,
-                overdrive_identifier,
-                start_date=start,
-                end_date=end,
-                fulfillment_info=None
-            )
+            loan_info = self.process_checkout_data(checkout)
+            if loan_info:
+                yield loan_info
 
         for hold in holds.get('holds', []):
             overdrive_identifier = hold['reserveId'].lower()
-            start = pd(hold.get('holdPlacedDate'))
-            end = pd(hold.get('holdExpires'))
+            start = self._pd(hold.get('holdPlacedDate'))
+            end = self._pd(hold.get('holdExpires'))
             position = hold.get('holdListPosition')
             if position is not None:
                 position = int(position)
@@ -400,6 +393,47 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 end_date=end,
                 hold_position=position
             )
+
+    @classmethod
+    def process_checkout_data(cls, checkout):
+        """Convert one checkout from Overdrive's list of checkouts
+        into a LoanInfo object.
+
+        :return: A LoanInfo object if the book can be fulfilled
+        by the default Library Simplified client, and None otherwise.
+        """
+        overdrive_identifier = checkout['reserveId'].lower()
+        start = cls._pd(checkout.get('checkoutDate'))
+        end = cls._pd(checkout.get('expires'))
+        
+        # TODO: Instead of making the decision here not to show a book
+        # fulfilled in an incompatible format, put the fulfillment
+        # format into fulfillment_info and let the circulation API
+        # make the decision.
+        usable_formats = []
+        for format in checkout.get('formats', []):
+            format_type = format.get('formatType')
+            if format_type in cls.DEFAULT_READABLE_FORMATS:
+                usable_formats.append(format_type)
+
+        if not usable_formats:
+            # Either this book is not available in any format readable
+            # by the default client, or the patron previously chose to
+            # fulfill it in a format not readable by the default
+            # client. Either way, we cannot fulfill this loan and we
+            # shouldn't show it in the list.
+            return None
+
+        # TODO: if there is one and only one format (usable or not, do
+        # not count overdrive-read), put it into fulfillment_info and
+        # let the caller make the decision whether or not to show it.
+        return LoanInfo(
+            Identifier.OVERDRIVE_ID,
+            overdrive_identifier,
+            start_date=start,
+            end_date=end,
+            fulfillment_info=None
+        )
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
@@ -574,8 +608,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 format = f
                 break
         if not format:
-            msg = "Could not find specified format %s. Available formats: %s"
-            raise IOError(msg % (format_type, ", ".join(available_formats)))
+            if any(x in set(available_formats) for x in self.INCOMPATIBLE_PLATFORM_FORMATS):
+                # The most likely explanation is that the patron
+                # already had this book delivered to their Kindle.
+                raise FulfilledOnIncompatiblePlatform(
+                    "It looks like this loan was already fulfilled on another platform, most likely Amazon Kindle. We're not allowed to also send it to you as an EPUB."
+                )
+            else:
+                # We don't know what happened -- most likely our
+                # format data is bad.
+                format_list = ", ".join(available_formats)
+                msg = "Could not find specified format %s. Available formats: %s"
+                raise NoAcceptableFormat(
+                    msg % (format_type, ", ".join(available_formats))
+                )
 
         return self.extract_download_link(format, error_url)
 
