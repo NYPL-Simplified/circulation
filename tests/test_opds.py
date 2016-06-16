@@ -152,7 +152,7 @@ class TestOPDS(DatabaseTest):
     def setup(self):
         super(TestOPDS, self).setup()
         parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
-        fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent);
+        fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
 
     def test_default_lane_url(self):
