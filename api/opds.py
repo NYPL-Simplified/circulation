@@ -90,12 +90,12 @@ class CirculationManagerAnnotator(Annotator):
         return url
 
     def _lane_name_and_languages(self, lane):
-        if isinstance(lane, Lane):
+        lane_name = None
+        languages = None
+
+        if isinstance(lane, Lane) and lane.parent:
             lane_name = lane.url_name
             languages = lane.language_key
-        else:
-            lane_name = None
-            languages = None
         return (lane_name, languages)
 
     def facet_url(self, facets):
@@ -303,13 +303,7 @@ class CirculationManagerAnnotator(Annotator):
         feed.add_link(**account_link)
         
         # Add a 'search' link.
-        if isinstance(lane, Lane):
-            lane_name = lane.url_name
-            languages = lane.language_key
-        else:
-            lane_name = None
-            languages = None
-
+        lane_name, languages = self._lane_name_and_languages(lane)
         search_url = self.url_for(
             'lane_search', languages=languages, lane_name=lane_name,
             _external=True
