@@ -84,6 +84,14 @@ class OverdriveAPI(object):
     # The ebook formats we care about.
     FORMATS = "ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open"
 
+    # The formats that can be read by the default Library Simplified reader.
+    DEFAULT_READABLE_FORMATS = set(["ebook-epub-open", "ebook-epub-adobe"])
+
+    # The formats that indicate the book has been fulfilled on an
+    # incompatible platform and just can't be fulfilled on Simplified
+    # in any format.
+    INCOMPATIBLE_PLATFORM_FORMATS = set(["ebook-kindle"])
+
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
    
