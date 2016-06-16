@@ -310,6 +310,7 @@ class Facets(FacetConstants):
 class Pagination(object):
 
     DEFAULT_SIZE = 50
+    DEFAULT_SEARCH_SIZE = 10
     DEFAULT_FEATURED_SIZE = 10
 
     @classmethod
@@ -1107,7 +1108,7 @@ class Lane(object):
         """        
            
         if not pagination:
-            pagination = Pagination.default()
+            pagination = Pagination(offset=0, size=Pagination.DEFAULT_SEARCH_SIZE)
 
         search_lane = self.search_target
         if not search_lane:

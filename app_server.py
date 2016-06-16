@@ -107,10 +107,10 @@ def load_facets_from_request(config=Configuration):
     collection = arg(g, config.default_facet(g))
     return load_facets(order, availability, collection, config)
 
-def load_pagination_from_request():
-    """Figure out which Facets object this request is asking for."""
+def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
+    """Figure out which Pagination object this request is asking for."""
     arg = flask.request.args.get
-    size = arg('size', Pagination.DEFAULT_SIZE)
+    size = arg('size', default_size)
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
