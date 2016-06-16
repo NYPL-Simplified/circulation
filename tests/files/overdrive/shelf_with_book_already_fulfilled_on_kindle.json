@@ -115,64 +115,6 @@
                 }
             },
             "reserveId": "2FADD2AC-A8EC-4938-A369-4C3260E8922B"
-        },
-        {
-            "checkoutDate": "2016-05-27T19:42:00Z",
-            "expires": "2016-06-17T19:42:00Z",
-            "formats": [
-                {
-                    "formatType": "ebook-epub-adobe",
-                    "linkTemplates": {
-                        "downloadLink": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-epub-adobe/downloadlink?errorpageurl={errorpageurl}",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        },
-                        "downloadLinkV2": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-epub-adobe/downloadlink?errorurl={errorurl}&successurl={successurl}",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        }
-                    },
-                    "links": {
-                        "self": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-epub-adobe",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        }
-                    },
-                    "reserveId": "11C029B4-C04D-4AB4-87E2-78AAA51D8262"
-                },
-                {
-                    "formatType": "ebook-overdrive",
-                    "linkTemplates": {
-                        "downloadLink": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-overdrive/downloadlink?errorpageurl={errorpageurl}&odreadauthurl={odreadauthurl}",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        },
-                        "downloadLinkV2": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-overdrive/downloadlink?errorurl={errorurl}&successurl={successurl}",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        }
-                    },
-                    "links": {
-                        "self": {
-                            "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262/formats/ebook-overdrive",
-                            "type": "application/vnd.overdrive.circulation.api+json"
-                        }
-                    },
-                    "reserveId": "11C029B4-C04D-4AB4-87E2-78AAA51D8262"
-                }
-            ],
-            "isFormatLockedIn": true,
-            "links": {
-                "metadata": {
-                    "href": "http://api.overdrive.com/v1/collections/v1P1BCgAAAA2O/products/11C029B4-C04D-4AB4-87E2-78AAA51D8262/metadata",
-                    "type": "application/vnd.overdrive.api+json"
-                },
-                "self": {
-                    "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/11C029B4-C04D-4AB4-87E2-78AAA51D8262",
-                    "type": "application/vnd.overdrive.circulation.api+json"
-                }
-            },
-            "reserveId": "11C029B4-C04D-4AB4-87E2-78AAA51D8262"
         }
     ],
     "links": {
@@ -181,6 +123,6 @@
             "type": "application/vnd.overdrive.circulation.api+json"
         }
     },
-    "totalCheckouts": 3,
-    "totalItems": 3
+    "totalCheckouts": 2,
+    "totalItems": 2
 }

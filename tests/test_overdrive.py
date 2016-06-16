@@ -253,6 +253,21 @@ class TestExtractData(OverdriveAPITest):
         eq_(4, expires.day)
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
 
+    def test_process_checkout_data(self):
+        data, json = self.sample_json("shelf_with_book_already_fulfilled_on_kindle.json")
+        [on_kindle, not_on_kindle] = json["checkouts"]
+
+        # The book already fulfilled on Kindle doesn't get turned into
+        # LoanInfo.
+        eq_(None, DummyOverdriveAPI.process_checkout_data(on_kindle))
+
+        # The book not yet fulfilled does show up as a LoanInfo.
+        loan_info = DummyOverdriveAPI.process_checkout_data(not_on_kindle)
+        eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
+
+        # TODO: In the future both of these tests should return a
+        # LoanInfo with appropriate FulfillmentInfo. The calling code
+        # would then decide whether or not to show the loan.
 
 class TestSyncBookshelf(OverdriveAPITest):
 
