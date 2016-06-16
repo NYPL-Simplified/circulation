@@ -347,14 +347,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         self.raise_exception_on_error(data)
         return data
 
+    def _pd(self, d):
+        """Stupid method to parse a date.""" 
+        if not d:
+            return d
+        return datetime.datetime.strptime(d, self.TIME_FORMAT)
+
     def patron_activity(self, patron, pin):
-
-        def pd(d):
-            """Stupid method to parse a date.""" 
-            if not d:
-                return d
-            return datetime.datetime.strptime(d, self.TIME_FORMAT)
-
         try:
             loans = self.get_patron_checkouts(patron, pin)
             holds = self.get_patron_holds(patron, pin)
@@ -370,21 +369,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             holds = {}
 
         for checkout in loans.get('checkouts', []):
-            overdrive_identifier = checkout['reserveId'].lower()
-            start = pd(checkout.get('checkoutDate'))
-            end = pd(checkout.get('expires'))
-            yield LoanInfo(
-                Identifier.OVERDRIVE_ID,
-                overdrive_identifier,
-                start_date=start,
-                end_date=end,
-                fulfillment_info=None
-            )
+            loan_info = self.process_checkout_data(checkout)
+            if loan_info:
+                yield loan_info
 
         for hold in holds.get('holds', []):
             overdrive_identifier = hold['reserveId'].lower()
-            start = pd(hold.get('holdPlacedDate'))
-            end = pd(hold.get('holdExpires'))
+            start = self._pd(hold.get('holdPlacedDate'))
+            end = self._pd(hold.get('holdExpires'))
             position = hold.get('holdListPosition')
             if position is not None:
                 position = int(position)
@@ -400,6 +392,28 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 end_date=end,
                 hold_position=position
             )
+
+    def process_checkout_data(self, checkout):
+        """Convert one checkout from Overdrive's list of checkouts
+        into a LoanInfo object.
+
+        :return: A LoanInfo object if the book can be fulfilled
+        by the default Library Simplified client, and None otherwise.
+        """
+        overdrive_identifier = checkout['reserveId'].lower()
+        start = self._pd(checkout.get('checkoutDate'))
+        end = self._pd(checkout.get('expires'))
+        
+        if overdrive_identifier.startswith('98'):
+            print "Loan for %s!" % overdrive_identifier
+            print "Processing", checkout
+        return LoanInfo(
+            Identifier.OVERDRIVE_ID,
+            overdrive_identifier,
+            start_date=start,
+            end_date=end,
+            fulfillment_info=None
+        )
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
@@ -574,8 +588,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 format = f
                 break
         if not format:
-            msg = "Could not find specified format %s. Available formats: %s"
-            raise IOError(msg % (format_type, ", ".join(available_formats)))
+            if any(x in set(available_formats) for x in self.INCOMPATIBLE_PLATFORM_FORMATS):
+                # The most likely explanation is that the patron
+                # already had this book delivered to their Kindle.
+                raise FulfilledOnIncompatiblePlatform(
+                    "It looks like this loan was already fulfilled on another platform, most likely Amazon Kindle. We're not allowed to also send it to you on this platform."
+                )
+            else:
+                # We don't know what happened -- most likely our
+                # format data is bad.
+                format_list = ", ".join(available_formats)
+                msg = "Could not find specified format %s. Available formats: %s"
+                raise NoAcceptableFormat(
+                    msg % (format_type, ", ".join(available_formats))
+                )
 
         return self.extract_download_link(format, error_url)
 
