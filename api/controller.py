@@ -484,7 +484,7 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
 
-        pagination = load_pagination_from_request()
+        pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
