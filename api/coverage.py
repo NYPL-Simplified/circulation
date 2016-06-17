@@ -252,15 +252,25 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
     OPERATION = CoverageRecord.REAP_OPERATION
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Retreives Identifiers that have been synced and are no longer licensed"""
+        """Retrieves Identifiers that have been synced and are no longer licensed
 
-        # TODO: currently we ignore count_as_covered and any other keyword
-        # arguments passed in here.
+        :param count_as_covered: Ignored because we are always looking
+            for identifiers that got coverage from a _different_
+            CoverageProvider, not identifiers that are missing
+            coverage per se.
+
+        :param count_as_missing_before: Ignored because we are always
+            looking for identifiers have coverage from a _different_
+            CoverageProvider.
+
+        """
         qu = self._db.query(Identifier).select_from(LicensePool).\
             join(LicensePool.identifier).join(CoverageRecord).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
             filter(CoverageRecord.data_source==self.output_source).\
-            filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION)
+            filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION).\
+            filter(CoverageRecord.status==CoverageRecord.SUCCESS)
+
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
         return qu
