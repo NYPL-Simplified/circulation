@@ -3171,9 +3171,10 @@ class Work(Base):
         return q2
 
     @classmethod
-    def open_access_for_permanent_work_id(cls, _db, pwid):
+    def open_access_for_permanent_work_id(cls, _db, pwid, medium):
         """Find or create the Work encompassing all open-access LicensePools
-        whose presentation Editions have the given permanent work ID.
+        whose presentation Editions have the given permanent work ID and
+        the given medium.
 
         This may result in the consolidation or splitting of Works, if
         a book's permanent work ID has changed without
@@ -3183,12 +3184,14 @@ class Work(Base):
         is_new = False
 
         # Find all open-access LicensePools whose presentation
-        # Editions have the given permanent work ID.
+        # Editions have the given permanent work ID and medium.
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 Edition.permanent_work_id==pwid
             ).filter(
                 LicensePool.open_access==True
+            ).filter(
+                Edition.medium==medium
             )
 
         licensepools = qu.all()
@@ -3224,7 +3227,9 @@ class Work(Base):
                 # First, make sure this Work is the exclusive
                 # open-access work for its permanent work ID. 
                 # Otherwise the merge may fail.
-                work.make_exclusive_open_access_for_permanent_work_id(pwid)
+                work.make_exclusive_open_access_for_permanent_work_id(
+                    pwid, medium
+                )
                 for needs_merge in licensepools_for_work.keys():
                     if needs_merge != work:
 
@@ -3232,7 +3237,7 @@ class Work(Base):
                         # nothing but LicensePools whose permanent
                         # work ID matches the permanent work ID of the
                         # Work we're about to merge into.
-                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid)
+                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid, medium)
                         needs_merge.merge_into(work)
             
         # At this point we have one, and only one, Work for this
@@ -3242,18 +3247,20 @@ class Work(Base):
             lp.work = work
         return work, is_new
 
-    def make_exclusive_open_access_for_permanent_work_id(self, pwid):
+    def make_exclusive_open_access_for_permanent_work_id(self, pwid, medium):
         """Ensure that every open-access LicensePool associated with this Work
-        has the given PWID. Any non-open-access LicensePool, and any
-        LicensePool with a different PWID, is kicked out and assigned
-        to a different Work. LicensePools with no presentation edition
-        and no PWID are left alone. (TODO: although maybe they should
-        be kicked out.)
+        has the given PWID and medium. Any non-open-access
+        LicensePool, and any LicensePool with a different PWID or a
+        different medium, is kicked out and assigned to a different
+        Work. LicensePools with no presentation edition and no PWID
+        are left alone. (TODO: although maybe they should be kicked
+        out.)
 
         In most cases this Work will be the _only_ work for this PWID,
         but inside open_access_for_permanent_work_id this is called as
         a preparatory step for merging two Works, and after the call
         (but before the merge) there may be two Works for a given PWID.
+
         """
         _db = Session.object_session(self)
         for pool in list(self.license_pools):
@@ -3267,17 +3274,18 @@ class Work(Base):
             elif not pool.presentation_edition:
                 continue
             else:
-                this_pwid = pool.presentation_edition.permanent_work_id
+                e = pool.presentation_edition
+                this_pwid = e.permanent_work_id
                 if not this_pwid:
                     continue
-                if this_pwid != pwid:
+                if this_pwid != pwid or e.medium != medium:
                     # This LicensePool should not belong to this Work.
                     # Make sure it gets its own Work, creating a new one
                     # if necessary.
                     pool.work = None
                     pool.presentation_edition.work = None
                     other_work, is_new = Work.open_access_for_permanent_work_id(
-                        _db, this_pwid
+                        _db, this_pwid, pool.presentation_edition.medium
                     )
             if other_work and is_new:
                 other_work.calculate_presentation()
@@ -5746,7 +5754,8 @@ class LicensePool(Base):
             # Work.open_access_for_permanent_work_id may result in works being
             # merged.
             work, is_new = Work.open_access_for_permanent_work_id(
-                _db, presentation_edition.permanent_work_id
+                _db, presentation_edition.permanent_work_id,
+                presentation_edition.medium
             )
 
             # Run a sanity check to make sure every LicensePool
@@ -5757,7 +5766,8 @@ class LicensePool(Base):
             # could conceivably lead to an infinite loop, or at least
             # a very long recursive call, so I've put it here.
             work.make_exclusive_open_access_for_permanent_work_id(
-                presentation_edition.permanent_work_id
+                presentation_edition.permanent_work_id, 
+                presentation_edition.medium
             )
             self.work = work
             licensepools_changed = True
