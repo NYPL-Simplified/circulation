@@ -29,6 +29,7 @@ from model import (
     Measurement,
     Hyperlink,
 )
+from scripts import RunCoverageProviderScript
 
 from util.http import (
     BadResponseException,
@@ -310,6 +311,18 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         self.provider = OverdriveBibliographicCoverageProvider(
             self._db, overdrive_api=self.api
         )
+
+    def test_script_instantiation(self):
+        """Test that RunCoverageProviderScript can instantiate
+        the coverage provider.
+        """
+        script = RunCoverageProviderScript(
+            OverdriveBibliographicCoverageProvider, self._db, [],
+            overdrive_api=self.api
+        )
+        assert isinstance(script.provider, 
+                          OverdriveBibliographicCoverageProvider)
+        eq_(script.provider.api, self.api)
 
     def test_invalid_or_unrecognized_guid(self):
         """A bad or malformed GUID can't get coverage."""
