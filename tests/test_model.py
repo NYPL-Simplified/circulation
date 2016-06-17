@@ -2288,7 +2288,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID"
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
             )
         )
 
@@ -2322,7 +2322,9 @@ class TestWorkConsolidation(DatabaseTest):
         w3_pool.open_access = False
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
 
         # Work #3 still exists and its license pool was not affected.
         eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
@@ -2344,7 +2346,9 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
-        eq_((w2, False), Work.open_access_for_permanent_work_id(self._db, "abcd"))
+        eq_((w2, False), Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
 
@@ -2353,7 +2357,9 @@ class TestWorkConsolidation(DatabaseTest):
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
@@ -2496,13 +2502,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd"
+            self._db, "abcd", Edition.BOOK_MEDIUM
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh"
+            self._db, "efgh", Edition.BOOK_MEDIUM
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl"
+            self._db, "ijkl", Edition.BOOK_MEDIUM
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -2572,7 +2578,8 @@ class TestWorkConsolidation(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd"
+            Work.open_access_for_permanent_work_id, self._db, "abcd",
+            Edition.BOOK_MEDIUM
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
