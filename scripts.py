@@ -1,16 +1,13 @@
 import argparse
 import datetime
-import log # This sets the appropriate log format and level.
 import logging
 import os
-import random
 import requests
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
 )
 import sys
-import time
 
 from bs4 import BeautifulSoup
 from nose.tools import set_trace
