@@ -784,7 +784,6 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
     )
 
-
     def test_edition(self):
         provider = MockBibliographicCoverageProvider(self._db)
         provider.CAN_CREATE_LICENSE_POOLS = False
