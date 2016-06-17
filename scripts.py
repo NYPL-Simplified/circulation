@@ -279,7 +279,7 @@ class LaneSweeperScript(Script):
         client = self.app.test_client()
         ctx = self.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = [self.app.manager]
+        queue = [self.app.manager.top_level_lane]
         while queue:
             new_queue = []
             self.log.debug("Beginning of loop: %d lanes to process", len(queue))
