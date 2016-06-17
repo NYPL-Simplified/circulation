@@ -406,16 +406,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         start = cls._pd(checkout.get('checkoutDate'))
         end = cls._pd(checkout.get('expires'))
         
-        # TODO: Instead of making the decision here not to show a book
-        # fulfilled in an incompatible format, put the fulfillment
-        # format into fulfillment_info and let the circulation API
-        # make the decision.
         usable_formats = []
 
         # If a format is already locked in, it will be in formats.
         for format in checkout.get('formats', []):
             format_type = format.get('formatType')
-            if format_type in cls.DEFAULT_READABLE_FORMATS:
+            if format_type in cls.FORMATS:
                 usable_formats.append(format_type)
 
         # If a format hasn't been selected yet, available formats are in actions.
@@ -426,7 +422,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             if field.get('name', "") == "formatType":
                 format_options = field.get("options", [])
                 for format_type in format_options:
-                    if format_type in cls.DEFAULT_READABLE_FORMATS:
+                    if format_type in cls.FORMATS:
                         usable_formats.append(format_type)
 
         if not usable_formats:
