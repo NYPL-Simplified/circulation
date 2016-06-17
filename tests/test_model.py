@@ -2180,7 +2180,9 @@ class TestWorkConsolidation(DatabaseTest):
         # forward.
 
         expect_open_access_work, open_access_work_is_new = (
-            Work.open_access_for_permanent_work_id(self._db, "abcd")
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
         )
         eq_(expect_open_access_work, abcd_open_access.work)
 
@@ -2213,6 +2215,58 @@ class TestWorkConsolidation(DatabaseTest):
         commercial_work = abcd_commercial.work
         eq_((commercial_work, False), abcd_commercial.calculate_work())
 
+    def test_calculate_work_fixes_book_grouped_with_audiobook(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains an
+        # open-access _audiobook_ of "abcd".
+        edition, audiobook = self._edition(with_license_pool=True)
+        audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
+        audiobook.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(audiobook)
+
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [book, audiobook]:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
+
+        # We can fix this by calling calculate_work() on one of the
+        # LicensePools.
+        work_after, is_new = book.calculate_work()
+        eq_(work_after, work)
+        eq_(False, is_new)
+
+        # The LicensePool we called calculate_work() on gets to stay
+        # in the Work, but the other one has been kicked out and
+        # given its own work.
+        eq_(book.work, work)
+        assert audiobook.work != work
+
+        # The audiobook LicensePool has been given a Work of its own.
+        eq_([audiobook], audiobook.work.license_pools)
+
+        # The book has been given the Work that will be used for all
+        # book-type LicensePools for that title going forward.
+        expect_book_work, book_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
+        )
+        eq_(expect_book_work, book.work)
+
+        # The audiobook has been given the Work that will be used for
+        # all audiobook-type LicensePools for that title going
+        # forward.
+        expect_audiobook_work, audiobook_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.AUDIO_MEDIUM
+            )
+        )
+        eq_(expect_audiobook_work, audiobook.work)
+
     def test_pwids(self):
         """Test the property that finds all permanent work IDs
         associated with a Work.
@@ -2234,7 +2288,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID"
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
             )
         )
 
@@ -2268,7 +2322,9 @@ class TestWorkConsolidation(DatabaseTest):
         w3_pool.open_access = False
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
 
         # Work #3 still exists and its license pool was not affected.
         eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
@@ -2290,7 +2346,9 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
-        eq_((w2, False), Work.open_access_for_permanent_work_id(self._db, "abcd"))
+        eq_((w2, False), Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
 
@@ -2299,7 +2357,9 @@ class TestWorkConsolidation(DatabaseTest):
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
@@ -2337,7 +2397,9 @@ class TestWorkConsolidation(DatabaseTest):
         efgh_2.work = work1
 
         # Let's fix these problems.
-        work1.make_exclusive_open_access_for_permanent_work_id("abcd")
+        work1.make_exclusive_open_access_for_permanent_work_id(
+            "abcd", Edition.BOOK_MEDIUM
+        )
 
         # The open-access "abcd" book is now the only LicensePool
         # associated with work1.
@@ -2440,13 +2502,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd"
+            self._db, "abcd", Edition.BOOK_MEDIUM
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh"
+            self._db, "efgh", Edition.BOOK_MEDIUM
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl"
+            self._db, "ijkl", Edition.BOOK_MEDIUM
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -2516,7 +2578,8 @@ class TestWorkConsolidation(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd"
+            Work.open_access_for_permanent_work_id, self._db, "abcd",
+            Edition.BOOK_MEDIUM
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
