@@ -82,17 +82,17 @@ class AtomFeed(object):
 class OPDSFeed(AtomFeed):
 
     ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
-    #NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
+    NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
     ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
 
     GROUP_REL = "collection"
-    #FEATURED_REL = "http://opds-spec.org/featured"
-    #RECOMMENDED_REL = "http://opds-spec.org/recommended"
-    #POPULAR_REL = "http://opds-spec.org/sort/popular"
+    FEATURED_REL = "http://opds-spec.org/featured"
+    RECOMMENDED_REL = "http://opds-spec.org/recommended"
+    POPULAR_REL = "http://opds-spec.org/sort/popular"
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
     ACQUISITION_REL = "http://opds-spec.org/acquisition"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
-    #FULL_IMAGE_REL = "http://opds-spec.org/image" 
+    FULL_IMAGE_REL = "http://opds-spec.org/image" 
     EPUB_MEDIA_TYPE = "application/epub+zip"
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
