@@ -624,6 +624,7 @@ class CoverageProvider(BaseCoverageProvider):
         By default, all identifiers of the `input_identifier_types` which
         don't already have coverage are chosen.
         """
+        set_trace()
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.output_source,
             count_as_missing_before=self.cutoff_time, operation=self.operation,
