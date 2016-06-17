@@ -411,10 +411,23 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # format into fulfillment_info and let the circulation API
         # make the decision.
         usable_formats = []
+
+        # If a format is already locked in, it will be in formats.
         for format in checkout.get('formats', []):
             format_type = format.get('formatType')
             if format_type in cls.DEFAULT_READABLE_FORMATS:
                 usable_formats.append(format_type)
+
+        # If a format hasn't been selected yet, available formats are in actions.
+        actions = checkout.get('actions', {})
+        format_action = actions.get('format', {})
+        format_fields = format_action.get('fields', [])
+        for field in format_fields:
+            if field.get('name', "") == "formatType":
+                format_options = field.get("options", [])
+                for format_type in format_options:
+                    if format_type in cls.DEFAULT_READABLE_FORMATS:
+                        usable_formats.append(format_type)
 
         if not usable_formats:
             # Either this book is not available in any format readable
