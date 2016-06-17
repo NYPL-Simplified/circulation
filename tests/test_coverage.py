@@ -259,6 +259,27 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_([edition.primary_identifier], 
             provider_with_cutoff.items_that_need_coverage().all())
 
+    def test_items_that_need_coverage_respects_count_as_covered(self):
+        # Here's a coverage record with a transient failure.
+        identifier = self._identifier()
+        cr = self._coverage_record(
+            identifier, self.provider.output_source, 
+            operation=self.provider.operation,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        
+        # Ordinarily, a transient failure does not count as coverage.
+        [needs_coverage] = self.provider.items_that_need_coverage().all()
+        eq_(needs_coverage, identifier)
+
+        # But if we say that transient failure counts as coverage, it
+        # does count.
+        eq_([],
+            self.provider.items_that_need_coverage(
+                count_as_covered=CoverageRecord.TRANSIENT_FAILURE
+            ).all()
+        )
+
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
