@@ -6,6 +6,7 @@ from nose.tools import (
 from contextlib import contextmanager
 import os
 import datetime
+import re
 
 import flask
 from flask import url_for
@@ -143,6 +144,8 @@ class CirculationControllerTest(ControllerTest):
             with_open_access_download=True
         )
 
+
+
 class TestBaseController(CirculationControllerTest):
 
     def test_unscoped_session(self):
@@ -169,6 +172,28 @@ class TestBaseController(CirculationControllerTest):
     def test_authenticated_patron_correct_credentials(self):
         value = self.controller.authenticated_patron(dict(username="5", password="5555"))
         assert isinstance(value, Patron)
+
+
+    def test_authentication_sends_proper_headers(self):
+        '''
+        Make sure the reals header has quotes around the realm name.  
+        Without quotes, some iOS versions don't recognize the header value.
+        '''
+        response = self.controller.authenticate()
+        
+        found_realm = False
+        for header_key, header_value in response.headers:
+            print "%s, %s" % (header_key, header_value)
+            if header_key == 'WWW-Authenticate':
+                found_realm = True
+                assert header_value == (u'Basic realm="Library card"')
+
+        assert(found_realm)
+
+        #('Content-Type', u'application/vnd.opds.authentication.v1.0+json')
+        #('Content-Length', u'478')
+
+
 
     def test_load_lane(self):
         eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
@@ -271,6 +296,7 @@ class TestBaseController(CirculationControllerTest):
         patron._external_type = '152'
         problem = self.controller.apply_borrowing_policy(patron, pool)
         eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
+
 
 
 class TestIndexController(CirculationControllerTest):
