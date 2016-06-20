@@ -2622,6 +2622,11 @@ class TestWorkConsolidation(DatabaseTest):
             work2
         )
 
+    def test_licensepool_without_identifier_gets_no_work(self):
+        edition, lp = self._edition(with_license_pool=True)
+        lp.identifier = None
+        eq_((None, False), lp.calculate_work())
+
 class TestLoans(DatabaseTest):
 
     def test_open_access_loan(self):
