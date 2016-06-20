@@ -262,26 +262,18 @@ class Axis360CirculationMonitor(Monitor):
         license_pool, new_license_pool = availability.license_pool(self._db)
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
-        if new_license_pool:
-            policy = ReplacementPolicy(
-                subjects=True,
-                contributions=True,
-                formats=True,
-                identifiers=False,
-            )
-            availability.apply(
-                pool=license_pool, 
-                replace=policy,
-            )
-
+        policy = ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+        )
+        availability.apply(
+            pool=license_pool, 
+            replace=policy,
+        )
         if new_edition:
-            bibliographic.apply(
-                edition, 
-                replace_identifiers=False,
-                replace_subjects=True, 
-                replace_contributions=True,
-                replace_formats=True,
-            )
+            bibliographic.apply(edition, replace=policy)
 
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by 
