@@ -5698,6 +5698,10 @@ class LicensePool(Base):
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
         """
+        if not self.identifier:
+            # A LicensePool with no Identifier should never have a Work.
+            self.work = None
+            return None, False
         if known_edition:
             presentation_edition = known_edition
         else:

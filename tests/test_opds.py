@@ -1048,6 +1048,18 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+    def test_error_when_work_has_no_identifier(self):
+        """We cannot create an OPDS entry for a Work that cannot be associated
+        with an Identifier.
+        """
+        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work.license_pools[0].identifier = None
+        work.presentation_edition.primary_identifier = None
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator
+        )
+        eq_(entry, None)
+
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1075,6 +1087,8 @@ class TestAcquisitionFeed(DatabaseTest):
         entry_string = etree.tostring(entry) 
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
+
+
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
