@@ -1,3 +1,4 @@
+# encoding: utf-8
 from nose.tools import set_trace, eq_, assert_raises
 
 from . import (
@@ -35,12 +36,12 @@ class TestLaneCreation(DatabaseTest):
         [lane] = lanes
 
         # We have one top-level lane for English & Spanish
-        eq_('English & Spanish', lane.name)
+        eq_(u'English/español', lane.name)
         assert lane.invisible
 
         # The top-level lane has five sublanes.
         eq_(
-            ['English & Spanish - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
+            [u'English/español - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
              'Young Adult Nonfiction', 'Children and Middle Grade'],
             [x.name for x in lane.sublanes]
         )
@@ -74,7 +75,7 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lane_for_small_collection(self):
         lane = lane_for_small_collection(self._db, ['eng', 'spa', 'chi'])
-        eq_("English, Spanish, & Chinese", lane.display_name)
+        eq_(u"English/español/Chinese", lane.display_name)
         sublanes = lane.sublanes.lanes
         eq_(
             ['Adult Fiction', 'Adult Nonfiction', 'Children & Young Adult'],
@@ -105,7 +106,7 @@ class TestLaneCreation(DatabaseTest):
             eq_(exclude, lane.exclude_languages)
             eq_("Other Languages", lane.name)
             eq_(
-                ['German', 'French', 'Italian'],
+                ['Deutsch', u'français', 'Italiano'],
                 [x.name for x in lane.sublanes.lanes]
             )
             eq_([['ger'], ['fre'], ['ita']],
@@ -143,7 +144,7 @@ class TestLaneCreation(DatabaseTest):
             # We have a top-level lane for the large collections,
             # a top-level lane for each small collection, and a lane
             # for everything left over.
-            eq_(['English', 'Spanish', 'Chinese', 'Other Languages'],
+            eq_(['English', u'español', 'Chinese', 'Other Languages'],
                 [x.name for x in lane_list.lanes]
             )
 

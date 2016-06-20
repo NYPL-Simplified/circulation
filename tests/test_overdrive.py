@@ -265,6 +265,18 @@ class TestExtractData(OverdriveAPITest):
         loan_info = DummyOverdriveAPI.process_checkout_data(not_on_kindle)
         eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
 
+        data, format_locked_in = self.sample_json("checkout_response_locked_in_format.json")
+
+        # A book that's on loan with a format locked in shows up.
+        loan_info = DummyOverdriveAPI.process_checkout_data(format_locked_in)
+        assert loan_info != None
+
+        data, no_format_locked_in = self.sample_json("checkout_response_no_format_locked_in.json")
+
+        # A book that's on loan with no format locked in also shows up.
+        loan_info = DummyOverdriveAPI.process_checkout_data(no_format_locked_in)
+        assert loan_info != None
+
         # TODO: In the future both of these tests should return a
         # LoanInfo with appropriate FulfillmentInfo. The calling code
         # would then decide whether or not to show the loan.
