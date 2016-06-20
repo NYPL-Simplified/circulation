@@ -80,9 +80,9 @@ class TestLanguageCodes(object):
         eq_("English", m(["en"]))
         eq_("English", m(["eng"]))
         eq_(u"español", m(['es']))
-        eq_(u"English & español", m(["eng", "spa"]))
-        eq_(u"español & English", m("spa,eng"))
-        eq_(u"español, English, & Chinese", m(["spa","eng","chi"]))
+        eq_(u"English/español", m(["eng", "spa"]))
+        eq_(u"español/English", m("spa,eng"))
+        eq_(u"español/English/Chinese", m(["spa","eng","chi"]))
         assert_raises(ValueError(m, ["eng, nxx"]))
 
 class DummyAuthor(object):

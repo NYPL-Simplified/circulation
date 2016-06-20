@@ -628,11 +628,7 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
                 all_names.append(names[0])
         if len(all_names) == 1:
             return all_names[0]
-        if len(all_names) == 2:
-            return " & ".join(all_names)
-        last = all_names[-1]
-        first = all_names[:-1]
-        return ", ".join(first) + ", & " + last
+        return "/".join(all_names)
 
 def languages_from_accept(accept_languages):
     """Turn a list of (locale, quality) 2-tuples into a list of language codes."""
