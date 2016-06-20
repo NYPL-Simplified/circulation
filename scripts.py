@@ -287,8 +287,10 @@ class RunCoverageProviderScript(IdentifierInputScript):
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
 
-    def __init__(self, provider):
-        args = self.parse_command_line(self._db)
+    def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
+        if _db:
+            self._session = _db
+        args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
             if args.identifier_type:
                 self.identifier_type = args.identifier_type
@@ -297,6 +299,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
                 self.identifier_type = None
                 self.identifier_types = []
             kwargs = self.extract_additional_command_line_arguments(args)
+            kwargs.update(provider_arguments)
             provider = provider(
                 self._db, 
                 cutoff_time=args.cutoff_time,

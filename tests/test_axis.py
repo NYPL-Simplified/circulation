@@ -33,6 +33,7 @@ from util.http import (
 )
 
 from . import DatabaseTest
+from scripts import RunCoverageProviderScript
 from testing import MockRequestsResponse
 
 class AxisTest(DatabaseTest):
@@ -214,6 +215,20 @@ class TestParsers(AxisTest):
 
 class TestAxis360BibliographicCoverageProvider(AxisTest):
     """Test the code that looks up bibliographic information from Axis 360."""
+
+    def test_script_instantiation(self):
+        """Test that RunCoverageProviderScript can instantiate
+        the coverage provider.
+        """
+        api = MockAxis360API(self._db)
+        script = RunCoverageProviderScript(
+            Axis360BibliographicCoverageProvider, self._db, [],
+            axis_360_api=api
+        )
+        assert isinstance(script.provider, 
+                          Axis360BibliographicCoverageProvider)
+        eq_(script.provider.api, api)
+
 
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask Axis for data,
