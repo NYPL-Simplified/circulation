@@ -29,10 +29,8 @@ from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
 from novelist import NoveListAPI
-from lanes import (
-    RecommendationLane,
-    SeriesLane,
-)
+from lanes import QueryGeneratedLane
+
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -118,21 +116,19 @@ class CirculationManagerAnnotator(Annotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
-    def custom_lane_url(self, lane):
-        if not hasattr(lane, 'url_arguments'):
-            raise ValueError('This lane has no arguments for a custom URL')
-        route, kwargs = lane.url_arguments
-        return self.cdn_url_for(route, **kwargs)
-
     def feed_url(self, lane, facets=None, pagination=None):
-        lane_name, languages = self._lane_name_and_languages(lane)
-        kwargs = dict({})
+        if (isinstance(lane, QueryGeneratedLane) and
+            hasattr(lane, 'url_arguments')):
+            route, kwargs = lane.url_arguments
+        else:
+            route = 'feed'
+            lane_name, languages = self._lane_name_and_languages(lane)
+            kwargs = dict(lane_name=lane_name, languages=languages)
         if facets != None:
             kwargs.update(dict(facets.items()))
         if pagination != None:
             kwargs.update(dict(pagination.items()))
-        return self.cdn_url_for(
-            "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
+        return self.cdn_url_for(route, _external=True, **kwargs)
 
     def search_url(self, lane, query, pagination):
         lane_name, languages = self._lane_name_and_languages(lane)
@@ -211,8 +207,6 @@ class CirculationManagerAnnotator(Annotator):
             url = self.default_lane_url()
         elif lane.sublanes:
             url = self.groups_url(lane)
-        elif hasattr(lane, 'url_arguments'):
-            url = self.custom_lane_url(lane)
         else:
             url = self.feed_url(lane)
         return url
