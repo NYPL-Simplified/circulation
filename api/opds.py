@@ -29,10 +29,8 @@ from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
 from novelist import NoveListAPI
-from lanes import (
-    RecommendationLane,
-    SeriesLane,
-)
+from lanes import QueryGeneratedLane
+
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -119,14 +117,18 @@ class CirculationManagerAnnotator(Annotator):
         return self.groups_url(None)
 
     def feed_url(self, lane, facets=None, pagination=None):
-        lane_name, languages = self._lane_name_and_languages(lane)
-        kwargs = dict({})
+        if (isinstance(lane, QueryGeneratedLane) and
+            hasattr(lane, 'url_arguments')):
+            route, kwargs = lane.url_arguments
+        else:
+            route = 'feed'
+            lane_name, languages = self._lane_name_and_languages(lane)
+            kwargs = dict(lane_name=lane_name, languages=languages)
         if facets != None:
             kwargs.update(dict(facets.items()))
         if pagination != None:
             kwargs.update(dict(pagination.items()))
-        return self.cdn_url_for(
-            "feed", lane_name=lane_name, languages=languages, _external=True, **kwargs)
+        return self.cdn_url_for(route, _external=True, **kwargs)
 
     def search_url(self, lane, query, pagination):
         lane_name, languages = self._lane_name_and_languages(lane)
@@ -142,22 +144,6 @@ class CirculationManagerAnnotator(Annotator):
         else:
             m = self.url_for
         return m('feed', languages=lane.languages, lane_name=lane.name, order=order, _external=True)
-
-    def license_pool_lane_url(self, lane):
-        if isinstance(lane, RecommendationLane):
-            route = 'recommendations'
-        if isinstance(lane, SeriesLane):
-            route = 'series'
-        if not route:
-            raise ValueError("LicensePoolBasedLane-type not found")
-        data_source = lane.license_pool.data_source.name
-        identifier_type = lane.license_pool.identifier.type
-        identifier = lane.license_pool.identifier.identifier
-        return self.cdn_url_for(
-            route, data_source=data_source,
-            identifier_type=identifier_type,
-            identifier=identifier
-        )
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -221,8 +207,6 @@ class CirculationManagerAnnotator(Annotator):
             url = self.default_lane_url()
         elif lane.sublanes:
             url = self.groups_url(lane)
-        elif hasattr(lane, 'license_pool'):
-            url = self.license_pool_lane_url(lane)
         else:
             url = self.feed_url(lane)
         return url
