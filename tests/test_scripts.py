@@ -19,7 +19,6 @@ from scripts import (
     Script,
     CustomListManagementScript,
     IdentifierInputScript,
-    OPDSWriterScript, 
     RunCoverageProviderScript,
     WorkProcessingScript,
     MockStdin,
@@ -136,14 +135,5 @@ class TestWorkProcessingScript(DatabaseTest):
 
 
 
-class TestOpdsWriterScript(DatabaseTest):
-
-    def test_scrape_web_to_feed(self):
-        # Make sure the OPDS feed generated from scraping the EPub accessibility test page is 
-        # either a block of text with expected titles, or None (if running test 
-        # without an internet connection, the result of web scraping will be None).
-        opds_writer = OPDSWriterScript(title="EPUB 3 Test Documents", url=OPDSWriterScript.FEED_BASE_URL)
-        feed_xml = opds_writer.scrape_web_to_feed()
-        assert '<title>EPUBTEST' in feed_xml or not feed_xml
 
 
