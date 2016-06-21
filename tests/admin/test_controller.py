@@ -39,7 +39,7 @@ from core.classifier import (
     SimplifiedGenreClassifier
 )
 from datetime import datetime, timedelta
-from core.analytics import format_range
+from core.analytics import format_age_range
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -777,7 +777,7 @@ class TestFeedController(AdminControllerTest):
         eq_([self.english_1.audience]*num, [row[6] for row in rows])
         eq_([edition.publisher]*num, [row[7] for row in rows])
         eq_([edition.language]*num, [row[8] for row in rows])
-        eq_([format_range(self.english_1.target_age)]*num, [row[9] for row in rows])
+        eq_([format_age_range(self.english_1.target_age)]*num, [row[9] for row in rows])
         eq_([genre.name]*num, [row[10] for row in rows])
 
         # use start time

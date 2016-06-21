@@ -10,6 +10,7 @@ from flask import (
     redirect,
 )
 from flask.ext.babel import lazy_gettext as _
+from core.analytics import format_age_range
 
 from core.model import (
     get_one,
@@ -669,7 +670,6 @@ class FeedController(CirculationManagerController):
         header = ["time", "type", "book_id", "title", "author", "fiction",
                 "audience", "publisher", "language", "target_age", "genre"]
 
-        from core.analytics import format_range
         def result_to_row(result):
             (event, identifier, work, edition, genre) = result
             return [
@@ -682,7 +682,7 @@ class FeedController(CirculationManagerController):
                 work.audience,
                 edition.publisher,
                 edition.language,
-                format_range(work.target_age),
+                format_age_range(work.target_age),
                 genre.name
             ]
 

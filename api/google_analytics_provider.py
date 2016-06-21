@@ -1,7 +1,7 @@
 from config import Configuration
 import uuid
 import urllib
-from core.analytics import format_range
+from core.analytics import format_age_range
 from core.util.http import HTTP
 
 class GoogleAnalyticsProvider(object):
@@ -35,7 +35,7 @@ class GoogleAnalyticsProvider(object):
             'cd5': work.audience,
             'cd6': edition.publisher,
             'cd7': edition.language,
-            'cd8': format_range(work.target_age),
+            'cd8': format_age_range(work.target_age),
             'cd9': time,
             'cd10': work.top_genre()
         })
