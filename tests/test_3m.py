@@ -21,6 +21,7 @@ from threem import (
     MockThreeMAPI,
     ThreeMBibliographicCoverageProvider,
 )
+from scripts import RunCoverageProviderScript
 from . import DatabaseTest
 from util.http import BadResponseException
 
@@ -198,6 +199,18 @@ class TestItemListParser(BaseThreeMTest):
 class TestBibliographicCoverageProvider(TestThreeMAPI):
 
     """Test the code that looks up bibliographic information from 3M."""
+
+    def test_script_instantiation(self):
+        """Test that RunCoverageProviderScript can instantiate
+        the coverage provider.
+        """
+        script = RunCoverageProviderScript(
+            ThreeMBibliographicCoverageProvider, self._db, [],
+            threem_api=self.api
+        )
+        assert isinstance(script.provider, 
+                          ThreeMBibliographicCoverageProvider)
+        eq_(script.provider.api, self.api)
 
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask 3M for data,

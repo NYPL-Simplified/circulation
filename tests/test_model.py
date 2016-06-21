@@ -2180,7 +2180,9 @@ class TestWorkConsolidation(DatabaseTest):
         # forward.
 
         expect_open_access_work, open_access_work_is_new = (
-            Work.open_access_for_permanent_work_id(self._db, "abcd")
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
         )
         eq_(expect_open_access_work, abcd_open_access.work)
 
@@ -2213,6 +2215,58 @@ class TestWorkConsolidation(DatabaseTest):
         commercial_work = abcd_commercial.work
         eq_((commercial_work, False), abcd_commercial.calculate_work())
 
+    def test_calculate_work_fixes_book_grouped_with_audiobook(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains an
+        # open-access _audiobook_ of "abcd".
+        edition, audiobook = self._edition(with_license_pool=True)
+        audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
+        audiobook.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(audiobook)
+
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [book, audiobook]:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
+
+        # We can fix this by calling calculate_work() on one of the
+        # LicensePools.
+        work_after, is_new = book.calculate_work()
+        eq_(work_after, work)
+        eq_(False, is_new)
+
+        # The LicensePool we called calculate_work() on gets to stay
+        # in the Work, but the other one has been kicked out and
+        # given its own work.
+        eq_(book.work, work)
+        assert audiobook.work != work
+
+        # The audiobook LicensePool has been given a Work of its own.
+        eq_([audiobook], audiobook.work.license_pools)
+
+        # The book has been given the Work that will be used for all
+        # book-type LicensePools for that title going forward.
+        expect_book_work, book_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
+        )
+        eq_(expect_book_work, book.work)
+
+        # The audiobook has been given the Work that will be used for
+        # all audiobook-type LicensePools for that title going
+        # forward.
+        expect_audiobook_work, audiobook_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.AUDIO_MEDIUM
+            )
+        )
+        eq_(expect_audiobook_work, audiobook.work)
+
     def test_pwids(self):
         """Test the property that finds all permanent work IDs
         associated with a Work.
@@ -2234,7 +2288,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID"
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
             )
         )
 
@@ -2268,7 +2322,9 @@ class TestWorkConsolidation(DatabaseTest):
         w3_pool.open_access = False
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
 
         # Work #3 still exists and its license pool was not affected.
         eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
@@ -2290,7 +2346,9 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
-        eq_((w2, False), Work.open_access_for_permanent_work_id(self._db, "abcd"))
+        eq_((w2, False), Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
 
@@ -2299,7 +2357,9 @@ class TestWorkConsolidation(DatabaseTest):
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
@@ -2337,7 +2397,9 @@ class TestWorkConsolidation(DatabaseTest):
         efgh_2.work = work1
 
         # Let's fix these problems.
-        work1.make_exclusive_open_access_for_permanent_work_id("abcd")
+        work1.make_exclusive_open_access_for_permanent_work_id(
+            "abcd", Edition.BOOK_MEDIUM
+        )
 
         # The open-access "abcd" book is now the only LicensePool
         # associated with work1.
@@ -2440,13 +2502,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd"
+            self._db, "abcd", Edition.BOOK_MEDIUM
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh"
+            self._db, "efgh", Edition.BOOK_MEDIUM
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl"
+            self._db, "ijkl", Edition.BOOK_MEDIUM
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -2516,7 +2578,8 @@ class TestWorkConsolidation(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd"
+            Work.open_access_for_permanent_work_id, self._db, "abcd",
+            Edition.BOOK_MEDIUM
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
@@ -2558,6 +2621,11 @@ class TestWorkConsolidation(DatabaseTest):
             work1.merge_into, 
             work2
         )
+
+    def test_licensepool_without_identifier_gets_no_work(self):
+        edition, lp = self._edition(with_license_pool=True)
+        lp.identifier = None
+        eq_((None, False), lp.calculate_work())
 
 class TestLoans(DatabaseTest):
 
@@ -3734,3 +3802,109 @@ class TestCollection(DatabaseTest):
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+
+class TestMaterializedViews(DatabaseTest):
+
+    def test_license_pool_is_works_preferred_license_pool(self):
+        """Verify that the license_pool_id stored in the materialized views
+        identifiers the LicensePool associated with the Work's
+        presentation edition, not some other LicensePool.
+        """
+        # Create a Work with two LicensePools
+        work = self._work(with_license_pool=True)
+        [pool1] = work.license_pools
+        edition2, pool2 = self._edition(with_license_pool=True)
+        work.license_pools.append(pool1)
+        eq_(pool1, work.presentation_edition.license_pool)
+        work.presentation_ready = True
+        work.simple_opds_entry = '<entry>'
+        work.assign_genres_from_weights({classifier.Fantasy : 1})
+
+        # Make sure the Work shows up in the materialized view.
+        SessionManager.refresh_materialized_views(self._db)
+
+        from model import (
+            MaterializedWork as mwc,
+            MaterializedWorkWithGenre as mwgc,
+        )
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        eq_(pool1.id, mw.license_pool_id)
+        eq_(pool1.id, mwg.license_pool_id)
+
+        # If we change the Work's preferred edition, we change the
+        # license_pool_id that gets stored in the materialized views.
+        work.set_presentation_edition(edition2)
+        SessionManager.refresh_materialized_views(self._db)
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        eq_(pool2.id, mw.license_pool_id)
+        eq_(pool2.id, mwg.license_pool_id)
+
+    def test_license_data_source_is_stored_in_views(self):
+        """Verify that the data_source_name stored in the materialized views
+        is the DataSource associated with the LicensePool, not the
+        DataSource associated with the presentation Edition.
+        """
+
+        # Create a Work whose LicensePool has three Editions: one from
+        # Gutenberg (created by default), one from the admin interface
+        # (created manually), and one generated by the presentation
+        # edition generator, which synthesizes the other two.
+        work = self._work(with_license_pool=True)
+
+        [pool] = work.license_pools
+        gutenberg_edition = pool.presentation_edition
+
+        identifier = pool.identifier
+        staff_edition = self._edition(
+            data_source_name=DataSource.LIBRARY_STAFF, 
+            identifier_type=identifier.type, 
+            identifier_id=identifier.identifier
+        )
+        staff_edition.title = u"staff chose this title"
+        staff_edition.sort_title = u"staff chose this title"
+        pool.set_presentation_edition()
+        work.set_presentation_edition(pool.presentation_edition)
+
+        # The presentation edition has the title taken from the admin
+        # interface, but it was created by the presentation edition
+        # generator.
+        presentation_edition = pool.presentation_edition
+        eq_("staff chose this title", presentation_edition.title)
+        eq_(DataSource.PRESENTATION_EDITION, 
+            presentation_edition.data_source.name
+        )
+
+        # Make sure the Work will show up in the materialized view.
+        work.presentation_ready = True
+        work.simple_opds_entry = '<entry>'
+        work.assign_genres_from_weights({classifier.Fantasy : 1})
+
+        SessionManager.refresh_materialized_views(self._db)
+
+        from model import (
+            MaterializedWork as mwc,
+            MaterializedWorkWithGenre as mwgc,
+        )
+        [mw] = self._db.query(mwc).all()
+        [mwg] = self._db.query(mwgc).all()
+
+        # We would expect the data source to be Gutenberg, since
+        # that's the edition associated with the LicensePool, and not
+        # the data source of the Work's presentation edition.
+        eq_(pool.data_source.name, mw.name)
+        eq_(pool.data_source.name, mwg.name)
+
+        # However, we would expect the title of the work to come from
+        # the presentation edition.
+        eq_("staff chose this title", mw.sort_title)
+
+        # And since the data_source_id is the ID of the data source
+        # associated with the presentation edition, we would expect it
+        # to be the data source ID of the presentation edition.
+        eq_(presentation_edition.data_source.id, mw.data_source_id)
+        eq_(presentation_edition.data_source.id, mwg.data_source_id)

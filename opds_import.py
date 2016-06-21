@@ -887,7 +887,7 @@ class OPDSImportMonitor(Monitor):
         """
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
-        return response.status_code, response.content_type, response.content
+        return response.status_code, response.headers, response.content
 
     def check_for_new_data(self, feed, cutoff_date=None):
         """Check if the feed contains any entries that haven't been imported yet
@@ -906,6 +906,15 @@ class OPDSImportMonitor(Monitor):
                 record = CoverageRecord.lookup(
                     identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
                 )
+
+            # If there was a transient failure last time we tried to import this book,
+            # try again regardless of whether the feed has changed.
+            if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
+                new_data = True
+                break
+
+            # If our last attempt was a success or a persistent failure, we only want to import again
+            # if something changed since then.
 
             # If we have a CoverageRecord, that's the most reliable indicator of the last time we tried
             # to import this book. But if we imported the book before we started creating CoverageRecords
@@ -928,18 +937,8 @@ class OPDSImportMonitor(Monitor):
                     new_data = True
                     break
 
-            if record and record.exception:
-                # We tried to import this book before and it failed. The book hasn't been updated,
-                # so it probably still won't work. Don't try again.
-                continue
-
-            # There's no record of a failure for this book. Has it been imported from this source already?
-            existing_edition = get_one(
-                self._db, Edition,
-                primary_identifier=identifier,
-                data_source=data_source,
-            )
-            if not existing_edition:
+            else:
+                # There's no record of an attempt to import this book.
                 new_data = True
                 break
 

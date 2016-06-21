@@ -49,6 +49,7 @@ class LanguageCodes(object):
     three_to_two = defaultdict(lambda: None)
     english_names = defaultdict(list)
     english_names_to_three = defaultdict(lambda: None)
+    native_names = defaultdict(list)
 
     RAW_DATA = """aar||aa|Afar|afar
 abk||ab|Abkhazian|abkhaze
@@ -537,6 +538,21 @@ zun|||Zuni|zuni
 zxx|||No linguistic content; Not applicable|pas de contenu linguistique; non applicable
 zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki; kirmanjki; zazaki"""
 
+    NATIVE_NAMES_RAW_DATA =  [
+        {"code":"en","name":"English","nativeName":u"English"},
+        {"code":"fr","name":"French","nativeName":u"français"},
+        {"code":"de","name":"German","nativeName":u"Deutsch"},
+        {"code":"el","name":"Greek, Modern","nativeName":u"Ελληνικά"},
+        {"code":"hu","name":"Hungarian","nativeName":u"Magyar"},
+        {"code":"it","name":"Italian","nativeName":u"Italiano"},
+        {"code":"no","name":"Norwegian","nativeName":u"Norsk"},
+        {"code":"pl","name":"Polish","nativeName":u"polski"},
+        {"code":"pt","name":"Portuguese","nativeName":u"Português"},
+        {"code":"ru","name":"Russian","nativeName":u"русский"},
+        {"code":"es","name":"Spanish, Castilian","nativeName":u"español, castellano"},
+        {"code":"sv","name":"Swedish","nativeName":u"svenska"},
+    ]
+
     for i in RAW_DATA.split("\n"):
         (alpha_3, terminologic_code, alpha_2, names,
          french_names) = i.strip().split("|")
@@ -549,6 +565,13 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             english_names_to_three[name.lower()] = alpha_3
         english_names[alpha_3] = names
 
+    for i in NATIVE_NAMES_RAW_DATA:
+        alpha_2 = i['code']
+        alpha_3 = two_to_three[alpha_2]
+        names = i['nativeName']
+        names = [x.strip() for x in names.split(",")]
+        native_names[alpha_2] = names
+        native_names[alpha_3] = names
 
     @classmethod
     def iso_639_2_for_locale(cls, locale):
@@ -595,17 +618,17 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             return ""
         for l in languages:
             normalized = cls.string_to_alpha_3(l)
-            names = cls.english_names.get(normalized, [])
-            if not names:
-                raise ValueError("No English name for %s" % l)
-            all_names.append(names[0])
+            native_names = cls.native_names.get(normalized, [])
+            if native_names:
+                all_names.append(native_names[0])
+            else:
+                names = cls.english_names.get(normalized, [])
+                if not names:
+                    raise ValueError("No native or English name for %s" % l)
+                all_names.append(names[0])
         if len(all_names) == 1:
             return all_names[0]
-        if len(all_names) == 2:
-            return " & ".join(all_names)
-        last = all_names[-1]
-        first = all_names[:-1]
-        return ", ".join(first) + ", & " + last
+        return "/".join(all_names)
 
 def languages_from_accept(accept_languages):
     """Turn a list of (locale, quality) 2-tuples into a list of language codes."""

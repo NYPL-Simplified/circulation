@@ -712,6 +712,10 @@ class AcquisitionFeed(OPDSFeed):
             logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
             return None
 
+        if not identifier:
+            logging.warn("%r HAS NO IDENTIFIER", work)
+            return None
+
         return self._create_entry(work, active_license_pool, active_edition,
                                   identifier, lane_link, force_create, 
                                   use_cache)
