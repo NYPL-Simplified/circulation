@@ -2866,7 +2866,6 @@ class Edition(Base):
             operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
 
-
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 
 class WorkGenre(Base):
@@ -4047,10 +4046,19 @@ class Work(Base):
         _db = Session.object_session(self)
         identifier = self.presentation_edition.primary_identifier
         return _db.query(Classification) \
-                    .join(Subject) \
-                    .filter(Classification.identifier_id == identifier.id) \
-                    .filter(Subject.genre_id != None) \
-                    .order_by(Classification.weight.desc())
+            .join(Subject) \
+            .filter(Classification.identifier_id == identifier.id) \
+            .filter(Subject.genre_id != None) \
+            .order_by(Classification.weight.desc())
+
+    def top_genre(self):
+        _db = Session.object_session(self)
+        genre = _db.query(Genre) \
+            .join(WorkGenre) \
+            .filter(WorkGenre.work_id == self.id) \
+            .order_by(WorkGenre.affinity.desc()) \
+            .first()
+        return genre.name if genre else None
 
 
 # Used for quality filter queries.

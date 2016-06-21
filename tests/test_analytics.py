@@ -5,10 +5,11 @@ from config import (
     Configuration,
     temp_config,
 )
-from analytics import Analytics
+from analytics import Analytics, format_range
 from mock_analytics_provider import MockAnalyticsProvider
 from . import DatabaseTest
 from model import CirculationEvent
+from psycopg2.extras import NumericRange
 import json
 
 class TestAnalytics(DatabaseTest):
@@ -44,3 +45,13 @@ class TestAnalytics(DatabaseTest):
         loaded_config = Configuration._load(json.dumps({}))
         providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
         eq_([], providers)
+
+    def test_format_range(self):
+        lower_only = NumericRange(18)
+        eq_("18", format_range(lower_only))
+
+        lower_and_upper = NumericRange(14, 17, "[)")
+        eq_("14,15,16", format_range(lower_and_upper))
+
+        lower_and_upper_inc = NumericRange(14, 17, "[]")
+        eq_("14,15,16,17", format_range(lower_and_upper_inc))
