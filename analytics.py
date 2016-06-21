@@ -24,7 +24,7 @@ class Analytics(object):
         for provider in self.providers:
             provider.collect_event(_db, license_pool, event_type, time, **kwargs)
 
-def format_range(r):
+def format_age_range(r):
     if not r or not r.lower:
         return None
     min = r.lower if r.lower_inc else r.lower + 1
