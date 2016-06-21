@@ -153,9 +153,14 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
 class TestOPDS(DatabaseTest):
 
+    def setup(self):
+        super(TestOPDS, self).setup()
+        parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
+        fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
+        self.lane = fantasy_lane
+
     def test_default_lane_url(self):
-        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
-        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         default_lane_url = annotator.default_lane_url()
 
@@ -163,39 +168,35 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" not in default_lane_url
 
     def test_groups_url(self):
-        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
-        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         groups_url_no_lane = annotator.groups_url(None)
 
         assert "groups" in groups_url_no_lane
         assert "Fantasy" not in groups_url_no_lane
 
-        groups_url_fantasy = annotator.groups_url(fantasy_lane)
+        groups_url_fantasy = annotator.groups_url(self.lane)
         assert "groups" in groups_url_fantasy
         assert "Fantasy" in groups_url_fantasy
 
     def test_feed_url(self):
-        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
-        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
-        feed_url_fantasy = annotator.feed_url(fantasy_lane, dict(), dict())
+        feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
 
     def test_search_url(self):
-        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
-        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
-        search_url = annotator.search_url(fantasy_lane, "query", dict())
+        search_url = annotator.search_url(self.lane, "query", dict())
         assert "search" in search_url
         assert "query" in search_url
         assert "Fantasy" in search_url
 
     def test_facet_url(self):
-        fantasy_lane = Lane(self._db, "Fantasy", genres=[Fantasy]);
         facets = dict(collection="main")
-        annotator = CirculationManagerAnnotator(None, fantasy_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         facet_url = annotator.facet_url(facets)
         assert "collection=main" in facet_url

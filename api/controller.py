@@ -303,7 +303,7 @@ class CirculationManagerController(object):
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm=%s' % _("Library card"),
+        headers= { 'WWW-Authenticate' : 'Basic realm="%s"' % _("Library card"),
                    'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
         return Response(data, 401, headers)
 
@@ -485,7 +485,7 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
 
-        pagination = load_pagination_from_request()
+        pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
@@ -883,23 +883,14 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
-    def series(self, data_source, identifier_type, identifier):
+    def series(self, series_name):
         """Serve a feed of books in the same series as a given book."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        if not series_name:
+            return NO_SUCH_LANE.detailed("No series provided")
 
-        edition = pool.presentation_edition
-        series = edition.series
-        if not series:
-            return NO_SUCH_LANE.detailed("%s is not in a series" % edition.title)
-
-        lane = SeriesLane(self._db, pool)
-        url = self.cdn_url_for(
-            'series', data_source=data_source,
-            identifier_type=identifier_type, identifier=identifier
-        )
+        lane = SeriesLane(self._db, series_name)
+        url = self.cdn_url_for('series', series_name=series_name)
         annotator = self.manager.annotator(lane)
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,

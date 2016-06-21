@@ -13,6 +13,13 @@ python:
 
 cache: pip
 
+git:
+  submodules: false
+
+before_install:
+  - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+  - git submodule update --init --recursive
+
 install:
   - pip install -r requirements.txt
   - python -m textblob.download_corpora

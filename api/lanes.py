@@ -377,24 +377,13 @@ def lane_for_other_languages(_db, exclude_languages):
     lane.default_for_language = True
     return lane
 
-class LicensePoolBasedLane(Lane):
-    """A lane based on a particular LicensePool"""
+class QueryGeneratedLane(Lane):
+    """A lane dependent on a particular query, instead of a genre or search"""
 
-    DISPLAY_NAME = None
     MAX_CACHE_AGE = 14*24*60*60      # two weeks
-
     # Inside of groups feeds, we want to return a sample
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
-
-    def __init__(self, _db, license_pool, full_name,
-                 display_name=None, sublanes=[], invisible=False):
-        self.license_pool = license_pool
-        display_name = display_name or self.DISPLAY_NAME
-        super(LicensePoolBasedLane, self).__init__(
-            _db, full_name, display_name=display_name,
-            sublanes=sublanes
-        )
 
     def apply_filters(self, qu, facets=None, pagination=None,
             work_model=Work, edition_model=Edition):
@@ -424,12 +413,40 @@ class LicensePoolBasedLane(Lane):
         return self.randomized_sample_works(query, use_min_size=True)
 
 
+class LicensePoolBasedLane(QueryGeneratedLane):
+    """A query-based lane connected on a particular LicensePool"""
+
+    DISPLAY_NAME = None
+    ROUTE = None
+
+    def __init__(self, _db, license_pool, full_name,
+                 display_name=None, sublanes=[], invisible=False):
+        self.license_pool = license_pool
+        display_name = display_name or self.DISPLAY_NAME
+        super(LicensePoolBasedLane, self).__init__(
+            _db, full_name, display_name=display_name,
+            sublanes=sublanes
+        )
+
+    @property
+    def url_arguments(self):
+        if not self.ROUTE:
+            raise NotImplementedError()
+        kwargs = dict(
+            data_source=self.license_pool.data_source.name,
+            identifier_type=self.license_pool.identifier.type,
+            identifier=self.license_pool.identifier.identifier
+        )
+        return self.ROUTE, kwargs
+
+
 class RelatedBooksLane(LicensePoolBasedLane):
     """A lane of Works all related to the Work of a particular LicensePool
 
     Sublanes currently include a SeriesLane and a RecommendationLane"""
 
     DISPLAY_NAME = "Related Books"
+    ROUTE = 'related_books'
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
                  novelist_api=None):
@@ -463,9 +480,9 @@ class RelatedBooksLane(LicensePoolBasedLane):
             pass
 
         # Create a series sublane.
-        series = license_pool.presentation_edition.series
-        if series:
-            sublanes.append(SeriesLane(_db, license_pool))
+        series_name = license_pool.presentation_edition.series
+        if series_name:
+            sublanes.append(SeriesLane(_db, series_name))
 
         return sublanes
 
@@ -475,35 +492,11 @@ class RelatedBooksLane(LicensePoolBasedLane):
         return None
 
 
-class SeriesLane(LicensePoolBasedLane):
-    """A lane of Works in a series based on a particular LicensePool"""
-
-    def __init__(self, _db, license_pool):
-        series_name = license_pool.presentation_edition.series
-        full_name = display_name = series_name
-        super(SeriesLane, self).__init__(
-            _db, license_pool, full_name, display_name=display_name
-        )
-
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
-        edition = self.license_pool.presentation_edition
-        series = edition.series
-        if not series:
-            return None
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
-
-        # Aliasing Edition here allows this query to function
-        # regardless of work_model and existing joins.
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).filter(work_edition.series==series)
-        qu = qu.order_by(work_edition.series_position, work_edition.title)
-        return qu
-
-
 class RecommendationLane(LicensePoolBasedLane):
     """A lane of recommended Works based on a particular LicensePool"""
 
     DISPLAY_NAME = "Recommended Books"
+    ROUTE = "recommendations"
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
@@ -534,4 +527,37 @@ class RecommendationLane(LicensePoolBasedLane):
         qu = Work.from_identifiers(
             self._db, self.recommendations, base_query=qu
         )
+        return qu
+
+
+class SeriesLane(QueryGeneratedLane):
+    """A lane of Works in a particular series"""
+
+    ROUTE = 'series'
+    MAX_CACHE_AGE = 48*60*60    # 48 hours
+
+    def __init__(self, _db, series_name):
+        if not series_name:
+            raise ValueError("SeriesLane can't be created without series")
+        self.series = series_name
+        full_name = display_name = self.series
+        super(SeriesLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+    @property
+    def url_arguments(self):
+        kwargs = dict(series_name=self.series)
+        return self.ROUTE, kwargs
+
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+        if not self.series:
+            return None
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # Aliasing Edition here allows this query to function
+        # regardless of work_model and existing joins.
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).filter(work_edition.series==self.series)
+        qu = qu.order_by(work_edition.series_position, work_edition.title)
         return qu

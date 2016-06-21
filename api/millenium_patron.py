@@ -40,21 +40,27 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     log = logging.getLogger("Millenium Patron API")
 
-    def __init__(self, root):
+    def __init__(self, root, authorization_blacklist=[]):
         if not root.endswith('/'):
             root = root + "/"
         self.root = root
         self.parser = etree.HTMLParser()
+        self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
 
     @classmethod
     def from_config(cls):
         config = Configuration.integration(
             Configuration.MILLENIUM_INTEGRATION, required=True)
+
         host = config.get(Configuration.URL)
         if not host:
             cls.log.info("No Millenium Patron client configured.")
             return None
-        return cls(host)            
+
+        blacklist_strings = config.get(
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST, []
+        )
+        return cls(host, authorization_blacklist=blacklist_strings)
 
     def request(self, url):
         return requests.get(url)
@@ -80,6 +86,13 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         for k, v in self._extract_text_nodes(response.content):
             if k in self.MULTIVALUE_FIELDS:
                 d.setdefault(k, []).append(v)
+            elif k == self.BARCODE_FIELD and any(
+                    x.search(v) for x in self.blacklist
+            ):
+                # This barcode contains a blacklisted
+                # string. Ignore it, even if this means the patron
+                # ends up with no barcode whatsoever.
+                continue
             else:
                 d[k] = v
         return d

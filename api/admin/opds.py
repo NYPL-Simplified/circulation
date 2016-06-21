@@ -101,21 +101,21 @@ class AdminFeed(AcquisitionFeed):
         # Render a 'start' link
         top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
-        feed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
 
         # Render an 'up' link, same as the 'start' link to indicate top-level feed
-        feed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            feed.add_link_to_feed(feed.feed, rel="next", href=annotator.complaints_url(facets, pagination.next_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="next", href=annotator.complaints_url(facets, pagination.next_page))
 
         if pagination.offset > 0:
-            feed.add_link_to_feed(feed.feed, rel="first", href=annotator.complaints_url(facets, pagination.first_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="first", href=annotator.complaints_url(facets, pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link_to_feed(feed.feed, rel="previous", href=annotator.complaints_url(facets, previous_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.complaints_url(facets, previous_page))
 
         annotator.annotate_feed(feed)
         return unicode(feed)
@@ -136,21 +136,21 @@ class AdminFeed(AcquisitionFeed):
         # Render a 'start' link
         top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
-        feed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
 
         # Render an 'up' link, same as the 'start' link to indicate top-level feed
-        feed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            feed.add_link_to_feed(feed.feed, rel="next", href=annotator.suppressed_url(pagination.next_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="next", href=annotator.suppressed_url(pagination.next_page))
 
         if pagination.offset > 0:
-            feed.add_link_to_feed(feed.feed, rel="first", href=annotator.suppressed_url(pagination.first_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="first", href=annotator.suppressed_url(pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link_to_feed(feed.feed, rel="previous", href=annotator.suppressed_url(previous_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.suppressed_url(previous_page))
 
         annotator.annotate_feed(feed)
         return unicode(feed)

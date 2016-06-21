@@ -259,6 +259,27 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_([edition.primary_identifier], 
             provider_with_cutoff.items_that_need_coverage().all())
 
+    def test_items_that_need_coverage_respects_count_as_covered(self):
+        # Here's a coverage record with a transient failure.
+        identifier = self._identifier()
+        cr = self._coverage_record(
+            identifier, self.provider.output_source, 
+            operation=self.provider.operation,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        
+        # Ordinarily, a transient failure does not count as coverage.
+        [needs_coverage] = self.provider.items_that_need_coverage().all()
+        eq_(needs_coverage, identifier)
+
+        # But if we say that transient failure counts as coverage, it
+        # does count.
+        eq_([],
+            self.provider.items_that_need_coverage(
+                count_as_covered=CoverageRecord.TRANSIENT_FAILURE
+            ).all()
+        )
+
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
@@ -278,7 +299,7 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         # A Wrangler-synced item that doesn't have any owned licenses
         covered_unlicensed_lp = self._licensepool(None, open_access=False, set_edition_as_presentation=True)
         covered_unlicensed_lp.update_availability(0, 0, 0, 0)
-        self._coverage_record(
+        cr = self._coverage_record(
             covered_unlicensed_lp.presentation_edition, self.source,
             operation=CoverageRecord.SYNC_OPERATION
         )
@@ -300,6 +321,10 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         assert uncovered_unlicensed_lp.identifier not in items
         # Only synced items without owned licenses are returned.
         eq_([covered_unlicensed_lp.identifier], items)
+
+        # Items that had unsuccessful syncs are not returned.
+        cr.status = CoverageRecord.TRANSIENT_FAILURE
+        eq_([], self.reaper.items_that_need_coverage().all())
 
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
