@@ -8,15 +8,15 @@ from nose.tools import (
 from api.millenium_patron import MilleniumPatronAPI
 from . import DatabaseTest, sample_data
 
-class DummyResponse(object):
+class MockResponse(object):
     def __init__(self, content):
         self.status_code = 200
         self.content = content
 
-class DummyAPI(MilleniumPatronAPI):
+class MockAPI(MilleniumPatronAPI):
 
-    def __init__(self):
-        super(DummyAPI, self).__init__("")
+    def __init__(self, root="", *args, **kwargs):
+        super(MockAPI, self).__init__(root, *args, **kwargs)
         self.queue = []
 
     def sample_data(self, filename):
@@ -27,14 +27,14 @@ class DummyAPI(MilleniumPatronAPI):
         self.queue.append(data)
 
     def request(self, *args, **kwargs):
-        return DummyResponse(self.queue.pop())
+        return MockResponse(self.queue.pop())
 
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = DummyAPI()
+        self.api = MockAPI()
         
     def test_dump_no_such_barcode(self):
         self.api.enqueue("dump.no such barcode.html")
@@ -109,4 +109,29 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("44444444444447", patron_info.get('barcode'))
         eq_("alice", patron_info.get('username'))
 
+    def test_first_value_takes_precedence(self):
+        """This patron has two authorization identifiers.
+        The second one takes precedence.
+        """
+        self.api.enqueue("dump.two_barcodes.html")
+        patron_info = self.api.patron_info("alice")
+        eq_("SECOND_barcode", patron_info.get('barcode'))
         
+    def test_authorization_identifier_blacklist(self):
+        """This patron has two authorization identifiers, but the second one
+        contains a blacklisted string. The first takes precedence.
+        """
+        api = MockAPI(authorization_blacklist=["second"])
+        api.enqueue("dump.two_barcodes.html")
+        patron_info = api.patron_info("alice")
+        eq_("FIRST_barcode", patron_info.get('barcode'))
+
+    def test_blacklist_may_remove_every_authorization_identifier(self):
+        """A patron may end up with no authorization identifier whatsoever
+        because they're all blacklisted.
+        """
+        api = MockAPI(authorization_blacklist=["barcode"])
+        api.enqueue("dump.two_barcodes.html")
+        patron_info = api.patron_info("alice")
+        eq_(None, patron_info.get('barcode'))
+
