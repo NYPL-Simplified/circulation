@@ -43,6 +43,7 @@ class Configuration(CoreConfiguration):
     SECRET_KEY = "secret_key"
 
     MILLENIUM_INTEGRATION = "Millenium"
+    AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
 
     LIST_FIELDS = "fields"
