@@ -130,7 +130,7 @@ class AtomFeed(object):
 
 
     def __unicode__(self):
-        if not self.feed:
+        if self.feed is None:
             return None
 
         string_tree = etree.tostring(self.feed, pretty_print=True)
