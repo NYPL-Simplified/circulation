@@ -9,7 +9,6 @@ from requests.exceptions import (
 )
 import sys
 
-from bs4 import BeautifulSoup
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func

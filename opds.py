@@ -1,7 +1,6 @@
 
 from collections import (
     defaultdict,
-    #Counter,
 )
 
 from urlparse import urlparse, urljoin
