@@ -37,7 +37,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work = self._work(
             title="title", authors="author", fiction=True,
             audience="audience", language="lang", 
-            with_license_pool=True
+            with_license_pool=True, genre="Folklore"
         )     
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
@@ -57,3 +57,4 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("audience", params['cd5'][0])
         eq_("lang", params['cd7'][0])
         eq_(str(now), params['cd9'][0])
+        eq_("Folklore", params['cd10'][0])

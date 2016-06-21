@@ -39,6 +39,7 @@ from core.classifier import (
     SimplifiedGenreClassifier
 )
 from datetime import datetime, timedelta
+from core.analytics import format_range
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -742,3 +743,53 @@ class TestFeedController(AdminControllerTest):
             url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
 
         eq_(2, len(response['circulation_events']))
+
+    def test_bulk_circulation_events(self):
+        [lp] = self.english_1.license_pools
+        edition = self.english_1.presentation_edition
+        identifier = self.english_1.presentation_edition.primary_identifier.identifier
+        genre = self._db.query(Genre).first()
+        self.english_1.genres = [genre]
+        types = [
+            CirculationEvent.CHECKIN,
+            CirculationEvent.CHECKOUT,
+            CirculationEvent.HOLD_PLACE,
+            CirculationEvent.HOLD_RELEASE,
+            CirculationEvent.TITLE_ADD
+        ]
+        num = len(types)
+        time = datetime.now() - timedelta(minutes=len(types))
+        for type in types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp, type=type, start=time, end=time)
+            time += timedelta(minutes=1)
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.bulk_circulation_events()
+        rows = response[1::] # skip header row
+        eq_(num, len(rows))
+        eq_(types, [row[1] for row in rows])
+        eq_([identifier]*num, [row[2] for row in rows])
+        eq_([edition.title]*num, [row[3] for row in rows])
+        eq_([edition.author]*num, [row[4] for row in rows])
+        eq_(["fiction"]*num, [row[5] for row in rows])
+        eq_([self.english_1.audience]*num, [row[6] for row in rows])
+        eq_([edition.publisher]*num, [row[7] for row in rows])
+        eq_([edition.language]*num, [row[8] for row in rows])
+        eq_([format_range(self.english_1.target_age)]*num, [row[9] for row in rows])
+        eq_([genre.name]*num, [row[10] for row in rows])
+
+        # use start time
+        start = datetime.now()
+        with self.app.test_request_context("/?start=%s" % start):
+            response = self.manager.admin_feed_controller.bulk_circulation_events()
+        rows = response[1::] # skip header row
+        eq_(0, len(rows))
+        
+        # use end time
+        end = datetime.now() - timedelta(minutes=20)
+        with self.app.test_request_context("/?end=%s" % end):
+            response = self.manager.admin_feed_controller.bulk_circulation_events()
+        rows = response[1::] # skip header row
+        eq_(0, len(rows))

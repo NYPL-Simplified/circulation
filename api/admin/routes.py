@@ -3,7 +3,8 @@ from functools import wraps
 import flask
 from flask import (
     Response,
-    redirect
+    redirect,
+    stream_with_context
 )
 import os
 
@@ -18,6 +19,9 @@ from templates import (
     admin as admin_template,
     admin_sign_in_again as sign_in_again_template,
 )
+
+import csv
+from StringIO import StringIO
 
 # The secret key is used for signing cookies for admin login
 app.secret_key = Configuration.get(Configuration.SECRET_KEY)
@@ -144,6 +148,26 @@ def genres():
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
+
+@app.route('/admin/bulk_circulation_events')
+@returns_problem_detail
+@requires_admin
+def bulk_circulation_events():
+    """Returns a CSV representation of all circulation events with optional
+    start and end times."""
+    data = app.manager.admin_feed_controller.bulk_circulation_events()
+    print len(data)
+    if isinstance(data, ProblemDetail):
+        return data
+    def generate():
+        output = StringIO()
+        writer = csv.writer(output)
+        for row in data:
+            writer.writerow(row)
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+    return Response(stream_with_context(generate()), mimetype="text/csv")
 
 @app.route('/admin/circulation_events')
 @returns_problem_detail

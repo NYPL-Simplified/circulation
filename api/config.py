@@ -136,7 +136,7 @@ class Configuration(CoreConfiguration):
         if not config.get(cls.POLICIES):
             config[cls.POLICIES] = {}
         if not config[cls.POLICIES].get(cls.ANALYTICS_POLICY):
-            config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(["api.local_analytics_provuder"], config)
+            config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(["api.local_analytics_provider"], config)
         cls.instance = config
 
 @contextlib.contextmanager

@@ -1,6 +1,7 @@
 from config import Configuration
 import uuid
 import urllib
+from core.analytics import format_range
 from core.util.http import HTTP
 
 class GoogleAnalyticsProvider(object):
@@ -14,16 +15,6 @@ class GoogleAnalyticsProvider(object):
     def __init__(self, tracking_id):
         self.tracking_id = tracking_id
 
-    def format_range(self, r):
-        if not r or not r.lower:
-            return None
-        min = r.lower if r.lower_inc else r.lower + 1
-        if r.upper:
-            max = r.upper + 1 if r.upper_inc else r.upper
-            ",".join(range(min, max))
-        else:
-            return str(min)
-
     def collect_event(self, _db, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
         work = license_pool.work
@@ -32,6 +23,8 @@ class GoogleAnalyticsProvider(object):
             'v': 1,
             'tid': self.tracking_id,
             'cid': client_id,
+            'aip': 1, # anonymize IP
+            'ds': "Circulation Manager",
             't': 'event',
             'ec': 'circulation',
             'ea': event_type,
@@ -42,8 +35,9 @@ class GoogleAnalyticsProvider(object):
             'cd5': work.audience,
             'cd6': edition.publisher,
             'cd7': edition.language,
-            'cd8': self.format_range(work.target_age),
-            'cd9': time
+            'cd8': format_range(work.target_age),
+            'cd9': time,
+            'cd10': work.top_genre()
         })
         self.post("http://www.google-analytics.com/collect", params)
 

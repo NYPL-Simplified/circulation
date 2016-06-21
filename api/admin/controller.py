@@ -606,16 +606,16 @@ class FeedController(CirculationManagerController):
             })
         return data
 
-    def circulation_events(self):
+    def circulation_events(self, csv=False):
         annotator = AdminAnnotator(self.circulation)
-
         num = min(int(flask.request.args.get("num", "100")), 500)
+
         results = self._db.query(CirculationEvent) \
             .join(LicensePool) \
-            .order_by(CirculationEvent.id.desc()) \
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
+            .order_by(CirculationEvent.id.desc()) \
             .limit(num) \
             .all()
 
@@ -631,3 +631,59 @@ class FeedController(CirculationManagerController):
         }, results)
 
         return dict({ "circulation_events": events })
+
+    def bulk_circulation_events(self):
+        annotator = AdminAnnotator(self.circulation)
+
+        start = flask.request.args.get("start")
+        end = flask.request.args.get("end")
+
+        from sqlalchemy.sql import func
+
+        t = self._db.query(
+            WorkGenre.work_id,
+            func.max(WorkGenre.affinity).label('max_affinity'),
+        ).group_by(WorkGenre.work_id).subquery()
+
+        query = self._db.query(
+                CirculationEvent, Identifier, Work, Edition, Genre
+            ) \
+            .join(LicensePool) \
+            .join(Work) \
+            .join(LicensePool.presentation_edition) \
+            .join(Edition.primary_identifier) \
+            .join(Work.work_genres) \
+            .join(WorkGenre.genre) \
+            .join(t, t.c.work_id == Work.id) \
+            .filter(WorkGenre.affinity == t.c.max_affinity) \
+            .order_by(CirculationEvent.start.asc())
+
+        if start:
+            query = query.filter(CirculationEvent.start > start)
+
+        if end:
+            query = query.filter(CirculationEvent.end < end)
+
+        results = query.all()
+
+        header = ["time", "type", "book_id", "title", "author", "fiction",
+                "audience", "publisher", "language", "target_age", "genre"]
+
+        from core.analytics import format_range
+        def result_to_row(result):
+            (event, identifier, work, edition, genre) = result
+            return [
+                str(event.start) or "",
+                event.type,
+                identifier.identifier,
+                edition.title,
+                edition.author,
+                "fiction" if work.fiction else "nonfiction",
+                work.audience,
+                edition.publisher,
+                edition.language,
+                format_range(work.target_age),
+                genre.name
+            ]
+
+        return [header] + map(result_to_row, results)
