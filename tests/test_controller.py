@@ -181,18 +181,7 @@ class TestBaseController(CirculationControllerTest):
         '''
         response = self.controller.authenticate()
         
-        found_realm = False
-        for header_key, header_value in response.headers:
-            print "%s, %s" % (header_key, header_value)
-            if header_key == 'WWW-Authenticate':
-                found_realm = True
-                assert header_value == (u'Basic realm="Library card"')
-
-        assert(found_realm)
-
-        #('Content-Type', u'application/vnd.opds.authentication.v1.0+json')
-        #('Content-Length', u'478')
-
+        eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
 
 
     def test_load_lane(self):
