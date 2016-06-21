@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www
 RUN git clone https://github.com/NYPL-Simplified/circulation.git
 WORKDIR circulation
-RUN git submodule update --init --recursive
+RUN /bin/bash -c 'git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git && git submodule update --init --recursive'
 COPY post-receive.sample .git/hooks
 
 # Set up the virtual environment and install python libraries
