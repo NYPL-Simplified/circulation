@@ -811,15 +811,13 @@ class TestWorkController(CirculationControllerTest):
         [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
         [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
         eq_("Around the World", collection_link['title'])
-        expected = urllib.quote(work_url + 'series')
+        expected = urllib.quote('series/Around the World')
         eq_(True, collection_link['href'].endswith(expected))
 
         [e3] = [e for e in feed['entries'] if e['title'] == self.english_1.title]
         [collection_link] = [link for link in e3['links'] if link['rel']=='collection']
         eq_("Around the World", collection_link['title'])
-        expected = urllib.quote(work_url + 'series')
         eq_(True, collection_link['href'].endswith(expected))
-
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
@@ -846,65 +844,22 @@ class TestWorkController(CirculationControllerTest):
     def test_series(self):
         # If the work doesn't have a series, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(
-                self.datasource, self.identifier.type, self.identifier.identifier
-            )
+            response = self.manager.work_controller.series("")
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        # If the work is in a series without other volumes, a feed is
-        # returned containing only that work.
+        # If the work is in a series, a feed is returned.
         self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
-        self.lp.presentation_edition.series_position = 8
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.series(
-                self.datasource, self.identifier.type, self.identifier.identifier
+                "Like As If Whatever Mysteries"
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_("Like As If Whatever Mysteries", feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
-
-        # Remove cache.
-        [cached_empty_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_empty_feed)
-        # When other volumes present themselves, the feed has more entries.
-        other_volume = self.english_2.license_pools[0].presentation_edition
-        other_volume.series = "Like As If Whatever Mysteries"
-        other_volume.series_position = 1
-        SessionManager.refresh_materialized_views(self._db)
-
-        with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(
-                self.datasource, self.identifier.type, self.identifier.identifier
-            )
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [e1, e2] = feed['entries']
-        # The entries are sorted according to their series_position.
-        eq_(self.english_2.title, e1['title'])
-        eq_(self.english_1.title, e2['title'])
-
-        # Remove cache.
-        [cached_empty_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_empty_feed)
-        # Barring series_position, the entries are sorted according to their
-        # titles.
-        self.lp.presentation_edition.series_position = None
-        other_volume.series_position = None
-        with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(
-                self.datasource, self.identifier.type, self.identifier.identifier
-            )
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [e1, e2] = feed['entries']
-        eq_(self.english_1.title, e1['title'])
-        eq_(self.english_2.title, e2['title'])
 
 
 class TestFeedController(CirculationControllerTest):

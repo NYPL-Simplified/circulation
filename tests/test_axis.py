@@ -211,6 +211,33 @@ class TestCirculationMonitor(DatabaseTest):
                        and x.operation is None]
             eq_(1, len(records))
 
+    def test_process_book_updates_old_licensepool(self):
+        """If the LicensePool already exists, the circulation monitor
+        updates it.
+        """
+        edition, licensepool = self._edition(
+            with_license_pool=True, identifier_type=Identifier.AXIS_360_ID,
+            identifier_id=u'0003642860'
+        )
+        # We start off with availability information based on the
+        # default for test data.
+        eq_(1, licensepool.licenses_owned)
+
+        identifier = IdentifierData(
+            type=licensepool.identifier.type,
+            identifier=licensepool.identifier.identifier
+        )
+        metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
+        monitor = Axis360CirculationMonitor(self._db)
+        monitor.api = None
+        edition, licensepool = monitor.process_book(
+            metadata, self.AVAILABILITY_DATA
+        )
+
+        # Now we have information based on the CirculationData.
+        eq_(9, licensepool.licenses_owned)
+
+
 class TestResponseParser(object):
 
     @classmethod
