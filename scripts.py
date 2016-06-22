@@ -57,8 +57,10 @@ from core.opds_import import (
     OPDSImporter,
 )
 from core.opds import (
-    OPDSFeed,
     AcquisitionFeed,
+)
+from util.opds_writer import (    
+     OPDSFeed,
 )
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex

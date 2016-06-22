@@ -117,19 +117,6 @@ class Configuration(CoreConfiguration):
         return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
 
     @classmethod
-    def authentication_policy(cls):
-        # Find the name and configuration of the integration to be used
-        # when doing authentication
-        name = cls.policy(cls.AUTHENTICATION)
-        if not name:
-            # Authentication does not happen locally in this system.
-            return {}
-        integration = cls.integration(name, required=True)
-        integration = dict(integration)
-        integration[cls.NAME] = name
-        return integration
-
-    @classmethod
     def load(cls):
         CoreConfiguration.load()
         config = CoreConfiguration.instance

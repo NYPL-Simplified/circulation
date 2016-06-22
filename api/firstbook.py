@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 import requests
 import logging
-from authenticator import Authenticator
+from authenticator import BasicAuthAuthenticator
 from config import Configuration
 from circulation_exceptions import RemoteInitiatedServerError
 import urlparse
@@ -11,9 +11,8 @@ from core.model import (
     Patron,
 )
 
-class FirstBookAuthenticationAPI(Authenticator):
+class FirstBookAuthenticationAPI(BasicAuthAuthenticator):
 
-    TYPE = Authenticator.BASIC_AUTH
     NAME = 'First Book'
 
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
@@ -22,12 +21,14 @@ class FirstBookAuthenticationAPI(Authenticator):
 
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, host, key):
+    def __init__(self, host, key, test_username=None, test_password=None):
         if '?' in host:
             host += '&'
         else:
             host += '?'
         self.root = host + 'key=' + key
+        self.test_username = test_username
+        self.test_password = test_password
 
     @classmethod
     def from_config(cls):
@@ -37,7 +38,10 @@ class FirstBookAuthenticationAPI(Authenticator):
         if not host:
             cls.log.warning("No First Book client configured.")
             return None
-        return cls(host, key)
+        test_username = config.get(Configuration.AUTHENTICATION_TEST_USERNAME)
+        test_password = config.get(Configuration.AUTHENTICATION_TEST_PASSWORD)
+        return cls(host, key, test_username=test_username, 
+                   test_password=test_password)
 
     def request(self, url):
         return requests.get(url)

@@ -64,8 +64,10 @@ from core.util.cdn import cdnify
 import base64
 import feedparser
 from core.opds import (
-    OPDSFeed,
     AcquisitionFeed,
+)
+from core.util.opds_writer import (    
+    OPDSFeed,
 )
 from api.opds import CirculationManagerAnnotator
 from api.admin.oauth import DummyGoogleClient
