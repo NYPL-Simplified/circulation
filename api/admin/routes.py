@@ -20,7 +20,7 @@ from templates import (
     admin_sign_in_again as sign_in_again_template,
 )
 
-import csv
+import csv, codecs, cStringIO
 from StringIO import StringIO
 
 # The secret key is used for signing cookies for admin login
@@ -156,17 +156,46 @@ def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional
     start and end times."""
     data = app.manager.admin_feed_controller.bulk_circulation_events()
-    print len(data)
     if isinstance(data, ProblemDetail):
         return data
+
+    class UnicodeWriter:
+        """
+        A CSV writer for Unicode data.
+        """
+
+        def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+            # Redirect output to a queue
+            self.queue = StringIO()
+            self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+            self.stream = f
+            self.encoder = codecs.getincrementalencoder(encoding)()
+
+        def writerow(self, row):
+            self.writer.writerow([s.encode("utf-8") for s in row])
+            # Fetch UTF-8 output from the queue ...
+            data = self.queue.getvalue()
+            data = data.decode("utf-8")
+            # ... and reencode it into the target encoding
+            data = self.encoder.encode(data)
+            # write to the target stream
+            self.stream.write(data)
+            # empty queue
+            self.queue.truncate(0)
+
+        def writerows(self, rows):
+            for row in rows:
+                self.writerow(row)
+
     def generate():
         output = StringIO()
-        writer = csv.writer(output)
+        writer = UnicodeWriter(output)
         for row in data:
             writer.writerow(row)
             yield output.getvalue()
             output.seek(0)
             output.truncate(0)
+
     return Response(stream_with_context(generate()), mimetype="text/csv")
 
 @app.route('/admin/circulation_events')

@@ -39,7 +39,6 @@ from core.classifier import (
     SimplifiedGenreClassifier
 )
 from datetime import datetime, timedelta
-from core.analytics import format_age_range
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -747,7 +746,7 @@ class TestFeedController(AdminControllerTest):
     def test_bulk_circulation_events(self):
         [lp] = self.english_1.license_pools
         edition = self.english_1.presentation_edition
-        identifier = self.english_1.presentation_edition.primary_identifier.identifier
+        identifier = self.english_1.presentation_edition.primary_identifier
         genre = self._db.query(Genre).first()
         self.english_1.genres = [genre]
         types = [
@@ -770,15 +769,16 @@ class TestFeedController(AdminControllerTest):
         rows = response[1::] # skip header row
         eq_(num, len(rows))
         eq_(types, [row[1] for row in rows])
-        eq_([identifier]*num, [row[2] for row in rows])
-        eq_([edition.title]*num, [row[3] for row in rows])
-        eq_([edition.author]*num, [row[4] for row in rows])
-        eq_(["fiction"]*num, [row[5] for row in rows])
-        eq_([self.english_1.audience]*num, [row[6] for row in rows])
-        eq_([edition.publisher]*num, [row[7] for row in rows])
-        eq_([edition.language]*num, [row[8] for row in rows])
-        eq_([format_age_range(self.english_1.target_age)]*num, [row[9] for row in rows])
-        eq_([genre.name]*num, [row[10] for row in rows])
+        eq_([identifier.identifier]*num, [row[2] for row in rows])
+        eq_([identifier.type]*num, [row[3] for row in rows])
+        eq_([edition.title]*num, [row[4] for row in rows])
+        eq_([edition.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([self.english_1.audience]*num, [row[7] for row in rows])
+        eq_([edition.publisher]*num, [row[8] for row in rows])
+        eq_([edition.language]*num, [row[9] for row in rows])
+        eq_([self.english_1.target_age_string]*num, [row[10] for row in rows])
+        eq_([genre.name]*num, [row[11] for row in rows])
 
         # use start time
         start = datetime.now()

@@ -10,7 +10,6 @@ from flask import (
     redirect,
 )
 from flask.ext.babel import lazy_gettext as _
-from core.analytics import format_age_range
 
 from core.model import (
     get_one,
@@ -607,7 +606,7 @@ class FeedController(CirculationManagerController):
             })
         return data
 
-    def circulation_events(self, csv=False):
+    def circulation_events(self):
         annotator = AdminAnnotator(self.circulation)
         num = min(int(flask.request.args.get("num", "100")), 500)
 
@@ -667,8 +666,10 @@ class FeedController(CirculationManagerController):
 
         results = query.all()
 
-        header = ["time", "type", "book_id", "title", "author", "fiction",
-                "audience", "publisher", "language", "target_age", "genre"]
+        header = [
+            "time", "event", "identifier", "identifier_type", "title", "author", 
+            "fiction", "audience", "publisher", "language", "target_age", "genre"
+        ]
 
         def result_to_row(result):
             (event, identifier, work, edition, genre) = result
@@ -676,13 +677,14 @@ class FeedController(CirculationManagerController):
                 str(event.start) or "",
                 event.type,
                 identifier.identifier,
+                identifier.type,
                 edition.title,
                 edition.author,
                 "fiction" if work.fiction else "nonfiction",
                 work.audience,
                 edition.publisher,
                 edition.language,
-                format_age_range(work.target_age),
+                work.target_age_string,
                 genre.name
             ]
 
