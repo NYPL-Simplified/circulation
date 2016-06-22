@@ -229,9 +229,14 @@ def admin_view(**kwargs):
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
         redirect_url = flask.request.url
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+    show_circ_events_download = (
+        "core.local_analytics_provider" in Configuration.policy("analytics").provider_strings
+    )
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,
-        home_url=app.manager.url_for('acquisition_groups'))
+        home_url=app.manager.url_for('acquisition_groups'),
+        show_circ_events_download=show_circ_events_download
+    )
 
 @app.route('/admin')
 @app.route('/admin/')

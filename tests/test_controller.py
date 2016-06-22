@@ -76,7 +76,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
-from api.local_analytics_provider import LocalAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
 
 class TestCirculationManager(CirculationManager):
 
