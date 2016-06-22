@@ -13,10 +13,11 @@ class Analytics(object):
             provider_module = importlib.import_module(provider_string)
             provider_class = getattr(provider_module, "Provider")
             analytics_providers.append(provider_class.from_config(config))
-        return cls(analytics_providers)
+        return cls(analytics_providers, providers)
 
-    def __init__(self, providers=[]):
+    def __init__(self, providers=[], provider_strings=[]):
         self.providers = providers
+        self.provider_strings = provider_strings
 
     def collect_event(self, _db, license_pool, event_type, time=None, **kwargs):
         if not time:
