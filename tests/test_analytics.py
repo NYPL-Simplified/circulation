@@ -45,13 +45,3 @@ class TestAnalytics(DatabaseTest):
         loaded_config = Configuration._load(json.dumps({}))
         providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
         eq_([], providers)
-
-    def test_format_age_range(self):
-        lower_only = NumericRange(18)
-        eq_("18", format_age_range(lower_only))
-
-        lower_and_upper = NumericRange(14, 17, "[)")
-        eq_("14,15,16", format_age_range(lower_and_upper))
-
-        lower_and_upper_inc = NumericRange(14, 17, "[]")
-        eq_("14,15,16,17", format_age_range(lower_and_upper_inc))

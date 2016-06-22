@@ -3131,6 +3131,8 @@ class Work(Base):
 
     @property
     def target_age_string(self):
+        if not self.target_age:
+            return None
         lower = self.target_age.lower
         upper = self.target_age.upper
         if not upper and not lower:
