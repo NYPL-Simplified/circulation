@@ -5,7 +5,7 @@ from config import (
     Configuration,
     temp_config,
 )
-from analytics import Analytics, format_age_range
+from analytics import Analytics
 from mock_analytics_provider import MockAnalyticsProvider
 from . import DatabaseTest
 from model import CirculationEvent
