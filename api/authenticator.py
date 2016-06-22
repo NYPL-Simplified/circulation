@@ -178,3 +178,18 @@ class Authenticator(object):
             doc[type] = provider_info
 
         return json.dumps(doc)
+
+
+class BasicAuthAuthenticator(Authenticator):
+
+    TYPE = Authenticator.BASIC_AUTH
+
+    def testing_patron(self, _db):
+        """Return a real Patron object reserved for testing purposes.
+
+        :return: A 2-tuple (Patron, password)
+        """
+        if self.test_username is None or self.test_password is None:
+            return None, None
+        header = dict(username=self.test_username, password=self.test_password)
+        return self.authenticated_patron(_db, header), self.test_password
