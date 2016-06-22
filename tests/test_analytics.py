@@ -9,7 +9,6 @@ from analytics import Analytics
 from mock_analytics_provider import MockAnalyticsProvider
 from . import DatabaseTest
 from model import CirculationEvent
-from psycopg2.extras import NumericRange
 import json
 
 class TestAnalytics(DatabaseTest):
