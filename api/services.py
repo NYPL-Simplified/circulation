@@ -24,7 +24,7 @@ class ServiceStatus(object):
 
     def __init__(self, _db):
         self._db = _db
-        self.conf = Configuration.authentication_policy()
+        self.auth = Authenticator.initialize(self._db, test=False)
         self.overdrive = OverdriveAPI.from_environment(self._db)
         self.threem = ThreeMAPI.from_environment(self._db)
         self.axis = Axis360API.from_environment(self._db)
@@ -35,17 +35,28 @@ class ServiceStatus(object):
         Returns a dict if response is set to true.
         """
         status = dict()
-        patrons = []
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
-        def do_patron():
-            patron = self.get_patron()
-            patrons.append(patron)
-        self._add_timing(status, 'Patron authentication', do_patron)
-
-        if not patrons:
-            self.log.error("No patron created during patron authentication")
+        if not self.auth.basic_auth_provider:
+            self.log.error(
+                "Basic auth not configured, cannot perform timing tests."
+            )
             return status
-        patron = patrons[0]
+
+        patron_info = []
+        def do_patron():
+            patron, password = self.auth.basic_auth_provider.testing_patron(
+                self._db
+            )
+            # Stick it in a list so we can use it once we leave the function.
+            patron_info.append((patron, password))
+
+        service = 'Patron authentication'
+        self._add_timing(status, service, do_patron)
+        if not patron_info or patron_info == [(None, None)]:
+            error = "Could not create patron with configured credentials."
+            self.log.error(error)
+            status[service] = error
+            return status
+        [(patron, password)] = patron_info
 
         for api in [self.overdrive, self.threem, self.axis]:
             if not api:
@@ -70,8 +81,7 @@ class ServiceStatus(object):
         Intended to be run with an identifier without license restrictions.
         """
         status = dict()
-        patron = self.get_patron()
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
+        patron, password = self.get_patron()
         api = CirculationAPI(
             self._db, overdrive=self.overdrive, threem=self.threem,
             axis=self.axis
@@ -113,16 +123,6 @@ class ServiceStatus(object):
         self._add_timing(status, service, do_checkin)
 
         self.log_status(status)
-
-    def get_patron(self):
-        auth = Authenticator.initialize(self._db)
-        username = self.conf[Configuration.AUTHENTICATION_TEST_USERNAME]
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
-
-        patron = auth.authenticated_patron(self._db, username, password)
-        if not patron:
-            raise ValueError("Could not authenticate test patron!")
-        return patron
 
     def _add_timing(self, status, service, service_action, *args):
         try:

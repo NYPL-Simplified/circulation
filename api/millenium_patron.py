@@ -7,7 +7,7 @@ import datetime
 import requests
 
 from core.util.xmlparser import XMLParser
-from authenticator import Authenticator
+from authenticator import BasicAuthAuthenticator
 from config import Configuration
 import os
 import re
@@ -17,9 +17,8 @@ from core.model import (
     Patron,
 )
 
-class MilleniumPatronAPI(Authenticator, XMLParser):
+class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
 
-    TYPE = Authenticator.BASIC_AUTH
     NAME = "Millenium"
 
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
@@ -40,12 +39,15 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
 
     log = logging.getLogger("Millenium Patron API")
 
-    def __init__(self, root, authorization_blacklist=[]):
+    def __init__(self, root, authorization_blacklist=[], test_username=None,
+                 test_password=None):
         if not root.endswith('/'):
             root = root + "/"
         self.root = root
         self.parser = etree.HTMLParser()
         self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
+        self.test_username = test_username
+        self.test_password = test_password
 
     @classmethod
     def from_config(cls):
@@ -53,6 +55,8 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
             Configuration.MILLENIUM_INTEGRATION, required=True)
 
         host = config.get(Configuration.URL)
+        test_username = config.get(Configuration.AUTHENTICATION_TEST_USERNAME)
+        test_password = config.get(Configuration.AUTHENTICATION_TEST_PASSWORD)
         if not host:
             cls.log.info("No Millenium Patron client configured.")
             return None
@@ -60,7 +64,8 @@ class MilleniumPatronAPI(Authenticator, XMLParser):
         blacklist_strings = config.get(
             Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST, []
         )
-        return cls(host, authorization_blacklist=blacklist_strings)
+        return cls(host, authorization_blacklist=blacklist_strings, 
+                   test_username=test_username, test_password=test_password)
 
     def request(self, url):
         return requests.get(url)
