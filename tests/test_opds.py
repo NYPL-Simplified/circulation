@@ -23,8 +23,9 @@ from core.classifier import (
     Urban_Fantasy
 )
 
-from core.opds import (
-    _strftime
+from core.util.opds_writer import (
+    AtomFeed, 
+    OPDSFeed,
 )
 
 from core.opds_import import (
@@ -43,11 +44,14 @@ from api.opds import (
 )
 from core.opds import (
     AcquisitionFeed,
-    OPDSFeed,
 )
 
 from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
+
+
+_strftime = AtomFeed._strftime
+
 
 class TestCirculationManagerAnnotator(DatabaseTest):
 

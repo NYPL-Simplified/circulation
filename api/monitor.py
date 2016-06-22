@@ -15,6 +15,7 @@ from core.model import (
     LicensePool,
 )
 
+
 class UpdateOpenAccessURL(EditionSweepMonitor):
     """Set Edition.open_access_full_url for all Gutenberg works."""
 

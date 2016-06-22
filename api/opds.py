@@ -10,10 +10,9 @@ from config import Configuration
 from core.opds import (
     Annotator,
     AcquisitionFeed,
-    E,
+)
+from core.util.opds_writer import (    
     OPDSFeed,
-    opds_ns,
-    simplified_ns
 )
 from core.model import (
     Identifier,
@@ -284,7 +283,7 @@ class CirculationManagerAnnotator(Annotator):
             type='application/json',
             href=account_url,
         )
-        feed.add_link(**account_link)
+        feed.add_link_to_feed(feed.feed, **account_link)
         
         # Add a 'search' link.
         lane_name, languages = self._lane_name_and_languages(lane)
@@ -297,7 +296,7 @@ class CirculationManagerAnnotator(Annotator):
             type="application/opensearchdescription+xml",
             href=search_url
         )
-        feed.add_link(**search_link)
+        feed.add_link_to_feed(feed.feed, **search_link)
 
         # Add preload link
         preload_url = dict(
@@ -305,13 +304,13 @@ class CirculationManagerAnnotator(Annotator):
             type='application/atom+xml;profile=opds-catalog;kind=acquisition',
             href=self.url_for('preload', _external=True),
         )
-        feed.add_link(**preload_url)
+        feed.add_link_to_feed(feed.feed, **preload_url)
 
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",
             type=OPDSFeed.ACQUISITION_FEED_TYPE,
             href=self.url_for('active_loans', _external=True))
-        feed.add_link(**shelf_link)
+        feed.add_link_to_feed(feed.feed, **shelf_link)
 
         self.add_configuration_links(feed)
 
@@ -326,10 +325,10 @@ class CirculationManagerAnnotator(Annotator):
             if value:
                 d = dict(href=value, type="text/html", rel=rel)
                 if isinstance(feed, OPDSFeed):
-                    feed.add_link(**d)
+                    feed.add_link_to_feed(feed.feed, **d)
                 else:
                     # This is an ElementTree object.
-                    link = E.link(**d)
+                    link = OPDSFeed.link(**d)
                     feed.append(link)
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold,
@@ -373,7 +372,7 @@ class CirculationManagerAnnotator(Annotator):
                 identifier=identifier.identifier, _external=True)
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
-            revoke_link_tag = E._makeelement("link", **kw)
+            revoke_link_tag = OPDSFeed.makeelement("link", **kw)
             revoke_links.append(revoke_link_tag)
 
         # Add next-step information for every useful delivery
@@ -542,8 +541,8 @@ class CirculationManagerAnnotator(Annotator):
         if rep and rep.media_type:
             kw['type'] = rep.media_type
         link_tag = AcquisitionFeed.link(**kw)
-        always_available = E._makeelement(
-            "{%s}availability" % opds_ns, status="available"
+        always_available = OPDSFeed.makeelement(
+            "{%s}availability" % OPDSFeed.OPDS_NS, status="available"
         )
         link_tag.append(always_available)
         return link_tag
@@ -551,11 +550,11 @@ class CirculationManagerAnnotator(Annotator):
     def add_patron(self, feed_obj):
         patron_details = {}
         if self.patron.username:
-            patron_details["{%s}username" % simplified_ns] = self.patron.username
+            patron_details["{%s}username" % OPDSFeed.SIMPLIFIED_NS] = self.patron.username
         if self.patron.authorization_identifier:
-            patron_details["{%s}authorizationIdentifier" % simplified_ns] = self.patron.authorization_identifier
+            patron_details["{%s}authorizationIdentifier" % OPDSFeed.SIMPLIFIED_NS] = self.patron.authorization_identifier
 
-        patron_tag = E._makeelement("{%s}patron" % simplified_ns, patron_details)
+        patron_tag = OPDSFeed.makeelement("{%s}patron" % OPDSFeed.SIMPLIFIED_NS, patron_details)
         feed_obj.feed.append(patron_tag)
 
 
