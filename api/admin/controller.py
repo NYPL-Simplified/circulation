@@ -55,6 +55,7 @@ from core.classifier import (
     NO_NUMBER,
     NO_VALUE
 )
+from datetime import datetime, timedelta
 
 
 def setup_admin_controllers(manager):
@@ -608,14 +609,14 @@ class FeedController(CirculationManagerController):
 
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation)
-
         num = min(int(flask.request.args.get("num", "100")), 500)
+
         results = self._db.query(CirculationEvent) \
             .join(LicensePool) \
-            .order_by(CirculationEvent.id.desc()) \
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
+            .order_by(CirculationEvent.id.desc()) \
             .limit(num) \
             .all()
 
@@ -631,3 +632,56 @@ class FeedController(CirculationManagerController):
         }, results)
 
         return dict({ "circulation_events": events })
+
+    def bulk_circulation_events(self):
+        default = str(datetime.today()).split(" ")[0]
+        date = flask.request.args.get("date", default)
+        next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
+
+        from sqlalchemy.sql import func
+
+        t = self._db.query(
+            WorkGenre.work_id,
+            func.max(WorkGenre.affinity).label('max_affinity'),
+        ).group_by(WorkGenre.work_id).subquery()
+
+        query = self._db.query(
+                CirculationEvent, Identifier, Work, Edition, Genre
+            ) \
+            .join(LicensePool) \
+            .join(Work) \
+            .join(LicensePool.presentation_edition) \
+            .join(Edition.primary_identifier) \
+            .join(Work.work_genres) \
+            .join(WorkGenre.genre) \
+            .join(t, t.c.work_id == Work.id) \
+            .filter(WorkGenre.affinity == t.c.max_affinity) \
+            .filter(CirculationEvent.start >= date) \
+            .filter(CirculationEvent.start < next_date) \
+            .order_by(CirculationEvent.start.asc())
+
+        results = query.all()
+
+        header = [
+            "time", "event", "identifier", "identifier_type", "title", "author", 
+            "fiction", "audience", "publisher", "language", "target_age", "genre"
+        ]
+
+        def result_to_row(result):
+            (event, identifier, work, edition, genre) = result
+            return [
+                str(event.start) or "",
+                event.type,
+                identifier.identifier,
+                identifier.type,
+                edition.title,
+                edition.author,
+                "fiction" if work.fiction else "nonfiction",
+                work.audience,
+                edition.publisher,
+                edition.language,
+                work.target_age_string,
+                genre.name
+            ]
+
+        return [header] + map(result_to_row, results)

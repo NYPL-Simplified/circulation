@@ -3,7 +3,8 @@ from functools import wraps
 import flask
 from flask import (
     Response,
-    redirect
+    redirect,
+    stream_with_context
 )
 import os
 
@@ -18,6 +19,9 @@ from templates import (
     admin as admin_template,
     admin_sign_in_again as sign_in_again_template,
 )
+
+import csv, codecs, cStringIO
+from StringIO import StringIO
 
 # The secret key is used for signing cookies for admin login
 app.secret_key = Configuration.get(Configuration.SECRET_KEY)
@@ -145,6 +149,55 @@ def genres():
         return data
     return flask.jsonify(**data)
 
+@app.route('/admin/bulk_circulation_events')
+@returns_problem_detail
+@requires_admin
+def bulk_circulation_events():
+    """Returns a CSV representation of all circulation events with optional
+    start and end times."""
+    data = app.manager.admin_feed_controller.bulk_circulation_events()
+    if isinstance(data, ProblemDetail):
+        return data
+
+    class UnicodeWriter:
+        """
+        A CSV writer for Unicode data.
+        """
+
+        def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+            # Redirect output to a queue
+            self.queue = StringIO()
+            self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+            self.stream = f
+            self.encoder = codecs.getincrementalencoder(encoding)()
+
+        def writerow(self, row):
+            self.writer.writerow([s.encode("utf-8") for s in row])
+            # Fetch UTF-8 output from the queue ...
+            data = self.queue.getvalue()
+            data = data.decode("utf-8")
+            # ... and reencode it into the target encoding
+            data = self.encoder.encode(data)
+            # write to the target stream
+            self.stream.write(data)
+            # empty queue
+            self.queue.truncate(0)
+
+        def writerows(self, rows):
+            for row in rows:
+                self.writerow(row)
+
+    def generate():
+        output = StringIO()
+        writer = UnicodeWriter(output)
+        for row in data:
+            writer.writerow(row)
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
+    return Response(stream_with_context(generate()), mimetype="text/csv")
+
 @app.route('/admin/circulation_events')
 @returns_problem_detail
 @requires_admin
@@ -176,9 +229,14 @@ def admin_view(**kwargs):
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
         redirect_url = flask.request.url
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+    show_circ_events_download = (
+        "core.local_analytics_provider" in Configuration.policy("analytics")
+    )
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,
-        home_url=app.manager.url_for('acquisition_groups'))
+        home_url=app.manager.url_for('acquisition_groups'),
+        show_circ_events_download=show_circ_events_download
+    )
 
 @app.route('/admin')
 @app.route('/admin/')

@@ -38,7 +38,7 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -742,3 +742,47 @@ class TestFeedController(AdminControllerTest):
             url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
 
         eq_(2, len(response['circulation_events']))
+
+    def test_bulk_circulation_events(self):
+        [lp] = self.english_1.license_pools
+        edition = self.english_1.presentation_edition
+        identifier = self.english_1.presentation_edition.primary_identifier
+        genre = self._db.query(Genre).first()
+        self.english_1.genres = [genre]
+        types = [
+            CirculationEvent.CHECKIN,
+            CirculationEvent.CHECKOUT,
+            CirculationEvent.HOLD_PLACE,
+            CirculationEvent.HOLD_RELEASE,
+            CirculationEvent.TITLE_ADD
+        ]
+        num = len(types)
+        time = datetime.now() - timedelta(minutes=len(types))
+        for type in types:
+            get_one_or_create(
+                self._db, CirculationEvent,
+                license_pool=lp, type=type, start=time, end=time)
+            time += timedelta(minutes=1)
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_feed_controller.bulk_circulation_events()
+        rows = response[1::] # skip header row
+        eq_(num, len(rows))
+        eq_(types, [row[1] for row in rows])
+        eq_([identifier.identifier]*num, [row[2] for row in rows])
+        eq_([identifier.type]*num, [row[3] for row in rows])
+        eq_([edition.title]*num, [row[4] for row in rows])
+        eq_([edition.author]*num, [row[5] for row in rows])
+        eq_(["fiction"]*num, [row[6] for row in rows])
+        eq_([self.english_1.audience]*num, [row[7] for row in rows])
+        eq_([edition.publisher]*num, [row[8] for row in rows])
+        eq_([edition.language]*num, [row[9] for row in rows])
+        eq_([self.english_1.target_age_string]*num, [row[10] for row in rows])
+        eq_([genre.name]*num, [row[11] for row in rows])
+
+        # use date
+        today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
+        with self.app.test_request_context("/?date=%s" % today):
+            response = self.manager.admin_feed_controller.bulk_circulation_events()
+        rows = response[1::] # skip header row
+        eq_(0, len(rows))

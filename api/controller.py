@@ -100,6 +100,7 @@ from novelist import (
 )
 from testing import MockCirculationAPI
 from services import ServiceStatus
+from core.analytics import Analytics
 
 class CirculationManager(object):
 
@@ -905,7 +906,7 @@ class AnalyticsController(CirculationManagerController):
     def track_event(self, data_source, identifier_type, identifier, event_type):
         if event_type in [CirculationEvent.OPEN_BOOK]:
             pool = self.load_licensepool(data_source, identifier_type, identifier)
-            Configuration.collect_analytics_event(self._db, pool, event_type, datetime.datetime.utcnow())
+            Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
