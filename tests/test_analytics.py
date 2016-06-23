@@ -7,6 +7,7 @@ from config import (
 )
 from analytics import Analytics
 from mock_analytics_provider import MockAnalyticsProvider
+from local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
 from model import CirculationEvent
 import json
@@ -21,26 +22,29 @@ class TestAnalytics(DatabaseTest):
         eq_("value", analytics.providers[0].option)
 
     def test_collect_event(self):
-        with temp_config() as config:
-            mock = MockAnalyticsProvider()
-            analytics = Analytics([mock])
-            work = self._work(title="title", with_license_pool=True)
-            [lp] = work.license_pools
-            analytics.collect_event(self._db, lp, CirculationEvent.CHECKIN, None)
-            eq_(1, mock.count)
-            
-    def test_load_analytics_configuration(self):
         config = {
             Configuration.POLICIES: {
                 Configuration.ANALYTICS_POLICY: ["mock_analytics_provider"]
             },
             "option": "value"
         }
-        loaded_config = Configuration._load(json.dumps(config))
-        providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
-        assert isinstance(providers[0], MockAnalyticsProvider)
+        with temp_config(config) as config:
+            work = self._work(title="title", with_license_pool=True)
+            [lp] = work.license_pools
+            Analytics.collect_event(self._db, lp, CirculationEvent.CHECKIN, None)
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            
+    def test_load_providers_from_config(self):
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["mock_analytics_provider"]
+            },
+            "option": "value"
+        }
+        providers = Analytics.load_providers_from_config(config)
+        eq_("mock_analytics_provider", providers[0])
 
-    def test_load_configuration_without_analytics(self):
-        loaded_config = Configuration._load(json.dumps({}))
-        providers = loaded_config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY].providers
-        eq_([], providers)
+    def test_load_providers_from_config_without_analytics(self):
+        providers = Analytics.load_providers_from_config({})
+        eq_("core.local_analytics_provider", providers[0])
