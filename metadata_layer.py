@@ -1556,9 +1556,8 @@ class CSVMetadataImporter(object):
                 break
         if not found_identifier_field:
             raise CSVFormatError(
-                "Could not find a primary identifier field. Possibilities: %s. Actualities: %s." %
-                (", ".join(possibilities),
-                 ", ".join(fields))
+                "Could not find a primary identifier field. Possibilities: %r. Actualities: %r." %
+                (possibilities, fields)
             )
 
         for row in dictreader:
