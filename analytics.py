@@ -28,12 +28,11 @@ class Analytics(object):
             provider_module = importlib.import_module(provider_string)
             provider_class = getattr(provider_module, "Provider")
             analytics_providers.append(provider_class.from_config(config))
-        cls.__instance = cls(analytics_providers, providers)
+        cls.__instance = cls(analytics_providers)
         return cls.__instance
 
-    def __init__(self, providers=[], provider_strings=[]):
+    def __init__(self, providers=[]):
         self.providers = providers
-        self.provider_strings = provider_strings
 
     @classmethod
     def collect_event(cls, _db, license_pool, event_type, time=None, **kwargs):
