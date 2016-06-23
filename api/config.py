@@ -7,7 +7,6 @@ from core.config import (
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
-from core.analytics import Analytics
 
 class Configuration(CoreConfiguration):
 
@@ -119,11 +118,6 @@ class Configuration(CoreConfiguration):
     @classmethod
     def load(cls):
         CoreConfiguration.load()
-        config = CoreConfiguration.instance
-        if not config.get(cls.POLICIES):
-            config[cls.POLICIES] = {}
-        if not config[cls.POLICIES].get(cls.ANALYTICS_POLICY):
-            config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(["core.local_analytics_provider"], config)
         cls.instance = config
 
 @contextlib.contextmanager
