@@ -5618,7 +5618,7 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            Configuration.collect_analytics_event(
+            Analytics.collect_event(
                 _db, self, event_name, as_of,
                 old_value=old_value, new_value=new_value)
 

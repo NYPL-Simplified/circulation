@@ -948,11 +948,11 @@ class TestLicensePool(DatabaseTest):
 
     def test_update_availability_triggers_analytics(self):
         with temp_config() as config:
-            provider = MockAnalyticsProvider()
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics([provider])
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = ["mock_analytics_provider"]
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.update_availability(30, 20, 2, 0)
+            provider = Analytics.instance().providers[0]
             count = provider.count
             pool.update_availability(30, 21, 2, 0)
             eq_(count + 1, provider.count)

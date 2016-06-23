@@ -6,7 +6,6 @@ import json
 import logging
 import copy
 from facets import FacetConstants as Facets
-from analytics import Analytics
 from util import LanguageCodes
 
 class CannotLoadConfiguration(Exception):
@@ -317,13 +316,6 @@ class Configuration(object):
         return [LanguageCodes.three_to_two[l] for l in languages]
     
     @classmethod
-    def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
-        cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(
-            _db, license_pool, event_type, time, **kwargs)
-
-    # Methods for loading the configuration from disk.
-
-    @classmethod
     def load(cls):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
@@ -345,9 +337,4 @@ class Configuration(object):
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n") if not x.strip().startswith("#")]
-        config = json.loads("\n".join(lines))
-        if not config.get(cls.POLICIES):
-            config[cls.POLICIES] = {}
-        providers = config[cls.POLICIES].get(cls.ANALYTICS_POLICY, [])
-        config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(providers, config)
-        return config
+        return json.loads("\n".join(lines))
