@@ -1,17 +1,20 @@
 import argparse
 import datetime
-import os
 import logging
+import os
+import requests
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError,
+)
 import sys
+
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
-import time
 
 from config import Configuration, CannotLoadConfiguration
-import log # This sets the appropriate log format and level.
-import random
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one_or_create,
@@ -32,6 +35,8 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from util.opds_writer import OPDSFeed
+
 from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
@@ -734,6 +739,8 @@ class Explain(IdentifierInputScript):
         for genre in work.genres:
             print " ", genre
 
+
+
 class SubjectAssignmentScript(SubjectInputScript):
 
     def run(self):
@@ -742,6 +749,7 @@ class SubjectAssignmentScript(SubjectInputScript):
             self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
+
 
 
 class MockStdin(object):
@@ -753,3 +761,5 @@ class MockStdin(object):
         lines = self.lines
         self.lines = []
         return lines
+
+
