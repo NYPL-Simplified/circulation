@@ -47,4 +47,4 @@ class TestAnalytics(DatabaseTest):
 
     def test_load_providers_from_config_without_analytics(self):
         providers = Analytics.load_providers_from_config({})
-        eq_("local_analytics_provider", providers[0])
+        eq_("core.local_analytics_provider", providers[0])

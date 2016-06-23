@@ -6,7 +6,7 @@ class Analytics(object):
 
     __instance = None
 
-    DEFAULT_PROVIDERS = ["local_analytics_provider"]
+    DEFAULT_PROVIDERS = ["core.local_analytics_provider"]
 
     @classmethod
     def instance(cls):
