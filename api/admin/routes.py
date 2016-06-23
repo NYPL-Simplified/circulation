@@ -230,7 +230,7 @@ def admin_view(**kwargs):
         redirect_url = flask.request.url
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     show_circ_events_download = (
-        "core.local_analytics_provider" in Configuration.policy("analytics").provider_strings
+        "core.local_analytics_provider" in Configuration.policy("analytics")
     )
     return flask.render_template_string(admin_template,
         csrf_token=csrf_token,

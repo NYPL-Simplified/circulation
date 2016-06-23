@@ -118,7 +118,7 @@ class Configuration(CoreConfiguration):
     @classmethod
     def load(cls):
         CoreConfiguration.load()
-        cls.instance = config
+        cls.instance = CoreConfiguration.instance
 
 @contextlib.contextmanager
 def empty_config():
