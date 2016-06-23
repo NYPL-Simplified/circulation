@@ -38,7 +38,7 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 
 class AdminControllerTest(CirculationControllerTest):
@@ -780,16 +780,9 @@ class TestFeedController(AdminControllerTest):
         eq_([self.english_1.target_age_string]*num, [row[10] for row in rows])
         eq_([genre.name]*num, [row[11] for row in rows])
 
-        # use start time
-        start = datetime.now()
-        with self.app.test_request_context("/?start=%s" % start):
-            response = self.manager.admin_feed_controller.bulk_circulation_events()
-        rows = response[1::] # skip header row
-        eq_(0, len(rows))
-        
-        # use end time
-        end = datetime.now() - timedelta(minutes=20)
-        with self.app.test_request_context("/?end=%s" % end):
+        # use date
+        today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
+        with self.app.test_request_context("/?date=%s" % today):
             response = self.manager.admin_feed_controller.bulk_circulation_events()
         rows = response[1::] # skip header row
         eq_(0, len(rows))

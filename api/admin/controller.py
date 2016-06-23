@@ -55,6 +55,7 @@ from core.classifier import (
     NO_NUMBER,
     NO_VALUE
 )
+from datetime import datetime, timedelta
 
 
 def setup_admin_controllers(manager):
@@ -633,10 +634,9 @@ class FeedController(CirculationManagerController):
         return dict({ "circulation_events": events })
 
     def bulk_circulation_events(self):
-        annotator = AdminAnnotator(self.circulation)
-
-        start = flask.request.args.get("start")
-        end = flask.request.args.get("end")
+        default = str(datetime.today()).split(" ")[0]
+        date = flask.request.args.get("date", default)
+        next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
 
         from sqlalchemy.sql import func
 
@@ -656,13 +656,9 @@ class FeedController(CirculationManagerController):
             .join(WorkGenre.genre) \
             .join(t, t.c.work_id == Work.id) \
             .filter(WorkGenre.affinity == t.c.max_affinity) \
+            .filter(CirculationEvent.start >= date) \
+            .filter(CirculationEvent.start < next_date) \
             .order_by(CirculationEvent.start.asc())
-
-        if start:
-            query = query.filter(CirculationEvent.start > start)
-
-        if end:
-            query = query.filter(CirculationEvent.end < end)
 
         results = query.all()
 
