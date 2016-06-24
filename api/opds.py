@@ -534,8 +534,7 @@ class CirculationManagerAnnotator(Annotator):
         return link_tag
 
     def open_access_link(self, lpdm):
-        cdn_host = Configuration.cdn_host(Configuration.CDN_OPEN_ACCESS_CONTENT)
-        url = cdnify(lpdm.resource.url, cdn_host)
+        url = cdnify(lpdm.resource.url, Configuration.cdns())
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
         rep = lpdm.resource.representation
         if rep and rep.media_type:
