@@ -147,9 +147,6 @@ class Configuration(object):
     S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
 
     CDN_INTEGRATION = "CDN"
-    CDN_BOOK_COVERS = "book_covers"
-    CDN_OPDS_FEEDS = "opds"
-    CDN_OPEN_ACCESS_CONTENT = "open_access_books"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
@@ -202,9 +199,8 @@ class Configuration(object):
         return v
 
     @classmethod
-    def cdn_host(cls, type):
-        integration = cls.integration(cls.CDN_INTEGRATION)
-        return integration.get(type)
+    def cdns(cls):
+        return cls.integration(cls.CDN_INTEGRATION)
 
     @classmethod
     def s3_bucket(cls, bucket_name):

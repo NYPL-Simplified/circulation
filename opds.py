@@ -106,16 +106,16 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdn_host = Configuration.cdn_host(Configuration.CDN_BOOK_COVERS)
+        cdns = Configuration.cdns()
         if work:
             if work.cover_thumbnail_url:
                 thumb = work.cover_thumbnail_url
                 old_thumb = thumb
-                thumbnails = [cdnify(thumb, cdn_host)]
+                thumbnails = [cdnify(thumb, cdns)]
 
             if work.cover_full_url:
                 full = work.cover_full_url
-                full = [cdnify(full, cdn_host)]
+                full = [cdnify(full, cdns)]
         return thumbnails, full
 
     @classmethod

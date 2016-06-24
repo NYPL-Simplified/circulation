@@ -730,17 +730,18 @@ class TestOPDS(DatabaseTest):
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
-        work.presentation_edition.cover_full_url = "http://full/a"
+        work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
+        work.presentation_edition.cover_full_url = "http://full.com/a"
 
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['thumbnail.com'] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['full.com'] = "http://bar/"
             work.calculate_opds_entries(verbose=False)
             feed = feedparser.parse(work.simple_opds_entry)
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
-            eq_(['http://foo/a', 'http://foo/b'], links)
+            eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include messages (with HTTP-style status code)
