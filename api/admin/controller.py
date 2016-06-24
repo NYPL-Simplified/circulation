@@ -617,7 +617,7 @@ class FeedController(CirculationManagerController):
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
-            .order_by(CirculationEvent.id.desc()) \
+            .order_by(CirculationEvent.start.desc()) \
             .limit(num) \
             .all()
 
@@ -667,7 +667,7 @@ class FeedController(CirculationManagerController):
 
         header = [
             "time", "event", "identifier", "identifier_type", "title", "author", 
-            "fiction", "audience", "publisher", "language", "target_age", "genre"
+            "fiction", "audience", "publisher", "language", "target_age", "genres"
         ]
 
         def result_to_row(result):
