@@ -55,7 +55,7 @@ from api.config import (
 )
 
 from core.analytics import Analytics
-from api.local_analytics_provider import LocalAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
 
 
 class TestAxis360API(DatabaseTest):

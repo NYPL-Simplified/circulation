@@ -76,7 +76,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
-from api.local_analytics_provider import LocalAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
 
 class TestCirculationManager(CirculationManager):
 
@@ -1035,9 +1035,7 @@ class TestAnalyticsController(CirculationControllerTest):
 
     def test_track_event(self):
         with temp_config() as config:
-            provider = LocalAnalyticsProvider()
-            analytics = Analytics([provider])
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = analytics
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = ["core.local_analytics_provider"]
 
             with self.app.test_request_context("/"):
                 response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "invalid_type")
