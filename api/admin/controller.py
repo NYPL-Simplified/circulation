@@ -57,6 +57,7 @@ from core.classifier import (
 )
 from datetime import datetime, timedelta
 from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import desc, nullslast
 
 
 def setup_admin_controllers(manager):
@@ -617,7 +618,7 @@ class FeedController(CirculationManagerController):
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
-            .order_by(CirculationEvent.start.desc()) \
+            .order_by(nullslast(desc(CirculationEvent.start))) \
             .limit(num) \
             .all()
 
@@ -687,4 +688,4 @@ class FeedController(CirculationManagerController):
                 genres.get(work.id)
             ]
 
-        return [header] + map(result_to_row, results)
+        return [header] + map(result_to_row, results), date
