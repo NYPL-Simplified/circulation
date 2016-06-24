@@ -876,6 +876,7 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -947,11 +948,11 @@ class TestLicensePool(DatabaseTest):
 
     def test_update_availability_triggers_analytics(self):
         with temp_config() as config:
-            provider = MockAnalyticsProvider()
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics([provider])
+            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = ["mock_analytics_provider"]
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.update_availability(30, 20, 2, 0)
+            provider = Analytics.instance().providers[0]
             count = provider.count
             pool.update_availability(30, 21, 2, 0)
             eq_(count + 1, provider.count)
@@ -1567,7 +1568,10 @@ class TestWork(DatabaseTest):
         classification2 = self._classification(
             identifier=identifier, subject=subject2, 
             data_source=source, weight=2)
-                
+        classification3 = self._classification(
+            identifier=identifier, subject=subject3, 
+            data_source=source, weight=2)
+
         results = work.classifications_with_genre().all()
         
         eq_([classification2, classification1], results)
@@ -1783,6 +1787,28 @@ class TestWork(DatabaseTest):
                 self._db, operation, count_as_missing_before=cutoff
             ).all()
         )
+
+    def test_top_genre(self):
+        work = self._work()
+        identifier = work.presentation_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+        # returns None when work has no genres
+        eq_(None, work.top_genre())
+
+        # returns only genre
+        wg1, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[0], affinity=1
+        )
+        eq_(genres[0].name, work.top_genre())
+
+        # returns top genre
+        wg1.affinity = 0.2
+        wg2, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[1], affinity=0.8
+        )
+        eq_(genres[1].name, work.top_genre())
 
 
 class TestCirculationEvent(DatabaseTest):

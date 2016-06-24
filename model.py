@@ -2866,7 +2866,6 @@ class Edition(Base):
             operation=CoverageRecord.CHOOSE_COVER_OPERATION
         )
 
-
 Index("ix_editions_data_source_id_identifier_id", Edition.data_source_id, Edition.primary_identifier_id, unique=True)
 
 class WorkGenre(Base):
@@ -3132,10 +3131,12 @@ class Work(Base):
 
     @property
     def target_age_string(self):
+        if not self.target_age:
+            return ""
         lower = self.target_age.lower
         upper = self.target_age.upper
         if not upper and not lower:
-            return None
+            return ""
         if lower and not upper:
             return str(lower)
         if upper and not lower:
@@ -4047,10 +4048,19 @@ class Work(Base):
         _db = Session.object_session(self)
         identifier = self.presentation_edition.primary_identifier
         return _db.query(Classification) \
-                    .join(Subject) \
-                    .filter(Classification.identifier_id == identifier.id) \
-                    .filter(Subject.genre_id != None) \
-                    .order_by(Classification.weight.desc())
+            .join(Subject) \
+            .filter(Classification.identifier_id == identifier.id) \
+            .filter(Subject.genre_id != None) \
+            .order_by(Classification.weight.desc())
+
+    def top_genre(self):
+        _db = Session.object_session(self)
+        genre = _db.query(Genre) \
+            .join(WorkGenre) \
+            .filter(WorkGenre.work_id == self.id) \
+            .order_by(WorkGenre.affinity.desc()) \
+            .first()
+        return genre.name if genre else None
 
 
 # Used for quality filter queries.
@@ -5608,7 +5618,7 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            Configuration.collect_analytics_event(
+            Analytics.collect_event(
                 _db, self, event_name, as_of,
                 old_value=old_value, new_value=new_value)
 
