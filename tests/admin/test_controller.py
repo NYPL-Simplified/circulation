@@ -747,8 +747,11 @@ class TestFeedController(AdminControllerTest):
         [lp] = self.english_1.license_pools
         edition = self.english_1.presentation_edition
         identifier = self.english_1.presentation_edition.primary_identifier
-        genre = self._db.query(Genre).first()
-        self.english_1.genres = [genre]
+        genres = self._db.query(Genre).all()
+        get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[0], affinity=0.2)
+        get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[1], affinity=0.3)
+        get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[2], affinity=0.5)
+        ordered_genre_string = ",".join([genres[2].name, genres[1].name, genres[0].name])
         types = [
             CirculationEvent.CHECKIN,
             CirculationEvent.CHECKOUT,
@@ -778,7 +781,7 @@ class TestFeedController(AdminControllerTest):
         eq_([edition.publisher]*num, [row[8] for row in rows])
         eq_([edition.language]*num, [row[9] for row in rows])
         eq_([self.english_1.target_age_string]*num, [row[10] for row in rows])
-        eq_([genre.name]*num, [row[11] for row in rows])
+        eq_([ordered_genre_string]*num, [row[11] for row in rows])
 
         # use date
         today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
