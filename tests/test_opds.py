@@ -67,6 +67,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # The resource URL associated with a LicensePoolDeliveryMechanism
         # becomes the `href` of an open-access `link` tag.
         [lpdm] = self.work.license_pools[0].delivery_mechanisms
+        lpdm.resource.url = "http://foo.com/thefile.epub"
         link_tag = self.annotator.open_access_link(lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
@@ -74,15 +75,15 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # replaces the original hostname.
         with temp_config() as config:
             cdn_host = "https://cdn.com/"
+            cdns = {
+                "foo.com" : cdn_host
+            }
             config[Configuration.INTEGRATIONS] = {
-                Configuration.CDN_INTEGRATION : {
-                    Configuration.CDN_OPEN_ACCESS_CONTENT : cdn_host
-                }
+                Configuration.CDN_INTEGRATION : cdns
             }
             link_tag = self.annotator.open_access_link(lpdm)
             link_url = link_tag.get('href')
-            assert link_url.startswith(cdn_host)
-            assert link_url == cdnify(lpdm.resource.url, cdn_host)
+            eq_("https://cdn.com/thefile.epub", link_url)
 
     def test_top_level_title(self):
         eq_("Test Top Level Title", self.annotator.top_level_title())
