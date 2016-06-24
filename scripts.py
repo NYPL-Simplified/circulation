@@ -59,7 +59,7 @@ from core.opds_import import (
 from core.opds import (
     AcquisitionFeed,
 )
-from util.opds_writer import (    
+from core.util.opds_writer import (    
      OPDSFeed,
 )
 from core.external_list import CustomListFromCSV
@@ -238,7 +238,7 @@ class UpdateStaffPicksScript(Script):
             DataSource.LIBRARY_STAFF, CustomList.STAFF_PICKS_NAME,
             **fields
         )
-        reader = csv.DictReader(inp)
+        reader = csv.DictReader(inp, dialect='excel-tab')
         importer.to_customlist(self._db, reader)
         self._db.commit()
 
