@@ -139,7 +139,7 @@ class SimplifiedOPDSLookup(object):
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return self._get(url)
+        return self._get(url, timeout=120)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler collection"""
