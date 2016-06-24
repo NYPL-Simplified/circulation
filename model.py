@@ -7284,10 +7284,16 @@ class CustomListEntry(Base):
                 new_id = new_license_pool.identifier
             else:
                 new_id = None
-            logging.info(
-                "Changing license pool for list entry %r to %r (was %r)", 
-                self.edition, new_id, old_id
-            )
+            if old_id:
+                logging.info(
+                    "Changing license pool for list entry %r to %r (was %r)", 
+                    self.edition, new_id, old_id
+                )
+            else:
+                logging.info(
+                    "Setting license pool for list entry %r to %r", 
+                    self.edition, new_id
+                )
         self.license_pool = new_license_pool
         return self.license_pool
 
