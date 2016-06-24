@@ -768,7 +768,7 @@ class TestFeedController(AdminControllerTest):
             time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_feed_controller.bulk_circulation_events()
+            response, requested_date = self.manager.admin_feed_controller.bulk_circulation_events()
         rows = response[1::] # skip header row
         eq_(num, len(rows))
         eq_(types, [row[1] for row in rows])
@@ -786,6 +786,6 @@ class TestFeedController(AdminControllerTest):
         # use date
         today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
         with self.app.test_request_context("/?date=%s" % today):
-            response = self.manager.admin_feed_controller.bulk_circulation_events()
+            response, requested_date = self.manager.admin_feed_controller.bulk_circulation_events()
         rows = response[1::] # skip header row
         eq_(0, len(rows))
