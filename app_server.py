@@ -45,10 +45,10 @@ from lane import (
 )
 from problem_details import *
 
-opds_cdn_host = Configuration.cdn_host(Configuration.CDN_OPDS_FEEDS)
+cdns = Configuration.cdns()
 def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
-    return cdnify(base_url, opds_cdn_host)
+    return cdnify(base_url, cdns)
 
 def load_lending_policy(policy):
     if not policy:
