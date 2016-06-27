@@ -172,12 +172,11 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         edition = title.to_edition(self._db, self.metadata_client)
         eq_("9780698185395", edition.primary_identifier.identifier)
 
-        # The alternate ISBN is markes as equivalent to the primary identifier,
+        # The alternate ISBN is marked as equivalent to the primary identifier,
         # but at a greatly reduced strength.
         [equivalency] = [x for x in edition.primary_identifier.equivalencies]
         eq_("9781594633669", equivalency.output.identifier)
         eq_(0.5, equivalency.strength)
-
         # That strength is not enough to make the alternate ISBN an equivalent
         # identifier for the edition.
         equivalent_identifiers = [

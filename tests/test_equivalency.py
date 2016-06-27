@@ -92,23 +92,23 @@ class TestEquivalency(DatabaseTest):
         gutenberg2.title = "Unrelated Gutenberg record."
 
         levels = [
-            record.equivalent_identifier_ids(i) 
+            record.equivalent_identifiers(i) 
             for i in range(0,5)]
 
         # At level 0, the only identifier found is the Gutenberg ID.
-        eq_(set([gutenberg_id.id]), set(levels[0]))
+        eq_(set([gutenberg_id]), set(levels[0]))
 
         # At level 1, we pick up the title/author lookup.
-        eq_(set([gutenberg_id.id, search_id.id]), set(levels[1]))
+        eq_(set([gutenberg_id, search_id]), set(levels[1]))
 
         # At level 2, we pick up the title/author lookup and the two
         # OCLC Numbers.
-        eq_(set([gutenberg_id.id, search_id.id, oclc_id.id, oclc_id_2.id]), set(levels[2]))
+        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2]), set(levels[2]))
 
         # At level 3, we also pick up the ISBN.
-        eq_(set([gutenberg_id.id, search_id.id, oclc_id.id, oclc_id_2.id, isbn_id.id]), set(levels[3]))
+        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id]), set(levels[3]))
 
         # At level 4, the recursion starts to go in the other
         # direction: we pick up the Overdrive ID that's equivalent to
         # the same ISBN as the OCLC Number.
-        eq_(set([gutenberg_id.id, search_id.id, oclc_id.id, oclc_id_2.id, isbn_id.id, overdrive_id.id]), set(levels[4]))
+        eq_(set([gutenberg_id, search_id, oclc_id, oclc_id_2, isbn_id, overdrive_id]), set(levels[4]))
