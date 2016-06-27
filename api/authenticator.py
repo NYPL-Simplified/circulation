@@ -4,6 +4,7 @@ from config import (
     CannotLoadConfiguration,
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
+from core.util.problem_detail import ProblemDetail
 
 import urlparse
 import uuid
@@ -115,6 +116,10 @@ class Authenticator(object):
             for provider in self.oauth_providers:
                 if params.get('state') == provider.NAME:
                     provider_token = provider.oauth_callback(_db, params)
+                    
+                    if isinstance(provider_token, ProblemDetail):
+                        return provider_token
+
                     # Create an access token for our app that includes the provider
                     # as well as the provider's token.
                     simplified_token = self.create_token(provider.NAME, provider_token)

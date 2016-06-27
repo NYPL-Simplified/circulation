@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+from nose.tools import set_trace
+import requests
+from xlrd import open_workbook
+import json
+import os
+
+STATES = {
+        'AK': 'Alaska',
+        'AL': 'Alabama',
+        'AR': 'Arkansas',
+        'AZ': 'Arizona',
+        'CA': 'California',
+        'CO': 'Colorado',
+        'CT': 'Connecticut',
+        'DC': 'DC',
+        'DE': 'Delaware',
+        'FL': 'Florida',
+        'GA': 'Georgia',
+        'HI': 'Hawaii',
+        'IA': 'Iowa',
+        'ID': 'Idaho',
+        'IL': 'Illinois',
+        'IN': 'Indiana',
+        'KS': 'Kansas',
+        'KY': 'Kentucky',
+        'LA': 'Louisiana',
+        'MA': 'Massachusetts',
+        'MD': 'Maryland',
+        'ME': 'Maine',
+        'MI': 'Michigan',
+        'MN': 'Minnesota',
+        'MO': 'Missouri',
+        'MS': 'Mississippi',
+        'MT': 'Montana',
+        'NC': 'North Carolina',
+        'ND': 'North Dakota',
+        'NE': 'Nebraska',
+        'NH': 'New Hampshire',
+        'NJ': 'New Jersey',
+        'NM': 'New Mexico',
+        'NV': 'Nevada',
+        'NY': 'New York',
+        'OH': 'Ohio',
+        'OK': 'Oklahoma',
+        'OR': 'Oregon',
+        'PA': 'Pennsylvania',
+        'PR': 'Puerto Rico',
+        'RI': 'Rhode Island',
+        'SC': 'South Carolina',
+        'SD': 'South Dakota',
+        'TN': 'Tennessee',
+        'TX': 'Texas',
+        'UT': 'Utah',
+        'VA': 'Virginia',
+        'VT': 'Vermont',
+        'WA': 'Washington',
+        'WI': 'Wisconsin',
+        'WV': 'West Virginia',
+        'WY': 'Wyoming'
+}
+
+
+LEA_ALLOCATIONS_URL_BASE = "http://www2.ed.gov/about/overview/budget/titlei/fy14/%s.xls"
+
+TEST_DISTRICT_NAME = '#DEMO Open eBooks Sandbox District'
+
+district_names_by_state = {}
+
+for abbreviation, state_name in STATES.items():
+    response = requests.get(LEA_ALLOCATIONS_URL_BASE % state_name.lower().replace(" ", ""))
+
+    workbook = open_workbook(file_contents=response.content)
+    sheet = workbook.sheet_by_index(0)
+    
+    district_names = [TEST_DISTRICT_NAME]
+    for row_index in range(6, sheet.nrows):
+        # second column contains district name
+        name = sheet.cell(row_index, 1).value
+        if name and name.replace(" ", ""):
+            district_names.append(name)
+
+    district_names_by_state[abbreviation] = district_names
+
+bin_dir = os.path.split(__file__)[0]
+clever_dir = os.path.join(bin_dir, "..")
+
+with open('%s/title_i.json' % clever_dir, 'w') as f:
+    f.write(json.dumps(district_names_by_state))
+
