@@ -5657,7 +5657,7 @@ class LicensePool(Base):
                 old_licenses_owned, old_licenses_available,
                 old_licenses_reserved, old_patrons_in_hold_queue
             )
-            self.log.info(message, *args)
+            logging.info(message, *args)
 
         return changes_made
 
