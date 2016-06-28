@@ -809,7 +809,17 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_("I am 10557.epub.images", s3.content[3])
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        #
+        # The "mouse" book was mirrored to a bucket corresponding to
+        # Project Gutenberg, its data source.
+        #
+        # The images were mirrored to a bucket corresponding to the
+        # open-access content server, _their_ data source.
+        #
+        # The "crow" book was mirrored to a bucket corresponding to
+        # the open-access content source, the default data source used
+        # when no distributor was specified for a book.
+        url0 = 'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
         url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
