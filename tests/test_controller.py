@@ -82,7 +82,7 @@ class TestCirculationManager(CirculationManager):
 
     def cdn_url_for(self, view, *args, **kwargs):
         base_url = url_for(view, *args, **kwargs)
-        return cdnify(base_url, "http://cdn/")
+        return cdnify(base_url, {"": "http://cdn/"})
 
 class ControllerTest(DatabaseTest):
     """A test that requires a functional app server."""
