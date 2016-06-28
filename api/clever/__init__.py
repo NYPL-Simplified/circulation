@@ -111,7 +111,7 @@ class CleverAuthenticationAPI(Authenticator):
         identifier = data['id']
 
         if result['type'] not in self.SUPPORTED_USER_TYPES:
-            return UNSUPPORTED_CLEVER_USER_TYPE
+            return UNSUPPORTED_CLEVER_USER_TYPE, None
 
         links = result['links']
 
@@ -131,7 +131,8 @@ class CleverAuthenticationAPI(Authenticator):
         # TODO: check student free and reduced lunch status as well
 
         if district_name not in TITLE_I_DISTRICT_NAMES_BY_STATE[state_code]:
-            return CLEVER_NOT_ELIGIBLE
+            self.log.info("%s in %s didn't match a Title I district name" % (district_name, state_code))
+            return CLEVER_NOT_ELIGIBLE, None
 
         if result['type'] == 'student':
             grade = user_data.get('grade')
@@ -151,7 +152,7 @@ class CleverAuthenticationAPI(Authenticator):
         )
         patron._external_type = external_type
 
-        return token
+        return token, dict(name=user_data.get('name'))
 
     def patron_info(self, identifier):
         return {}

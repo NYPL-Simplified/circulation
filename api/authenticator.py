@@ -115,7 +115,7 @@ class Authenticator(object):
         if self.oauth_providers and params.get('code') and params.get('state'):
             for provider in self.oauth_providers:
                 if params.get('state') == provider.NAME:
-                    provider_token = provider.oauth_callback(_db, params)
+                    provider_token, patron_info = provider.oauth_callback(_db, params)
                     
                     if isinstance(provider_token, ProblemDetail):
                         return provider_token
@@ -128,7 +128,7 @@ class Authenticator(object):
                     # In a web application, this is where we'd redirect the client to the
                     # page they came from. A WebView in a mobile app doesn't need that,
                     # but we might want to redirect from a browser back to the app.
-                    return Response(json.dumps(dict(access_token=simplified_token)), 200, {"Content-Type": "application/json"})
+                    return Response(json.dumps(dict(access_token=simplified_token, patron=patron_info)), 200, {"Content-Type": "application/json"})
 
     def patron_info(self, header):
         if self.basic_auth_provider and 'password' in header:
@@ -147,19 +147,29 @@ class Authenticator(object):
         there's a 401 error.
         """
         base_opds_document = Configuration.base_opds_authentication_document()
-        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-
-        custom_auth_types = {}
-        for provider in self.oauth_providers:
-            type = "http://librarysimplified.org/authtype/%s" % provider.NAME
-            custom_auth_types[type] = provider
-            auth_type.append(type)
 
         circulation_manager_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
         scheme, netloc, path, parameters, query, fragment = (
             urlparse.urlparse(circulation_manager_url))
+
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
+        base_opds_document['id'] = opds_id
+        base_opds_document['title'] = unicode(_("Library"))
+
+        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
+        basic_auth_doc = OPDSAuthenticationDocument.fill_in(
+            {}, auth_type, unicode(_("Library Barcode")), opds_id, None, unicode(_("Barcode")),
+            unicode(_("PIN"))
+            )
+
+        provider_docs = [basic_auth_doc]
+        for provider in self.oauth_providers:
+            auth_type = ["http://librarysimplified.org/authtype/%s" % provider.NAME]
+            provider_doc = OPDSAuthenticationDocument.fill_in(
+                {}, auth_type, provider.NAME, opds_id, None)
+            provider_doc['authenticate'] = provider.authenticate_url()
+            provider_docs.append(provider_doc)
 
         links = {}
         for rel, value in (
@@ -171,18 +181,9 @@ class Authenticator(object):
             if value:
                 links[rel] = dict(href=value, type="text/html")
 
-        doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, auth_type, unicode(_("Library")), opds_id, None, unicode(_("Barcode")),
-            unicode(_("PIN")), links=links
-            )
-
-        for type, provider in custom_auth_types.items():
-            provider_info = dict(
-                authenticate=provider.authenticate_url(),
-            )
-            doc[type] = provider_info
-
-        return json.dumps(doc)
+        base_opds_document['links'] = links
+        base_opds_document['providers'] = provider_docs
+        return json.dumps(base_opds_document)
 
 
 class BasicAuthAuthenticator(Authenticator):
