@@ -1092,6 +1092,21 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(entry_string, work.simple_opds_entry)
 
 
+    def test_exception_during_entry_creation_is_not_reraised(self):
+        # This feed will raise an exception whenever it's asked
+        # to create an entry.
+        class DoomedFeed(AcquisitionFeed):
+            def _create_entry(self, *args, **kwargs):
+                raise Exception("I'm doomed!")
+        feed = DoomedFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        work = self._work()
+
+        # But calling create_entry() doesn't raise an exception, it
+        # just returns None.
+        entry = feed.create_entry(work, self._url)
+        eq_(entry, None)
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
