@@ -715,9 +715,16 @@ class AcquisitionFeed(OPDSFeed):
             logging.warn("%r HAS NO IDENTIFIER", work)
             return None
 
-        return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier, lane_link, force_create, 
-                                  use_cache)
+        try:
+            return self._create_entry(work, active_license_pool, active_edition,
+                                      identifier, lane_link, force_create, 
+                                      use_cache)
+        except Exception, e:
+            logging.error(
+                "Exception generating OPDS entry for %r", work,
+                exc_info = e
+            )
+            return None
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False, use_cache=True):
@@ -1024,6 +1031,8 @@ class AcquisitionFeed(OPDSFeed):
         since = None
         until = None
 
+        if not license_pool:
+            return
         if license_pool.open_access:
             default_loan_period = default_reservation_period = None
         else:

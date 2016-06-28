@@ -74,7 +74,10 @@ from . import (
     DummyHTTPClient,
 )
 
-from analytics import Analytics
+from analytics import (
+    Analytics,
+    temp_analytics
+)
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDataSource(DatabaseTest):
@@ -947,8 +950,7 @@ class TestLicensePool(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = ["mock_analytics_provider"]
+        with temp_analytics("mock_analytics_provider", {}):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.update_availability(30, 20, 2, 0)
