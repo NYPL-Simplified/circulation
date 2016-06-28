@@ -69,10 +69,12 @@ class CleverAuthenticationAPI(Authenticator):
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
         return cls(client_id, client_secret)
 
+    def _redirect_uri(self):
+        return url_for('oauth_callback', _external=True)
+
     def authenticate_url(self):
         """URL to direct patrons to for authentication with the provider."""
-        redirect_uri = url_for('oauth_callback', _external=True)
-        return self.CLEVER_OAUTH_URL % (self.client_id, redirect_uri)
+        return self.CLEVER_OAUTH_URL % (self.client_id, self._redirect_uri())
 
     def authenticated_patron(self, _db, token):
         bearer_headers = {
@@ -87,26 +89,31 @@ class CleverAuthenticationAPI(Authenticator):
         patron = get_one(_db, Patron, authorization_identifier=identifier)
         return patron
 
+    def _get_token(self, payload, headers):
+        return requests.post(self.CLEVER_TOKEN_URL, data=json.dumps(payload), headers=headers).json()
+
+    def _get(self, url, headers):
+        return requests.get(url, headers=headers).json()
 
     def oauth_callback(self, _db, params):
         code = params.get('code')
         payload = dict(
             code=code,
             grant_type='authorization_code',
-            redirect_uri=url_for('oauth_callback', _external=True),
+            redirect_uri=self._redirect_uri(),
         )
         headers = {
             'Authorization': 'Basic %s' % base64.b64encode(self.client_id + ":" + self.client_secret),
             'Content-Type': 'application/json',
         }
 
-        response = requests.post(self.CLEVER_TOKEN_URL, data=json.dumps(payload), headers=headers).json()
+        response = self._get_token(payload, headers)
         token = response['access_token']
 
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
         }
-        result = requests.get(self.CLEVER_API_BASE_URL + '/me', headers=bearer_headers).json()
+        result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
         data = result['data']
 
         identifier = data['id']
@@ -117,14 +124,14 @@ class CleverAuthenticationAPI(Authenticator):
         links = result['links']
 
         user_link = [l for l in links if l['rel'] == 'canonical'][0]['uri']
-        user = requests.get(self.CLEVER_API_BASE_URL + user_link, headers=bearer_headers).json()
+        user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
         
         user_data = user['data']
         school_id = user_data['school']
-        school = requests.get(self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id, headers=bearer_headers).json()
+        school = self._get(self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id, bearer_headers)
 
         district_id = user_data['district']
-        district = requests.get(self.CLEVER_API_BASE_URL + '/v1.1/districts/%s' % district_id, headers=bearer_headers).json()
+        district = self._get(self.CLEVER_API_BASE_URL + '/v1.1/districts/%s' % district_id, bearer_headers)
 
         state_code = school['data']['location']['state']
         district_name = district['data']['name']

@@ -28,7 +28,7 @@ class DummyAuthAPI(Authenticator):
 
     def oauth_callback(self, _db, params):
         self.count = self.count + 1
-        return "token"
+        return "token", dict(name="Patron")
 
 class TestAuthenticator(DatabaseTest):
 
