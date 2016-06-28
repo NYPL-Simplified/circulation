@@ -5683,30 +5683,30 @@ class LicensePool(Base):
             message += '%s'
             args.append(self.identifier)
 
-        def _part(message, string, old_value, new_value):
-            if old_value == new_value:
-                # Nothing has changed.
-                return "", []
-            return ' %s: %s=>%s', [string, old_value, new_value]
+        def _part(message, args, string, old_value, new_value):
+            if old_value != new_value:
+                args.extend([string, old_value, new_value])
+                message += ' %s: %s=>%s'
+            return message, args
 
-        m, a = _part(message, "OWN", old_licenses_owned, self.licenses_owned)
-        message += m
-        args.extend(a)
+        message, args = _part(
+            message, args, "OWN", old_licenses_owned, self.licenses_owned
+        )
         
-        m, a = _part(message, "AVAIL", old_licenses_available, 
-                     self.licenses_available)
-        message += m
-        args.extend(a)
+        message, args = _part(
+            message, args, "AVAIL", old_licenses_available, 
+            self.licenses_available
+        )
 
-        m, a = _part(message, "RSRV", old_licenses_reserved, 
-                     self.licenses_reserved)
-        message += m
-        args.extend(a)
+        message, args = _part(
+            message, args, "RSRV", old_licenses_reserved, 
+            self.licenses_reserved
+        )
 
-        m, a =_part(message, "HOLD", old_patrons_in_hold_queue,
-                    self.patrons_in_hold_queue)
-        message += m
-        args.extend(a)
+        message, args =_part(
+            message, args, "HOLD", old_patrons_in_hold_queue, 
+            self.patrons_in_hold_queue
+        )
         return message, tuple(args)
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
