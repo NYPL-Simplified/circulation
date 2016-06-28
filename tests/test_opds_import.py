@@ -115,8 +115,6 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server.opds")).read()
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
-        self.metadata_wrangler_mini_feed = open(
-            os.path.join(self.resource_path, "metadata_wrangler_mini.opds")).read()
 
 
 class TestOPDSImporter(OPDSImporterTest):
