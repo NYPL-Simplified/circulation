@@ -5670,7 +5670,6 @@ class LicensePool(Base):
         """
         edition = self.presentation_edition
         message = 'CHANGED '
-        blah = object()
         args = []
         if edition:
             message += '%s "%s" %s (%s)'
