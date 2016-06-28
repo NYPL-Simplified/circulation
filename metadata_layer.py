@@ -817,29 +817,6 @@ class CirculationData(MetaToModelUtility):
                         as_of=self.last_checked
                     )
 
-        if changed_licenses:
-            edition = pool.presentation_edition
-            if edition:
-                self.log.info(
-                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    edition.medium,
-                    edition.title or "[NO TITLE]",
-                    edition.author or "",
-                    edition.primary_identifier.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-            else:
-                self.log.info(
-                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    pool.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-
-
         made_changes = made_changes or changed_licenses
 
         return pool, made_changes

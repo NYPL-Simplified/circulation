@@ -1256,6 +1256,50 @@ class TestLicensePool(DatabaseTest):
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
+    def test_circulation_changelog(self):
+        
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 8
+        pool.patrons_in_hold_queue = 7
+
+        msg, args = pool.circulation_changelog(1, 2, 3, 4)
+
+        # Since all four circulation values changed, the message is as
+        # long as it could possibly get.
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
+        )
+
+        # If only one circulation value changes, the message is a lot shorter.
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'HOLD', 15, 7)
+        )
+
+        # This works even if, for whatever reason, the edition's
+        # bibliographic data is missing.
+        edition.title = None
+        edition.author = None
+        
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_("[NO TITLE]", args[1])
+        eq_("[NO AUTHOR]", args[2])
+
+
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
     def test_set_rights_status(self):
