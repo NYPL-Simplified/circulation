@@ -5594,6 +5594,12 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
+
+        old_licenses_owned = self.licenses_owned
+        old_licenses_available = self.licenses_available
+        old_licenses_reserved = self.licenses_reserved
+        old_patrons_in_hold_queue = self.patrons_in_hold_queue
+
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
                  CirculationEvent.HOLD_PLACE, CirculationEvent.HOLD_RELEASE], 
@@ -5646,7 +5652,61 @@ class LicensePool(Base):
             if self.work:
                 self.work.last_update_time = as_of
 
+        if changes_made:
+            message, args = self.circulation_changelog(
+                old_licenses_owned, old_licenses_available,
+                old_licenses_reserved, old_patrons_in_hold_queue
+            )
+            logging.info(message, *args)
+
         return changes_made
+
+    def circulation_changelog(self, old_licenses_owned, old_licenses_available,
+                              old_licenses_reserved, old_patrons_in_hold_queue):
+        """Generate a log message describing a change to the circulation.
+
+        :return: a 2-tuple (message, args) suitable for passing into 
+        logging.info or a similar method
+        """
+        edition = self.presentation_edition
+        message = 'CHANGED '
+        args = []
+        if edition:
+            message += '%s "%s" %s (%s)'
+            args.extend([edition.medium, 
+                         edition.title or "[NO TITLE]",
+                         edition.author or "[NO AUTHOR]",
+                         self.identifier]
+                    )
+        else:
+            message += '%s'
+            args.append(self.identifier)
+
+        def _part(message, args, string, old_value, new_value):
+            if old_value != new_value:
+                args.extend([string, old_value, new_value])
+                message += ' %s: %s=>%s'
+            return message, args
+
+        message, args = _part(
+            message, args, "OWN", old_licenses_owned, self.licenses_owned
+        )
+        
+        message, args = _part(
+            message, args, "AVAIL", old_licenses_available, 
+            self.licenses_available
+        )
+
+        message, args = _part(
+            message, args, "RSRV", old_licenses_reserved, 
+            self.licenses_reserved
+        )
+
+        message, args =_part(
+            message, args, "HOLD", old_patrons_in_hold_queue, 
+            self.patrons_in_hold_queue
+        )
+        return message, tuple(args)
 
     def loan_to(self, patron, start=None, end=None, fulfillment=None):
         _db = Session.object_session(patron)
