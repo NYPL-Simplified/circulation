@@ -11,6 +11,7 @@ import uuid
 import json
 import jwt
 from flask import Response
+from werkzeug.datastructures import Headers
 from flask.ext.babel import lazy_gettext as _
 import importlib
 
@@ -185,10 +186,22 @@ class Authenticator(object):
         base_opds_document['providers'] = provider_docs
         return json.dumps(base_opds_document)
 
+    def create_authentication_headers(self):
+        """Create the HTTP headers to return with the OPDS
+        authentication document."""
+        headers = Headers()
+        headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
+        if self.basic_auth_provider:
+            headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
+        for provider in self.oauth_providers:
+            headers.add('WWW-Authenticate', provider.AUTHENTICATION_HEADER)
+        return headers
 
 class BasicAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.BASIC_AUTH
+
+    AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
 
     def testing_patron(self, _db):
         """Return a real Patron object reserved for testing purposes.

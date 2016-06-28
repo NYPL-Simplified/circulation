@@ -65,7 +65,6 @@ from core.util.flask_util import (
     problem,
 )
 from core.util.problem_detail import ProblemDetail
-from core.util.opds_authentication_document import OPDSAuthenticationDocument
 
 from circulation_exceptions import *
 
@@ -139,6 +138,7 @@ class CirculationManager(object):
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
         self.opds_authentication_document = self.auth.create_authentication_document()
+        self.authentication_headers = self.auth.create_authentication_headers()
 
     def create_top_level_lane(self, lanelist):
         name = 'All Books'
@@ -304,8 +304,7 @@ class CirculationManagerController(object):
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm="%s"' % _("Library card"),
-                   'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+        headers = self.manager.authentication_headers
         return Response(data, 401, headers)
 
     def load_lane(self, language_key, name):

@@ -45,6 +45,7 @@ class CleverAuthenticationAPI(Authenticator):
 
     TYPE = Authenticator.OAUTH
     NAME = 'Clever'
+    AUTHENTICATION_HEADER = 'Clever'
 
     CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=Clever"
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
