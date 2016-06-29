@@ -70,9 +70,32 @@ class OPDSImportCoverageProvider(CoverageProvider):
         )
 
         results = []
+        leftover_identifiers = set()
+        # We grant coverage if an Edition was created from the operation.
         for edition in imported_editions:
-            self.finalize_edition(edition)
-            results.append(edition.primary_identifier)
+            identifier = edition.primary_identifier
+            results.append(identifier)
+            leftover_identifiers.add(identifier)
+
+        # We may also have created a LicensePool from the operation.
+        for pool in pools:
+            self.finalize_license_pool(pool)
+            identifier = pool.identifier
+            if identifier in leftover_identifiers:
+                leftover_identifiers.remove(identifier)
+            else:
+                msg = "OPDS import operation imported LicensePool, but no Edition."
+                results.append(
+                    CoverageFailure(
+                        identifier, msg, data_source=self.output_source,
+                        transient=True
+                    )
+                )
+        for identifier in leftover_identifiers:
+            self.log.warn(
+                "OPDS import operation imported Edition for %r, but no LicensePool.", 
+                identifier
+            )
 
         for failure in error_messages_by_id.values():
             results.append(failure)
@@ -86,22 +109,11 @@ class OPDSImportCoverageProvider(CoverageProvider):
         [result] = self.process_batch([identifier])
         return result
 
-    def finalize_edition(self, edition):
-        """An OPDS entry has become an Edition. This method may (depending on
-        configuration) create a Work for that book and mark it as
+    def finalize_license_pool(self, pool):
+        """An OPDS entry has become a LicensePool. This method may (depending
+        on configuration) create a Work for that book and mark it as
         presentation-ready.
-        """
-        pool = edition.license_pool
-
-        if not pool:
-            # Without a LicensePool there can be no Work.
-            if self.expect_license_pool:
-                self.log.warn(
-                    "Expected that OPDS import would create a LicensePool for %r, but it didn't happen.",
-                    edition
-                )
-            return
-            
+        """           
         # With a LicensePool and an Edition, there can be a Work.
         #
         # If the Work already exists, calculate_work() will at least
@@ -147,7 +159,8 @@ class OPDSImportCoverageProvider(CoverageProvider):
                 response
             )
 
-        importer = OPDSImporter(self._db, identifier_mapping=id_mapping)
+        importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
+                                data_source_name=self.output_source.name)
         return importer.import_from_feed(response.text)
 
 
@@ -162,9 +175,11 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
     def queue_import_results(self, editions, pools, works, messages_by_id):
         self.import_results.insert(0, (editions, pools, works, messages_by_id))
 
-    def finalize_edition(self, edition):
-        self.finalized.append(edition)
-        super(MockOPDSImportCoverageProvider, self).finalize_edition(edition)
+    def finalize_license_pool(self, license_pool):
+        self.finalized.append(license_pool)
+        super(MockOPDSImportCoverageProvider, self).finalize_license_pool(
+            license_pool
+        )
 
     def lookup_and_import_batch(self, batch):
         self.batches.append(batch)
@@ -343,8 +358,9 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
         output_source = DataSource.lookup(
             _db, DataSource.OA_CONTENT_SERVER
         )
+        kwargs['input_identifier_types'] = None
         super(ContentServerBibliographicCoverageProvider, self).__init__(
-            service_name, input_identifier_types=None,
+            service_name,
             output_source=output_source, lookup=lookup,
             expect_license_pool=True, presentation_ready_on_success=True,
             **kwargs
