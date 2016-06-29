@@ -10,6 +10,9 @@
     	    "test_url" : "postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
     	},
 
+        "Circulation Manager": {
+        },
+
     	"Content Server": {
     	},
         
