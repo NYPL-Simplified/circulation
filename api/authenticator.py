@@ -156,20 +156,18 @@ class Authenticator(object):
 
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
         base_opds_document['id'] = opds_id
-        base_opds_document['title'] = unicode(_("Library"))
+        base_opds_document['name'] = unicode(_("Library"))
 
-        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-        basic_auth_doc = OPDSAuthenticationDocument.fill_in(
-            {}, auth_type, unicode(_("Library Barcode")), opds_id, None, unicode(_("Barcode")),
-            unicode(_("PIN"))
-            )
+        if self.basic_auth_provider:
+            auth_uri = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
+            auth_type = [dict(uri=auth_uri, labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))]
+            basic_auth_doc = dict(uri=self.basic_auth_provider.URI, name=unicode(self.basic_auth_provider.NAME), type=auth_type)
 
         provider_docs = [basic_auth_doc]
         for provider in self.oauth_providers:
-            auth_type = ["http://librarysimplified.org/authtype/%s" % provider.NAME]
-            provider_doc = OPDSAuthenticationDocument.fill_in(
-                {}, auth_type, provider.NAME, opds_id, None)
-            provider_doc['authenticate'] = provider.authenticate_url()
+            auth_uri = "http://librarysimplified.org/authtype/%s" % provider.NAME
+            auth_type = [dict(uri=auth_uri, links=dict(authenticate=provider.authenticate_url()))]
+            provider_doc = dict(uri=provider.URI, name=provider.NAME, type=auth_type)
             provider_docs.append(provider_doc)
 
         links = {}
@@ -191,15 +189,17 @@ class Authenticator(object):
         authentication document."""
         headers = Headers()
         headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
-        if self.basic_auth_provider:
-            headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
         for provider in self.oauth_providers:
             headers.add('WWW-Authenticate', provider.AUTHENTICATION_HEADER)
+        if self.basic_auth_provider:
+            headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
         return headers
 
 class BasicAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.BASIC_AUTH
+    NAME = _("Library Barcode")
+    URI = "http://librarysimplified.org/terms/auth/library-barcode"
 
     AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
 

@@ -45,6 +45,7 @@ class CleverAuthenticationAPI(Authenticator):
 
     TYPE = Authenticator.OAUTH
     NAME = 'Clever'
+    URI = "http://librarysimplified.org/terms/auth/clever"
     AUTHENTICATION_HEADER = 'Clever'
 
     CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=Clever"
