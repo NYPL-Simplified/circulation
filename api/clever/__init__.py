@@ -2,7 +2,6 @@ from nose.tools import set_trace
 import logging
 import base64
 import json
-import requests
 import os
 from flask import url_for
 from flask.ext.babel import lazy_gettext as _
@@ -14,6 +13,7 @@ from core.model import (
     get_one_or_create,
     Patron,
 )
+from core.util.http import HTTP
 from api.problem_details import *
 
 
@@ -83,7 +83,7 @@ class CleverAuthenticationAPI(Authenticator):
             'Authorization': 'Bearer %s' % token
         }
 
-        result = requests.get(self.CLEVER_API_BASE_URL + '/me', headers=bearer_headers).json()
+        result = self._get(self.CLEVER_API_BASE_URL + '/me', headers=bearer_headers)
         data = result['data']
 
         identifier = data['id']
@@ -92,10 +92,10 @@ class CleverAuthenticationAPI(Authenticator):
         return patron
 
     def _get_token(self, payload, headers):
-        return requests.post(self.CLEVER_TOKEN_URL, data=json.dumps(payload), headers=headers).json()
+        return HTTP.post_with_timeout(self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers).json()
 
     def _get(self, url, headers):
-        return requests.get(url, headers=headers).json()
+        return HTTP.get_with_timeout(url, headers=headers).json()
 
     def oauth_callback(self, _db, params):
         code = params.get('code')
