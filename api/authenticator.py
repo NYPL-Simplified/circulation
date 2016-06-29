@@ -3,7 +3,6 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from core.util.problem_detail import ProblemDetail
 
 import urlparse
@@ -17,6 +16,8 @@ import importlib
 
 
 class Authenticator(object):
+
+    MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
 
     BASIC_AUTH = 'basic_auth'
     OAUTH = 'oauth'
@@ -158,16 +159,23 @@ class Authenticator(object):
         base_opds_document['id'] = opds_id
         base_opds_document['name'] = unicode(_("Library"))
 
+        provider_docs = {}
         if self.basic_auth_provider:
-            auth_type = [dict(uri=self.basic_auth_provider.TYPE_URI, labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))]
-            basic_auth_doc = dict(uri=self.basic_auth_provider.URI, name=unicode(self.basic_auth_provider.NAME), type=auth_type)
+            provider_uri = self.basic_auth_provider.URI
+            method_uri = self.basic_auth_provider.METHOD
+            methods = {}
+            method = dict(labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))
+            methods[method_uri] = method
+            basic_auth_doc = dict(name=unicode(self.basic_auth_provider.NAME), methods=methods)
+            provider_docs[provider_uri] = basic_auth_doc
 
-        provider_docs = [basic_auth_doc]
         for provider in self.oauth_providers:
-            auth_uri = "http://librarysimplified.org/authtype/%s" % provider.NAME
-            auth_type = [dict(uri=auth_uri, links=dict(authenticate=provider.authenticate_url()))]
-            provider_doc = dict(uri=provider.URI, name=provider.NAME, type=auth_type)
-            provider_docs.append(provider_doc)
+            method_uri = provider.METHOD
+            methods = {}
+            method = dict(links=dict(authenticate=provider.authenticate_url()))
+            methods[method_uri] = method
+            provider_doc = dict(name=provider.NAME, methods=methods)
+            provider_docs[provider.URI] = provider_doc
 
         links = {}
         for rel, value in (
@@ -187,7 +195,7 @@ class Authenticator(object):
         """Create the HTTP headers to return with the OPDS
         authentication document."""
         headers = Headers()
-        headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
+        headers.add('Content-Type', self.MEDIA_TYPE)
         for provider in self.oauth_providers:
             headers.add('WWW-Authenticate', provider.AUTHENTICATION_HEADER)
         if self.basic_auth_provider:
@@ -197,7 +205,7 @@ class Authenticator(object):
 class BasicAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.BASIC_AUTH
-    TYPE_URI = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
+    METHOD = "http://opds-spec.org/auth/basic"
     NAME = _("Library Barcode")
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
 

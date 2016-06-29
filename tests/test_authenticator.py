@@ -237,13 +237,15 @@ class TestAuthenticator(DatabaseTest):
             basic_auth = DummyAuthAPI()
             basic_auth.URI = "http://librarysimplified.org/terms/auth/library-barcode"
             basic_auth.NAME = "Basic Auth"
-            basic_auth.TYPE_URI = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
+            basic_auth.METHOD = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
             oauth1 = DummyAuthAPI()
             oauth1.URI = "oauth 1 uri"
             oauth1.NAME = "oauth1"
+            oauth1.METHOD = "oauth1 method"
             oauth2 = DummyAuthAPI()
             oauth2.URI = "oauth 2 uri"
             oauth2.NAME = "oauth2"
+            oauth2.METHOD = "oauth2 method"
 
             auth = Authenticator.initialize(self._db, test=True)
             auth.basic_auth_provider = basic_auth
@@ -260,17 +262,19 @@ class TestAuthenticator(DatabaseTest):
             eq_("http://about", links['about']['href'])
 
             providers = auth_document['providers']
-            eq_(3, len(providers))
+            eq_(3, len(providers.keys()))
 
-            [basic_auth_doc] = [p for p in providers if p['uri'] == basic_auth.URI]
+            basic_auth_doc = providers[basic_auth.URI]
             eq_(basic_auth.NAME, basic_auth_doc['name'])
-            [basic_auth_type] = basic_auth_doc['type']
-            eq_(basic_auth.TYPE_URI, basic_auth_type['uri'])
-            eq_("Barcode", basic_auth_type['labels']['login'])
-            eq_("PIN", basic_auth_type['labels']['password'])
+            methods = basic_auth_doc['methods']
+            eq_(1, len(methods.keys()))
+            basic_auth_method = methods[basic_auth.METHOD]
+            eq_("Barcode", basic_auth_method['labels']['login'])
+            eq_("PIN", basic_auth_method['labels']['password'])
             
-            [oauth1_doc] = [p for p in providers if p['uri'] == oauth1.URI]
+            oauth1_doc = providers[oauth1.URI]
             eq_(oauth1.NAME, oauth1_doc['name'])
-            [oauth1_type] = oauth1_doc['type']
-            eq_("http://librarysimplified.org/authtype/" + oauth1.NAME, oauth1_type['uri'])
-            eq_("http://authenticate", oauth1_type['links']['authenticate'])
+            methods = oauth1_doc['methods']
+            eq_(1, len(methods.keys()))
+            oauth1_method = methods[oauth1.METHOD]
+            eq_("http://authenticate", oauth1_method['links']['authenticate'])
