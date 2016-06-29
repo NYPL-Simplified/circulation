@@ -4,6 +4,7 @@ from config import (
     CannotLoadConfiguration,
 )
 from core.util.problem_detail import ProblemDetail
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 
 import urlparse
 import uuid
@@ -16,8 +17,6 @@ import importlib
 
 
 class Authenticator(object):
-
-    MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
 
     BASIC_AUTH = 'basic_auth'
     OAUTH = 'oauth'
@@ -156,26 +155,14 @@ class Authenticator(object):
             urlparse.urlparse(circulation_manager_url))
 
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
-        base_opds_document['id'] = opds_id
-        base_opds_document['name'] = unicode(_("Library"))
 
         provider_docs = {}
         if self.basic_auth_provider:
             provider_uri = self.basic_auth_provider.URI
-            method_uri = self.basic_auth_provider.METHOD
-            methods = {}
-            method = dict(labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))
-            methods[method_uri] = method
-            basic_auth_doc = dict(name=unicode(self.basic_auth_provider.NAME), methods=methods)
-            provider_docs[provider_uri] = basic_auth_doc
+            provider_docs[provider_uri] = self.basic_auth_provider.create_authentication_provider_document()
 
         for provider in self.oauth_providers:
-            method_uri = provider.METHOD
-            methods = {}
-            method = dict(links=dict(authenticate=provider.authenticate_url()))
-            methods[method_uri] = method
-            provider_doc = dict(name=provider.NAME, methods=methods)
-            provider_docs[provider.URI] = provider_doc
+            provider_docs[provider.URI] = provider.create_authentication_provider_document()
 
         links = {}
         for rel, value in (
@@ -187,15 +174,17 @@ class Authenticator(object):
             if value:
                 links[rel] = dict(href=value, type="text/html")
 
-        base_opds_document['links'] = links
-        base_opds_document['providers'] = provider_docs
-        return json.dumps(base_opds_document)
+        doc = OPDSAuthenticationDocument.fill_in(
+            base_opds_document, provider_docs,
+            name=unicode(_("Library")), id=opds_id, links=links,
+        )
+        return json.dumps(doc)
 
     def create_authentication_headers(self):
         """Create the HTTP headers to return with the OPDS
         authentication document."""
         headers = Headers()
-        headers.add('Content-Type', self.MEDIA_TYPE)
+        headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
         for provider in self.oauth_providers:
             headers.add('WWW-Authenticate', provider.AUTHENTICATION_HEADER)
         if self.basic_auth_provider:
@@ -211,6 +200,9 @@ class BasicAuthAuthenticator(Authenticator):
 
     AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
 
+    LOGIN_LABEL = _("Barcode")
+    PASSWORD_LABEL = _("PIN")
+
     def testing_patron(self, _db):
         """Return a real Patron object reserved for testing purposes.
 
@@ -220,3 +212,43 @@ class BasicAuthAuthenticator(Authenticator):
             return None, None
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
+
+    def create_authentication_provider_document(self):
+        method_doc = dict(labels=dict(login=unicode(self.LOGIN_LABEL), password=unicode(self.PASSWORD_LABEL)))
+        methods = {}
+        methods[self.METHOD] = method_doc
+        return dict(name=unicode(self.NAME), methods=methods)
+
+class OAuthAuthenticator(Authenticator):
+
+    TYPE = Authenticator.OAUTH
+    # Subclass must define NAME, URI, METHOD, and AUTHENTICATION_HEADER
+
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+
+    @classmethod
+    def from_config(cls):
+        config = Configuration.integration(cls.NAME, required=True)
+        client_id = config.get(Configuration.OAUTH_CLIENT_ID)
+        client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
+        return cls(client_id, client_secret)
+
+    def authenticate_url(self):
+        raise NotImplementedError()
+
+    def authenticated_patron(self, _db, token):
+        raise NotImplementedError()
+
+    def oauth_callback(self, _db, params):
+        raise NotImplementedError()
+
+    def patron_info(self, identifier):
+        return {}
+
+    def create_authentication_provider_document(self):
+        method_doc = dict(links=dict(authenticate=self.authenticate_url()))
+        methods = {}
+        methods[self.METHOD] = method_doc
+        return dict(name=self.NAME, methods=methods)

@@ -7,7 +7,11 @@ from api.config import (
     Configuration,
     temp_config,
 )
-from api.authenticator import Authenticator
+from api.authenticator import (
+    Authenticator,
+    BasicAuthAuthenticator,
+    OAuthAuthenticator,
+)
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
@@ -27,12 +31,18 @@ class DummyAuthAPI(Authenticator):
         self.count = self.count + 1
         return True
 
+class DummyBasicAuthAPI(DummyAuthAPI, BasicAuthAuthenticator):
+    pass
+
+
+class DummyOAuthAPI(DummyAuthAPI, OAuthAuthenticator):
     def oauth_callback(self, _db, params):
         self.count = self.count + 1
         return "token", dict(name="Patron")
 
     def authenticate_url(self):
         return "http://authenticate"
+
 
 class TestAuthenticator(DatabaseTest):
 
@@ -114,10 +124,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -152,10 +162,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -191,10 +201,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -239,15 +249,12 @@ class TestAuthenticator(DatabaseTest):
                 Configuration.ABOUT: "http://about",
             }
 
-            basic_auth = DummyAuthAPI()
-            basic_auth.URI = "http://librarysimplified.org/terms/auth/library-barcode"
-            basic_auth.NAME = "Basic Auth"
-            basic_auth.METHOD = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.URI = "oauth 1 uri"
             oauth1.NAME = "oauth1"
             oauth1.METHOD = "oauth1 method"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.URI = "oauth 2 uri"
             oauth2.NAME = "oauth2"
             oauth2.METHOD = "oauth2 method"

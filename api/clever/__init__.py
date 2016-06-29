@@ -6,7 +6,7 @@ import os
 from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
-from api.authenticator import Authenticator
+from api.authenticator import OAuthAuthenticator
 from api.config import Configuration
 from core.model import (
     get_one,
@@ -41,9 +41,8 @@ with open('%s/title_i.json' % clever_dir) as f:
     TITLE_I_DISTRICT_NAMES_BY_STATE = json.loads(json_data)
 
 
-class CleverAuthenticationAPI(Authenticator):
+class CleverAuthenticationAPI(OAuthAuthenticator):
 
-    TYPE = Authenticator.OAUTH
     NAME = 'Clever'
     URI = "http://librarysimplified.org/terms/auth/clever"
     METHOD = "http://librarysimplified.org/authtype/Clever"
@@ -59,17 +58,6 @@ class CleverAuthenticationAPI(Authenticator):
     SUPPORTED_USER_TYPES = ['student', 'teacher']
 
     log = logging.getLogger('Clever authentication API')
-
-    def __init__(self, client_id, client_secret):
-        self.client_id = client_id
-        self.client_secret = client_secret
-
-    @classmethod
-    def from_config(cls):
-        config = Configuration.integration(cls.NAME, required=True)
-        client_id = config.get(Configuration.OAUTH_CLIENT_ID)
-        client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
-        return cls(client_id, client_secret)
 
     def _redirect_uri(self):
         return url_for('oauth_callback', _external=True)
@@ -169,8 +157,5 @@ class CleverAuthenticationAPI(Authenticator):
         patron._external_type = external_type
 
         return token, dict(name=user_data.get('name'))
-
-    def patron_info(self, identifier):
-        return {}
 
 AuthenticationAPI = CleverAuthenticationAPI
