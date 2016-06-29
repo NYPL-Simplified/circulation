@@ -227,6 +227,11 @@ class TestAuthenticator(DatabaseTest):
     def test_create_authentication_document(self):
         with temp_config() as config:
             config[Configuration.SECRET_KEY] = 'secret'
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CIRCULATION_MANAGER_INTEGRATION: {
+                    "url": "http://circulation"
+                }
+            }
             config[Configuration.LINKS] = {
                 Configuration.TERMS_OF_SERVICE: "http://terms",
                 Configuration.PRIVACY_POLICY: "http://privacy",
