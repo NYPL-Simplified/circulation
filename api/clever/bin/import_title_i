@@ -61,7 +61,7 @@ STATES = {
 }
 
 
-LEA_ALLOCATIONS_URL_BASE = "http://www2.ed.gov/about/overview/budget/titlei/fy14/%s.xls"
+LEA_ALLOCATIONS_URL_BASE = "http://www2.ed.gov/about/overview/budget/titlei/fy15/%s.xls"
 
 TEST_DISTRICT_NAME = '#DEMO Open eBooks Sandbox District'
 
@@ -78,7 +78,12 @@ for abbreviation, state_name in STATES.items():
         # second column contains district name
         name = sheet.cell(row_index, 1).value
         if name and name.replace(" ", ""):
-            district_names.append(name)
+            try:
+                allocation = int(sheet.cell(row_index, 2).value)
+                if allocation > 0:
+                    district_names.append(name)
+            except Exception, e:
+                allocation = None
 
     district_names_by_state[abbreviation] = district_names
 
