@@ -11,6 +11,7 @@ from . import (
     sample_data,
 )
 
+from core.scripts import RunCoverageProviderScript
 from core.external_search import DummyExternalSearchIndex
 from core.testing import MockRequestsResponse
 
@@ -405,6 +406,16 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
 
 class TestContentServerBibliographicCoverageProvider(DatabaseTest):
+
+    def test_script_instantiation(self):
+        """Test that RunCoverageProviderScript can instantiate
+        the coverage provider.
+        """
+        script = RunCoverageProviderScript(
+            ContentServerBibliographicCoverageProvider, self._db
+        )
+        assert isinstance(script.provider, 
+                          ContentServerBibliographicCoverageProvider)
 
     def test_only_open_access_books_considered(self):
 
