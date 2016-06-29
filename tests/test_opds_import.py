@@ -746,10 +746,11 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed)
         )
 
-        # We got an Edition for this book, but no LicensePool.
+        # We got an Edition for this book, but no LicensePool and no Work.
         [edition] = imported_editions
         eq_("Howards End", edition.title)
         eq_([], imported_pools)
+        eq_([], imported_works)
 
 
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
