@@ -407,7 +407,7 @@ class OPDSImporter(object):
 
             # form the CirculationData that would correspond to this Metadata
             c_data_dict = m_data_dict.get('circulation')
-            
+
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -419,7 +419,19 @@ class OPDSImporter(object):
             
                 combined_circ['primary_identifier'] = identifier_obj
                 
-                metadata[internal_identifier.urn].circulation = CirculationData(**combined_circ)
+                circulation = CirculationData(**combined_circ)
+                if circulation.formats:
+                    metadata[internal_identifier.urn].circulation = circulation
+                else:
+                    # If the CirculationData has no formats, it
+                    # doesn't really offer any way to actually get the
+                    # book, and we don't want to create a
+                    # LicensePool. All the circulation data is
+                    # useless.
+                    #
+                    # TODO: This will need to be revisited when we add
+                    # ODL support.
+                    metadata[internal_identifier.urn].circulation = None
 
         return metadata, identified_failures
 
@@ -429,6 +441,12 @@ class OPDSImporter(object):
         """Combine two dictionaries that can be used as keyword arguments to
         the Metadata constructor.
         """
+        if not d1 and not d2:
+            return dict()
+        if not d1:
+            return dict(d2)
+        if not d2:
+            return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
             if k in new_dict and isinstance(v, list):

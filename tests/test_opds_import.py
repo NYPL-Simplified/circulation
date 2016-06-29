@@ -738,6 +738,18 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(t1, i1.thumbnail)
         eq_(None, i2.thumbnail)
 
+    def test_import_book_that_offers_no_license(self):
+        path = os.path.join(self.resource_path, "book_without_license.opds")
+        feed = open(path).read()
+        importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
+        imported_editions, imported_pools, imported_works, failures = (
+            importer.import_from_feed(feed)
+        )
+
+        # We got an Edition for this book, but no LicensePool.
+        [edition] = imported_editions
+        eq_("Howards End", edition.title)
+        eq_([], imported_pools)
 
 
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
