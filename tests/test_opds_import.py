@@ -186,7 +186,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('Project Gutenberg', metadata['publisher'])
 
         circulation = metadata['circulation']
-        eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
+        eq_(DataSource.GUTENBERG, circulation['data_source'])
 
         failure = failures['http://www.gutenberg.org/ebooks/1984']
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
@@ -416,23 +416,25 @@ class TestOPDSImporter(OPDSImporterTest):
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        [crow_pool, mouse_pool] = sorted(
+            pools, key=lambda x: x.presentation_edition.title
+        )
 
         # Work was created for both books.
-        assert crow.license_pool.work is not None
-        eq_(Edition.BOOK_MEDIUM, crow.medium)
+        assert crow_pool.work is not None
+        eq_(Edition.BOOK_MEDIUM, crow_pool.presentation_edition.medium)
 
-        assert mouse.license_pool.work is not None
-        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+        assert mouse_pool.work is not None
+        eq_(Edition.PERIODICAL_MEDIUM, mouse_pool.presentation_edition.medium)
 
-        work = mouse.license_pool.work
+        work = mouse_pool.work
         work.calculate_presentation()
         eq_(0.4142, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 
         # Bonus: make sure that delivery mechanisms are set appropriately.
-        [mech] = mouse.license_pool.delivery_mechanisms
+        [mech] = mouse_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
@@ -485,7 +487,27 @@ class TestOPDSImporter(OPDSImporterTest):
         for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
-
+    def test_import_with_unrecognized_distributor_fails(self):
+        """We get a book from the open-access content server but the license
+        comes from an unrecognized data source. We can't import the book
+        because we can't record its provenance accurately.
+        """
+        feed = open(
+            os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
+        importer = OPDSImporter(
+            self._db, 
+            data_source_name=DataSource.OA_CONTENT_SERVER
+        )
+        imported_editions, pools, works, failures = (
+            importer.import_from_feed(feed)
+        )
+        # No editions, licensepools, or works were imported.
+        eq_([], imported_editions)
+        eq_([], pools)
+        eq_([], works)
+        [failure] = failures.values()
+        eq_(True, failure.transient)
+        assert "Unrecognized circulation data source: Unknown Source" in failure.exception
 
     def test_import_with_cutoff(self):
         cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
@@ -566,38 +588,43 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        # Two works have been created, because the content server
+        # actually tells you how to get copies of these books.
+        [crow, mouse] = sorted(imported_works, key=lambda x: x.title)
 
-        # Because the content server actually tells you how to get a
-        # copy of the 'mouse' book, a work and licensepool have been
-        # created for it.
-        assert mouse.license_pool != None
-        assert mouse.license_pool.work != None
+        # Each work has one license pool.
+        [crow_pool] = crow.license_pools
+        [mouse_pool] = mouse.license_pools
 
-        # The OPDS importer no longer worries about the underlying license source, 
-        # and correctly sets the data source to the content server, without guessing the 
-        # original source of Project Gutenberg.
-        eq_(DataSource.OA_CONTENT_SERVER, mouse.data_source.name)
+        # The OPDS importer sets the data source of the license pool
+        # to Project Gutenberg, since that's the authority that grants
+        # access to the book.
+        eq_(DataSource.GUTENBERG, mouse_pool.data_source.name)
+
+        # But the license pool's presentation edition has a data
+        # source associated with the Library Simplified open-access
+        # content server, since that's where the metadata comes from.
+        eq_(DataSource.OA_CONTENT_SERVER, 
+            mouse_pool.presentation_edition.data_source.name
+        )
 
         # Since the 'mouse' book came with an open-access link, the license
         # pool delivery mechanism has been marked as open access.
-        eq_(True, mouse.license_pool.open_access)
+        eq_(True, mouse_pool.open_access)
         eq_(RightsStatus.GENERIC_OPEN_ACCESS, 
-            mouse.license_pool.delivery_mechanisms[0].rights_status.uri)
+            mouse_pool.delivery_mechanisms[0].rights_status.uri)
 
         # The 'mouse' work has not been marked presentation-ready,
         # because the OPDS importer was not told to make works
         # presentation-ready as they're imported.
-        eq_(False, mouse.license_pool.work.presentation_ready)
+        eq_(False, mouse_pool.work.presentation_ready)
 
         # The OPDS feed didn't actually say where the 'crow' book
         # comes from, but we did tell the importer to use the open access 
         # content server as the data source, so both a Work and a LicensePool 
         # were created, and their data source is the open access content server,
         # not Project Gutenberg.
-        assert crow.work is not None
-        assert crow.license_pool is not None
-        eq_(DataSource.OA_CONTENT_SERVER, crow.data_source.name)
+        eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
 
 
     def test_import_and_make_presentation_ready(self):
@@ -611,11 +638,11 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        [crow, mouse] = sorted(imported_works, key=lambda x: x.title)
 
         # Both the 'crow' and the 'mouse' book had presentation-ready works created.
-        eq_(True, crow.license_pool.work.presentation_ready)
-        eq_(True, mouse.license_pool.work.presentation_ready)
+        eq_(True, crow.presentation_ready)
+        eq_(True, mouse.presentation_ready)
 
 
     def test_status_and_message(self):
@@ -782,7 +809,17 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_("I am 10557.epub.images", s3.content[3])
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        #
+        # The "mouse" book was mirrored to a bucket corresponding to
+        # Project Gutenberg, its data source.
+        #
+        # The images were mirrored to a bucket corresponding to the
+        # open-access content server, _their_ data source.
+        #
+        # The "crow" book was mirrored to a bucket corresponding to
+        # the open-access content source, the default data source used
+        # when no distributor was specified for a book.
+        url0 = 'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
         url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
