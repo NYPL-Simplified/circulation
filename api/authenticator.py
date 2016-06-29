@@ -156,13 +156,11 @@ class Authenticator(object):
 
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
 
-        provider_docs = {}
+        providers = []
         if self.basic_auth_provider:
-            provider_uri = self.basic_auth_provider.URI
-            provider_docs[provider_uri] = self.basic_auth_provider.create_authentication_provider_document()
-
+            providers.append(self.basic_auth_provider)
         for provider in self.oauth_providers:
-            provider_docs[provider.URI] = provider.create_authentication_provider_document()
+            providers.append(provider)
 
         links = {}
         for rel, value in (
@@ -175,7 +173,7 @@ class Authenticator(object):
                 links[rel] = dict(href=value, type="text/html")
 
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, provider_docs,
+            base_opds_document, providers,
             name=unicode(_("Library")), id=opds_id, links=links,
         )
         return json.dumps(doc)
