@@ -22,9 +22,12 @@ class OPDSAuthenticationDocument(object):
             if not key in data or not data[key]:
                 raise ValueError('`%s` must be specified.' % key)
 
-        if not isinstance(providers, dict):
-            raise ValueError('`providers` must be a dictionary.')
-        data['providers'] = providers
+        if not isinstance(providers, list):
+            raise ValueError('`providers` must be a list.')
+        provider_docs = {}
+        for provider in providers:
+            provider_docs[provider.URI] = provider.create_authentication_provider_document()
+        data['providers'] = provider_docs
 
         if links:
             data['links'] = {}

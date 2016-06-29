@@ -429,16 +429,16 @@ class TestOPDSAuthenticationDocument(object):
     def test_bad_documents(self):
         assert_raises(
             ValueError, OPDSAuthenticationDocument.fill_in, 
-            {}, [], "A title", "An id"
+            {}, "Not a list", "A title", "An id"
         )
 
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.fill_in, {}, {},
+            ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
             None, "An id"
         )
 
         assert_raises(
-            ValueError, OPDSAuthenticationDocument.fill_in, {}, {},
+            ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
             "A title", None
         )
 
@@ -447,7 +447,7 @@ class TestOPDSAuthenticationDocument(object):
         doc1 = {"id": "An ID", "name": "A title"}
 
         doc2 = OPDSAuthenticationDocument.fill_in(
-            doc1, {}, "Bla1", "Bla2")
+            doc1, [], "Bla1", "Bla2")
         del doc2['providers']
         eq_(doc2, doc1)
 
@@ -464,7 +464,7 @@ class TestOPDSAuthenticationDocument(object):
         }
 
         doc = OPDSAuthenticationDocument.fill_in(
-            {}, {},
+            {}, [],
             "A title", "An ID", links=links)
 
         eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
