@@ -122,15 +122,13 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         )
         eq_(None, pool.presentation_edition)
 
-        # Calling finalize_license_pool() here does nothing, since a
-        # LicensePool is no good without a presentation edition.
+        # Calling finalize_license_pool() here won't do much.
         provider_no_presentation_ready.finalize_license_pool(pool)
 
         # A presentation edition has been created for the LicensePool,
-        # but it has no title, so no Work was created.
+        # but it has no title (in fact it has no data at all), so no
+        # Work was created.
         eq_(None, pool.presentation_edition.title)
-
-        # No Works have been created.
         eq_(0, self._db.query(Work).count())
 
         # Here's an Edition for the same book as the LicensePool but
