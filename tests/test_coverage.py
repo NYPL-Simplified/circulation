@@ -410,7 +410,8 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         the coverage provider.
         """
         script = RunCoverageProviderScript(
-            ContentServerBibliographicCoverageProvider, self._db
+            ContentServerBibliographicCoverageProvider, self._db,
+            lookup=object()
         )
         assert isinstance(script.provider, 
                           ContentServerBibliographicCoverageProvider)
