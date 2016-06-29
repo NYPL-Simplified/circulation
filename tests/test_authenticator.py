@@ -11,6 +11,7 @@ from api.authenticator import Authenticator
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from . import DatabaseTest
 
 class DummyAuthAPI(Authenticator):
@@ -29,6 +30,9 @@ class DummyAuthAPI(Authenticator):
     def oauth_callback(self, _db, params):
         self.count = self.count + 1
         return "token", dict(name="Patron")
+
+    def authenticate_url(self):
+        return "http://authenticate"
 
 class TestAuthenticator(DatabaseTest):
 
@@ -220,3 +224,53 @@ class TestAuthenticator(DatabaseTest):
             eq_(1, oauth1.count)
             eq_(1, oauth2.count)
 
+    def test_create_authentication_document(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
+            config[Configuration.LINKS] = {
+                Configuration.TERMS_OF_SERVICE: "http://terms",
+                Configuration.PRIVACY_POLICY: "http://privacy",
+                Configuration.COPYRIGHT: "http://copyright",
+                Configuration.ABOUT: "http://about",
+            }
+
+            basic_auth = DummyAuthAPI()
+            basic_auth.URI = "http://librarysimplified.org/terms/auth/library-barcode"
+            basic_auth.NAME = "Basic Auth"
+            basic_auth.TYPE_URI = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
+            oauth1 = DummyAuthAPI()
+            oauth1.URI = "oauth 1 uri"
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyAuthAPI()
+            oauth2.URI = "oauth 2 uri"
+            oauth2.NAME = "oauth2"
+
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+
+            auth_document = json.loads(auth.create_authentication_document())
+            assert 'id' in auth_document
+            eq_("Library", auth_document['name'])
+
+            links = auth_document['links']
+            eq_("http://terms", links['terms-of-service']['href'])
+            eq_("http://privacy", links['privacy-policy']['href'])
+            eq_("http://copyright", links['copyright']['href'])
+            eq_("http://about", links['about']['href'])
+
+            providers = auth_document['providers']
+            eq_(3, len(providers))
+
+            [basic_auth_doc] = [p for p in providers if p['uri'] == basic_auth.URI]
+            eq_(basic_auth.NAME, basic_auth_doc['name'])
+            [basic_auth_type] = basic_auth_doc['type']
+            eq_(basic_auth.TYPE_URI, basic_auth_type['uri'])
+            eq_("Barcode", basic_auth_type['labels']['login'])
+            eq_("PIN", basic_auth_type['labels']['password'])
+            
+            [oauth1_doc] = [p for p in providers if p['uri'] == oauth1.URI]
+            eq_(oauth1.NAME, oauth1_doc['name'])
+            [oauth1_type] = oauth1_doc['type']
+            eq_("http://librarysimplified.org/authtype/" + oauth1.NAME, oauth1_type['uri'])
+            eq_("http://authenticate", oauth1_type['links']['authenticate'])

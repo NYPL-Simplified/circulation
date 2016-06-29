@@ -109,17 +109,23 @@ class CleverAuthenticationAPI(Authenticator):
         }
 
         response = self._get_token(payload, headers)
-        token = response['access_token']
+        token = response.get('access_token', None)
+
+        if not token:
+            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required.")), None
 
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
         }
         result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
-        data = result['data']
+        data = result.get('data', {})
 
-        identifier = data['id']
+        identifier = data.get('id', None)
 
-        if result['type'] not in self.SUPPORTED_USER_TYPES:
+        if not identifier:
+            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required.")), None            
+
+        if result.get('type') not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE, None
 
         links = result['links']
@@ -139,7 +145,7 @@ class CleverAuthenticationAPI(Authenticator):
 
         # TODO: check student free and reduced lunch status as well
 
-        if district_name not in TITLE_I_DISTRICT_NAMES_BY_STATE[state_code]:
+        if district_name not in TITLE_I_DISTRICT_NAMES_BY_STATE.get(state_code, []):
             self.log.info("%s in %s didn't match a Title I district name" % (district_name, state_code))
             return CLEVER_NOT_ELIGIBLE, None
 

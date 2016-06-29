@@ -63,7 +63,7 @@ STATES = {
 
 LEA_ALLOCATIONS_URL_BASE = "http://www2.ed.gov/about/overview/budget/titlei/fy15/%s.xls"
 
-TEST_DISTRICT_NAME = '#DEMO Open eBooks Sandbox District'
+TEST_DISTRICT_NAME = '#DEMO OEI Sandbox District'
 
 district_names_by_state = {}
 

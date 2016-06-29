@@ -159,8 +159,7 @@ class Authenticator(object):
         base_opds_document['name'] = unicode(_("Library"))
 
         if self.basic_auth_provider:
-            auth_uri = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
-            auth_type = [dict(uri=auth_uri, labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))]
+            auth_type = [dict(uri=self.basic_auth_provider.TYPE_URI, labels=dict(login=unicode(_("Barcode")), password=unicode(_("PIN"))))]
             basic_auth_doc = dict(uri=self.basic_auth_provider.URI, name=unicode(self.basic_auth_provider.NAME), type=auth_type)
 
         provider_docs = [basic_auth_doc]
@@ -198,6 +197,7 @@ class Authenticator(object):
 class BasicAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.BASIC_AUTH
+    TYPE_URI = OPDSAuthenticationDocument.BASIC_AUTH_FLOW
     NAME = _("Library Barcode")
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
 
