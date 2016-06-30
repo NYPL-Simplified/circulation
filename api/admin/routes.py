@@ -4,7 +4,7 @@ import flask
 from flask import (
     Response,
     redirect,
-    stream_with_context
+    make_response
 )
 import os
 
@@ -155,7 +155,7 @@ def genres():
 def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional
     start and end times."""
-    data = app.manager.admin_feed_controller.bulk_circulation_events()
+    data, date = app.manager.admin_feed_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data
 
@@ -172,7 +172,9 @@ def bulk_circulation_events():
             self.encoder = codecs.getincrementalencoder(encoding)()
 
         def writerow(self, row):
-            self.writer.writerow([s.encode("utf-8") for s in row])
+            self.writer.writerow(
+                [s.encode("utf-8") if hasattr(s, "encode") else "" for s in row]
+            )
             # Fetch UTF-8 output from the queue ...
             data = self.queue.getvalue()
             data = data.decode("utf-8")
@@ -187,16 +189,13 @@ def bulk_circulation_events():
             for row in rows:
                 self.writerow(row)
 
-    def generate():
-        output = StringIO()
-        writer = UnicodeWriter(output)
-        for row in data:
-            writer.writerow(row)
-            yield output.getvalue()
-            output.seek(0)
-            output.truncate(0)
-
-    return Response(stream_with_context(generate()), mimetype="text/csv")
+    output = StringIO()
+    writer = UnicodeWriter(output)
+    writer.writerows(data)
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = "attachment; filename=circulation_events_" + date + ".csv"
+    response.headers["Content-type"] = "text/csv"
+    return response
 
 @app.route('/admin/circulation_events')
 @returns_problem_detail

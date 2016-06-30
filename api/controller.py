@@ -347,7 +347,11 @@ class CirculationManagerController(object):
         id_obj, ignore = Identifier.for_foreign_id(
             self._db, identifier_type, identifier, autocreate=False)
         if not id_obj:
-            return NO_LICENSES.detailed(_("I've never heard of this work."))
+            return NO_LICENSES.detailed(
+                _("The item you're asking about (%s/%s) isn't in this collection.") % (
+                    identifier_type, identifier
+                )
+            )
         pool = id_obj.licensed_through
         return pool
 

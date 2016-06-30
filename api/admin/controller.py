@@ -56,6 +56,8 @@ from core.classifier import (
     NO_VALUE
 )
 from datetime import datetime, timedelta
+from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import desc, nullslast
 
 
 def setup_admin_controllers(manager):
@@ -616,7 +618,7 @@ class FeedController(CirculationManagerController):
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
-            .order_by(CirculationEvent.id.desc()) \
+            .order_by(nullslast(desc(CirculationEvent.start))) \
             .limit(num) \
             .all()
 
@@ -637,38 +639,40 @@ class FeedController(CirculationManagerController):
         default = str(datetime.today()).split(" ")[0]
         date = flask.request.args.get("date", default)
         next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
-
-        from sqlalchemy.sql import func
-
-        t = self._db.query(
-            WorkGenre.work_id,
-            func.max(WorkGenre.affinity).label('max_affinity'),
-        ).group_by(WorkGenre.work_id).subquery()
-
+            
         query = self._db.query(
-                CirculationEvent, Identifier, Work, Edition, Genre
+                CirculationEvent, Identifier, Work, Edition
             ) \
-            .join(LicensePool) \
-            .join(Work) \
-            .join(LicensePool.presentation_edition) \
-            .join(Edition.primary_identifier) \
-            .join(Work.work_genres) \
-            .join(WorkGenre.genre) \
-            .join(t, t.c.work_id == Work.id) \
-            .filter(WorkGenre.affinity == t.c.max_affinity) \
+            .join(LicensePool, LicensePool.id == CirculationEvent.license_pool_id) \
+            .join(Work, Work.id == LicensePool.work_id) \
+            .join(Edition, Edition.id == Work.presentation_edition_id) \
+            .join(Identifier, Identifier.id == Edition.primary_identifier_id) \
             .filter(CirculationEvent.start >= date) \
             .filter(CirculationEvent.start < next_date) \
             .order_by(CirculationEvent.start.asc())
-
         results = query.all()
+        
+        work_ids = map(lambda result: result[2].id, results)
+
+        subquery = self._db \
+            .query(WorkGenre.work_id, Genre.name) \
+            .join(Genre) \
+            .filter(WorkGenre.work_id.in_(work_ids)) \
+            .order_by(WorkGenre.affinity.desc()) \
+            .subquery()
+        genre_query = self._db \
+            .query(subquery.c.work_id, func.string_agg(subquery.c.name, ",")) \
+            .select_from(subquery) \
+            .group_by(subquery.c.work_id)
+        genres = dict(genre_query.all())
 
         header = [
             "time", "event", "identifier", "identifier_type", "title", "author", 
-            "fiction", "audience", "publisher", "language", "target_age", "genre"
+            "fiction", "audience", "publisher", "language", "target_age", "genres"
         ]
 
         def result_to_row(result):
-            (event, identifier, work, edition, genre) = result
+            (event, identifier, work, edition) = result
             return [
                 str(event.start) or "",
                 event.type,
@@ -681,7 +685,7 @@ class FeedController(CirculationManagerController):
                 edition.publisher,
                 edition.language,
                 work.target_age_string,
-                genre.name
+                genres.get(work.id)
             ]
 
-        return [header] + map(result_to_row, results)
+        return [header] + map(result_to_row, results), date
