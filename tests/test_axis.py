@@ -154,7 +154,11 @@ class TestCirculationMonitor(DatabaseTest):
         with temp_config() as config:
             provider = LocalAnalyticsProvider()
             analytics = Analytics([provider])
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = analytics
+            config = {
+                Configuration.POLICIES : {
+                    Configuration.ANALYTICS_POLICY : analytics 
+                }
+            }
             
             monitor = Axis360CirculationMonitor(self._db)
             monitor.api = None
