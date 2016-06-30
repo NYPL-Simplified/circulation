@@ -412,7 +412,7 @@ class ErrorParser(ThreeMParser):
             # authentication internal to 3M has failed? Anyway, it
             # happens relatively frequently.
             return RemoteInitiatedServerError(
-                response.content.ThreeMAPI.SERVICE_NAME
+                message, ThreeMAPI.SERVICE_NAME
             )
 
         m = self.loan_limit_reached.search(message)

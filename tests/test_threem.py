@@ -283,6 +283,7 @@ class TestErrorParser(ThreeMAPITest):
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_("Unknown error", error.message)
 
     def test_remote_authentication_failed_becomes_remote_initiated_server_error(self):
         """Simulate the message we get when the error message is
@@ -293,6 +294,7 @@ class TestErrorParser(ThreeMAPITest):
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_("Authentication failed", error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
         msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
