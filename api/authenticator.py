@@ -185,6 +185,13 @@ class Authenticator(object):
         headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
         if self.basic_auth_provider:
             headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
+
+        # TODO: We're leaving out headers for other providers to avoid breaking iOS
+        # clients that don't support multiple auth headers. It's not clear what
+        # the header for an oauth provider should look like. This means that there's
+        # no auth header for app without a basic auth provider, but we don't have
+        # any apps like that yet.
+
         return headers
 
 class BasicAuthAuthenticator(Authenticator):
