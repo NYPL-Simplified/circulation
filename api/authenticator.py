@@ -183,8 +183,6 @@ class Authenticator(object):
         authentication document."""
         headers = Headers()
         headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
-        for provider in self.oauth_providers:
-            headers.add('WWW-Authenticate', provider.AUTHENTICATION_HEADER)
         if self.basic_auth_provider:
             headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
         return headers
@@ -220,7 +218,7 @@ class BasicAuthAuthenticator(Authenticator):
 class OAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.OAUTH
-    # Subclass must define NAME, URI, METHOD, and AUTHENTICATION_HEADER
+    # Subclass must define NAME, URI, and METHOD
 
     def __init__(self, client_id, client_secret):
         self.client_id = client_id
