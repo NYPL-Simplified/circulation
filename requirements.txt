@@ -29,8 +29,6 @@ textblob
 # Used only by circulation
 oauth2client
 pyjwt
-# Used only by clever
-xlrd
 
 
 # A NYPL-specific requirement
