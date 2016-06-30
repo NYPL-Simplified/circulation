@@ -132,8 +132,3 @@ class TestWorkProcessingScript(DatabaseTest):
             self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
         )
         eq_([g1], one_gutenberg.all())
-
-
-
-
-
