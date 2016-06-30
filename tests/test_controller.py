@@ -224,6 +224,8 @@ class TestBaseController(CirculationControllerTest):
 
         problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier type", licensepool.identifier.identifier)
         eq_(NO_LICENSES.uri, problem_detail.uri)
+        expect = u"The item you're asking about (bad identifier type/%s) isn't in this collection." % licensepool.identifier.identifier
+        eq_(expect, problem_detail.detail)
         
         problem_detail = self.controller.load_licensepool(licensepool.data_source.name, licensepool.identifier.type, "bad identifier")
         eq_(NO_LICENSES.uri, problem_detail.uri)
