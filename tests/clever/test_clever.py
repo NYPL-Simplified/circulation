@@ -58,7 +58,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_oauth_callback_title_i(self):
         self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
         self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', student_number='5678')))
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
 
@@ -67,8 +67,9 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         eq_('Abcd', patron_info.get('name'))
 
         # A patron was created
-        patron = get_one(self._db, Patron, authorization_identifier='1234')
+        patron = get_one(self._db, Patron, external_identifier='1234')
         assert patron != None
+        eq_("5678", patron.authorization_identifier)
 
     def test_oauth_callback_free_lunch_status(self):
         pass
@@ -77,47 +78,47 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # Teacher is all-access
         self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
         self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', teacher_number='1111')))
         self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
 
         self.api.oauth_callback(self._db, {})
 
-        patron = get_one(self._db, Patron, authorization_identifier='1')
+        patron = get_one(self._db, Patron, external_identifier='1')
         eq_('A', patron.external_type)
 
         # Student type is based on grade
 
         self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
         self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='1')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='1', student_number='2222')))
         self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
 
         self.api.oauth_callback(self._db, {})
 
-        patron = get_one(self._db, Patron, authorization_identifier='2')
+        patron = get_one(self._db, Patron, external_identifier='2')
         eq_('E', patron.external_type)
 
         self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
         self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='6')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='6', student_number='3333')))
         self.api.queue_response(dict(type='student', data=dict(id='3'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
 
         self.api.oauth_callback(self._db, {})
 
-        patron = get_one(self._db, Patron, authorization_identifier='3')
+        patron = get_one(self._db, Patron, external_identifier='3')
         eq_('M', patron.external_type)
 
         self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
         self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='9')))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='9', student_number='4444')))
         self.api.queue_response(dict(type='student', data=dict(id='4'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
 
         self.api.oauth_callback(self._db, {})
 
-        patron = get_one(self._db, Patron, authorization_identifier='4')
+        patron = get_one(self._db, Patron, external_identifier='4')
         eq_('H', patron.external_type)
 

@@ -75,7 +75,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
 
         identifier = data['id']
 
-        patron = get_one(_db, Patron, authorization_identifier=identifier)
+        patron = get_one(_db, Patron, external_identifier=identifier)
         return patron
 
     def _get_token(self, payload, headers):
@@ -138,6 +138,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
             return CLEVER_NOT_ELIGIBLE, None
 
         if result['type'] == 'student':
+            user_number = user_data.get('student_number')
             grade = user_data.get('grade')
             external_type = None
             if grade in ["Kindergarten", "1", "2", "3"]:
@@ -147,11 +148,12 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
             elif grade in ["9", "10", "11", "12"]:
                 external_type = "H"
         else:
+            user_number = user_data.get('teacher_number')
             external_type = "A"
 
         patron, is_new = get_one_or_create(
             _db, Patron, external_identifier=identifier,
-            authorization_identifier=identifier,
+            authorization_identifier=user_number,
         )
         patron._external_type = external_type
 
