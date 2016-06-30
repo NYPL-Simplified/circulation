@@ -1,4 +1,5 @@
 from lxml import etree
+
 from cStringIO import StringIO
 import itertools
 import datetime
@@ -146,10 +147,6 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         else:
             # Error condition.
             error = ErrorParser().process_all(response.content)
-            if error.message == 'Unknown error':
-                raise RemoteInitiatedServerError(
-                    response.content, ThreeMAPI.SERVICE_NAME
-                )
             if isinstance(error, AlreadyCheckedOut):
                 # It's already checked out. No problem.
                 pass
@@ -404,6 +401,19 @@ class ErrorParser(ThreeMParser):
 
         if message in self.error_mapping:
             return self.error_mapping[message](message)
+        if message in ('Authentication failed', 'Unknown error'):
+            # 'Unknown error' is an unknown error on the 3M side.
+            #
+            # 'Authentication failed' could _in theory_ be an error on
+            # our side, but if authentication is set up improperly we
+            # actually get a 401 and no body. When we get a real error
+            # document with 'Authentication failed', it's always a
+            # transient error on the 3M side. Possibly some
+            # authentication internal to 3M has failed? Anyway, it
+            # happens relatively frequently.
+            return RemoteInitiatedServerError(
+                response.content.ThreeMAPI.SERVICE_NAME
+            )
 
         m = self.loan_limit_reached.search(message)
         if m:
