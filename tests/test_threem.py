@@ -1,3 +1,4 @@
+# encoding: utf-8
 import datetime
 import os
 from nose.tools import (
@@ -275,6 +276,25 @@ class TestErrorParser(ThreeMAPITest):
         doc = error.as_problem_detail_document()
         eq_(502, doc.status_code)
         eq_("Integration error communicating with 3M", doc.detail)
+
+    def test_unknown_error_becomes_remote_initiated_server_error(self):
+        """Simulate the message we get when ¯\_(ツ)_/¯."""
+        msg=self.sample_data("error_unknown.xml")
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, RemoteInitiatedServerError)
+        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_("Unknown error", error.message)
+
+    def test_remote_authentication_failed_becomes_remote_initiated_server_error(self):
+        """Simulate the message we get when the error message is
+        'Authentication failed' but our authentication information is
+        set up correctly.
+        """
+        msg=self.sample_data("error_authentication_failed.xml")
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, RemoteInitiatedServerError)
+        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_("Authentication failed", error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
         msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
