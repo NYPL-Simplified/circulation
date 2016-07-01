@@ -137,6 +137,9 @@ class CirculationManager(object):
         else:
             self.hold_notification_email_address = Configuration.default_notification_email_address()
 
+        self.opds_authentication_document = None
+        self.authentication_headers = None
+
     def create_top_level_lane(self, lanelist):
         name = 'All Books'
         return Lane(
@@ -300,8 +303,13 @@ class CirculationManagerController(object):
 
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
-        data = self.manager.auth.create_authentication_document()
-        headers = self.manager.auth.create_authentication_headers()
+        if not self.manager.opds_authentication_document:
+            self.manager.opds_authentication_document = self.manager.auth.create_authentication_document()
+        if not self.manager.authentication_headers:
+            self.manager.authentication_headers = self.manager.auth.create_authentication_headers()
+
+        data = self.manager.opds_authentication_document
+        headers = self.manager.authentication_headers
         return Response(data, 401, headers)
 
     def load_lane(self, language_key, name):
