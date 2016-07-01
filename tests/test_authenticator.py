@@ -157,6 +157,30 @@ class TestAuthenticator(DatabaseTest):
             eq_(1, oauth1.count)
             eq_(1, oauth2.count)
 
+    def test_get_credentials_from_header(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
+
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyOAuthAPI()
+            oauth2.NAME = "oauth2"
+
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+
+            no_auth_header = ""
+            eq_(None, auth.get_credential_from_header(no_auth_header))
+
+            basic_auth_header = dict(username="foo", password="bar")
+            eq_("bar", auth.get_credential_from_header(basic_auth_header))
+
+            token = auth.create_token("oauth2", "token")
+            oauth_header = "Bearer: %s" % token
+            eq_("token", auth.get_credential_from_header(oauth_header))
+
     def test_oauth_callback(self):
         with temp_config() as config:
             config[Configuration.SECRET_KEY] = 'secret'
