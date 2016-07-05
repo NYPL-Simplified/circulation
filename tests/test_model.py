@@ -719,6 +719,32 @@ class TestContributor(DatabaseTest):
 
 class TestEdition(DatabaseTest):
 
+    def test_author_contributors(self):
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        id = self._str
+        type = Identifier.GUTENBERG_ID
+
+        edition, was_new = Edition.for_foreign_id(
+            self._db, data_source, type, id
+        )
+
+        # We've listed the same person as primary author and author.
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
+        edition.add_contributor(
+            alice, [Contributor.AUTHOR_ROLE, Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+
+        # We've listed a different person as illustrator.
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
+        edition.add_contributor(bob, [Contributor.ILLUSTRATOR_ROLE])
+
+        # Both contributors show up in .contributors.
+        eq_(set([alice, bob]), edition.contributors)
+
+        # Only the author shows up in .author_contributors, and she
+        # only shows up once.
+        eq_([alice], edition.author_contributors)
+
     def test_for_foreign_id(self):
         """Verify we can get a data source's view of a foreign id."""
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
