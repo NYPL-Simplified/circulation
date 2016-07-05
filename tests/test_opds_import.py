@@ -768,7 +768,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+            importer.import_from_feed(self.content_server_mini_feed)
         )
 
         eq_([e1, e2], imported_editions)
@@ -793,7 +793,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+            importer.import_from_feed(self.content_server_mini_feed)
         )
 
         eq_([e1, e2], imported_editions)
@@ -814,25 +814,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
 
 
-    def test_run_once(self):
-        class MockMonitor(OPDSImportMonitor):
-            def _get(self, url, headers):
-                return 200, self.content_server_mini_feed_without_message, {}
-
-        monitor = DummyMonitor(
-            self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter
-        )
-        monitor.run_once("http://url", None)
-
-        # Editions have been imported.
-        eq_(2, self._db.query(Edition).count())
-
-        # Unlike many other Monitors, OPDSImportMonitor doesn't
-        # store a Timestamp. 
-        eq_(None, monitor.timestamp)
-
     def test_check_for_new_data(self):
         feed = self.content_server_mini_feed_without_message
+
+        class MockOPDSImportMonitor(OPDSImportMonitor):
+            def _get(self, url, headers):
+                return 200, {}, feed
 
         monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
 
@@ -840,13 +827,22 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(True, monitor.check_for_new_data(feed))
 
         # Now import the editions.
-        monitor.importer.import_from_feed(feed)
+        monitor = MockOPDSImportMonitor(
+            self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter
+        )
+        monitor.run_once("http://url", None)
+
+        # Editions have been imported.
         eq_(2, self._db.query(Edition).count())
+
+        # Note that unlike many other Monitors, OPDSImportMonitor
+        # doesn't store a Timestamp.
+        assert not hasattr(monitor, 'timestamp')
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        # If there are CoverageRecords, that are after the updated
+        # If there are CoverageRecords that record work are after the updated
         # dates, there's nothing new.
         record, ignore = CoverageRecord.add_for(
             editions[0], data_source, CoverageRecord.IMPORT_OPERATION
