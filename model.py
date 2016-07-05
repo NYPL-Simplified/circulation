@@ -6211,6 +6211,7 @@ class Representation(Base):
 
     EPUB_MEDIA_TYPE = u"application/epub+zip"
     PDF_MEDIA_TYPE = u"application/pdf"
+    MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
@@ -6223,6 +6224,7 @@ class Representation(Base):
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,
         PDF_MEDIA_TYPE,
+        MOBI_MEDIA_TYPE,
         MP3_MEDIA_TYPE,
     ]
 
@@ -6239,6 +6241,7 @@ class Representation(Base):
 
     FILE_EXTENSIONS = {
         EPUB_MEDIA_TYPE: "epub",
+        MOBI_MEDIA_TYPE: "mobi",
         PDF_MEDIA_TYPE: "pdf",
         MP3_MEDIA_TYPE: "mp3",
         JPEG_MEDIA_TYPE: "jpg",
@@ -6591,6 +6594,19 @@ class Representation(Base):
             response_reviewer=response_reviewer
         )
 
+    @property
+    def mirrorable_media_type(self):
+        """Does this Representation look like the kind of thing we
+        create mirrors of?
+
+        Basically, images and books.
+        """
+        return any(
+            self.media_type in x for x in 
+            (Representation.BOOK_MEDIA_TYPES, 
+             Representation.IMAGE_MEDIA_TYPES)
+        )
+
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
        
@@ -6789,11 +6805,11 @@ class Representation(Base):
         """
         if self.content:
             return StringIO(self.content)
-        else:
+        elif self.local_path:
             if not os.path.exists(self.local_path):
                 raise ValueError("%s does not exist." % self.local_path)
             return open(self.local_path)
-            
+        return None
 
     def as_image(self):
         """Load this Representation's contents as a PIL image."""
@@ -6805,6 +6821,8 @@ class Representation(Base):
             raise ValueError("Image representation has no content.")
 
         fh = self.content_fh()
+        if not fh:
+            return None
         if self.media_type == self.SVG_MEDIA_TYPE:
             # Transparently convert the SVG to a PNG.
             png_data = cairosvg.svg2png(fh.read())

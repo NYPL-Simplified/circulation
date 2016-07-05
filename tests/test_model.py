@@ -3059,6 +3059,21 @@ class TestRepresentation(DatabaseTest):
         eq_("/foo/bar/baz", Representation.normalize_content_path(
             "/foo/bar/baz", "/blah/blah/"))
 
+    def test_mirrorable_media_type(self):
+        representation, ignore = self._representation(self._url)
+
+        # Ebook formats and image formats get mirrored.
+        representation.media_type = Representation.EPUB_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+        representation.media_type = Representation.MOBI_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+        representation.media_type = Representation.JPEG_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+
+        # Other media types don't get mirrored
+        representation.media_type = "text/plain"
+        eq_(False, representation.mirrorable_media_type)
+
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
@@ -3210,6 +3225,7 @@ class TestRepresentation(DatabaseTest):
     def test_extension(self):
         m = Representation._extension
         eq_(".jpg", m("image/jpeg"))
+        eq_(".mobi", m("application/x-mobipocket-ebook"))
         eq_("", m("no/such-media-type"))
 
     def test_default_filename(self):
