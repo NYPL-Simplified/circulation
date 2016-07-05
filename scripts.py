@@ -550,19 +550,45 @@ class CustomListManagementScript(Script):
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
-    def __init__(self, feed_url, default_data_source, importer_class, 
-                 keep_timestamp=True, immediately_presentation_ready=False):
-        self.feed_url = feed_url
-        self.default_data_source = default_data_source
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--url', 
+            help='URL of the OPDS feed to be imported'
+        )
+        parser.add_argument(
+            '--data-source', 
+            help='The name of the data source providing the OPDS feed.'
+        )
+        parser.add_argument(
+            '--force', 
+            help='Import the feed from scratch, even if it seems like it was already imported.',
+            dest='force', action='store_true'
+        )
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, cmd_args=None):
+        parser = cls.arg_parser()
+        return parser.parse_args(cmd_args)
+
+    def __init__(self, feed_url, opds_data_source, importer_class, 
+                 immediately_presentation_ready=False, cmd_args=None):
+        args = self.parse_command_line(cmd_args)
+        self.force_reimport = args.force
+        self.feed_url = args.url or feed_url
+        self.opds_data_source = args.data_source or opds_data_source
         self.importer_class = importer_class
-        self.keep_timestamp = keep_timestamp
         self.immediately_presentation_ready = immediately_presentation_ready
 
     def do_run(self):
         monitor = OPDSImportMonitor(
-            self._db, self.feed_url, self.default_data_source, 
-            self.importer_class, keep_timestamp=self.keep_timestamp,
-            immediately_presentation_ready = self.immediately_presentation_ready
+            self._db, self.feed_url, self.opds_data_source, 
+            self.importer_class, 
+            immediately_presentation_ready = self.immediately_presentation_ready,
+            force_reimport=self.force_reimport
         )
         monitor.run()
         

@@ -485,46 +485,6 @@ class TestOPDSImporter(OPDSImporterTest):
         for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
-
-
-    def test_import_with_cutoff(self):
-        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
-        feed = self.content_server_mini_feed
-        importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
-        )
-
-        # Despite the cutoff, both books were imported, because they were new.
-        eq_(2, len(imported_editions))
-        eq_(2, len(pools))
-        eq_(2, len(works))        
-
-        # But if we try it again...
-        imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
-        )
-
-        # None of the books were imported because they weren't updated
-        # after the cutoff.
-        eq_(0, len(imported_editions))
-        eq_(0, len(pools))
-        eq_(0, len(works))
-
-        # And if we change the cutoff...
-        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
-        )
-
-        # Both books were imported again.
-        eq_(2, len(imported_editions))
-        eq_(2, len(pools))
-        eq_(2, len(works))
-
-        assert (datetime.datetime.utcnow() - pools[0].last_checked) < datetime.timedelta(seconds=10)
-
-
     def test_import_updates_metadata(self):
 
         path = os.path.join(self.resource_path, "metadata_wrangler_overdrive.opds")
@@ -854,19 +814,30 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
 
 
+    def test_run_once(self):
+        class MockMonitor(OPDSImportMonitor):
+            def _get(self, url, headers):
+                return 200, self.content_server_mini_feed_without_message, {}
+
+        monitor = DummyMonitor(
+            self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter
+        )
+        monitor.run_once("http://url", None)
+
+        # Editions have been imported.
+        eq_(2, self._db.query(Edition).count())
+
+        # Unlike many other Monitors, OPDSImportMonitor doesn't
+        # store a Timestamp. 
+        eq_(None, monitor.timestamp)
+
     def test_check_for_new_data(self):
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
         feed = self.content_server_mini_feed_without_message
+
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
 
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.check_for_new_data(feed))
-
-        # If there's a cutoff date that's after the updated
-        # dates in the feed, the data still isn't new.
-        eq_(False, monitor.check_for_new_data(feed, datetime.datetime(2016, 1, 1, 1, 1, 1)))
-
-        # But if the cutoff is before the updated time...
-        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
 
         # Now import the editions.
         monitor.importer.import_from_feed(feed)
@@ -889,8 +860,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         eq_(False, monitor.check_for_new_data(feed))
 
-        # If a CoverageRecord is before the updated date, there's
-        # new data.
+        # If the monitor is set up to force reimport, it doesn't
+        # matter that there's nothing new--we act as though there is.
+        monitor.force_reimport = True
+        eq_(True, monitor.check_for_new_data(feed))
+        monitor.force_reimport = False
+
+        # If an entry was updated after the date given in that entry's
+        # CoverageRecord, there's new data.
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
 
@@ -902,20 +879,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             r.status = CoverageRecord.TRANSIENT_FAILURE
         eq_(True, monitor.check_for_new_data(feed))
 
-        # If a CoverageRecord is a persistent failure, we check
-        # if the feed has changed since the timestamp.
+        # If a CoverageRecord is a persistent failure, we don't try again...
         for r in [record, record2]:
             r.status = CoverageRecord.PERSISTENT_FAILURE
         eq_(False, monitor.check_for_new_data(feed))
 
+        # ...unless the feed updates.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
-
-        # If only one of the entries has a CoverageRecord, the other
-        # uses the cutoff date.
-        self._db.delete(record2)
-        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
-
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
@@ -964,7 +935,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         feed = self.content_server_mini_feed
 
-        monitor.import_one_feed(feed, None)
+        monitor.import_one_feed(feed)
         
         editions = self._db.query(Edition).all()
         
@@ -1013,7 +984,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def follow_one_link(self, link, cutoff_date=None, do_get=None):
                 return self.responses.pop()
 
-            def import_one_feed(self, feed, start):
+            def import_one_feed(self, feed):
                 self.imports.append(feed)
 
         monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)

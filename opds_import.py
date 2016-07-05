@@ -201,10 +201,8 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, http_get=None, 
-                 force=True):
+                 identifier_mapping=None, mirror=None, http_get=None):
         self._db = _db
-        self.force = True
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
@@ -214,7 +212,6 @@ class OPDSImporter(object):
 
 
     def import_from_feed(self, feed, even_if_no_author=False, 
-                         cutoff_date=None, 
                          immediately_presentation_ready=False):
 
         # Keep track of editions that were imported. Pools and works
@@ -240,7 +237,7 @@ class OPDSImporter(object):
             try:
                 # Create an edition. This will also create a pool if there's circulation data.
                 edition = self.import_edition_from_metadata(
-                    metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
+                    metadata, even_if_no_author, immediately_presentation_ready
                 )
                 if edition:
                     imported_editions[key] = edition
@@ -275,7 +272,7 @@ class OPDSImporter(object):
 
 
     def import_edition_from_metadata(
-            self, metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
+            self, metadata, even_if_no_author, immediately_presentation_ready
     ):
         """ For the passed-in Metadata object, see if can find or create an Edition 
             in the database.  Do not set the edition's pool or work, yet.
@@ -283,16 +280,6 @@ class OPDSImporter(object):
 
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
-
-        if (cutoff_date 
-            and not is_new_edition
-            and metadata.data_source_last_updated < cutoff_date
-        ):
-            # We've already imported this book, we've been told
-            # not to bother with books that haven't changed since a
-            # certain date, and this book hasn't changed since that
-            # that date. There's no reason to do anything.
-            return None
 
         policy = ReplacementPolicy(
             subjects=True,
@@ -870,10 +857,17 @@ class OPDSImportMonitor(Monitor):
     """
     
     def __init__(self, _db, feed_url, default_data_source, import_class, 
-                 interval_seconds=3600, keep_timestamp=True,
-                 immediately_presentation_ready=False):
+                 interval_seconds=0, keep_timestamp=False,
+                 immediately_presentation_ready=False, force_reimport=False):
+
+        # We never keep a timestamp because we can track when the OPDS
+        # archive feed was last updated.
+        keep_timestamp = False
+        interval_seconds = 0
+
         self.feed_url = feed_url
         self.importer = import_class(_db, default_data_source)
+        self.force_reimport = force_reimport
         self.immediately_presentation_ready = immediately_presentation_ready
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
@@ -885,18 +879,27 @@ class OPDSImportMonitor(Monitor):
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
+        headers = dict(headers or {})
+        headers['Accept'] = OPDSFeed.ACQUISITION_FEED_TYPE
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
-    def check_for_new_data(self, feed, cutoff_date=None):
-        """Check if the feed contains any entries that haven't been imported yet
-        or have been updated since the cutoff date.
+    def check_for_new_data(self, feed):
+        """Check if the feed contains any entries that haven't been imported
+        yet. If force_import is set, every entry in the feed is
+        treated as new.
         """
+
+        # If force_reimport is set, we don't even need to check. Always
+        # treat the feed as though it contained new data.
+        if self.force_reimport:
+            return True
+
         last_update_dates = self.importer.extract_last_update_dates(feed)
 
         new_data = False
-        for identifier, updated in last_update_dates:
+        for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
             data_source = DataSource.lookup(self._db, self.importer.data_source_name)
@@ -907,32 +910,28 @@ class OPDSImportMonitor(Monitor):
                     identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
                 )
 
-            # If there was a transient failure last time we tried to import this book,
-            # try again regardless of whether the feed has changed.
+            # If there was a transient failure last time we tried to
+            # import this book, try again regardless of whether the
+            # feed has changed.
             if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
                 new_data = True
                 break
 
-            # If our last attempt was a success or a persistent failure, we only want to import again
-            # if something changed since then.
+            # If our last attempt was a success or a persistent
+            # failure, we only want to import again if something
+            # changed since then.
 
-            # If we have a CoverageRecord, that's the most reliable indicator of the last time we tried
-            # to import this book. But if we imported the book before we started creating CoverageRecords
-            # for imports, we can still use the monitor's timestamp as the cutoff.
-            if record:
-                cutoff = record.timestamp
-            else:
-                cutoff = cutoff_date
+            if record and record.timestamp:
+                # We've imported this entry before, so don't import it
+                # again unless it's changed.
 
-            if cutoff:
-                # We've imported this book before, so don't import it again unless it's changed.
-
-                if not updated:
-                    # If we don't know if the book has been updated, import it again to be safe.
+                if not remote_updated:
+                    # The remote isn't telling us whether the entry
+                    # has been updated. Import it again to be safe.
                     new_data = True
                     break
 
-                if  updated >= cutoff:
+                if remote_updated >= record.timestamp:
                     # This book has been updated.
                     new_data = True
                     break
@@ -944,24 +943,27 @@ class OPDSImportMonitor(Monitor):
 
         return new_data
 
-    def follow_one_link(self, link, cutoff_date=None, do_get=None):
-        self.log.info("Following next link: %s, cutoff=%s", link, cutoff_date)
+    def follow_one_link(self, link, do_get=None):
+        self.log.info("Following next link: %s", link)
         get = do_get or self._get
         status_code, content_type, feed = get(link, None)
 
-        new_data = self.check_for_new_data(feed, cutoff_date=cutoff_date)
+        new_data = self.check_for_new_data(feed)
 
         if new_data:
-            # There's something new on this page, so we need to check the next page as well.
+            # There's something new on this page, so we need to check
+            # the next page as well.
             next_links = self.importer.extract_next_links(feed)
             return next_links, feed
         else:
-            # There's nothing new, so we don't need to import this feed or check the next page.
+            # There's nothing new, so we don't need to import this
+            # feed or check the next page.
+            self.log.info("No new data.")
             return [], None
 
-    def import_one_feed(self, feed, start):
+    def import_one_feed(self, feed):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
-            feed, even_if_no_author=True, cutoff_date=start,
+            feed, even_if_no_author=True,
             immediately_presentation_ready = self.immediately_presentation_ready
         )
 
@@ -977,9 +979,8 @@ class OPDSImportMonitor(Monitor):
         # Create CoverageRecords for the failures.
         for urn, failure in failures.items():
             failure.to_coverage_record(operation=CoverageRecord.IMPORT_OPERATION)
-
         
-    def run_once(self, start, cutoff):
+    def run_once(self, ignore1, ignore2):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])
@@ -992,7 +993,7 @@ class OPDSImportMonitor(Monitor):
             for link in queue:
                 if link in seen_links:
                     continue
-                next_links, feed = self.follow_one_link(link, start)
+                next_links, feed = self.follow_one_link(link)
                 new_queue.extend(next_links)
                 if feed:
                     feeds.append((link, feed))
@@ -1003,8 +1004,8 @@ class OPDSImportMonitor(Monitor):
         # Start importing at the end. If something fails, it will be easier to
         # pick up where we left off.
         for link, feed in reversed(feeds):
-            self.log.info("Importing next feed: %s, cutoff=%s", link, start)
-            self.import_one_feed(feed, start)
+            self.log.info("Importing next feed: %s", link)
+            self.import_one_feed(feed)
             self._db.commit()
 
 
