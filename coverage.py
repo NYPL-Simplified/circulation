@@ -739,6 +739,7 @@ class BibliographicCoverageProvider(CoverageProvider):
             cutoff_time=cutoff_time
         )
 
+
     def process_batch(self, identifiers):
         """Returns a list of successful identifiers and CoverageFailures"""
         results = []

@@ -33,6 +33,7 @@ from model import (
     Contributor,
     CoverageRecord,
     Credential,
+    CustomListEntry,
     DataSource,
     DeliveryMechanism,
     Genre,
@@ -74,7 +75,10 @@ from . import (
     DummyHTTPClient,
 )
 
-from analytics import Analytics
+from analytics import (
+    Analytics,
+    temp_analytics
+)
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDataSource(DatabaseTest):
@@ -236,6 +240,160 @@ class TestIdentifier(DatabaseTest):
             Identifier.UnresolvableIdentifierException, 
             Identifier.parse_urn, self._db, isbn_urn, 
             must_support_license_pools=True)
+
+    def test_recursively_equivalent_identifier_ids(self):
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.MANUAL)
+
+        strong_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, strong_equivalent, 0.9)
+
+        weak_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, weak_equivalent, 0.2)
+
+        level_2_equivalent = self._identifier()
+        strong_equivalent.equivalent_to(data_source, level_2_equivalent, 0.5)
+
+        level_3_equivalent = self._identifier()
+        level_2_equivalent.equivalent_to(data_source, level_3_equivalent, 0.9)
+
+        level_4_equivalent = self._identifier()
+        level_3_equivalent.equivalent_to(data_source, level_4_equivalent, 0.6)
+
+        unrelated = self._identifier()
+
+        # With a low threshold and enough levels, we find all the identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we only look at one level, we don't find the level 2, 3, or 4 identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we raise the threshold, we don't find the weak identifier.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.4)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # For deeper levels, the strength is the product of the strengths
+        # of all the equivalencies in between the two identifiers.
+
+        # In this example:
+        # identifier - level_2_equivalent = 0.9 * 0.5 = 0.45
+        # identifier - level_3_equivalent = 0.9 * 0.5 * 0.9 = 0.405
+        # identifier - level_4_equivalent = 0.9 * 0.5 * 0.9 * 0.6 = 0.243
+
+        # With a threshold of 0.5, level 2 and all subsequent levels are too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.5)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # With a threshold of 0.25, level 2 is strong enough, but level
+        # 4 is too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.25)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # It also works if we start from other identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [strong_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[strong_equivalent.id]))
+
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.5)
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        # A chain of very strong equivalents can keep a high strength
+        # even at deep levels. This wouldn't work if we changed the strength
+        # threshold by level instead of accumulating a strength product.
+        another_identifier = self._identifier()
+        l2 = self._identifier()
+        l3 = self._identifier()
+        l4 = self._identifier()
+        l2.equivalent_to(data_source, another_identifier, 1)
+        l3.equivalent_to(data_source, l2, 1)
+        l4.equivalent_to(data_source, l3, 0.9)
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [another_identifier.id], levels=5, threshold=0.89)
+        eq_(set([another_identifier.id,
+                 l2.id,
+                 l3.id,
+                 l4.id]),
+            set(equivs[another_identifier.id]))
+
+        # We can look for multiple identifiers at once.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id, level_3_equivalent.id], levels=2, threshold=0.8)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[level_3_equivalent.id]))
+
+        # The query uses the same db function, but returns equivalents
+        # for all identifiers together so it can be used as a subquery.
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=5, threshold=0.1)
+        query = query.where(Identifier.id==identifier.id)
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivalent_ids))
+
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=2, threshold=0.8)
+        query = query.where(Identifier.id.in_([identifier.id, level_3_equivalent.id]))
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivalent_ids))
+
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -574,7 +732,7 @@ class TestEdition(DatabaseTest):
         eq_(id, identifier.identifier)
         eq_(type, identifier.type)
         eq_(True, was_new)
-        eq_(set([identifier.id]), record.equivalent_identifier_ids())
+        eq_([identifier], record.equivalent_identifiers())
 
         # We can get the same work record by providing only the name
         # of the data source.
@@ -631,6 +789,20 @@ class TestEdition(DatabaseTest):
         # return both Gutenberg records (but not the web record).
         eq_([g1.id, g2.id], sorted([x.id for x in Edition.missing_coverage_from(
             self._db, gutenberg, web)]))
+
+    def test_equivalent_identifiers(self):
+
+        edition = self._edition()
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+
+        identifier.equivalent_to(data_source, edition.primary_identifier, 0.6)
+
+        eq_(set([identifier, edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.5)))
+
+        eq_(set([edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.7)))
 
     def test_recursive_edition_equivalence(self):
 
@@ -702,7 +874,7 @@ class TestEdition(DatabaseTest):
         assert recovering in results
 
         # Here's a Work that incorporates one of the Gutenberg records.
-        work = Work()
+        work = self._work()
         work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
@@ -876,6 +1048,7 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -946,12 +1119,11 @@ class TestLicensePool(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
-        with temp_config() as config:
-            provider = MockAnalyticsProvider()
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics([provider])
+        with temp_analytics("mock_analytics_provider", {}):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.update_availability(30, 20, 2, 0)
+            provider = Analytics.instance().providers[0]
             count = provider.count
             pool.update_availability(30, 21, 2, 0)
             eq_(count + 1, provider.count)
@@ -1255,6 +1427,50 @@ class TestLicensePool(DatabaseTest):
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
+    def test_circulation_changelog(self):
+        
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 8
+        pool.patrons_in_hold_queue = 7
+
+        msg, args = pool.circulation_changelog(1, 2, 3, 4)
+
+        # Since all four circulation values changed, the message is as
+        # long as it could possibly get.
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
+        )
+
+        # If only one circulation value changes, the message is a lot shorter.
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'HOLD', 15, 7)
+        )
+
+        # This works even if, for whatever reason, the edition's
+        # bibliographic data is missing.
+        edition.title = None
+        edition.author = None
+        
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_("[NO TITLE]", args[1])
+        eq_("[NO AUTHOR]", args[2])
+
+
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
     def test_set_rights_status(self):
@@ -1330,6 +1546,7 @@ class TestWork(DatabaseTest):
         # Unless the strength is too low.
         lp.identifier.equivalencies[0].strength = 0.8
         identifiers = [isbn]
+
         result = Work.from_identifiers(self._db, identifiers).all()
         eq_([], result)
 
@@ -1567,7 +1784,10 @@ class TestWork(DatabaseTest):
         classification2 = self._classification(
             identifier=identifier, subject=subject2, 
             data_source=source, weight=2)
-                
+        classification3 = self._classification(
+            identifier=identifier, subject=subject3, 
+            data_source=source, weight=2)
+
         results = work.classifications_with_genre().all()
         
         eq_([classification2, classification1], results)
@@ -1783,6 +2003,28 @@ class TestWork(DatabaseTest):
                 self._db, operation, count_as_missing_before=cutoff
             ).all()
         )
+
+    def test_top_genre(self):
+        work = self._work()
+        identifier = work.presentation_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+        # returns None when work has no genres
+        eq_(None, work.top_genre())
+
+        # returns only genre
+        wg1, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[0], affinity=1
+        )
+        eq_(genres[0].name, work.top_genre())
+
+        # returns top genre
+        wg1.affinity = 0.2
+        wg2, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[1], affinity=0.8
+        )
+        eq_(genres[1].name, work.top_genre())
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -2180,7 +2422,9 @@ class TestWorkConsolidation(DatabaseTest):
         # forward.
 
         expect_open_access_work, open_access_work_is_new = (
-            Work.open_access_for_permanent_work_id(self._db, "abcd")
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
         )
         eq_(expect_open_access_work, abcd_open_access.work)
 
@@ -2213,6 +2457,58 @@ class TestWorkConsolidation(DatabaseTest):
         commercial_work = abcd_commercial.work
         eq_((commercial_work, False), abcd_commercial.calculate_work())
 
+    def test_calculate_work_fixes_book_grouped_with_audiobook(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains an
+        # open-access _audiobook_ of "abcd".
+        edition, audiobook = self._edition(with_license_pool=True)
+        audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
+        audiobook.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(audiobook)
+
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [book, audiobook]:
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
+
+        # We can fix this by calling calculate_work() on one of the
+        # LicensePools.
+        work_after, is_new = book.calculate_work()
+        eq_(work_after, work)
+        eq_(False, is_new)
+
+        # The LicensePool we called calculate_work() on gets to stay
+        # in the Work, but the other one has been kicked out and
+        # given its own work.
+        eq_(book.work, work)
+        assert audiobook.work != work
+
+        # The audiobook LicensePool has been given a Work of its own.
+        eq_([audiobook], audiobook.work.license_pools)
+
+        # The book has been given the Work that will be used for all
+        # book-type LicensePools for that title going forward.
+        expect_book_work, book_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM
+            )
+        )
+        eq_(expect_book_work, book.work)
+
+        # The audiobook has been given the Work that will be used for
+        # all audiobook-type LicensePools for that title going
+        # forward.
+        expect_audiobook_work, audiobook_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.AUDIO_MEDIUM
+            )
+        )
+        eq_(expect_audiobook_work, audiobook.work)
+
     def test_pwids(self):
         """Test the property that finds all permanent work IDs
         associated with a Work.
@@ -2234,7 +2530,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_id_no_licensepools(self):
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID"
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
             )
         )
 
@@ -2268,7 +2564,9 @@ class TestWorkConsolidation(DatabaseTest):
         w3_pool.open_access = False
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
 
         # Work #3 still exists and its license pool was not affected.
         eq_([w3], self._db.query(Work).filter(Work.id==w3.id).all())
@@ -2290,7 +2588,9 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
-        eq_((w2, False), Work.open_access_for_permanent_work_id(self._db, "abcd"))
+        eq_((w2, False), Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
 
@@ -2299,7 +2599,9 @@ class TestWorkConsolidation(DatabaseTest):
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.
-        work, is_new = Work.open_access_for_permanent_work_id(self._db, "abcd")
+        work, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM
+        )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
@@ -2337,7 +2639,9 @@ class TestWorkConsolidation(DatabaseTest):
         efgh_2.work = work1
 
         # Let's fix these problems.
-        work1.make_exclusive_open_access_for_permanent_work_id("abcd")
+        work1.make_exclusive_open_access_for_permanent_work_id(
+            "abcd", Edition.BOOK_MEDIUM
+        )
 
         # The open-access "abcd" book is now the only LicensePool
         # associated with work1.
@@ -2440,13 +2744,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd"
+            self._db, "abcd", Edition.BOOK_MEDIUM
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh"
+            self._db, "efgh", Edition.BOOK_MEDIUM
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl"
+            self._db, "ijkl", Edition.BOOK_MEDIUM
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -2516,7 +2820,8 @@ class TestWorkConsolidation(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd"
+            Work.open_access_for_permanent_work_id, self._db, "abcd",
+            Edition.BOOK_MEDIUM
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
@@ -2558,6 +2863,11 @@ class TestWorkConsolidation(DatabaseTest):
             work1.merge_into, 
             work2
         )
+
+    def test_licensepool_without_identifier_gets_no_work(self):
+        edition, lp = self._edition(with_license_pool=True)
+        lp.identifier = None
+        eq_((None, False), lp.calculate_work())
 
 class TestLoans(DatabaseTest):
 
@@ -3681,6 +3991,38 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+
+
+class TestCustomListEntry(DatabaseTest):
+
+    def test_set_license_pool(self):
+
+        # Start with a custom list with no entries
+        list, ignore = self._customlist(num_entries=0)
+
+        # Now create an entry with an edition but no license pool.
+        edition = self._edition()
+
+        entry, ignore = get_one_or_create(
+            self._db, CustomListEntry,
+            list_id=list.id, edition_id=edition.id,
+        )
+
+        eq_(edition, entry.edition)
+        eq_(None, entry.license_pool)
+
+        # Here's another edition, with a license pool.
+        other_edition, lp = self._edition(with_open_access_download=True)
+
+        # And its identifier is equivalent to the entry's edition's identifier.
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
+
+        # If we call set_license_pool, it should find the license pool
+        # from the equivalent identifier.
+        entry.set_license_pool()
+
+        eq_(lp, entry.license_pool)
 
 
 class TestCollection(DatabaseTest):

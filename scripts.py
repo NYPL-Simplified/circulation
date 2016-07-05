@@ -1,17 +1,21 @@
 import argparse
 import datetime
-import os
 import logging
+import os
+import requests
+import time
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError,
+)
 import sys
+
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
-import time
 
 from config import Configuration, CannotLoadConfiguration
-import log # This sets the appropriate log format and level.
-import random
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one_or_create,
@@ -32,6 +36,8 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from util.opds_writer import OPDSFeed
+
 from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
@@ -88,6 +94,15 @@ class Script(object):
                 except ValueError, e:
                     continue
         raise ValueError("Could not parse time: %s" % time_string)
+
+    def __init__(self, _db=None):
+        """Basic constructor.
+
+        :_db: A database session to be used instead of
+        creating a new one. Useful in tests.
+        """
+        if _db:
+            self._session = _db
 
     def run(self):
         self.load_configuration()
@@ -288,8 +303,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parsed
 
     def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
-        if _db:
-            self._session = _db
+        super(RunCoverageProviderScript, self).__init__(_db)
         args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
             if args.identifier_type:
@@ -624,7 +638,7 @@ class NYTBestSellerListsScript(Script):
 
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
-    
+
     def do_run(self):
         # Initialize database
         from model import (
@@ -760,6 +774,8 @@ class Explain(IdentifierInputScript):
         for genre in work.genres:
             print " ", genre
 
+
+
 class SubjectAssignmentScript(SubjectInputScript):
 
     def run(self):
@@ -768,6 +784,7 @@ class SubjectAssignmentScript(SubjectInputScript):
             self._db, args.subject_type, args.subject_filter
         )
         monitor.run()
+
 
 
 class MockStdin(object):
@@ -779,3 +796,5 @@ class MockStdin(object):
         lines = self.lines
         self.lines = []
         return lines
+
+

@@ -38,13 +38,15 @@ from lane import (
 )
 
 from opds import (    
-     AtomFeed,
      AcquisitionFeed,
      Annotator,
      LookupAcquisitionFeed,
-     OPDSFeed,
      VerboseAnnotator,
-     simplified_ns,
+)
+
+from util.opds_writer import (    
+     AtomFeed,
+     OPDSFeed,
 )
 
 from classifier import (
@@ -728,17 +730,18 @@ class TestOPDS(DatabaseTest):
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
-        work.presentation_edition.cover_full_url = "http://full/a"
+        work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
+        work.presentation_edition.cover_full_url = "http://full.com/a"
 
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['thumbnail.com'] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['full.com'] = "http://bar/"
             work.calculate_opds_entries(verbose=False)
             feed = feedparser.parse(work.simple_opds_entry)
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
-            eq_(['http://foo/a', 'http://foo/b'], links)
+            eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include messages (with HTTP-style status code)
@@ -804,7 +807,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(cached_works.content)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
@@ -873,7 +876,7 @@ class TestOPDS(DatabaseTest):
             # The feed has breadcrumb links
             ancestors = fantasy_lane.visible_ancestors()
             root = ET.fromstring(cached_groups.content)
-            breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+            breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
             links = breadcrumbs.getchildren()
             eq_(len(ancestors) + 1, len(links))
             eq_(annotator.top_level_title(), links[0].get("title"))
@@ -972,7 +975,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(feed)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 2, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
@@ -1048,6 +1051,18 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+    def test_error_when_work_has_no_identifier(self):
+        """We cannot create an OPDS entry for a Work that cannot be associated
+        with an Identifier.
+        """
+        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work.license_pools[0].identifier = None
+        work.presentation_edition.primary_identifier = None
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, TestAnnotator
+        )
+        eq_(entry, None)
+
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1075,6 +1090,23 @@ class TestAcquisitionFeed(DatabaseTest):
         entry_string = etree.tostring(entry) 
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
+
+
+    def test_exception_during_entry_creation_is_not_reraised(self):
+        # This feed will raise an exception whenever it's asked
+        # to create an entry.
+        class DoomedFeed(AcquisitionFeed):
+            def _create_entry(self, *args, **kwargs):
+                raise Exception("I'm doomed!")
+        feed = DoomedFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        work = self._work()
+
+        # But calling create_entry() doesn't raise an exception, it
+        # just returns None.
+        entry = feed.create_entry(work, self._url)
+        eq_(entry, None)
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 

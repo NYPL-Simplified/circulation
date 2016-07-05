@@ -671,3 +671,42 @@ class TestMetadata(DatabaseTest):
 
         circulation_pool, is_new = circulation.license_pool(self._db)
         eq_(thumbnail_link.license_pool, circulation_pool)
+
+
+class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
+
+    def test_success(self):
+        pwid = 'pwid1'
+
+        # Here's a print book.
+        book = self._edition()
+        book.medium = Edition.BOOK_MEDIUM
+        book.permanent_work_id = pwid
+
+        # Here's an audio book with the same PWID.
+        audio = self._edition()
+        audio.medium = Edition.AUDIO_MEDIUM
+        audio.permanent_work_id=pwid
+
+        # Here's an Metadata object for a second print book with the
+        # same PWID.
+        identifier = self._identifier()
+        identifierdata = IdentifierData(
+            type=identifier.type, identifier=identifier.identifier
+        )
+        metadata = Metadata(
+            DataSource.GUTENBERG,
+            primary_identifier=identifierdata, medium=Edition.BOOK_MEDIUM
+        )
+        metadata.permanent_work_id=pwid
+
+        # Call the method we're testing.
+        metadata.associate_with_identifiers_based_on_permanent_work_id(
+            self._db
+        )
+
+        # The identifier of the second print book has been associated
+        # with the identifier of the first print book, but not
+        # with the identifier of the audiobook
+        equivalent_identifiers = [x.output for x in identifier.equivalencies]
+        eq_([book.primary_identifier], equivalent_identifiers)

@@ -50,7 +50,7 @@ from model import (
 )
 from coverage import CoverageFailure
 from util.http import HTTP
-from opds import OPDSFeed
+from util.opds_writer import OPDSFeed
 from s3 import S3Uploader
 
 class AccessNotAuthenticated(Exception):
@@ -139,7 +139,7 @@ class SimplifiedOPDSLookup(object):
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return self._get(url)
+        return self._get(url, timeout=120)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler collection"""
@@ -394,7 +394,7 @@ class OPDSImporter(object):
 
             # form the CirculationData that would correspond to this Metadata
             c_data_dict = m_data_dict.get('circulation')
-            
+
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -406,7 +406,19 @@ class OPDSImporter(object):
             
                 combined_circ['primary_identifier'] = identifier_obj
                 
-                metadata[internal_identifier.urn].circulation = CirculationData(**combined_circ)
+                circulation = CirculationData(**combined_circ)
+                if circulation.formats:
+                    metadata[internal_identifier.urn].circulation = circulation
+                else:
+                    # If the CirculationData has no formats, it
+                    # doesn't really offer any way to actually get the
+                    # book, and we don't want to create a
+                    # LicensePool. All the circulation data is
+                    # useless.
+                    #
+                    # TODO: This will need to be revisited when we add
+                    # ODL support.
+                    metadata[internal_identifier.urn].circulation = None
 
         return metadata, identified_failures
 
@@ -416,6 +428,12 @@ class OPDSImporter(object):
         """Combine two dictionaries that can be used as keyword arguments to
         the Metadata constructor.
         """
+        if not d1 and not d2:
+            return dict()
+        if not d1:
+            return dict(d2)
+        if not d2:
+            return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
             if k in new_dict and isinstance(v, list):
@@ -520,10 +538,6 @@ class OPDSImporter(object):
 
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
-
-        # Note: will ignore bibframe_distribution from feed, and use data source passed into the 
-        # importer as license_data_source, too.
-
         try:
             kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
             return identifier, kwargs_meta, failure
@@ -534,7 +548,7 @@ class OPDSImporter(object):
             return identifier, None, failure
 
     @classmethod
-    def _data_detail_for_feedparser_entry(cls, entry, data_source):
+    def _data_detail_for_feedparser_entry(cls, entry, metadata_data_source):
         """Helper method that extracts metadata and circulation data from a feedparser
         entry. This method can be overridden in tests to check that callers handle things
         properly when it throws an exception.
@@ -543,7 +557,40 @@ class OPDSImporter(object):
         if title == OPDSFeed.NO_TITLE:
             title = None
         subtitle = entry.get('schema_alternativeheadline', None)
-        
+
+        # Generally speaking, a data source will provide either
+        # metadata (e.g. the Simplified metadata wrangler) or both
+        # metadata and circulation data (e.g. a publisher's ODL feed).
+        #
+        # However there is at least one case (the Simplified
+        # open-access content server) where one server provides
+        # circulation data from a _different_ data source
+        # (e.g. Project Gutenberg).
+        #
+        # In this case we want the data source of the LicensePool to
+        # be Project Gutenberg, but the data source of the pool's
+        # presentation to be the open-access content server.
+        #
+        # The open-access content server uses a
+        # <bibframe:distribution> tag to keep track of which data
+        # source provides the circulation data.
+        circulation_data_source = metadata_data_source
+        circulation_data_source_tag = entry.get('bibframe_distribution')
+        if circulation_data_source_tag:
+            circulation_data_source_name = circulation_data_source_tag.get(
+                'bibframe:providername'
+            )
+            if circulation_data_source_name:
+                _db = Session.object_session(metadata_data_source)
+                circulation_data_source = DataSource.lookup(
+                    _db, circulation_data_source_name
+                )
+                if not circulation_data_source:
+                    raise ValueError(
+                        "Unrecognized circulation data source: %s" % (
+                            circulation_data_source_name
+                        )
+                    )
         last_opds_update = cls._datetime(entry, 'updated_parsed')
         added_to_collection_time = cls._datetime(entry, 'published_parsed')
             
@@ -594,10 +641,12 @@ class OPDSImporter(object):
             data_source_last_updated=last_opds_update,
         )
             
-        # Only add circulation data if the data source is lendable.
-        if data_source.offers_licenses:
+        # Only add circulation data if both the book's distributor *and*
+        # the source of the OPDS feed are lendable data sources.
+        if (circulation_data_source and circulation_data_source.offers_licenses
+            and metadata_data_source.offers_licenses):
             kwargs_circ = dict(
-                data_source=data_source.name,
+                data_source=circulation_data_source.name,
                 links=list(links),
                 default_rights_uri=rights_uri,
             )

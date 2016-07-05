@@ -822,29 +822,6 @@ class CirculationData(MetaToModelUtility):
                         as_of=self.last_checked
                     )
 
-        if changed_licenses:
-            edition = pool.presentation_edition
-            if edition:
-                self.log.info(
-                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    edition.medium,
-                    edition.title or "[NO TITLE]",
-                    edition.author or "",
-                    edition.primary_identifier.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-            else:
-                self.log.info(
-                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    pool.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-
-
         made_changes = made_changes or changed_licenses
 
         return pool, made_changes
@@ -1057,21 +1034,29 @@ class Metadata(MetaToModelUtility):
             # task.
             return
 
+        if not self.medium:
+            # We don't know the medium of this item, and we only want
+            # to associate it with other items of the same type.
+            return
+
         primary_identifier_obj, ignore = self.primary_identifier.load(_db)
 
         # Try to find the primary identifiers of other Editions with
-        # the same permanent work ID, representing books already in
-        # our collection.
+        # the same permanent work ID and the same medium, representing
+        # books already in our collection.
         qu = _db.query(Identifier).join(
             Identifier.primarily_identifies).filter(
                 Edition.permanent_work_id==self.permanent_work_id).filter(
                     Identifier.type.in_(
                         Identifier.LICENSE_PROVIDING_IDENTIFIER_TYPES
                     )
+                ).filter(
+                    Edition.medium==self.medium
                 )
         identifiers_same_work_id = qu.all()
         for same_work_id in identifiers_same_work_id:
-            if same_work_id != self.primary_identifier:
+            if (same_work_id.type != self.primary_identifier.type
+                or same_work_id.identifier != self.primary_identifier.identifier):
                 self.log.info(
                     "Discovered that %r is equivalent to %r because of matching permanent work ID %s",
                     same_work_id, primary_identifier_obj, self.permanent_work_id
@@ -1561,9 +1546,8 @@ class CSVMetadataImporter(object):
                 break
         if not found_identifier_field:
             raise CSVFormatError(
-                "Could not find a primary identifier field. Possibilities: %s. Actualities: %s." %
-                (", ".join(possibilities),
-                 ", ".join(fields))
+                "Could not find a primary identifier field. Possibilities: %r. Actualities: %r." %
+                (possibilities, fields)
             )
 
         for row in dictreader:
