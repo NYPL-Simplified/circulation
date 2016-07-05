@@ -288,27 +288,23 @@ class TestIdentifier(DatabaseTest):
                  strong_equivalent.id]),
             set(equivs[identifier.id]))
 
-        # The threshold increases for deeper levels - the equivalency
-        # has to be stronger if it goes through more identifiers.
-        # The formula for the threshold for a level is:
-        # 1 - (1 - base_threshold)^(level)
-        # For example, if you pass in threshold 0.5:
-        # level 1 threshold is 0.5
-        # level 2 threshold is 0.75
-        # level 3 threshold is 0.875
-        # level 4 threshold is 0.9375
-        # ...
+        # For deeper levels, the strength is the product of the strengths
+        # of all the equivalencies in between the two identifiers.
 
-        # With a threshold of 0.5, level 2 is too weak, so we don't look
-        # any farther.
+        # In this example:
+        # identifier - level_2_equivalent = 0.9 * 0.5 = 0.45
+        # identifier - level_3_equivalent = 0.9 * 0.5 * 0.9 = 0.405
+        # identifier - level_4_equivalent = 0.9 * 0.5 * 0.9 * 0.6 = 0.243
+
+        # With a threshold of 0.5, level 2 and all subsequent levels are too weak.
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [identifier.id], levels=5, threshold=0.5)
         eq_(set([identifier.id,
                  strong_equivalent.id]),
             set(equivs[identifier.id]))
 
-        # With a threshold of 0.25, level 2 is strong enough, but the level
-        # 4 threshold is 0.6836 so level 4 is too weak.
+        # With a threshold of 0.25, level 2 is strong enough, but level
+        # 4 is too weak.
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [identifier.id], levels=5, threshold=0.25)
         eq_(set([identifier.id,
