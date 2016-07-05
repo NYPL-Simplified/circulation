@@ -856,11 +856,8 @@ class TestEdition(DatabaseTest):
         assert recovering in results
 
         # Here's a Work that incorporates one of the Gutenberg records.
-        work = Work()
+        work = self._work()
         work.license_pools.extend([gutenberg2_pool])
-
-        # This is necessary for the work to have an id in the db.
-        self._db.flush()
 
         # Its set-of-all-editions contains only one record.
         eq_(1, work.all_editions().count())
@@ -1531,9 +1528,6 @@ class TestWork(DatabaseTest):
         # Unless the strength is too low.
         lp.identifier.equivalencies[0].strength = 0.8
         identifiers = [isbn]
-
-        # This is necessary for the new strength to be in the db.
-        self._db.flush()
 
         result = Work.from_identifiers(self._db, identifiers).all()
         eq_([], result)
