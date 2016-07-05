@@ -543,9 +543,12 @@ class LoanController(CirculationManagerController):
         # First synchronize our local list of loans and holds with all
         # third-party loan providers.
         if patron.authorization_identifier:
-            credential = self.manager.auth.get_credential_from_header(self.authorization_header())
+            pin = None
+            header = self.authorization_header()
+            if 'password' in header:
+                pin = header.password
             try:
-                self.circulation.sync_bookshelf(patron, credential)
+                self.circulation.sync_bookshelf(patron, pin)
             except Exception, e:
                 # If anything goes wrong, omit the sync step and just
                 # display the current active loans, as we understand them.
@@ -590,13 +593,15 @@ class LoanController(CirculationManagerController):
             # this book out.
             return problem_doc
 
-        auth_header = self.authorization_header()
-        credential = self.manager.auth.get_credential_from_header(auth_header)
+        pin = None
+        header = self.authorization_header()
+        if 'password' in header:
+            pin = header.password
         problem_doc = None
 
         try:
             loan, hold, is_new = self.circulation.borrow(
-                patron, credential, pool, mechanism, self.manager.hold_notification_email_address)
+                patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
         except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
                 _("Couldn't find an open-access download link for this book."),
@@ -662,8 +667,10 @@ class LoanController(CirculationManagerController):
         patron to a copy of the book or a license file.
         """
         patron = flask.request.patron
-        auth_header = self.authorization_header()
-        credential = self.manager.auth.get_credential_from_header(auth_header)
+        pin = None
+        header = self.authorization_header()
+        if 'password' in header:
+            pin = header.password
     
         # Turn source + identifier into a LicensePool
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -688,7 +695,7 @@ class LoanController(CirculationManagerController):
                 )
     
         try:
-            fulfillment = self.circulation.fulfill(patron, credential, pool, mechanism)
+            fulfillment = self.circulation.fulfill(patron, pin, pool, mechanism)
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)
         except NoActiveLoan, e:
@@ -736,11 +743,13 @@ class LoanController(CirculationManagerController):
                 status_code=404
             )
 
-        auth_header = self.authorization_header()
-        credential = self.manager.auth.get_credential_from_header(auth_header)
+        pin = None
+        header = self.authorization_header()
+        if 'password' in header:
+            pin = header.password
         if loan:
             try:
-                self.circulation.revoke_loan(patron, credential, pool)
+                self.circulation.revoke_loan(patron, pin, pool)
             except RemoteRefusedReturn, e:
                 title = _("Loan deleted locally but remote refused. Loan is likely to show up again on next sync.")
                 return COULD_NOT_MIRROR_TO_REMOTE.detailed(title, status_code=503)
@@ -752,7 +761,7 @@ class LoanController(CirculationManagerController):
                 title = _("Cannot release a hold once it enters reserved state.")
                 return CANNOT_RELEASE_HOLD.detailed(title, 400)
             try:
-                self.circulation.release_hold(patron, credential, pool)
+                self.circulation.release_hold(patron, pin, pool)
             except CannotReleaseHold, e:
                 title = _("Hold released locally but remote failed.")
                 return CANNOT_RELEASE_HOLD.detailed(title, 503).with_debug(str(e))

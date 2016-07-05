@@ -71,6 +71,9 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         }
 
         result = self._get(self.CLEVER_API_BASE_URL + '/me', headers=bearer_headers)
+        if 'error' in result:
+            return None
+
         data = result['data']
 
         identifier = data['id']
