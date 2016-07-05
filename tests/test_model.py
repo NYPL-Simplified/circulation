@@ -33,6 +33,7 @@ from model import (
     Contributor,
     CoverageRecord,
     Credential,
+    CustomListEntry,
     DataSource,
     DeliveryMechanism,
     Genre,
@@ -239,6 +240,160 @@ class TestIdentifier(DatabaseTest):
             Identifier.UnresolvableIdentifierException, 
             Identifier.parse_urn, self._db, isbn_urn, 
             must_support_license_pools=True)
+
+    def test_recursively_equivalent_identifier_ids(self):
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.MANUAL)
+
+        strong_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, strong_equivalent, 0.9)
+
+        weak_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, weak_equivalent, 0.2)
+
+        level_2_equivalent = self._identifier()
+        strong_equivalent.equivalent_to(data_source, level_2_equivalent, 0.5)
+
+        level_3_equivalent = self._identifier()
+        level_2_equivalent.equivalent_to(data_source, level_3_equivalent, 0.9)
+
+        level_4_equivalent = self._identifier()
+        level_3_equivalent.equivalent_to(data_source, level_4_equivalent, 0.6)
+
+        unrelated = self._identifier()
+
+        # With a low threshold and enough levels, we find all the identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we only look at one level, we don't find the level 2, 3, or 4 identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we raise the threshold, we don't find the weak identifier.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.4)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # For deeper levels, the strength is the product of the strengths
+        # of all the equivalencies in between the two identifiers.
+
+        # In this example:
+        # identifier - level_2_equivalent = 0.9 * 0.5 = 0.45
+        # identifier - level_3_equivalent = 0.9 * 0.5 * 0.9 = 0.405
+        # identifier - level_4_equivalent = 0.9 * 0.5 * 0.9 * 0.6 = 0.243
+
+        # With a threshold of 0.5, level 2 and all subsequent levels are too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.5)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # With a threshold of 0.25, level 2 is strong enough, but level
+        # 4 is too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.25)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # It also works if we start from other identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [strong_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[strong_equivalent.id]))
+
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.5)
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        # A chain of very strong equivalents can keep a high strength
+        # even at deep levels. This wouldn't work if we changed the strength
+        # threshold by level instead of accumulating a strength product.
+        another_identifier = self._identifier()
+        l2 = self._identifier()
+        l3 = self._identifier()
+        l4 = self._identifier()
+        l2.equivalent_to(data_source, another_identifier, 1)
+        l3.equivalent_to(data_source, l2, 1)
+        l4.equivalent_to(data_source, l3, 0.9)
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [another_identifier.id], levels=5, threshold=0.89)
+        eq_(set([another_identifier.id,
+                 l2.id,
+                 l3.id,
+                 l4.id]),
+            set(equivs[another_identifier.id]))
+
+        # We can look for multiple identifiers at once.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id, level_3_equivalent.id], levels=2, threshold=0.8)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[level_3_equivalent.id]))
+
+        # The query uses the same db function, but returns equivalents
+        # for all identifiers together so it can be used as a subquery.
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=5, threshold=0.1)
+        query = query.where(Identifier.id==identifier.id)
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivalent_ids))
+
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=2, threshold=0.8)
+        query = query.where(Identifier.id.in_([identifier.id, level_3_equivalent.id]))
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivalent_ids))
+
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -577,7 +732,7 @@ class TestEdition(DatabaseTest):
         eq_(id, identifier.identifier)
         eq_(type, identifier.type)
         eq_(True, was_new)
-        eq_(set([identifier.id]), record.equivalent_identifier_ids())
+        eq_([identifier], record.equivalent_identifiers())
 
         # We can get the same work record by providing only the name
         # of the data source.
@@ -634,6 +789,20 @@ class TestEdition(DatabaseTest):
         # return both Gutenberg records (but not the web record).
         eq_([g1.id, g2.id], sorted([x.id for x in Edition.missing_coverage_from(
             self._db, gutenberg, web)]))
+
+    def test_equivalent_identifiers(self):
+
+        edition = self._edition()
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+
+        identifier.equivalent_to(data_source, edition.primary_identifier, 0.6)
+
+        eq_(set([identifier, edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.5)))
+
+        eq_(set([edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.7)))
 
     def test_recursive_edition_equivalence(self):
 
@@ -705,7 +874,7 @@ class TestEdition(DatabaseTest):
         assert recovering in results
 
         # Here's a Work that incorporates one of the Gutenberg records.
-        work = Work()
+        work = self._work()
         work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
@@ -1377,6 +1546,7 @@ class TestWork(DatabaseTest):
         # Unless the strength is too low.
         lp.identifier.equivalencies[0].strength = 0.8
         identifiers = [isbn]
+
         result = Work.from_identifiers(self._db, identifiers).all()
         eq_([], result)
 
@@ -3805,6 +3975,38 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+
+
+class TestCustomListEntry(DatabaseTest):
+
+    def test_set_license_pool(self):
+
+        # Start with a custom list with no entries
+        list, ignore = self._customlist(num_entries=0)
+
+        # Now create an entry with an edition but no license pool.
+        edition = self._edition()
+
+        entry, ignore = get_one_or_create(
+            self._db, CustomListEntry,
+            list_id=list.id, edition_id=edition.id,
+        )
+
+        eq_(edition, entry.edition)
+        eq_(None, entry.license_pool)
+
+        # Here's another edition, with a license pool.
+        other_edition, lp = self._edition(with_open_access_download=True)
+
+        # And its identifier is equivalent to the entry's edition's identifier.
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
+
+        # If we call set_license_pool, it should find the license pool
+        # from the equivalent identifier.
+        entry.set_license_pool()
+
+        eq_(lp, entry.license_pool)
 
 
 class TestCollection(DatabaseTest):
