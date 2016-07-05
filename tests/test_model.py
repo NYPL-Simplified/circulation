@@ -340,6 +340,24 @@ class TestIdentifier(DatabaseTest):
                  level_4_equivalent.id]),
             set(equivs[level_4_equivalent.id]))
         
+        # A chain of very strong equivalents can keep a high strength
+        # even at deep levels. This wouldn't work if we changed the strength
+        # threshold by level instead of accumulating a strength product.
+        another_identifier = self._identifier()
+        l2 = self._identifier()
+        l3 = self._identifier()
+        l4 = self._identifier()
+        l2.equivalent_to(data_source, another_identifier, 1)
+        l3.equivalent_to(data_source, l2, 1)
+        l4.equivalent_to(data_source, l3, 0.9)
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [another_identifier.id], levels=5, threshold=0.89)
+        eq_(set([another_identifier.id,
+                 l2.id,
+                 l3.id,
+                 l4.id]),
+            set(equivs[another_identifier.id]))
+
         # We can look for multiple identifiers at once.
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [identifier.id, level_3_equivalent.id], levels=2, threshold=0.8)
