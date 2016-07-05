@@ -5406,7 +5406,9 @@ class LicensePool(Base):
         # Note: We can do a cleaner solution, if we refactor to not use metadata's 
         # methods to update editions.  For now, we're choosing to go with the below approach.
         from metadata_layer import (
-            Metadata, IdentifierData, 
+            Metadata, 
+            IdentifierData, 
+            ReplacementPolicy,
         )
 
         if len(all_editions) == 1:
@@ -5429,7 +5431,10 @@ class LicensePool(Base):
             metadata.license_data_source_obj = None
             edition, is_new = metadata.edition(_db)
 
-            self.presentation_edition, edition_core_changed = metadata.apply(edition)
+            policy = ReplacementPolicy.from_metadata_source()
+            self.presentation_edition, edition_core_changed = metadata.apply(
+                edition, replace=policy
+            )
 
         changed = changed or self.presentation_edition.calculate_presentation()
 
