@@ -2755,6 +2755,8 @@ class TestRepresentation(DatabaseTest):
         # Ebook formats and image formats get mirrored.
         representation.media_type = Representation.EPUB_MEDIA_TYPE
         eq_(True, representation.mirrorable_media_type)
+        representation.media_type = Representation.MOBI_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
         representation.media_type = Representation.JPEG_MEDIA_TYPE
         eq_(True, representation.mirrorable_media_type)
 
@@ -2913,6 +2915,7 @@ class TestRepresentation(DatabaseTest):
     def test_extension(self):
         m = Representation._extension
         eq_(".jpg", m("image/jpeg"))
+        eq_(".mobi", m("application/x-mobipocket-ebook"))
         eq_("", m("no/such-media-type"))
 
     def test_default_filename(self):
