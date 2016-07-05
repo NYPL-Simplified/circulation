@@ -909,11 +909,6 @@ class OPDSImportMonitor(Monitor):
                  interval_seconds=0, keep_timestamp=False,
                  immediately_presentation_ready=False, force_reimport=False):
 
-        # We never keep a timestamp because we can track when the OPDS
-        # archive feed was last updated.
-        keep_timestamp = False
-        interval_seconds = 0
-
         self.feed_url = feed_url
         self.importer = import_class(_db, default_data_source)
         self.force_reimport = force_reimport
