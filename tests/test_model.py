@@ -1457,7 +1457,7 @@ class TestLicensePool(DatabaseTest):
 
         # The old contributor has been removed from the composite
         # edition, and the new contributor added.
-        eq_([jane], edition_composite.contributors)
+        eq_(set([jane]), edition_composite.contributors)
 
     def test_circulation_changelog(self):
         
