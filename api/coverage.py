@@ -381,7 +381,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
 class SearchIndexCoverageProvider(WorkCoverageProvider):
     """Make sure the search index is up-to-date for every Work."""
 
-    def __init__(self, _db, index_name, index_client=None, **kwargs):
+    def __init__(self, _db, index_name, index_client=None, batch_size=500, **kwargs):
         if index_client:
             # This would only happen during a test.
             self.search_index_client = index_client
@@ -396,26 +396,18 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
             _db, 
             service_name="Search index update (%s)" % index_name,
             operation=self.operation_name,
+            batch_size=batch_size,
             **kwargs
         )
 
+    def process_batch(self, batch):
+        """Update the search ndex for a set of Works."""
 
-    def process_item(self, work):
-        """Update the search index for one item.
+        successes, failures = self.search_index_client.bulk_update(batch)
+        
+        coverage_failures = []
 
-        TODO: It would be more efficient to override process_batch() to do a
-        bulk upload.
-        """
+        for work, message in failures:
+            coverage_failures.append(CoverageFailure(work, message, data_source=None, transient=True))
 
-        # We pass add_coverage_record=False because the CoverageProvider
-        # mechanisms will take care of adding the WorkCoverageRecord.
-        present_in_index = work.update_external_index(
-            self.search_index_client, add_coverage_record=False
-        )
-        if not present_in_index:
-            if not work.presentation_ready:
-                error = "Work not indexed because not presentation-ready."
-            else:
-                error = "Work not indexed"
-            return CoverageFailure(work, error, data_source=None, transient=True)
-        return work
+        return successes + coverage_failures
