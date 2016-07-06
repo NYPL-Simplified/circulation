@@ -38,6 +38,7 @@ def dedupe(edition):
 
     if primary_author:
         primary_author_contribution = primary_author[0]
+        print " Primary author: %s" % primary_author_contribution.contributor.name
         seen.add((primary_author_contribution.contributor, Contributor.AUTHOR_ROLE))
         contributors_with_roles.add(primary_author_contribution.contributor)
 
@@ -92,7 +93,7 @@ qu = _db.query(Edition).join(Edition.contributions).join(
         )
 
 print "Fixing %s Editions." % qu.count()
-qu = qu.limit(100)
+qu = qu.limit(1000)
 results = True
 while results:
     a = time.time()
