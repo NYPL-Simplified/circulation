@@ -2276,7 +2276,7 @@ class Edition(Base):
 
         def dedupe(l):
             """If an item shows up multiple times in a list, 
-            keep only the first occurance.
+            keep only the first occurence.
             """
             seen = set()
             deduped = []
