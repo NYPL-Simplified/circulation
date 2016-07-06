@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
+from elasticsearch.helpers import bulk as elasticsearch_bulk
 from config import Configuration
 from classifier import (
     KeywordBasedClassifier,
@@ -9,6 +10,7 @@ from classifier import (
 import os
 import logging
 import re
+import time
 
 class ExternalSearchIndex(object):
     
@@ -52,6 +54,10 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+        def bulk(docs, **kwargs):
+            return elasticsearch_bulk(self.__client, docs, **kwargs)
+        self.bulk = bulk
+            
         if not self.indices.exists(self.works_index):
             self.setup_index()
 
@@ -448,6 +454,56 @@ class ExternalSearchIndex(object):
         else:
             return {}
 
+    def bulk_update(self, works):
+        """Upload a batch of works to the search index at once."""
+
+        from model import Work
+
+        time1 = time.time()
+        docs = Work.to_search_documents(works)
+
+        for doc in docs:
+            doc["_index"] = self.works_index
+            doc["_type"] = self.work_document_type
+        time2 = time.time()
+
+        success_count, errors = self.bulk(
+            docs,
+            raise_on_error=False,
+            raise_on_exception=False,
+        )
+
+        time3 = time.time()
+        self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
+        self.log.info("Uploaded %i search documents in  %.2f seconds" % (len(docs), time3 - time2))
+        
+        doc_ids = [d['_id'] for d in docs]
+        
+        # We weren't able to create search documents for these works, maybe
+        # because they don't have presentation editions yet.
+        missing_works = [work for work in works if work.id not in doc_ids]
+
+        error_ids = [error['data']["_id"] for error in errors]
+
+        successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
+
+        failures = []
+        for missing in missing_works:
+            if not missing.presentation_ready:
+                failures.append((work, "Work not indexed because not presentation-ready."))
+            else:
+                failures.append((work, "Work not indexed"))
+
+        for error in errors:
+            work = [work for work in works if work.id == error['data']['_id']][0]
+            exception = error.get('exception', None)
+            error_message = error.get('error', None)
+            failures.append((work, error_message))
+
+        self.log.info("Successfully indexed %i documents, failed to index %i." % (success_count, len(failures)))
+
+        return successes, failures
+
 
 class DummyExternalSearchIndex(ExternalSearchIndex):
 
@@ -457,6 +513,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.url = url
         self.docs = {}
         self.works_index = "works"
+        self.log = logging.getLogger("Dummy external search index")
 
     def _key(self, index, doc_type, id):
         return (index, doc_type, id)
@@ -480,3 +537,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
             doc_ids = doc_ids[offset: offset + size]
         return { "hits" : { "hits" : doc_ids }}
 
+    def bulk(self, docs, **kwargs):
+        for doc in docs:
+            self.index(doc['_index'], doc['_type'], doc['_id'], doc)
+        return len(docs), []

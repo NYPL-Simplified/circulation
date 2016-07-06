@@ -397,7 +397,6 @@ class MetaToModelUtility(object):
         original_url = link.href
 
         self.log.debug("About to mirror %s" % original_url)
-
         pool = None
         edition = None
         title = None
@@ -456,7 +455,18 @@ class MetaToModelUtility(object):
         # If we fetched the representation and it hasn't changed,
         # the previously mirrored version is fine. Don't mirror it
         # again.
-        if representation.status_code == 304:
+        if representation.status_code == 304 and representation.mirror_url:
+            return
+
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
+
+        if not representation.mirrorable_media_type:
+            log.info("Not mirroring %s: unsupported media type %s",
+                     representation.url, representation.media_type)
             return
 
         # Determine the best URL to use when mirroring this
@@ -473,6 +483,7 @@ class MetaToModelUtility(object):
                 data_source, identifier, filename
             )
 
+        # Mirror it.
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
@@ -482,12 +493,6 @@ class MetaToModelUtility(object):
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
-
-        # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
-        # precedence.
-        if representation.media_type:
-            link.media_type = representation.media_type
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
@@ -938,7 +943,7 @@ class Metadata(MetaToModelUtility):
         for contribution in edition.contributions:
             contributor = ContributorData.from_contribution(contribution)
             contributors.append(contributor)
-        else:
+        if not edition.contributions:
             # This should only happen for low-quality data sources such as
             # the NYT best-seller API.
             if edition.sort_author:

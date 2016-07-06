@@ -41,10 +41,12 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 from sqlalchemy import (
+    func,
     or_,
     MetaData,
     Table,
 )
+from sqlalchemy.sql import select
 from sqlalchemy.orm import (
     aliased,
     backref,
@@ -69,6 +71,10 @@ from sqlalchemy.sql.expression import (
     cast,
     and_,
     or_,
+    select,
+    join,
+    literal_column,
+    case,
 )
 from sqlalchemy.exc import (
     IntegrityError
@@ -158,6 +164,9 @@ class SessionManager(object):
         MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
     }
 
+    # A function that calculates recursively equivalent identifiers
+    # is also defined in SQL.
+    RECURSIVE_EQUIVALENTS_FUNCTION = 'recursive_equivalents.sql'
 
     engine_for_url = {}
 
@@ -197,6 +206,17 @@ class SessionManager(object):
                 view_name, resource_file)
             sql = open(resource_file).read()
             connection.execute(sql)                
+
+        # Create the recursive equivalents function. If the function
+        # already exists, it will be replaced.
+        if not connection:
+            connection = engine.connect()
+        resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
+        if not os.path.exists(resource_file):
+            raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
+        sql = open(resource_file).read()
+        connection.execute(sql)
+
         if connection:
             connection.close()
 
@@ -1336,163 +1356,47 @@ class Identifier(Base):
         return eq
 
     @classmethod
+    def recursively_equivalent_identifier_ids_query(
+            cls, identifier_id_column, levels=5, threshold=0.50):
+        """Get a SQL statement that will return all Identifier IDs
+        equivalent to a given ID at the given confidence threshold.
+
+        `identifier_id_column` can be a single Identifier ID, or a column 
+        like `Edition.primary_identifier_id` if the query will be used as
+        a subquery.
+
+        This uses the function defined in files/recursive_equivalents.sql.
+        """
+        return select([func.fn_recursive_equivalents(identifier_id_column, levels, threshold)])
+
+    @classmethod
     def recursively_equivalent_identifier_ids(
-            cls, _db, identifier_ids, levels=5, threshold=0.50, debug=False):
+            cls, _db, identifier_ids, levels=5, threshold=0.50):
         """All Identifier IDs equivalent to the given set of Identifier
         IDs at the given confidence threshold.
 
-        This is an inefficient but simple implementation, performing
-        one SQL query for each level of recursion.
+        This uses the function defined in files/recursive_equivalents.sql.
 
         Four levels is enough to go from a Gutenberg text to an ISBN.
         Gutenberg ID -> OCLC Work IS -> OCLC Number -> ISBN
 
         Returns a dictionary mapping each ID in the original to a
-        dictionary mapping the equivalent IDs to (confidence, strength
-        of confidence) 2-tuples.
+        list of equivalent IDs.
         """
 
-        if not identifier_ids:
-            return {}
-
-        if isinstance(identifier_ids[0], Identifier):
-            identifier_ids = [x.id for x in identifier_ids]
-
-        (working_set, seen_equivalency_ids, seen_identifier_ids,
-         equivalents) = cls._recursively_equivalent_identifier_ids(
-             _db, identifier_ids, identifier_ids, levels, threshold)
-
-        if working_set:
-            # This is not a big deal, but it means we could be getting
-            # more IDs by increasing the level.
-            logging.warn(
-                "Leftover working set at level %d: %r", levels, working_set)
-
+        query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold)],
+                       Identifier.id.in_(identifier_ids))
+        results = _db.execute(query)
+        equivalents = defaultdict(list)
+        for r in results:
+            original = r[0]
+            equivalent = r[1]
+            equivalents[original].append(equivalent)
         return equivalents
-
-    @classmethod
-    def _recursively_equivalent_identifier_ids(
-            cls, _db, original_working_set, working_set, levels, threshold):
-
-        if levels == 0:
-            equivalents = defaultdict(lambda : defaultdict(list))
-            for id in original_working_set:
-                # Every identifier is unshakeably equivalent to itself.
-                equivalents[id][id] = (1, 1000000)
-            return (working_set, set(), set(), equivalents)
-
-        if not working_set:
-            return working_set, seen_equivalency_ids, seen_identifier_ids
-
-        # First make the recursive call.        
-        (working_set, seen_equivalency_ids, seen_identifier_ids,
-         equivalents) = cls._recursively_equivalent_identifier_ids(
-             _db, original_working_set, working_set, levels-1, threshold)
-
-        if not working_set:
-            # We're done.
-            return (working_set, seen_equivalency_ids, seen_identifier_ids,
-                    equivalents)
-
-        new_working_set = set()
-        seen_identifier_ids = seen_identifier_ids.union(working_set)
-
-        equivalencies = Equivalency.for_identifiers(
-            _db, working_set, seen_equivalency_ids)
-        for e in equivalencies:
-            #logging.debug("%r => %r", e.input, e.output)
-            seen_equivalency_ids.add(e.id)
-
-            # Signal strength decreases monotonically, so
-            # if it dips below the threshold, we can
-            # ignore it from this point on.
-
-            # I -> O becomes "I is a precursor of O with distance
-            # equal to the I->O strength."
-            if e.strength > threshold:
-                #logging.debug("Strong signal: %r", e)
-                
-                cls._update_equivalents(
-                    equivalents, e.output_id, e.input_id, e.strength, e.votes)
-                cls._update_equivalents(
-                    equivalents, e.input_id, e.output_id, e.strength, e.votes)
-            else:
-                # logging.debug("Ignoring signal below threshold: %r", e)
-                pass
-
-            if e.output_id not in seen_identifier_ids:
-                # This is our first time encountering the
-                # Identifier that is the output of this
-                # Equivalency. We will look at its equivalencies
-                # in the next round.
-                new_working_set.add(e.output_id)
-            if e.input_id not in seen_identifier_ids:
-                # This is our first time encountering the
-                # Identifier that is the input to this
-                # Equivalency. We will look at its equivalencies
-                # in the next round.
-                new_working_set.add(e.input_id)
-
-        if new_working_set:
-
-            q = _db.query(Identifier).filter(Identifier.id.in_(new_working_set))
-            new_identifiers = [repr(i) for i in q]
-            new_working_set_repr = ", ".join(new_identifiers)
-
-        surviving_working_set = set()
-        for id in original_working_set:
-            for new_id in new_working_set:
-                for neighbor in list(equivalents[id]):
-                    if neighbor == id:
-                        continue
-                    if neighbor == new_id:
-                        # The new ID is directly adjacent to one of
-                        # the original working set.
-                        surviving_working_set.add(new_id)
-                        continue
-                    if new_id in equivalents[neighbor]:
-                        # The new ID is adjacent to an ID adjacent to
-                        # one of the original working set. But how
-                        # strong is the signal?
-                        o2n_weight, o2n_votes = equivalents[id][neighbor]
-                        n2new_weight, n2new_votes = equivalents[neighbor][new_id]
-                        new_weight = (o2n_weight * n2new_weight)
-                        if new_weight > threshold:
-                            equivalents[id][new_id] = (new_weight, o2n_votes + n2new_votes)
-                            surviving_working_set.add(new_id)
-
-        return (surviving_working_set, seen_equivalency_ids, seen_identifier_ids,
-                equivalents)
-
-    @classmethod
-    def _update_equivalents(original_working_set, equivalents, input_id,
-                            output_id, strength, votes):
-        if not equivalents[input_id][output_id]:
-            equivalents[input_id][output_id] = (strength, votes)
-        else:
-            old_strength, old_votes = equivalents[input_id][output_id]
-            total_strength = (old_strength * old_votes) + (strength * votes)
-            total_votes = (old_votes + votes)
-            new_strength = total_strength / total_votes
-            equivalents[input_id][output_id] = (new_strength, total_votes)
-
-    @classmethod
-    def recursively_equivalent_identifier_ids_flat(
-            cls, _db, identifier_ids, levels=5, threshold=0.5):
-        data = cls.recursively_equivalent_identifier_ids(
-            _db, identifier_ids, levels, threshold)
-        return cls.flatten_identifier_ids(data)
-
-    @classmethod
-    def flatten_identifier_ids(cls, data):
-        ids = set()
-        for equivalents in data.values():
-            ids = ids.union(set(equivalents.keys()))
-        return ids
-
+        
     def equivalent_identifier_ids(self, levels=5, threshold=0.5):
         _db = Session.object_session(self)
-        return Identifier.recursively_equivalent_identifier_ids_flat(
+        return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
 
     def add_link(self, rel, href, data_source, license_pool=None,
@@ -1675,7 +1579,7 @@ class Identifier(Base):
         return champion, images
 
     @classmethod
-    def evaluate_summary_quality(cls, _db, identifier_ids, 
+    def evaluate_summary_quality(cls, _db, identifier_ids,
                                  privileged_data_sources=None):
         """Evaluate the summaries for the given group of Identifier IDs.
 
@@ -2340,13 +2244,14 @@ class Edition(Base):
 
     @property
     def contributors(self):
-        return [x.contributor for x in self.contributions]
+        return set([x.contributor for x in self.contributions])
 
     @property
     def author_contributors(self):
-        """All 'author'-type contributors, with the primary author first,
-        other authors sorted by sort name.
+        """All distinct 'author'-type contributors, with the primary author
+        first, other authors sorted by sort name.
         """
+        seen_authors = set()
         primary_author = None
         other_authors = []
         acceptable_substitutes = defaultdict(list)
@@ -2372,18 +2277,33 @@ class Edition(Base):
                 l = acceptable_substitutes[x.role]
                 if x.contributor not in l:
                     l.append(x.contributor)
+
+        def dedupe(l):
+            """If an item shows up multiple times in a list, 
+            keep only the first occurence.
+            """
+            seen = set()
+            deduped = []
+            for i in l:
+                if i in seen:
+                    continue
+                deduped.append(i)
+                seen.add(i)
+            return deduped
+
         if primary_author:
-            return [primary_author] + sorted(other_authors, key=lambda x: x.name)
+            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.name))
 
         if other_authors:
-            return other_authors
+            return dedupe(other_authors)
 
         for role in (
                 Contributor.AUTHOR_SUBSTITUTE_ROLES 
-                + Contributor.PERFORMER_ROLES):
+                + Contributor.PERFORMER_ROLES
+        ):
             if role in acceptable_substitutes:
                 contributors = acceptable_substitutes[role]
-                return sorted(contributors, key=lambda x: x.name)
+                return dedupe(sorted(contributors, key=lambda x: x.name))
         else:
             # There are roles, but they're so random that we can't be
             # sure who's the 'author' or so low on the creativity
@@ -2441,32 +2361,21 @@ class Edition(Base):
                        data_source=self.data_source,
                        identifier=self.primary_identifier)
 
-    def equivalencies(self, _db):
-        """All the direct equivalencies between this record's primary
-        identifier and other Identifiers.
-        """
-        return self.primary_identifier.equivalencies
-        
-    def equivalent_identifier_ids(self, levels=3, threshold=0.5):
-        """All Identifiers equivalent to this record's primary identifier,
-        at the given level of recursion."""
-        return self.primary_identifier.equivalent_identifier_ids(
-            levels, threshold)
-
     def equivalent_identifiers(self, levels=3, threshold=0.5, type=None):
         """All Identifiers equivalent to this
         Edition's primary identifier, at the given level of recursion.
         """
         _db = Session.object_session(self)
-        identifier_ids = self.equivalent_identifier_ids(levels, threshold)
+        identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
+            self.primary_identifier.id, levels, threshold)
         q = _db.query(Identifier).filter(
-            Identifier.id.in_(identifier_ids))
+            Identifier.id.in_(identifier_id_subquery))
         if type:
             if isinstance(type, list):
                 q = q.filter(Identifier.type.in_(type))
             else:
                 q = q.filter(Identifier.type==type)
-        return q
+        return q.all()
 
     def equivalent_editions(self, levels=5, threshold=0.5):
         """All Editions whose primary ID is equivalent to this Edition's
@@ -2476,9 +2385,10 @@ class Edition(Base):
         (Gutenberg ID -> OCLC Work ID -> OCLC Number -> ISBN -> Overdrive ID)
         """
         _db = Session.object_session(self)
-        identifier_ids = self.equivalent_identifier_ids(levels, threshold)
+        identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
+            self.primary_identifier.id, levels, threshold)
         return _db.query(Edition).filter(
-            Edition.primary_identifier_id.in_(identifier_ids))
+            Edition.primary_identifier_id.in_(identifier_id_subquery))
 
     @classmethod
     def missing_coverage_from(
@@ -2671,13 +2581,12 @@ class Edition(Base):
 
     def best_cover_within_distance(self, distance, threshold=0.5):
         _db = Session.object_session(self)
-        flattened_data = [self.primary_identifier.id]
+        identifier_ids = [self.primary_identifier.id]
         if distance > 0:
-            data = Identifier.recursively_equivalent_identifier_ids(
-                _db, flattened_data, distance, threshold=threshold)
-            flattened_data = Identifier.flatten_identifier_ids(data)
+            identifier_ids = Identifier.recursively_equivalent_identifier_ids(
+                _db, identifier_ids, distance, threshold=threshold)
 
-        return Identifier.best_cover_for(_db, flattened_data)
+        return Identifier.best_cover_for(_db, identifier_ids)
 
     @property
     def title_for_permanent_work_id(self):
@@ -3389,14 +3298,11 @@ class Work(Base):
             base_query = _db.query(Work).join(Work.license_pools).\
                 join(LicensePool.identifier)
 
-        equivalent_identifier = aliased(Identifier)
-        query = base_query.outerjoin(Identifier.equivalencies).\
-                outerjoin(equivalent_identifier, Equivalency.output).\
-                filter(or_(
-                    Identifier.id.in_(identifier_ids),
-                    and_(equivalent_identifier.id.in_(identifier_ids),
-                    Equivalency.strength>=1)
-                ))
+        identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=1, threshold=0.999)
+        identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
+
+        query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
         return query
 
     def all_editions(self, recursion_level=5):
@@ -3407,9 +3313,13 @@ class Work(Base):
         Identifiers.
         """
         _db = Session.object_session(self)
-        identifier_ids = self.all_identifier_ids(recursion_level)
+        identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
+            LicensePool.identifier_id, levels=recursion_level)
+        identifier_ids_subquery = identifier_ids_subquery.where(LicensePool.work_id==self.id)
+
         q = _db.query(Edition).filter(
-            Edition.primary_identifier_id.in_(identifier_ids))
+            Edition.primary_identifier_id.in_(identifier_ids_subquery)
+        )
         return q
 
     def all_identifier_ids(self, recursion_level=5):
@@ -3418,8 +3328,13 @@ class Work(Base):
             lp.identifier.id for lp in self.license_pools
             if lp.identifier
         ]
-        identifier_ids = Identifier.recursively_equivalent_identifier_ids_flat(
+        # Get a dict that maps identifier ids to lists of their equivalents.
+        equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
             _db, primary_identifier_ids, recursion_level)
+
+        identifier_ids = set()
+        for equivs in equivalent_lists.values():
+            identifier_ids.update(equivs)
         return identifier_ids
 
     @property
@@ -3644,6 +3559,10 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
+            # Ensure new changes are reflected in database queries
+            _db = Session.object_session(self)
+            _db.flush()
+
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3788,12 +3707,12 @@ class Work(Base):
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 
-    def calculate_quality(self, flattened_data, default_quality=0):
+    def calculate_quality(self, identifier_ids, default_quality=0):
         _db = Session.object_session(self)
         quantities = [Measurement.POPULARITY, Measurement.RATING,
                       Measurement.DOWNLOADS, Measurement.QUALITY]
         measurements = _db.query(Measurement).filter(
-            Measurement.identifier_id.in_(flattened_data)).filter(
+            Measurement.identifier_id.in_(identifier_ids)).filter(
                 Measurement.is_most_recent==True).filter(
                     Measurement.quantity_measured.in_(quantities)).all()
 
@@ -3805,7 +3724,7 @@ class Work(Base):
 
     def assign_genres(self, identifier_ids, cutoff=0.15):
         """Set classification information for this work based on the
-        given flattened set of equivalent identifiers (`identifier_ids`).
+        subquery to get equivalent identifiers.
 
         :return: A boolean explaining whether or not any data actually
         changed.
@@ -3903,94 +3822,225 @@ class Work(Base):
         else:
             self.secondary_appeal = self.NO_APPEAL
 
+    @classmethod
+    def to_search_documents(cls, works):
+        """Generate search documents for these Works.
+        
+        This is done by constructing an extremely complicated
+        SQL query. The code is ugly, but it's about 100 times
+        faster than using python to create documents for
+        each work individually. When working on the search
+        index, it's very important for this to be fast.
+        """
+
+        if not works:
+            return []
+
+        _db = Session.object_session(works[0])
+
+        # This query gets relevant columns from Work and Edition for the Works we're
+        # interested in. The work_id, edition_id, and identifier_id columns are used
+        # by other subqueries to filter, and the remaining columns are used directly
+        # to create the json document.
+        works_alias = select(
+            [Work.id.label('work_id'),
+             Edition.id.label('edition_id'),
+             Edition.primary_identifier_id.label('identifier_id'),
+             Edition.title,
+             Edition.subtitle,
+             Edition.series,
+             Edition.language,
+             Edition.sort_title,
+             Edition.author,
+             Edition.sort_author,
+             Edition.medium,
+             Edition.publisher,
+             Edition.imprint,
+             Edition.permanent_work_id,
+             Work.fiction,
+             Work.audience,
+             Work.summary_text,
+             Work.quality,
+             Work.rating,
+             Work.popularity,
+            ],
+            Work.id.in_((w.id for w in works))
+        ).select_from(
+            join(
+                Work, Edition,
+                Work.presentation_edition_id==Edition.id
+            )
+        ).alias('works_alias')
+
+
+        # This subquery gets Contributors, filtered on edition_id.
+        contributors = select(
+            [Contributor.name,
+             Contributor.family_name,
+             Contribution.role,
+            ]
+        ).where(
+            Contribution.edition_id==literal_column(works_alias.name + "." + works_alias.c.edition_id.name)
+        ).select_from(
+            join(
+                Contributor, Contribution,
+                Contributor.id==Contribution.contributor_id
+            )
+        ).alias("contributors_subquery")
+
+        # Create a json array from the set of Contributors.
+        contributors_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(contributors.name)
+                        )))]
+        ).select_from(contributors)
+
+
+        # For Classifications, use a subquery to get recursively equivalent Identifiers
+        # for the Edition's primary_identifier_id.
+        identifiers = Identifier.recursively_equivalent_identifier_ids_query(
+            literal_column(works_alias.name + "." + works_alias.c.identifier_id.name),
+            levels=5, threshold=0.5)
+
+        # Map our constants for Subject type to their URIs. 
+        scheme_column = case(
+            [(Subject.type==key, literal_column("'%s'" % val)) for key, val in Subject.uri_lookup.items()]
+        )
+
+        # If the Subject has a name, use that, otherwise use the Subject's identifier.
+        # Also, 3M's classifications have slashes, e.g. "FICTION/Adventure". Make sure
+        # we get separated words for search.
+        term_column = func.replace(case([(Subject.name != None, Subject.name)], else_=Subject.identifier), "/", " ")
+
+        # Normalize by dividing each weight by the sum of the weights for that Identifier's Classifications.
+        weight_column = func.sum(Classification.weight) / func.sum(func.sum(Classification.weight)).over()
+
+        # The subquery for Subjects, with those three columns. The labels will become keys in json objects.
+        subjects = select(
+            [scheme_column.label('scheme'),
+             term_column.label('term'),
+             weight_column.label('weight'),
+            ],
+            # Only include Subjects with terms that are useful for search.
+            and_(Subject.type.in_(Subject.TYPES_FOR_SEARCH),
+                 term_column != None)
+        ).group_by(
+            scheme_column, term_column
+        ).where(
+            Classification.identifier_id.in_(identifiers)
+        ).select_from(
+            join(Classification, Subject, Classification.subject_id==Subject.id)
+        ).alias("subjects_subquery")
+
+        # Create a json array for the set of Subjects.
+        subjects_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(subjects.name)
+                        )))]
+        ).select_from(subjects)
+
+
+        # Subquery for genres.
+        genres = select(
+            # All Genres have the same scheme - the simplified genre URI.
+            [literal_column("'%s'" % Subject.SIMPLIFIED_GENRE).label('scheme'),
+             Genre.name,
+             Genre.id.label('term'),
+             WorkGenre.affinity.label('weight'),
+            ]
+        ).where(
+            WorkGenre.work_id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
+        ).select_from(
+            join(WorkGenre, Genre, WorkGenre.genre_id==Genre.id)
+        ).alias("genres_subquery")
+
+        # Create a json array for the set of Genres.
+        genres_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(genres.name)
+                        )))]
+        ).select_from(genres)
+
+
+        # When we set an inclusive target age range, the upper bound is converted to
+        # exclusive and is 1 + our original upper bound, so we need to subtract 1.
+        upper_column = func.upper(Work.target_age) - 1
+
+        # Subquery for target age. This has to be a subquery so it can become a
+        # nested object in the final json.
+        target_age = select(
+            [func.lower(Work.target_age).label('lower'),
+             upper_column.label('upper'),
+            ]
+        ).where(
+            Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
+        ).alias('target_age_subquery')
+        # Create the target age json object.
+        target_age_json = select(
+            [func.row_to_json(literal_column(target_age.name))]
+        ).select_from(target_age)
+
+
+        # Now, create a query that brings together everything we need for the final
+        # search document.
+        search_data = select(
+            [works_alias.c.work_id.label("_id"),
+             works_alias.c.title,
+             works_alias.c.subtitle,
+             works_alias.c.series,
+             works_alias.c.language,
+             works_alias.c.sort_title,
+             works_alias.c.author,
+             works_alias.c.sort_author,
+             works_alias.c.medium,
+             works_alias.c.publisher,
+             works_alias.c.imprint,
+             works_alias.c.permanent_work_id,
+
+             # Convert true/false to "Fiction"/"Nonfiction".
+             case(
+                    [(works_alias.c.fiction==True, literal_column("'Fiction'"))],
+                    else_=literal_column("'Nonfiction'")
+                    ).label("fiction"),
+
+             # Replace "Young Adult" with "YoungAdult" and "Adults Only" with "AdultsOnly".
+             func.replace(works_alias.c.audience, " ", "").label('audience'),
+
+             works_alias.c.summary_text.label('summary'),
+             works_alias.c.quality,
+             works_alias.c.rating,
+             works_alias.c.popularity,
+
+             # Here are all the subqueries.
+             contributors_json.label("contributors"),
+             subjects_json.label("classifications"),
+             genres_json.label('genres'),
+             target_age_json.label('target_age'),
+            ]
+        ).select_from(
+            works_alias
+        ).alias("search_data_subquery")
+        
+        # Finally, convert everything to json.
+        search_json = select(
+            [func.row_to_json(
+                    literal_column(search_data.name)
+                )]
+        ).select_from(search_data)
+
+        result = _db.execute(search_json)
+        if result:
+            return [r[0] for r in result]
+
     def to_search_document(self):
         """Generate a search document for this Work."""
-
-        _db = Session.object_session(self)
-        if not self.presentation_edition:
-            return None
-        doc = dict(_id=self.id,
-                   title=self.title,
-                   subtitle=self.subtitle,
-                   series=self.series,
-                   language=self.language,
-                   sort_title=self.sort_title, 
-                   author=self.author,
-                   sort_author=self.sort_author,
-                   medium=self.presentation_edition.medium,
-                   publisher=self.publisher,
-                   imprint=self.imprint,
-                   permanent_work_id=self.presentation_edition.permanent_work_id,
-                   fiction= "Fiction" if self.fiction else "Nonfiction",
-                   audience=self.audience.replace(" ", ""),
-                   summary = self.summary_text,
-                   quality = self.quality,
-                   rating = self.rating,
-                   popularity = self.popularity,
-               )
-
-        contribution_desc = []
-        doc['contributors'] = contribution_desc
-        for contribution in self.presentation_edition.contributions:
-            contributor = contribution.contributor
-            contribution_desc.append(
-                dict(name=contributor.name, family_name=contributor.family_name,
-                     role=contribution.role))
-
-        identifier_ids = self.all_identifier_ids()
-        classifications = Identifier.classifications_for_identifier_ids(
-            _db, identifier_ids)
-        by_scheme_and_term = Counter()
-        classification_total_weight = 0.0
-        for c in classifications:
-            subject = c.subject
-            if not subject.type in Subject.TYPES_FOR_SEARCH:
-                # This subject type doesn't have terms that are useful for search
-                continue
-            if subject.type in Subject.uri_lookup:
-                scheme = Subject.uri_lookup[subject.type]
-                term = subject.name or subject.identifier
-                if not term:
-                    # There's no text to search for.
-                    continue
-                term = term.replace("/", " ").replace("--", " ")
-                key = (scheme, term)
-                by_scheme_and_term[key] += c.weight
-                classification_total_weight += c.weight
-
-        classification_desc = []
-        doc['classifications'] = classification_desc
-        for (scheme, term), weight in by_scheme_and_term.items():
-            classification_desc.append(
-                dict(scheme=scheme, term=term,
-                     weight=weight/classification_total_weight))
-
-
-        genres = []
-        doc['genres'] = genres
-        for workgenre in self.work_genres:
-            genres.append(
-                dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
-                     term=workgenre.genre.id, weight=workgenre.affinity))
-
-        # for term, weight in (
-        #         (Work.CHARACTER_APPEAL, self.appeal_character),
-        #         (Work.LANGUAGE_APPEAL, self.appeal_language),
-        #         (Work.SETTING_APPEAL, self.appeal_setting),
-        #         (Work.STORY_APPEAL, self.appeal_story)):
-        #     if weight:
-        #         classification_desc.append(
-        #             dict(scheme=Work.APPEALS_URI, term=term,
-        #                  weight=weight))
-
-        if self.target_age:
-            doc['target_age'] = {}
-            if self.target_age.lower:
-                doc['target_age']['lower'] = self.target_age.lower
-            if self.target_age.upper:
-                doc['target_age']['upper'] = self.target_age.upper
-
-        return doc
+        return Work.to_search_documents([self])[0]
 
     def mark_licensepools_as_superceded(self):
         """Make sure that all but the single best open-access LicensePool for
@@ -5516,7 +5566,9 @@ class LicensePool(Base):
         # Note: We can do a cleaner solution, if we refactor to not use metadata's 
         # methods to update editions.  For now, we're choosing to go with the below approach.
         from metadata_layer import (
-            Metadata, IdentifierData, 
+            Metadata, 
+            IdentifierData, 
+            ReplacementPolicy,
         )
 
         if len(all_editions) == 1:
@@ -5539,7 +5591,10 @@ class LicensePool(Base):
             metadata.license_data_source_obj = None
             edition, is_new = metadata.edition(_db)
 
-            self.presentation_edition, edition_core_changed = metadata.apply(edition)
+            policy = ReplacementPolicy.from_metadata_source()
+            self.presentation_edition, edition_core_changed = metadata.apply(
+                edition, replace=policy
+            )
 
         changed = changed or self.presentation_edition.calculate_presentation()
 
@@ -6321,6 +6376,7 @@ class Representation(Base):
 
     EPUB_MEDIA_TYPE = u"application/epub+zip"
     PDF_MEDIA_TYPE = u"application/pdf"
+    MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
@@ -6333,6 +6389,7 @@ class Representation(Base):
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,
         PDF_MEDIA_TYPE,
+        MOBI_MEDIA_TYPE,
         MP3_MEDIA_TYPE,
     ]
 
@@ -6349,6 +6406,7 @@ class Representation(Base):
 
     FILE_EXTENSIONS = {
         EPUB_MEDIA_TYPE: "epub",
+        MOBI_MEDIA_TYPE: "mobi",
         PDF_MEDIA_TYPE: "pdf",
         MP3_MEDIA_TYPE: "mp3",
         JPEG_MEDIA_TYPE: "jpg",
@@ -6701,6 +6759,19 @@ class Representation(Base):
             response_reviewer=response_reviewer
         )
 
+    @property
+    def mirrorable_media_type(self):
+        """Does this Representation look like the kind of thing we
+        create mirrors of?
+
+        Basically, images and books.
+        """
+        return any(
+            self.media_type in x for x in 
+            (Representation.BOOK_MEDIA_TYPES, 
+             Representation.IMAGE_MEDIA_TYPES)
+        )
+
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
        
@@ -6899,11 +6970,11 @@ class Representation(Base):
         """
         if self.content:
             return StringIO(self.content)
-        else:
+        elif self.local_path:
             if not os.path.exists(self.local_path):
                 raise ValueError("%s does not exist." % self.local_path)
             return open(self.local_path)
-            
+        return None
 
     def as_image(self):
         """Load this Representation's contents as a PIL image."""
@@ -6915,6 +6986,8 @@ class Representation(Base):
             raise ValueError("Image representation has no content.")
 
         fh = self.content_fh()
+        if not fh:
+            return None
         if self.media_type == self.SVG_MEDIA_TYPE:
             # Transparently convert the SVG to a PNG.
             png_data = cairosvg.svg2png(fh.read())
@@ -7325,9 +7398,10 @@ class CustomListEntry(Base):
         if not new_license_pool:
             # Try using the less reliable, more expensive method of
             # matching based on equivalent identifiers.
-            equivalent_identifier_ids = self.edition.equivalent_identifier_ids()
+            equivalent_identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
+                self.edition.primary_identifier.id, levels=3, threshold=0.5)
             pool_q = _db.query(LicensePool).filter(
-                LicensePool.identifier_id.in_(equivalent_identifier_ids)).order_by(
+                LicensePool.identifier_id.in_(equivalent_identifier_id_subquery)).order_by(
                     LicensePool.licenses_available.desc(),
                     LicensePool.patrons_in_hold_queue.asc())
             pools = [x for x in pool_q if x.deliverable]
