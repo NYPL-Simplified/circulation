@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
+from elasticsearch.helpers import bulk as elasticsearch_bulk
 from config import Configuration
 from classifier import (
     KeywordBasedClassifier,
@@ -54,6 +54,10 @@ class ExternalSearchIndex(object):
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+        def bulk(docs, **kwargs):
+            return elasticsearch_bulk(self.__client, docs, **kwargs)
+        self.bulk = bulk
+            
         if not self.indices.exists(self.works_index):
             self.setup_index()
 
@@ -463,11 +467,11 @@ class ExternalSearchIndex(object):
             doc["_type"] = self.work_document_type
         time2 = time.time()
 
-        success_count, errors = bulk(self.__client,
-                                     docs,
-                                     raise_on_error=False,
-                                     raise_on_exception=False,
-                                 )
+        success_count, errors = self.bulk(
+            docs,
+            raise_on_error=False,
+            raise_on_exception=False,
+        )
 
         time3 = time.time()
         self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
@@ -509,6 +513,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.url = url
         self.docs = {}
         self.works_index = "works"
+        self.log = logging.getLogger("Dummy external search index")
 
     def _key(self, index, doc_type, id):
         return (index, doc_type, id)
@@ -532,3 +537,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
             doc_ids = doc_ids[offset: offset + size]
         return { "hits" : { "hits" : doc_ids }}
 
+    def bulk(self, docs, **kwargs):
+        for doc in docs:
+            self.index(doc['_index'], doc['_type'], doc['_id'], doc)
+        return len(docs), []
