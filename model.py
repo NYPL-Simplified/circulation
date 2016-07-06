@@ -2240,13 +2240,14 @@ class Edition(Base):
 
     @property
     def contributors(self):
-        return [x.contributor for x in self.contributions]
+        return set([x.contributor for x in self.contributions])
 
     @property
     def author_contributors(self):
-        """All 'author'-type contributors, with the primary author first,
-        other authors sorted by sort name.
+        """All distinct 'author'-type contributors, with the primary author
+        first, other authors sorted by sort name.
         """
+        seen_authors = set()
         primary_author = None
         other_authors = []
         acceptable_substitutes = defaultdict(list)
@@ -2272,18 +2273,33 @@ class Edition(Base):
                 l = acceptable_substitutes[x.role]
                 if x.contributor not in l:
                     l.append(x.contributor)
+
+        def dedupe(l):
+            """If an item shows up multiple times in a list, 
+            keep only the first occurence.
+            """
+            seen = set()
+            deduped = []
+            for i in l:
+                if i in seen:
+                    continue
+                deduped.append(i)
+                seen.add(i)
+            return deduped
+
         if primary_author:
-            return [primary_author] + sorted(other_authors, key=lambda x: x.name)
+            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.name))
 
         if other_authors:
-            return other_authors
+            return dedupe(other_authors)
 
         for role in (
                 Contributor.AUTHOR_SUBSTITUTE_ROLES 
-                + Contributor.PERFORMER_ROLES):
+                + Contributor.PERFORMER_ROLES
+        ):
             if role in acceptable_substitutes:
                 contributors = acceptable_substitutes[role]
-                return sorted(contributors, key=lambda x: x.name)
+                return dedupe(sorted(contributors, key=lambda x: x.name))
         else:
             # There are roles, but they're so random that we can't be
             # sure who's the 'author' or so low on the creativity
@@ -5406,7 +5422,9 @@ class LicensePool(Base):
         # Note: We can do a cleaner solution, if we refactor to not use metadata's 
         # methods to update editions.  For now, we're choosing to go with the below approach.
         from metadata_layer import (
-            Metadata, IdentifierData, 
+            Metadata, 
+            IdentifierData, 
+            ReplacementPolicy,
         )
 
         if len(all_editions) == 1:
@@ -5429,7 +5447,10 @@ class LicensePool(Base):
             metadata.license_data_source_obj = None
             edition, is_new = metadata.edition(_db)
 
-            self.presentation_edition, edition_core_changed = metadata.apply(edition)
+            policy = ReplacementPolicy.from_metadata_source()
+            self.presentation_edition, edition_core_changed = metadata.apply(
+                edition, replace=policy
+            )
 
         changed = changed or self.presentation_edition.calculate_presentation()
 

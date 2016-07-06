@@ -719,6 +719,32 @@ class TestContributor(DatabaseTest):
 
 class TestEdition(DatabaseTest):
 
+    def test_author_contributors(self):
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        id = self._str
+        type = Identifier.GUTENBERG_ID
+
+        edition, was_new = Edition.for_foreign_id(
+            self._db, data_source, type, id
+        )
+
+        # We've listed the same person as primary author and author.
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
+        edition.add_contributor(
+            alice, [Contributor.AUTHOR_ROLE, Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+
+        # We've listed a different person as illustrator.
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
+        edition.add_contributor(bob, [Contributor.ILLUSTRATOR_ROLE])
+
+        # Both contributors show up in .contributors.
+        eq_(set([alice, bob]), edition.contributors)
+
+        # Only the author shows up in .author_contributors, and she
+        # only shows up once.
+        eq_([alice], edition.author_contributors)
+
     def test_for_foreign_id(self):
         """Verify we can get a data source's view of a foreign id."""
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1389,26 +1415,17 @@ class TestLicensePool(DatabaseTest):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
         edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
         edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
- 
+
         edition_mw.primary_identifier = pool.identifier
         edition_admin.primary_identifier = pool.identifier
 
         # set overlapping fields on editions
         edition_od.title = u"OverdriveTitle1"
-        [joe], ignore = Contributor.lookup(self._db, u"Sloppy, Joe")
-        joe.family_name, joe.display_name = joe.default_names()
-        edition_od.add_contributor(joe, Contributor.AUTHOR_ROLE)
 
         edition_mw.title = u"MetadataWranglerTitle1"
         edition_mw.subtitle = u"MetadataWranglerSubTitle1"
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
-        bob.family_name, bob.display_name = bob.default_names()
-        edition_mw.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition_admin.title = u"AdminInterfaceTitle1"
-        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
-        jane.family_name, jane.display_name = jane.default_names()
-        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
 
         pool.set_presentation_edition(None)
 
@@ -1421,11 +1438,26 @@ class TestLicensePool(DatabaseTest):
 
         # make sure admin pool data had precedence
         eq_(edition_composite.title, u"AdminInterfaceTitle1")
+        eq_(edition_admin.contributors, edition_composite.contributors)
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
+
+        # Change the admin interface's opinion about who the author
+        # is.
+        for c in edition_admin.contributions:
+            self._db.delete(c)
+        self._db.commit()
+        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
+        jane.family_name, jane.display_name = jane.default_names()
+        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
+        pool.set_presentation_edition(None)
+
+        # The old contributor has been removed from the composite
+        # edition, and the new contributor added.
+        eq_(set([jane]), edition_composite.contributors)
 
     def test_circulation_changelog(self):
         

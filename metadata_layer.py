@@ -943,7 +943,7 @@ class Metadata(MetaToModelUtility):
         for contribution in edition.contributions:
             contributor = ContributorData.from_contribution(contribution)
             contributors.append(contributor)
-        else:
+        if not edition.contributions:
             # This should only happen for low-quality data sources such as
             # the NYT best-seller API.
             if edition.sort_author:
