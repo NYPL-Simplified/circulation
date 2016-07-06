@@ -3324,8 +3324,13 @@ class Work(Base):
             lp.identifier.id for lp in self.license_pools
             if lp.identifier
         ]
-        identifier_ids = Identifier.recursively_equivalent_identifier_ids(
+        # Get a dict that maps identifier ids to lists of their equivalents.
+        equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
             _db, primary_identifier_ids, recursion_level)
+
+        identifier_ids = set()
+        for equivs in equivalent_lists.values():
+            identifier_ids.update(equivs)
         return identifier_ids
 
     @property
