@@ -1548,6 +1548,16 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
 class TestWork(DatabaseTest):
 
+    def test_all_identifier_ids(self):
+        work = self._work(with_license_pool=True)
+        lp = work.license_pools[0]
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        identifier.equivalent_to(data_source, lp.identifier, 1)
+
+        eq_(set([lp.identifier.id, identifier.id]),
+            set(work.all_identifier_ids()))
+
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
         work = self._work(with_license_pool=True, with_open_access_download=True)
