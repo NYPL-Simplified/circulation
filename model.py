@@ -3328,9 +3328,9 @@ class Work(Base):
         equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
             _db, primary_identifier_ids, recursion_level)
 
-        identifier_ids = []
+        identifier_ids = set()
         for equivs in equivalent_lists.values():
-            identifier_ids.extend(equivs)
+            identifier_ids.update(equivs)
         return identifier_ids
 
     @property
