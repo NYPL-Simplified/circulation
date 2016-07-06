@@ -45,6 +45,9 @@ def dedupe(edition):
     for contribution in list(edition.contributions):
         contributor = contribution.contributor
         role = contribution.role
+        if role == Contributor.PRIMARY_AUTHOR_ROLE:
+            # Already handled.
+            continue
         key = (contributor, role)
         if key in seen:
             print " Removing duplicate %s %s" % (role, contributor.name)
