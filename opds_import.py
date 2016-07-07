@@ -212,7 +212,8 @@ class OPDSImporter(object):
 
 
     def import_from_feed(self, feed, even_if_no_author=False, 
-                         immediately_presentation_ready=False):
+                         immediately_presentation_ready=False,
+                         feed_url=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -224,7 +225,7 @@ class OPDSImporter(object):
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, failures = self.extract_feed_data(feed)
+        metadata_objs, failures = self.extract_feed_data(feed, feed_url)
 
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
@@ -342,14 +343,16 @@ class OPDSImporter(object):
         ]
 
 
-    def extract_feed_data(self, feed):
+    def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
         data_source = DataSource.lookup(self._db, self.data_source_name)
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
-        xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(feed, data_source=data_source)
+        xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
+            feed, data_source=data_source, feed_url=feed_url
+        )
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
@@ -466,7 +469,7 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed, data_source):
+    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
@@ -481,14 +484,18 @@ class OPDSImporter(object):
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(feed))
 
-        # Some OPDS feeds (eg Standard Ebooks) contain relative urls, so we need the
-        # feed's self URL to extract links.
-        links = [child.attrib for child in root.getroot() if 'link' in child.tag]
-        self_links = [link['href'] for link in links if link.get('rel') == 'self']
-        if self_links:
-            feed_url = self_links[0]
-        else:
-            feed_url = None
+        # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
+        # so we need the feed's self URL to extract links. If none was
+        # passed in, we still might be able to guess.
+        #
+        # TODO: Section 2 of RFC 4287 says we should check xml:base
+        # for this, so if anyone actually uses that we'll get around
+        # to checking it.
+        if not feed_url:
+            links = [child.attrib for child in root.getroot() if 'link' in child.tag]
+            self_links = [link['href'] for link in links if link.get('rel') == 'self']
+            if self_links:
+                feed_url = self_links[0]
 
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
@@ -1005,10 +1012,11 @@ class OPDSImportMonitor(Monitor):
             self.log.info("No new data.")
             return [], None
 
-    def import_one_feed(self, feed):
+    def import_one_feed(self, feed, feed_url=None):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
-            immediately_presentation_ready = self.immediately_presentation_ready
+            immediately_presentation_ready = self.immediately_presentation_ready,
+            feed_url=feed_url
         )
 
         data_source = DataSource.lookup(self._db, self.importer.data_source_name)
@@ -1049,7 +1057,7 @@ class OPDSImportMonitor(Monitor):
         # pick up where we left off.
         for link, feed in reversed(feeds):
             self.log.info("Importing next feed: %s", link)
-            self.import_one_feed(feed)
+            self.import_one_feed(feed, link)
             self._db.commit()
 
 

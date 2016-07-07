@@ -3109,6 +3109,27 @@ class TestRepresentation(DatabaseTest):
         eq_("/foo/bar/baz", Representation.normalize_content_path(
             "/foo/bar/baz", "/blah/blah/"))
 
+    def test_best_media_type(self):
+        """Test our ability to determine whether the Content-Type
+        header should override a presumed media type.
+        """
+        m = Representation._best_media_type
+
+        # If there are no headers or no content-type header, the
+        # presumed media type takes precedence.
+        eq_("text/plain", m(None, "text/plain"))
+        eq_("text/plain", m({}, "text/plain"))
+
+        # Most of the time, the content-type header takes precedence over
+        # the presumed media type.
+        eq_("image/gif", m({"content-type": "image/gif"}, "text/plain"))
+
+        # Except when the content-type header is so generic as to be uselses.
+        eq_("text/plain", m(
+            {"content-type": "application/octet-stream;profile=foo"}, 
+            "text/plain")
+        )
+
     def test_mirrorable_media_type(self):
         representation, ignore = self._representation(self._url)
 
@@ -3163,6 +3184,38 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(byte_content)
         eq_(byte_content, representation.content)
         eq_(None, representation.unicode_content)
+
+    def test_presumed_media_type(self):
+        h = DummyHTTPClient()
+
+        # In the absence of a content-type header, the presumed_media_type
+        # takes over.
+        h.queue_response(200, None, content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # In the presence of a generic content-type header, the
+        # presumed_media_type takes over.
+        h.queue_response(200, 'application/octet-stream',
+                         content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # A non-generic content-type header takes precedence over
+        # presumed_media_type.
+        h.queue_response(200, 'text/plain', content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/plain', representation.media_type)
+
 
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()

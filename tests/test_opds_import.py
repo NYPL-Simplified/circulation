@@ -983,12 +983,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         feed = self.content_server_mini_feed
 
-        monitor.import_one_feed(feed)
+        monitor.import_one_feed(feed, "http://root-url/")
         
         editions = self._db.query(Edition).all()
         
         # One edition has been imported
         eq_(1, len(editions))
+        [edition] = editions
 
         # That edition has a CoverageRecord.
         record = CoverageRecord.lookup(
@@ -997,6 +998,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
+
+        # The edition's primary identifier has a cover link whose
+        # relative URL has been resolved relative to the URL we passed
+        # into import_one_feed.
+        [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
+                    if x.rel==Hyperlink.IMAGE]
+        eq_("http://root-url/full-cover-image.png", cover)
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
