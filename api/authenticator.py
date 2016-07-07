@@ -101,6 +101,11 @@ class Authenticator(object):
         )
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
 
+    def get_credential_from_header(self, header):
+        if self.basic_auth_provider and 'password' in header:
+            return header['password']
+        return None
+
     def authenticated_patron(self, _db, header):
         if self.basic_auth_provider and 'password' in header:
             return self.basic_auth_provider.authenticated_patron(_db, header)
