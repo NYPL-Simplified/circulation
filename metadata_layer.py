@@ -470,8 +470,8 @@ class MetaToModelUtility(object):
             link.media_type = representation.media_type
 
         if not representation.mirrorable_media_type:
-            log.info("Not mirroring %s: unsupported media type %s",
-                     representation.url, representation.media_type)
+            self.log.info("Not mirroring %s: unsupported media type %s",
+                          representation.url, representation.media_type)
             return
 
         # Determine the best URL to use when mirroring this
