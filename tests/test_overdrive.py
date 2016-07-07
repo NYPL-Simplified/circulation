@@ -5,6 +5,10 @@ from nose.tools import (
 )
 import pkgutil
 import json
+from datetime import (
+    datetime,
+    timedelta,
+)
 from api.overdrive import (
     DummyOverdriveAPI,
 )
@@ -323,6 +327,8 @@ class TestSyncBookshelf(OverdriveAPITest):
             with_license_pool=True
         )
         overdrive_loan, new = overdrive_edition.license_pool.loan_to(patron)
+        yesterday = datetime.utcnow() - timedelta(days=1)
+        overdrive_loan.start = yesterday
 
         # Sync with Overdrive, and the loan not present in the sample
         # data is removed.
