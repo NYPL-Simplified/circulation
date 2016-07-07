@@ -75,6 +75,7 @@ from sqlalchemy.sql.expression import (
     join,
     literal_column,
     case,
+    table,
 )
 from sqlalchemy.exc import (
     IntegrityError
@@ -207,15 +208,27 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)                
 
-        # Create the recursive equivalents function. If the function
-        # already exists, it will be replaced.
         if not connection:
             connection = engine.connect()
-        resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
-        if not os.path.exists(resource_file):
-            raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
-        sql = open(resource_file).read()
-        connection.execute(sql)
+
+        # Check if the recursive equivalents function exists already.
+        query = select(
+            [literal_column('proname')]
+        ).select_from(
+            table('pg_proc')
+        ).where(
+            literal_column('proname')=='fn_recursive_equivalents'
+        )
+        result = connection.execute(query)
+        result = list(result)
+
+        # If it doesn't, create it.
+        if not result:
+            resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
+            if not os.path.exists(resource_file):
+                raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
+            sql = open(resource_file).read()
+            connection.execute(sql)
 
         if connection:
             connection.close()
