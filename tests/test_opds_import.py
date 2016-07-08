@@ -1,6 +1,7 @@
 import os
 import datetime
 from StringIO import StringIO
+from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,
@@ -171,6 +172,22 @@ class TestOPDSImporter(OPDSImporterTest):
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
+    def test_extract_link(self):
+        E = builder.ElementMaker()
+        no_rel = E.link(href="http://foo/")
+        eq_(None, OPDSImporter.extract_link(no_rel))
+
+        no_href = E.link(href="", rel="foo")
+        eq_(None, OPDSImporter.extract_link(no_href))
+
+        good = E.link(href="http://foo", rel="bar")
+        link = OPDSImporter.extract_link(good)
+        eq_("http://foo", link.href)
+        eq_("bar", link.rel)
+
+        relative = E.link(href="/foo/bar", rel="self")
+        link = OPDSImporter.extract_link(relative, "http://server")
+        eq_("http://server/foo/bar", link.href)
 
     def test_extract_metadata_from_feedparser(self):
 
@@ -660,6 +677,11 @@ class TestOPDSImporter(OPDSImporterTest):
         assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
+
+        # If a link turns out to be a dud, consolidate_links()
+        # gets rid of it.
+        links = [None, None]
+        eq_([], OPDSImporter.consolidate_links(links))
 
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,

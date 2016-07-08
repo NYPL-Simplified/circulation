@@ -825,6 +825,10 @@ class OPDSImporter(object):
         rel = attr.get('rel')
         media_type = attr.get('type')
         href = attr.get('href')
+        if not href or not rel:
+            # The link exists but has no destination, or no specified
+            # relationship to the entry.
+            return None
         rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
         if rights:
             rights_uri = RightsStatus.rights_uri_from_string(rights)
@@ -834,6 +838,7 @@ class OPDSImporter(object):
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
         return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
+        return foo
 
     @classmethod
     def consolidate_links(cls, links):
@@ -844,7 +849,8 @@ class OPDSImporter(object):
 
         Similarly if link n is a thumbnail and link n+1 is an image.
         """
-        new_links = list(links)
+        new_links = [x for x in links if x]
+        links = list(new_links)
         next_link_already_handled = False
         for i, link in enumerate(links):
 
@@ -966,6 +972,10 @@ class OPDSImportMonitor(Monitor):
             # feed has changed.
             if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
                 new_data = True
+                self.log.info(
+                    "Counting %s as new because previous attempt resulted in transient failure: %s", 
+                    record.identifier, record.exception
+                )
                 break
 
             # If our last attempt was a success or a persistent
@@ -980,18 +990,30 @@ class OPDSImportMonitor(Monitor):
                     # The remote isn't telling us whether the entry
                     # has been updated. Import it again to be safe.
                     new_data = True
+                    self.log.info(
+                        "Counting %s as new because remote has no information about when it was updated.", 
+                        record.identifier
+                    )
                     break
 
                 if remote_updated >= record.timestamp:
                     # This book has been updated.
+                    self.log.info(
+                        "Counting %s as new because its coverage date is %s and remote has %s.", 
+                        record.identifier, record.timestamp, remote_updated
+                    )
+
                     new_data = True
                     break
 
             else:
                 # There's no record of an attempt to import this book.
+                self.log.info(
+                    "Counting %s as new because it has no CoverageRecord.", 
+                    record.identifier
+                )
                 new_data = True
                 break
-
         return new_data
 
     def follow_one_link(self, link, do_get=None):
