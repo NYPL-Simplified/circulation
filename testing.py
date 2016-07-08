@@ -736,7 +736,9 @@ class DummyHTTPClient(object):
 
     def queue_response(self, response_code, media_type="text/html",
                        other_headers=None, content=''):
-        headers = {"content-type": media_type}
+        headers = {}
+        if media_type:
+            headers["content-type"] = media_type
         if other_headers:
             for k, v in other_headers.items():
                 headers[k.lower()] = v
