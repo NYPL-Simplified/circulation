@@ -388,7 +388,10 @@ class MetaToModelUtility(object):
 
         if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
-            self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
+            if link.href:
+                # The log message only makes sense if the resource is
+                # hosted elsewhere.
+                self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
         mirror = policy.mirror

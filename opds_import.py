@@ -266,7 +266,7 @@ class OPDSImporter(object):
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
                 data_source = DataSource.lookup(self._db, self.data_source_name)
-                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
+                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=True)
                 failures[key] = failure
 
         return imported_editions.values(), pools.values(), works.values(), failures
@@ -1010,7 +1010,7 @@ class OPDSImportMonitor(Monitor):
                 # There's no record of an attempt to import this book.
                 self.log.info(
                     "Counting %s as new because it has no CoverageRecord.", 
-                    record.identifier
+                    identifier
                 )
                 new_data = True
                 break
