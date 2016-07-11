@@ -71,6 +71,11 @@ from sqlalchemy.sql.expression import (
     cast,
     and_,
     or_,
+    select,
+    join,
+    literal_column,
+    case,
+    table,
 )
 from sqlalchemy.exc import (
     IntegrityError
@@ -203,15 +208,27 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)                
 
-        # Create the recursive equivalents function. If the function
-        # already exists, it will be replaced.
         if not connection:
             connection = engine.connect()
-        resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
-        if not os.path.exists(resource_file):
-            raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
-        sql = open(resource_file).read()
-        connection.execute(sql)
+
+        # Check if the recursive equivalents function exists already.
+        query = select(
+            [literal_column('proname')]
+        ).select_from(
+            table('pg_proc')
+        ).where(
+            literal_column('proname')=='fn_recursive_equivalents'
+        )
+        result = connection.execute(query)
+        result = list(result)
+
+        # If it doesn't, create it.
+        if not result:
+            resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
+            if not os.path.exists(resource_file):
+                raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
+            sql = open(resource_file).read()
+            connection.execute(sql)
 
         if connection:
             connection.close()
@@ -2246,6 +2263,19 @@ class Edition(Base):
     def author_contributors(self):
         """All distinct 'author'-type contributors, with the primary author
         first, other authors sorted by sort name.
+
+        Basically, we're trying to figure out what would go on the
+        book cover. The primary author should go first, and be
+        followed by non-primary authors in alphabetical order. People
+        whose role does not rise to the level of "authorship"
+        (e.g. author of afterword) do not show up.
+
+        The list as a whole should contain no duplicates. This might
+        happen because someone is erroneously listed twice in the same
+        role, someone is listed as both primary author and regular
+        author, someone is listed as both author and translator,
+        etc. However it happens, your name only shows up once on the
+        front of the book.
         """
         seen_authors = set()
         primary_author = None
@@ -3324,8 +3354,13 @@ class Work(Base):
             lp.identifier.id for lp in self.license_pools
             if lp.identifier
         ]
-        identifier_ids = Identifier.recursively_equivalent_identifier_ids(
+        # Get a dict that maps identifier ids to lists of their equivalents.
+        equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
             _db, primary_identifier_ids, recursion_level)
+
+        identifier_ids = set()
+        for equivs in equivalent_lists.values():
+            identifier_ids.update(equivs)
         return identifier_ids
 
     @property
@@ -3550,6 +3585,10 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if changed or policy.update_search_index:
+            # Ensure new changes are reflected in database queries
+            _db = Session.object_session(self)
+            _db.flush()
+
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -3809,94 +3848,225 @@ class Work(Base):
         else:
             self.secondary_appeal = self.NO_APPEAL
 
+    @classmethod
+    def to_search_documents(cls, works):
+        """Generate search documents for these Works.
+        
+        This is done by constructing an extremely complicated
+        SQL query. The code is ugly, but it's about 100 times
+        faster than using python to create documents for
+        each work individually. When working on the search
+        index, it's very important for this to be fast.
+        """
+
+        if not works:
+            return []
+
+        _db = Session.object_session(works[0])
+
+        # This query gets relevant columns from Work and Edition for the Works we're
+        # interested in. The work_id, edition_id, and identifier_id columns are used
+        # by other subqueries to filter, and the remaining columns are used directly
+        # to create the json document.
+        works_alias = select(
+            [Work.id.label('work_id'),
+             Edition.id.label('edition_id'),
+             Edition.primary_identifier_id.label('identifier_id'),
+             Edition.title,
+             Edition.subtitle,
+             Edition.series,
+             Edition.language,
+             Edition.sort_title,
+             Edition.author,
+             Edition.sort_author,
+             Edition.medium,
+             Edition.publisher,
+             Edition.imprint,
+             Edition.permanent_work_id,
+             Work.fiction,
+             Work.audience,
+             Work.summary_text,
+             Work.quality,
+             Work.rating,
+             Work.popularity,
+            ],
+            Work.id.in_((w.id for w in works))
+        ).select_from(
+            join(
+                Work, Edition,
+                Work.presentation_edition_id==Edition.id
+            )
+        ).alias('works_alias')
+
+
+        # This subquery gets Contributors, filtered on edition_id.
+        contributors = select(
+            [Contributor.name,
+             Contributor.family_name,
+             Contribution.role,
+            ]
+        ).where(
+            Contribution.edition_id==literal_column(works_alias.name + "." + works_alias.c.edition_id.name)
+        ).select_from(
+            join(
+                Contributor, Contribution,
+                Contributor.id==Contribution.contributor_id
+            )
+        ).alias("contributors_subquery")
+
+        # Create a json array from the set of Contributors.
+        contributors_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(contributors.name)
+                        )))]
+        ).select_from(contributors)
+
+
+        # For Classifications, use a subquery to get recursively equivalent Identifiers
+        # for the Edition's primary_identifier_id.
+        identifiers = Identifier.recursively_equivalent_identifier_ids_query(
+            literal_column(works_alias.name + "." + works_alias.c.identifier_id.name),
+            levels=5, threshold=0.5)
+
+        # Map our constants for Subject type to their URIs. 
+        scheme_column = case(
+            [(Subject.type==key, literal_column("'%s'" % val)) for key, val in Subject.uri_lookup.items()]
+        )
+
+        # If the Subject has a name, use that, otherwise use the Subject's identifier.
+        # Also, 3M's classifications have slashes, e.g. "FICTION/Adventure". Make sure
+        # we get separated words for search.
+        term_column = func.replace(case([(Subject.name != None, Subject.name)], else_=Subject.identifier), "/", " ")
+
+        # Normalize by dividing each weight by the sum of the weights for that Identifier's Classifications.
+        weight_column = func.sum(Classification.weight) / func.sum(func.sum(Classification.weight)).over()
+
+        # The subquery for Subjects, with those three columns. The labels will become keys in json objects.
+        subjects = select(
+            [scheme_column.label('scheme'),
+             term_column.label('term'),
+             weight_column.label('weight'),
+            ],
+            # Only include Subjects with terms that are useful for search.
+            and_(Subject.type.in_(Subject.TYPES_FOR_SEARCH),
+                 term_column != None)
+        ).group_by(
+            scheme_column, term_column
+        ).where(
+            Classification.identifier_id.in_(identifiers)
+        ).select_from(
+            join(Classification, Subject, Classification.subject_id==Subject.id)
+        ).alias("subjects_subquery")
+
+        # Create a json array for the set of Subjects.
+        subjects_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(subjects.name)
+                        )))]
+        ).select_from(subjects)
+
+
+        # Subquery for genres.
+        genres = select(
+            # All Genres have the same scheme - the simplified genre URI.
+            [literal_column("'%s'" % Subject.SIMPLIFIED_GENRE).label('scheme'),
+             Genre.name,
+             Genre.id.label('term'),
+             WorkGenre.affinity.label('weight'),
+            ]
+        ).where(
+            WorkGenre.work_id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
+        ).select_from(
+            join(WorkGenre, Genre, WorkGenre.genre_id==Genre.id)
+        ).alias("genres_subquery")
+
+        # Create a json array for the set of Genres.
+        genres_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(genres.name)
+                        )))]
+        ).select_from(genres)
+
+
+        # When we set an inclusive target age range, the upper bound is converted to
+        # exclusive and is 1 + our original upper bound, so we need to subtract 1.
+        upper_column = func.upper(Work.target_age) - 1
+
+        # Subquery for target age. This has to be a subquery so it can become a
+        # nested object in the final json.
+        target_age = select(
+            [func.lower(Work.target_age).label('lower'),
+             upper_column.label('upper'),
+            ]
+        ).where(
+            Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
+        ).alias('target_age_subquery')
+        # Create the target age json object.
+        target_age_json = select(
+            [func.row_to_json(literal_column(target_age.name))]
+        ).select_from(target_age)
+
+
+        # Now, create a query that brings together everything we need for the final
+        # search document.
+        search_data = select(
+            [works_alias.c.work_id.label("_id"),
+             works_alias.c.title,
+             works_alias.c.subtitle,
+             works_alias.c.series,
+             works_alias.c.language,
+             works_alias.c.sort_title,
+             works_alias.c.author,
+             works_alias.c.sort_author,
+             works_alias.c.medium,
+             works_alias.c.publisher,
+             works_alias.c.imprint,
+             works_alias.c.permanent_work_id,
+
+             # Convert true/false to "Fiction"/"Nonfiction".
+             case(
+                    [(works_alias.c.fiction==True, literal_column("'Fiction'"))],
+                    else_=literal_column("'Nonfiction'")
+                    ).label("fiction"),
+
+             # Replace "Young Adult" with "YoungAdult" and "Adults Only" with "AdultsOnly".
+             func.replace(works_alias.c.audience, " ", "").label('audience'),
+
+             works_alias.c.summary_text.label('summary'),
+             works_alias.c.quality,
+             works_alias.c.rating,
+             works_alias.c.popularity,
+
+             # Here are all the subqueries.
+             contributors_json.label("contributors"),
+             subjects_json.label("classifications"),
+             genres_json.label('genres'),
+             target_age_json.label('target_age'),
+            ]
+        ).select_from(
+            works_alias
+        ).alias("search_data_subquery")
+        
+        # Finally, convert everything to json.
+        search_json = select(
+            [func.row_to_json(
+                    literal_column(search_data.name)
+                )]
+        ).select_from(search_data)
+
+        result = _db.execute(search_json)
+        if result:
+            return [r[0] for r in result]
+
     def to_search_document(self):
         """Generate a search document for this Work."""
-
-        _db = Session.object_session(self)
-        if not self.presentation_edition:
-            return None
-        doc = dict(_id=self.id,
-                   title=self.title,
-                   subtitle=self.subtitle,
-                   series=self.series,
-                   language=self.language,
-                   sort_title=self.sort_title, 
-                   author=self.author,
-                   sort_author=self.sort_author,
-                   medium=self.presentation_edition.medium,
-                   publisher=self.publisher,
-                   imprint=self.imprint,
-                   permanent_work_id=self.presentation_edition.permanent_work_id,
-                   fiction= "Fiction" if self.fiction else "Nonfiction",
-                   audience=self.audience.replace(" ", ""),
-                   summary = self.summary_text,
-                   quality = self.quality,
-                   rating = self.rating,
-                   popularity = self.popularity,
-               )
-
-        contribution_desc = []
-        doc['contributors'] = contribution_desc
-        for contribution in self.presentation_edition.contributions:
-            contributor = contribution.contributor
-            contribution_desc.append(
-                dict(name=contributor.name, family_name=contributor.family_name,
-                     role=contribution.role))
-
-        identifier_ids = self.all_identifier_ids()
-        classifications = Identifier.classifications_for_identifier_ids(
-            _db, identifier_ids)
-        by_scheme_and_term = Counter()
-        classification_total_weight = 0.0
-        for c in classifications:
-            subject = c.subject
-            if not subject.type in Subject.TYPES_FOR_SEARCH:
-                # This subject type doesn't have terms that are useful for search
-                continue
-            if subject.type in Subject.uri_lookup:
-                scheme = Subject.uri_lookup[subject.type]
-                term = subject.name or subject.identifier
-                if not term:
-                    # There's no text to search for.
-                    continue
-                term = term.replace("/", " ").replace("--", " ")
-                key = (scheme, term)
-                by_scheme_and_term[key] += c.weight
-                classification_total_weight += c.weight
-
-        classification_desc = []
-        doc['classifications'] = classification_desc
-        for (scheme, term), weight in by_scheme_and_term.items():
-            classification_desc.append(
-                dict(scheme=scheme, term=term,
-                     weight=weight/classification_total_weight))
-
-
-        genres = []
-        doc['genres'] = genres
-        for workgenre in self.work_genres:
-            genres.append(
-                dict(scheme=Subject.SIMPLIFIED_GENRE, name=workgenre.genre.name,
-                     term=workgenre.genre.id, weight=workgenre.affinity))
-
-        # for term, weight in (
-        #         (Work.CHARACTER_APPEAL, self.appeal_character),
-        #         (Work.LANGUAGE_APPEAL, self.appeal_language),
-        #         (Work.SETTING_APPEAL, self.appeal_setting),
-        #         (Work.STORY_APPEAL, self.appeal_story)):
-        #     if weight:
-        #         classification_desc.append(
-        #             dict(scheme=Work.APPEALS_URI, term=term,
-        #                  weight=weight))
-
-        if self.target_age:
-            doc['target_age'] = {}
-            if self.target_age.lower:
-                doc['target_age']['lower'] = self.target_age.lower
-            if self.target_age.upper:
-                doc['target_age']['upper'] = self.target_age.upper
-
-        return doc
+        return Work.to_search_documents([self])[0]
 
     def mark_licensepools_as_superceded(self):
         """Make sure that all but the single best open-access LicensePool for
@@ -6240,6 +6410,7 @@ class Representation(Base):
     GIF_MEDIA_TYPE = u"image/gif"
     SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
 
     BOOK_MEDIA_TYPES = [
@@ -6259,6 +6430,14 @@ class Representation(Base):
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
     ]
+
+    # Most of the time, if you believe a resource to be media type A,
+    # but then you make a request and get media type B, then the
+    # actual media type (B) takes precedence over what you thought it
+    # was (A). These media types are the exceptions: they are so
+    # generic that they don't tell you anything, so it's more useful
+    # to stick with A.
+    GENERIC_MEDIA_TYPES = [OCTET_STREAM_MEDIA_TYPE]
 
     FILE_EXTENSIONS = {
         EPUB_MEDIA_TYPE: "epub",
@@ -6503,10 +6682,7 @@ class Representation(Base):
                 # post response isn't worth caching.
                 response_reviewer((status_code, headers, content))
             exception = None
-            if 'content-type' in headers:
-                media_type = headers['content-type'].lower()
-            else:
-                media_type = presumed_media_type
+            media_type = cls._best_media_type(headers, presumed_media_type)
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, fetch_exception:
@@ -6588,6 +6764,24 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return representation, False
+
+    @classmethod
+    def _best_media_type(cls, headers, default):
+        """Determine the most likely media type for the given HTTP headers.
+
+        Almost all the time, this is the value of the content-type
+        header, if present. However, if the content-type header has a
+        really generic value like "application/octet-stream" (as often
+        happens with binary files hosted on Github), we'll privilege
+        the default value.
+        """
+        if not headers or not 'content-type' in headers:
+            return default
+        headers_type = headers['content-type'].lower()
+        clean = cls._clean_media_type(headers_type)
+        if clean in Representation.GENERIC_MEDIA_TYPES and default:
+            return default
+        return headers_type
 
     @classmethod
     def reraise_exception(cls, representation, exception, traceback):

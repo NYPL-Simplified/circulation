@@ -1548,6 +1548,24 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
 class TestWork(DatabaseTest):
 
+    def test_all_identifier_ids(self):
+        work = self._work(with_license_pool=True)
+        lp = work.license_pools[0]
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        identifier.equivalent_to(data_source, lp.identifier, 1)
+
+        # Make sure there aren't duplicates in the list, if an
+        # identifier's equivalent to two of the primary identifiers.
+        lp2 = self._licensepool(None)
+        work.license_pools.append(lp2)
+        identifier.equivalent_to(data_source, lp2.identifier, 1)
+
+        all_identifier_ids = work.all_identifier_ids()
+        eq_(3, len(all_identifier_ids))
+        eq_(set([lp.identifier.id, lp2.identifier.id, identifier.id]),
+            set(all_identifier_ids))
+
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
         work = self._work(with_license_pool=True, with_open_access_download=True)
@@ -2057,6 +2075,125 @@ class TestWork(DatabaseTest):
             self._db, WorkGenre, work=work, genre=genres[1], affinity=0.8
         )
         eq_(genres[1].name, work.top_genre())
+
+    def test_to_search_document(self):
+        # Set up an edition and work.
+        edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
+        work = self._work(presentation_edition=edition)
+
+        # These are the edition's authors.
+        [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
+        contributor1.family_name = self._str
+        [contributor2] = [c.contributor for c in edition.contributions if c.role == Contributor.AUTHOR_ROLE]
+
+        data_source = DataSource.lookup(self._db, DataSource.THREEM)
+        
+        # This identifier is strongly equivalent to the edition's.
+        identifier = self._identifier()
+        identifier.equivalent_to(data_source, edition.primary_identifier, 0.9)
+
+        # This identifier is equivalent to the other identifier, but the strength
+        # is too weak for it to be used.
+        identifier2 = self._identifier()
+        identifier.equivalent_to(data_source, identifier, 0.1)
+
+        # Add some classifications.
+
+        # This classification has no subject name, so the search document will use the subject identifier.
+        edition.primary_identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 6)
+
+        # This one has the same subject type and identifier, so their weights will be combined.
+        identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 1)
+
+        # Here's another classification with a different subject type.
+        edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
+
+        # This classification has a subject name, so the search document will use that instead of the identifier.
+        identifier.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
+
+        # This classification will be left out because its subject type isn't useful for search.
+        identifier.classify(data_source, Subject.DDC, self._str, None)
+
+        # This classification will be left out because its identifier isn't sufficiently equivalent to the edition's.
+        identifier2.classify(data_source, Subject.FAST, self._str, None)
+
+        # Add some genres.
+        genre1, ignore = Genre.lookup(self._db, "Science Fiction")
+        genre2, ignore = Genre.lookup(self._db, "Romance")
+        work.genres = [genre1, genre2]
+        work.work_genres[0].affinity = 1
+
+        # Add the other fields used in the search document.
+        work.target_age = NumericRange(7, 8, '[]')
+        edition.subtitle = self._str
+        edition.series = self._str
+        edition.publisher = self._str
+        edition.imprint = self._str
+        work.fiction = False
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        work.summary_text = self._str
+        work.rating = 5
+        work.popularity = 4
+
+        # Make sure all of this will show up in a database query.
+        self._db.flush()
+
+
+        search_doc = work.to_search_document()
+        eq_(work.id, search_doc['_id'])
+        eq_(work.title, search_doc['title'])
+        eq_(edition.subtitle, search_doc['subtitle'])
+        eq_(edition.series, search_doc['series'])
+        eq_(edition.language, search_doc['language'])
+        eq_(work.sort_title, search_doc['sort_title'])
+        eq_(work.author, search_doc['author'])
+        eq_(work.sort_author, search_doc['sort_author'])
+        eq_(edition.medium, search_doc['medium'])
+        eq_(edition.publisher, search_doc['publisher'])
+        eq_(edition.imprint, search_doc['imprint'])
+        eq_(edition.permanent_work_id, search_doc['permanent_work_id'])
+        eq_("Nonfiction", search_doc['fiction'])
+        eq_("YoungAdult", search_doc['audience'])
+        eq_(work.summary_text, search_doc['summary'])
+        eq_(work.quality, search_doc['quality'])
+        eq_(work.rating, search_doc['rating'])
+        eq_(work.popularity, search_doc['popularity'])
+
+        contributors = search_doc['contributors']
+        eq_(2, len(contributors))
+        [contributor1_doc] = [c for c in contributors if c['name'] == contributor1.name]
+        [contributor2_doc] = [c for c in contributors if c['name'] == contributor2.name]
+        eq_(contributor1.family_name, contributor1_doc['family_name'])
+        eq_(None, contributor2_doc['family_name'])
+        eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])
+        eq_(Contributor.AUTHOR_ROLE, contributor2_doc['role'])
+
+        classifications = search_doc['classifications']
+        eq_(3, len(classifications))
+        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.THREEM]]
+        [classification2_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.OVERDRIVE]]
+        [classification3_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.FAST]]
+        eq_("FICTION Science Fiction Time Travel", classification1_doc['term'])
+        eq_(float(6 + 1)/(6 + 1 + 2 + 7), classification1_doc['weight'])
+        eq_("Romance", classification2_doc['term'])
+        eq_(float(2)/(6 + 1 + 2 + 7), classification2_doc['weight'])
+        eq_("Sea Stories", classification3_doc['term'])
+        eq_(float(7)/(6 + 1 + 2 + 7), classification3_doc['weight'])
+        
+        genres = search_doc['genres']
+        eq_(2, len(genres))
+        [genre1_doc] = [g for g in genres if g['name'] == genre1.name]
+        [genre2_doc] = [g for g in genres if g['name'] == genre2.name]
+        eq_(Subject.SIMPLIFIED_GENRE, genre1_doc['scheme'])
+        eq_(genre1.id, genre1_doc['term'])
+        eq_(1, genre1_doc['weight'])
+        eq_(Subject.SIMPLIFIED_GENRE, genre2_doc['scheme'])
+        eq_(genre2.id, genre2_doc['term'])
+        eq_(0, genre2_doc['weight'])
+
+        target_age_doc = search_doc['target_age']
+        eq_(work.target_age.lower, target_age_doc['lower'])
+        eq_(work.target_age.upper, target_age_doc['upper'])
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -3091,6 +3228,27 @@ class TestRepresentation(DatabaseTest):
         eq_("/foo/bar/baz", Representation.normalize_content_path(
             "/foo/bar/baz", "/blah/blah/"))
 
+    def test_best_media_type(self):
+        """Test our ability to determine whether the Content-Type
+        header should override a presumed media type.
+        """
+        m = Representation._best_media_type
+
+        # If there are no headers or no content-type header, the
+        # presumed media type takes precedence.
+        eq_("text/plain", m(None, "text/plain"))
+        eq_("text/plain", m({}, "text/plain"))
+
+        # Most of the time, the content-type header takes precedence over
+        # the presumed media type.
+        eq_("image/gif", m({"content-type": "image/gif"}, "text/plain"))
+
+        # Except when the content-type header is so generic as to be uselses.
+        eq_("text/plain", m(
+            {"content-type": "application/octet-stream;profile=foo"}, 
+            "text/plain")
+        )
+
     def test_mirrorable_media_type(self):
         representation, ignore = self._representation(self._url)
 
@@ -3145,6 +3303,38 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(byte_content)
         eq_(byte_content, representation.content)
         eq_(None, representation.unicode_content)
+
+    def test_presumed_media_type(self):
+        h = DummyHTTPClient()
+
+        # In the absence of a content-type header, the presumed_media_type
+        # takes over.
+        h.queue_response(200, None, content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # In the presence of a generic content-type header, the
+        # presumed_media_type takes over.
+        h.queue_response(200, 'application/octet-stream',
+                         content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # A non-generic content-type header takes precedence over
+        # presumed_media_type.
+        h.queue_response(200, 'text/plain', content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/plain', representation.media_type)
+
 
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()

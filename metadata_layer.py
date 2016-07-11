@@ -388,6 +388,10 @@ class MetaToModelUtility(object):
 
         if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
+            if link.href:
+                # The log message only makes sense if the resource is
+                # hosted elsewhere.
+                self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
         mirror = policy.mirror
@@ -396,7 +400,7 @@ class MetaToModelUtility(object):
         _db = Session.object_session(link_obj)
         original_url = link.href
 
-        self.log.debug("About to mirror %s" % original_url)
+        self.log.info("About to mirror %s" % original_url)
         pool = None
         edition = None
         title = None
@@ -450,12 +454,23 @@ class MetaToModelUtility(object):
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+                self.log.error(pool.license_exception)
             return
 
         # If we fetched the representation and it hasn't changed,
         # the previously mirrored version is fine. Don't mirror it
         # again.
         if representation.status_code == 304 and representation.mirror_url:
+            self.log.info(
+                "Representation has not changed, assuming mirror at %s is up to date.", representation.mirror_url
+            )
+            return
+
+        if representation.status_code / 100 not in (2,3):
+            self.log.info(
+                "Representation %s gave %s status code, not mirroring.",
+                representation.url, representation.status_code
+            )
             return
 
         # The metadata may have some idea about the media type for this
@@ -465,8 +480,8 @@ class MetaToModelUtility(object):
             link.media_type = representation.media_type
 
         if not representation.mirrorable_media_type:
-            log.info("Not mirroring %s: unsupported media type %s",
-                     representation.url, representation.media_type)
+            self.log.info("Not mirroring %s: unsupported media type %s",
+                          representation.url, representation.media_type)
             return
 
         # Determine the best URL to use when mirroring this
@@ -493,6 +508,7 @@ class MetaToModelUtility(object):
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
+                self.log.error(pool.license_exception)
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.

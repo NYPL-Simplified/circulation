@@ -218,6 +218,11 @@ class BaseCoverageProvider(object):
         (for transient failures).
         """
 
+        # Batch is a query that may not be ordered, so it may return
+        # different results when executed multiple times. Converting to
+        # a list ensures that all subsequent code will run on the same items.
+        batch = list(batch)
+
         offset_increment = 0
         results = self.process_batch(batch)
         successes = 0
@@ -280,6 +285,7 @@ class BaseCoverageProvider(object):
         # For all purposes outside this method, treat an ignored identifier
         # as a transient failure.
         transient_failures += num_ignored
+        
         return (successes, transient_failures, persistent_failures), records
 
     def process_batch(self, batch):
