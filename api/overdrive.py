@@ -692,6 +692,7 @@ class DummyOverdriveAPI(OverdriveAPI):
         super(DummyOverdriveAPI, self).__init__(
             *args, testing=True, **kwargs
         )
+        self.requests = []
         self.responses = []
 
     def queue_response(self, response_code=200, media_type="application/json",
@@ -713,10 +714,14 @@ class DummyOverdriveAPI(OverdriveAPI):
         return json.loads(self.library_data)
 
     def get(self, url, extra_headers, exception_on_401=False):
+        self.requests.append((url, extra_headers))
         return self.responses.pop()
 
-    def patron_request(self, *args, **kwargs):
+    def patron_request(self, patron, pin, url, extra_headers={}, data=None,
+                       exception_on_401=False, method=None):
         value = self.responses.pop()
+        self.requests.append((patron, pin, url, extra_headers, data,
+                              method))
         return DummyOverdriveResponse(*value)
 
 
