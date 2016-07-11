@@ -38,10 +38,11 @@ from lane import (
 )
 
 from opds import (    
-     AcquisitionFeed,
-     Annotator,
-     LookupAcquisitionFeed,
-     VerboseAnnotator,
+    AcquisitionFeed,
+    Annotator,
+    LookupAcquisitionFeed,
+    UnfulfillableWork,
+    VerboseAnnotator,
 )
 
 from util.opds_writer import (    
@@ -141,6 +142,14 @@ class TestAnnotatorWithGroup(TestAnnotator):
 
     def top_level_title(self):
         return "Test Top Level Title"
+
+
+class UnfulfillableAnnotator(TestAnnotator):
+    """Raise an UnfulfillableWork exception when asked to annotate an entry."""
+
+    @classmethod
+    def annotate_work_entry(self, *args, **kwargs):
+        raise UnfulfillableWork()
 
 
 class TestAnnotators(DatabaseTest):
@@ -1063,6 +1072,32 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         eq_(entry, None)
 
+    def test_error_when_work_has_no_licensepool(self):
+        work = self._work()
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        entry = feed.create_entry(work, self._url)
+        expect = AcquisitionFeed.error_message(
+            work.presentation_edition.primary_identifier,
+            403,
+            "I've heard about this work but have no active licenses for it.",
+        )
+        eq_(etree.tostring(expect), etree.tostring(entry))
+
+    def test_error_when_work_has_no_presentation_edition(self):
+        """We cannot create an OPDS entry (or even an error message) for a
+        Work that is disconnected from any Identifiers.
+        """
+        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work.license_pools[0].presentation_edition = None
+        work.presentation_edition = None
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        entry = feed.create_entry(work, self._url)
+        eq_(None, entry)
+
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1091,7 +1126,6 @@ class TestAcquisitionFeed(DatabaseTest):
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
 
-
     def test_exception_during_entry_creation_is_not_reraised(self):
         # This feed will raise an exception whenever it's asked
         # to create an entry.
@@ -1106,15 +1140,28 @@ class TestAcquisitionFeed(DatabaseTest):
         # But calling create_entry() doesn't raise an exception, it
         # just returns None.
         entry = feed.create_entry(work, self._url)
+        set_trace()
         eq_(entry, None)
+
+    def test_unfilfullable_work(self):
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, UnfulfillableAnnotator
+        )
+        expect = AcquisitionFeed.error_message(
+            pool.identifier, 403, 
+            "I know about this work but can offer no way of fulfilling it."
+        )
+        assert etree.tostring(expect) in etree.tostring(entry)
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
-    def entry(self, identifier, work, **kwargs):
+    def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
         """Helper method to create an entry."""
         feed = LookupAcquisitionFeed(
             self._db, u"Feed Title", "http://whatever.io", [],
-            annotator=VerboseAnnotator, **kwargs
+            annotator=annotator, **kwargs
         )
         entry = feed.create_entry((identifier, work), u"http://lane/")
         if entry:
@@ -1197,3 +1244,14 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         assert 'simplified:status_code' not in entry
         assert work.title in entry
+
+    def test_unfilfullable_work(self):
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        feed, entry = self.entry(pool.identifier, work, 
+                                 UnfulfillableAnnotator)
+        expect = AcquisitionFeed.error_message(
+            pool.identifier, 403, 
+            "I know about this work but can offer no way of fulfilling it."
+        )
+        assert etree.tostring(expect) in entry

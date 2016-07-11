@@ -466,6 +466,13 @@ class MetaToModelUtility(object):
             )
             return
 
+        if representation.status_code / 100 not in (2,3):
+            self.log.info(
+                "Representation %s gave %s status code, not mirroring.",
+                representation.url, representation.status_code
+            )
+            return
+
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
         # precedence.
