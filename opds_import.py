@@ -848,8 +848,15 @@ class OPDSImporter(object):
 
         Similarly if link n is a thumbnail and link n+1 is an image.
         """
+        # Strip out any links that didn't get turned into LinkData objects
+        # due to missing `href` or whatever.
         new_links = [x for x in links if x]
+
+        # Make a new list of links from that list, to iterate over --
+        # we'll be modifying new_links in place so we can't iterate
+        # over it.
         links = list(new_links)
+
         next_link_already_handled = False
         for i, link in enumerate(links):
 
