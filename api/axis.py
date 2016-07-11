@@ -118,6 +118,11 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     def place_hold(self, patron, pin, licensepool, format_type,
                    hold_notification_email):
+        if not hold_notification_email:
+            hold_notification_email = self.default_notification_email_address(
+                patron, pin
+            )
+
         url = self.base_url + "addtoHold/v2" 
         identifier = licensepool.identifier
         title_id = identifier.identifier
@@ -125,8 +130,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         params = dict(titleId=title_id, patronId=patron_id, format=format_type,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        return HoldResponseParser().process_all(
-                response.content)
+        hold_info = HoldResponseParser().process_all(response.content)
+        if not hold_info.identifier:
+            hold_info.identifier = identifier
+        return hold_info
 
     def release_hold(self, patron, pin, licensepool):
         url = self.base_url + "removeHold/v2"
