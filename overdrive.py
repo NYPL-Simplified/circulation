@@ -67,6 +67,7 @@ class OverdriveAPI(object):
     EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
     AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
 
+    PATRON_INFORMATION_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me"
     CHECKOUTS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts"
     CHECKOUT_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
     FORMATS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
