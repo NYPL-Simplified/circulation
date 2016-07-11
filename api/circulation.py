@@ -181,11 +181,6 @@ class CirculationAPI(object):
         # is currently on loan or on hold might be wrong.
         api = self.api_for_license_pool(licensepool)
 
-        if not hold_notification_email:
-            hold_notification_email = api.default_notification_email_address(
-                patron, pin
-            )
-
         must_set_delivery_mechanism = (
             api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
 
