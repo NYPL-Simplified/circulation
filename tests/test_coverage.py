@@ -435,7 +435,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
             provider.items_that_need_coverage().all())
 
 
-class TestSeachIndexCoverageProvider(DatabaseTest):
+class TestSearchIndexCoverageProvider(DatabaseTest):
 
     def test_run(self):
         index = DummyExternalSearchIndex()
@@ -482,35 +482,3 @@ class TestSeachIndexCoverageProvider(DatabaseTest):
         eq_(record3.work, work)
         assert record3.timestamp > timestamp
 
-
-    def test_process_item(self):
-        """Test the indexing of an individual Work."""
-
-        index = DummyExternalSearchIndex()
-        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
-
-        # This work is not presentation-ready.
-        work = self._work()
-
-        # Calling process_item() on the WorkCoverageProvider will
-        # give us nothing but a CoverageFailure.
-
-        failure = provider.process_item(work)
-        assert isinstance(failure, CoverageFailure)
-        eq_('Work not indexed because not presentation-ready.', 
-            failure.exception)
-        eq_(True, failure.transient)
-
-        # But make the work presentation-ready, and it succeeds.
-        work.presentation_ready = True
-        result = provider.process_item(work)
-        eq_(work, result)
-        eq_([('works', 'work-type', work.id)], index.docs.keys())
-
-        # A CoverageRecord has not been created for the Work, even
-        # though that normally happens when you index a Work, because
-        # the WorkCoverageProvider code that calls process_item() is
-        # supposed to handle the creation of CoverageRecords.
-        assert provider.operation_name not in [
-            x.operation for x in work.coverage_records
-        ]

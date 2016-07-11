@@ -22,6 +22,7 @@ from templates import (
 
 import csv, codecs, cStringIO
 from StringIO import StringIO
+import urllib
 
 # The secret key is used for signing cookies for admin login
 app.secret_key = Configuration.get(Configuration.SECRET_KEY)
@@ -221,12 +222,25 @@ def admin_sign_in_again():
 
 @app.route('/admin/web')
 @app.route('/admin/web/')
+@app.route('/admin/web/collection/<path:collection>/book/<path:book>')
+@app.route('/admin/web/collection/<path:collection>')
+@app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
-def admin_view(**kwargs):
+def admin_view(collection=None, book=None, **kwargs):
     admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
     csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
     if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
         redirect_url = flask.request.url
+        if (collection):
+            quoted_collection = urllib.quote(collection)
+            redirect_url = redirect_url.replace(
+                quoted_collection,
+                quoted_collection.replace("/", "%2F"))
+        if (book):
+            quoted_book = urllib.quote(book)
+            redirect_url = redirect_url.replace(
+                quoted_book,
+                quoted_book.replace("/", "%2F"))
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     show_circ_events_download = (
         "core.local_analytics_provider" in Configuration.policy("analytics")
