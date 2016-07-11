@@ -120,7 +120,8 @@ class TestAxis360API(DatabaseTest):
             config['default_notification_email_address'] = "notifications@example.com"
             response = self.api.place_hold(patron, 'pin', pool, 'format', None)
             eq_(1, response.hold_position)
-            eq_(response.identifier, pool.identifier)
+            eq_(response.identifier_type, pool.identifier.type)
+            eq_(response.identifier, pool.identifier.identifier)
             [request] = self.api.requests
             params = request[-1]['params']
             eq_('notifications@example.com', params['email'])

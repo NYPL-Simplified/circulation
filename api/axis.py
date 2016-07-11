@@ -132,7 +132,11 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         response = self.request(url, params=params)
         hold_info = HoldResponseParser().process_all(response.content)
         if not hold_info.identifier:
-            hold_info.identifier = identifier
+            # The Axis 360 API doesn't return the identifier of the 
+            # item that was placed on hold, so we have to fill it in
+            # based on our own knowledge.
+            hold_info.identifier_type = identifier.type
+            hold_info.identifier = identifier.identifier
         return hold_info
 
     def release_hold(self, patron, pin, licensepool):
