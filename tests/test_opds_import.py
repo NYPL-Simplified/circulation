@@ -673,7 +673,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # There's an error message for the work that failed. 
         failure = failures['http://www.gutenberg.org/ebooks/10441']
         assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
+        eq_(False, failure.transient)
         assert "Utter work failure!" in failure.exception
 
     def test_consolidate_links(self):
