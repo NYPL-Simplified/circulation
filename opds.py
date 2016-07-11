@@ -1184,14 +1184,14 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            
         if error_status:
-            return self.error_message(error_status, error_message)
+            return self.error_message(identifier, error_status, error_message)
 
         if active_licensepool:
             edition = active_licensepool.presentation_edition
         else:
             edition = work.presentation_edition
         try:
-            self._create_entry(
+            return self._create_entry(
                 work, active_licensepool, edition, identifier, lane_link,
                 use_cache=use_cache
             )

@@ -712,14 +712,21 @@ class TestOPDS(DatabaseTest):
         not_open_access.license_pools[0].open_access = False
         self._db.commit()
 
-        # We get a feed with only one entry--the one with an open-access
-        # license pool and an associated download.
+        # We get a feed with two entries--the open-access book and
+        # the non-open-access book--and two error messages--the book with
+        # no license pool and the book but with no download.
         works = self._db.query(Work)
         by_title = AcquisitionFeed(self._db, "test", "url", works)
         by_title = feedparser.parse(unicode(by_title))
-        eq_(2, len(by_title['entries']))
+
+        eq_(4, len(by_title['entries']))
         eq_(["not open access", "open access"], sorted(
-            [x['title'] for x in by_title['entries']]))
+            [x['title'] for x in by_title['entries'] if 'title' in x]))
+
+        errors = [x['simplified_message'] for x in by_title['entries']
+                  if 'title' not in x]
+        expect = [u"I've heard about this work but have no active licenses for it."] * 2
+        eq_(expect, errors)
 
     def test_acquisition_feed_includes_image_links(self):
         lane=self.lanes.by_languages['']['Fantasy']
@@ -1135,12 +1142,11 @@ class TestAcquisitionFeed(DatabaseTest):
         feed = DoomedFeed(
             self._db, self._str, self._url, [], annotator=Annotator
         )
-        work = self._work()
+        work = self._work(with_open_access_download=True)
 
         # But calling create_entry() doesn't raise an exception, it
         # just returns None.
         entry = feed.create_entry(work, self._url)
-        set_trace()
         eq_(entry, None)
 
     def test_unfilfullable_work(self):
