@@ -266,7 +266,7 @@ class OPDSImporter(object):
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
                 data_source = DataSource.lookup(self._db, self.data_source_name)
-                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=True)
+                failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
         return imported_editions.values(), pools.values(), works.values(), failures
