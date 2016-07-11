@@ -444,13 +444,34 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             fulfillment_info=None
         )
 
+    def default_notification_email_address(self, patron, pin):
+        site_default = super(OverdriveAPI, self).default_notification_email_address(
+            patron, pin
+        )
+        response = self.patron_request(
+            patron, pin, self.PATRON_INFORMATION_ENDPOINT
+        )
+        if response.status_code != 200:
+            self.log.error(
+                "Unable to get patron information for %s: %s",
+                patron.authorization_identifier,
+                response.content
+            )
+            # Use the site-wide default rather than allow a hold to fail.
+            return site_default
+        data = response.json()
+        return data.get('lastHoldEmail') or site_default
+
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object
         """
         if not notification_email_address:
-            raise CannotHold("No notification email address provided.")
+            notification_email_address = self.default_notification_email_address(
+                patron, pin
+            )
+
         overdrive_id = licensepool.identifier.identifier
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)

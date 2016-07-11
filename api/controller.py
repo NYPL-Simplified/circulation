@@ -132,11 +132,6 @@ class CirculationManager(object):
         self.setup_controllers()
         self.setup_adobe_vendor_id()
 
-        if self.testing:
-            self.hold_notification_email_address = 'test@test'
-        else:
-            self.hold_notification_email_address = Configuration.default_notification_email_address()
-
         self.opds_authentication_document = self.auth.create_authentication_document()
         self.authentication_headers = self.auth.create_authentication_headers()
 
@@ -590,7 +585,8 @@ class LoanController(CirculationManagerController):
 
         try:
             loan, hold, is_new = self.circulation.borrow(
-                patron, pin, pool, mechanism, self.manager.hold_notification_email_address)
+                patron, pin, pool, mechanism
+            )
         except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
                 _("Couldn't find an open-access download link for this book."),

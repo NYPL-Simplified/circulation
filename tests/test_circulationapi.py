@@ -42,11 +42,10 @@ class TestCirculationAPI(DatabaseTest):
         self.patron = self.default_patron
         self.circulation = MockCirculationAPI(self._db)
         self.remote = self.circulation.api_for_license_pool(self.pool)
-        self.email = 'foo@example.com'
 
     def borrow(self):
         return self.circulation.borrow(
-            self.patron, '1234', self.pool, self.delivery_mechanism, self.email
+            self.patron, '1234', self.pool, self.delivery_mechanism
         )
 
     def test_attempt_borrow_with_existing_remote_loan(self):
