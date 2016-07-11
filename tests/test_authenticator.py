@@ -7,10 +7,15 @@ from api.config import (
     Configuration,
     temp_config,
 )
-from api.authenticator import Authenticator
+from api.authenticator import (
+    Authenticator,
+    BasicAuthAuthenticator,
+    OAuthAuthenticator,
+)
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
+from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from . import DatabaseTest
 
 class DummyAuthAPI(Authenticator):
@@ -26,9 +31,18 @@ class DummyAuthAPI(Authenticator):
         self.count = self.count + 1
         return True
 
+class DummyBasicAuthAPI(DummyAuthAPI, BasicAuthAuthenticator):
+    pass
+
+
+class DummyOAuthAPI(DummyAuthAPI, OAuthAuthenticator):
     def oauth_callback(self, _db, params):
         self.count = self.count + 1
-        return "token"
+        return "token", dict(name="Patron")
+
+    def authenticate_url(self):
+        return "http://authenticate"
+
 
 class TestAuthenticator(DatabaseTest):
 
@@ -110,10 +124,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -148,10 +162,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -187,10 +201,10 @@ class TestAuthenticator(DatabaseTest):
             config[Configuration.SECRET_KEY] = 'secret'
 
             # Check that the correct auth provider is called.
-            basic_auth = DummyAuthAPI()
-            oauth1 = DummyAuthAPI()
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
             oauth1.NAME = "oauth1"
-            oauth2 = DummyAuthAPI()
+            oauth2 = DummyOAuthAPI()
             oauth2.NAME = "oauth2"
 
             auth = Authenticator.initialize(self._db, test=True)
@@ -220,3 +234,59 @@ class TestAuthenticator(DatabaseTest):
             eq_(1, oauth1.count)
             eq_(1, oauth2.count)
 
+    def test_create_authentication_document(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CIRCULATION_MANAGER_INTEGRATION: {
+                    "url": "http://circulation"
+                }
+            }
+            config[Configuration.LINKS] = {
+                Configuration.TERMS_OF_SERVICE: "http://terms",
+                Configuration.PRIVACY_POLICY: "http://privacy",
+                Configuration.COPYRIGHT: "http://copyright",
+                Configuration.ABOUT: "http://about",
+            }
+
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
+            oauth1.URI = "oauth 1 uri"
+            oauth1.NAME = "oauth1"
+            oauth1.METHOD = "oauth1 method"
+            oauth2 = DummyOAuthAPI()
+            oauth2.URI = "oauth 2 uri"
+            oauth2.NAME = "oauth2"
+            oauth2.METHOD = "oauth2 method"
+
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+
+            auth_document = json.loads(auth.create_authentication_document())
+            assert 'id' in auth_document
+            eq_("Library", auth_document['name'])
+
+            links = auth_document['links']
+            eq_("http://terms", links['terms-of-service']['href'])
+            eq_("http://privacy", links['privacy-policy']['href'])
+            eq_("http://copyright", links['copyright']['href'])
+            eq_("http://about", links['about']['href'])
+
+            providers = auth_document['providers']
+            eq_(3, len(providers.keys()))
+
+            basic_auth_doc = providers[basic_auth.URI]
+            eq_(basic_auth.NAME, basic_auth_doc['name'])
+            methods = basic_auth_doc['methods']
+            eq_(1, len(methods.keys()))
+            basic_auth_method = methods[basic_auth.METHOD]
+            eq_("Barcode", basic_auth_method['labels']['login'])
+            eq_("PIN", basic_auth_method['labels']['password'])
+            
+            oauth1_doc = providers[oauth1.URI]
+            eq_(oauth1.NAME, oauth1_doc['name'])
+            methods = oauth1_doc['methods']
+            eq_(1, len(methods.keys()))
+            oauth1_method = methods[oauth1.METHOD]
+            eq_("http://authenticate", oauth1_method['links']['authenticate'])

@@ -3,6 +3,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from core.util.problem_detail import ProblemDetail
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 
 import urlparse
@@ -10,6 +11,7 @@ import uuid
 import json
 import jwt
 from flask import Response
+from werkzeug.datastructures import Headers
 from flask.ext.babel import lazy_gettext as _
 import importlib
 
@@ -114,7 +116,11 @@ class Authenticator(object):
         if self.oauth_providers and params.get('code') and params.get('state'):
             for provider in self.oauth_providers:
                 if params.get('state') == provider.NAME:
-                    provider_token = provider.oauth_callback(_db, params)
+                    provider_token, patron_info = provider.oauth_callback(_db, params)
+                    
+                    if isinstance(provider_token, ProblemDetail):
+                        return provider_token
+
                     # Create an access token for our app that includes the provider
                     # as well as the provider's token.
                     simplified_token = self.create_token(provider.NAME, provider_token)
@@ -123,7 +129,7 @@ class Authenticator(object):
                     # In a web application, this is where we'd redirect the client to the
                     # page they came from. A WebView in a mobile app doesn't need that,
                     # but we might want to redirect from a browser back to the app.
-                    return Response(json.dumps(dict(access_token=simplified_token)), 200, {"Content-Type": "application/json"})
+                    return Response(json.dumps(dict(access_token=simplified_token, patron=patron_info)), 200, {"Content-Type": "application/json"})
 
     def patron_info(self, header):
         if self.basic_auth_provider and 'password' in header:
@@ -142,19 +148,19 @@ class Authenticator(object):
         there's a 401 error.
         """
         base_opds_document = Configuration.base_opds_authentication_document()
-        auth_type = [OPDSAuthenticationDocument.BASIC_AUTH_FLOW]
-
-        custom_auth_types = {}
-        for provider in self.oauth_providers:
-            type = "http://librarysimplified.org/authtype/%s" % provider.NAME
-            custom_auth_types[type] = provider
-            auth_type.append(type)
 
         circulation_manager_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
         scheme, netloc, path, parameters, query, fragment = (
             urlparse.urlparse(circulation_manager_url))
+
         opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
+
+        providers = []
+        if self.basic_auth_provider:
+            providers.append(self.basic_auth_provider)
+        for provider in self.oauth_providers:
+            providers.append(provider)
 
         links = {}
         for rel, value in (
@@ -167,22 +173,38 @@ class Authenticator(object):
                 links[rel] = dict(href=value, type="text/html")
 
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, auth_type, unicode(_("Library")), opds_id, None, unicode(_("Barcode")),
-            unicode(_("PIN")), links=links
-            )
-
-        for type, provider in custom_auth_types.items():
-            provider_info = dict(
-                authenticate=provider.authenticate_url(),
-            )
-            doc[type] = provider_info
-
+            base_opds_document, providers,
+            name=unicode(_("Library")), id=opds_id, links=links,
+        )
         return json.dumps(doc)
 
+    def create_authentication_headers(self):
+        """Create the HTTP headers to return with the OPDS
+        authentication document."""
+        headers = Headers()
+        headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
+        if self.basic_auth_provider:
+            headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
+
+        # TODO: We're leaving out headers for other providers to avoid breaking iOS
+        # clients that don't support multiple auth headers. It's not clear what
+        # the header for an oauth provider should look like. This means that there's
+        # no auth header for app without a basic auth provider, but we don't have
+        # any apps like that yet.
+
+        return headers
 
 class BasicAuthAuthenticator(Authenticator):
 
     TYPE = Authenticator.BASIC_AUTH
+    METHOD = "http://opds-spec.org/auth/basic"
+    NAME = _("Library Barcode")
+    URI = "http://librarysimplified.org/terms/auth/library-barcode"
+
+    AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
+
+    LOGIN_LABEL = _("Barcode")
+    PASSWORD_LABEL = _("PIN")
 
     def testing_patron(self, _db):
         """Return a real Patron object reserved for testing purposes.
@@ -193,3 +215,43 @@ class BasicAuthAuthenticator(Authenticator):
             return None, None
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
+
+    def create_authentication_provider_document(self):
+        method_doc = dict(labels=dict(login=unicode(self.LOGIN_LABEL), password=unicode(self.PASSWORD_LABEL)))
+        methods = {}
+        methods[self.METHOD] = method_doc
+        return dict(name=unicode(self.NAME), methods=methods)
+
+class OAuthAuthenticator(Authenticator):
+
+    TYPE = Authenticator.OAUTH
+    # Subclass must define NAME, URI, and METHOD
+
+    def __init__(self, client_id, client_secret):
+        self.client_id = client_id
+        self.client_secret = client_secret
+
+    @classmethod
+    def from_config(cls):
+        config = Configuration.integration(cls.NAME, required=True)
+        client_id = config.get(Configuration.OAUTH_CLIENT_ID)
+        client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
+        return cls(client_id, client_secret)
+
+    def authenticate_url(self):
+        raise NotImplementedError()
+
+    def authenticated_patron(self, _db, token):
+        raise NotImplementedError()
+
+    def oauth_callback(self, _db, params):
+        raise NotImplementedError()
+
+    def patron_info(self, identifier):
+        return {}
+
+    def create_authentication_provider_document(self):
+        method_doc = dict(links=dict(authenticate=self.authenticate_url()))
+        methods = {}
+        methods[self.METHOD] = method_doc
+        return dict(name=self.NAME, methods=methods)

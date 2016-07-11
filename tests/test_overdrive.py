@@ -29,6 +29,8 @@ from core.model import (
     LicensePool,
 )
 
+from api.config import temp_config
+
 class OverdriveAPITest(DatabaseTest):
 
     @classmethod
@@ -41,6 +43,74 @@ class OverdriveAPITest(DatabaseTest):
         return data, json.loads(data)
 
 class TestOverdriveAPI(OverdriveAPITest):
+
+    def test_default_notification_email_address(self):
+        """Test the ability of the Overdrive API to detect an email address
+        previously given by the patron to Overdrive for the purpose of
+        notifications.
+        """
+        ignore, patron_with_email = self.sample_json(
+            "patron_info.json"
+        )
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=patron_with_email)
+        patron = self.default_patron
+        eq_("foo@bar.com", 
+            api.default_notification_email_address(patron, 'pin'))
+
+        # If the patron has never before put an Overdrive book on
+        # hold, their JSON object has no `lastHoldEmail` key. In this
+        # case we use the site default.
+        patron_with_no_email = dict(patron_with_email)
+        del patron_with_no_email['lastHoldEmail']
+        api.queue_response(content=patron_with_no_email)
+        with temp_config() as config:
+            config['default_notification_email_address'] = "notifications@example.com"
+            eq_("notifications@example.com", 
+                api.default_notification_email_address(patron, 'pin'))
+
+            # If there's an error getting the information, use the
+            # site default.
+            api.queue_response(404)
+            eq_("notifications@example.com", 
+                api.default_notification_email_address(patron, 'pin'))
+
+    def test_place_hold_looks_up_notification_address(self):
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+
+        # The first request we make will be to get patron info,
+        # so that we know that the most recent email address used
+        # to put a book on hold is foo@bar.com.
+        ignore, patron_with_email = self.sample_json(
+            "patron_info.json"
+        )
+        
+        # The second request we make will be to put a book on hold,
+        # and when we do so we will ask for the notification to be
+        # sent to foo@bar.com.
+        ignore, successful_hold = self.sample_json(
+            "successful_hold.json"
+        )
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=successful_hold)
+        api.queue_response(content=patron_with_email)
+        hold = api.place_hold(self.default_patron, 'pin', pool, 
+                              notification_email_address=None)
+
+        # The book was placed on hold.
+        eq_(1, hold.hold_position)
+        eq_(pool.identifier.identifier, hold.identifier)
+
+        # And when we placed it on hold, we passed in foo@bar.com
+        # as the email address.
+        hold_request = api.requests[-1]
+        body = hold_request[4]
+        assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
 
     def test_update_availability(self):
         """Test the Overdrive implementation of the update_availability
@@ -225,6 +295,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
+
 
 class TestExtractData(OverdriveAPITest):
 
