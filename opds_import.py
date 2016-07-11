@@ -838,7 +838,6 @@ class OPDSImporter(object):
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
         return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
-        return foo
 
     @classmethod
     def consolidate_links(cls, links):
