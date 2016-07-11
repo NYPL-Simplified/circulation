@@ -388,7 +388,10 @@ class MetaToModelUtility(object):
 
         if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
-            self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
+            if link.href:
+                # The log message only makes sense if the resource is
+                # hosted elsewhere.
+                self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
         mirror = policy.mirror
@@ -460,6 +463,13 @@ class MetaToModelUtility(object):
         if representation.status_code == 304 and representation.mirror_url:
             self.log.info(
                 "Representation has not changed, assuming mirror at %s is up to date.", representation.mirror_url
+            )
+            return
+
+        if representation.status_code / 100 not in (2,3):
+            self.log.info(
+                "Representation %s gave %s status code, not mirroring.",
+                representation.url, representation.status_code
             )
             return
 
