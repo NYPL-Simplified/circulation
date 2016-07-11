@@ -55,8 +55,12 @@ class TestOverdriveAPI(OverdriveAPITest):
         api = DummyOverdriveAPI(self._db)
         api.queue_response(content=patron_with_email)
         patron = self.default_patron
-        eq_("foo@bar.com", 
-            api.default_notification_email_address(patron, 'pin'))
+        # If the patron has used a particular email address to put
+        # books on hold, use that email address, not the site default.
+        with temp_config() as config:
+            config['default_notification_email_address'] = "notifications@example.com"
+            eq_("foo@bar.com", 
+                api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
         # hold, their JSON object has no `lastHoldEmail` key. In this
@@ -99,15 +103,17 @@ class TestOverdriveAPI(OverdriveAPITest):
         api = DummyOverdriveAPI(self._db)
         api.queue_response(content=successful_hold)
         api.queue_response(content=patron_with_email)
-        hold = api.place_hold(self.default_patron, 'pin', pool, 
-                              notification_email_address=None)
+        with temp_config() as config:
+            config['default_notification_email_address'] = "notifications@example.com"
+            hold = api.place_hold(self.default_patron, 'pin', pool, 
+                                  notification_email_address=None)
 
         # The book was placed on hold.
         eq_(1, hold.hold_position)
         eq_(pool.identifier.identifier, hold.identifier)
 
         # And when we placed it on hold, we passed in foo@bar.com
-        # as the email address.
+        # as the email address -- not notifications@example.com.
         hold_request = api.requests[-1]
         body = hold_request[4]
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
