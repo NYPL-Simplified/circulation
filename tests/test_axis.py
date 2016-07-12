@@ -363,3 +363,12 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_("1111111111", reserved.identifier)
         eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
         eq_(0, reserved.hold_position)
+
+    def test_parse_loan_no_availability(self):
+        data = self.sample_data("availability_without_fulfillment.xml")
+        parser = AvailabilityResponseParser()
+        [loan] = list(parser.process_all(data))
+
+        eq_("0015176429", loan.identifier)
+        eq_(None, loan.fulfillment_info)
+        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
