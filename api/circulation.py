@@ -157,7 +157,7 @@ class CirculationAPI(object):
         return False
 
     def borrow(self, patron, pin, licensepool, delivery_mechanism,
-               hold_notification_email):
+               hold_notification_email=None):
         """Either borrow a book or put it on hold. Don't worry about fulfilling
         the loan yet.
         
@@ -664,3 +664,9 @@ class BaseCirculationAPI(object):
                 _("Could not map Simplified delivery mechanism %(mechanism_name)s to internal delivery mechanism!", mechanism_name=d.name)
             )
         return internal_format
+
+    def default_notification_email_address(self, patron, pin):
+        """What email address should be used to notify this patron
+        of changes?
+        """
+        return Configuration.default_notification_email_address()

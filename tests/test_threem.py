@@ -167,6 +167,13 @@ class TestThreeMAPI(ThreeMAPITest):
         eq_(datetime.datetime(2015, 5, 27, 17, 5, 34), h2.end)
         eq_(0, h2.position)
 
+    def test_place_hold(self):
+        patron = self._patron()        
+        edition, pool = self._edition(with_license_pool=True)
+        self.api.queue_response(200, content=self.sample_data("successful_hold.xml"))
+        response = self.api.place_hold(patron, 'pin', pool)
+        eq_(pool.identifier.type, response.identifier_type)
+        eq_(pool.identifier.identifier, response.identifier)
 
 # Tests of the various parser classes.
 #
