@@ -539,6 +539,8 @@ class AvailabilityResponseParser(ResponseParser):
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
                     content=None, content_expires=None)
+            else:
+                fulfillment = None
             info = LoanInfo(
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
