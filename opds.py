@@ -284,30 +284,21 @@ class Annotator(object):
             # Active license pool is preloaded from database.
             return work.license_pool
             
-        if work.has_open_access_license:
-            # All licenses are issued from the license pool associated with
-            # the work's presentation edition.
-            edition = work.presentation_edition
-
-            if (edition and edition.license_pool and
-                edition.open_access_download_url and edition.title):
-                # Looks good.
-                open_access_license_pool = edition.license_pool
-
-        if not open_access_license_pool:
-            # The active license pool is the one that *would* be
-            # associated with a loan, were a loan to be issued right
-            # now.
-            for p in work.license_pools:
-                edition = p.presentation_edition
-                if p.open_access:
-                    # Make sure there's a usable link--it might be
-                    # audio-only or something.
-                    if edition and edition.open_access_download_url:
-                        open_access_license_pool = p
-                elif edition and edition.title and p.licenses_owned > 0:
-                    active_license_pool = p
-                    break
+        # The active license pool is the one that *would* be
+        # associated with a loan, were a loan to be issued right
+        # now.
+        for p in work.license_pools:
+            if p.superceded:
+                continue
+            edition = p.presentation_edition
+            if p.open_access:
+                # Make sure there's a usable link--it might be
+                # audio-only or something.
+                if edition and edition.open_access_download_url:
+                    open_access_license_pool = p
+            elif edition and edition.title and p.licenses_owned > 0:
+                active_license_pool = p
+                break
         if not active_license_pool:
             active_license_pool = open_access_license_pool
         return active_license_pool

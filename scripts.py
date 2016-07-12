@@ -678,8 +678,10 @@ class Explain(IdentifierInputScript):
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
+        #policy = PresentationCalculationPolicy.recalculate_everything()
+        policy = None
         for edition in editions:
-            self.explain(self._db, edition)
+            self.explain(self._db, edition, policy)
             print "-" * 80
         #self._db.commit()
 
@@ -687,7 +689,7 @@ class Explain(IdentifierInputScript):
     def explain(cls, _db, edition, presentation_calculation_policy=None):
         if edition.medium != 'Book':
             return
-        output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+        output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
         work = edition.work
         lp = edition.license_pool
@@ -757,7 +759,7 @@ class Explain(IdentifierInputScript):
                     fulfillable = "Fulfillable"
                 else:
                     fulfillable = "Unfulfillable"
-                    print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
+                print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
         else:
             print " No delivery mechanisms."
         print " %s owned, %d available, %d holds, %d reserves" % (
@@ -773,7 +775,12 @@ class Explain(IdentifierInputScript):
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
             print " ", genre
-
+        print " License pools:"
+        for pool in work.license_pools:
+            active = "SUPERCEDED"
+            if not pool.superceded:
+                active = "ACTIVE"
+            print "  %s: %r" % (active, pool.identifier)
 
 
 class SubjectAssignmentScript(SubjectInputScript):
