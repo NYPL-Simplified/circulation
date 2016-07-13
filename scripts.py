@@ -691,6 +691,7 @@ class Explain(IdentifierInputScript):
             return
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
+        print " Permanent work ID: %s" % edition.permanent_work_id
         work = edition.work
         lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
