@@ -181,7 +181,7 @@ class TestBaseAnnotator(DatabaseTest):
         eq_(pool2, Annotator.active_licensepool_for(work))
 
         # pool2 is superceded and pool1 is not. The active licensepool
-        # is pool2.
+        # is pool1.
         pool1.superceded = False
         pool2.superceded = True
         eq_(pool1, Annotator.active_licensepool_for(work))
