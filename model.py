@@ -3629,6 +3629,33 @@ class Work(Base):
                      audience=self.audience, target_age=target_age)))
         l.append(" " + ", ".join(repr(wg) for wg in self.work_genres))
 
+        if self.cover_full_url:
+            l.append(" Full cover: %s" % self.cover_full_url)
+        else:
+            l.append(" No full cover.")
+
+        if self.cover_thumbnail_url:
+            l.append(" Cover thumbnail: %s" % self.cover_full_url)
+        else:
+            l.append(" No thumbnail cover.")
+
+        downloads = []
+        expect_downloads = False
+        for pool in self.license_pools:
+            if pool.superceded:
+                continue
+            if pool.open_access:
+                expect_downloads = True
+            for lpdm in pool.delivery_mechanisms:
+                if lpdm.resource and lpdm.resource.final_url:
+                    downloads.append(lpdm.resource)
+
+        if downloads:
+            l.append(" Open-access downloads:")
+            for r in downloads:
+                l.append("  " + r.final_url)
+        elif expect_downloads:
+            l.append(" Expected open-access downloads but found none.")
         def _ensure(s):
             if not s:
                 return ""
