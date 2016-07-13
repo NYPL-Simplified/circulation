@@ -82,6 +82,70 @@ class TestMilleniumPatronAPI(DatabaseTest):
         expiration = date(1999, 4, 1)
         eq_(expiration, p.authorization_expires)
 
+    def test_update_patron_authorization_identifiers(self):
+        p = self._patron()
+
+        # If the patron is new, and logged in with a username, we'll use
+        # one of their barcodes as their authorization identifier.
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron is new, and logged in with a barcode, their
+        # authorization identifier will be the barcode they used.
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "SECOND_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron has an authorization identifier, but it's not one of the
+        # barcodes, we'll replace it the same way we would determine the
+        # authorization identifier for a new patron.
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "SECOND_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron has an authorization identifier, and it _is_ one of
+        # the barcodes, we'll keep it.
+
+        p.authorization_identifier = "FIRST_barcode"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "SECOND_barcode"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If somehow they ended up with their username as an authorization
+        # identifier, we'll replace it.
+
+        p.authorization_identifier = "alice"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
 
     def test_authenticated_patron_success(self):
         # Patron is valid, but not in our database yet
