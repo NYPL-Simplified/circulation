@@ -274,7 +274,6 @@ class Annotator(object):
         """Which license pool would be/has been used to issue a license for
         this work?
         """
-        open_access_license_pool = None
         active_license_pool = None
 
         if not work:
@@ -295,12 +294,12 @@ class Annotator(object):
                 # Make sure there's a usable link--it might be
                 # audio-only or something.
                 if edition and edition.open_access_download_url:
-                    open_access_license_pool = p
+                    active_license_pool = p
+                    # We have an unlimited source for this book.
+                    # There's no need to keep looking.
+                    break
             elif edition and edition.title and p.licenses_owned > 0:
                 active_license_pool = p
-                break
-        if not active_license_pool:
-            active_license_pool = open_access_license_pool
         return active_license_pool
 
 
