@@ -166,6 +166,12 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
             barcode = barcode,
             username = dump.get(self.USERNAME_FIELD),
         )
+
+    def _to_date(self, x):
+        """Convert a datetime into a date. Leave a date alone."""
+        if isinstance(x, datetime.datetime):
+            return x.date()
+        return x
         
     def authenticated_patron(self, db, header):
         identifier = header.get('username')
@@ -200,8 +206,19 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         __transaction = db.begin_nested()
         if patron:
             # We found them!
+            if (patron.authorization_expires and
+                self._to_date(patron.authorization_expires)
+                < self._to_date(now)
+            ):
+                # The card has expired. Set the stale time to zero, meaning
+                # we will always check with the ILS to see if it was
+                # just renewed. This way patrons don't have to wait 12
+                # hours after renewing their cards to start reading.
+                stale_time = datetime.timedelta(seconds=0)
+            else:
+                stale_time = self.MAX_STALE_TIME
             if (not patron.last_external_sync
-                or (now - patron.last_external_sync) > self.MAX_STALE_TIME):
+                or (now - patron.last_external_sync) > stale_time):
                 # Sync our internal Patron record with what the API
                 # says.
                 self.update_patron(patron, identifier)
