@@ -618,14 +618,14 @@ class TestLoanController(CirculationControllerTest):
                 pool, NoAvailableCopies()
             )
             self.manager.circulation.queue_hold(
-                pool, PatronLoanLimitReached()
+                pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
                 pool.data_source.name, pool.identifier.type, 
                 pool.identifier.identifier
             )
             assert isinstance(response, ProblemDetail)
-            eq_(LOAN_LIMIT_REACHED.uri, response.uri)
+            eq_(HOLD_LIMIT_REACHED.uri, response.uri)
 
     def test_borrow_fails_with_outstanding_fines(self):
         threem_edition, pool = self._edition(
