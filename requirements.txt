@@ -10,6 +10,7 @@ flask
 isbnlib
 tinys3
 textblob
+html5lib=0.99999999
 rdflib
 elasticsearch
 python-dateutil
