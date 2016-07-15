@@ -15,6 +15,7 @@ from api.threem import (
     PatronCirculationParser,
     CheckoutResponseParser,
     ErrorParser,
+    ThreeMCirculationSweep,
 )
 
 from api.circulation import (
@@ -39,6 +40,7 @@ from core.model import (
 from core.util.http import (
     BadResponseException,
 )
+from core.external_search import DummyExternalSearchIndex
 
 class ThreeMAPITest(DatabaseTest):
 
@@ -329,3 +331,76 @@ class TestErrorParser(ThreeMAPITest):
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
+
+class TestThreeMCirculationSweep(ThreeMAPITest):
+
+    def test_process_batch(self):
+
+        search_index_client = DummyExternalSearchIndex()
+        monitor = ThreeMCirculationSweep(self._db, testing=True, api=self.api, search_index_client=search_index_client)
+
+        # Create a license pool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.THREEM_ID,
+            data_source_name=DataSource.THREEM,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        # Create a work for this pool so we can make sure the 
+        # search index updates.
+        work, ignore = pool.calculate_work()
+        work.set_presentation_ready()
+
+        # Prepare availability information.
+        data = self.sample_data("item_circulation_single.xml")
+
+        # Modify the data so that it appears to be talking about the
+        # book we just created.
+        new_identifier = pool.identifier.identifier.encode("ascii")
+        data = data.replace("d5rf89", new_identifier)
+
+        self.api.queue_response(200, content=data)
+
+        monitor.process_batch([pool.identifier])
+
+        # The availability information has been updated, as has the
+        # date the availability information was last checked.
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
+        # The search index has been updated for the pool's work.
+        eq_(1, len(search_index_client.docs.keys()))
+        search_doc = search_index_client.docs.values()[0]
+        eq_(1, search_doc['license_pools'][0]['licenses_owned'])
+
+        # Prepare a response that doesn't have this book, indicating it
+        # has been removed from the collection.
+        data = self.sample_data("item_circulation_single.xml")
+
+        self.api.queue_response(200, content=data)
+
+        other_identifier = self._identifier()
+        other_identifier.identifier = "d5rf89"
+        other_identifier.type = Identifier.THREEM_ID
+
+        monitor.process_batch([pool.identifier, other_identifier])
+
+        # The availability has been updated, and the search index has
+        # been updated.
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+
+        eq_(1, len(search_index_client.docs.keys()))
+        search_doc = search_index_client.docs.values()[0]
+        eq_(0, search_doc['license_pools'][0]['licenses_owned'])

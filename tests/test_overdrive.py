@@ -28,6 +28,7 @@ from core.model import (
     Identifier,
     LicensePool,
 )
+from core.external_search import DummyExternalSearchIndex
 
 from api.config import temp_config
 
@@ -168,6 +169,11 @@ class TestOverdriveAPI(OverdriveAPITest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
+        # Create a work for this pool so we can make sure the
+        # search index updates.
+        work, ignore = pool.calculate_work()
+        work.set_presentation_ready()
+
         # Prepare availability information.
         ignore, availability = self.sample_json(
             "overdrive_availability_information.json"
@@ -187,14 +193,21 @@ class TestOverdriveAPI(OverdriveAPITest):
         api.queue_response(content=bibliographic)
         api.queue_response(content=availability)
 
-        api.update_availability(pool)
+        search_index_client = DummyExternalSearchIndex()
 
-        # The availability information has been udpated, as has the
+        api.update_availability(pool, search_index_client=search_index_client)
+
+        # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
         eq_(5, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
+
+        # The search index has been updated for the pool's work.
+        eq_(1, len(search_index_client.docs.keys()))
+        search_doc = search_index_client.docs.values()[0]
+        eq_(5, search_doc['license_pools'][0]['licenses_owned'])
 
     def test_update_licensepool_provides_bibliographic_coverage(self):
         # Create an identifier.

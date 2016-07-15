@@ -537,7 +537,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return True
         raise CannotReleaseHold(response.content)
        
-    def update_licensepool(self, book):
+    def update_licensepool(self, book, search_index_client=None):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -588,14 +588,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
 
         return self.update_licensepool_with_book_info(
-            book, license_pool, is_new
+            book, license_pool, is_new, search_index_client=search_index_client
         )
 
     # Alias for the CirculationAPI interface
-    def update_availability(self, licensepool):
-        return self.update_licensepool(licensepool.identifier.identifier)
+    def update_availability(self, licensepool, search_index_client=None):
+        return self.update_licensepool(licensepool.identifier.identifier, search_index_client=search_index_client)
 
-    def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
+    def update_licensepool_with_book_info(self, book, license_pool, is_new_pool, search_index_client=None):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
@@ -624,6 +624,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if is_new_pool:
             license_pool.open_access = False
             self.log.info("New Overdrive book discovered: %r", edition)
+
+        if circulation_changed and license_pool.work:
+            license_pool.work.update_external_index(search_index_client)
+
         return license_pool, is_new_pool, circulation_changed
 
 
