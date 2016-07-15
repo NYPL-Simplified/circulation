@@ -56,6 +56,7 @@ from api.config import (
 
 from core.analytics import Analytics
 from core.local_analytics_provider import LocalAnalyticsProvider
+from core.external_search import DummyExternalSearchIndex
 
 
 class TestAxis360API(DatabaseTest):
@@ -63,6 +64,7 @@ class TestAxis360API(DatabaseTest):
     def setup(self):
         super(TestAxis360API,self).setup()
         self.api = MockAxis360API(self._db)
+        self.search_index_client = DummyExternalSearchIndex()
 
     @classmethod
     def sample_data(self, filename):
@@ -88,6 +90,11 @@ class TestAxis360API(DatabaseTest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
+        # Create a work for this pool so we can make sure the 
+        # search index updates.
+        work, ignore = pool.calculate_work()
+        work.set_presentation_ready()
+
         # Prepare availability information.
         data = self.sample_data("availability_with_loans.xml")
 
@@ -98,14 +105,38 @@ class TestAxis360API(DatabaseTest):
 
         self.api.queue_response(200, content=data)
 
-        self.api.update_availability(pool)
+        self.api.update_availability(pool, self.search_index_client)
 
-        # The availability information has been udpated, as has the
+        # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(2, pool.licenses_owned)
         eq_(1, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
+
+        # The search index has been updated for the pool's work.
+        eq_(1, len(self.search_index_client.docs.keys()))
+        search_doc = self.search_index_client.docs.values()[0]
+        eq_(2, search_doc['license_pools'][0]['licenses_owned'])
+
+        # Prepare a response that doesn't have this book, indicating it
+        # has been removed from the collection.
+        data = self.sample_data("availability_with_loans.xml")
+
+        self.api.queue_response(200, content=data)
+
+        self.api.update_availability(pool, self.search_index_client)
+
+        # The availability has been updated, and the search index has
+        # been updated.
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
+
+        eq_(1, len(self.search_index_client.docs.keys()))
+        search_doc = self.search_index_client.docs.values()[0]
+        eq_(0, search_doc['license_pools'][0]['licenses_owned'])
+        
 
     def test_place_hold(self):
         edition, pool = self._edition(

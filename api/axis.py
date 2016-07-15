@@ -166,14 +166,15 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
-    def update_availability(self, licensepool):
+    def update_availability(self, licensepool, search_index_client=None):
         """Update the availability information for a single LicensePool.
 
         Part of the CirculationAPI interface.
         """
-        self.update_licensepools_for_identifiers([licensepool.identifier])
+        self.update_licensepools_for_identifiers([licensepool.identifier],
+                                                 search_index_client=search_index_client)
 
-    def update_licensepools_for_identifiers(self, identifiers):
+    def update_licensepools_for_identifiers(self, identifiers, search_index_client=None):
         """Update availability information for a list of books.
 
         If the book has never been seen before, a new LicensePool
@@ -192,6 +193,9 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 remainder.remove(identifier)
             pool, is_new = availability.license_pool(self._db)
             availability.apply(pool)
+            if pool.work:
+                self._db.flush()
+                pool.work.update_external_index(search_index_client)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -219,7 +223,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 licenses_reserved=0,
                 patrons_in_hold_queue=0,
             )
-            availability.apply(pool, False)
+            availability.apply(pool)
+            if pool.work:
+                self._db.flush()
+                pool.work.update_external_index(search_index_client)
 
 
 class Axis360CirculationMonitor(Monitor):

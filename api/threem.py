@@ -245,7 +245,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             self.log.info("Updating %s (%s)", e.title, e.author)
         else:
             self.log.info(
-                "Updating unknown work %s", identifier.identifier
+                "Updating unknown work %s", pool.identifier.identifier
             )
         # Update availability and send out notifications.
         pool.update_availability(
@@ -598,13 +598,14 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     count the same event.  However it will greatly improve our current
     view of our 3M circulation, which is more important.
     """
-    def __init__(self, _db, testing=False, api=None):
+    def __init__(self, _db, testing=False, api=None, search_index_client=None):
         super(ThreeMCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
         if not api:
             api = ThreeMAPI(self._db, testing=testing)
         self.api = api
+        self.search_index_client = search_index_client
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
     def identifier_query(self):
@@ -645,6 +646,9 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                     None, None, start=now)
 
             self.api.apply_circulation_information_to_licensepool(circ, pool)
+            if pool.work:
+                self._db.flush()
+                pool.work.update_external_index(self.search_index_client)
 
         # At this point there may be some license pools left over
         # that 3M doesn't know about.  This is a pretty reliable
@@ -668,7 +672,9 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             pool.licenses_reserved = 0
             pool.patrons_in_hold_queue = 0
             pool.last_checked = now
-
+            if pool.work:
+                self._db.flush()
+                pool.work.update_external_index(self.search_index_client)
 
 class ThreeMEventMonitor(Monitor):
 
