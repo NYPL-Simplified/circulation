@@ -355,7 +355,7 @@ class CirculationManagerController(object):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
             self._db, LicensePoolDeliveryMechanism, license_pool=pool,
-            delivery_mechanism_id=mechanism_id
+            delivery_mechanism_id=mechanism_id, on_multiple='interchangeable'
         )
         return mechanism or BAD_DELIVERY_MECHANISM
 
