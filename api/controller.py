@@ -597,6 +597,8 @@ class LoanController(CirculationManagerController):
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
             problem_doc = LOAN_LIMIT_REACHED.with_debug(str(e))
+        except PatronHoldLimitReached, e:
+            problem_doc = e.as_problem_detail_document()
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code
