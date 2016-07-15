@@ -930,6 +930,7 @@ class ThreeMClassifier(Classifier):
             "Unicorns & Mythical/"
         ],
         Folklore : [
+            "Fables",
             "Legends, Myths, Fables",
             "Fairy Tales & Folklore",
         ],
@@ -2838,6 +2839,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             Eg("gay erotica"),
             Eg("lesbian erotica"),
             Eg("erotic photography"),
+        ),
+
+        Folklore : match_kw(
+            Eg("arthurian romance.*"), # This is "romance" in the old
+                                       # sense of a story.
         ),
 
         Games : match_kw(
