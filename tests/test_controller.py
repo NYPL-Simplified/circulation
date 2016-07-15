@@ -608,6 +608,25 @@ class TestLoanController(CirculationControllerTest):
              assert isinstance(response, ProblemDetail)
              eq_(INVALID_INPUT.uri, response.uri)
 
+    def test_hold_fails_when_patron_is_at_hold_limit(self):
+        edition, pool = self._edition(with_license_pool=True)
+        pool.open_access = False
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(
+                pool, NoAvailableCopies()
+            )
+            self.manager.circulation.queue_hold(
+                pool, PatronHoldLimitReached()
+            )
+            response = self.manager.loans.borrow(
+                pool.data_source.name, pool.identifier.type, 
+                pool.identifier.identifier
+            )
+            assert isinstance(response, ProblemDetail)
+            eq_(HOLD_LIMIT_REACHED.uri, response.uri)
+
     def test_borrow_fails_with_outstanding_fines(self):
         threem_edition, pool = self._edition(
             with_open_access_download=False,
