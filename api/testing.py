@@ -14,7 +14,7 @@ from api.circulation import (
 )
 
 
-class MockRemoteAPI(object):
+class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):
         self.SET_DELIVERY_MECHANISM_AT = set_delivery_mechanism_at
         self.CAN_REVOKE_HOLD_WHEN_RESERVED = can_revoke_hold_when_reserved

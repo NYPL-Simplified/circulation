@@ -167,6 +167,20 @@ class TestThreeMAPI(ThreeMAPITest):
         eq_(datetime.datetime(2015, 5, 27, 17, 5, 34), h2.end)
         eq_(0, h2.position)
 
+    def test_place_hold(self):
+        patron = self._patron()        
+        edition, pool = self._edition(with_license_pool=True)
+        self.api.queue_response(200, content=self.sample_data("successful_hold.xml"))
+        response = self.api.place_hold(patron, 'pin', pool)
+        eq_(pool.identifier.type, response.identifier_type)
+        eq_(pool.identifier.identifier, response.identifier)
+
+    def test_place_hold_fails_if_exceeded_hold_limit(self):
+        patron = self._patron()        
+        edition, pool = self._edition(with_license_pool=True)
+        self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
+        assert_raises(PatronHoldLimitReached, self.api.place_hold,
+                      patron, 'pin', pool)
 
 # Tests of the various parser classes.
 #
@@ -250,6 +264,12 @@ class TestErrorParser(ThreeMAPITest):
         error = ErrorParser().process_all(msg)
         assert isinstance(error, PatronLoanLimitReached)
         eq_(u'Patron cannot loan more than 12 documents', error.message)
+
+    def test_exceeded_hold_limit(self):
+        msg=self.sample_data("error_exceeded_hold_limit.xml")
+        error = ErrorParser().process_all(msg)
+        assert isinstance(error, PatronHoldLimitReached)
+        eq_(u'Patron cannot have more than 15 holds', error.message)
 
     def test_wrong_status(self):
         msg=self.sample_data("error_no_licenses.xml")

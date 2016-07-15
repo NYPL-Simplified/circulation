@@ -157,7 +157,7 @@ class CirculationAPI(object):
         return False
 
     def borrow(self, patron, pin, licensepool, delivery_mechanism,
-               hold_notification_email):
+               hold_notification_email=None):
         """Either borrow a book or put it on hold. Don't worry about fulfilling
         the loan yet.
         
@@ -600,12 +600,19 @@ class CirculationAPI(object):
                 del local_holds_by_identifier[key]
 
         # Every loan remaining in loans_by_identifier is a hold that
-        # the provider doesn't know about, which means it's expired
-        # and we should get rid of it.
+        # the provider doesn't know about. This usually means it's expired
+        # and we should get rid of it, but it's possible the patron is
+        # borrowing a book and syncing their bookshelf at the same time,
+        # and the local loan was created after we got the remote loans.
+        # If the loan's start date is less than a minute ago, we'll keep it.
         for loan in local_loans_by_identifier.values():
             if loan.license_pool.data_source.id in self.data_source_ids_for_sync:
-                logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
-                self._db.delete(loan)
+                one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+                if loan.start < one_minute_ago:
+                    logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
+                    self._db.delete(loan)
+                else:
+                    logging.info("In sync_bookshelf for patron %s, found local loan %d created in the past minute that wasn't in remote loans" % (patron.authorization_identifier, loan.id))
 
         # Every hold remaining in holds_by_identifier is a hold that
         # the provider doesn't know about, which means it's expired
@@ -657,3 +664,9 @@ class BaseCirculationAPI(object):
                 _("Could not map Simplified delivery mechanism %(mechanism_name)s to internal delivery mechanism!", mechanism_name=d.name)
             )
         return internal_format
+
+    def default_notification_email_address(self, patron, pin):
+        """What email address should be used to notify this patron
+        of changes?
+        """
+        return Configuration.default_notification_email_address()

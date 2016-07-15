@@ -40,6 +40,7 @@ from core.model import (
     CachedFeed,
     Work,
     CirculationEvent,
+    LicensePoolDeliveryMechanism,
     RightsStatus,
     get_one,
     create,
@@ -192,7 +193,6 @@ class TestBaseController(CirculationControllerTest):
         
             eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
 
-
     def test_load_lane(self):
         eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
         chinese = self.controller.load_lane('chi', None)
@@ -238,13 +238,54 @@ class TestBaseController(CirculationControllerTest):
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
     def test_load_licensepooldelivery(self):
+
         licensepool = self._licensepool(edition=None, with_open_access_download=True)
+
+        # Set a delivery mechanism that we won't be looking up, so we
+        # can demonstrate that we find the right match thanks to more
+        # than random chance.
+        licensepool.set_delivery_mechanism(
+            Representation.MOBI_MEDIA_TYPE, None, None, None
+        )
+
+        # If there is one matching delivery mechanism that matches the
+        # request, we load it.
         lpdm = licensepool.delivery_mechanisms[0]
-        delivery = self.controller.load_licensepooldelivery(licensepool, lpdm.delivery_mechanism.id)
+        delivery = self.controller.load_licensepooldelivery(
+            licensepool, lpdm.delivery_mechanism.id
+        )
         eq_(lpdm, delivery)
 
-        adobe_licensepool = self._licensepool(edition=None, with_open_access_download=False)
-        problem_detail = self.controller.load_licensepooldelivery(adobe_licensepool, lpdm.delivery_mechanism.id)
+        # If there are multiple matching delivery mechanisms (that is,
+        # multiple ways of getting a book with the same media type and
+        # DRM scheme) we pick one arbitrarily.
+        new_lpdm, is_new = create(
+            self._db, 
+            LicensePoolDeliveryMechanism,
+            license_pool=licensepool, 
+            delivery_mechanism=lpdm.delivery_mechanism,
+        )        
+        eq_(True, is_new)
+
+        eq_(new_lpdm.delivery_mechanism, lpdm.delivery_mechanism)
+        underlying_mechanism = lpdm.delivery_mechanism
+
+        delivery = self.controller.load_licensepooldelivery(
+            licensepool, lpdm.delivery_mechanism.id
+        )
+
+        # We don't know which LicensePoolDeliveryMechanism this is, 
+        # but we know it's one of the matches.
+        eq_(underlying_mechanism, delivery.delivery_mechanism)
+
+        # If there is no matching delivery mechanism, we return a
+        # problem detail.
+        adobe_licensepool = self._licensepool(
+            edition=None, with_open_access_download=False
+        )
+        problem_detail = self.controller.load_licensepooldelivery(
+            adobe_licensepool, lpdm.delivery_mechanism.id
+        )
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
@@ -573,6 +614,25 @@ class TestLoanController(CirculationControllerTest):
              )
              assert isinstance(response, ProblemDetail)
              eq_(INVALID_INPUT.uri, response.uri)
+
+    def test_hold_fails_when_patron_is_at_hold_limit(self):
+        edition, pool = self._edition(with_license_pool=True)
+        pool.open_access = False
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(
+                pool, NoAvailableCopies()
+            )
+            self.manager.circulation.queue_hold(
+                pool, PatronHoldLimitReached()
+            )
+            response = self.manager.loans.borrow(
+                pool.data_source.name, pool.identifier.type, 
+                pool.identifier.identifier
+            )
+            assert isinstance(response, ProblemDetail)
+            eq_(HOLD_LIMIT_REACHED.uri, response.uri)
 
     def test_borrow_fails_with_outstanding_fines(self):
         threem_edition, pool = self._edition(

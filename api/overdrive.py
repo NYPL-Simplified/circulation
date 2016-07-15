@@ -154,7 +154,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         response = self.patron_request(
             patron, pin, self.CHECKOUTS_ENDPOINT, extra_headers=headers,
             data=payload)
-
         if response.status_code == 400:
             error = response.json()
             code = error['errorCode']
@@ -444,13 +443,34 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             fulfillment_info=None
         )
 
+    def default_notification_email_address(self, patron, pin):
+        site_default = super(OverdriveAPI, self).default_notification_email_address(
+            patron, pin
+        )
+        response = self.patron_request(
+            patron, pin, self.PATRON_INFORMATION_ENDPOINT
+        )
+        if response.status_code != 200:
+            self.log.error(
+                "Unable to get patron information for %s: %s",
+                patron.authorization_identifier,
+                response.content
+            )
+            # Use the site-wide default rather than allow a hold to fail.
+            return site_default
+        data = response.json()
+        return data.get('lastHoldEmail') or site_default
+
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object
         """
         if not notification_email_address:
-            raise CannotHold("No notification email address provided.")
+            notification_email_address = self.default_notification_email_address(
+                patron, pin
+            )
+
         overdrive_id = licensepool.identifier.identifier
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)
@@ -478,6 +498,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
                 raise CannotRenew()
+            elif code == 'PatronExceededHoldLimit':
+                raise PatronHoldLimitReached()
             else:
                 raise CannotHold(code)
         else:
@@ -671,6 +693,7 @@ class DummyOverdriveAPI(OverdriveAPI):
         super(DummyOverdriveAPI, self).__init__(
             *args, testing=True, **kwargs
         )
+        self.requests = []
         self.responses = []
 
     def queue_response(self, response_code=200, media_type="application/json",
@@ -692,10 +715,14 @@ class DummyOverdriveAPI(OverdriveAPI):
         return json.loads(self.library_data)
 
     def get(self, url, extra_headers, exception_on_401=False):
+        self.requests.append((url, extra_headers))
         return self.responses.pop()
 
-    def patron_request(self, *args, **kwargs):
+    def patron_request(self, patron, pin, url, extra_headers={}, data=None,
+                       exception_on_401=False, method=None):
         value = self.responses.pop()
+        self.requests.append((patron, pin, url, extra_headers, data,
+                              method))
         return DummyOverdriveResponse(*value)
 
 

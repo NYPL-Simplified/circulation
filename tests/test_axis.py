@@ -107,6 +107,24 @@ class TestAxis360API(DatabaseTest):
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
+    def test_place_hold(self):
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+        data = self.sample_data("place_hold_success.xml")
+        self.api.queue_response(200, content=data)
+        patron = self.default_patron
+        with temp_config() as config:
+            config['default_notification_email_address'] = "notifications@example.com"
+            response = self.api.place_hold(patron, 'pin', pool, 'format', None)
+            eq_(1, response.hold_position)
+            eq_(response.identifier_type, pool.identifier.type)
+            eq_(response.identifier, pool.identifier.identifier)
+            [request] = self.api.requests
+            params = request[-1]['params']
+            eq_('notifications@example.com', params['email'])
 
 class TestCirculationMonitor(DatabaseTest):
 
@@ -345,3 +363,12 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_("1111111111", reserved.identifier)
         eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
         eq_(0, reserved.hold_position)
+
+    def test_parse_loan_no_availability(self):
+        data = self.sample_data("availability_without_fulfillment.xml")
+        parser = AvailabilityResponseParser()
+        [loan] = list(parser.process_all(data))
+
+        eq_("0015176429", loan.identifier)
+        eq_(None, loan.fulfillment_info)
+        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)

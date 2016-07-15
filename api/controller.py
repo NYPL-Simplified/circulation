@@ -132,11 +132,6 @@ class CirculationManager(object):
         self.setup_controllers()
         self.setup_adobe_vendor_id()
 
-        if self.testing:
-            self.hold_notification_email_address = 'test@test'
-        else:
-            self.hold_notification_email_address = Configuration.default_notification_email_address()
-
         self.opds_authentication_document = None
         self.authentication_headers = None
 
@@ -364,7 +359,7 @@ class CirculationManagerController(object):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
             self._db, LicensePoolDeliveryMechanism, license_pool=pool,
-            delivery_mechanism_id=mechanism_id
+            delivery_mechanism_id=mechanism_id, on_multiple='interchangeable'
         )
         return mechanism or BAD_DELIVERY_MECHANISM
 
@@ -597,7 +592,8 @@ class LoanController(CirculationManagerController):
 
         try:
             loan, hold, is_new = self.circulation.borrow(
-                patron, credential, pool, mechanism, self.manager.hold_notification_email_address)
+                patron, credential, pool, mechanism
+            )
         except NoOpenAccessDownload, e:
             problem_doc = NO_LICENSES.detailed(
                 _("Couldn't find an open-access download link for this book."),
@@ -607,6 +603,8 @@ class LoanController(CirculationManagerController):
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
             problem_doc = LOAN_LIMIT_REACHED.with_debug(str(e))
+        except PatronHoldLimitReached, e:
+            problem_doc = e.as_problem_detail_document()
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code

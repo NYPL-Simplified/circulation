@@ -65,6 +65,13 @@ LOAN_LIMIT_REACHED = pd(
       _("You have reached your loan limit. You cannot borrow anything further until you return something."),
 )
 
+HOLD_LIMIT_REACHED = pd(
+      "http://librarysimplified.org/terms/problem/hold-limit-reached",
+      403,
+      _("Hold limit reached."),
+      _("You have reached your hold limit and cannot put more books on hold."),
+)
+
 OUTSTANDING_FINES = pd(
       "http://librarysimplified.org/terms/problem/outstanding-fines",
       403,
