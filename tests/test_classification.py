@@ -425,7 +425,7 @@ class TestKeyword(object):
         eq_(classifier.Space_Opera, self.genre("space opera"))
         eq_(classifier.Drama, self.genre("opera"))
 
-        eq_(classifier.Folklore, self.genre("Arthurian romances"))
+        eq_(classifier.Historical_Fiction, self.genre("Arthurian romances"))
         eq_(classifier.Romance, self.genre("Regency romances"))
 
     def test_audience(self):

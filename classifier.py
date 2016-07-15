@@ -2841,13 +2841,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             Eg("erotic photography"),
         ),
 
-        Folklore : match_kw(
-            Eg("arthurian romance.*"), # This is "romance" in the old
-                                       # sense of a story.
-        ),
-
         Games : match_kw(
             Eg("games.*fantasy")
+        ),
+
+        Historical_Fiction : match_kw(
+            Eg("arthurian romance.*"), # This is "romance" in the old
+                                       # sense of a story.
         ),
 
         Literary_Criticism : match_kw(
