@@ -425,6 +425,9 @@ class TestKeyword(object):
         eq_(classifier.Space_Opera, self.genre("space opera"))
         eq_(classifier.Drama, self.genre("opera"))
 
+        eq_(classifier.Historical_Fiction, self.genre("Arthurian romances"))
+        eq_(classifier.Romance, self.genre("Regency romances"))
+
     def test_audience(self):
         eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
             Keyword.audience(None, "Teens / Fiction"))
@@ -577,6 +580,9 @@ class TestBISAC(object):
         eq_(classifier.Poetry, 
             gen("YOUNG ADULT NONFICTION / Poetry")
         )
+
+        eq_(classifier.Folklore, 
+            gen("Fables/Arthurian/"))
 
 class TestAxis360Classifier(object):
 

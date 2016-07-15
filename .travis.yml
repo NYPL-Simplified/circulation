@@ -20,6 +20,7 @@ python:
 cache: pip
 
 before_install:
+  - pip install "setuptools>=18.5"
   - sleep 10
 
 install:

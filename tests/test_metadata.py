@@ -278,6 +278,36 @@ class TestMetadataImporter(DatabaseTest):
         # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
         eq_(None, pool.license_exception)
 
+    def test_mirror_404_error(self):
+        mirror = DummyS3Uploader()
+        h = DummyHTTPClient()
+        h.queue_response(404)
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        link = LinkData(
+            rel=Hyperlink.IMAGE,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            href="http://example.com/",
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            license_pool=pool, media_type=link.media_type,
+            content=link.content,
+        )
+
+        m = Metadata(data_source=data_source)
+        
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+
+        # Since we got a 404 error, the cover image was not mirrored.
+        eq_(404, link_obj.resource.representation.status_code)
+        eq_(None, link_obj.resource.representation.mirror_url)
+        eq_([], mirror.uploaded)
 
     def test_mirror_open_access_link_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)

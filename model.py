@@ -75,6 +75,7 @@ from sqlalchemy.sql.expression import (
     join,
     literal_column,
     case,
+    table,
 )
 from sqlalchemy.exc import (
     IntegrityError
@@ -207,15 +208,27 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)                
 
-        # Create the recursive equivalents function. If the function
-        # already exists, it will be replaced.
         if not connection:
             connection = engine.connect()
-        resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
-        if not os.path.exists(resource_file):
-            raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
-        sql = open(resource_file).read()
-        connection.execute(sql)
+
+        # Check if the recursive equivalents function exists already.
+        query = select(
+            [literal_column('proname')]
+        ).select_from(
+            table('pg_proc')
+        ).where(
+            literal_column('proname')=='fn_recursive_equivalents'
+        )
+        result = connection.execute(query)
+        result = list(result)
+
+        # If it doesn't, create it.
+        if not result:
+            resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
+            if not os.path.exists(resource_file):
+                raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
+            sql = open(resource_file).read()
+            connection.execute(sql)
 
         if connection:
             connection.close()
@@ -2250,6 +2263,19 @@ class Edition(Base):
     def author_contributors(self):
         """All distinct 'author'-type contributors, with the primary author
         first, other authors sorted by sort name.
+
+        Basically, we're trying to figure out what would go on the
+        book cover. The primary author should go first, and be
+        followed by non-primary authors in alphabetical order. People
+        whose role does not rise to the level of "authorship"
+        (e.g. author of afterword) do not show up.
+
+        The list as a whole should contain no duplicates. This might
+        happen because someone is erroneously listed twice in the same
+        role, someone is listed as both primary author and regular
+        author, someone is listed as both author and translator,
+        etc. However it happens, your name only shows up once on the
+        front of the book.
         """
         seen_authors = set()
         primary_author = None
@@ -6384,6 +6410,7 @@ class Representation(Base):
     GIF_MEDIA_TYPE = u"image/gif"
     SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
 
     BOOK_MEDIA_TYPES = [
@@ -6403,6 +6430,14 @@ class Representation(Base):
     SUPPORTED_BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE
     ]
+
+    # Most of the time, if you believe a resource to be media type A,
+    # but then you make a request and get media type B, then the
+    # actual media type (B) takes precedence over what you thought it
+    # was (A). These media types are the exceptions: they are so
+    # generic that they don't tell you anything, so it's more useful
+    # to stick with A.
+    GENERIC_MEDIA_TYPES = [OCTET_STREAM_MEDIA_TYPE]
 
     FILE_EXTENSIONS = {
         EPUB_MEDIA_TYPE: "epub",
@@ -6647,10 +6682,7 @@ class Representation(Base):
                 # post response isn't worth caching.
                 response_reviewer((status_code, headers, content))
             exception = None
-            if 'content-type' in headers:
-                media_type = headers['content-type'].lower()
-            else:
-                media_type = presumed_media_type
+            media_type = cls._best_media_type(headers, presumed_media_type)
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, fetch_exception:
@@ -6732,6 +6764,24 @@ class Representation(Base):
         representation.headers = cls.headers_to_string(headers)
         representation.content = content
         return representation, False
+
+    @classmethod
+    def _best_media_type(cls, headers, default):
+        """Determine the most likely media type for the given HTTP headers.
+
+        Almost all the time, this is the value of the content-type
+        header, if present. However, if the content-type header has a
+        really generic value like "application/octet-stream" (as often
+        happens with binary files hosted on Github), we'll privilege
+        the default value.
+        """
+        if not headers or not 'content-type' in headers:
+            return default
+        headers_type = headers['content-type'].lower()
+        clean = cls._clean_media_type(headers_type)
+        if clean in Representation.GENERIC_MEDIA_TYPES and default:
+            return default
+        return headers_type
 
     @classmethod
     def reraise_exception(cls, representation, exception, traceback):

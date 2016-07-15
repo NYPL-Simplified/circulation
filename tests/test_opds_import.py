@@ -1,6 +1,7 @@
 import os
 import datetime
 from StringIO import StringIO
+from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,
@@ -171,6 +172,22 @@ class TestOPDSImporter(OPDSImporterTest):
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
+    def test_extract_link(self):
+        E = builder.ElementMaker()
+        no_rel = E.link(href="http://foo/")
+        eq_(None, OPDSImporter.extract_link(no_rel))
+
+        no_href = E.link(href="", rel="foo")
+        eq_(None, OPDSImporter.extract_link(no_href))
+
+        good = E.link(href="http://foo", rel="bar")
+        link = OPDSImporter.extract_link(good)
+        eq_("http://foo", link.href)
+        eq_("bar", link.rel)
+
+        relative = E.link(href="/foo/bar", rel="self")
+        link = OPDSImporter.extract_link(relative, "http://server")
+        eq_("http://server/foo/bar", link.href)
 
     def test_extract_metadata_from_feedparser(self):
 
@@ -661,6 +678,11 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_consolidate_links(self):
 
+        # If a link turns out to be a dud, consolidate_links()
+        # gets rid of it.
+        links = [None, None]
+        eq_([], OPDSImporter.consolidate_links(links))
+
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,
                              Hyperlink.IMAGE,
@@ -727,6 +749,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
+        # The request to http://root/full-cover-image.png
+        # will result in a 404 error, and the image will not be mirrored.
+        http.queue_response(404, media_type="text/plain")
         http.queue_response(
             200, content='I am 10557.epub.images',
             media_type=Representation.EPUB_MEDIA_TYPE,
@@ -747,7 +772,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed)
+            importer.import_from_feed(self.content_server_mini_feed, 
+                                      feed_url='http://root')
         )
         e1 = imported_editions[0]
         e2 = imported_editions[1]
@@ -760,15 +786,18 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             'http://www.gutenberg.org/ebooks/10441.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
+            'http://root/full-cover-image.png',
         ])
 
         [e1_oa_link, e1_image_link, e1_description_link] = sorted(
             e1.primary_identifier.links, key=lambda x: x.rel
         )
-        [e2_oa_link] = e2.primary_identifier.links
+        [e2_image_link, e2_oa_link] = e2.primary_identifier.links
 
         # The two open-access links were mirrored to S3, as was the
-        # original SVG image and its PNG thumbnail.
+        # original SVG image and its PNG thumbnail. The PNG image was
+        # not mirrored because our attempt to download it resulted in
+        # a 404 error.
         imported_representations = [
             e1_oa_link.resource.representation,
             e1_image_link.resource.representation,
@@ -776,7 +805,6 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             e2_oa_link.resource.representation,
         ]
         eq_(imported_representations, s3.uploaded)
-
 
         eq_(4, len(s3.uploaded))
         eq_("I am 10441.epub.images", s3.content[0])
@@ -983,12 +1011,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         feed = self.content_server_mini_feed
 
-        monitor.import_one_feed(feed)
+        monitor.import_one_feed(feed, "http://root-url/")
         
         editions = self._db.query(Edition).all()
         
         # One edition has been imported
         eq_(1, len(editions))
+        [edition] = editions
 
         # That edition has a CoverageRecord.
         record = CoverageRecord.lookup(
@@ -997,6 +1026,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
+
+        # The edition's primary identifier has a cover link whose
+        # relative URL has been resolved relative to the URL we passed
+        # into import_one_feed.
+        [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
+                    if x.rel==Hyperlink.IMAGE]
+        eq_("http://root-url/full-cover-image.png", cover)
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
@@ -1032,7 +1068,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def follow_one_link(self, link, cutoff_date=None, do_get=None):
                 return self.responses.pop()
 
-            def import_one_feed(self, feed):
+            def import_one_feed(self, feed, feed_url):
                 self.imports.append(feed)
 
         monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)

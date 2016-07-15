@@ -54,6 +54,15 @@ from util.opds_writer import (
 )
 from util.cdn import cdnify
 
+class UnfulfillableWork(Exception):
+    """Raise this exception when it turns out a Work currently cannot be
+    fulfilled through any means, *and* this is a problem sufficient to
+    cancel the creation of an <entry> for the Work.
+
+    For commercial works, this might be because the collection
+    contains no licenses. For open-access works, it might be because
+    none of the delivery mechanisms could be mirrored.
+    """
 
 
 class Annotator(object):
@@ -630,6 +639,12 @@ class AcquisitionFeed(OPDSFeed):
             yield entry
 
     @classmethod
+    def error_message(cls, identifier, error_status, error_message):
+        """Create a minimal OPDS entry for an error message."""
+        message = { identifier.urn : (error_status, error_message)}
+        return list(cls.render_messages(message))[0]
+
+    @classmethod
     def facet_links(self, annotator, facets):
         for group, value, new_facets, selected, in facets.facet_groups:
             url = annotator.facet_url(new_facets)
@@ -680,6 +695,7 @@ class AcquisitionFeed(OPDSFeed):
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
                      force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
+        identifier = None
         if isinstance(work, Edition):
             active_edition = work
             identifier = active_edition.primary_identifier
@@ -703,22 +719,40 @@ class AcquisitionFeed(OPDSFeed):
                 identifier = active_edition.primary_identifier
 
         # There's no reason to present a book that has no active license pool.
-        if not active_license_pool and not even_if_no_license_pool:
-            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
-            return None
-
-        if not active_edition and not isinstance(work, BaseMaterializedWork):
-            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
-            return None
-
         if not identifier:
             logging.warn("%r HAS NO IDENTIFIER", work)
             return None
+
+        if not active_license_pool and not even_if_no_license_pool:
+            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
+            return self.error_message(
+                identifier,
+                403,
+                "I've heard about this work but have no active licenses for it."
+            )
+
+        if not active_edition and not isinstance(work, BaseMaterializedWork):
+            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
+            return self.error_message(
+                identifier,
+                403,
+                "I've heard about this work but have no metadata for it."
+            )
 
         try:
             return self._create_entry(work, active_license_pool, active_edition,
                                       identifier, lane_link, force_create, 
                                       use_cache)
+        except UnfulfillableWork, e:
+            logging.info(
+                "Work %r is not fulfillable, refusing to create an <entry>.",
+                work,
+            )
+            return self.error_message(
+                identifier, 
+                403,
+                "I know about this work but can offer no way of fulfilling it."
+            )
         except Exception, e:
             logging.error(
                 "Exception generating OPDS entry for %r", work,
@@ -1150,14 +1184,25 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            
         if error_status:
-            message = { identifier.urn : (error_status, error_message)}
-            return list(self.render_messages(message))[0]
+            return self.error_message(identifier, error_status, error_message)
 
         if active_licensepool:
             edition = active_licensepool.presentation_edition
         else:
             edition = work.presentation_edition
-        return self._create_entry(
-            work, active_licensepool, edition, identifier, lane_link,
-            use_cache=use_cache
-        )
+        try:
+            return self._create_entry(
+                work, active_licensepool, edition, identifier, lane_link,
+                use_cache=use_cache
+            )
+        except UnfulfillableWork, e:
+            logging.info(
+                "Work %r is not fulfillable, refusing to create an <entry>.",
+                work
+            )
+            return self.error_message(
+                identifier,
+                403,
+                "I know about this work but can offer no way of fulfilling it."
+            )
+
