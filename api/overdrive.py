@@ -562,7 +562,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         created for the LicensePool and set as presentation-ready.
         """
         # Retrieve current circulation information about this book
-        book_id = None
         try:
             book, (status_code, headers, content) = self.circulation_lookup(
                 book
@@ -577,7 +576,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if status_code != 200:
             self.log.error(
                 "Could not get availability for %s: status code %s",
-                book_id, status_code
+                book['id'], status_code
             )
             return None, None, False
 

@@ -209,6 +209,21 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(dict(id="an identifier"), book)
         eq_(200, status_code)
         eq_("foo", content)
+        
+    def test_update_licensepool_error(self):
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(response_code=500, content=availability)
+        book = dict(id=identifier.identifier, availability_link=self._url)
+        pool, was_new, changed = api.update_licensepool(book)
+        eq_(None, pool)
+
 
     def test_update_licensepool_provides_bibliographic_coverage(self):
         # Create an identifier.
