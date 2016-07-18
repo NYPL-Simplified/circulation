@@ -7051,7 +7051,8 @@ class Representation(Base):
         image = self.as_image()
         output = StringIO()
         image.save(output, format='PNG')
-        return StringIO(output.getvalue())
+        output.seek(0)
+        return output
 
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
