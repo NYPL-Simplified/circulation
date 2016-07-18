@@ -548,7 +548,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         else:
             book_id = book['id']
             circulation_link = book['availability_link']
-        return book_id, self.get(circulation_link, {})
+        return book, self.get(circulation_link, {})
 
     def update_licensepool(self, book):
         """Update availability information for a single book.
@@ -564,7 +564,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # Retrieve current circulation information about this book
         book_id = None
         try:
-            book_id, (status_code, headers, content) = self.circulation_lookup(
+            book, (status_code, headers, content) = self.circulation_lookup(
                 book
             )
         except Exception, e:
@@ -581,8 +581,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
             return None, None, False
 
-        #set_trace()
         book.update(json.loads(content))
+        book_id = book['id']
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
         if is_new:

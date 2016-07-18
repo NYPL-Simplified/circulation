@@ -203,10 +203,10 @@ class TestOverdriveAPI(OverdriveAPITest):
         api = DummyOverdriveAPI(self._db)
         api.queue_response(content="foo")
 
-        book_id, (status_code, headers, content) = api.circulation_lookup(
+        book, (status_code, headers, content) = api.circulation_lookup(
             "an identifier"
         )
-        eq_("an identifier", book_id)
+        eq_(dict(id="an identifier"), book)
         eq_(200, status_code)
         eq_("foo", content)
 
