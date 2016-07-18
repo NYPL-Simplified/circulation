@@ -245,7 +245,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             self.log.info("Updating %s (%s)", e.title, e.author)
         else:
             self.log.info(
-                "Updating unknown work %s", identifier.identifier
+                "Updating unknown work %s", pool.identifier
             )
         # Update availability and send out notifications.
         pool.update_availability(
