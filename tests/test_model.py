@@ -3495,7 +3495,7 @@ class TestRepresentation(DatabaseTest):
         filename = representation.default_filename(link=link, destination_type="image/png")
         eq_('cover.png', filename)
 
-    def test_as_image_converts_svg_to_png(self):
+    def test_automatic_conversion_svg_to_png(self):
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
@@ -3508,14 +3508,25 @@ class TestRepresentation(DatabaseTest):
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
             content=svg)
-        image = hyperlink.resource.representation.as_image()
+        representation = hyperlink.resource.representation
+        eq_(Representation.SVG_MEDIA_TYPE, representation.media_type)
+
+        # If we get the Representation as a PIL image, it's automatically
+        # converted to PNG.
+        image = representation.as_image()
         eq_("PNG", image.format)
+
+        # When we prepare to mirror the Representation to an external
+        # file store, it's automatically converted to PNG.
+        external_media_type, external_fh = representation.external_content()
+        eq_(image.tobytes(), external_fh.read())
+        eq_(Representation.PNG_MEDIA_TYPE, external_media_type)
 
         # Even though the SVG image is smaller than the thumbnail
         # size, thumbnailing it will create a separate PNG-format
         # Representation, because we want all the thumbnails to be
         # bitmaps.
-        thumbnail, is_new = hyperlink.resource.representation.scale(
+        thumbnail, is_new = representation.scale(
             Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
             self._url, Representation.PNG_MEDIA_TYPE
         )

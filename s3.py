@@ -15,11 +15,14 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    def __init__(self, access_key=None, secret_key=None):
-        integration = Configuration.integration(Configuration.S3_INTEGRATION)
-        access_key = access_key or integration[Configuration.S3_ACCESS_KEY]
-        secret_key = secret_key or integration[Configuration.S3_SECRET_KEY]
-        self.pool = tinys3.Pool(access_key, secret_key)
+    def __init__(self, access_key=None, secret_key=None, pool=None):
+        if pool:
+            self.pool = pool
+        else:
+            integration = Configuration.integration(Configuration.S3_INTEGRATION)
+            access_key = access_key or integration[Configuration.S3_ACCESS_KEY]
+            secret_key = secret_key or integration[Configuration.S3_SECRET_KEY]
+            self.pool = tinys3.Pool(access_key, secret_key)
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
@@ -141,10 +144,12 @@ class S3Uploader(MirrorUploader):
                 representation)
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            fh = representation.content_fh()
+            media_type, fh = representation.external_content()
             filehandles.append(fh)
-            request = self.pool.upload(remote_filename, fh, bucket=bucket,
-                                       content_type=representation.media_type)
+            request = self.pool.upload(
+                remote_filename, fh, bucket=bucket,
+                content_type=media_type
+            )
             requests.append(request)
         # Do the upload.
 
@@ -212,3 +217,35 @@ class DummyS3Uploader(S3Uploader):
                 if not representation.mirror_url:
                     representation.mirror_url = representation.url
                 representation.set_as_mirrored()
+
+class MockS3Response(object):
+    def __init__(self, url):
+        self.url = url
+
+class MockS3Pool(object):
+    """This pool lets us test the real S3Uploader class with a mocked-up S3
+    pool.
+    """
+
+    def __init__(self):
+        self.uploads = []
+        self.in_progress = []
+        self.n = 0
+
+    def upload(self, remote_filename, fh, bucket=None, content_type=None,
+               **kwargs):
+        self.uploads.append((remote_filename, fh.read(), bucket, content_type, 
+                             kwargs))
+        # TODO: Instead of generating a fake URL we should be able to
+        # generate the same URL the s3 module would generate in this
+        # situation. Without this, we can't properly test the code at the
+        # end of mirror_batch which calls process_response.
+        response = MockS3Response("http://s3/%s" % self.n)
+        self.n += 1
+        self.in_progress = []
+        return response
+
+    def as_completed(self, requests):
+        for i in self.in_progress:
+            yield i
+        self.in_progress = []

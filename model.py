@@ -7012,6 +7012,20 @@ class Representation(Base):
             filename += extension
         return filename
 
+    def external_content(self):
+        """Return a filehandle to the representation's contents, as they
+        should be mirrored externally, and the media type to be used
+        when mirroring.
+        """
+        if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
+            # Passthrough
+            return self.media_type, self._raw_content_fh()
+
+        # This representation is an SVG image. We want to mirror it as
+        # PNG.
+        image = self.as_image()
+        return self.PNG_MEDIA_TYPE, StringIO(image.tobytes())
+
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
 
@@ -7038,7 +7052,7 @@ class Representation(Base):
         fh = self.content_fh()
         if not fh:
             return None
-        if self.media_type == self.SVG_MEDIA_TYPE:
+        if self.clean_media_type == self.SVG_MEDIA_TYPE:
             # Transparently convert the SVG to a PNG.
             png_data = cairosvg.svg2png(fh.read())
             fh = StringIO(png_data)
@@ -7086,7 +7100,7 @@ class Representation(Base):
         self.image_width, self.image_height = image.size
 
         # If the image is already a thumbnail-size bitmap, don't bother.
-        if (self.media_type != Representation.SVG_MEDIA_TYPE
+        if (self.clean_media_type != Representation.SVG_MEDIA_TYPE
             and self.image_height <= max_height 
             and self.image_width <= max_width):
             self.thumbnails = []
@@ -7741,10 +7755,3 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
-
-
-
-
-
-
-
