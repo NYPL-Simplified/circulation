@@ -7026,14 +7026,14 @@ class Representation(Base):
         """
         if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
             # Passthrough
-            return self.media_type, self.content_fh()
+            return self.content_fh()
 
         # This representation is an SVG image. We want to mirror it as
         # PNG.
         image = self.as_image()
         output = StringIO()
         image.save(output, format='PNG')
-        return self.PNG_MEDIA_TYPE, StringIO(output.getvalue())
+        return StringIO(output.getvalue())
 
     def content_fh(self):
         """Return an open filehandle to the representation's contents.

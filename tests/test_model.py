@@ -3536,14 +3536,14 @@ class TestRepresentation(DatabaseTest):
         # converted to PNG.
         image = representation.as_image()
         eq_("PNG", image.format)
+        expect = StringIO()
+        image.save(expect, format='PNG')
 
         # When we prepare to mirror the Representation to an external
         # file store, it's automatically converted to PNG.
-        external_media_type, external_fh = representation.external_content()
-        output = StringIO()
-        image.save(output, format='PNG')
-        eq_(output.getvalue(), external_fh.read())
-        eq_(Representation.PNG_MEDIA_TYPE, external_media_type)
+        external_fh = representation.external_content()
+        eq_(expect.getvalue(), external_fh.read())
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
         
         # Verify that the conversion happened correctly.
 

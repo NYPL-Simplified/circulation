@@ -141,7 +141,8 @@ class S3Uploader(MirrorUploader):
             response_url = self.url(bucket, filename)
             representations_by_response_url[response_url] = (
                 representation)
-            media_type, fh = representation.external_content()
+            media_type = representation.external_media_type
+            fh = representation.external_content()
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
             filehandles.append(fh)
