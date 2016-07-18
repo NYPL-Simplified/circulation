@@ -3265,21 +3265,45 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
-    def test_external_media_type(self):
+    def test_external_media_type_and_extension(self):
+        """Test the various transformations that might happen to media type
+        and extension when we mirror a representation.
+        """
+
+        # A text file at /foo
         representation, ignore = self._representation(self._url, "text/plain")
         eq_("text/plain", representation.external_media_type)
-        eq_(None, representation.extension())
+        eq_('', representation.extension())
 
+        # A JPEG at /foo.jpg
+        representation, ignore = self._representation(
+            self._url + ".jpg", "image/jpeg"
+        )
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        # A JPEG at /foo
         representation, ignore = self._representation(self._url, "image/jpeg")
         eq_("image/jpeg", representation.external_media_type)
         eq_(".jpg", representation.extension())
 
+        # A PNG at /foo
         representation, ignore = self._representation(self._url, "image/png")
         eq_("image/png", representation.external_media_type)
         eq_(".png", representation.extension())
 
+        # An EPUB at /foo.epub.images -- information present in the URL
+        # is preserved.
+        representation, ignore = self._representation(
+            self._url + '.epub.images', Representation.EPUB_MEDIA_TYPE
+        )
+        eq_(Representation.EPUB_MEDIA_TYPE, representation.external_media_type)
+        eq_(".epub.images", representation.extension())
+        
+
         # SVG representations are always converted to PNG on the way out.
-        representation, ignore = self._representation(self._url, "image/svg+xml")
+        # This affects the media type.
+        representation, ignore = self._representation(self._url + ".svg", "image/svg+xml")
         eq_("image/png", representation.external_media_type)
         eq_(".png", representation.extension())
 

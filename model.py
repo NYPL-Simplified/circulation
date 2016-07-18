@@ -6969,9 +6969,27 @@ class Representation(Base):
         """Try to come up with a good file extension for this representation."""
         if destination_type:
             return self._extension(destination_type)
-        return self._extension(
-            self._clean_media_type(self.external_media_type)
-        ) or self.url_extension
+
+        # We'd like to use url_extension because it has some extra
+        # features for preserving information present in the original
+        # URL. But if we're going to be changing the media type of the
+        # resource when mirroring it, the original URL is irrelevant
+        # and we need to use an extension associated with the
+        # outward-facing media type.
+        internal = self.clean_media_type
+        external = self._clean_media_type(self.external_media_type)
+        if internal != external:
+            # External media type overrides any information that might
+            # be present in the URL.
+            return self._extension(external)
+
+        # If there is information in the URL, use it.
+        extension = self.url_extension
+        if extension:
+            return extension
+
+        # Take a guess based on the internal media type.
+        return self._extension(internal)
 
     @classmethod
     def _clean_media_type(cls, media_type):
