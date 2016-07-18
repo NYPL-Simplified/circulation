@@ -7017,7 +7017,7 @@ class Representation(Base):
     def external_media_type(self):
         if self.clean_media_type == self.SVG_MEDIA_TYPE:
             return self.PNG_MEDIA_TYPE
-        return self.SVG_MEDIA_TYPE
+        return self.media_type
 
     def external_content(self):
         """Return a filehandle to the representation's contents, as they

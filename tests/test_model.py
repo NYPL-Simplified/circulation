@@ -3265,6 +3265,24 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
+    def test_external_media_type(self):
+        representation, ignore = self._representation(self._url, "text/plain")
+        eq_("text/plain", representation.external_media_type)
+        eq_(None, representation.extension())
+
+        representation, ignore = self._representation(self._url, "image/jpeg")
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        representation, ignore = self._representation(self._url, "image/png")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
+        # SVG representations are always converted to PNG on the way out.
+        representation, ignore = self._representation(self._url, "image/svg+xml")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
