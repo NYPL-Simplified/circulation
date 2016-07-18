@@ -15,6 +15,7 @@ from api.authenticator import (
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
+from api.problem_details import INVALID_OAUTH_CALLBACK_PARAMETERS
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from . import DatabaseTest
 
@@ -217,6 +218,21 @@ class TestAuthenticator(DatabaseTest):
             provider_name, provider_token = auth.decode_token(token)
             eq_("oauth2", provider_name)
             eq_("token", provider_token)
+
+            # Missing state
+            params = dict(code="foo")
+            response = auth.oauth_callback(self._db, params)
+            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
+
+            # Missing code
+            params = dict(state="oauth2")
+            response = auth.oauth_callback(self._db, params)
+            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
+
+            # State with invalid provider
+            params = dict(code="foo", state="not_an_oauth_provider")
+            response = auth.oauth_callback(self._db, params)
+            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
 
     def test_patron_info(self):
         with temp_config() as config:

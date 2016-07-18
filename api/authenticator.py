@@ -5,6 +5,7 @@ from config import (
 )
 from core.util.problem_detail import ProblemDetail
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
+from problem_details import *
 
 import urlparse
 import uuid
@@ -135,6 +136,7 @@ class Authenticator(object):
                     # page they came from. A WebView in a mobile app doesn't need that,
                     # but we might want to redirect from a browser back to the app.
                     return Response(json.dumps(dict(access_token=simplified_token, patron=patron_info)), 200, {"Content-Type": "application/json"})
+        return INVALID_OAUTH_CALLBACK_PARAMETERS
 
     def patron_info(self, header):
         if self.basic_auth_provider and 'password' in header:

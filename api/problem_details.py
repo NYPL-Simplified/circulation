@@ -177,6 +177,13 @@ CANNOT_RELEASE_HOLD = pd(
     _("Could not release hold."),
 )
 
+INVALID_OAUTH_CALLBACK_PARAMETERS = pd(
+    "http://librarysimplified.org/terms/problem/invalid-oauth-callback-parameters",
+    status_code=400,
+    title=_("Invalid OAuth callback parameters."),
+    detail=_("The OAuth callback must contain a code and a state parameter with the OAuth provider name."),
+)
+
 INVALID_ANALYTICS_EVENT_TYPE = pd(
     "http://librarysimplified.org/terms/problem/invalid-analytics-event-type",
     status_code=400,
