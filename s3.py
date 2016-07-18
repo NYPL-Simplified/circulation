@@ -131,7 +131,6 @@ class S3Uploader(MirrorUploader):
         filehandles = []
         requests = []
         representations_by_response_url = dict()
-        
         for representation in representations:
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
@@ -142,9 +141,9 @@ class S3Uploader(MirrorUploader):
             response_url = self.url(bucket, filename)
             representations_by_response_url[response_url] = (
                 representation)
+            media_type, fh = representation.external_content()
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            media_type, fh = representation.external_content()
             filehandles.append(fh)
             request = self.pool.upload(
                 remote_filename, fh, bucket=bucket,

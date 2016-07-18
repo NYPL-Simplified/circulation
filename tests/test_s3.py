@@ -1,5 +1,7 @@
 import os
 import contextlib
+from PIL import Image
+from StringIO import StringIO
 from nose.tools import (
     set_trace,
     eq_,
@@ -81,5 +83,5 @@ class TestUpload(DatabaseTest):
         # The thing that got uploaded was a PNG, not the original SVG
         # file.
         eq_(Representation.PNG_MEDIA_TYPE, media_type)
+        assert 'PNG' in data
         assert 'svg' not in data
-

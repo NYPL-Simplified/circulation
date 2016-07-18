@@ -6969,8 +6969,9 @@ class Representation(Base):
         """Try to come up with a good file extension for this representation."""
         if destination_type:
             return self._extension(destination_type)
-        else:
-            return self.url_extension or self._extension(self.clean_media_type)
+        return self._extension(
+            self._clean_media_type(self.external_media_type)
+        ) or self.url_extension
 
     @classmethod
     def _clean_media_type(cls, media_type):
@@ -7012,6 +7013,12 @@ class Representation(Base):
             filename += extension
         return filename
 
+    @property
+    def external_media_type(self):
+        if self.clean_media_type == self.SVG_MEDIA_TYPE:
+            return self.PNG_MEDIA_TYPE
+        return self.SVG_MEDIA_TYPE
+
     def external_content(self):
         """Return a filehandle to the representation's contents, as they
         should be mirrored externally, and the media type to be used
@@ -7019,12 +7026,14 @@ class Representation(Base):
         """
         if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
             # Passthrough
-            return self.media_type, self._raw_content_fh()
+            return self.media_type, self.content_fh()
 
         # This representation is an SVG image. We want to mirror it as
         # PNG.
         image = self.as_image()
-        return self.PNG_MEDIA_TYPE, StringIO(image.tobytes())
+        output = StringIO()
+        image.save(output, format='PNG')
+        return self.PNG_MEDIA_TYPE, StringIO(output.getvalue())
 
     def content_fh(self):
         """Return an open filehandle to the representation's contents.

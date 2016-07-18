@@ -1,4 +1,5 @@
 # encoding: utf-8
+from StringIO import StringIO
 import datetime
 import os
 import sys
@@ -3509,7 +3510,9 @@ class TestRepresentation(DatabaseTest):
             Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
             content=svg)
         representation = hyperlink.resource.representation
+
         eq_(Representation.SVG_MEDIA_TYPE, representation.media_type)
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
 
         # If we get the Representation as a PIL image, it's automatically
         # converted to PNG.
@@ -3519,8 +3522,12 @@ class TestRepresentation(DatabaseTest):
         # When we prepare to mirror the Representation to an external
         # file store, it's automatically converted to PNG.
         external_media_type, external_fh = representation.external_content()
-        eq_(image.tobytes(), external_fh.read())
+        output = StringIO()
+        image.save(output, format='PNG')
+        eq_(output.getvalue(), external_fh.read())
         eq_(Representation.PNG_MEDIA_TYPE, external_media_type)
+        
+        # Verify that the conversion happened correctly.
 
         # Even though the SVG image is smaller than the thumbnail
         # size, thumbnailing it will create a separate PNG-format
