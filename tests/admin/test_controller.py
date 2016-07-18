@@ -38,6 +38,7 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
+from core.external_search import DummyExternalSearchIndex
 from datetime import date, datetime, timedelta
 
 
@@ -188,6 +189,24 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
             eq_(400, response.status_code)
             eq_(169, self.english_1.series_position)
+
+    def test_edit_updates_search_index(self):
+        [lp] = self.english_1.license_pools
+        search_index_client = DummyExternalSearchIndex()
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        with self.app.test_request_context("/"):
+            flask.request.form = ImmutableMultiDict([
+                ("title", "New title"),
+            ])
+            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier, search_index_client=search_index_client)
+            eq_(200, response.status_code)
+            eq_("New title", self.english_1.title)
+            
+            eq_(1, len(search_index_client.docs.keys()))
+            search_doc = search_index_client.docs.values()[0]
+            eq_("New title", search_doc['title'])
+
 
     def test_edit_classifications(self):
         # start with a couple genres based on BISAC classifications from Axis 360
@@ -405,22 +424,53 @@ class TestWorkController(AdminControllerTest):
         eq_(18, work.target_age.lower)
         eq_(None, work.target_age.upper)
 
-    def test_suppress(self):
-        [lp] = self.english_1.license_pools
+    def test_edit_classifications_updates_search_index(self):
+        work = self.english_1
+        [lp] = work.license_pools
+        search_index_client = DummyExternalSearchIndex()
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.suppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            flask.request.form = MultiDict([
+                ("audience", "Adult"),
+                ("fiction", "fiction"),
+                ("genres", "Horror"),
+                ("genres", "Science Fiction")
+            ])
+            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier, search_index_client=search_index_client)
+            eq_(response.status_code, 200)
+            eq_(1, len(search_index_client.docs.keys()))
+            search_doc = search_index_client.docs.values()[0]
+            eq_("Adult", search_doc['audience'])
+            eq_("Fiction", search_doc['fiction'])
+            eq_(set(["Horror", "Science Fiction"]),
+                set([genre['name'] for genre in search_doc['genres']]))
+            
+    def test_suppress(self):
+        [lp] = self.english_1.license_pools
+        search_index_client = DummyExternalSearchIndex()
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_work_controller.suppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier, search_index_client=search_index_client)
             eq_(200, response.status_code)
             eq_(True, lp.suppressed)
 
+            eq_(1, len(search_index_client.docs.keys()))
+            search_doc = search_index_client.docs.values()[0]
+            eq_(True, search_doc['license_pools'][0]['suppressed'])
+            
     def test_unsuppress(self):
         [lp] = self.english_1.license_pools
         lp.suppressed = True
+        search_index_client = DummyExternalSearchIndex()
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier, search_index_client=search_index_client)
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
+
+            eq_(1, len(search_index_client.docs.keys()))
+            search_doc = search_index_client.docs.values()[0]
+            eq_(False, search_doc['license_pools'][0]['suppressed'])
 
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
@@ -430,11 +480,12 @@ class TestWorkController(AdminControllerTest):
         failure_provider = NeverSuccessfulCoverageProvider(
             "Never successful", [Identifier.GUTENBERG_ID], wrangler
         )
+        search_index_client = DummyExternalSearchIndex()
 
         with self.app.test_request_context('/'):
             [lp] = self.english_1.license_pools
             response = self.manager.admin_work_controller.refresh_metadata(
-                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=success_provider
+                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=success_provider, search_index_client=search_index_client
             )
             eq_(200, response.status_code)
             # Also, the work has a coverage record now for the wrangler.
@@ -445,6 +496,8 @@ class TestWorkController(AdminControllerTest):
             )
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
+
+            eq_(1, len(search_index_client.docs.keys()))
 
     def test_complaints(self):
         type = iter(Complaint.VALID_TYPES)

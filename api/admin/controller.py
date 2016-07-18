@@ -212,7 +212,7 @@ class WorkController(CirculationManagerController):
         
         return response
 
-    def edit(self, data_source, identifier_type, identifier):
+    def edit(self, data_source, identifier_type, identifier, search_index_client=None):
         """Edit a work's metadata."""
 
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -292,10 +292,10 @@ class WorkController(CirculationManagerController):
                 update_search_index=True,
                 choose_summary=True
             )
-            work.calculate_presentation(policy=policy)
+            work.calculate_presentation(policy=policy, search_index_client=search_index_client)
         return Response("", 200)
 
-    def suppress(self, data_source, identifier_type, identifier):
+    def suppress(self, data_source, identifier_type, identifier, search_index_client=None):
         """Suppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
@@ -305,9 +305,11 @@ class WorkController(CirculationManagerController):
             return pool
     
         pool.suppressed = True
+        self._db.flush()
+        pool.work.update_external_index(search_index_client)
         return Response("", 200)
 
-    def unsuppress(self, data_source, identifier_type, identifier):
+    def unsuppress(self, data_source, identifier_type, identifier, search_index_client=None):
         """Unsuppress the license pool associated with a book."""
         
         # Turn source + identifier into a LicensePool
@@ -317,9 +319,11 @@ class WorkController(CirculationManagerController):
             return pool
     
         pool.suppressed = False
+        self._db.flush()
+        pool.work.update_external_index(search_index_client)
         return Response("", 200)
 
-    def refresh_metadata(self, data_source, identifier_type, identifier, provider=None):
+    def refresh_metadata(self, data_source, identifier_type, identifier, provider=None, search_index_client=None):
         """Refresh the metadata for a book from the content server"""
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
@@ -343,6 +347,7 @@ class WorkController(CirculationManagerController):
             # Otherwise, it just doesn't know anything.
             return METADATA_REFRESH_FAILURE
 
+        pool.work.update_external_index(search_index_client)
         return Response("", 200)
 
     def resolve_complaints(self, data_source, identifier_type, identifier):
@@ -404,7 +409,7 @@ class WorkController(CirculationManagerController):
             "classifications": data
         })
 
-    def edit_classifications(self, data_source, identifier_type, identifier):
+    def edit_classifications(self, data_source, identifier_type, identifier, search_index_client=None):
         """Edit a work's audience, target age, fiction status, and genres."""
         
         pool = self.load_licensepool(data_source, identifier_type, identifier)
@@ -558,7 +563,7 @@ class WorkController(CirculationManagerController):
             regenerate_opds_entries=True,
             update_search_index=True
         )
-        work.calculate_presentation(policy=policy)
+        work.calculate_presentation(policy=policy, search_index_client=search_index_client)
 
         return Response("", 200)
 
