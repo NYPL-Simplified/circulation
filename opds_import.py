@@ -245,6 +245,7 @@ class OPDSImporter(object):
             except Exception, e:
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
+                self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
                 data_source = DataSource.lookup(self._db, self.data_source_name)
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
@@ -943,7 +944,14 @@ class OPDSImportMonitor(Monitor):
         Long timeout, raise error on anything but 2xx or 3xx.
         """
         headers = dict(headers or {})
-        headers['Accept'] = OPDSFeed.ACQUISITION_FEED_TYPE
+
+        types = dict(
+            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
+            atom="application/atom+xml",
+            xml="application/xml",
+            anything="*/*",
+        )
+        headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
