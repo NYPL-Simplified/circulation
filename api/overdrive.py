@@ -536,7 +536,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # There was never a hold to begin with, so we're fine.
             return True
         raise CannotReleaseHold(response.content)
-       
+
+    def circulation_lookup(self, book):
+        if isinstance(book, basestring):
+            book_id = book
+            circulation_link = self.AVAILABILITY_ENDPOINT % dict(
+                collection_token=self.collection_token,
+                product_id=book_id
+            )
+            book = dict(id=book_id)
+        else:
+            book_id = book['id']
+            circulation_link = book['availability_link']
+        return book_id, self.get(circulation_link, {})
+
     def update_licensepool(self, book):
         """Update availability information for a single book.
 
@@ -549,30 +562,22 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         created for the LicensePool and set as presentation-ready.
         """
         # Retrieve current circulation information about this book
-        orig_book = book
         book_id = None
-        if isinstance(book, basestring):
-            book_id = book
-            circulation_link = self.AVAILABILITY_ENDPOINT % dict(
-                collection_token=self.collection_token,
-                product_id=book_id
-            )
-            book = dict(id=book_id)
-        else:
-            book_id = book['id']
-            circulation_link = book['availability_link']
         try:
-            status_code, headers, content = self.get(circulation_link, {})
+            book_id, (status_code, headers, content) = self.circulation_lookup(
+                book
+            )
         except Exception, e:
             status_code = None
             self.log.error(
                 "HTTP exception communicating with Overdrive",
                 exc_info=e
             )
+
         if status_code != 200:
             self.log.error(
                 "Could not get availability for %s: status code %s",
-                book['id'], status_code
+                book_id, status_code
             )
             return None, None, False
 

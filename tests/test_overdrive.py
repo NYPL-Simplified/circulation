@@ -196,6 +196,20 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
+    def test_circulation_lookup(self):
+        """Test the method that actually looks up Overdrive circulation
+        information.
+        """
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content="foo")
+
+        book_id, (status_code, headers, content) = api.circulation_lookup(
+            "an identifier"
+        )
+        eq_("an identifier", book_id)
+        eq_(200, status_code)
+        eq_("foo", content)
+
     def test_update_licensepool_provides_bibliographic_coverage(self):
         # Create an identifier.
         identifier = self._identifier(
