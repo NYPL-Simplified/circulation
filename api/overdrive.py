@@ -154,7 +154,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         response = self.patron_request(
             patron, pin, self.CHECKOUTS_ENDPOINT, extra_headers=headers,
             data=payload)
-
         if response.status_code == 400:
             error = response.json()
             code = error['errorCode']
@@ -499,6 +498,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
                 raise CannotRenew()
+            elif code == 'PatronExceededHoldLimit':
+                raise PatronHoldLimitReached()
             else:
                 raise CannotHold(code)
         else:

@@ -260,6 +260,6 @@ def admin_base(**kwargs):
 @returns_problem_detail
 @requires_admin
 def admin_js():
-    directory = os.path.join(os.path.dirname(__file__), "node_modules", "simplified-circulation-web", "dist")
+    directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     return flask.send_from_directory(directory, "circulation-web.js")
 

@@ -42,6 +42,15 @@ class OverdriveAPITest(DatabaseTest):
         data = self.sample_data(filename)
         return data, json.loads(data)
 
+    def error_message(self, error_code, message=None, token=None):
+        """Create a JSON document that simulates the message served by
+        Overdrive given a certain error condition.
+        """
+        message = message or self._str
+        token = token or self._str
+        data = dict(errorCode=error_code, message=message, token=token)
+        return json.dumps(data)
+
 class TestOverdriveAPI(OverdriveAPITest):
 
     def test_default_notification_email_address(self):
@@ -78,6 +87,25 @@ class TestOverdriveAPI(OverdriveAPITest):
             api.queue_response(404)
             eq_("notifications@example.com", 
                 api.default_notification_email_address(patron, 'pin'))
+
+    def test_place_hold_raises_exception_if_patron_over_hold_limit(self):
+        over_hold_limit = self.error_message(
+            "PatronExceededHoldLimit",
+            "Patron cannot place any more holds, already has maximum holds placed."
+        )
+
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(400, content=over_hold_limit)
+        assert_raises(
+            PatronHoldLimitReached,
+            api.place_hold, self.default_patron, 'pin', pool, 
+            notification_email_address='foo@bar.com'
+        )
 
     def test_place_hold_looks_up_notification_address(self):
         edition, pool = self._edition(

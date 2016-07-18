@@ -1,5 +1,5 @@
 import pkgutil
-from datetime import date
+from datetime import date, datetime, timedelta
 from nose.tools import (
     eq_,
     set_trace,
@@ -69,7 +69,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("10", p.external_type)
         eq_("44444444444447", p.authorization_identifier)
         eq_("alice", p.username)
-        expiration = date(1999, 4, 1)
+        expiration = date(2059, 4, 1)
         eq_(expiration, p.authorization_expires)
 
         # Patron with no username
@@ -79,9 +79,72 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("10", p.external_type)
         eq_("44444444444448", p.authorization_identifier)
         eq_(None, p.username)
-        expiration = date(1999, 4, 1)
+        expiration = date(2059, 4, 1)
         eq_(expiration, p.authorization_expires)
 
+    def test_update_patron_authorization_identifiers(self):
+        p = self._patron()
+
+        # If the patron is new, and logged in with a username, we'll use
+        # one of their barcodes as their authorization identifier.
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron is new, and logged in with a barcode, their
+        # authorization identifier will be the barcode they used.
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = None
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "SECOND_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron has an authorization identifier, but it's not one of the
+        # barcodes, we'll replace it the same way we would determine the
+        # authorization identifier for a new patron.
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "abcd"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "SECOND_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If the patron has an authorization identifier, and it _is_ one of
+        # the barcodes, we'll keep it.
+
+        p.authorization_identifier = "FIRST_barcode"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("FIRST_barcode", p.authorization_identifier)
+
+        p.authorization_identifier = "SECOND_barcode"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "FIRST_barcode")
+        eq_("SECOND_barcode", p.authorization_identifier)
+
+        # If somehow they ended up with their username as an authorization
+        # identifier, we'll replace it.
+
+        p.authorization_identifier = "alice"
+        self.api.enqueue("dump.two_barcodes.html")
+        self.api.update_patron(p, "alice")
+        eq_("SECOND_barcode", p.authorization_identifier)
 
     def test_authenticated_patron_success(self):
         # Patron is valid, but not in our database yet
@@ -102,6 +165,42 @@ class TestMilleniumPatronAPI(DatabaseTest):
         alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
+
+    def test_authenticated_patron_renewed_card(self):
+        now = datetime.utcnow()
+        one_hour_ago = now - timedelta(seconds=3600)
+        one_week_ago = now - timedelta(days=7)
+
+        # Patron is in the database.
+        p = self._patron()
+        p.authorization_identifier = "44444444444447"
+
+        # We checked them against the ILS one hour ago.
+        p.last_external_sync = one_hour_ago
+
+        # Normally, calling authenticated_patron only performs a sync
+        # and updates last_external_sync if the last sync was twelve
+        # hours ago.
+        self.api.enqueue("pintest.good.html")
+        auth = dict(username="44444444444447", password="4444")
+        p2 = self.api.authenticated_patron(self._db, auth)
+        eq_(p2, p)
+        eq_(p2.last_external_sync, one_hour_ago)
+
+        # However, if the card has expired, a sync is performed every
+        # time.
+        p.authorization_expires = one_week_ago
+        self.api.enqueue("dump.success.html")
+        self.api.enqueue("pintest.good.html")
+        p2 = self.api.authenticated_patron(self._db, auth)
+        eq_(p2, p)
+
+        # Since the sync was performed, last_external_sync was updated.
+        assert p2.last_external_sync > one_hour_ago
+
+        # And the patron's card is no longer expired.
+        expiration = date(2059, 4, 1)
+        eq_(expiration, p.authorization_expires)
 
     def test_patron_info(self):
         self.api.enqueue("dump.success.html")

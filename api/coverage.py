@@ -250,7 +250,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         """
         mapping = dict()
         for identifier in batch:
-            if identifier.type == Identifier.AXIS_360_ID:
+            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier

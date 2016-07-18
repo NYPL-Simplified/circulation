@@ -5,6 +5,7 @@ from core.problem_details import (
     INTERNAL_SERVER_ERROR,
 )
 from problem_details import (
+    HOLD_LIMIT_REACHED,
     NO_LICENSES,
 )
 
@@ -86,7 +87,10 @@ class CannotHold(CirculationException):
     status_code = 500
 
 class PatronHoldLimitReached(CannotHold):
-    status_code = 403
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return HOLD_LIMIT_REACHED
 
 class CannotReleaseHold(CirculationException):
     status_code = 500

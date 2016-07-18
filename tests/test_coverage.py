@@ -232,17 +232,21 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         # Most identifiers map to themselves.
         overdrive = self._identifier(Identifier.OVERDRIVE_ID)
 
-        # But Axis 360 identifiers map to equivalent ISBNs.
+        # But Axis 360 and 3M identifiers map to equivalent ISBNs.
         axis = self._identifier(Identifier.AXIS_360_ID)
-        isbn = self._identifier(Identifier.ISBN)
+        threem = self._identifier(Identifier.THREEM_ID)
+        isbn_axis = self._identifier(Identifier.ISBN)
+        isbn_threem = self._identifier(Identifier.ISBN)
 
         who_says = DataSource.lookup(self._db, DataSource.AXIS_360)
 
-        axis.equivalent_to(who_says, isbn, 1)
+        axis.equivalent_to(who_says, isbn_axis, 1)
+        threem.equivalent_to(who_says, isbn_threem, 1)
 
-        mapping = self.provider.create_identifier_mapping([overdrive, axis])
+        mapping = self.provider.create_identifier_mapping([overdrive, axis, threem])
         eq_(overdrive, mapping[overdrive])
-        eq_(axis, mapping[isbn])
+        eq_(axis, mapping[isbn_axis])
+        eq_(threem, mapping[isbn_threem])
 
     def test_items_that_need_coverage(self):
         source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)

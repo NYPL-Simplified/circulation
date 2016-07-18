@@ -29,7 +29,7 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
     FINES_FIELD = 'MONEY OWED[p96]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
 
-    MULTIVALUE_FIELDS = set(['NOTE[px]'])
+    MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
@@ -89,15 +89,15 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
             raise Exception(msg)
         d = dict()
         for k, v in self._extract_text_nodes(response.content):
-            if k in self.MULTIVALUE_FIELDS:
-                d.setdefault(k, []).append(v)
-            elif k == self.BARCODE_FIELD and any(
+            if k == self.BARCODE_FIELD and any(
                     x.search(v) for x in self.blacklist
             ):
                 # This barcode contains a blacklisted
                 # string. Ignore it, even if this means the patron
                 # ends up with no barcode whatsoever.
                 continue
+            elif k in self.MULTIVALUE_FIELDS:
+                d.setdefault(k, []).append(v)
             else:
                 d[k] = v
         return d
@@ -121,8 +121,33 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         """Update a Patron record with information from a data dump."""
         if not dump:
             dump = self.dump(identifier)
-        patron.authorization_identifier = dump.get(self.BARCODE_FIELD, None)
-        patron.username = dump.get(self.USERNAME_FIELD, None)
+
+        barcodes = dump.get(self.BARCODE_FIELD, [])
+        username = dump.get(self.USERNAME_FIELD, None)
+
+        # If this is a new patron, there won't be an authorization identifier
+        # yet. If they logged in with a barcode, we'll use what they logged in
+        # with. If they've also used that barcode to check out books from Encore or
+        # 3M, those books will show up. If they logged in with a username, it won't 
+        # work for Overdrive, so we'll pick one of the barcodes to use. If they checked
+        # out books from 3M with their username, those books won't show up.
+        #
+        # If the patron already has an authorization identifier, we'll leave it 
+        # alone, so they won't lose books they already checked out through our app.
+        # Except if it's a barcode that expired or was changed. Then we need to
+        # switch to the new barcode, and there's nothing we can do about books
+        # they already checked out with the old one.
+    
+        new_patron = (not patron.authorization_identifier)
+        expired_identifier = (patron.authorization_identifier not in barcodes)
+
+        if new_patron or expired_identifier:
+            if identifier in barcodes:
+                patron.authorization_identifier = identifier
+            else:
+                patron.authorization_identifier = barcodes[-1]
+
+        patron.username = username
         patron.fines = dump.get(self.FINES_FIELD, None)
         patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
@@ -133,10 +158,20 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
     def patron_info(self, identifier):
         """Get patron information from the ILS."""
         dump = self.dump(identifier)
+        barcodes = dump.get(self.BARCODE_FIELD)
+        barcode = None
+        if barcodes:
+            barcode = barcodes[-1]
         return dict(
-            barcode = dump.get(self.BARCODE_FIELD),
+            barcode = barcode,
             username = dump.get(self.USERNAME_FIELD),
         )
+
+    def _to_date(self, x):
+        """Convert a datetime into a date. Leave a date alone."""
+        if isinstance(x, datetime.datetime):
+            return x.date()
+        return x
         
     def authenticated_patron(self, db, header):
         identifier = header.get('username')
@@ -171,8 +206,19 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         __transaction = db.begin_nested()
         if patron:
             # We found them!
+            if (patron.authorization_expires and
+                self._to_date(patron.authorization_expires)
+                < self._to_date(now)
+            ):
+                # The card has expired. Set the stale time to zero, meaning
+                # we will always check with the ILS to see if it was
+                # just renewed. This way patrons don't have to wait 12
+                # hours after renewing their cards to start reading.
+                stale_time = datetime.timedelta(seconds=0)
+            else:
+                stale_time = self.MAX_STALE_TIME
             if (not patron.last_external_sync
-                or (now - patron.last_external_sync) > self.MAX_STALE_TIME):
+                or (now - patron.last_external_sync) > stale_time):
                 # Sync our internal Patron record with what the API
                 # says.
                 self.update_patron(patron, identifier)
@@ -235,7 +281,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
     # This user's card has expired.
     user1 = { 'PATRN NAME[pn]' : "SHELDON, ALICE",
               'RECORD #[p81]' : "12345",
-              'P BARCODE[pb]' : "0",
+              'P BARCODE[pb]' : ["0"],
               'ALT ID[pu]' : "alice",
               'EXP DATE[p43]' : "04-01-05"
     }
@@ -244,7 +290,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
     the_future = datetime.datetime.utcnow() + datetime.timedelta(days=10)
     user2 = { 'PATRN NAME[pn]' : "HEINLEIN, BOB",
               'RECORD #[p81]' : "67890",
-              'P BARCODE[pb]' : "5",
+              'P BARCODE[pb]' : ["5"],
               'MONEY OWED[p96]' : "$1.00",
               'EXP DATE[p43]' : the_future.strftime("%m-%d-%y")
     }
@@ -273,7 +319,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
     def dump(self, barcode):
         # We have a couple custom barcodes.
         for u in self.users:
-            if u['P BARCODE[pb]'] == barcode:
+            if barcode in u['P BARCODE[pb]']:
                 return u
             if 'ALT ID[pu]' in u and u['ALT ID[pu]'] == barcode:
                 return u
@@ -290,7 +336,7 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
 
         # Any other barcode is fine.
         u = dict(self.user2)
-        u['P BARCODE[pb]'] = barcode
+        u['P BARCODE[pb]'] = [barcode]
         u['RECORD #[p81]'] = "200" + barcode
         return u
 

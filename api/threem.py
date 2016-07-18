@@ -215,7 +215,10 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             if not response.content:
                 raise CannotHold()
             error = ErrorParser().process_all(response.content)
-            raise CannotHold(error)
+            if isinstance(error, Exception):
+                raise error
+            else:
+                raise CannotHold(error)
 
     def release_hold(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
@@ -369,6 +372,10 @@ class ErrorParser(ThreeMParser):
         "Patron cannot loan more than [0-9]+ document"
     )
     
+    hold_limit_reached = re.compile(
+        "Patron cannot have more than [0-9]+ hold"
+    )
+
     error_mapping = {
         "The patron does not have the book on hold" : NotOnHold,
         "The patron has no eBooks checked out" : NotCheckedOut,
@@ -418,6 +425,10 @@ class ErrorParser(ThreeMParser):
         m = self.loan_limit_reached.search(message)
         if m:
             return PatronLoanLimitReached(message)
+
+        m = self.hold_limit_reached.search(message)
+        if m:
+            return PatronHoldLimitReached(message)
 
         m = self.wrong_status.search(message)
         if not m:

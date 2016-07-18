@@ -355,7 +355,7 @@ class CirculationManagerController(object):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
             self._db, LicensePoolDeliveryMechanism, license_pool=pool,
-            delivery_mechanism_id=mechanism_id
+            delivery_mechanism_id=mechanism_id, on_multiple='interchangeable'
         )
         return mechanism or BAD_DELIVERY_MECHANISM
 
@@ -597,6 +597,8 @@ class LoanController(CirculationManagerController):
             problem_doc = INVALID_CREDENTIALS
         except PatronLoanLimitReached, e:
             problem_doc = LOAN_LIMIT_REACHED.with_debug(str(e))
+        except PatronHoldLimitReached, e:
+            problem_doc = e.as_problem_detail_document()
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code
