@@ -12,13 +12,6 @@ sys.path.append(os.path.abspath(package_dir))
 
 import time
 from nose.tools import set_trace
-from sqlalchemy.orm import (
-    aliased,
-)
-from sqlalchemy.sql.expression import (
-    and_,
-    or_
-)
 from core.external_search import ExternalSearchIndex
 from core.model import (
     production_session,
@@ -63,6 +56,5 @@ while results:
             fixed += 1
         pass
     offset += 1000
-    print "Fixed %s/1000" % fixed
-    print offset
+    print "At %s, %s/%s needed fixing." % (offset, fixed, len(results))
     _db.commit()
