@@ -358,10 +358,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             loans = self.get_patron_checkouts(patron, pin)
             holds = self.get_patron_holds(patron, pin)
         except PatronAuthorizationFailedException, e:
-            # TODO: This allows us to do account syncing
-            # even when running against the test ILS, which
-            # does not use barcodes recognized by Overdrive.
-            self.log.error(
+            # This frequently happens because Overdrive performs
+            # checks for blocked or expired accounts upon initial
+            # authorization, where the circulation manager would let
+            # the 'authorization' part succeed and block the patron's
+            # access afterwards.
+            #
+            # It's common enough that it's hardly worth mentioning, but it
+            # could theoretically be the sign of a larger problem.
+            self.log.info(
                 "Overdrive authentication failed, assuming no loans.",
                 exc_info=e
             )
