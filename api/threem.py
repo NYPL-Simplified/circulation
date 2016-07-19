@@ -754,6 +754,7 @@ class ThreeMEventMonitor(Monitor):
             most_recent_timestamp = start
             self.log.info("Asking for events between %r and %r", start, cutoff)
             try:
+                event = None
                 events = self.api.get_events_between(start, cutoff, full_slice)
                 for event in events:
                     event_timestamp = self.handle_event(*event)
@@ -765,8 +766,16 @@ class ThreeMEventMonitor(Monitor):
                         self._db.commit()
                 self._db.commit()
             except Exception, e:
-                self.log.error("Fatal error processing 3M event %r.", event,
-                               exc_info=e)
+                if event:
+                    self.log.error(
+                        "Fatal error processing 3M event %r.", event,
+                        exc_info=e
+                    )
+                else:
+                    self.log.error(
+                        "Fatal error getting list of 3M events.",
+                        exc_info=e
+                    )
                 raise e
             self.timestamp.timestamp = most_recent_timestamp
         self.log.info("Handled %d events total", i)
