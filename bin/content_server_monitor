@@ -17,7 +17,6 @@ else:
     content_server_url = Configuration.integration_url(Configuration.CONTENT_SERVER_INTEGRATION)
 
 print "Importing from %s" % content_server_url
-print "Works will be made presentation-ready immediately."
 OPDSImportScript(
     feed_url=content_server_url, opds_data_source=DataSource.OA_CONTENT_SERVER,
     importer_class=OPDSImporter, 
