@@ -49,6 +49,19 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # The 'note' field has a list of values, not just one.
         eq_(2, len(response['NOTE[px]']))
 
+    def test_parse_poorly_behaved_dump(self):
+        self.api.enqueue("dump.embedded_html.html")
+        response = self.api.dump("good barcode")
+
+        # All the unparseable lines in this file were ignored.
+        eq_(set(['REC INFO[p!]', 'MESSAGE[pm]', 'P BARCODE[pb]']),
+            set(response.keys()))
+
+        eq_('p', response['REC INFO[p!]'])
+        eq_(['abcd'], response['P BARCODE[pb]'])
+        eq_('This message<BR>includes <a href="http://example.com/">HTML</a>.',
+            response['MESSAGE[pm]'])
+
     def test_pintest_no_such_barcode(self):
         self.api.enqueue("pintest.no such barcode.html")
         eq_(False, self.api.pintest("wrong barcode", "pin"))
