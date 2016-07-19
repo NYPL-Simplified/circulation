@@ -3323,12 +3323,21 @@ class TestRepresentation(DatabaseTest):
         eq_("some text", fh.read())
 
     def test_unicode_content_utf8_default(self):
-        unicode_content = u"A “love” story"
+        unicode_content = u"It’s complicated."
+
         utf8_content = unicode_content.encode("utf8")
+
+        # This bytestring can be decoded as Windows-1252, but that
+        # would be the wrong answer.
+        bad_windows_1252 = utf8_content.decode("windows-1252")
+        eq_(u"Itâ€™s complicated.", bad_windows_1252)
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
         eq_(utf8_content, representation.content)
+
+        # By trying to interpret the content as UTF-8 before falling back to 
+        # Windows-1252, we get the right answer.
         eq_(unicode_content, representation.unicode_content)
 
     def test_unicode_content_windows_1252(self):

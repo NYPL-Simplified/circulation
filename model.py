@@ -6855,6 +6855,7 @@ class Representation(Base):
         for encoding in ('utf-8', 'windows-1252'):
             try:
                 content = self.content.decode(encoding)
+                break
             except UnicodeDecodeError, e:
                 pass
         return content
