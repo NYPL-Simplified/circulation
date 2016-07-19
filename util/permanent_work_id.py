@@ -24,7 +24,7 @@ class WorkIDCalculator(object):
     authorExtract1 = re.compile("^(.+?)\\spresents.*$");
     authorExtract2 = re.compile("^(?:(?:a|an)\\s)?(.+?)\\spresentation.*$")
     distributedByRemoval = re.compile("^distributed (?:in.*\\s)?by\\s(.+)$")
-    initialsFix = re.compile("(?<=[A-Z])\\.(?=(\\s|[A-Z]|$))")
+    initialsFix = re.compile("(?<=[A-Z])\\.(?=(\\s|[A-Z]|$))")  
     apostropheStrip = re.compile("'s")
     specialCharacterStrip = re.compile("[^\\w\\d\\s]", re.U)
     consecutiveCharacterStrip = re.compile("\\s{2,}")
@@ -127,6 +127,15 @@ class WorkIDCalculator(object):
 
     @classmethod
     def normalize_author(cls, author):
+        """
+        Converts to NFKD unicode.
+        Strips bracket, special characters, dots out.
+        Converts to single-space and strips trailing spaces.
+        Strips movie studio language surrouding the possible author's name.
+        Lowercases.
+
+        Returns de-linted author's name.
+        """
         if author is None or len(author) == 0:
             author = u''
         author = unicodedata.normalize("NFKD", author)
