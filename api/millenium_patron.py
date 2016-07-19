@@ -71,24 +71,26 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         return requests.get(url)
 
     def _extract_text_nodes(self, content):
-        tree = etree.fromstring(content, self.parser)
-        for i in tree.xpath("(descendant::text() | following::text())"):
-            i = i.strip()
-            if i:
-                yield i.split('=', 1)
+        for line in content.split("\n"):
+            if line.startswith('<HTML><BODY>'):
+                line = line[12:]
+            if not line.endswith('<BR>'):
+                continue
+            kv = line[:-4]
+            if not '=' in kv:
+                # This shouldn't happen, but there's no need to crash.
+                self.log.warn("Unexpected line in patron dump: %s", line)
+                continue
+            yield kv.split('=', 1)
 
-    def dump(self, barcode):
+    def request_dump(self, barcode):
         path = "%(barcode)s/dump" % dict(barcode=barcode)
         url = self.root + path
-        print url
-        response = self.request(url)
-        if response.status_code != 200:
-            msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, response.content
-            )
-            raise Exception(msg)
+        return self.request(url)
+
+    def parse_dump(self, content):
         d = dict()
-        for k, v in self._extract_text_nodes(response.content):
+        for k, v in self._extract_text_nodes(content):
             if k == self.BARCODE_FIELD and any(
                     x.search(v) for x in self.blacklist
             ):
@@ -101,6 +103,15 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
             else:
                 d[k] = v
         return d
+
+    def dump(self, barcode):
+        response = self.request_dump(barcode)
+        if response.status_code != 200:
+            msg = "Got unexpected response code %d. Content: %s" % (
+                response.status_code, response.content
+            )
+            raise Exception(msg)
+        return self.parse_dump(response.content)
 
     def pintest(self, barcode, pin):
         path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
