@@ -3,6 +3,7 @@ from nose.tools import (
     set_trace,
 )
 import json
+import urlparse
 from api.config import (
     Configuration,
     temp_config,
@@ -15,7 +16,7 @@ from api.authenticator import (
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
-from api.problem_details import INVALID_OAUTH_CALLBACK_PARAMETERS
+from api.problem_details import *
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from . import DatabaseTest
 
@@ -37,12 +38,17 @@ class DummyBasicAuthAPI(DummyAuthAPI, BasicAuthAuthenticator):
 
 
 class DummyOAuthAPI(DummyAuthAPI, OAuthAuthenticator):
+    external_auth_url = "http://external-auth"
+
     def oauth_callback(self, _db, params):
         self.count = self.count + 1
         return "token", dict(name="Patron")
 
-    def authenticate_url(self):
+    def _internal_authenticate_url(self):
         return "http://authenticate"
+
+    def external_authenticate_url(self, state):
+        return self.external_auth_url
 
 
 class TestAuthenticator(DatabaseTest):
@@ -180,6 +186,33 @@ class TestAuthenticator(DatabaseTest):
             oauth_header = "Bearer: %s" % token
             eq_(None, auth.get_credential_from_header(oauth_header))
 
+    def test_oauth_authenticate(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
+
+            # Check that the correct auth provider is called.
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth1.external_auth_url = "http://oauth1"
+            oauth2 = DummyOAuthAPI()
+            oauth2.NAME = "oauth2"
+            oauth2.external_auth_url = "http://oauth2"
+
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+        
+            params = dict(provider="oauth1")
+            response = auth.oauth_authenticate(params)
+            eq_(302, response.status_code)
+            eq_(oauth1.external_auth_url, response.location)
+
+            params = dict(provider="oauth2")
+            response = auth.oauth_authenticate(params)
+            eq_(302, response.status_code)
+            eq_(oauth2.external_auth_url, response.location)
+
     def test_oauth_callback(self):
         with temp_config() as config:
             config[Configuration.SECRET_KEY] = 'secret'
@@ -196,25 +229,27 @@ class TestAuthenticator(DatabaseTest):
             auth.oauth_providers = [oauth1, oauth2]
         
             # Oauth 1
-            params = dict(code="foo", state="oauth1")
+            params = dict(code="foo", state=json.dumps(dict(provider="oauth1")))
             response = auth.oauth_callback(self._db, params)
             eq_(0, basic_auth.count)
             eq_(1, oauth1.count)
             eq_(0, oauth2.count)
-            eq_(200, response.status_code)
-            token = json.loads(response.data).get("access_token")
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            token = fragments.get("access_token")[0]
             provider_name, provider_token = auth.decode_token(token)
             eq_("oauth1", provider_name)
             eq_("token", provider_token)
         
             # Oauth 2
-            params = dict(code="foo", state="oauth2")
+            params = dict(code="foo", state=json.dumps(dict(provider="oauth2")))
             response = auth.oauth_callback(self._db, params)
             eq_(0, basic_auth.count)
             eq_(1, oauth1.count)
             eq_(1, oauth2.count)
-            eq_(200, response.status_code)
-            token = json.loads(response.data).get("access_token")
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            token = fragments.get("access_token")[0]
             provider_name, provider_token = auth.decode_token(token)
             eq_("oauth2", provider_name)
             eq_("token", provider_token)
@@ -230,9 +265,9 @@ class TestAuthenticator(DatabaseTest):
             eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
 
             # State with invalid provider
-            params = dict(code="foo", state="not_an_oauth_provider")
+            params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
             response = auth.oauth_callback(self._db, params)
-            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
+            eq_(UNKNOWN_OAUTH_PROVIDER, response)
 
     def test_patron_info(self):
         with temp_config() as config:

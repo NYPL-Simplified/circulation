@@ -184,6 +184,13 @@ INVALID_OAUTH_CALLBACK_PARAMETERS = pd(
     detail=_("The OAuth callback must contain a code and a state parameter with the OAuth provider name."),
 )
 
+UNKNOWN_OAUTH_PROVIDER = pd(
+    "http://librarysimplified.org/terms/problem/unknown-oauth-provider",
+    status_code=400,
+    title=_("Unknown OAuth provider."),
+    detail=_("The specified OAuth provider name isn't one of the known providers."),
+)
+
 INVALID_ANALYTICS_EVENT_TYPE = pd(
     "http://librarysimplified.org/terms/problem/invalid-analytics-event-type",
     status_code=400,

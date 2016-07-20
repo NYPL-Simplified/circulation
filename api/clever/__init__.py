@@ -47,7 +47,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
     URI = "http://librarysimplified.org/terms/auth/clever"
     METHOD = "http://librarysimplified.org/authtype/Clever"
 
-    CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=Clever"
+    CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s"
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
     CLEVER_API_BASE_URL = "https://api.clever.com"
 
@@ -58,12 +58,12 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
 
     log = logging.getLogger('Clever authentication API')
 
-    def _redirect_uri(self):
+    def _server_redirect_uri(self):
         return url_for('oauth_callback', _external=True)
 
-    def authenticate_url(self):
+    def external_authenticate_url(self, state):
         """URL to direct patrons to for authentication with the provider."""
-        return self.CLEVER_OAUTH_URL % (self.client_id, self._redirect_uri())
+        return self.CLEVER_OAUTH_URL % (self.client_id, self._server_redirect_uri(), state)
 
     def authenticated_patron(self, _db, token):
         bearer_headers = {
@@ -92,7 +92,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         payload = dict(
             code=code,
             grant_type='authorization_code',
-            redirect_uri=self._redirect_uri(),
+            redirect_uri=self._server_redirect_uri(),
         )
         headers = {
             'Authorization': 'Basic %s' % base64.b64encode(self.client_id + ":" + self.client_secret),

@@ -27,7 +27,10 @@ class MockAPI(CleverAuthenticationAPI):
     def _get(self, url, headers):
         return self.queue.pop()
 
-    def _redirect_uri(self):
+    def _server_redirect_uri(self):
+        return ""
+
+    def _internal_authenticate_url(self):
         return ""
 
 class TestCleverAuthenticationAPI(DatabaseTest):

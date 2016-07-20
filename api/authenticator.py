@@ -8,10 +8,15 @@ from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from problem_details import *
 
 import urlparse
+import urllib
 import uuid
 import json
 import jwt
-from flask import Response
+from flask import (
+    Response,
+    redirect,
+    url_for,
+)
 from werkzeug.datastructures import Headers
 from flask.ext.babel import lazy_gettext as _
 import importlib
@@ -118,10 +123,19 @@ class Authenticator(object):
                     return provider.authenticated_patron(_db, provider_token)
         return None
 
+    def oauth_authenticate(self, params):
+        if self.oauth_providers and params.get('provider'):
+            for provider in self.oauth_providers:
+                if params.get('provider') == provider.NAME:
+                    state = dict(provider=provider.NAME, redirect_uri=params.get('redirect_uri'))
+                    return redirect(provider.external_authenticate_url(json.dumps(state)))
+        return UNKNOWN_OAUTH_PROVIDER
+
     def oauth_callback(self, _db, params):
         if self.oauth_providers and params.get('code') and params.get('state'):
+            state = json.loads(params.get('state'))
             for provider in self.oauth_providers:
-                if params.get('state') == provider.NAME:
+                if state.get('provider') == provider.NAME:
                     provider_token, patron_info = provider.oauth_callback(_db, params)
                     
                     if isinstance(provider_token, ProblemDetail):
@@ -131,11 +145,10 @@ class Authenticator(object):
                     # as well as the provider's token.
                     simplified_token = self.create_token(provider.NAME, provider_token)
 
-                    # TODO: should we have a mobile redirect?
-                    # In a web application, this is where we'd redirect the client to the
-                    # page they came from. A WebView in a mobile app doesn't need that,
-                    # but we might want to redirect from a browser back to the app.
-                    return Response(json.dumps(dict(access_token=simplified_token, patron=patron_info)), 200, {"Content-Type": "application/json"})
+                    params = dict(access_token=simplified_token, patron_info=patron_info)
+                    client_redirect_uri = state.get('redirect_uri') or ""
+                    return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
+            return UNKNOWN_OAUTH_PROVIDER
         return INVALID_OAUTH_CALLBACK_PARAMETERS
 
     def patron_info(self, header):
@@ -245,7 +258,7 @@ class OAuthAuthenticator(Authenticator):
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
         return cls(client_id, client_secret)
 
-    def authenticate_url(self):
+    def external_authenticate_url(self, client_redirect_uri):
         raise NotImplementedError()
 
     def authenticated_patron(self, _db, token):
@@ -257,8 +270,11 @@ class OAuthAuthenticator(Authenticator):
     def patron_info(self, identifier):
         return {}
 
+    def _internal_authenticate_url(self):
+        return url_for('oauth_authenticate', _external=True, provider=self.NAME)
+
     def create_authentication_provider_document(self):
-        method_doc = dict(links=dict(authenticate=self.authenticate_url()))
+        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url()))
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
