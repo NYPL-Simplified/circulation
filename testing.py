@@ -381,8 +381,8 @@ class DatabaseTest(object):
         url = url or "http://foo.com/" + self._str
         repr, is_new = get_one_or_create(
             self._db, Representation, url=url)
+        repr.media_type = media_type
         if media_type and content:
-            repr.media_type=media_type
             repr.content = content
             repr.fetched_at = datetime.utcnow()
             if mirrored:
