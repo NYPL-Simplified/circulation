@@ -535,6 +535,23 @@ class WorkClassificationScript(WorkPresentationScript):
         update_search_index=False,
     )
 
+class WorkOPDSScript(WorkPresentationScript):
+    """Recalculate the OPDS entries and search index entries for Work objects.
+
+    This is intended to verify that a problem has already been resolved and just
+    needs to be propagated to these two 'caches'.
+    """
+    policy = PresentationCalculationPolicy(
+        choose_edition=False,
+        set_edition_metadata=False,
+        classify=True,
+        choose_summary=False,
+        calculate_quality=False,
+        choose_cover=False,
+        regenerate_opds_entries=True, 
+        update_search_index=True,
+    )
+
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a
     MembershipManager.
@@ -639,7 +656,27 @@ class NYTBestSellerListsScript(Script):
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
 
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--blocking-refresh', 
+            help="Provide this argument if you're on an older version of Postgres and can't refresh materialized views concurrently.",
+            action='store_true',
+        )
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, cmd_args=None):
+        parser = cls.arg_parser()
+        return parser.parse_args(cmd_args)
+
     def do_run(self):
+        args = self.parse_command_line()
+        if args.blocking_refresh:
+            concurrently = ''
+        else:
+            concurrently = 'CONCURRENTLY'
         # Initialize database
         from model import (
             MaterializedWork,
@@ -649,7 +686,7 @@ class RefreshMaterializedViewsScript(Script):
         for i in (MaterializedWork, MaterializedWorkWithGenre):
             view_name = i.__table__.name
             a = time.time()
-            db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
+            db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
             print "%s refreshed in %.2f sec." % (view_name, b-a)
 
