@@ -770,6 +770,10 @@ class Explain(IdentifierInputScript):
     @classmethod
     def explain_work(cls, work):
         print "Work info:"
+        if work.presentation_edition:
+            print " Identifier of presentation edition: %r" % work.presentation_edition.primary_identifier
+        else:
+            print " No presentation edition."
         print " Fiction: %s" % work.fiction
         print " Audience: %s" % work.audience
         print " Target age: %r" % work.target_age
