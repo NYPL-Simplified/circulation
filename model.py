@@ -6855,6 +6855,7 @@ class Representation(Base):
         for encoding in ('utf-8', 'windows-1252'):
             try:
                 content = self.content.decode(encoding)
+                break
             except UnicodeDecodeError, e:
                 pass
         return content
@@ -6969,8 +6970,27 @@ class Representation(Base):
         """Try to come up with a good file extension for this representation."""
         if destination_type:
             return self._extension(destination_type)
-        else:
-            return self.url_extension or self._extension(self.clean_media_type)
+
+        # We'd like to use url_extension because it has some extra
+        # features for preserving information present in the original
+        # URL. But if we're going to be changing the media type of the
+        # resource when mirroring it, the original URL is irrelevant
+        # and we need to use an extension associated with the
+        # outward-facing media type.
+        internal = self.clean_media_type
+        external = self._clean_media_type(self.external_media_type)
+        if internal != external:
+            # External media type overrides any information that might
+            # be present in the URL.
+            return self._extension(external)
+
+        # If there is information in the URL, use it.
+        extension = self.url_extension
+        if extension:
+            return extension
+
+        # Take a guess based on the internal media type.
+        return self._extension(internal)
 
     @classmethod
     def _clean_media_type(cls, media_type):
@@ -7012,6 +7032,29 @@ class Representation(Base):
             filename += extension
         return filename
 
+    @property
+    def external_media_type(self):
+        if self.clean_media_type == self.SVG_MEDIA_TYPE:
+            return self.PNG_MEDIA_TYPE
+        return self.media_type
+
+    def external_content(self):
+        """Return a filehandle to the representation's contents, as they
+        should be mirrored externally, and the media type to be used
+        when mirroring.
+        """
+        if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
+            # Passthrough
+            return self.content_fh()
+
+        # This representation is an SVG image. We want to mirror it as
+        # PNG.
+        image = self.as_image()
+        output = StringIO()
+        image.save(output, format='PNG')
+        output.seek(0)
+        return output
+
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
 
@@ -7038,7 +7081,7 @@ class Representation(Base):
         fh = self.content_fh()
         if not fh:
             return None
-        if self.media_type == self.SVG_MEDIA_TYPE:
+        if self.clean_media_type == self.SVG_MEDIA_TYPE:
             # Transparently convert the SVG to a PNG.
             png_data = cairosvg.svg2png(fh.read())
             fh = StringIO(png_data)
@@ -7086,7 +7129,7 @@ class Representation(Base):
         self.image_width, self.image_height = image.size
 
         # If the image is already a thumbnail-size bitmap, don't bother.
-        if (self.media_type != Representation.SVG_MEDIA_TYPE
+        if (self.clean_media_type != Representation.SVG_MEDIA_TYPE
             and self.image_height <= max_height 
             and self.image_width <= max_width):
             self.thumbnails = []
@@ -7741,10 +7784,3 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
-
-
-
-
-
-
-

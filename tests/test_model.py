@@ -1,4 +1,5 @@
 # encoding: utf-8
+from StringIO import StringIO
 import datetime
 import os
 import sys
@@ -3264,6 +3265,48 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
+    def test_external_media_type_and_extension(self):
+        """Test the various transformations that might happen to media type
+        and extension when we mirror a representation.
+        """
+
+        # A text file at /foo
+        representation, ignore = self._representation(self._url, "text/plain")
+        eq_("text/plain", representation.external_media_type)
+        eq_('', representation.extension())
+
+        # A JPEG at /foo.jpg
+        representation, ignore = self._representation(
+            self._url + ".jpg", "image/jpeg"
+        )
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        # A JPEG at /foo
+        representation, ignore = self._representation(self._url, "image/jpeg")
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        # A PNG at /foo
+        representation, ignore = self._representation(self._url, "image/png")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
+        # An EPUB at /foo.epub.images -- information present in the URL
+        # is preserved.
+        representation, ignore = self._representation(
+            self._url + '.epub.images', Representation.EPUB_MEDIA_TYPE
+        )
+        eq_(Representation.EPUB_MEDIA_TYPE, representation.external_media_type)
+        eq_(".epub.images", representation.extension())
+        
+
+        # SVG representations are always converted to PNG on the way out.
+        # This affects the media type.
+        representation, ignore = self._representation(self._url + ".svg", "image/svg+xml")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
@@ -3280,12 +3323,21 @@ class TestRepresentation(DatabaseTest):
         eq_("some text", fh.read())
 
     def test_unicode_content_utf8_default(self):
-        unicode_content = u"A “love” story"
+        unicode_content = u"It’s complicated."
+
         utf8_content = unicode_content.encode("utf8")
+
+        # This bytestring can be decoded as Windows-1252, but that
+        # would be the wrong answer.
+        bad_windows_1252 = utf8_content.decode("windows-1252")
+        eq_(u"Itâ€™s complicated.", bad_windows_1252)
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
         eq_(utf8_content, representation.content)
+
+        # By trying to interpret the content as UTF-8 before falling back to 
+        # Windows-1252, we get the right answer.
         eq_(unicode_content, representation.unicode_content)
 
     def test_unicode_content_windows_1252(self):
@@ -3495,7 +3547,7 @@ class TestRepresentation(DatabaseTest):
         filename = representation.default_filename(link=link, destination_type="image/png")
         eq_('cover.png', filename)
 
-    def test_as_image_converts_svg_to_png(self):
+    def test_automatic_conversion_svg_to_png(self):
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
@@ -3508,14 +3560,31 @@ class TestRepresentation(DatabaseTest):
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
             content=svg)
-        image = hyperlink.resource.representation.as_image()
+        representation = hyperlink.resource.representation
+
+        eq_(Representation.SVG_MEDIA_TYPE, representation.media_type)
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
+
+        # If we get the Representation as a PIL image, it's automatically
+        # converted to PNG.
+        image = representation.as_image()
         eq_("PNG", image.format)
+        expect = StringIO()
+        image.save(expect, format='PNG')
+
+        # When we prepare to mirror the Representation to an external
+        # file store, it's automatically converted to PNG.
+        external_fh = representation.external_content()
+        eq_(expect.getvalue(), external_fh.read())
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
+        
+        # Verify that the conversion happened correctly.
 
         # Even though the SVG image is smaller than the thumbnail
         # size, thumbnailing it will create a separate PNG-format
         # Representation, because we want all the thumbnails to be
         # bitmaps.
-        thumbnail, is_new = hyperlink.resource.representation.scale(
+        thumbnail, is_new = representation.scale(
             Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
             self._url, Representation.PNG_MEDIA_TYPE
         )

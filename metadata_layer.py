@@ -1188,7 +1188,6 @@ class Metadata(MetaToModelUtility):
         """
         _db = Session.object_session(edition)
         made_core_changes = False
-
         if replace is None:
             replace = ReplacementPolicy(
                 identifiers=replace_identifiers,
