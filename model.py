@@ -3188,15 +3188,13 @@ class Work(Base):
         has the given PWID and medium. Any non-open-access
         LicensePool, and any LicensePool with a different PWID or a
         different medium, is kicked out and assigned to a different
-        Work. LicensePools with no presentation edition and no PWID
-        are left alone. (TODO: although maybe they should be kicked
-        out.)
+        Work. LicensePools with no presentation edition or no PWID
+        are kicked out.
 
         In most cases this Work will be the _only_ work for this PWID,
         but inside open_access_for_permanent_work_id this is called as
         a preparatory step for merging two Works, and after the call
         (but before the merge) there may be two Works for a given PWID.
-
         """
         _db = Session.object_session(self)
         for pool in list(self.license_pools):
@@ -3208,11 +3206,25 @@ class Work(Base):
                 pool.presentation_edition.work = None
                 other_work, is_new = pool.calculate_work()
             elif not pool.presentation_edition:
-                continue
+                # A LicensePool with no presentation edition
+                # cannot have an associated Work.
+                logging.warn(
+                    "LicensePool %r has no presentation edition, setting .work to None.",
+                    pool
+                )
+                pool.work = None
             else:
                 e = pool.presentation_edition
                 this_pwid = e.permanent_work_id
                 if not this_pwid:
+                    # A LicensePool with no permanent work ID
+                    # cannot have an associated Work.
+                    logging.warn(
+                        "Presentation edition for LicensePool %r has no PWID, setting .work to None.",
+                        pool
+                    )
+                    e.work = None
+                    pool.work = None
                     continue
                 if this_pwid != pwid or e.medium != medium:
                     # This LicensePool should not belong to this Work.
@@ -5892,6 +5904,10 @@ class LicensePool(Base):
             # associated with this LicensePool, so we can't create a work.
             logging.warn("NO EDITION for %s, cowardly refusing to create work.",
                      self.identifier)            
+
+            # If there was a work associated with this LicensePool,
+            # it was by mistake. Remove it.
+            self.work = None
             return None, False
 
         if presentation_edition.is_presentation_for != self:
@@ -5904,12 +5920,13 @@ class LicensePool(Base):
         if not presentation_edition.title:
             if presentation_edition.work:
                 logging.warn(
-                    "Edition %r has no title but has a Work assigned. This is troubling.", presentation_edition
+                    "Edition %r has no title but has a Work assigned. This will not stand.", presentation_edition
                 )
-                return presentation_edition.work, False
             else:
-                logging.info("Edition %r has no title, will not assign it a Work.", presentation_edition)
-                return None, False
+                logging.info("Edition %r has no title and it will not get a Work.", presentation_edition)
+            self.work = None
+            self.work_id = None
+            return None, False
 
         if (not presentation_edition.work
             and presentation_edition.author in (None, Edition.UNKNOWN_AUTHOR)
@@ -5919,6 +5936,10 @@ class LicensePool(Base):
                 "Edition %r has no author, not assigning Work to Edition.", 
                 presentation_edition
             )
+            # If there was a work associated with this LicensePool,
+            # it was by mistake. Remove it.
+            self.work = None
+            self.work_id = None
             return None, False
 
         presentation_edition.calculate_permanent_work_id()

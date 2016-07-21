@@ -2679,6 +2679,64 @@ class TestWorkConsolidation(DatabaseTest):
         )
         eq_(expect_audiobook_work, audiobook.work)
 
+    def test_calculate_work_detaches_licensepool_with_no_title(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # But the LicensePool's presentation edition has lost its
+        # title.
+        book.presentation_edition.title = None
+
+        # Calling calculate_work() on the LicensePool will detach the
+        # book from its work, since a book with no title cannot have
+        # an associated Work.
+        work_after, is_new = book.calculate_work()
+        eq_(None, work_after)
+        eq_([], work.license_pools)
+
+    def test_calculate_work_detaches_licensepool_with_no_pwid(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains an edition
+        # with no title or author, and thus no permanent work ID.
+        edition, no_title = self._edition(with_license_pool=True)
+
+        no_title.presentation_edition.title=None
+        no_title.presentation_edition.author=None
+        no_title.presentation_edition.permanent_work_id = None
+        work.license_pools.append(no_title)
+
+        # Calling calculate_work() on the functional LicensePool will
+        # split off the bad one.
+        work_after, is_new = book.calculate_work()
+        eq_([book], work.license_pools)
+        eq_(None, no_title.work)
+        eq_(None, no_title.presentation_edition.work)
+
+        # calculate_work() on the bad LicensePool will split it off from
+        # the good one.
+        work.license_pools.append(no_title)
+        work_after_2, is_new = no_title.calculate_work()
+        eq_(None, work_after_2)
+        eq_([book], work.license_pools)
+
+        # The same thing happens if the bad LicensePool has no
+        # presentation edition at all.
+        work.license_pools.append(no_title)
+        no_title.presentation_edition = None
+        work_after, is_new = book.calculate_work()
+        eq_([book], work.license_pools)
+
+        work.license_pools.append(no_title)
+        work_after, is_new = no_title.calculate_work()
+        eq_([book], work.license_pools)
+
+
     def test_pwids(self):
         """Test the property that finds all permanent work IDs
         associated with a Work.
@@ -2822,6 +2880,39 @@ class TestWorkConsolidation(DatabaseTest):
 
         # A third work has been created for the commercial edition of "abcd".
         assert abcd_commercial.work not in (work1, work2)
+
+    def test_make_exclusive_open_access_for_null_permanent_work_id(self):
+        # Here's a LicensePool that, due to a previous error, has
+        # a null PWID in its presentation edition.
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        [null1] = work.license_pools
+        null1.presentation_edition.title = None
+        null1.presentation_edition.sort_author = None
+        null1.presentation_edition.permanent_work_id = None
+        
+        # Here's another LicensePool associated with the same work and
+        # with the same problem.
+        edition, null2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(null2)
+
+        for pool in work.license_pools:
+            pool.presentation_edition.title = None
+            pool.presentation_edition.sort_author = None
+            pool.presentation_edition.permanent_work_id = None
+
+        work.make_exclusive_open_access_for_permanent_work_id(
+            None, Edition.BOOK_MEDIUM
+        )
+
+        # Since a LicensePool with no PWID cannot have an associated Work,
+        # this Work now have no LicensePools at all.
+        eq_([], work.license_pools)
+
+        eq_(None, null1.work)
+        eq_(None, null2.work)
 
     def test_merge_into_success(self):
         # Here's a work with an open-access LicensePool.
@@ -3035,9 +3126,26 @@ class TestWorkConsolidation(DatabaseTest):
         )
 
     def test_licensepool_without_identifier_gets_no_work(self):
-        edition, lp = self._edition(with_license_pool=True)
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
         lp.identifier = None
+
+        # Even if the LicensePool had a work before, it gets removed.
         eq_((None, False), lp.calculate_work())
+        eq_(None, lp.work)
+
+    def test_licensepool_without_presentation_edition_gets_no_work(self):
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
+
+        # This LicensePool has no presentation edition and no way of 
+        # getting one.
+        lp.presentation_edition = None
+        lp.identifier.primarily_identifies = []
+
+        # Even if the LicensePool had a work before, it gets removed.
+        eq_((None, False), lp.calculate_work())
+        eq_(None, lp.work)
 
 class TestLoans(DatabaseTest):
 
