@@ -2679,7 +2679,24 @@ class TestWorkConsolidation(DatabaseTest):
         )
         eq_(expect_audiobook_work, audiobook.work)
 
-    def test_calculate_work_detaches_work_with_no_pwid(self):
+    def test_calculate_work_detaches_licensepool_with_no_title(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # But the LicensePool's presentation edition has lost its
+        # title.
+        book.presentation_edition.title = None
+
+        # Calling calculate_work() on the LicensePool will detach the
+        # book from its work, since a book with no title cannot have
+        # an associated Work.
+        work_after, is_new = book.calculate_work()
+        eq_(None, work_after)
+        eq_([], work.license_pools)
+
+    def test_calculate_work_detaches_licensepool_with_no_pwid(self):
         # Here's a Work with an open-access edition of "abcd".
         work = self._work(with_license_pool=True)
         [book] = work.license_pools

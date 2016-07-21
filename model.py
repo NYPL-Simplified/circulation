@@ -5920,15 +5920,12 @@ class LicensePool(Base):
         if not presentation_edition.title:
             if presentation_edition.work:
                 logging.warn(
-                    "Edition %r has no title but has a Work assigned. This is troubling.", presentation_edition
+                    "Edition %r has no title but has a Work assigned. This will not stand.", presentation_edition
                 )
-                return presentation_edition.work, False
             else:
                 logging.info("Edition %r has no title and it will not get a Work.", presentation_edition)
-                # If there was a work associated with this LicensePool,
-                # it was by mistake. Remove it.
-                self.work = None
-                return None, False
+            self.work = None
+            return None, False
 
         if (not presentation_edition.work
             and presentation_edition.author in (None, Edition.UNKNOWN_AUTHOR)
