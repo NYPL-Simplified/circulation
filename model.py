@@ -5925,6 +5925,7 @@ class LicensePool(Base):
             else:
                 logging.info("Edition %r has no title and it will not get a Work.", presentation_edition)
             self.work = None
+            self.work_id = None
             return None, False
 
         if (not presentation_edition.work
@@ -5938,6 +5939,7 @@ class LicensePool(Base):
             # If there was a work associated with this LicensePool,
             # it was by mistake. Remove it.
             self.work = None
+            self.work_id = None
             return None, False
 
         presentation_edition.calculate_permanent_work_id()
