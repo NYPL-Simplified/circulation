@@ -88,14 +88,18 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
             raise e
         return events
 
-    def get_circulation_for(self, identifiers):
-        """Return circulation objects for the selected identifiers."""
+    def circulation_request(self, identifiers):
         url = "/circulation/items/" + ",".join(identifiers)
         response = self.request(url)
         if response.status_code != 200:
             raise BadResponseException.bad_status_code(
                 self.full_url(url), response
             )
+        return response
+
+    def get_circulation_for(self, identifiers):
+        """Return circulation objects for the selected identifiers."""
+        response = self.circulation_request(identifiers)
         for circ in CirculationParser().process_all(response.content):
             if circ:
                 yield circ
