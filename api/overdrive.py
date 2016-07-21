@@ -36,6 +36,7 @@ from core.monitor import (
     IdentifierSweepMonitor,
 )
 from core.util.http import HTTP
+from core.metadata_layer import ReplacementPolicy
 
 from circulation_exceptions import *
 
@@ -237,8 +238,23 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         return data
 
     def fulfill(self, patron, pin, licensepool, internal_format):
-        url, media_type = self.get_fulfillment_link(
-            patron, pin, licensepool.identifier.identifier, internal_format)
+        try:
+            url, media_type = self.get_fulfillment_link(
+                patron, pin, licensepool.identifier.identifier, internal_format)
+        except FormatNotAvailable, e:
+
+            # It's possible the available formats for this book have changed and we
+            # have an inaccurate delivery mechanism. Try to update the formats, but
+            # reraise the error regardless.
+            self.log.info("Overdrive id %s was not available as %s, getting updated formats" % (licensepool.identifier.identifier, internal_format))
+
+            try:
+                self.update_formats(licensepool)
+            except Exception, e2:
+                self.log.error("Could not update formats for Overdrive ID %s" % licensepool.identifier.identifier)
+
+            raise e
+
         return FulfillmentInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
@@ -262,7 +278,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
-                raise CannotFulfill("Could not lock in format %s" % format_type)
+                if response.status_code == 400:
+                    message = json.loads(response.content).get("message")
+                    if message == "The selected format may not be available for this title.":
+                        raise FormatNotAvailable("This book is not Available the requested format")
+                else:
+                    raise CannotFulfill("Could not lock in format %s" % format_type)
             response = response.json()
             try:
                 download_link = self.extract_download_link(
@@ -555,6 +576,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             circulation_link = book['availability_link']
         return book, self.get(circulation_link, {})
 
+    def update_formats(self, licensepool):
+        """Update the format information for a single book.
+        """
+        info = self.metadata_lookup(licensepool.identifier)
+
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
+            info, include_bibliographic=False, include_formats=True)
+        circulation_data = metadata.circulation
+
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+        circulation_data.apply(licensepool, replace)
+
     def update_licensepool(self, book):
         """Update availability information for a single book.
 
@@ -842,3 +877,25 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
         super(RecentOverdriveCollectionMonitor, self).__init__(
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
+
+class OverdriveFormatSweep(IdentifierSweepMonitor):
+    """Check the current formats of every Overdrive book
+    in our collection.
+    """
+    def __init__(self, _db, testing=False, api=None):
+        super(OverdriveFormatSweep, self).__init__(
+            _db, "Overdrive Format Sweep", batch_size=25)
+        self._db = _db
+        if not api:
+            api = OverdriveAPI(self._db, testing=testing)
+        self.api = api
+        self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+    def identifier_query(self):
+        return self._db.query(Identifier).filter(
+            Identifier.type==Identifier.OVERDRIVE_ID)
+
+    def process_identifier(self, identifier):
+        pool = identifier.licensed_through
+        self.api.update_formats(pool)
+        
