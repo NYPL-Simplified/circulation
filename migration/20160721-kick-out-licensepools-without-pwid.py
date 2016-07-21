@@ -28,7 +28,6 @@ def fix(_db, description, qu):
     print "%s: %s" % (description, qu.count())
     for lp in qu:
         lp.calculate_work()
-        break
 
 no_presentation_edition = _db.query(LicensePool).outerjoin(
     LicensePool.presentation_edition).filter(Edition.id==None).filter(
