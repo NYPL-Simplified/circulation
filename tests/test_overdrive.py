@@ -274,6 +274,24 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
                   if x.quantity_measured==Measurement.RATING][0]
         eq_(1, rating.value)
 
+        # Request only the bibliographic information.
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info, include_bibliographic=True, include_formats=False)
+
+        eq_("Agile Documentation", metadata.title)
+        eq_(None, metadata.circulation)
+
+        # Request only the format information.
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info, include_bibliographic=False, include_formats=True)
+
+        eq_(None, metadata.title)
+
+        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
+        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)       
+        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)      
+
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)      
+        eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
+
 
     def test_book_info_with_sample(self):
         raw, info = self.sample_json("has_sample.json")

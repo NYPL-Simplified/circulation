@@ -787,13 +787,10 @@ class CirculationData(MetaToModelUtility):
                     # We need to mirror this resource. If it's an image, a
                     # thumbnail may be provided as a side effect.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
-                
-        if pool and replace.formats:
-            for lpdm in pool.delivery_mechanisms:
-                _db.delete(lpdm)
-            pool.delivery_mechanisms = []
 
-        # follows up on the mirror link, and confirms the delivery mechanism.
+        old_lpdms = pool.delivery_mechanisms
+        new_lpdms = []
+
         for format in self.formats:
             if format.link:
                 link = format.link
@@ -803,12 +800,22 @@ class CirculationData(MetaToModelUtility):
                 resource = link_obj.resource
             else:
                 resource = None
-            if pool:
-                pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, format.rights_uri, resource
-                )
+            lpdm = pool.set_delivery_mechanism(
+                format.content_type, format.drm_scheme, format.rights_uri, resource
+            )
+            new_lpdms.append(lpdm)
 
+        if replace.formats:
+            for lpdm in old_lpdms:
+                if lpdm not in new_lpdms:
+                    for loan in lpdm.fulfills:
+                        self.log.info("Loan %i is associated with a format that is no longer available. Deleting its delivery mechanism." % loan.id)
+                        loan.fulfillment = None
+                    _db.delete(lpdm)
 
+            pool.delivery_mechanisms = new_lpdms
+
+                    
         changed_licenses = False
         if pool:
             # if we were not passed a last_checked value, then update pool as of now
