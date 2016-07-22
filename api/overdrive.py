@@ -281,7 +281,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 if response.status_code == 400:
                     message = json.loads(response.content).get("message")
                     if message == "The selected format may not be available for this title.":
-                        raise FormatNotAvailable("This book is not Available the requested format")
+                        raise FormatNotAvailable("This book is not available in the format you requested.")
                 else:
                     raise CannotFulfill("Could not lock in format %s" % format_type)
             response = response.json()
