@@ -98,6 +98,11 @@ class CannotReleaseHold(CirculationException):
 class CannotFulfill(CirculationException):
     status_code = 500
 
+class FormatNotAvailable(CannotFulfill):
+    """Our format information for this book was outdated, and it's
+    no longer available in the requested format."""
+    status_code = 502
+
 class NotFoundOnRemote(CirculationException):
     """We know about this book but the remote site doesn't seem to."""
     status_code = 404
