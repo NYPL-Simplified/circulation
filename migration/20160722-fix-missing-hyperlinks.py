@@ -41,9 +41,14 @@ open_access_pools_without_open_access_links = open_access_pools.filter(~LicenseP
 print "Found %d open access pools without open access links" % open_access_pools_without_open_access_links.count()
 
 fixed = 0
+no_identifier = 0
 no_resource = 0
 
 for pool in open_access_pools_without_open_access_links:
+
+    if not pool.identifier:
+        no_identifier += 1
+        continue
 
     # Do we have a resource for this pool?
     if pool.delivery_mechanisms and pool.delivery_mechanisms[0].resource:
@@ -70,3 +75,4 @@ for pool in open_access_pools_without_open_access_links:
 _db.commit()
 print "Fixed %d pools" % fixed
 print "%d pools with no resource were not fixed" % no_resource
+print "%d pools with no identifier were not fixed" % no_identifier
