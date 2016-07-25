@@ -12,6 +12,7 @@ import urllib
 import uuid
 import json
 import jwt
+import flask
 from flask import (
     Response,
     redirect,
