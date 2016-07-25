@@ -228,6 +228,7 @@ def lanes_for_large_collection(_db, languages):
         fiction=Lane.BOTH_FICTION_AND_NONFICTION,
         include_best_sellers=True,
         include_staff_picks=True,
+        searchable=True,
         sublanes=[
             Lane(_db, full_name="Picture Books", age_range=[0,1,2,3,4],
                  genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,

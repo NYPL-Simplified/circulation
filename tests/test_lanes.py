@@ -77,6 +77,14 @@ class TestLaneCreation(DatabaseTest):
         assert 'History' in history.genre_names
         assert 'European History' in history.genre_names
 
+        # The Children lane is searchable; the others are not.
+        ya_fiction, ya_nonfiction, children = lane.sublanes.lanes[3:6]
+        eq_(False, nonfiction.searchable)
+        eq_(False, ya_fiction.searchable)
+
+        eq_("Children and Middle Grade", children.name)
+        eq_(True, children.searchable)
+
     def test_lane_for_small_collection(self):
         lane = lane_for_small_collection(self._db, ['eng', 'spa', 'chi'])
         eq_(u"English/español/Chinese", lane.display_name)
