@@ -133,7 +133,6 @@ class CirculationManager(object):
         self.setup_adobe_vendor_id()
 
         self.opds_authentication_document = None
-        self.authentication_headers = None
 
     def create_top_level_lane(self, lanelist):
         name = 'All Books'
@@ -300,11 +299,9 @@ class CirculationManagerController(object):
         """Sends a 401 response that demands authentication."""
         if not self.manager.opds_authentication_document:
             self.manager.opds_authentication_document = self.manager.auth.create_authentication_document()
-        if not self.manager.authentication_headers:
-            self.manager.authentication_headers = self.manager.auth.create_authentication_headers()
 
         data = self.manager.opds_authentication_document
-        headers = self.manager.authentication_headers
+        headers = self.manager.auth.create_authentication_headers()
         return Response(data, 401, headers)
 
     def load_lane(self, language_key, name):
