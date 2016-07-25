@@ -213,6 +213,13 @@ class TestAuthenticator(DatabaseTest):
             eq_(302, response.status_code)
             eq_(oauth2.external_auth_url, response.location)
 
+            params = dict(provider="not an oauth provider")
+            response = auth.oauth_authenticate(params)
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            error = json.loads(fragments.get('error')[0])
+            eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('uri'))
+
     def test_oauth_callback(self):
         with temp_config() as config:
             config[Configuration.SECRET_KEY] = 'secret'
@@ -267,7 +274,11 @@ class TestAuthenticator(DatabaseTest):
             # State with invalid provider
             params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
             response = auth.oauth_callback(self._db, params)
-            eq_(UNKNOWN_OAUTH_PROVIDER, response)
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            eq_(None, fragments.get('access_token'))
+            error = json.loads(fragments.get('error')[0])
+            eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('uri'))
 
     def test_patron_info(self):
         with temp_config() as config:

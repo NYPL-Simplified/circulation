@@ -123,32 +123,44 @@ class Authenticator(object):
                     return provider.authenticated_patron(_db, provider_token)
         return None
 
+    def _redirect_with_error(self, redirect_uri, problem_detail):
+        problem_detail_json = json.dumps(dict(uri=problem_detail.uri, title=str(problem_detail.title), detail=str(problem_detail.detail)))
+        params = dict(error=problem_detail_json)
+        return redirect(redirect_uri + "#" + urllib.urlencode(params))
+
     def oauth_authenticate(self, params):
+        redirect_uri = params.get('redirect_uri') or ""
         if self.oauth_providers and params.get('provider'):
             for provider in self.oauth_providers:
                 if params.get('provider') == provider.NAME:
-                    state = dict(provider=provider.NAME, redirect_uri=params.get('redirect_uri'))
+                    state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
                     return redirect(provider.external_authenticate_url(json.dumps(state)))
-        return UNKNOWN_OAUTH_PROVIDER
+        return self._redirect_with_error(
+            redirect_uri,
+            UNKNOWN_OAUTH_PROVIDER.detailed(UNKNOWN_OAUTH_PROVIDER.detail + _(" The known providers are: %s") % ", ".join([p.NAME for p in self.oauth_providers]))
+        )
 
     def oauth_callback(self, _db, params):
         if self.oauth_providers and params.get('code') and params.get('state'):
             state = json.loads(params.get('state'))
+            client_redirect_uri = state.get('redirect_uri') or ""
             for provider in self.oauth_providers:
                 if state.get('provider') == provider.NAME:
                     provider_token, patron_info = provider.oauth_callback(_db, params)
                     
                     if isinstance(provider_token, ProblemDetail):
-                        return provider_token
+                        return self._redirect_with_error(client_redirect_uri, provider_token)
 
                     # Create an access token for our app that includes the provider
                     # as well as the provider's token.
                     simplified_token = self.create_token(provider.NAME, provider_token)
 
                     params = dict(access_token=simplified_token, patron_info=patron_info)
-                    client_redirect_uri = state.get('redirect_uri') or ""
                     return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
-            return UNKNOWN_OAUTH_PROVIDER
+            return self._redirect_with_error(
+                client_redirect_uri,
+                UNKNOWN_OAUTH_PROVIDER.detailed(UNKNOWN_OAUTH_PROVIDER.detail + _(" The known providers are: %s") % ", ".join([p.NAME for p in self.oauth_providers]))
+            )
         return INVALID_OAUTH_CALLBACK_PARAMETERS
 
     def patron_info(self, header):
