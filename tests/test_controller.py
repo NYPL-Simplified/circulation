@@ -189,9 +189,13 @@ class TestBaseController(CirculationControllerTest):
                 }
             }
 
-            response = self.controller.authenticate()
-        
-            eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+            with self.app.test_request_context("/"):
+                response = self.controller.authenticate()
+                eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+
+            with self.app.test_request_context("/", headers={"X-Requested-With": "XMLHttpRequest"}):
+                response = self.controller.authenticate()
+                eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
         eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))

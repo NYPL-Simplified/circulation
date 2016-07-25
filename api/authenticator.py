@@ -215,7 +215,9 @@ class Authenticator(object):
         authentication document."""
         headers = Headers()
         headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
-        if self.basic_auth_provider:
+        # if requested from a web client, don't include WWW-Authenticate header,
+        # which forces the default browser authentication prompt
+        if self.basic_auth_provider and not flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
             headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
 
         # TODO: We're leaving out headers for other providers to avoid breaking iOS
