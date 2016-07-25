@@ -11,6 +11,7 @@ from core.lane import (
 )
 from core.metadata_layer import Metadata
 from core.model import (
+    Contributor,
     SessionManager,
     DataSource,
 )
@@ -25,6 +26,7 @@ from api.lanes import (
     lanes_for_large_collection,
     lane_for_small_collection,
     lane_for_other_languages,
+    ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -224,18 +226,25 @@ class TestRelatedBooksLane(DatabaseTest):
 
 class LaneTest(DatabaseTest):
 
-    def assert_works_queries(self, lane, expected):
+    def assert_works_queries(self, lane, expected, ordered_result=True):
         """Tests resulting Lane.works() and Lane.materialized_works() results"""
 
         query = lane.works()
-        eq_(expected, query.all())
+        if not ordered_result:
+            eq_(set(expected), set(query.all()))
+        else:
+            eq_(expected, query.all())
 
         materialized_expected = expected
         if expected:
             materialized_expected = [work.id for work in expected]
         results = lane.materialized_works().all()
         materialized_results = [work.works_id for work in results]
-        eq_(materialized_expected, materialized_results)
+
+        if expected and not ordered_result:
+            eq_(set(materialized_expected), set(materialized_results))
+        else:
+            eq_(materialized_expected, materialized_results)
 
 
 class TestRecommendationLane(LaneTest):
@@ -296,3 +305,56 @@ class TestSeriesLane(LaneTest):
         w2.presentation_edition.series_position = 13
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1, w2])
+
+class TestContributorLane(LaneTest):
+
+    def setup(self):
+        super(TestContributorLane, self).setup()
+        self.contributor, i = self._contributor(
+            'Lane, Lois', **dict(viaf='7', display_name='Lois Lane')
+        )
+
+    def test_initialization(self):
+        # An error is raised if ContributorLane is created without
+        # at least a name.
+        assert_raises(ValueError, ContributorLane, self._db, '')
+
+        # An error is raised if ContributorLane is created with a name and
+        # ID that don't match.
+        assert_raises(
+            ValueError, ContributorLane,
+            self._db, 'Clark Kent', contributor.id
+        )
+
+    def test_works_query(self):
+        # A work by someone else.
+        w1 = self._work(with_license_pool=True)
+
+        # A work by the contributor with the same name, without VIAF info.
+        w2 = self._work(with_license_pool=True)
+        same_name, i = self._contributor('Lane, Lois')
+        w2.presentation_edition.add_contributor(same_name, [Contributor.AUTHOR_ROLE])
+        SessionManager.refresh_materialized_views(self._db)
+
+        # The work with a matching name is found in the contributor lane.
+        lane = ContributorLane(
+            self._db, 'Lois Lane', contributor_id=self.contributor.id
+        )
+        self.assert_works_queries(lane, [w2])
+
+        # And when we add some additional works, like:
+        # A work by the contributor.
+        w3 = self._work(with_license_pool=True)
+        w3.presentation_edition.add_contributor(self.contributor, [Contributor.PRIMARY_AUTHOR_ROLE])
+
+        # A work by the contributor with VIAF info, writing with a pseudonym.
+        w4 = self._work(with_license_pool=True)
+        same_viaf, i = self._contributor('Lane, L', **dict(viaf='7'))
+        w4.presentation_edition.add_contributor(same_viaf, [Contributor.EDITOR_ROLE])
+        SessionManager.refresh_materialized_views(self._db)
+
+        # Those works are also included in the lane.
+        lane = ContributorLane(
+            self._db, 'Lois Lane', contributor_id=self.contributor.id
+        )
+        self.assert_works_queries(lane, [w3, w4, w2], ordered_result=False)

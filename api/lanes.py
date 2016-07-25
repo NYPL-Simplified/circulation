@@ -15,6 +15,9 @@ from core.lane import (
     LaneList,
 )
 from core.model import (
+    get_one,
+    Contribution,
+    Contributor,
     Edition,
     LicensePool,
     Work,
@@ -561,4 +564,65 @@ class SeriesLane(QueryGeneratedLane):
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).filter(work_edition.series==self.series)
         qu = qu.order_by(work_edition.series_position, work_edition.title)
+        return qu
+
+
+class ContributorLane(QueryGeneratedLane):
+    """A lane of Works written by a particular contributor"""
+
+    ROUTE = 'contributor'
+    MAX_CACHE_AGE = 48*60*60    # 48 hours
+
+    def __init__(self, _db, contributor_name, contributor_id=None):
+        if not contributor_name:
+            raise ValueError("ContributorLane can't be created without contributor")
+
+        self.contributor_name = contributor_name
+        full_name = display_name = "Books by %s" % self.contributor_name
+        super(ContributorLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+        if contributor_id:
+            self.contributor = get_one(self._db, Contributor, id=contributor_id)
+
+        if self.contributor_name != self.contributor.display_name:
+            raise ValueError(
+                "ContributorLane can't be created with inaccurate"
+                " Contributor data."
+            )
+
+    @property
+    def url_arguments(self):
+        pass
+
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+        if not self.contributor_name:
+            return None
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).join(work_edition.contributions)
+        qu = qu.join(Contribution.contributor).order_by(False)
+
+        same_id = same_viaf = same_display = same_name = None
+
+        # Run a number of queries against the Edition table based on the
+        # available contributor information: name, display name, id, viaf.
+        same_display = qu.filter(Contributor.display_name==self.contributor_name)
+        same_name = qu.filter(Contributor.name==self.contributor_name)
+        if self.contributor:
+            same_id = qu.filter(Contributor.id==self.contributor.id)
+            if self.contributor.viaf:
+                same_viaf = qu.filter(Contributor.viaf==self.contributor.viaf)
+
+        # Organize queries by likely accuracy
+        by_accuracy = [same_id, same_viaf, same_display, same_name]
+        by_accuracy = filter(lambda query: query, by_accuracy)
+        if not by_accuracy:
+            return None
+        if len(by_accuracy)==1:
+            return by_accuracy[0]
+        originating_query = by_accuracy[0]
+        qu = originating_query.union(*by_accuracy[1:])
         return qu
