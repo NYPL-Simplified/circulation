@@ -299,8 +299,11 @@ class CirculationManagerController(object):
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
         data = self.manager.opds_authentication_document
-        headers= { 'WWW-Authenticate' : 'Basic realm="%s"' % _("Library card"),
-                   'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+        headers = { 'Content-Type' : OPDSAuthenticationDocument.MEDIA_TYPE }
+        # if requested from a web client, don't include WWW-Authenticate header,
+        # which forces the default browser authentication prompt
+        if not flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            headers['WWW-Authenticate'] = 'Basic realm="%s"' % _("Library card")
         return Response(data, 401, headers)
 
     def load_lane(self, language_key, name):
