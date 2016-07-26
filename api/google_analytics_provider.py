@@ -3,6 +3,7 @@ import uuid
 import urllib
 import re
 from core.util.http import HTTP
+import logging
 
 class GoogleAnalyticsProvider(object):
     INTEGRATION_NAME = "Google Analytics"
@@ -48,5 +49,10 @@ class GoogleAnalyticsProvider(object):
 
     def post(self, url, params):
         response = HTTP.post_with_timeout(url, params)
+        logging.info(
+            "Posted %s to %s and received (%d)",
+            params, url, response.status_code
+        )
+
         
 Provider = GoogleAnalyticsProvider
