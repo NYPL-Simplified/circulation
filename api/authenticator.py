@@ -3,7 +3,10 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail,
+    json as pd_json,
+)
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from problem_details import *
 
@@ -124,8 +127,8 @@ class Authenticator(object):
                     return provider.authenticated_patron(_db, provider_token)
         return None
 
-    def _redirect_with_error(self, redirect_uri, problem_detail):
-        problem_detail_json = json.dumps(dict(uri=problem_detail.uri, title=str(problem_detail.title), detail=str(problem_detail.detail)))
+    def _redirect_with_error(self, redirect_uri, pd):
+        problem_detail_json = pd_json(pd.uri, pd.status_code, pd.title, pd.detail, pd.instance, pd.debug_message)
         params = dict(error=problem_detail_json)
         return redirect(redirect_uri + "#" + urllib.urlencode(params))
 
