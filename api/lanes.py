@@ -643,6 +643,6 @@ class ContributorLane(QueryGeneratedLane):
             if self.contributor.viaf:
                 clauses.append(Contributor.viaf==self.contributor.viaf)
         or_clause = or_(*clauses)
-        qu = qu.filter(or_clause)
+        qu = qu.filter(or_clause).order_by(work_edition.title.asc())
 
         return qu

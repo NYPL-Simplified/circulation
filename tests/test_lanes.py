@@ -281,25 +281,18 @@ class TestRelatedBooksLane(DatabaseTest):
 
 class LaneTest(DatabaseTest):
 
-    def assert_works_queries(self, lane, expected, ordered_result=True):
+    def assert_works_queries(self, lane, expected):
         """Tests resulting Lane.works() and Lane.materialized_works() results"""
 
         query = lane.works()
-        if not ordered_result:
-            eq_(set(expected), set(query.all()))
-        else:
-            eq_(expected, query.all())
+        eq_(expected, query.all())
 
         materialized_expected = expected
         if expected:
             materialized_expected = [work.id for work in expected]
         results = lane.materialized_works().all()
         materialized_results = [work.works_id for work in results]
-
-        if expected and not ordered_result:
-            eq_(set(materialized_expected), set(materialized_results))
-        else:
-            eq_(materialized_expected, materialized_results)
+        eq_(materialized_expected, materialized_results)
 
 
 class TestRecommendationLane(LaneTest):
@@ -388,7 +381,7 @@ class TestContributorLane(LaneTest):
         w1 = self._work(with_license_pool=True)
 
         # A work by the contributor with the same name, without VIAF info.
-        w2 = self._work(with_license_pool=True)
+        w2 = self._work(title="X is for Xylophone", with_license_pool=True)
         same_name = w2.presentation_edition.contributions[0].contributor
         same_name.display_name = 'Lois Lane'
         SessionManager.refresh_materialized_views(self._db)
@@ -401,19 +394,19 @@ class TestContributorLane(LaneTest):
 
         # And when we add some additional works, like:
         # A work by the contributor.
-        w3 = self._work(with_license_pool=True)
+        w3 = self._work(title="A is for Apple", with_license_pool=True)
         w3.presentation_edition.add_contributor(self.contributor, [Contributor.PRIMARY_AUTHOR_ROLE])
 
         # A work by the contributor with VIAF info, writing with a pseudonym.
-        w4 = self._work(with_license_pool=True)
+        w4 = self._work(title="D is for Dinosaur", with_license_pool=True)
         same_viaf, i = self._contributor('Lane, L', **dict(viaf='7'))
         w4.presentation_edition.add_contributor(same_viaf, [Contributor.EDITOR_ROLE])
         SessionManager.refresh_materialized_views(self._db)
 
-        # Those works are also included in the lane.
-        self.assert_works_queries(lane, [w3, w4, w2], ordered_result=False)
+        # Those works are also included in the lane, in alphabetical order.
+        self.assert_works_queries(lane, [w3, w4, w2])
 
         # When the lane is created without a contributor_id, the query
         # only searches by name.
         lane = ContributorLane(self._db, 'Lois Lane')
-        self.assert_works_queries(lane, [w2, w3], ordered_result=True)
+        self.assert_works_queries(lane, [w3, w2])
