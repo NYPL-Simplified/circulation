@@ -14,6 +14,7 @@ class GoogleAnalyticsProvider(object):
         return cls(tracking_id)
 
     def __init__(self, tracking_id):
+        logging.info("Google Analytics Provider init with tracking id: %s", tracking_id)
         self.tracking_id = tracking_id
 
     def collect_event(self, _db, license_pool, event_type, time, **kwargs):
