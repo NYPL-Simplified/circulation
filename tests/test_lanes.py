@@ -11,6 +11,7 @@ from core.lane import (
 )
 from core.metadata_layer import Metadata
 from core.model import (
+    Contribution,
     Contributor,
     SessionManager,
     DataSource,
@@ -177,25 +178,40 @@ class TestRelatedBooksLane(DatabaseTest):
         super(TestRelatedBooksLane, self).setup()
         self.work = self._work(with_license_pool=True)
         [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
 
     def test_initialization(self):
         """Asserts that a RelatedBooksLane won't be initialized for a work
         without related books
         """
+
         with temp_config() as config:
-            # A book without a series on a circ manager without
+            # A book without a series or a contributor on a circ manager without
             # NoveList recommendations raises an error.
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            self._db.delete(self.edition.contributions[0])
+            self._db.commit()
+
             assert_raises(
                 ValueError, RelatedBooksLane, self._db, self.lp, ""
             )
 
-            # But a book from a series initializes a RelatedBooksLane just fine.
-            self.lp.presentation_edition.series = "All By Myself"
-            result = RelatedBooksLane(self._db, self.lp, "")
+            # A book with a contributor initializes a RelatedBooksLane.
+            luthor, i = self._contributor('Luthor, Lex')
+            self.edition.add_contributor(luthor, [Contributor.EDITOR_ROLE])
+
+            result = RelatedBooksLane(self._db, self.lp, '')
             eq_(self.lp, result.license_pool)
             [sublane] = result.sublanes
-            eq_(True, isinstance(sublane, SeriesLane))
+            eq_(True, isinstance(sublane, ContributorLane))
+            eq_(sublane.contributor, luthor)
+
+            # As does a book in a series.
+            self.edition.series = "All By Myself"
+            result = RelatedBooksLane(self._db, self.lp, "")
+            eq_(2, len(result.sublanes))
+            [contributor, series] = result.sublanes
+            eq_(True, isinstance(series, SeriesLane))
 
         with temp_config() as config:
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
@@ -210,10 +226,49 @@ class TestRelatedBooksLane(DatabaseTest):
             )
             mock_api.setup(response)
             result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
-            eq_(2, len(result.sublanes))
-            recommendations, series = result.sublanes
+            eq_(3, len(result.sublanes))
+            contributor, recommendations, series = result.sublanes
             eq_(True, isinstance(recommendations, RecommendationLane))
             eq_(True, isinstance(series, SeriesLane))
+            eq_(True, isinstance(contributor, ContributorLane))
+
+    def test_contributor_lane_generation(self):
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+
+            original = self.edition.contributions[0].contributor
+            luthor, i = self._contributor('Luthor, Lex')
+            self.edition.add_contributor(luthor, Contributor.EDITOR_ROLE)
+
+            # Lex Luthor doesn't show up because he's only an editor,
+            # and an author is listed.
+            result = RelatedBooksLane(self._db, self.lp, '')
+            eq_(1, len(result.sublanes))
+            [sublane] = result.sublanes
+            eq_(original, sublane.contributor)
+
+        # A book with multiple contributors results in multiple
+        # ContributorLane sublanes.
+        lane, i = self._contributor('Lane, Lois')
+        self.edition.add_contributor(lane, Contributor.PRIMARY_AUTHOR_ROLE)
+        result = RelatedBooksLane(self._db, self.lp, '')
+        eq_(2, len(result.sublanes))
+        sublane_contributors = [c.contributor for c in result.sublanes]
+        eq_(set([lane, original]), set(sublane_contributors))
+
+        # When there are no AUTHOR_ROLES present, contributors in
+        # displayable secondary roles appear.
+        for contribution in self.edition.contributions:
+            if contribution.role in Contributor.AUTHOR_ROLES:
+                self._db.delete(contribution)
+        self._db.commit()
+
+        result = RelatedBooksLane(self._db, self.lp, '')
+        eq_(1, len(result.sublanes))
+        [sublane] = result.sublanes
+        eq_(luthor, sublane.contributor)
+
 
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
@@ -268,6 +323,7 @@ class TestRecommendationLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [result])
 
+
 class TestSeriesLane(LaneTest):
 
     def test_initialization(self):
@@ -306,6 +362,7 @@ class TestSeriesLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1, w2])
 
+
 class TestContributorLane(LaneTest):
 
     def setup(self):
@@ -323,7 +380,7 @@ class TestContributorLane(LaneTest):
         # ID that don't match.
         assert_raises(
             ValueError, ContributorLane,
-            self._db, 'Clark Kent', contributor.id
+            self._db, 'Clark Kent', self.contributor.id
         )
 
     def test_works_query(self):
@@ -332,8 +389,8 @@ class TestContributorLane(LaneTest):
 
         # A work by the contributor with the same name, without VIAF info.
         w2 = self._work(with_license_pool=True)
-        same_name, i = self._contributor('Lane, Lois')
-        w2.presentation_edition.add_contributor(same_name, [Contributor.AUTHOR_ROLE])
+        same_name = w2.presentation_edition.contributions[0].contributor
+        same_name.display_name = 'Lois Lane'
         SessionManager.refresh_materialized_views(self._db)
 
         # The work with a matching name is found in the contributor lane.
@@ -354,7 +411,9 @@ class TestContributorLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # Those works are also included in the lane.
-        lane = ContributorLane(
-            self._db, 'Lois Lane', contributor_id=self.contributor.id
-        )
         self.assert_works_queries(lane, [w3, w4, w2], ordered_result=False)
+
+        # When the lane is created without a contributor_id, the query
+        # only searches by name.
+        lane = ContributorLane(self._db, 'Lois Lane')
+        self.assert_works_queries(lane, [w2, w3], ordered_result=True)
