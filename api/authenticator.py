@@ -76,9 +76,9 @@ class Authenticator(object):
 
         valid = True
         if self.identifier_re:
-            valid = valid and (self.identifier_re.match(identifier) is not None)
+            valid = valid and identifier and (self.identifier_re.match(identifier) is not None)
         if self.password_re:
-            valid = valid and (self.password_re.match(password) is not None)
+            valid = valid and password and (self.password_re.match(password) is not None)
         return valid
 
     def decode_token(self, token):
