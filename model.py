@@ -5216,6 +5216,7 @@ class CachedFeed(Base):
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
     SERIES_TYPE = 'series'
+    CONTRIBUTOR_TYPE = 'contributor'
 
     log = logging.getLogger("CachedFeed")
 
