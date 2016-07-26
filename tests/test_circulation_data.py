@@ -125,6 +125,50 @@ class TestCirculationData(DatabaseTest):
         [pdf] = pool.delivery_mechanisms
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 
+    def test_apply_removes_old_formats_based_on_replacement_policy(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        # Start with one delivery mechanism for this pool.
+        for lpdm in pool.delivery_mechanisms:
+            self._db.delete(lpdm)
+        pool.delivery_mechanisms = []
+
+        old_lpdm = pool.set_delivery_mechanism(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+            RightsStatus.IN_COPYRIGHT, None)
+
+        # And it has been loaned.
+        loan, ignore = pool.loan_to(self.default_patron, fulfillment=old_lpdm)
+        eq_(old_lpdm, loan.fulfillment)
+
+        # We have new circulation data that has a different format.
+        format = FormatData(
+            content_type=Representation.EPUB_MEDIA_TYPE,
+            drm_scheme=DeliveryMechanism.ADOBE_DRM,
+        )
+        circulation_data = CirculationData(formats=[format],
+                                           data_source=edition.data_source,
+                                           primary_identifier=edition.primary_identifier)
+
+        # If we apply the new CirculationData with formats false in the policy,
+        # we'll add the new format, but keep the old one as well.
+        replacement_policy = ReplacementPolicy(formats=False)
+        circulation_data.apply(pool, replacement_policy)
+        
+        eq_(2, len(pool.delivery_mechanisms))
+        eq_(set([Representation.PDF_MEDIA_TYPE, Representation.EPUB_MEDIA_TYPE]),
+            set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
+        eq_(old_lpdm, loan.fulfillment)
+
+        # But if we make formats true in the policy, we'll delete the old format
+        # and remove it from its loan.
+        replacement_policy = ReplacementPolicy(formats=True)
+        circulation_data.apply(pool, replacement_policy)
+
+        eq_(1, len(pool.delivery_mechanisms))
+        eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
+        eq_(None, loan.fulfillment)
+        
 
     def test_license_pool_sets_default_license_values(self):
         """We have no information about how many copies of the book we've
