@@ -93,6 +93,37 @@ class TestVendorIDModel(DatabaseTest):
         # Having been used once, the temporary token has been expired.
         assert temp_token.expires < now
 
+    def test_smuggled_authdata_success(self):
+        # Bob's client has created a temporary token to authenticate him.
+        now = datetime.datetime.utcnow()
+        temp_token, ignore = Credential.temporary_token_create(
+            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
+            self.bob_patron, datetime.timedelta(seconds=60))
+
+        # But Bob's client can't trigger the operation that will cause
+        # Adobe to authenticate him via that token, so it passes in
+        # the token credential as the 'username' and leaves the
+        # password blank.
+        urn, label = self.model.standard_lookup(
+            dict(username=temp_token.credential)
+        )
+
+        # There is now a UUID associated with Bob's patron account,
+        # and that's the UUID returned by standard_lookup().
+        bob_uuid = Credential.lookup(
+            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
+            self.bob_patron, None)
+        eq_(urn, bob_uuid.credential)
+
+        # Having been used once, the temporary token has been expired.
+        assert temp_token.expires < now
+
+        # A future attempt to authenticate with the token will fail.
+        urn, label = self.model.standard_lookup(
+            dict(username=temp_token.credential)
+        )
+        eq_(None, urn)
+
     def test_authdata_lookup_failure_no_token(self):
         urn, label = self.model.authdata_lookup("nosuchauthdata")
         eq_(None, urn)
