@@ -696,6 +696,10 @@ class LoanController(CirculationManagerController):
             return CANNOT_FULFILL.with_debug(
                 str(e), status_code=e.status_code
             )
+        except FormatNotAvailable, e:
+            return NO_ACCEPTABLE_FORMAT.with_debug(
+                str(e), status_code=e.status_code
+            )
         except DeliveryMechanismError, e:
             return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code

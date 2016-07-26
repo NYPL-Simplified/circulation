@@ -25,8 +25,11 @@ from . import (
 
 from core.model import (
     DataSource,
+    DeliveryMechanism,
     Identifier,
     LicensePool,
+    Representation,
+    RightsStatus,
 )
 
 from api.config import temp_config
@@ -145,6 +148,92 @@ class TestOverdriveAPI(OverdriveAPITest):
         hold_request = api.requests[-1]
         body = hold_request[4]
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
+
+    def test_fulfill_raises_exception_and_updates_formats_for_outdated_format(self):
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+
+        # This pool has a format that's no longer available from overdrive.
+        pool.set_delivery_mechanism(Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+                                    RightsStatus.IN_COPYRIGHT, None)
+
+        ignore, loan = self.sample_json(
+            "single_loan.json"
+        )
+
+        ignore, lock_in_format_not_available = self.sample_json(
+            "lock_in_format_not_available.json"
+        )
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(400, content=lock_in_format_not_available)
+        api.queue_response(200, content=loan)
+
+        # Trying to get a fulfillment link raises an exception.
+        assert_raises(
+            FormatNotAvailable,
+            api.get_fulfillment_link,
+            self.default_patron, 'pin', pool.identifier.identifier,
+            'ebook-epub-adobe'
+        )
+
+        # Fulfill will also update the formats.
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        api.queue_response(200, content=bibliographic)
+        api.queue_response(400, content=lock_in_format_not_available)
+        api.queue_response(200, content=loan)
+
+        assert_raises(
+            FormatNotAvailable,
+            api.fulfill,
+            self.default_patron, 'pin', pool,
+            'ebook-epub-adobe'
+        )
+
+        # The delivery mechanisms have been updated.
+        eq_(3, len(pool.delivery_mechanisms))
+        eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
+            set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
+        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
+            set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
+
+    def test_update_formats(self):
+        # Create a LicensePool with an inaccurate delivery mechanism.
+        edition, pool = self._edition(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            with_license_pool=True
+        )
+
+        # Add the bad delivery mechanism.
+        pool.set_delivery_mechanism(Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+                                    RightsStatus.IN_COPYRIGHT, None)
+
+        # Prepare the bibliographic information.
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the new pool's Identifier.
+        bibliographic['id'] = pool.identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+
+        api.update_formats(pool)
+
+        # The delivery mechanisms have been updated.
+        eq_(3, len(pool.delivery_mechanisms))
+        eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
+            set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
+        eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
+            set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
 
     def test_update_availability(self):
         """Test the Overdrive implementation of the update_availability

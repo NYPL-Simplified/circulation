@@ -249,20 +249,39 @@ class AdobeVendorIDModel(object):
         UUID and their human-readable label, creating a Credential
         object to hold the UUID if necessary.
         """
-        patron = self.authenticator.authenticated_patron(
-            self._db, authorization_data)
+        patron = None
+        if (authorization_data.get('username') 
+            and not authorization_data.get('password')):
+            # The absence of a password indicates the username might
+            # be a temporary token smuggled to get around a broken
+            # Adobe client-side API. Try treating the 'username' as a
+            # temporary token.
+            possible_temporary_token = authorization_data['username']
+            patron = self.patron_from_authdata_lookup(possible_temporary_token)
+        if not patron:
+            # Either a password was provided or the temporary token
+            # lookup failed. Try a normal username/password lookup.
+            patron = self.authenticator.authenticated_patron(
+                self._db, authorization_data)
         return self.uuid_and_label(patron)
+
+    def patron_from_authdata_lookup(self, authdata):
+        """Look up a patron by a temporary Adobe Vendor ID token."""
+        credential = Credential.lookup_by_temporary_token(
+            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE, 
+            authdata)
+        if not credential:
+            return None
+        return credential.patron
 
     def authdata_lookup(self, authdata):
         """Look up a patron by a temporary Adobe Vendor ID token. Return their
         Vendor ID UUID and their human-readable label.
         """
-        credential = Credential.lookup_by_temporary_token(
-            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE, 
-            authdata)
-        if not credential:
+        patron = self.patron_from_authdata_lookup(authdata)
+        if not patron:
             return None, None
-        return self.uuid_and_label(credential.patron)
+        return self.uuid_and_label(patron)
 
     def urn_to_label(self, urn):
         credential = Credential.lookup_by_token(
