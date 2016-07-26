@@ -2,6 +2,7 @@ import importlib
 import contextlib
 import datetime
 from config import Configuration
+import logging
 
 class Analytics(object):
 
@@ -25,6 +26,7 @@ class Analytics(object):
         if not cls.__instance:
             config = Configuration.instance
             providers = cls.load_providers_from_config(config)
+            logging.info("Analytics providers from config: %s", providers)
             cls.initialize(providers, config)
         return cls.__instance
 
@@ -40,22 +42,26 @@ class Analytics(object):
             provider_module = importlib.import_module(provider_string)
             provider_class = getattr(provider_module, "Provider")
             analytics_providers.append(provider_class.from_config(config))
+        logging.info("Analytics initializing with providers: %s", analytics_providers)
         cls.__instance = cls(analytics_providers)
         return cls.__instance
 
     def __init__(self, providers=[]):
         self.providers = providers
+        logging.info("Analytics instance created with providers: %s", self.providers)
 
     @classmethod
     def collect_event(cls, _db, license_pool, event_type, time=None, **kwargs):
         if not time:
             time = datetime.datetime.utcnow()
         for provider in cls.instance().providers:
+            logging.info("Analytics collecting event for %s", provider)
             provider.collect_event(_db, license_pool, event_type, time, **kwargs)
 
     @classmethod
     def load_providers_from_config(cls, config):
         policies = config.get(Configuration.POLICIES, {})
+        logging.info("Analytics loaded policies: %s", policies)
         return policies.get(Configuration.ANALYTICS_POLICY, cls.DEFAULT_PROVIDERS)
 
 
