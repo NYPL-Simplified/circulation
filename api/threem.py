@@ -48,6 +48,7 @@ from core.threem import (
 )
 
 from circulation_exceptions import *
+from core.analytics import Analytics
 
 class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
@@ -644,9 +645,8 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
 
                 # 3M books are never open-access.
                 pool.open_access = False
-                CirculationEvent.log(
-                    self._db, pool, CirculationEvent.TITLE_ADD,
-                    None, None, start=now)
+                Analytics.collect_event(
+                    self._db, pool, CirculationEvent.TITLE_ADD, now)
 
             self.api.apply_circulation_information_to_licensepool(circ, pool)
 
