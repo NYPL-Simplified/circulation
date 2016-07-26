@@ -48,8 +48,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         eq_(None, patron_info)
 
     def test_oauth_callback_ineligible(self):
-        self.api.queue_response(dict(data=dict(name='I am not Title I')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234')))
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
@@ -59,8 +58,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         eq_(None, patron_info)
 
     def test_oauth_callback_title_i(self):
-        self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
@@ -78,8 +76,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_oauth_callback_external_type(self):
         # Teacher is all-access
-        self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
@@ -91,8 +88,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
         # Student type is based on grade
 
-        self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='1')))
         self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
@@ -102,8 +98,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         patron = get_one(self._db, Patron, authorization_identifier='2')
         eq_('E', patron.external_type)
 
-        self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='6')))
         self.api.queue_response(dict(type='student', data=dict(id='3'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))
@@ -113,8 +108,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         patron = get_one(self._db, Patron, authorization_identifier='3')
         eq_('M', patron.external_type)
 
-        self.api.queue_response(dict(data=dict(name='#DEMO OEI Sandbox District')))
-        self.api.queue_response(dict(data=dict(location=dict(state='TN'))))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='9')))
         self.api.queue_response(dict(type='student', data=dict(id='4'), links=[dict(rel='canonical', uri='test')]))
         self.api.queue_response(dict(access_token='token'))

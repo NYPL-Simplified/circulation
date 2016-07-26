@@ -32,13 +32,13 @@ CLEVER_NOT_ELIGIBLE = pd(
 )
 
 
-# Load Title I district name data from json.
-TITLE_I_DISTRICT_NAMES_BY_STATE = None
+# Load Title I NCES ID data from json.
+TITLE_I_NCES_IDS = None
 clever_dir = os.path.split(__file__)[0]
 
 with open('%s/title_i.json' % clever_dir) as f:
     json_data = f.read()
-    TITLE_I_DISTRICT_NAMES_BY_STATE = json.loads(json_data)
+    TITLE_I_NCES_IDS = json.loads(json_data)
 
 
 class CleverAuthenticationAPI(OAuthAuthenticator):
@@ -128,16 +128,12 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         school_id = user_data['school']
         school = self._get(self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id, bearer_headers)
 
-        district_id = user_data['district']
-        district = self._get(self.CLEVER_API_BASE_URL + '/v1.1/districts/%s' % district_id, bearer_headers)
-
-        state_code = school['data']['location']['state']
-        district_name = district['data']['name']
+        school_nces_id = school['data'].get('nces_id')
 
         # TODO: check student free and reduced lunch status as well
 
-        if district_name not in TITLE_I_DISTRICT_NAMES_BY_STATE.get(state_code, []):
-            self.log.info("%s in %s didn't match a Title I district name" % (district_name, state_code))
+        if school_nces_id not in TITLE_I_NCES_IDS:
+            self.log.info("%s didn't match a Title I NCES ID" % school_nces_id)
             return CLEVER_NOT_ELIGIBLE, None
 
         if result['type'] == 'student':
