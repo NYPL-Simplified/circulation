@@ -860,7 +860,6 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-
         url = self.cdn_url_for(
             'related_books', data_source=data_source,
             identifier_type=identifier_type, identifier=identifier

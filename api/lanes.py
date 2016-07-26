@@ -618,10 +618,9 @@ class ContributorLane(QueryGeneratedLane):
             _db, full_name, display_name=display_name
         )
 
-
     @property
     def url_arguments(self):
-        kwargs = dict(contributor=contributor_name)
+        kwargs = dict(contributor_name=self.contributor_name)
         return self.ROUTE, kwargs
 
     def apply_filters(self, qu, work_model=Work, *args, **kwargs):

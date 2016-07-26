@@ -177,6 +177,12 @@ def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
+@app.route('/works/contributor/<contributor_name>')
+@app.route('/works/contributor/<contributor_name>/<contributor_id>')
+@returns_problem_detail
+def contributor(contributor_name, contributor_id=None):
+    return app.manager.work_controller.contributor(name, contributor_id)
+
 @app.route('/works/series/<series_name>')
 @returns_problem_detail
 def series(series_name):
