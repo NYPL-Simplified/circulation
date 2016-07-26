@@ -162,8 +162,20 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         patron.fines = dump.get(self.FINES_FIELD, None)
         patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
         expires = dump.get(self.EXPIRATION_FIELD, None)
-        expires = datetime.datetime.strptime(
-            expires, self.EXPIRATION_DATE_FORMAT).date()
+        if expires:
+            try:
+                expires = datetime.datetime.strptime(
+                    expires, self.EXPIRATION_DATE_FORMAT).date()
+            except ValueError:
+                self.log.warn(
+                    'Malformed expiration date for patron %s: "%s". Treating as unexpirable.',
+                    patron.authorization_identifier, expires
+                )
+                expires = None
+        else:
+            # Handle the unlikely case where expires is present in the
+            # dump as the empty string.
+            expires = None
         patron.authorization_expires = expires
 
     def patron_info(self, identifier):
