@@ -3,7 +3,6 @@ import uuid
 import urllib
 import re
 from core.util.http import HTTP
-import logging
 
 class GoogleAnalyticsProvider(object):
     INTEGRATION_NAME = "Google Analytics"
