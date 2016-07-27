@@ -17,6 +17,7 @@ from core.model import (
 _db = production_session()
 
 for uri in RightsStatus.NAMES.keys():
-    RightsStatus.lookup(_db, uri)
+    status = RightsStatus.lookup(_db, uri)
+    status.name = RightsStatus.NAMES.get(uri)
 
 _db.commit()

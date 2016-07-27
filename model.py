@@ -6222,6 +6222,10 @@ class RightsStatus(Base):
         DataSource.PLYMPTON: CC_BY_NC,
         # workaround for opds-imported license pools with 'content server' as data source
         DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
+
+        DataSource.OVERDRIVE: IN_COPYRIGHT,
+        DataSource.THREEM: IN_COPYRIGHT,
+        DataSource.AXIS_360: IN_COPYRIGHT,
     }
     
     __tablename__ = 'rightsstatus'
@@ -6241,11 +6245,12 @@ class RightsStatus(Base):
     def lookup(cls, _db, uri):
         if not uri in cls.NAMES.keys():
             uri = cls.UNKNOWN
-        status, ignore = get_one_or_create(
-            _db, RightsStatus, uri=uri
-        )
         name = cls.NAMES.get(uri)
-        status.name = name
+        create_method_kwargs = dict(name=name)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=create_method_kwargs
+        )
         return status
 
     @classmethod

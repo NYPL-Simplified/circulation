@@ -797,7 +797,7 @@ class CirculationData(MetaToModelUtility):
             else:
                 resource = None
             lpdm = pool.set_delivery_mechanism(
-                format.content_type, format.drm_scheme, format.rights_uri, resource
+                format.content_type, format.drm_scheme, format.rights_uri or self.default_rights_uri, resource
             )
             new_lpdms.append(lpdm)
 
