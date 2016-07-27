@@ -689,10 +689,6 @@ class CirculationData(MetaToModelUtility):
             identifier=identifier_obj
         )
         if not license_pool:
-            rights_status = get_one(
-                _db, RightsStatus, uri=self.default_rights_uri
-            )
-
             last_checked = self.last_checked or datetime.datetime.utcnow()
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, data_source=self.data_source_obj,
