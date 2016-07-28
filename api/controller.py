@@ -795,7 +795,7 @@ class WorkController(CirculationManagerController):
         """Serve a feed of books written by a particular author"""
 
         if not contributor_name:
-            return NO_SUCH_LANE.detailed("No contributor provided")
+            return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
         lane = ContributorLane(self._db, contributor_name)
 
@@ -916,7 +916,7 @@ class WorkController(CirculationManagerController):
         """Serve a feed of books in the same series as a given book."""
 
         if not series_name:
-            return NO_SUCH_LANE.detailed("No series provided")
+            return NO_SUCH_LANE.detailed(_("No series provided"))
 
         lane = SeriesLane(self._db, series_name)
         annotator = self.manager.annotator(lane)
