@@ -178,10 +178,9 @@ def work():
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
 @app.route('/works/contributor/<contributor_name>')
-@app.route('/works/contributor/<contributor_name>/<contributor_id>')
 @returns_problem_detail
-def contributor(contributor_name, contributor_id=None):
-    return app.manager.work_controller.contributor(name, contributor_id)
+def contributor(contributor_name):
+    return app.manager.work_controller.contributor(contributor_name)
 
 @app.route('/works/series/<series_name>')
 @returns_problem_detail
