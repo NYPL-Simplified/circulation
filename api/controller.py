@@ -795,7 +795,7 @@ class WorkController(CirculationManagerController):
         """Serve a feed of books written by a particular author"""
 
         if not contributor_name:
-            return NO_SUCH_LANE.detailed("No series provided")
+            return NO_SUCH_LANE.detailed("No contributor provided")
 
         lane = ContributorLane(self._db, contributor_name)
 

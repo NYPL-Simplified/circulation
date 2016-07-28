@@ -613,7 +613,7 @@ class ContributorLane(QueryGeneratedLane):
                     " Contributor data."
                 )
 
-        full_name = display_name = "Books by %s" % self.contributor_name
+        full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
             _db, full_name, display_name=display_name
         )
@@ -630,7 +630,7 @@ class ContributorLane(QueryGeneratedLane):
 
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).join(work_edition.contributions)
-        qu = qu.join(Contribution.contributor).order_by(False)
+        qu = qu.join(Contribution.contributor)
 
         # Run a number of queries against the Edition table based on the
         # available contributor information: name, display name, id, viaf.

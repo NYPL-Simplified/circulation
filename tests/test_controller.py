@@ -799,7 +799,7 @@ class TestWorkController(CirculationControllerTest):
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Books by John Bull', feed['feed']['title'])
+        eq_('John Bull', feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
@@ -934,14 +934,14 @@ class TestWorkController(CirculationControllerTest):
         # The other book by this contributor is in the contributor feed.
         [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
         title, href = collection_link(e3)
-        eq_("Books by John Bull", title)
+        eq_("John Bull", title)
         expected_contributor_link = urllib.quote('contributor/John Bull')
         eq_(True, href.endswith(expected_contributor_link))
 
         # The original book is listed in both the series and contributor feeds.
         title_to_link_ending = {
             'Around the World' : expected_series_link,
-            'Books by John Bull' : expected_contributor_link
+            'John Bull' : expected_contributor_link
         }
         entries = [e for e in feed['entries'] if e['title']==self.english_1.title]
         eq_(2, len(entries))
