@@ -43,10 +43,13 @@ class GoogleAnalyticsProvider(object):
                 'cd10': edition.language,
                 'cd11': work.top_genre()
             })
+        # urlencode doesn't like unicode strings so we convert them to utf8
+        fields = {k: unicode(v).encode('utf8') for k, v in fields.iteritems()}
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
         self.post("http://www.google-analytics.com/collect", params)
 
     def post(self, url, params):
         response = HTTP.post_with_timeout(url, params)
+
         
 Provider = GoogleAnalyticsProvider

@@ -39,6 +39,7 @@ from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
 
 from circulation_exceptions import *
+from core.analytics import Analytics
 
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
@@ -808,9 +809,9 @@ class OverdriveCirculationMonitor(Monitor):
             license_pool, is_new, is_changed = self.api.update_licensepool(book)
             # Log a circulation event for this work.
             if is_new:
-                CirculationEvent.log(
-                    _db, license_pool, CirculationEvent.TITLE_ADD,
-                    None, None, start=license_pool.last_checked)
+                Analytics.collect_event(
+                    _db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
+
             _db.commit()
 
             if is_changed:

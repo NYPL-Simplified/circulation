@@ -215,6 +215,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
         expiration = date(2059, 4, 1)
         eq_(expiration, p.authorization_expires)
 
+    def test_authentication_patron_invalid_expiration_date(self):
+        p = self._patron()
+        p.authorization_identifier = "44444444444447"
+        self.api.enqueue("dump.invalid_expiration.html")
+        self.api.enqueue("pintest.good.html")
+        auth = dict(username="44444444444447", password="4444")
+        p2 = self.api.authenticated_patron(self._db, auth)
+        eq_(p2, p)
+
     def test_patron_info(self):
         self.api.enqueue("dump.success.html")
         patron_info = self.api.patron_info("alice")

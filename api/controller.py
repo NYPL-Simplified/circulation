@@ -23,8 +23,6 @@ from core.app_server import (
     load_lending_policy,
     load_facets_from_request,
     load_pagination_from_request,
-    load_facets,
-    load_pagination,
     ComplaintController,
     HeartbeatController,
     URNLookupController,
@@ -83,6 +81,7 @@ from config import (
 
 from lanes import (
     make_lanes,
+    ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -796,6 +795,27 @@ class LoanController(CirculationManagerController):
 
 class WorkController(CirculationManagerController):
 
+    def contributor(self, contributor_name):
+        """Serve a feed of books written by a particular author"""
+
+        if not contributor_name:
+            return NO_SUCH_LANE.detailed(_("No contributor provided"))
+
+        lane = ContributorLane(self._db, contributor_name)
+
+        annotator = self.manager.annotator(lane)
+        url = annotator.feed_url(
+            lane,
+            facets=load_facets_from_request(),
+            pagination=load_pagination_from_request()
+        )
+
+        feed = AcquisitionFeed.page(
+            self._db, lane.display_name, url, lane,
+            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
+        )
+        return feed_response(unicode(feed.content))
+
     def permalink(self, data_source, identifier_type, identifier):
         """Serve an entry for a single book.
 
@@ -833,16 +853,17 @@ class WorkController(CirculationManagerController):
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        url = self.cdn_url_for(
-            'recommendations', data_source=data_source,
-            identifier_type=identifier_type, identifier=identifier
-        )
         annotator = self.manager.annotator(lane)
+        url = annotator.feed_url(
+            lane,
+            facets=load_facets_from_request(),
+            pagination=load_pagination_from_request()
+        )
+
         feed = AcquisitionFeed.page(
             self._db, lane.DISPLAY_NAME, url, lane,
             annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
-
         return feed_response(unicode(feed.content))
 
     def related(self, data_source, identifier_type, identifier,
@@ -864,12 +885,13 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-
-        url = self.cdn_url_for(
-            'related_books', data_source=data_source,
-            identifier_type=identifier_type, identifier=identifier
-        )
         annotator = self.manager.annotator(lane)
+        url = annotator.feed_url(
+            lane,
+            facets=load_facets_from_request(),
+            pagination=load_pagination_from_request()
+        )
+
         feed = AcquisitionFeed.groups(
             self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
         )
@@ -898,16 +920,20 @@ class WorkController(CirculationManagerController):
         """Serve a feed of books in the same series as a given book."""
 
         if not series_name:
-            return NO_SUCH_LANE.detailed("No series provided")
+            return NO_SUCH_LANE.detailed(_("No series provided"))
 
         lane = SeriesLane(self._db, series_name)
-        url = self.cdn_url_for('series', series_name=series_name)
         annotator = self.manager.annotator(lane)
+        url = annotator.feed_url(
+            lane,
+            facets=load_facets_from_request(),
+            pagination=load_pagination_from_request()
+        )
+
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
-
         return feed_response(unicode(feed.content))
 
 

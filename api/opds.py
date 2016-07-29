@@ -269,8 +269,9 @@ class CirculationManagerAnnotator(Annotator):
         """:return: bool asserting whether related books are available for a
         particular work
         """
+        contributions = license_pool.presentation_edition.contributions
         series = license_pool.presentation_edition.series
-        return NoveListAPI.is_configured() or series
+        return contributions or series or NoveListAPI.is_configured()
 
     def annotate_feed(self, feed, lane):
         if self.patron:

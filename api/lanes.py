@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from sqlalchemy import or_
 from sqlalchemy.orm import aliased
 
 import core.classifier as genres
@@ -15,6 +16,9 @@ from core.lane import (
     LaneList,
 )
 from core.model import (
+    get_one,
+    Contribution,
+    Contributor,
     Edition,
     LicensePool,
     Work,
@@ -464,7 +468,31 @@ class RelatedBooksLane(LicensePoolBasedLane):
         )
 
     def _get_sublanes(self, _db, license_pool, novelist_api=None):
-        sublanes = []
+        sublanes = list()
+        edition = license_pool.presentation_edition
+
+        # Create contributor sublanes.
+        viable_contributors = list()
+        roles_by_priority = list(Contributor.author_contributor_tiers())[1:]
+
+        while roles_by_priority and not viable_contributors:
+            author_roles = roles_by_priority.pop(0)
+            viable_contributors = [c.contributor for c in edition.contributions
+                                   if c.role in author_roles]
+
+        for contributor in viable_contributors:
+            contributor_name = None
+            if contributor.display_name:
+                # Prefer display names over sort names for easier URIs
+                # at the /works/contributor/<NAME> route.
+                contributor_name = contributor.display_name
+            else:
+                contributor_name = contributor.name
+
+            contributor_lane = ContributorLane(
+                _db, contributor_name, contributor_id=contributor.id
+            )
+            sublanes.append(contributor_lane)
 
         # Create a recommendations sublane.
         try:
@@ -481,7 +509,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
             pass
 
         # Create a series sublane.
-        series_name = license_pool.presentation_edition.series
+        series_name = edition.series
         if series_name:
             sublanes.append(SeriesLane(_db, series_name))
 
@@ -561,4 +589,60 @@ class SeriesLane(QueryGeneratedLane):
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).filter(work_edition.series==self.series)
         qu = qu.order_by(work_edition.series_position, work_edition.title)
+        return qu
+
+
+class ContributorLane(QueryGeneratedLane):
+    """A lane of Works written by a particular contributor"""
+
+    ROUTE = 'contributor'
+    MAX_CACHE_AGE = 48*60*60    # 48 hours
+
+    def __init__(self, _db, contributor_name, contributor_id=None):
+        if not contributor_name:
+            raise ValueError("ContributorLane can't be created without contributor")
+
+        self.contributor_name = contributor_name
+        self.contributor = None
+        if contributor_id:
+            self.contributor = get_one(_db, Contributor, id=contributor_id)
+            if (self.contributor_name!=self.contributor.display_name and
+                self.contributor_name!=self.contributor.name):
+                raise ValueError(
+                    "ContributorLane can't be created with inaccurate"
+                    " Contributor data."
+                )
+
+        full_name = display_name = self.contributor_name
+        super(ContributorLane, self).__init__(
+            _db, full_name, display_name=display_name
+        )
+
+    @property
+    def url_arguments(self):
+        kwargs = dict(contributor_name=self.contributor_name)
+        return self.ROUTE, kwargs
+
+    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+        if not self.contributor_name:
+            return None
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).join(work_edition.contributions)
+        qu = qu.join(Contribution.contributor)
+
+        # Run a number of queries against the Edition table based on the
+        # available contributor information: name, display name, id, viaf.
+        clauses = [
+            Contributor.display_name==self.contributor_name,
+            Contributor.name==self.contributor_name
+        ]
+        if self.contributor:
+            clauses.append(Contributor.id==self.contributor.id)
+            if self.contributor.viaf:
+                clauses.append(Contributor.viaf==self.contributor.viaf)
+        or_clause = or_(*clauses)
+        qu = qu.filter(or_clause).order_by(work_edition.title.asc())
+
         return qu
