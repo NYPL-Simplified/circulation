@@ -18,6 +18,9 @@ cairosvg
 py-bcrypt
 Flask-Babel
 
+# Ensure that we support SNI-based SSL
+ndg-httpsclient
+
 # In circ, feedparser is only used in tests.
 feedparser
 
