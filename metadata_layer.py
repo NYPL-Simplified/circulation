@@ -1457,6 +1457,12 @@ class Metadata(MetaToModelUtility):
                     contributor.biography = contributor_data.biography
                 if contributor_data.aliases:
                     contributor.aliases = contributor_data.aliases
+                if contributor_data.lc:
+                    contributor.lc = contributor_data.lc
+                if contributor_data.viaf:
+                    contributor.viaf = contributor_data.viaf
+                if contributor_data.wikipedia_name:
+                    contributor.wikipedia_name = contributor_data.wikipedia_name
             else:
                 self.log.info(
                     "Not registering %s because no sort name, LC, or VIAF",
