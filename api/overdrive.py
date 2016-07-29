@@ -318,11 +318,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         else:
             return response
 
-    def get_fulfillment_link_from_download_link(self, patron, pin, download_link):
+    def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
         # If this for Overdrive's streaming reader, and the link expires,
-        # the patron can go back to this url again to get a new one.
-        auth_url = flask.request.url
-        download_link = download_link.replace("{odreadauthurl}", auth_url)
+        # the patron can go back to the circulation manager fulfill url
+        # again to get a new one.
+        if not fulfill_url:
+            fulfill_url = flask.request.url
+        download_link = download_link.replace("{odreadauthurl}", fulfill_url)
 
         download_response = self.patron_request(patron, pin, download_link)
         return self.extract_content_link(download_response.json())

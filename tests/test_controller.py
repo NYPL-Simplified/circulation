@@ -500,7 +500,7 @@ class TestLoanController(CirculationControllerTest):
             # The loan has yet to be fulfilled.
             eq_(None, loan.fulfillment)
 
-            # We've been given an OPDS feed with two entries, which tell us how 
+            # We've been given an OPDS feed with two delivery mechanisms, which tell us how 
             # to fulfill the license.
             eq_(201, response.status_code)
             feed = feedparser.parse(response.get_data())
