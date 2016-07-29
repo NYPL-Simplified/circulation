@@ -7357,7 +7357,7 @@ class DeliveryMechanism(Base):
     STREAMING_DRM = "Streaming"
     OVERDRIVE_DRM = "Overdrive DRM"
 
-    STREAMING_PROFILE = ";profile=http://librarysimplified.org/streaming"
+    STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
     MEDIA_TYPES_FOR_STREAMING = {
         STREAMING_TEXT_CONTENT_TYPE: Representation.TEXT_HTML_MEDIA_TYPE
     }
