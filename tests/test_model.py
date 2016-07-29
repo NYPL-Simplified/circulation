@@ -4411,6 +4411,44 @@ class TestComplaint(DatabaseTest):
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
 
 
+class TestDeliveryMechanism(DatabaseTest):
+
+    def setup(self):
+        super(TestDeliveryMechanism, self).setup()
+        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+    def test_implicit_medium(self):
+        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+
+    def test_is_media_type(self):
+        eq_(False, DeliveryMechanism.is_media_type(None))
+        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+
+    def test_is_streaming(self):
+        eq_(False, self.epub_no_drm.is_streaming)
+        eq_(False, self.epub_adobe_drm.is_streaming)
+        eq_(True, self.overdrive_streaming_text.is_streaming)
+
+    def test_drm_scheme_media_type(self):
+        eq_(None, self.epub_no_drm.drm_scheme_media_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
+        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+
+    def test_content_type_media_type(self):
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            self.overdrive_streaming_text.content_type_media_type)
+
 class TestCustomListEntry(DatabaseTest):
 
     def test_set_license_pool(self):

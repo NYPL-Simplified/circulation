@@ -6480,6 +6480,7 @@ class Representation(Base):
     PDF_MEDIA_TYPE = u"application/pdf"
     MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
+    TEXT_HTML_MEDIA_TYPE = u"text/html"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
     PNG_MEDIA_TYPE = u"image/png"
@@ -7356,6 +7357,11 @@ class DeliveryMechanism(Base):
     STREAMING_DRM = "Streaming"
     OVERDRIVE_DRM = "Overdrive DRM"
 
+    STREAMING_PROFILE = ";profile=http://librarysimplified.org/streaming"
+    MEDIA_TYPES_FOR_STREAMING = {
+        STREAMING_TEXT_CONTENT_TYPE: Representation.TEXT_HTML_MEDIA_TYPE
+    }
+
     __tablename__ = 'deliverymechanisms'
     id = Column(Integer, primary_key=True)
     content_type = Column(String, nullable=False)
@@ -7421,27 +7427,18 @@ class DeliveryMechanism(Base):
         else:
             return None
 
-    def is_media_type(self, x):
+    @classmethod
+    def is_media_type(cls, x):
         "Does this string look like a media type?"
         if x is None:
             return False
 
-        if x in (self.KINDLE_CONTENT_TYPE,
-                 self.NOOK_CONTENT_TYPE,
-                 self.STREAMING_TEXT_CONTENT_TYPE,
-                 self.STREAMING_AUDIO_CONTENT_TYPE,
-                 self.STREAMING_VIDEO_CONTENT_TYPE):
-            return False
-
-        if x in (
-                self.KINDLE_DRM,
-                self.NOOK_DRM,
-                self.STREAMING_DRM,
-                self.OVERDRIVE_DRM):
-            return False
-
         return any(x.startswith(prefix) for prefix in 
                    ['vnd.', 'application', 'text', 'video', 'audio', 'image'])
+
+    @property
+    def is_streaming(self):
+        return self.content_type in self.MEDIA_TYPES_FOR_STREAMING.keys()
 
     @property
     def drm_scheme_media_type(self):
@@ -7459,6 +7456,11 @@ class DeliveryMechanism(Base):
         """
         if self.is_media_type(self.content_type):
             return self.content_type
+
+        media_type_for_streaming = self.MEDIA_TYPES_FOR_STREAMING.get(self.content_type)
+        if media_type_for_streaming:
+            return media_type_for_streaming + self.STREAMING_PROFILE
+
         return None
 
 
