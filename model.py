@@ -1935,7 +1935,6 @@ class Contributor(Base):
             contributors, new = get_one_or_create(
                 _db, Contributor, create_method_kwargs=create_method_kwargs,
                 **query)
-
         return contributors, new
 
     def merge_into(self, destination):
