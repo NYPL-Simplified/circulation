@@ -4408,11 +4408,9 @@ class LicensePoolDeliveryMechanism(Base):
         Integer, ForeignKey('rightsstatus.id'), index=True)
 
 
-    def set_rights_status(self, uri, name=None):
+    def set_rights_status(self, uri):
         _db = Session.object_session(self)
-        status, ignore = get_one_or_create(
-            _db, RightsStatus, uri=uri,
-            create_method_kwargs=dict(name=name))
+        status = RightsStatus.lookup(_db, uri)
         self.rights_status = status
         if status.uri in RightsStatus.OPEN_ACCESS:
             self.license_pool.open_access = True
@@ -5216,6 +5214,7 @@ class CachedFeed(Base):
     PAGE_TYPE = 'page'
     RECOMMENDATIONS_TYPE = 'recommendations'
     SERIES_TYPE = 'series'
+    CONTRIBUTOR_TYPE = 'contributor'
 
     log = logging.getLogger("CachedFeed")
 
@@ -6128,8 +6127,7 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme)
-        rights_status, ignore = get_one_or_create(
-            _db, RightsStatus, uri=rights_uri)
+        rights_status = RightsStatus.lookup(_db, rights_uri)
         lpdm, ignore = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
             license_pool=self,
@@ -6206,11 +6204,29 @@ class RightsStatus(Base):
         GENERIC_OPEN_ACCESS,
     ]
 
+    NAMES = {
+        IN_COPYRIGHT: "In Copyright",
+        PUBLIC_DOMAIN_USA: "Public domain in the USA",
+        CC0: "Creative Commons Public Domain Dedication (CC0)",
+        CC_BY: "Creative Commons Attribution (CC BY)",
+        CC_BY_SA: "Creative Commons Attribution-ShareAlike (CC BY-SA)",
+        CC_BY_ND: "Creative Commons Attribution-NoDerivs (CC BY-ND)",
+        CC_BY_NC: "Creative Commons Attribution-NonCommercial (CC BY-NC)",
+        CC_BY_NC_SA: "Creative Commons Attribution-NonCommercial-ShareAlike (CC BY-NC-SA)",
+        CC_BY_NC_ND: "Creative Commons Attribution-NonCommercial-NoDerivs (CC BY-NC-ND)",
+        GENERIC_OPEN_ACCESS: "Open access with no specific license",
+        UNKNOWN: "Unknown",
+    }
+
     DATA_SOURCE_DEFAULT_RIGHTS_STATUS = {
         DataSource.GUTENBERG: PUBLIC_DOMAIN_USA,
         DataSource.PLYMPTON: CC_BY_NC,
         # workaround for opds-imported license pools with 'content server' as data source
         DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
+
+        DataSource.OVERDRIVE: IN_COPYRIGHT,
+        DataSource.THREEM: IN_COPYRIGHT,
+        DataSource.AXIS_360: IN_COPYRIGHT,
     }
     
     __tablename__ = 'rightsstatus'
@@ -6225,6 +6241,18 @@ class RightsStatus(Base):
 
     # One RightsStatus may apply to many LicensePoolDeliveryMechanisms.
     licensepooldeliverymechanisms = relationship("LicensePoolDeliveryMechanism", backref="rights_status")
+
+    @classmethod
+    def lookup(cls, _db, uri):
+        if not uri in cls.NAMES.keys():
+            uri = cls.UNKNOWN
+        name = cls.NAMES.get(uri)
+        create_method_kwargs = dict(name=name)
+        status, ignore = get_one_or_create(
+            _db, RightsStatus, uri=uri,
+            create_method_kwargs=create_method_kwargs
+        )
+        return status
 
     @classmethod
     def rights_uri_from_string(cls, rights):

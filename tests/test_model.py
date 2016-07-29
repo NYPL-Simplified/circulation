@@ -1510,23 +1510,26 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
         pool.open_access = False
         lpdm = pool.delivery_mechanisms[0]
-        uri = "http://foo"
+        uri = RightsStatus.IN_COPYRIGHT
         status = lpdm.set_rights_status(uri)
         eq_(status, lpdm.rights_status)
         eq_(uri, status.uri)
+        eq_(RightsStatus.NAMES.get(uri), status.name)
         eq_(False, pool.open_access)
 
         status2 = lpdm.set_rights_status(uri)
         eq_(status, status2)
 
-        uri2 = "http://baz"
+        uri2 = "http://unknown"
         status3 = lpdm.set_rights_status(uri2)
         assert status != status3
-        eq_(uri2, status3.uri)
+        eq_(RightsStatus.UNKNOWN, status3.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status3.name)
 
         open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
         open_access_status = lpdm.set_rights_status(open_access_uri)
         eq_(open_access_uri, open_access_status.uri)
+        eq_(RightsStatus.NAMES.get(open_access_uri), open_access_status.name)
         eq_(True, pool.open_access)
 
         non_open_access_status = lpdm.set_rights_status(uri)
@@ -4017,6 +4020,22 @@ class TestDeliveryMechanism(DatabaseTest):
         mech = lpmech.delivery_mechanism
         eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
         eq_(mech.NO_DRM, mech.drm_scheme)
+
+
+class TestRightsStatus(DatabaseTest):
+
+    def test_lookup(self):
+        status = RightsStatus.lookup(self._db, RightsStatus.IN_COPYRIGHT)
+        eq_(RightsStatus.IN_COPYRIGHT, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), status.name)
+        
+        status = RightsStatus.lookup(self._db, RightsStatus.CC0)
+        eq_(RightsStatus.CC0, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.CC0), status.name)
+        
+        status = RightsStatus.lookup(self._db, "not a known rights uri")
+        eq_(RightsStatus.UNKNOWN, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status.name)
 
 
 class TestCredentials(DatabaseTest):
