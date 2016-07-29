@@ -430,16 +430,20 @@ class CirculationManagerAnnotator(Annotator):
         if can_fulfill:
             if active_loan.fulfillment:
                 # The delivery mechanism for this loan has been
-                # set. There is only one fulfill link.
-                fulfill_links.append(
-                    self.fulfill_link(
-                        data_source_name,
-                        identifier,
-                        active_license_pool,
-                        active_loan,
-                        active_loan.fulfillment.delivery_mechanism
-                    )
-                )
+                # set. There is one link for the delivery mechanism
+                # that was locked in, and links for any streaming
+                # delivery mechanisms.
+                for lpdm in active_license_pool.delivery_mechanisms:
+                    if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
+                        fulfill_links.append(
+                            self.fulfill_link(
+                                data_source_name,
+                                identifier,
+                                active_license_pool,
+                                active_loan,
+                                lpdm.delivery_mechanism
+                            )
+                        )
             else:
                 # The delivery mechanism for this loan has not been
                 # set. There is one fulfill link for every delivery
