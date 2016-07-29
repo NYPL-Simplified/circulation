@@ -10,6 +10,7 @@ from config import Configuration
 from core.opds import (
     Annotator,
     AcquisitionFeed,
+    UnfulfillableWork,
 )
 from core.util.opds_writer import (    
     OPDSFeed,
@@ -490,6 +491,7 @@ class CirculationManagerAnnotator(Annotator):
             rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
         )
 
+        indirect_acquisitions = []
         for lpdm in fulfillment_mechanisms:
             # We have information about one or more delivery
             # mechanisms that will be available at the point of
@@ -507,7 +509,12 @@ class CirculationManagerAnnotator(Annotator):
                 indirect_acquisition = AcquisitionFeed.indirect_acquisition(
                     format_types
                 )
-                borrow_link.append(indirect_acquisition)
+                indirect_acquisitions.append(indirect_acquisition)
+
+        if not indirect_acquisitions:
+            raise UnfulfillableWork()
+
+        borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
     def fulfill_link(self, data_source_name, identifier,

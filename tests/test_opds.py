@@ -5,6 +5,7 @@ from lxml import etree
 from nose.tools import (
     set_trace,
     eq_,
+    assert_raises,
 )
 import feedparser
 from . import DatabaseTest
@@ -47,6 +48,7 @@ from api.opds import (
 )
 from core.opds import (
     AcquisitionFeed,
+    UnfulfillableWork,
 )
 
 from core.util.cdn import cdnify
@@ -474,3 +476,41 @@ class TestOPDS(DatabaseTest):
                  streaming_mech.delivery_mechanism.content_type_media_type]),
             set([link['type'] for link in fulfill_links]))
 
+
+    def test_borrow_link_raises_unfulfillable_work(self):
+        edition, pool = self._edition(with_license_pool=True)
+        kindle_mechanism = pool.set_delivery_mechanism(
+            DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.KINDLE_DRM,
+            RightsStatus.IN_COPYRIGHT, None)
+        epub_mechanism = pool.set_delivery_mechanism(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+            RightsStatus.IN_COPYRIGHT, None)
+        data_source_name = pool.data_source.name
+        identifier = pool.identifier
+
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
+        
+        # If there's no way to fulfill the book, borrow_link raises
+        # UnfulfillableWork.
+        assert_raises(
+            UnfulfillableWork,
+            annotator.borrow_link,
+            data_source_name, identifier,
+            None, [])
+
+        assert_raises(
+            UnfulfillableWork,
+            annotator.borrow_link,
+            data_source_name, identifier,
+            None, [kindle_mechanism])
+
+        # If there's a fulfillable mechanism, everything's fine.
+        link = annotator.borrow_link(
+            data_source_name, identifier,
+            None, [epub_mechanism])
+        assert link != None
+
+        link = annotator.borrow_link(
+            data_source_name, identifier,
+            None, [epub_mechanism, kindle_mechanism])
+        assert link != None
