@@ -5,6 +5,7 @@ from lxml import etree
 from nose.tools import (
     set_trace,
     eq_,
+    assert_raises,
 )
 import feedparser
 from . import DatabaseTest
@@ -15,6 +16,9 @@ from core.lane import (
 )
 from core.model import (
     Work,
+    Representation,
+    DeliveryMechanism,
+    RightsStatus,
 )
 
 from core.classifier import (
@@ -44,6 +48,7 @@ from api.opds import (
 )
 from core.opds import (
     AcquisitionFeed,
+    UnfulfillableWork,
 )
 
 from core.util.cdn import cdnify
@@ -428,3 +433,98 @@ class TestOPDS(DatabaseTest):
 
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
+
+    def test_loans_feed_includes_fulfill_links_for_streaming(self):
+        patron = self._patron()
+
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        pool = work.license_pools[0]
+        pool.open_access = False
+        mech1 = pool.delivery_mechanisms[0]
+        mech2 = pool.set_delivery_mechanism(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+        streaming_mech = pool.set_delivery_mechanism(
+            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+        
+        now = datetime.datetime.utcnow()
+        loan, ignore = pool.loan_to(patron, start=now)
+        
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+        
+        # Before we fulfill the loan, there are fulfill links for all three mechanisms.
+        fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
+        eq_(3, len(fulfill_links))
+        
+        eq_(set([mech1.delivery_mechanism.drm_scheme_media_type, mech2.delivery_mechanism.drm_scheme_media_type,
+                 streaming_mech.delivery_mechanism.content_type_media_type]),
+            set([link['type'] for link in fulfill_links]))
+
+        # When the loan is fulfilled, there are only fulfill links for that mechanism
+        # and the streaming mechanism.
+        loan.fulfillment = mech1
+
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+        
+        fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
+        eq_(2, len(fulfill_links))
+        
+        eq_(set([mech1.delivery_mechanism.drm_scheme_media_type,
+                 streaming_mech.delivery_mechanism.content_type_media_type]),
+            set([link['type'] for link in fulfill_links]))
+
+
+    def test_borrow_link_raises_unfulfillable_work(self):
+        edition, pool = self._edition(with_license_pool=True)
+        kindle_mechanism = pool.set_delivery_mechanism(
+            DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.KINDLE_DRM,
+            RightsStatus.IN_COPYRIGHT, None)
+        epub_mechanism = pool.set_delivery_mechanism(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
+            RightsStatus.IN_COPYRIGHT, None)
+        data_source_name = pool.data_source.name
+        identifier = pool.identifier
+
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
+        
+        # If there's no way to fulfill the book, borrow_link raises
+        # UnfulfillableWork.
+        assert_raises(
+            UnfulfillableWork,
+            annotator.borrow_link,
+            data_source_name, identifier,
+            None, [])
+
+        assert_raises(
+            UnfulfillableWork,
+            annotator.borrow_link,
+            data_source_name, identifier,
+            None, [kindle_mechanism])
+
+        # If there's a fulfillable mechanism, everything's fine.
+        link = annotator.borrow_link(
+            data_source_name, identifier,
+            None, [epub_mechanism])
+        assert link != None
+
+        link = annotator.borrow_link(
+            data_source_name, identifier,
+            None, [epub_mechanism, kindle_mechanism])
+        assert link != None

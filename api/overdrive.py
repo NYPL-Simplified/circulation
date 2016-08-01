@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import datetime
 import json
 import requests
+import flask
 
 from sqlalchemy.orm import contains_eager
 
@@ -51,13 +52,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
+    streaming_text = DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
+    overdrive_drm = DeliveryMechanism.OVERDRIVE_DRM
 
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'ebook-epub-open',
         (epub, adobe_drm): 'ebook-epub-adobe',
         (pdf, no_drm): 'ebook-pdf-open',
         (pdf, adobe_drm): 'ebook-pdf-adobe',
+        (streaming_text, overdrive_drm): 'ebook-overdrive',
     }
+
+    STREAMING_FORMATS = [
+        'ebook-overdrive',
+    ]
 
     # TODO: This is a terrible choice but this URL should never be
     # displayed to a patron, so it doesn't matter much.
@@ -272,7 +280,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if not loan:
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         download_link = None
-        if not loan['isFormatLockedIn']:
+        if not loan['isFormatLockedIn'] and format_type not in self.STREAMING_FORMATS:
             # The format is not locked in. Lock it in.
             # This will happen the first time someone tries to fulfill
             # a loan.
@@ -310,7 +318,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         else:
             return response
 
-    def get_fulfillment_link_from_download_link(self, patron, pin, download_link):
+    def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
+        # If this for Overdrive's streaming reader, and the link expires,
+        # the patron can go back to the circulation manager fulfill url
+        # again to get a new one.
+        if not fulfill_url:
+            fulfill_url = flask.request.url
+        download_link = download_link.replace("{odreadauthurl}", fulfill_url)
+
         download_response = self.patron_request(patron, pin, download_link)
         return self.extract_content_link(download_response.json())
         
