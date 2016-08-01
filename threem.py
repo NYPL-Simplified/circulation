@@ -60,7 +60,7 @@ class ThreeMAPI(object):
 
     log = logging.getLogger("3M API")
 
-    def __init__(self, _db, base_url = "https://cloudlibraryapi.3m.com/",
+    def __init__(self, _db, base_url = "https://partner.yourcloudlibrary.com/",
                  version="2.0", testing=False):
         self._db = _db
         self.version = version
