@@ -15,9 +15,9 @@ class OpenSearchDocument(object):
         d = dict(name="Search")
         tags = []
         
-        if lane is not None:
-            tags.append(lane.name.lower().replace(" ", "-").replace("&", "&amp;"))
-            description = "Search %s" % lane.name.replace("&", "&amp;")
+        if lane is not None and lane.search_target is not None:
+            tags.append(lane.search_target.name.lower().replace(" ", "-").replace("&", "&amp;"))
+            description = "Search %s" % lane.search_target.name.replace("&", "&amp;")
         else:
             description = "Search"
         d['description'] = description
