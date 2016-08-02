@@ -159,7 +159,7 @@ class Authenticator(object):
                     # as well as the provider's token.
                     simplified_token = self.create_token(provider.NAME, provider_token)
 
-                    params = dict(access_token=simplified_token, patron_info=patron_info)
+                    params = dict(access_token=simplified_token, patron_info=json.dumps(patron_info))
                     return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
             return self._redirect_with_error(
                 client_redirect_uri,

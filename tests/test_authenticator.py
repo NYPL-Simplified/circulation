@@ -49,6 +49,7 @@ class DummyOAuthAPI(DummyAuthAPI, OAuthAuthenticator):
 
     def external_authenticate_url(self, state):
         return self.external_auth_url
+        
 
 
 class TestAuthenticator(DatabaseTest):
@@ -260,7 +261,9 @@ class TestAuthenticator(DatabaseTest):
             provider_name, provider_token = auth.decode_token(token)
             eq_("oauth2", provider_name)
             eq_("token", provider_token)
-
+            patron_info = json.loads(fragments.get('patron_info')[0])
+            eq_("Patron", patron_info['name'])
+            
             # Missing state
             params = dict(code="foo")
             response = auth.oauth_callback(self._db, params)
