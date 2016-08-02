@@ -194,7 +194,7 @@ class AdobeVendorIDModel(object):
     model.
     """
 
-    AUTHDATA_TOKEN_TYPE = "Persistent authdata for Adobe Vendor ID"
+    AUTHDATA_TOKEN_TYPE = "Authdata for Adobe Vendor ID"
     VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
     def __init__(self, _db, authenticator, node_value,
