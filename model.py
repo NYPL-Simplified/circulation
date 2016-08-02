@@ -6444,13 +6444,14 @@ class Credential(Base):
 
     @classmethod
     def persistent_token_create(self, _db, data_source, type, patron):
-        """Create a persistent token for the given data_source/type/patron.
+        """Create or retrieve a persistent token for the given 
+        data_source/type/patron.
         """
         token_string = str(uuid.uuid1())
         credential, is_new = get_one_or_create(
-            _db, Credential, data_source=data_source, type=type, patron=patron)
-        if is_new:
-            credential.credential=token_string
+            _db, Credential, data_source=data_source, type=type, patron=patron,
+            create_method_kwargs=dict(credential=token_string)
+        )
         credential.expires=None
         return credential, is_new
 

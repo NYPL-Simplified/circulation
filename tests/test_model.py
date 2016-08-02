@@ -4108,7 +4108,7 @@ class TestCredentials(DatabaseTest):
 
     def test_persistent_token(self):
 
-        # Create a persistent token good for one hour.
+        # Create a persistent token.
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         patron = self._patron()
         token, is_new = Credential.persistent_token_create(
@@ -4127,7 +4127,8 @@ class TestCredentials(DatabaseTest):
         credential = new_token.credential
 
         # We can keep calling lookup_by_token and getting the same
-        # Credential object with the same .credential.
+        # Credential object with the same .credential -- it doesn't
+        # expire.
         again_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential, 
             allow_persistent_token=True
