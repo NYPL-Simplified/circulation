@@ -4076,15 +4076,18 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
  
-        # A token with no expiration date is treated as expired.
+        # A token with no expiration date is treated as expired...
         token.expires = None
         self._db.commit()
         no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, no_expiration_token)
 
+        # ...unless we specifically say we're looking for a persistent token.
         no_expiration_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, True)
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
         eq_(token, no_expiration_token)
 
     def test_temporary_token_overwrites_old_token(self):
@@ -4102,6 +4105,36 @@ class TestCredentials(DatabaseTest):
         eq_(False, is_new)
         eq_(token.id, old_token.id)
         assert old_credential != token.credential
+
+    def test_persistent_token(self):
+
+        # Create a persistent token.
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        token, is_new = Credential.persistent_token_create(
+            self._db, data_source, "some random type", patron
+        )
+        eq_(data_source, token.data_source)
+        eq_("some random type", token.type)
+        eq_(patron, token.patron)
+
+        # Now try to look up the credential based solely on the UUID.
+        new_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(new_token, token)
+        credential = new_token.credential
+
+        # We can keep calling lookup_by_token and getting the same
+        # Credential object with the same .credential -- it doesn't
+        # expire.
+        again_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(again_token, new_token)
+        eq_(again_token.credential, credential)
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)

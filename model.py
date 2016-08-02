@@ -6374,12 +6374,12 @@ class Credential(Base):
 
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
-               allow_permanent_token=False):
+               allow_persistent_token=False):
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
-        if (is_new or (not credential.expires and not allow_permanent_token)
+        if (is_new or (not credential.expires and not allow_persistent_token)
             or (credential.expires 
                 and credential.expires <= datetime.datetime.utcnow())):
             if refresher_method:
@@ -6388,11 +6388,11 @@ class Credential(Base):
 
     @classmethod
     def lookup_by_token(self, _db, data_source, type, token,
-                               allow_permanent_token=False):
+                               allow_persistent_token=False):
         """Look up a unique token.
 
-        Lookup will fail on expired tokens. Unless permanent tokens
-        are specifically allowed, lookup will fail on permanent tokens.
+        Lookup will fail on expired tokens. Unless persistent tokens
+        are specifically allowed, lookup will fail on persistent tokens.
         """
 
         credential = get_one(
@@ -6404,7 +6404,7 @@ class Credential(Base):
             return None
 
         if not credential.expires:
-            if allow_permanent_token:
+            if allow_persistent_token:
                 return credential
             else:
                 # It's an error that this token never expires. It's invalid.
@@ -6435,11 +6435,26 @@ class Credential(Base):
         token_string = str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
+        # If there was already a token of this type for this patron,
+        # the new one overwrites the old one.
         credential.credential=token_string
         credential.expires=expires
         return credential, is_new
 
-# Index to make temporary_token_lookup() fast.
+    @classmethod
+    def persistent_token_create(self, _db, data_source, type, patron):
+        """Create or retrieve a persistent token for the given 
+        data_source/type/patron.
+        """
+        token_string = str(uuid.uuid1())
+        credential, is_new = get_one_or_create(
+            _db, Credential, data_source=data_source, type=type, patron=patron,
+            create_method_kwargs=dict(credential=token_string)
+        )
+        credential.expires=None
+        return credential, is_new
+
+# Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
 class Timestamp(Base):
