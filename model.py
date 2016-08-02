@@ -1935,7 +1935,6 @@ class Contributor(Base):
             contributors, new = get_one_or_create(
                 _db, Contributor, create_method_kwargs=create_method_kwargs,
                 **query)
-
         return contributors, new
 
     def merge_into(self, destination):
@@ -6375,12 +6374,12 @@ class Credential(Base):
 
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
-               allow_permanent_token=False):
+               allow_persistent_token=False):
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
-        if (is_new or (not credential.expires and not allow_permanent_token)
+        if (is_new or (not credential.expires and not allow_persistent_token)
             or (credential.expires 
                 and credential.expires <= datetime.datetime.utcnow())):
             if refresher_method:
@@ -6389,11 +6388,11 @@ class Credential(Base):
 
     @classmethod
     def lookup_by_token(self, _db, data_source, type, token,
-                               allow_permanent_token=False):
+                               allow_persistent_token=False):
         """Look up a unique token.
 
-        Lookup will fail on expired tokens. Unless permanent tokens
-        are specifically allowed, lookup will fail on permanent tokens.
+        Lookup will fail on expired tokens. Unless persistent tokens
+        are specifically allowed, lookup will fail on persistent tokens.
         """
 
         credential = get_one(
@@ -6405,7 +6404,7 @@ class Credential(Base):
             return None
 
         if not credential.expires:
-            if allow_permanent_token:
+            if allow_persistent_token:
                 return credential
             else:
                 # It's an error that this token never expires. It's invalid.
@@ -6436,11 +6435,26 @@ class Credential(Base):
         token_string = str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
+        # If there was already a token of this type for this patron,
+        # the new one overwrites the old one.
         credential.credential=token_string
         credential.expires=expires
         return credential, is_new
 
-# Index to make temporary_token_lookup() fast.
+    @classmethod
+    def persistent_token_create(self, _db, data_source, type, patron):
+        """Create or retrieve a persistent token for the given 
+        data_source/type/patron.
+        """
+        token_string = str(uuid.uuid1())
+        credential, is_new = get_one_or_create(
+            _db, Credential, data_source=data_source, type=type, patron=patron,
+            create_method_kwargs=dict(credential=token_string)
+        )
+        credential.expires=None
+        return credential, is_new
+
+# Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
 class Timestamp(Base):
@@ -6480,6 +6494,7 @@ class Representation(Base):
     PDF_MEDIA_TYPE = u"application/pdf"
     MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
+    TEXT_HTML_MEDIA_TYPE = u"text/html"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
     JPEG_MEDIA_TYPE = u"image/jpeg"
     PNG_MEDIA_TYPE = u"image/png"
@@ -7356,6 +7371,11 @@ class DeliveryMechanism(Base):
     STREAMING_DRM = "Streaming"
     OVERDRIVE_DRM = "Overdrive DRM"
 
+    STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
+    MEDIA_TYPES_FOR_STREAMING = {
+        STREAMING_TEXT_CONTENT_TYPE: Representation.TEXT_HTML_MEDIA_TYPE
+    }
+
     __tablename__ = 'deliverymechanisms'
     id = Column(Integer, primary_key=True)
     content_type = Column(String, nullable=False)
@@ -7421,27 +7441,18 @@ class DeliveryMechanism(Base):
         else:
             return None
 
-    def is_media_type(self, x):
+    @classmethod
+    def is_media_type(cls, x):
         "Does this string look like a media type?"
         if x is None:
             return False
 
-        if x in (self.KINDLE_CONTENT_TYPE,
-                 self.NOOK_CONTENT_TYPE,
-                 self.STREAMING_TEXT_CONTENT_TYPE,
-                 self.STREAMING_AUDIO_CONTENT_TYPE,
-                 self.STREAMING_VIDEO_CONTENT_TYPE):
-            return False
-
-        if x in (
-                self.KINDLE_DRM,
-                self.NOOK_DRM,
-                self.STREAMING_DRM,
-                self.OVERDRIVE_DRM):
-            return False
-
         return any(x.startswith(prefix) for prefix in 
                    ['vnd.', 'application', 'text', 'video', 'audio', 'image'])
+
+    @property
+    def is_streaming(self):
+        return self.content_type in self.MEDIA_TYPES_FOR_STREAMING.keys()
 
     @property
     def drm_scheme_media_type(self):
@@ -7459,6 +7470,11 @@ class DeliveryMechanism(Base):
         """
         if self.is_media_type(self.content_type):
             return self.content_type
+
+        media_type_for_streaming = self.MEDIA_TYPES_FOR_STREAMING.get(self.content_type)
+        if media_type_for_streaming:
+            return media_type_for_streaming + self.STREAMING_PROFILE
+
         return None
 
 

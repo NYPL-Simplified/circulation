@@ -4076,15 +4076,18 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
  
-        # A token with no expiration date is treated as expired.
+        # A token with no expiration date is treated as expired...
         token.expires = None
         self._db.commit()
         no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, no_expiration_token)
 
+        # ...unless we specifically say we're looking for a persistent token.
         no_expiration_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, True)
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
         eq_(token, no_expiration_token)
 
     def test_temporary_token_overwrites_old_token(self):
@@ -4102,6 +4105,36 @@ class TestCredentials(DatabaseTest):
         eq_(False, is_new)
         eq_(token.id, old_token.id)
         assert old_credential != token.credential
+
+    def test_persistent_token(self):
+
+        # Create a persistent token.
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        token, is_new = Credential.persistent_token_create(
+            self._db, data_source, "some random type", patron
+        )
+        eq_(data_source, token.data_source)
+        eq_("some random type", token.type)
+        eq_(patron, token.patron)
+
+        # Now try to look up the credential based solely on the UUID.
+        new_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(new_token, token)
+        credential = new_token.credential
+
+        # We can keep calling lookup_by_token and getting the same
+        # Credential object with the same .credential -- it doesn't
+        # expire.
+        again_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(again_token, new_token)
+        eq_(again_token.credential, credential)
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
@@ -4410,6 +4443,44 @@ class TestComplaint(DatabaseTest):
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
 
+
+class TestDeliveryMechanism(DatabaseTest):
+
+    def setup(self):
+        super(TestDeliveryMechanism, self).setup()
+        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+    def test_implicit_medium(self):
+        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+
+    def test_is_media_type(self):
+        eq_(False, DeliveryMechanism.is_media_type(None))
+        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+
+    def test_is_streaming(self):
+        eq_(False, self.epub_no_drm.is_streaming)
+        eq_(False, self.epub_adobe_drm.is_streaming)
+        eq_(True, self.overdrive_streaming_text.is_streaming)
+
+    def test_drm_scheme_media_type(self):
+        eq_(None, self.epub_no_drm.drm_scheme_media_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
+        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+
+    def test_content_type_media_type(self):
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            self.overdrive_streaming_text.content_type_media_type)
 
 class TestCustomListEntry(DatabaseTest):
 
