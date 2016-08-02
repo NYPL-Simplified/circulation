@@ -25,6 +25,7 @@ from metadata_layer import (
 
 import os
 from model import (
+    Contributor,
     CoverageRecord,
     DataSource,
     Edition,
@@ -574,6 +575,39 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
 
+
+    def test_update_contributions(self):
+        edition = self._edition()
+
+        # A test edition is created with a test contributor. This
+        # particular contributor is about to be destroyed and replaced by
+        # new data.
+        [old_contributor] = edition.contributors
+
+        contributor = ContributorData(
+            display_name="Robert Jordan", 
+            sort_name="Jordan, Robert",
+            wikipedia_name="Robert_Jordan",
+            viaf="79096089",
+            lc="123",
+            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+
+        metadata = Metadata(DataSource.OVERDRIVE, contributors=[contributor])
+        metadata.update_contributions(self._db, edition, replace=True)
+
+        # The old contributor has been removed and replaced with the new
+        # one.
+        [contributor] = edition.contributors
+        assert contributor != old_contributor
+
+        # And the new one has all the information provided by 
+        # the Metadata object.
+        eq_("Jordan, Robert", contributor.name)
+        eq_("Robert Jordan", contributor.display_name)
+        eq_("79096089", contributor.viaf)
+        eq_("123", contributor.lc)
+        eq_("Robert_Jordan", contributor.wikipedia_name)
 
     def test_filter_recommendations(self):
         metadata = Metadata(DataSource.OVERDRIVE)
