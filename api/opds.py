@@ -10,6 +10,7 @@ from config import Configuration
 from core.opds import (
     Annotator,
     AcquisitionFeed,
+    UnfulfillableWork,
 )
 from core.util.opds_writer import (    
     OPDSFeed,
@@ -269,8 +270,9 @@ class CirculationManagerAnnotator(Annotator):
         """:return: bool asserting whether related books are available for a
         particular work
         """
+        contributions = license_pool.presentation_edition.contributions
         series = license_pool.presentation_edition.series
-        return NoveListAPI.is_configured() or series
+        return contributions or series or NoveListAPI.is_configured()
 
     def annotate_feed(self, feed, lane):
         if self.patron:
@@ -430,16 +432,20 @@ class CirculationManagerAnnotator(Annotator):
         if can_fulfill:
             if active_loan.fulfillment:
                 # The delivery mechanism for this loan has been
-                # set. There is only one fulfill link.
-                fulfill_links.append(
-                    self.fulfill_link(
-                        data_source_name,
-                        identifier,
-                        active_license_pool,
-                        active_loan,
-                        active_loan.fulfillment.delivery_mechanism
-                    )
-                )
+                # set. There is one link for the delivery mechanism
+                # that was locked in, and links for any streaming
+                # delivery mechanisms.
+                for lpdm in active_license_pool.delivery_mechanisms:
+                    if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
+                        fulfill_links.append(
+                            self.fulfill_link(
+                                data_source_name,
+                                identifier,
+                                active_license_pool,
+                                active_loan,
+                                lpdm.delivery_mechanism
+                            )
+                        )
             else:
                 # The delivery mechanism for this loan has not been
                 # set. There is one fulfill link for every delivery
@@ -486,6 +492,7 @@ class CirculationManagerAnnotator(Annotator):
             rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
         )
 
+        indirect_acquisitions = []
         for lpdm in fulfillment_mechanisms:
             # We have information about one or more delivery
             # mechanisms that will be available at the point of
@@ -503,7 +510,12 @@ class CirculationManagerAnnotator(Annotator):
                 indirect_acquisition = AcquisitionFeed.indirect_acquisition(
                     format_types
                 )
-                borrow_link.append(indirect_acquisition)
+                indirect_acquisitions.append(indirect_acquisition)
+
+        if not indirect_acquisitions:
+            raise UnfulfillableWork()
+
+        borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
     def fulfill_link(self, data_source_name, identifier,

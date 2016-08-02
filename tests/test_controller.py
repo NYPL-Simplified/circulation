@@ -57,6 +57,7 @@ from api.circulation_exceptions import *
 from api.circulation import (
     HoldInfo,
     LoanInfo,
+    FulfillmentInfo,
 )
 from api.novelist import MockNoveListAPI
 
@@ -465,6 +466,127 @@ class TestLoanController(CirculationControllerTest):
             eq_(409, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
 
+    def test_borrow_and_fulfill_with_streaming_delivery_mechanism(self):
+        # Create a pool with a streaming delivery mechanism
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        edition = work.presentation_edition
+        pool = work.license_pools[0]
+        pool.open_access = False
+        streaming_mech = pool.set_delivery_mechanism(
+            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+        data_source = edition.data_source
+        identifier = edition.primary_identifier
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(
+                pool,
+                LoanInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                )
+            )
+            response = self.manager.loans.borrow(
+                data_source.name, identifier.type, identifier.identifier)
+
+            # A loan has been created for this license pool.
+            loan = get_one(self._db, Loan, license_pool=pool)
+            assert loan != None
+            # The loan has yet to be fulfilled.
+            eq_(None, loan.fulfillment)
+
+            # We've been given an OPDS feed with two delivery mechanisms, which tell us how 
+            # to fulfill the license.
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            fulfillment_links = [x['href'] for x in entry['links']
+                                if x['rel'] == OPDSFeed.ACQUISITION_REL]
+            [mech1, mech2] = sorted(
+                pool.delivery_mechanisms, 
+                key=lambda x: x.delivery_mechanism.is_streaming
+            )
+
+            streaming_mechanism = mech2
+
+            expects = [url_for('fulfill', data_source=data_source.name,
+                               identifier_type=identifier.type,
+                               identifier=identifier.identifier, 
+                               mechanism_id=mech.delivery_mechanism.id,
+                               _external=True) for mech in [mech1, mech2]]
+            eq_(set(expects), set(fulfillment_links))
+
+            # Now let's try to fulfill the loan using the streaming mechanism.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://streaming-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                streaming_mechanism.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_("http://streaming-content-link",
+                response.headers['Location'])
+
+            # The mechanism has not been set, since fulfilling a streaming
+            # mechanism does not lock in the format.
+            eq_(None, loan.fulfillment)
+
+            # We can still use the other mechanism too.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://other-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                mech1.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+
+            # Now the fulfillment has been set to the other mechanism.
+            eq_(mech1, loan.fulfillment)
+
+            # But we can still fulfill the streaming mechanism again.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://streaming-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                streaming_mechanism.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_("http://streaming-content-link",
+                response.headers['Location'])
+
+
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -785,6 +907,24 @@ class TestWorkController(CirculationControllerTest):
         self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
 
+    def test_contributor(self):
+        # For works without a contributor name, a ProblemDetail is returned.
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.contributor('')
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        # If the work has a contributor, a feed is returned.
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context('/'):
+            response = self.manager.work_controller.contributor("John Bull")
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_('John Bull', feed['feed']['title'])
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
+
     def test_permalink(self):
         with self.app.test_request_context("/"):
             response = self.manager.work_controller.permalink(self.datasource, self.identifier.type, self.identifier.identifier)
@@ -849,7 +989,15 @@ class TestWorkController(CirculationControllerTest):
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
         with temp_config() as config:
+            # Don't set NoveList Integration.
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+
+            # Remove contribution.
+            [contribution] = self.lp.presentation_edition.contributions
+            [original, role] = [contribution.contributor, contribution.role]
+            self._db.delete(contribution)
+            self._db.commit()
+
             with self.app.test_request_context('/'):
                 response = self.manager.work_controller.related(
                     self.datasource, self.identifier.type, self.identifier.identifier
@@ -857,7 +1005,14 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        # Prep book with a book in its series and a recommendation.
+        # Prep book with a contribution, a series, and a recommendation.
+        self.lp.presentation_edition.add_contributor(original, role)
+        original.display_name = original.name
+        same_author = self._work(
+            "What is Sunday?", original.display_name,
+            language="eng", fiction=True, with_open_access_download=True
+        )
+
         self.lp.presentation_edition.series = "Around the World"
         self.french_1.presentation_edition.series = "Around the World"
         SessionManager.refresh_materialized_views(self._db)
@@ -868,7 +1023,7 @@ class TestWorkController(CirculationControllerTest):
         metadata.recommendations = [self.english_2.license_pools[0].identifier]
         mock_api.setup(metadata)
 
-        # A grouped feed is returned with both of these related books
+        # A grouped feed is returned with all of the related books
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.related(
                 self.datasource, self.identifier.type, self.identifier.identifier,
@@ -876,27 +1031,46 @@ class TestWorkController(CirculationControllerTest):
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_(3, len(feed['entries']))
+        eq_(5, len(feed['entries']))
+
+        def collection_link(entry):
+            [link] = [l for l in entry['links'] if l['rel']=='collection']
+            return link['title'], link['href']
 
         # One book is in the recommendations feed.
         [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
-        [collection_link] = [link for link in e1['links'] if link['rel']=='collection']
-        eq_("Recommended Books", collection_link['title'])
+        title, href = collection_link(e1)
+
+        eq_("Recommended Books", title)
         work_url = "/works/%s/%s/%s/" % (self.datasource, self.identifier.type, self.identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
-        eq_(True, collection_link['href'].endswith(expected))
+        eq_(True, href.endswith(expected))
 
-        # Two books are in the series feed. The original work and its companion
+        # The other book in the series is in the series feed.
         [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
-        [collection_link] = [link for link in e2['links'] if link['rel']=='collection']
-        eq_("Around the World", collection_link['title'])
-        expected = urllib.quote('series/Around the World')
-        eq_(True, collection_link['href'].endswith(expected))
+        title, href = collection_link(e2)
+        eq_("Around the World", title)
+        expected_series_link = urllib.quote('series/Around the World')
+        eq_(True, href.endswith(expected_series_link))
 
-        [e3] = [e for e in feed['entries'] if e['title'] == self.english_1.title]
-        [collection_link] = [link for link in e3['links'] if link['rel']=='collection']
-        eq_("Around the World", collection_link['title'])
-        eq_(True, collection_link['href'].endswith(expected))
+        # The other book by this contributor is in the contributor feed.
+        [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
+        title, href = collection_link(e3)
+        eq_("John Bull", title)
+        expected_contributor_link = urllib.quote('contributor/John Bull')
+        eq_(True, href.endswith(expected_contributor_link))
+
+        # The original book is listed in both the series and contributor feeds.
+        title_to_link_ending = {
+            'Around the World' : expected_series_link,
+            'John Bull' : expected_contributor_link
+        }
+        entries = [e for e in feed['entries'] if e['title']==self.english_1.title]
+        eq_(2, len(entries))
+        for entry in entries:
+            title, href = collection_link(entry)
+            eq_(True, href.endswith(title_to_link_ending[title]))
+            del title_to_link_ending[title]
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):

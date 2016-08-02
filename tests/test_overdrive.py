@@ -203,6 +203,21 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
             set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
 
+    def test_get_fulfillment_link_from_download_link(self):
+        patron = self._patron()
+
+        ignore, streaming_fulfill_link = self.sample_json(
+            "streaming_fulfill_link_response.json"
+        )
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(200, content=streaming_fulfill_link)
+
+        href, type = api.get_fulfillment_link_from_download_link(patron, '1234', "http://download-link", fulfill_url="http://fulfill")
+        eq_("https://fulfill.contentreserve.com/PerfectLife9780345530967.epub-sample.overdrive.com?RetailerID=nypl&Expires=1469825647&Token=dd0e19b4-eb70-439d-8c50-a65201060f4c&Signature=asl67/G154KeeUsL1mHPwEbZfgc=",
+            href)
+        eq_("text/html", type)
+
     def test_update_formats(self):
         # Create a LicensePool with an inaccurate delivery mechanism.
         edition, pool = self._edition(
