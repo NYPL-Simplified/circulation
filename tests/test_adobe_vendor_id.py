@@ -77,17 +77,17 @@ class TestVendorIDModel(DatabaseTest):
         
         # Create an authdata token for Bob.
         now = datetime.datetime.utcnow()
-        temp_token, ignore = Credential.persistent_token_create(
+        token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron
         )
 
         # The token is persistent.
-        eq_(None, temp_token.expires)
+        eq_(None, token.expires)
 
         # Use that token to perform a lookup of Bob's Adobe Vendor ID
         # UUID.
-        urn, label = self.model.authdata_lookup(temp_token.credential)
+        urn, label = self.model.authdata_lookup(token.credential)
 
         # There is now a UUID associated with Bob's patron account,
         # and that's the UUID returned by standard_lookup().
@@ -98,12 +98,12 @@ class TestVendorIDModel(DatabaseTest):
         eq_("Card number 5", label)
 
         # The token is persistent and does not expire.
-        eq_(None, temp_token.expires)
+        eq_(None, token.expires)
 
     def test_smuggled_authdata_success(self):
         # Bob's client has created a persistent token to authenticate him.
         now = datetime.datetime.utcnow()
-        temp_token, ignore = Credential.persistent_token_create(
+        token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron
         )
@@ -113,7 +113,7 @@ class TestVendorIDModel(DatabaseTest):
         # the token credential as the 'username' and leaves the
         # password blank.
         urn, label = self.model.standard_lookup(
-            dict(username=temp_token.credential)
+            dict(username=token.credential)
         )
 
         # There is now a UUID associated with Bob's patron account,
@@ -124,11 +124,11 @@ class TestVendorIDModel(DatabaseTest):
         eq_(urn, bob_uuid.credential)
 
         # The token is persistent and will not expire or be consumed.
-        eq_(None, temp_token.expires)
+        eq_(None, token.expires)
 
         # A future attempt to authenticate with the token will succeed.
         urn, label = self.model.standard_lookup(
-            dict(username=temp_token.credential)
+            dict(username=token.credential)
         )
         eq_(urn, bob_uuid.credential)
 
@@ -139,7 +139,7 @@ class TestVendorIDModel(DatabaseTest):
 
     def test_authdata_lookup_failure_wrong_token(self):
         # Bob has an authdata token.
-        temp_token, ignore = Credential.persistent_token_create(
+        token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron
         )
