@@ -57,6 +57,7 @@ from api.circulation_exceptions import *
 from api.circulation import (
     HoldInfo,
     LoanInfo,
+    FulfillmentInfo,
 )
 from api.novelist import MockNoveListAPI
 
@@ -475,6 +476,127 @@ class TestLoanController(CirculationControllerTest):
 
             eq_(409, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
+
+    def test_borrow_and_fulfill_with_streaming_delivery_mechanism(self):
+        # Create a pool with a streaming delivery mechanism
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        edition = work.presentation_edition
+        pool = work.license_pools[0]
+        pool.open_access = False
+        streaming_mech = pool.set_delivery_mechanism(
+            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+        data_source = edition.data_source
+        identifier = edition.primary_identifier
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            self.manager.circulation.queue_checkout(
+                pool,
+                LoanInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
+                )
+            )
+            response = self.manager.loans.borrow(
+                data_source.name, identifier.type, identifier.identifier)
+
+            # A loan has been created for this license pool.
+            loan = get_one(self._db, Loan, license_pool=pool)
+            assert loan != None
+            # The loan has yet to be fulfilled.
+            eq_(None, loan.fulfillment)
+
+            # We've been given an OPDS feed with two delivery mechanisms, which tell us how 
+            # to fulfill the license.
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.get_data())
+            [entry] = feed['entries']
+            fulfillment_links = [x['href'] for x in entry['links']
+                                if x['rel'] == OPDSFeed.ACQUISITION_REL]
+            [mech1, mech2] = sorted(
+                pool.delivery_mechanisms, 
+                key=lambda x: x.delivery_mechanism.is_streaming
+            )
+
+            streaming_mechanism = mech2
+
+            expects = [url_for('fulfill', data_source=data_source.name,
+                               identifier_type=identifier.type,
+                               identifier=identifier.identifier, 
+                               mechanism_id=mech.delivery_mechanism.id,
+                               _external=True) for mech in [mech1, mech2]]
+            eq_(set(expects), set(fulfillment_links))
+
+            # Now let's try to fulfill the loan using the streaming mechanism.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://streaming-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                streaming_mechanism.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_("http://streaming-content-link",
+                response.headers['Location'])
+
+            # The mechanism has not been set, since fulfilling a streaming
+            # mechanism does not lock in the format.
+            eq_(None, loan.fulfillment)
+
+            # We can still use the other mechanism too.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://other-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                mech1.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+
+            # Now the fulfillment has been set to the other mechanism.
+            eq_(mech1, loan.fulfillment)
+
+            # But we can still fulfill the streaming mechanism again.
+            self.manager.circulation.queue_fulfill(
+                pool,
+                FulfillmentInfo(
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    "http://streaming-content-link",
+                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    None,
+                    None,
+                )
+            )
+            response = self.manager.loans.fulfill(
+                data_source.name, identifier.type, identifier.identifier,
+                streaming_mechanism.delivery_mechanism.id
+            )
+            eq_(302, response.status_code)
+            eq_("http://streaming-content-link",
+                response.headers['Location'])
+
 
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
