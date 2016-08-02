@@ -194,7 +194,7 @@ class AdobeVendorIDModel(object):
     model.
     """
 
-    TEMPORARY_TOKEN_TYPE = "Temporary token for Adobe Vendor ID"
+    AUTHDATA_TOKEN_TYPE = "Authdata for Adobe Vendor ID"
     VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
     def __init__(self, _db, authenticator, node_value,
@@ -239,9 +239,10 @@ class AdobeVendorIDModel(object):
         return credential.credential, "Card number " + identifier
 
     def create_authdata(self, patron):
-        credential, is_new = Credential.temporary_token_create(
-            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE,
-            patron, self.temporary_token_duration)
+        credential, is_new = Credential.persistent_token_create(
+            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE,
+            patron
+        )
         return credential
 
     def standard_lookup(self, authorization_data):
@@ -253,29 +254,31 @@ class AdobeVendorIDModel(object):
         if (authorization_data.get('username') 
             and not authorization_data.get('password')):
             # The absence of a password indicates the username might
-            # be a temporary token smuggled to get around a broken
-            # Adobe client-side API. Try treating the 'username' as a
-            # temporary token.
-            possible_temporary_token = authorization_data['username']
-            patron = self.patron_from_authdata_lookup(possible_temporary_token)
+            # be a persistent authdata token smuggled to get around a
+            # broken Adobe client-side API. Try treating the
+            # 'username' as a token.
+            possible_authdata_token = authorization_data['username']
+            patron = self.patron_from_authdata_lookup(possible_authdata_token)
         if not patron:
-            # Either a password was provided or the temporary token
+            # Either a password was provided or the authdata token
             # lookup failed. Try a normal username/password lookup.
             patron = self.authenticator.authenticated_patron(
-                self._db, authorization_data)
+                self._db, authorization_data
+            )
         return self.uuid_and_label(patron)
 
     def patron_from_authdata_lookup(self, authdata):
-        """Look up a patron by a temporary Adobe Vendor ID token."""
-        credential = Credential.lookup_by_temporary_token(
-            self._db, self.data_source, self.TEMPORARY_TOKEN_TYPE, 
-            authdata)
+        """Look up a patron by their persistent authdata token."""
+        credential = Credential.lookup_by_token(
+            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE, 
+            authdata, allow_persistent_token=True
+        )
         if not credential:
             return None
         return credential.patron
 
     def authdata_lookup(self, authdata):
-        """Look up a patron by a temporary Adobe Vendor ID token. Return their
+        """Look up a patron by a persistent authdata token. Return their
         Vendor ID UUID and their human-readable label.
         """
         patron = self.patron_from_authdata_lookup(authdata)
@@ -286,7 +289,8 @@ class AdobeVendorIDModel(object):
     def urn_to_label(self, urn):
         credential = Credential.lookup_by_token(
             self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
-            urn, True)
+            urn, allow_persistent_token=True
+        )
         if not credential:
             return None
         patron = credential.patron

@@ -53,10 +53,10 @@ class TestVendorIDModel(DatabaseTest):
     def test_create_authdata(self):
         credential = self.model.create_authdata(self.bob_patron)
 
-        # There's now a temporary token associated with Bob's
+        # There's now a persistent token associated with Bob's
         # patron account, and that's the token returned by create_authdata()
         bob_authdata = Credential.lookup(
-            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
+            self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron, None)
         eq_(credential.credential, bob_authdata.credential)
 
@@ -74,13 +74,20 @@ class TestVendorIDModel(DatabaseTest):
         assert urn.endswith('685b35c00f05')
 
     def test_authdata_lookup_success(self):
+        
+        # Create an authdata token for Bob.
         now = datetime.datetime.utcnow()
-        temp_token, ignore = Credential.temporary_token_create(
-            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
-            self.bob_patron, datetime.timedelta(seconds=60))
-        old_expires = temp_token.expires
-        assert temp_token.expires > now
-        urn, label = self.model.authdata_lookup(temp_token.credential)
+        token, ignore = Credential.persistent_token_create(
+            self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
+            self.bob_patron
+        )
+
+        # The token is persistent.
+        eq_(None, token.expires)
+
+        # Use that token to perform a lookup of Bob's Adobe Vendor ID
+        # UUID.
+        urn, label = self.model.authdata_lookup(token.credential)
 
         # There is now a UUID associated with Bob's patron account,
         # and that's the UUID returned by standard_lookup().
@@ -90,22 +97,23 @@ class TestVendorIDModel(DatabaseTest):
         eq_(urn, bob_uuid.credential)
         eq_("Card number 5", label)
 
-        # Having been used once, the temporary token has been expired.
-        assert temp_token.expires < now
+        # The token is persistent and does not expire.
+        eq_(None, token.expires)
 
     def test_smuggled_authdata_success(self):
-        # Bob's client has created a temporary token to authenticate him.
+        # Bob's client has created a persistent token to authenticate him.
         now = datetime.datetime.utcnow()
-        temp_token, ignore = Credential.temporary_token_create(
-            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
-            self.bob_patron, datetime.timedelta(seconds=60))
+        token, ignore = Credential.persistent_token_create(
+            self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
+            self.bob_patron
+        )
 
         # But Bob's client can't trigger the operation that will cause
         # Adobe to authenticate him via that token, so it passes in
         # the token credential as the 'username' and leaves the
         # password blank.
         urn, label = self.model.standard_lookup(
-            dict(username=temp_token.credential)
+            dict(username=token.credential)
         )
 
         # There is now a UUID associated with Bob's patron account,
@@ -115,14 +123,14 @@ class TestVendorIDModel(DatabaseTest):
             self.bob_patron, None)
         eq_(urn, bob_uuid.credential)
 
-        # Having been used once, the temporary token has been expired.
-        assert temp_token.expires < now
+        # The token is persistent and will not expire or be consumed.
+        eq_(None, token.expires)
 
-        # A future attempt to authenticate with the token will fail.
+        # A future attempt to authenticate with the token will succeed.
         urn, label = self.model.standard_lookup(
-            dict(username=temp_token.credential)
+            dict(username=token.credential)
         )
-        eq_(None, urn)
+        eq_(urn, bob_uuid.credential)
 
     def test_authdata_lookup_failure_no_token(self):
         urn, label = self.model.authdata_lookup("nosuchauthdata")
@@ -130,9 +138,13 @@ class TestVendorIDModel(DatabaseTest):
         eq_(None, label)
 
     def test_authdata_lookup_failure_wrong_token(self):
-        temp_token, ignore = Credential.temporary_token_create(
-            self._db, self.data_source, self.model.TEMPORARY_TOKEN_TYPE,
-            self.bob_patron, datetime.timedelta(seconds=60))
+        # Bob has an authdata token.
+        token, ignore = Credential.persistent_token_create(
+            self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
+            self.bob_patron
+        )
+
+        # But we look up a different token and get nothing.
         urn, label = self.model.authdata_lookup("nosuchauthdata")
         eq_(None, urn)
         eq_(None, label)
