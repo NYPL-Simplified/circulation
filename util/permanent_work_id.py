@@ -21,7 +21,7 @@ class WorkIDCalculator(object):
         return permanent_id
 
     # Strings to be removed from author names.
-    authorExtract1 = re.compile("^(.+?)\\spresents.*$");
+    authorExtract1 = re.compile("^(.+?)\\spresents.*$")
     authorExtract2 = re.compile("^(?:(?:a|an)\\s)?(.+?)\\spresentation.*$")
     distributedByRemoval = re.compile("^distributed (?:in.*\\s)?by\\s(.+)$")
     initialsFix = re.compile("(?<=[A-Z])\\.(?=(\\s|[A-Z]|$))")  
@@ -169,7 +169,7 @@ class WorkIDCalculator(object):
         # groupingAuthor = RecordGroupingProcessor.mapAuthorAuthority(groupingAuthor);
         return groupingAuthor
 
-    commonSubtitlesPattern = re.compile("^(.*?)((a|una)\\s(.*)novel(a|la)?|a(.*)memoir|a(.*)mystery|a(.*)thriller|by\\s(.+)|a novel of .*|stories|an autobiography|a biography|a memoir in books|\\d+\S*\s*ed(ition)?|\\d+\S*\s*update|1st\\s+ed.*|an? .* story|a .*\\s?book|poems|the movie|[\\w\\s]+series book \\d+|[\\w\\s]+trilogy book \\d+|large print|graphic novel|magazine|audio cd)$", re.U);
+    commonSubtitlesPattern = re.compile("^(.*?)((a|una)\\s(.*)novel(a|la)?|a(.*)memoir|a(.*)mystery|a(.*)thriller|by\\s(.+)|a novel of .*|stories|an autobiography|a biography|a memoir in books|\\d+\S*\s*ed(ition)?|\\d+\S*\s*update|1st\\s+ed.*|an? .* story|a .*\\s?book|poems|the movie|[\\w\\s]+series book \\d+|[\\w\\s]+trilogy book \\d+|large print|graphic novel|magazine|audio cd)$", re.U)
 
     numerics = []
     for find, replace in (
@@ -178,6 +178,7 @@ class WorkIDCalculator(object):
             ("7th", "seventh"), ("8th", "eighth"), ("9th", "ninth"),
             ("10th", "tenth")):
         numerics.append((re.compile(find), replace))
+
 
     @classmethod
     def normalize_subtitle(cls, original_title):
@@ -206,9 +207,17 @@ class WorkIDCalculator(object):
         subtitle = subtitle[:175].strip()
         return subtitle
 
-    subtitleIndicator = re.compile("[:;/=]") ;
+    subtitleIndicator = re.compile("[:;/=]")
+
+
     @classmethod
     def normalize_title(cls, full_title, num_non_filing_characters=0):
+        """
+        Converts to NFKD unicode.
+        Strips bracket, special characters.
+        Splits into title and subtitle portions (normalizes subtitle).
+        Lowercases.
+        """
         if full_title is None:
             full_title = u''
         full_title = unicodedata.normalize("NFKD", full_title)
@@ -231,7 +240,7 @@ class WorkIDCalculator(object):
             tmp_title = cls.specialCharacterStrip.sub(" ", tmp_title)
             tmp_title = tmp_title.lower().strip()
         if len(tmp_title) > 0:
-            title = tmp_title;
+            title = tmp_title
         else:
             # print "Just saved us from trimming %s to nothing" % full_title
             title = cls.specialCharacterStrip.sub(
@@ -253,8 +262,8 @@ class WorkIDCalculator(object):
         title = cls.initialsFix.sub(" ", title)
 
         # Replace '&' with 'and' for better matching
-        title = title.replace("&#8211;", "-");
-        title = title.replace("&", "and");
+        title = title.replace("&#8211;", "-")
+        title = title.replace("&", "and")
 
         # Remove some common subtitles that are meaningless (do again here in case they were part of the title).
         match = cls.commonSubtitlesPattern.search(title)
