@@ -5,13 +5,12 @@ from nose.tools import (
 )
 
 from api.firstbook import (
-    BrokenFirstBookAuthentationAPI
     DummyFirstBookAuthentationAPI,
 )
 
-#from api.circulation_exceptions import (
-#    RemoteInitiatedServerError
-#)
+from api.circulation_exceptions import (
+    RemoteInitiatedServerError
+)
 
 class TestFirstBook(object):
     
@@ -40,7 +39,16 @@ class TestFirstBook(object):
     def test_broken_service_pintest(self):
         api = DummyFirstBookAuthentationAPI(failure_status_code=502)
         assert_raises_regexp(
-            RemoteInitiatedServerError, "blah",
+            RemoteInitiatedServerError, 
+            "Got unexpected response code 502. Content: Error 502",
+            api.pintest, "key", "pin"
+        )
+    
+    def test_bad_connection_pintest(self):
+        api = DummyFirstBookAuthentationAPI(bad_connection=True)
+        assert_raises_regexp(
+            RemoteInitiatedServerError, 
+            "Could not connect!",
             api.pintest, "key", "pin"
         )
     

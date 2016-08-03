@@ -119,7 +119,9 @@ class DummyFirstBookAuthentationAPI(FirstBookAuthenticationAPI):
             raise requests.exceptions.ConnectionError("Could not connect!")
         elif self.failure_status_code:
             # Simulate a server returning an unexpected error code.
-            return DummyFirstBookResponse(self.failure_status_code)
+            return DummyFirstBookResponse(
+                self.failure_status_code, "Error %s" % self.failure_status_code
+            )
         qa = urlparse.parse_qs(url)
         if 'accesscode' in qa and 'pin' in qa:
             [code] = qa['accesscode']
