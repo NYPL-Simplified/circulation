@@ -59,12 +59,12 @@ class FirstBookAuthenticationAPI(BasicAuthAuthenticator):
         try:
             response = self.request(url)
         except requests.exceptions.ConnectionError, e:
-            raise RemoteInitiatedServerError(str(e.message))
+            raise RemoteInitiatedServerError(str(e.message), self.NAME)
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
                 response.status_code, response.content
             )
-            raise RemoteInitiatedServerError(msg)
+            raise RemoteInitiatedServerError(msg, self.NAME)
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
@@ -106,11 +106,22 @@ class DummyFirstBookAuthentationAPI(FirstBookAuthenticationAPI):
     SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
-    def __init__(self, valid={}):
+    def __init__(self, valid={}, bad_connection=False, 
+                 failure_status_code=None):
         self.root = "http://example.com/"
         self.valid = valid
+        self.bad_connection = bad_connection
+        self.failure_status_code = failure_status_code
 
     def request(self, url):
+        if self.bad_connection:
+            # Simulate a bad connection.
+            raise requests.exceptions.ConnectionError("Could not connect!")
+        elif self.failure_status_code:
+            # Simulate a server returning an unexpected error code.
+            return DummyFirstBookResponse(
+                self.failure_status_code, "Error %s" % self.failure_status_code
+            )
         qa = urlparse.parse_qs(url)
         if 'accesscode' in qa and 'pin' in qa:
             [code] = qa['accesscode']
@@ -119,6 +130,5 @@ class DummyFirstBookAuthentationAPI(FirstBookAuthenticationAPI):
                 return DummyFirstBookResponse(200, self.SUCCESS)
             else:
                 return DummyFirstBookResponse(200, self.FAILURE)
-
 
 AuthenticationAPI = FirstBookAuthenticationAPI
