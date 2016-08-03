@@ -239,6 +239,9 @@ class HeartbeatController(object):
 
 
 class URNLookupController(object):
+    """A generic controller that takes URNs as input and looks up their
+    OPDS entries.
+    """
 
     UNRECOGNIZED_IDENTIFIER = "I've never heard of this work."
     UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
@@ -247,14 +250,12 @@ class URNLookupController(object):
     IDENTIFIER_REGISTERED = "You're the first one to ask about this identifier. I'll try to find out about it."
     WORKING_TO_RESOLVE_IDENTIFIER = "I'm working to locate a source for this identifier."
 
-    def __init__(self, _db, can_resolve_identifiers=False):
+    def __init__(self, _db):
         self._db = _db
         self.works = []
         self.messages_by_urn = dict()
         self.precomposed_entries = []
         self.unresolved_identifiers = []
-        self.can_resolve_identifiers = can_resolve_identifiers
-        self.content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
 
     @classmethod
     def parse_urn(self, _db, urn, must_support_metadata=True):
@@ -268,6 +269,14 @@ class URNLookupController(object):
         if not must_support_metadata:
             return identifier
 
+        # The default implementation can only resolve Identifiers that
+        # might support a license pool.
+        source = DataSource.license_sources_for(_db, identifier)
+        if source.count() > 0:
+            return identifier
+
+        return (400, self.UNRESOLVABLE_URN)
+
         # We support any identifier that can support a metadata
         # lookup.
         if DataSource.metadata_sources_for(_db, identifier):
@@ -275,11 +284,6 @@ class URNLookupController(object):
 
         # Failing that, we support any identifier that can support a
         # license pool.
-        source = DataSource.license_sources_for(_db, identifier)
-        if source.count() > 0:
-            return identifier
-
-        return (400, self.UNRESOLVABLE_URN)
 
     def process_urn(self, urn, collection=None):
         """Turn a URN into a Work suitable for use in an OPDS feed.
