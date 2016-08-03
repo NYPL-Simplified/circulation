@@ -1,9 +1,17 @@
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
 
-from api.firstbook import DummyFirstBookAuthentationAPI
+from api.firstbook import (
+    BrokenFirstBookAuthentationAPI
+    DummyFirstBookAuthentationAPI,
+)
+
+#from api.circulation_exceptions import (
+#    RemoteInitiatedServerError
+#)
 
 class TestFirstBook(object):
     
@@ -28,4 +36,11 @@ class TestFirstBook(object):
 
     def test_patron_info(self):
         eq_("1234", self.api.patron_info("1234").get('barcode'))
+
+    def test_broken_service_pintest(self):
+        api = DummyFirstBookAuthentationAPI(failure_status_code=502)
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "blah",
+            api.pintest, "key", "pin"
+        )
     
