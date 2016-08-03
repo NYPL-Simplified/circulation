@@ -930,6 +930,7 @@ class ThreeMClassifier(Classifier):
             "Unicorns & Mythical/"
         ],
         Folklore : [
+            "Fables",
             "Legends, Myths, Fables",
             "Fairy Tales & Folklore",
         ],
@@ -2842,6 +2843,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
 
         Games : match_kw(
             Eg("games.*fantasy")
+        ),
+
+        Historical_Fiction : match_kw(
+            Eg("arthurian romance.*"), # This is "romance" in the old
+                                       # sense of a story.
         ),
 
         Literary_Criticism : match_kw(

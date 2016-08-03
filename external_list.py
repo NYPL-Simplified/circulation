@@ -178,7 +178,7 @@ class TitleFromExternalList(object):
             if list_entry.first_appearance:
                 self.log.info(
                     "I thought %s first showed up at %s, but then I saw it earlier, at %s!",
-                    self.title, list_entry.first_appearance, 
+                    self.metadata.title, list_entry.first_appearance, 
                     self.first_appearance
                 )
             list_entry.first_appearance = self.first_appearance

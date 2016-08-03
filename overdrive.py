@@ -67,6 +67,7 @@ class OverdriveAPI(object):
     EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
     AVAILABILITY_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(product_id)s/availability"
 
+    PATRON_INFORMATION_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me"
     CHECKOUTS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts"
     CHECKOUT_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s"
     FORMATS_ENDPOINT = "https://patron.api.overdrive.com/v1/patrons/me/checkouts/%(overdrive_id)s/formats"
@@ -592,7 +593,7 @@ class OverdriveRepresentationExtractor(object):
 
 
     @classmethod
-    def book_info_to_metadata(cls, book):
+    def book_info_to_metadata(cls, book, include_bibliographic=True, include_formats=True):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
 
@@ -606,261 +607,269 @@ class OverdriveRepresentationExtractor(object):
             Identifier.OVERDRIVE_ID, overdrive_id
         )
 
-        title = book.get('title', None)
-        sort_title = book.get('sortTitle')
-        subtitle = book.get('subtitle', None)
-        series = book.get('series', None)
-        publisher = book.get('publisher', None)
-        imprint = book.get('imprint', None)
+        if include_bibliographic:
+            title = book.get('title', None)
+            sort_title = book.get('sortTitle')
+            subtitle = book.get('subtitle', None)
+            series = book.get('series', None)
+            publisher = book.get('publisher', None)
+            imprint = book.get('imprint', None)
 
-        if 'publishDate' in book:
-            published = datetime.datetime.strptime(
-                book['publishDate'][:10], cls.DATE_FORMAT)
-        else:
-            published = None
+            if 'publishDate' in book:
+                published = datetime.datetime.strptime(
+                    book['publishDate'][:10], cls.DATE_FORMAT)
+            else:
+                published = None
 
-        languages = [l['code'] for l in book.get('languages', [])]
-        if 'eng' in languages or not languages:
-            language = 'eng'
-        else:
-            language = sorted(languages)[0]
+            languages = [l['code'] for l in book.get('languages', [])]
+            if 'eng' in languages or not languages:
+                language = 'eng'
+            else:
+                language = sorted(languages)[0]
 
-        contributors = []
-        for creator in book.get('creators', []):
-            sort_name = creator['fileAs']
-            display_name = creator['name']
-            role = creator['role']
-            roles = cls.parse_roles(overdrive_id, role) or [Contributor.UNKNOWN_ROLE]
-            contributor = ContributorData(
-                sort_name=sort_name, display_name=display_name,
-                roles=roles, biography = creator.get('bioText', None)
-            )
-            contributors.append(contributor)
+            contributors = []
+            for creator in book.get('creators', []):
+                sort_name = creator['fileAs']
+                display_name = creator['name']
+                role = creator['role']
+                roles = cls.parse_roles(overdrive_id, role) or [Contributor.UNKNOWN_ROLE]
+                contributor = ContributorData(
+                    sort_name=sort_name, display_name=display_name,
+                    roles=roles, biography = creator.get('bioText', None)
+                )
+                contributors.append(contributor)
 
-        subjects = []
-        for sub in book.get('subjects', []):
-            subject = SubjectData(
-                type=Subject.OVERDRIVE, identifier=sub['value'],
-                weight=100
-            )
-            subjects.append(subject)
-
-        for sub in book.get('keywords', []):
-            subject = SubjectData(
-                type=Subject.TAG, identifier=sub['value'],
-                weight=1
-            )
-            subjects.append(subject)
-
-        extra = dict()
-        if 'grade_levels' in book:
-            # n.b. Grade levels are measurements of reading level, not
-            # age appropriateness. We can use them as a measure of age
-            # appropriateness in a pinch, but we weight them less
-            # heavily than other information from Overdrive.
-            for i in book['grade_levels']:
+            subjects = []
+            for sub in book.get('subjects', []):
                 subject = SubjectData(
-                    type=Subject.GRADE_LEVEL,
-                    identifier=i['value'],
-                    weight=10
+                    type=Subject.OVERDRIVE, identifier=sub['value'],
+                    weight=100
                 )
                 subjects.append(subject)
 
-        overdrive_medium = book.get('mediaType', None)
-        if overdrive_medium and overdrive_medium not in cls.overdrive_medium_to_simplified_medium:
-            cls.log.error(
-                "Could not process medium %s for %s", overdrive_medium, overdrive_id)
+            for sub in book.get('keywords', []):
+                subject = SubjectData(
+                    type=Subject.TAG, identifier=sub['value'],
+                    weight=1
+                )
+                subjects.append(subject)
 
-        medium = cls.overdrive_medium_to_simplified_medium.get(
-            overdrive_medium, Edition.BOOK_MEDIUM
-        )
-        formats = []
-        for format in book.get('formats', []):
-            format_id = format['id']
-            if format_id in cls.format_data_for_overdrive_format:
-                content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format_id)
-                formats.append(FormatData(content_type, drm_scheme))
-            elif format_id not in cls.ignorable_overdrive_formats:
+            extra = dict()
+            if 'grade_levels' in book:
+                # n.b. Grade levels are measurements of reading level, not
+                # age appropriateness. We can use them as a measure of age
+                # appropriateness in a pinch, but we weight them less
+                # heavily than other information from Overdrive.
+                for i in book['grade_levels']:
+                    subject = SubjectData(
+                        type=Subject.GRADE_LEVEL,
+                        identifier=i['value'],
+                        weight=10
+                    )
+                    subjects.append(subject)
+
+            overdrive_medium = book.get('mediaType', None)
+            if overdrive_medium and overdrive_medium not in cls.overdrive_medium_to_simplified_medium:
                 cls.log.error(
-                    "Could not process Overdrive format %s for %s", 
-                    format_id, overdrive_id
-                )
-
-            if format_id.startswith('audiobook-'):
-                medium = Edition.AUDIO_MEDIUM
-            elif format_id.startswith('video-'):
-                medium = Edition.VIDEO_MEDIUM
-            elif format_id.startswith('ebook-'):
-                medium = Edition.BOOK_MEDIUM
-            elif format_id.startswith('music-'):
-                medium = Edition.MUSIC_MEDIUM
-            else:
-                cls.log.warn("Unfamiliar format: %s", format_id)
-
-        measurements = []
-        if 'awards' in book:
-            extra['awards'] = book.get('awards', [])
-            num_awards = len(extra['awards'])
-            measurements.append(
-                MeasurementData(
-                    Measurement.AWARDS, str(num_awards)
-                )
+                    "Could not process medium %s for %s", overdrive_medium, overdrive_id)
+                
+            medium = cls.overdrive_medium_to_simplified_medium.get(
+                overdrive_medium, Edition.BOOK_MEDIUM
             )
 
-        for name, subject_type in (
+            measurements = []
+            if 'awards' in book:
+                extra['awards'] = book.get('awards', [])
+                num_awards = len(extra['awards'])
+                measurements.append(
+                    MeasurementData(
+                        Measurement.AWARDS, str(num_awards)
+                    )
+                )
+
+            for name, subject_type in (
                 ('ATOS', Subject.ATOS_SCORE),
                 ('lexileScore', Subject.LEXILE_SCORE),
                 ('interestLevel', Subject.INTEREST_LEVEL)
-        ):
-            if not name in book:
-                continue
-            identifier = str(book[name])
-            subjects.append(
-                SubjectData(type=subject_type, identifier=identifier,
-                            weight=100
-                        )
-            )
-
-        for grade_level_info in book.get('gradeLevels', []):
-            grade_level = grade_level_info.get('value')
-            subjects.append(
-                SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level,
-                            weight=100)
-            )
-
-        identifiers = []
-        links = []
-        for format in book.get('formats', []):
-            for new_id in format.get('identifiers', []):
-                t = new_id['type']
-                v = new_id['value']
-                type_key = None
-                if t == 'ASIN':
-                    type_key = Identifier.ASIN
-                elif t == 'ISBN':
-                    type_key = Identifier.ISBN
-                    if len(v) == 10:
-                        v = isbnlib.to_isbn13(v)
-                elif t == 'DOI':
-                    type_key = Identifier.DOI
-                elif t == 'UPC':
-                    type_key = Identifier.UPC
-                elif t == 'PublisherCatalogNumber':
+            ):
+                if not name in book:
                     continue
-                if type_key and v:
-                    identifiers.append(
-                        IdentifierData(type_key, v, 1)
-                    )
-
-            # Samples become links.
-            if 'samples' in format:
-
-                if not format['id'] in cls.format_data_for_overdrive_format:
-                    # Useless to us.
-                    continue
-                content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format['id'])
-                if Representation.is_media_type(content_type):
-                    for sample_info in format['samples']:
-                        href = sample_info['url']
-                        links.append(
-                            LinkData(
-                                rel=Hyperlink.SAMPLE, 
-                                href=href,
-                                media_type=content_type
+                identifier = str(book[name])
+                subjects.append(
+                    SubjectData(type=subject_type, identifier=identifier,
+                                weight=100
                             )
+                )
+
+            for grade_level_info in book.get('gradeLevels', []):
+                grade_level = grade_level_info.get('value')
+                subjects.append(
+                    SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level,
+                                weight=100)
+                )
+
+            identifiers = []
+            links = []
+            for format in book.get('formats', []):
+                for new_id in format.get('identifiers', []):
+                    t = new_id['type']
+                    v = new_id['value']
+                    type_key = None
+                    if t == 'ASIN':
+                        type_key = Identifier.ASIN
+                    elif t == 'ISBN':
+                        type_key = Identifier.ISBN
+                        if len(v) == 10:
+                            v = isbnlib.to_isbn13(v)
+                    elif t == 'DOI':
+                        type_key = Identifier.DOI
+                    elif t == 'UPC':
+                        type_key = Identifier.UPC
+                    elif t == 'PublisherCatalogNumber':
+                        continue
+                    if type_key and v:
+                        identifiers.append(
+                            IdentifierData(type_key, v, 1)
                         )
 
-        # A cover and its thumbnail become a single LinkData.
-        if 'images' in book:
-            images = book['images']
-            image_data = cls.image_link_to_linkdata(
-                images.get('cover'), Hyperlink.IMAGE
-            )
-            for name in ['cover300Wide', 'cover150Wide', 'thumbnail']:
-                # Try to get a thumbnail that's as close as possible
-                # to the size we use.
-                image = images.get(name)
-                thumbnail_data = cls.image_link_to_linkdata(
-                    image, Hyperlink.THUMBNAIL_IMAGE
+                # Samples become links.
+                if 'samples' in format:
+
+                    if not format['id'] in cls.format_data_for_overdrive_format:
+                        # Useless to us.
+                        continue
+                    content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format['id'])
+                    if Representation.is_media_type(content_type):
+                        for sample_info in format['samples']:
+                            href = sample_info['url']
+                            links.append(
+                                LinkData(
+                                    rel=Hyperlink.SAMPLE, 
+                                    href=href,
+                                    media_type=content_type
+                                )
+                            )
+
+            # A cover and its thumbnail become a single LinkData.
+            if 'images' in book:
+                images = book['images']
+                image_data = cls.image_link_to_linkdata(
+                    images.get('cover'), Hyperlink.IMAGE
                 )
-                if not image_data:
-                    image_data = cls.image_link_to_linkdata(
-                        image, Hyperlink.IMAGE
+                for name in ['cover300Wide', 'cover150Wide', 'thumbnail']:
+                    # Try to get a thumbnail that's as close as possible
+                    # to the size we use.
+                    image = images.get(name)
+                    thumbnail_data = cls.image_link_to_linkdata(
+                        image, Hyperlink.THUMBNAIL_IMAGE
                     )
-                if thumbnail_data:
-                    break
+                    if not image_data:
+                        image_data = cls.image_link_to_linkdata(
+                            image, Hyperlink.IMAGE
+                        )
+                    if thumbnail_data:
+                        break
 
-            if image_data:
-                if thumbnail_data:
-                    image_data.thumbnail = thumbnail_data
-                links.append(image_data)
+                if image_data:
+                    if thumbnail_data:
+                        image_data.thumbnail = thumbnail_data
+                    links.append(image_data)
 
-        # Descriptions become links.
-        short = book.get('shortDescription')
-        full = book.get('fullDescription')
-        if full:
-            links.append(
-                LinkData(
-                    rel=Hyperlink.DESCRIPTION,
-                    content=full,
-                    media_type="text/html",
+            # Descriptions become links.
+            short = book.get('shortDescription')
+            full = book.get('fullDescription')
+            if full:
+                links.append(
+                    LinkData(
+                        rel=Hyperlink.DESCRIPTION,
+                        content=full,
+                        media_type="text/html",
+                    )
                 )
+
+            if short and (not full or not full.startswith(short)):
+                links.append(
+                    LinkData(
+                        rel=Hyperlink.SHORT_DESCRIPTION,
+                        content=short,
+                        media_type="text/html",
+                    )
+                ) 
+
+            # Add measurements: rating and popularity
+            if book.get('starRating') is not None and book['starRating'] > 0:
+                measurements.append(
+                    MeasurementData(
+                        quantity_measured=Measurement.RATING,
+                        value=book['starRating']
+                    )
+                )
+
+            if book.get('popularity'):
+                measurements.append(
+                    MeasurementData(
+                        quantity_measured=Measurement.POPULARITY,
+                        value=book['popularity']
+                    )
+                )
+
+            metadata = Metadata(
+                data_source=DataSource.OVERDRIVE,
+                title=title,
+                subtitle=subtitle,
+                sort_title=sort_title,
+                language=language,
+                medium=medium,
+                series=series,
+                publisher=publisher,
+                imprint=imprint,
+                published=published,            
+                primary_identifier=primary_identifier,
+                identifiers=identifiers,
+                subjects=subjects,
+                contributors=contributors,
+                measurements=measurements,
+                links=links,
+            )
+        else:
+            metadata = Metadata(
+                data_source=DataSource.OVERDRIVE,
+                primary_identifier=primary_identifier,
             )
 
-        if short and (not full or not full.startswith(short)):
-            links.append(
-                LinkData(
-                    rel=Hyperlink.SHORT_DESCRIPTION,
-                    content=short,
-                    media_type="text/html",
-                )
+        if include_formats:
+            formats = []
+            for format in book.get('formats', []):
+                format_id = format['id']
+                if format_id in cls.format_data_for_overdrive_format:
+                    content_type, drm_scheme = cls.format_data_for_overdrive_format.get(format_id)
+                    formats.append(FormatData(content_type, drm_scheme))
+                elif format_id not in cls.ignorable_overdrive_formats:
+                    cls.log.error(
+                        "Could not process Overdrive format %s for %s", 
+                        format_id, overdrive_id
+                    )
+
+                if format_id.startswith('audiobook-'):
+                    medium = Edition.AUDIO_MEDIUM
+                elif format_id.startswith('video-'):
+                    medium = Edition.VIDEO_MEDIUM
+                elif format_id.startswith('ebook-'):
+                    medium = Edition.BOOK_MEDIUM
+                elif format_id.startswith('music-'):
+                    medium = Edition.MUSIC_MEDIUM
+                else:
+                    cls.log.warn("Unfamiliar format: %s", format_id)
+
+
+            # Also make a CirculationData so we can write the formats, 
+            circulationdata = CirculationData(
+                data_source=DataSource.OVERDRIVE,
+                primary_identifier=primary_identifier,
+                formats=formats,
             )
 
-        # Add measurements: rating and popularity
-        if book.get('starRating') is not None and book['starRating'] > 0:
-            measurements.append(
-                MeasurementData(
-                    quantity_measured=Measurement.RATING,
-                    value=book['starRating']
-                )
-            )
-
-        if book.get('popularity'):
-            measurements.append(
-                MeasurementData(
-                    quantity_measured=Measurement.POPULARITY,
-                    value=book['popularity']
-                )
-            )
-
-        metadata = Metadata(
-            data_source=DataSource.OVERDRIVE,
-            title=title,
-            subtitle=subtitle,
-            sort_title=sort_title,
-            language=language,
-            medium=medium,
-            series=series,
-            publisher=publisher,
-            imprint=imprint,
-            published=published,            
-            primary_identifier=primary_identifier,
-            identifiers=identifiers,
-            subjects=subjects,
-            contributors=contributors,
-            measurements=measurements,
-            links=links,
-        )
-
-        # Also make a CirculationData so we can write the formats, 
-        circulationdata = CirculationData(
-            data_source=DataSource.OVERDRIVE,
-            primary_identifier=primary_identifier,
-            formats=formats,
-            links=links,
-        )
-
-        metadata.circulation = circulationdata
+            metadata.circulation = circulationdata
 
         return metadata
 

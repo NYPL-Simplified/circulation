@@ -38,13 +38,16 @@ from lane import (
 )
 
 from opds import (    
+    AcquisitionFeed,
+    Annotator,
+    LookupAcquisitionFeed,
+    UnfulfillableWork,
+    VerboseAnnotator,
+)
+
+from util.opds_writer import (    
      AtomFeed,
-     AcquisitionFeed,
-     Annotator,
-     LookupAcquisitionFeed,
      OPDSFeed,
-     VerboseAnnotator,
-     simplified_ns,
 )
 
 from classifier import (
@@ -139,6 +142,81 @@ class TestAnnotatorWithGroup(TestAnnotator):
 
     def top_level_title(self):
         return "Test Top Level Title"
+
+
+class UnfulfillableAnnotator(TestAnnotator):
+    """Raise an UnfulfillableWork exception when asked to annotate an entry."""
+
+    @classmethod
+    def annotate_work_entry(self, *args, **kwargs):
+        raise UnfulfillableWork()
+
+
+class TestBaseAnnotator(DatabaseTest):
+
+    def test_active_licensepool_for_ignores_superceded_licensepools(self):
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        [pool1] = work.license_pools
+        edition, pool2 = self._edition(with_license_pool=True)
+        work.license_pools.append(pool2)
+
+        # Start off with neither LicensePool being open-access. pool1
+        # will become open-access later on, which is why we created an
+        # open-access download for it.
+        pool1.open_access = False
+        pool1.licenses_owned = 1
+
+        pool2.open_access = False
+        pool2.licenses_owned = 1
+
+        # If there are multiple non-superceded non-open-access license
+        # pools for a work, the active license pool is one of them,
+        # though we don't really know or care which one.
+        assert Annotator.active_licensepool_for(work) is not None
+
+        # Neither license pool is open-access, and pool1 is superceded.
+        # The active license pool is pool2.
+        pool1.superceded = True
+        eq_(pool2, Annotator.active_licensepool_for(work))
+
+        # pool2 is superceded and pool1 is not. The active licensepool
+        # is pool1.
+        pool1.superceded = False
+        pool2.superceded = True
+        eq_(pool1, Annotator.active_licensepool_for(work))
+
+        # If both license pools are superceded, there is no active license
+        # pool for the book.
+        pool1.superceded = True
+        eq_(None, Annotator.active_licensepool_for(work))
+        pool1.superceded = False
+        pool2.superceded = False
+
+        # If one license pool is open-access and the other is not, the
+        # open-access pool wins.
+        pool1.open_access = True
+        eq_(pool1, Annotator.active_licensepool_for(work))
+        pool1.open_access = False
+        
+        # pool2 is open-access but has no usable download. The other
+        # pool wins.
+        pool2.open_access = True
+        eq_(pool1, Annotator.active_licensepool_for(work))
+        pool2.open_access = False
+
+        # If one license pool has no owned licenses and the other has
+        # owned licenses, the one with licenses wins.
+        pool1.licenses_owned = 0
+        pool2.licenses_owned = 1
+        eq_(pool2, Annotator.active_licensepool_for(work))
+        pool1.licenses_owned = 1
+
+        # If one license pool has a presentation edition that's missing
+        # a title, and the other pool has a presentation edition with a title,
+        # the one with a title wins.
+        pool2.presentation_edition.title = None
+        eq_(pool1, Annotator.active_licensepool_for(work))
 
 
 class TestAnnotators(DatabaseTest):
@@ -701,14 +779,21 @@ class TestOPDS(DatabaseTest):
         not_open_access.license_pools[0].open_access = False
         self._db.commit()
 
-        # We get a feed with only one entry--the one with an open-access
-        # license pool and an associated download.
+        # We get a feed with two entries--the open-access book and
+        # the non-open-access book--and two error messages--the book with
+        # no license pool and the book but with no download.
         works = self._db.query(Work)
         by_title = AcquisitionFeed(self._db, "test", "url", works)
         by_title = feedparser.parse(unicode(by_title))
-        eq_(2, len(by_title['entries']))
+
+        eq_(4, len(by_title['entries']))
         eq_(["not open access", "open access"], sorted(
-            [x['title'] for x in by_title['entries']]))
+            [x['title'] for x in by_title['entries'] if 'title' in x]))
+
+        errors = [x['simplified_message'] for x in by_title['entries']
+                  if 'title' not in x]
+        expect = [u"I've heard about this work but have no active licenses for it."] * 2
+        eq_(expect, errors)
 
     def test_acquisition_feed_includes_image_links(self):
         lane=self.lanes.by_languages['']['Fantasy']
@@ -728,17 +813,18 @@ class TestOPDS(DatabaseTest):
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
                           with_open_access_download=True)
-        work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
-        work.presentation_edition.cover_full_url = "http://full/a"
+        work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
+        work.presentation_edition.cover_full_url = "http://full.com/a"
 
         with temp_config() as config:
             config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            config['integrations'][Configuration.CDN_INTEGRATION][Configuration.CDN_BOOK_COVERS] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['thumbnail.com'] = "http://foo/"
+            config['integrations'][Configuration.CDN_INTEGRATION]['full.com'] = "http://bar/"
             work.calculate_opds_entries(verbose=False)
             feed = feedparser.parse(work.simple_opds_entry)
             links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
                             'image' in x['rel']])
-            eq_(['http://foo/a', 'http://foo/b'], links)
+            eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include messages (with HTTP-style status code)
@@ -804,7 +890,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(cached_works.content)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
@@ -873,7 +959,7 @@ class TestOPDS(DatabaseTest):
             # The feed has breadcrumb links
             ancestors = fantasy_lane.visible_ancestors()
             root = ET.fromstring(cached_groups.content)
-            breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+            breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
             links = breadcrumbs.getchildren()
             eq_(len(ancestors) + 1, len(links))
             eq_(annotator.top_level_title(), links[0].get("title"))
@@ -972,7 +1058,7 @@ class TestOPDS(DatabaseTest):
         # The feed has breadcrumb links
         ancestors = fantasy_lane.visible_ancestors()
         root = ET.fromstring(feed)
-        breadcrumbs = root.find("{%s}breadcrumbs" % simplified_ns)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 2, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
@@ -1060,6 +1146,32 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         eq_(entry, None)
 
+    def test_error_when_work_has_no_licensepool(self):
+        work = self._work()
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        entry = feed.create_entry(work, self._url)
+        expect = AcquisitionFeed.error_message(
+            work.presentation_edition.primary_identifier,
+            403,
+            "I've heard about this work but have no active licenses for it.",
+        )
+        eq_(etree.tostring(expect), etree.tostring(entry))
+
+    def test_error_when_work_has_no_presentation_edition(self):
+        """We cannot create an OPDS entry (or even an error message) for a
+        Work that is disconnected from any Identifiers.
+        """
+        work = self._work(title=u"Hello, World!", with_license_pool=True)
+        work.license_pools[0].presentation_edition = None
+        work.presentation_edition = None
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        entry = feed.create_entry(work, self._url)
+        eq_(None, entry)
+
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1088,15 +1200,41 @@ class TestAcquisitionFeed(DatabaseTest):
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
 
+    def test_exception_during_entry_creation_is_not_reraised(self):
+        # This feed will raise an exception whenever it's asked
+        # to create an entry.
+        class DoomedFeed(AcquisitionFeed):
+            def _create_entry(self, *args, **kwargs):
+                raise Exception("I'm doomed!")
+        feed = DoomedFeed(
+            self._db, self._str, self._url, [], annotator=Annotator
+        )
+        work = self._work(with_open_access_download=True)
 
+        # But calling create_entry() doesn't raise an exception, it
+        # just returns None.
+        entry = feed.create_entry(work, self._url)
+        eq_(entry, None)
+
+    def test_unfilfullable_work(self):
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, UnfulfillableAnnotator
+        )
+        expect = AcquisitionFeed.error_message(
+            pool.identifier, 403, 
+            "I know about this work but can offer no way of fulfilling it."
+        )
+        assert etree.tostring(expect) in etree.tostring(entry)
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
-    def entry(self, identifier, work, **kwargs):
+    def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
         """Helper method to create an entry."""
         feed = LookupAcquisitionFeed(
             self._db, u"Feed Title", "http://whatever.io", [],
-            annotator=VerboseAnnotator, **kwargs
+            annotator=annotator, **kwargs
         )
         entry = feed.create_entry((identifier, work), u"http://lane/")
         if entry:
@@ -1179,3 +1317,14 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         assert 'simplified:status_code' not in entry
         assert work.title in entry
+
+    def test_unfilfullable_work(self):
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        feed, entry = self.entry(pool.identifier, work, 
+                                 UnfulfillableAnnotator)
+        expect = AcquisitionFeed.error_message(
+            pool.identifier, 403, 
+            "I know about this work but can offer no way of fulfilling it."
+        )
+        assert etree.tostring(expect) in entry

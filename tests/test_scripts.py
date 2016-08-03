@@ -23,6 +23,9 @@ from scripts import (
     WorkProcessingScript,
     MockStdin,
 )
+from util.opds_writer import (
+    OPDSFeed,
+)
 
 class TestScript(DatabaseTest):
 

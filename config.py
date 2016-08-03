@@ -6,7 +6,6 @@ import json
 import logging
 import copy
 from facets import FacetConstants as Facets
-from analytics import Analytics
 from util import LanguageCodes
 
 class CannotLoadConfiguration(Exception):
@@ -148,9 +147,6 @@ class Configuration(object):
     S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
 
     CDN_INTEGRATION = "CDN"
-    CDN_BOOK_COVERS = "book_covers"
-    CDN_OPDS_FEEDS = "opds"
-    CDN_OPEN_ACCESS_CONTENT = "open_access_books"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
@@ -203,9 +199,8 @@ class Configuration(object):
         return v
 
     @classmethod
-    def cdn_host(cls, type):
-        integration = cls.integration(cls.CDN_INTEGRATION)
-        return integration.get(type)
+    def cdns(cls):
+        return cls.integration(cls.CDN_INTEGRATION)
 
     @classmethod
     def s3_bucket(cls, bucket_name):
@@ -317,13 +312,6 @@ class Configuration(object):
         return [LanguageCodes.three_to_two[l] for l in languages]
     
     @classmethod
-    def collect_analytics_event(cls, _db, license_pool, event_type, time, **kwargs):
-        cls.instance[cls.POLICIES][cls.ANALYTICS_POLICY].collect_event(
-            _db, license_pool, event_type, time, **kwargs)
-
-    # Methods for loading the configuration from disk.
-
-    @classmethod
     def load(cls):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
@@ -345,9 +333,4 @@ class Configuration(object):
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n") if not x.strip().startswith("#")]
-        config = json.loads("\n".join(lines))
-        if not config.get(cls.POLICIES):
-            config[cls.POLICIES] = {}
-        providers = config[cls.POLICIES].get(cls.ANALYTICS_POLICY, [])
-        config[cls.POLICIES][cls.ANALYTICS_POLICY] = Analytics.initialize(providers, config)
-        return config
+        return json.loads("\n".join(lines))

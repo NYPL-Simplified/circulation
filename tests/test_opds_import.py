@@ -1,6 +1,7 @@
 import os
 import datetime
 from StringIO import StringIO
+from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,
@@ -171,6 +172,22 @@ class TestOPDSImporter(OPDSImporterTest):
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
+    def test_extract_link(self):
+        E = builder.ElementMaker()
+        no_rel = E.link(href="http://foo/")
+        eq_(None, OPDSImporter.extract_link(no_rel))
+
+        no_href = E.link(href="", rel="foo")
+        eq_(None, OPDSImporter.extract_link(no_href))
+
+        good = E.link(href="http://foo", rel="bar")
+        link = OPDSImporter.extract_link(good)
+        eq_("http://foo", link.href)
+        eq_("bar", link.rel)
+
+        relative = E.link(href="/foo/bar", rel="self")
+        link = OPDSImporter.extract_link(relative, "http://server")
+        eq_("http://server/foo/bar", link.href)
 
     def test_extract_metadata_from_feedparser(self):
 
@@ -186,7 +203,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('Project Gutenberg', metadata['publisher'])
 
         circulation = metadata['circulation']
-        eq_(DataSource.OA_CONTENT_SERVER, circulation['data_source'])
+        eq_(DataSource.GUTENBERG, circulation['data_source'])
 
         failure = failures['http://www.gutenberg.org/ebooks/1984']
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
@@ -416,23 +433,25 @@ class TestOPDSImporter(OPDSImporterTest):
             OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        [crow_pool, mouse_pool] = sorted(
+            pools, key=lambda x: x.presentation_edition.title
+        )
 
         # Work was created for both books.
-        assert crow.license_pool.work is not None
-        eq_(Edition.BOOK_MEDIUM, crow.medium)
+        assert crow_pool.work is not None
+        eq_(Edition.BOOK_MEDIUM, crow_pool.presentation_edition.medium)
 
-        assert mouse.license_pool.work is not None
-        eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
+        assert mouse_pool.work is not None
+        eq_(Edition.PERIODICAL_MEDIUM, mouse_pool.presentation_edition.medium)
 
-        work = mouse.license_pool.work
+        work = mouse_pool.work
         work.calculate_presentation()
         eq_(0.4142, round(work.quality, 4))
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
         eq_(NumericRange(7,7, '[]'), work.target_age)
 
         # Bonus: make sure that delivery mechanisms are set appropriately.
-        [mech] = mouse.license_pool.delivery_mechanisms
+        [mech] = mouse_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
         eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
@@ -485,45 +504,27 @@ class TestOPDSImporter(OPDSImporterTest):
         for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
-
-
-    def test_import_with_cutoff(self):
-        cutoff = datetime.datetime(2016, 1, 2, 16, 56, 40)
-        feed = self.content_server_mini_feed
-        importer = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
-        imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
+    def test_import_with_unrecognized_distributor_fails(self):
+        """We get a book from the open-access content server but the license
+        comes from an unrecognized data source. We can't import the book
+        because we can't record its provenance accurately.
+        """
+        feed = open(
+            os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
+        importer = OPDSImporter(
+            self._db, 
+            data_source_name=DataSource.OA_CONTENT_SERVER
         )
-
-        # Despite the cutoff, both books were imported, because they were new.
-        eq_(2, len(imported_editions))
-        eq_(2, len(pools))
-        eq_(2, len(works))        
-
-        # But if we try it again...
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
+            importer.import_from_feed(feed)
         )
-
-        # None of the books were imported because they weren't updated
-        # after the cutoff.
-        eq_(0, len(imported_editions))
-        eq_(0, len(pools))
-        eq_(0, len(works))
-
-        # And if we change the cutoff...
-        cutoff = datetime.datetime(2013, 1, 2, 16, 56, 40)
-        imported_editions, pools, works, failures = (
-            importer.import_from_feed(feed, cutoff_date=cutoff)
-        )
-
-        # Both books were imported again.
-        eq_(2, len(imported_editions))
-        eq_(2, len(pools))
-        eq_(2, len(works))
-
-        assert (datetime.datetime.utcnow() - pools[0].last_checked) < datetime.timedelta(seconds=10)
-
+        # No editions, licensepools, or works were imported.
+        eq_([], imported_editions)
+        eq_([], pools)
+        eq_([], works)
+        [failure] = failures.values()
+        eq_(True, failure.transient)
+        assert "Unrecognized circulation data source: Unknown Source" in failure.exception
 
     def test_import_updates_metadata(self):
 
@@ -566,38 +567,43 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        # Two works have been created, because the content server
+        # actually tells you how to get copies of these books.
+        [crow, mouse] = sorted(imported_works, key=lambda x: x.title)
 
-        # Because the content server actually tells you how to get a
-        # copy of the 'mouse' book, a work and licensepool have been
-        # created for it.
-        assert mouse.license_pool != None
-        assert mouse.license_pool.work != None
+        # Each work has one license pool.
+        [crow_pool] = crow.license_pools
+        [mouse_pool] = mouse.license_pools
 
-        # The OPDS importer no longer worries about the underlying license source, 
-        # and correctly sets the data source to the content server, without guessing the 
-        # original source of Project Gutenberg.
-        eq_(DataSource.OA_CONTENT_SERVER, mouse.data_source.name)
+        # The OPDS importer sets the data source of the license pool
+        # to Project Gutenberg, since that's the authority that grants
+        # access to the book.
+        eq_(DataSource.GUTENBERG, mouse_pool.data_source.name)
+
+        # But the license pool's presentation edition has a data
+        # source associated with the Library Simplified open-access
+        # content server, since that's where the metadata comes from.
+        eq_(DataSource.OA_CONTENT_SERVER, 
+            mouse_pool.presentation_edition.data_source.name
+        )
 
         # Since the 'mouse' book came with an open-access link, the license
         # pool delivery mechanism has been marked as open access.
-        eq_(True, mouse.license_pool.open_access)
+        eq_(True, mouse_pool.open_access)
         eq_(RightsStatus.GENERIC_OPEN_ACCESS, 
-            mouse.license_pool.delivery_mechanisms[0].rights_status.uri)
+            mouse_pool.delivery_mechanisms[0].rights_status.uri)
 
         # The 'mouse' work has not been marked presentation-ready,
         # because the OPDS importer was not told to make works
         # presentation-ready as they're imported.
-        eq_(False, mouse.license_pool.work.presentation_ready)
+        eq_(False, mouse_pool.work.presentation_ready)
 
         # The OPDS feed didn't actually say where the 'crow' book
         # comes from, but we did tell the importer to use the open access 
         # content server as the data source, so both a Work and a LicensePool 
         # were created, and their data source is the open access content server,
         # not Project Gutenberg.
-        assert crow.work is not None
-        assert crow.license_pool is not None
-        eq_(DataSource.OA_CONTENT_SERVER, crow.data_source.name)
+        eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
 
 
     def test_import_and_make_presentation_ready(self):
@@ -611,11 +617,11 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed, immediately_presentation_ready=True)
         )
 
-        [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
+        [crow, mouse] = sorted(imported_works, key=lambda x: x.title)
 
         # Both the 'crow' and the 'mouse' book had presentation-ready works created.
-        eq_(True, crow.license_pool.work.presentation_ready)
-        eq_(True, mouse.license_pool.work.presentation_ready)
+        eq_(True, crow.presentation_ready)
+        eq_(True, mouse.presentation_ready)
 
 
     def test_status_and_message(self):
@@ -672,6 +678,11 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_consolidate_links(self):
 
+        # If a link turns out to be a dud, consolidate_links()
+        # gets rid of it.
+        links = [None, None]
+        eq_([], OPDSImporter.consolidate_links(links))
+
         links = [LinkData(href=self._url, rel=rel, media_type="image/jpeg")
                  for rel in [Hyperlink.OPEN_ACCESS_DOWNLOAD,
                              Hyperlink.IMAGE,
@@ -711,6 +722,19 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(t1, i1.thumbnail)
         eq_(None, i2.thumbnail)
 
+    def test_import_book_that_offers_no_license(self):
+        path = os.path.join(self.resource_path, "book_without_license.opds")
+        feed = open(path).read()
+        importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
+        imported_editions, imported_pools, imported_works, failures = (
+            importer.import_from_feed(feed)
+        )
+
+        # We got an Edition for this book, but no LicensePool and no Work.
+        [edition] = imported_editions
+        eq_("Howards End", edition.title)
+        eq_([], imported_pools)
+        eq_([], imported_works)
 
 
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
@@ -725,6 +749,9 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
+        # The request to http://root/full-cover-image.png
+        # will result in a 404 error, and the image will not be mirrored.
+        http.queue_response(404, media_type="text/plain")
         http.queue_response(
             200, content='I am 10557.epub.images',
             media_type=Representation.EPUB_MEDIA_TYPE,
@@ -745,7 +772,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed)
+            importer.import_from_feed(self.content_server_mini_feed, 
+                                      feed_url='http://root')
         )
         e1 = imported_editions[0]
         e2 = imported_editions[1]
@@ -758,15 +786,18 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             'http://www.gutenberg.org/ebooks/10441.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
+            'http://root/full-cover-image.png',
         ])
 
         [e1_oa_link, e1_image_link, e1_description_link] = sorted(
             e1.primary_identifier.links, key=lambda x: x.rel
         )
-        [e2_oa_link] = e2.primary_identifier.links
+        [e2_image_link, e2_oa_link] = e2.primary_identifier.links
 
         # The two open-access links were mirrored to S3, as was the
-        # original SVG image and its PNG thumbnail.
+        # original SVG image and its PNG thumbnail. The PNG image was
+        # not mirrored because our attempt to download it resulted in
+        # a 404 error.
         imported_representations = [
             e1_oa_link.resource.representation,
             e1_image_link.resource.representation,
@@ -775,14 +806,23 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         ]
         eq_(imported_representations, s3.uploaded)
 
-
         eq_(4, len(s3.uploaded))
         eq_("I am 10441.epub.images", s3.content[0])
         eq_(svg, s3.content[1])
         eq_("I am 10557.epub.images", s3.content[3])
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
-        url0 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
+        #
+        # The "mouse" book was mirrored to a bucket corresponding to
+        # Project Gutenberg, its data source.
+        #
+        # The images were mirrored to a bucket corresponding to the
+        # open-access content server, _their_ data source.
+        #
+        # The "crow" book was mirrored to a bucket corresponding to
+        # the open-access content source, the default data source used
+        # when no distributor was specified for a book.
+        url0 = 'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
         url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
         url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
@@ -808,7 +848,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+            importer.import_from_feed(self.content_server_mini_feed)
         )
 
         eq_([e1, e2], imported_editions)
@@ -833,7 +873,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, cutoff_date=cutoff)
+            importer.import_from_feed(self.content_server_mini_feed)
         )
 
         eq_([e1, e2], imported_editions)
@@ -855,27 +895,34 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
 
     def test_check_for_new_data(self):
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
         feed = self.content_server_mini_feed_without_message
+
+        class MockOPDSImportMonitor(OPDSImportMonitor):
+            def _get(self, url, headers):
+                return 200, {}, feed
+
+        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
 
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.check_for_new_data(feed))
 
-        # If there's a cutoff date that's after the updated
-        # dates in the feed, the data still isn't new.
-        eq_(False, monitor.check_for_new_data(feed, datetime.datetime(2016, 1, 1, 1, 1, 1)))
-
-        # But if the cutoff is before the updated time...
-        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
-
         # Now import the editions.
-        monitor.importer.import_from_feed(feed)
+        monitor = MockOPDSImportMonitor(
+            self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter
+        )
+        monitor.run_once("http://url", None)
+
+        # Editions have been imported.
         eq_(2, self._db.query(Edition).count())
+
+        # Note that unlike many other Monitors, OPDSImportMonitor
+        # doesn't store a Timestamp.
+        assert not hasattr(monitor, 'timestamp')
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
-        # If there are CoverageRecords, that are after the updated
+        # If there are CoverageRecords that record work are after the updated
         # dates, there's nothing new.
         record, ignore = CoverageRecord.add_for(
             editions[0], data_source, CoverageRecord.IMPORT_OPERATION
@@ -889,8 +936,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         eq_(False, monitor.check_for_new_data(feed))
 
-        # If a CoverageRecord is before the updated date, there's
-        # new data.
+        # If the monitor is set up to force reimport, it doesn't
+        # matter that there's nothing new--we act as though there is.
+        monitor.force_reimport = True
+        eq_(True, monitor.check_for_new_data(feed))
+        monitor.force_reimport = False
+
+        # If an entry was updated after the date given in that entry's
+        # CoverageRecord, there's new data.
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
 
@@ -902,20 +955,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             r.status = CoverageRecord.TRANSIENT_FAILURE
         eq_(True, monitor.check_for_new_data(feed))
 
-        # If a CoverageRecord is a persistent failure, we check
-        # if the feed has changed since the timestamp.
+        # If a CoverageRecord is a persistent failure, we don't try again...
         for r in [record, record2]:
             r.status = CoverageRecord.PERSISTENT_FAILURE
         eq_(False, monitor.check_for_new_data(feed))
 
+        # ...unless the feed updates.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.check_for_new_data(feed))
-
-        # If only one of the entries has a CoverageRecord, the other
-        # uses the cutoff date.
-        self._db.delete(record2)
-        eq_(True, monitor.check_for_new_data(feed, datetime.datetime(1970, 1, 1, 1, 1, 1)))
-
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
@@ -964,12 +1011,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         feed = self.content_server_mini_feed
 
-        monitor.import_one_feed(feed, None)
+        monitor.import_one_feed(feed, "http://root-url/")
         
         editions = self._db.query(Edition).all()
         
         # One edition has been imported
         eq_(1, len(editions))
+        [edition] = editions
 
         # That edition has a CoverageRecord.
         record = CoverageRecord.lookup(
@@ -978,6 +1026,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
+
+        # The edition's primary identifier has a cover link whose
+        # relative URL has been resolved relative to the URL we passed
+        # into import_one_feed.
+        [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
+                    if x.rel==Hyperlink.IMAGE]
+        eq_("http://root-url/full-cover-image.png", cover)
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
@@ -1013,7 +1068,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def follow_one_link(self, link, cutoff_date=None, do_get=None):
                 return self.responses.pop()
 
-            def import_one_feed(self, feed, start):
+            def import_one_feed(self, feed, feed_url):
                 self.imports.append(feed)
 
         monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)

@@ -50,7 +50,7 @@ from model import (
 )
 from coverage import CoverageFailure
 from util.http import HTTP
-from opds import OPDSFeed
+from util.opds_writer import OPDSFeed
 from s3 import S3Uploader
 
 class AccessNotAuthenticated(Exception):
@@ -139,7 +139,7 @@ class SimplifiedOPDSLookup(object):
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return self._get(url)
+        return self._get(url, timeout=120)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler collection"""
@@ -201,10 +201,8 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, http_get=None, 
-                 force=True):
+                 identifier_mapping=None, mirror=None, http_get=None):
         self._db = _db
-        self.force = True
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
@@ -214,8 +212,8 @@ class OPDSImporter(object):
 
 
     def import_from_feed(self, feed, even_if_no_author=False, 
-                         cutoff_date=None, 
-                         immediately_presentation_ready=False):
+                         immediately_presentation_ready=False,
+                         feed_url=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -227,7 +225,7 @@ class OPDSImporter(object):
 
         # If parsing the overall feed throws an exception, we should address that before
         # moving on. Let the exception propagate.
-        metadata_objs, failures = self.extract_feed_data(feed)
+        metadata_objs, failures = self.extract_feed_data(feed, feed_url)
 
         # make editions.  if have problem, make sure associated pool and work aren't created.
         for key, metadata in metadata_objs.iteritems():
@@ -240,13 +238,14 @@ class OPDSImporter(object):
             try:
                 # Create an edition. This will also create a pool if there's circulation data.
                 edition = self.import_edition_from_metadata(
-                    metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
+                    metadata, even_if_no_author, immediately_presentation_ready
                 )
                 if edition:
                     imported_editions[key] = edition
             except Exception, e:
                 # Rather than scratch the whole import, treat this as a failure that only applies
                 # to this item.
+                self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
                 data_source = DataSource.lookup(self._db, self.data_source_name)
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
@@ -275,7 +274,7 @@ class OPDSImporter(object):
 
 
     def import_edition_from_metadata(
-            self, metadata, even_if_no_author, cutoff_date, immediately_presentation_ready
+            self, metadata, even_if_no_author, immediately_presentation_ready
     ):
         """ For the passed-in Metadata object, see if can find or create an Edition 
             in the database.  Do not set the edition's pool or work, yet.
@@ -283,16 +282,6 @@ class OPDSImporter(object):
 
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
-
-        if (cutoff_date 
-            and not is_new_edition
-            and metadata.data_source_last_updated < cutoff_date
-        ):
-            # We've already imported this book, we've been told
-            # not to bother with books that haven't changed since a
-            # certain date, and this book hasn't changed since that
-            # that date. There's no reason to do anything.
-            return None
 
         policy = ReplacementPolicy(
             subjects=True,
@@ -355,14 +344,16 @@ class OPDSImporter(object):
         ]
 
 
-    def extract_feed_data(self, feed):
+    def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
         data_source = DataSource.lookup(self._db, self.data_source_name)
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
-        xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(feed, data_source=data_source)
+        xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
+            feed, data_source=data_source, feed_url=feed_url
+        )
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
@@ -407,7 +398,7 @@ class OPDSImporter(object):
 
             # form the CirculationData that would correspond to this Metadata
             c_data_dict = m_data_dict.get('circulation')
-            
+
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -419,7 +410,19 @@ class OPDSImporter(object):
             
                 combined_circ['primary_identifier'] = identifier_obj
                 
-                metadata[internal_identifier.urn].circulation = CirculationData(**combined_circ)
+                circulation = CirculationData(**combined_circ)
+                if circulation.formats:
+                    metadata[internal_identifier.urn].circulation = circulation
+                else:
+                    # If the CirculationData has no formats, it
+                    # doesn't really offer any way to actually get the
+                    # book, and we don't want to create a
+                    # LicensePool. All the circulation data is
+                    # useless.
+                    #
+                    # TODO: This will need to be revisited when we add
+                    # ODL support.
+                    metadata[internal_identifier.urn].circulation = None
 
         return metadata, identified_failures
 
@@ -429,6 +432,12 @@ class OPDSImporter(object):
         """Combine two dictionaries that can be used as keyword arguments to
         the Metadata constructor.
         """
+        if not d1 and not d2:
+            return dict()
+        if not d1:
+            return dict(d2)
+        if not d2:
+            return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
             if k in new_dict and isinstance(v, list):
@@ -461,7 +470,7 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed, data_source):
+    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
@@ -476,14 +485,18 @@ class OPDSImporter(object):
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(feed))
 
-        # Some OPDS feeds (eg Standard Ebooks) contain relative urls, so we need the
-        # feed's self URL to extract links.
-        links = [child.attrib for child in root.getroot() if 'link' in child.tag]
-        self_links = [link['href'] for link in links if link.get('rel') == 'self']
-        if self_links:
-            feed_url = self_links[0]
-        else:
-            feed_url = None
+        # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
+        # so we need the feed's self URL to extract links. If none was
+        # passed in, we still might be able to guess.
+        #
+        # TODO: Section 2 of RFC 4287 says we should check xml:base
+        # for this, so if anyone actually uses that we'll get around
+        # to checking it.
+        if not feed_url:
+            links = [child.attrib for child in root.getroot() if 'link' in child.tag]
+            self_links = [link['href'] for link in links if link.get('rel') == 'self']
+            if self_links:
+                feed_url = self_links[0]
 
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
@@ -533,10 +546,6 @@ class OPDSImporter(object):
 
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
-
-        # Note: will ignore bibframe_distribution from feed, and use data source passed into the 
-        # importer as license_data_source, too.
-
         try:
             kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
             return identifier, kwargs_meta, failure
@@ -547,7 +556,7 @@ class OPDSImporter(object):
             return identifier, None, failure
 
     @classmethod
-    def _data_detail_for_feedparser_entry(cls, entry, data_source):
+    def _data_detail_for_feedparser_entry(cls, entry, metadata_data_source):
         """Helper method that extracts metadata and circulation data from a feedparser
         entry. This method can be overridden in tests to check that callers handle things
         properly when it throws an exception.
@@ -556,7 +565,40 @@ class OPDSImporter(object):
         if title == OPDSFeed.NO_TITLE:
             title = None
         subtitle = entry.get('schema_alternativeheadline', None)
-        
+
+        # Generally speaking, a data source will provide either
+        # metadata (e.g. the Simplified metadata wrangler) or both
+        # metadata and circulation data (e.g. a publisher's ODL feed).
+        #
+        # However there is at least one case (the Simplified
+        # open-access content server) where one server provides
+        # circulation data from a _different_ data source
+        # (e.g. Project Gutenberg).
+        #
+        # In this case we want the data source of the LicensePool to
+        # be Project Gutenberg, but the data source of the pool's
+        # presentation to be the open-access content server.
+        #
+        # The open-access content server uses a
+        # <bibframe:distribution> tag to keep track of which data
+        # source provides the circulation data.
+        circulation_data_source = metadata_data_source
+        circulation_data_source_tag = entry.get('bibframe_distribution')
+        if circulation_data_source_tag:
+            circulation_data_source_name = circulation_data_source_tag.get(
+                'bibframe:providername'
+            )
+            if circulation_data_source_name:
+                _db = Session.object_session(metadata_data_source)
+                circulation_data_source = DataSource.lookup(
+                    _db, circulation_data_source_name
+                )
+                if not circulation_data_source:
+                    raise ValueError(
+                        "Unrecognized circulation data source: %s" % (
+                            circulation_data_source_name
+                        )
+                    )
         last_opds_update = cls._datetime(entry, 'updated_parsed')
         added_to_collection_time = cls._datetime(entry, 'published_parsed')
             
@@ -607,10 +649,12 @@ class OPDSImporter(object):
             data_source_last_updated=last_opds_update,
         )
             
-        # Only add circulation data if the data source is lendable.
-        if data_source.offers_licenses:
+        # Only add circulation data if both the book's distributor *and*
+        # the source of the OPDS feed are lendable data sources.
+        if (circulation_data_source and circulation_data_source.offers_licenses
+            and metadata_data_source.offers_licenses):
             kwargs_circ = dict(
-                data_source=data_source.name,
+                data_source=circulation_data_source.name,
                 links=list(links),
                 default_rights_uri=rights_uri,
             )
@@ -782,6 +826,10 @@ class OPDSImporter(object):
         rel = attr.get('rel')
         media_type = attr.get('type')
         href = attr.get('href')
+        if not href or not rel:
+            # The link exists but has no destination, or no specified
+            # relationship to the entry.
+            return None
         rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
         if rights:
             rights_uri = RightsStatus.rights_uri_from_string(rights)
@@ -801,7 +849,15 @@ class OPDSImporter(object):
 
         Similarly if link n is a thumbnail and link n+1 is an image.
         """
-        new_links = list(links)
+        # Strip out any links that didn't get turned into LinkData objects
+        # due to missing `href` or whatever.
+        new_links = [x for x in links if x]
+
+        # Make a new list of links from that list, to iterate over --
+        # we'll be modifying new_links in place so we can't iterate
+        # over it.
+        links = list(new_links)
+
         next_link_already_handled = False
         for i, link in enumerate(links):
 
@@ -870,10 +926,12 @@ class OPDSImportMonitor(Monitor):
     """
     
     def __init__(self, _db, feed_url, default_data_source, import_class, 
-                 interval_seconds=3600, keep_timestamp=True,
-                 immediately_presentation_ready=False):
+                 interval_seconds=0, keep_timestamp=False,
+                 immediately_presentation_ready=False, force_reimport=False):
+
         self.feed_url = feed_url
         self.importer = import_class(_db, default_data_source)
+        self.force_reimport = force_reimport
         self.immediately_presentation_ready = immediately_presentation_ready
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
@@ -885,18 +943,34 @@ class OPDSImportMonitor(Monitor):
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
+        headers = dict(headers or {})
+
+        types = dict(
+            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
+            atom="application/atom+xml",
+            xml="application/xml",
+            anything="*/*",
+        )
+        headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
-    def check_for_new_data(self, feed, cutoff_date=None):
-        """Check if the feed contains any entries that haven't been imported yet
-        or have been updated since the cutoff date.
+    def check_for_new_data(self, feed):
+        """Check if the feed contains any entries that haven't been imported
+        yet. If force_import is set, every entry in the feed is
+        treated as new.
         """
+
+        # If force_reimport is set, we don't even need to check. Always
+        # treat the feed as though it contained new data.
+        if self.force_reimport:
+            return True
+
         last_update_dates = self.importer.extract_last_update_dates(feed)
 
         new_data = False
-        for identifier, updated in last_update_dates:
+        for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
             data_source = DataSource.lookup(self._db, self.importer.data_source_name)
@@ -907,62 +981,78 @@ class OPDSImportMonitor(Monitor):
                     identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
                 )
 
-            # If there was a transient failure last time we tried to import this book,
-            # try again regardless of whether the feed has changed.
+            # If there was a transient failure last time we tried to
+            # import this book, try again regardless of whether the
+            # feed has changed.
             if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
                 new_data = True
+                self.log.info(
+                    "Counting %s as new because previous attempt resulted in transient failure: %s", 
+                    record.identifier, record.exception
+                )
                 break
 
-            # If our last attempt was a success or a persistent failure, we only want to import again
-            # if something changed since then.
+            # If our last attempt was a success or a persistent
+            # failure, we only want to import again if something
+            # changed since then.
 
-            # If we have a CoverageRecord, that's the most reliable indicator of the last time we tried
-            # to import this book. But if we imported the book before we started creating CoverageRecords
-            # for imports, we can still use the monitor's timestamp as the cutoff.
-            if record:
-                cutoff = record.timestamp
-            else:
-                cutoff = cutoff_date
+            if record and record.timestamp:
+                # We've imported this entry before, so don't import it
+                # again unless it's changed.
 
-            if cutoff:
-                # We've imported this book before, so don't import it again unless it's changed.
-
-                if not updated:
-                    # If we don't know if the book has been updated, import it again to be safe.
+                if not remote_updated:
+                    # The remote isn't telling us whether the entry
+                    # has been updated. Import it again to be safe.
                     new_data = True
+                    self.log.info(
+                        "Counting %s as new because remote has no information about when it was updated.", 
+                        record.identifier
+                    )
                     break
 
-                if  updated >= cutoff:
+                if remote_updated >= record.timestamp:
                     # This book has been updated.
+                    self.log.info(
+                        "Counting %s as new because its coverage date is %s and remote has %s.", 
+                        record.identifier, record.timestamp, remote_updated
+                    )
+
                     new_data = True
                     break
 
             else:
                 # There's no record of an attempt to import this book.
+                self.log.info(
+                    "Counting %s as new because it has no CoverageRecord.", 
+                    identifier
+                )
                 new_data = True
                 break
-
         return new_data
 
-    def follow_one_link(self, link, cutoff_date=None, do_get=None):
-        self.log.info("Following next link: %s, cutoff=%s", link, cutoff_date)
+    def follow_one_link(self, link, do_get=None):
+        self.log.info("Following next link: %s", link)
         get = do_get or self._get
         status_code, content_type, feed = get(link, None)
 
-        new_data = self.check_for_new_data(feed, cutoff_date=cutoff_date)
+        new_data = self.check_for_new_data(feed)
 
         if new_data:
-            # There's something new on this page, so we need to check the next page as well.
+            # There's something new on this page, so we need to check
+            # the next page as well.
             next_links = self.importer.extract_next_links(feed)
             return next_links, feed
         else:
-            # There's nothing new, so we don't need to import this feed or check the next page.
+            # There's nothing new, so we don't need to import this
+            # feed or check the next page.
+            self.log.info("No new data.")
             return [], None
 
-    def import_one_feed(self, feed, start):
+    def import_one_feed(self, feed, feed_url=None):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
-            feed, even_if_no_author=True, cutoff_date=start,
-            immediately_presentation_ready = self.immediately_presentation_ready
+            feed, even_if_no_author=True,
+            immediately_presentation_ready = self.immediately_presentation_ready,
+            feed_url=feed_url
         )
 
         data_source = DataSource.lookup(self._db, self.importer.data_source_name)
@@ -977,9 +1067,8 @@ class OPDSImportMonitor(Monitor):
         # Create CoverageRecords for the failures.
         for urn, failure in failures.items():
             failure.to_coverage_record(operation=CoverageRecord.IMPORT_OPERATION)
-
         
-    def run_once(self, start, cutoff):
+    def run_once(self, ignore1, ignore2):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])
@@ -992,7 +1081,7 @@ class OPDSImportMonitor(Monitor):
             for link in queue:
                 if link in seen_links:
                     continue
-                next_links, feed = self.follow_one_link(link, start)
+                next_links, feed = self.follow_one_link(link)
                 new_queue.extend(next_links)
                 if feed:
                     feeds.append((link, feed))
@@ -1003,8 +1092,8 @@ class OPDSImportMonitor(Monitor):
         # Start importing at the end. If something fails, it will be easier to
         # pick up where we left off.
         for link, feed in reversed(feeds):
-            self.log.info("Importing next feed: %s, cutoff=%s", link, start)
-            self.import_one_feed(feed, start)
+            self.log.info("Importing next feed: %s", link)
+            self.import_one_feed(feed, link)
             self._db.commit()
 
 

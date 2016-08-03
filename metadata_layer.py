@@ -388,6 +388,10 @@ class MetaToModelUtility(object):
 
         if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
+            if link.href:
+                # The log message only makes sense if the resource is
+                # hosted elsewhere.
+                self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
         mirror = policy.mirror
@@ -396,8 +400,7 @@ class MetaToModelUtility(object):
         _db = Session.object_session(link_obj)
         original_url = link.href
 
-        self.log.debug("About to mirror %s" % original_url)
-
+        self.log.info("About to mirror %s" % original_url)
         pool = None
         edition = None
         title = None
@@ -451,12 +454,34 @@ class MetaToModelUtility(object):
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+                self.log.error(pool.license_exception)
             return
 
         # If we fetched the representation and it hasn't changed,
         # the previously mirrored version is fine. Don't mirror it
         # again.
-        if representation.status_code == 304:
+        if representation.status_code == 304 and representation.mirror_url:
+            self.log.info(
+                "Representation has not changed, assuming mirror at %s is up to date.", representation.mirror_url
+            )
+            return
+
+        if representation.status_code / 100 not in (2,3):
+            self.log.info(
+                "Representation %s gave %s status code, not mirroring.",
+                representation.url, representation.status_code
+            )
+            return
+
+        # The metadata may have some idea about the media type for this
+        # LinkObject, but the media type we actually just saw takes 
+        # precedence.
+        if representation.media_type:
+            link.media_type = representation.media_type
+
+        if not representation.mirrorable_media_type:
+            self.log.info("Not mirroring %s: unsupported media type %s",
+                          representation.url, representation.media_type)
             return
 
         # Determine the best URL to use when mirroring this
@@ -473,6 +498,7 @@ class MetaToModelUtility(object):
                 data_source, identifier, filename
             )
 
+        # Mirror it.
         representation.mirror_url = mirror_url
         mirror.mirror_one(representation)
 
@@ -482,12 +508,7 @@ class MetaToModelUtility(object):
             if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 pool.suppressed = True
                 pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
-
-        # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
-        # precedence.
-        if representation.media_type:
-            link.media_type = representation.media_type
+                self.log.error(pool.license_exception)
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
@@ -668,10 +689,6 @@ class CirculationData(MetaToModelUtility):
             identifier=identifier_obj
         )
         if not license_pool:
-            rights_status = get_one(
-                _db, RightsStatus, uri=self.default_rights_uri
-            )
-
             last_checked = self.last_checked or datetime.datetime.utcnow()
             license_pool, is_new = LicensePool.for_foreign_id(
                 _db, data_source=self.data_source_obj,
@@ -766,13 +783,10 @@ class CirculationData(MetaToModelUtility):
                     # We need to mirror this resource. If it's an image, a
                     # thumbnail may be provided as a side effect.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
-                
-        if pool and replace.formats:
-            for lpdm in pool.delivery_mechanisms:
-                _db.delete(lpdm)
-            pool.delivery_mechanisms = []
 
-        # follows up on the mirror link, and confirms the delivery mechanism.
+        old_lpdms = pool.delivery_mechanisms
+        new_lpdms = []
+
         for format in self.formats:
             if format.link:
                 link = format.link
@@ -782,12 +796,22 @@ class CirculationData(MetaToModelUtility):
                 resource = link_obj.resource
             else:
                 resource = None
-            if pool:
-                pool.set_delivery_mechanism(
-                    format.content_type, format.drm_scheme, format.rights_uri, resource
-                )
+            lpdm = pool.set_delivery_mechanism(
+                format.content_type, format.drm_scheme, format.rights_uri or self.default_rights_uri, resource
+            )
+            new_lpdms.append(lpdm)
 
+        if replace.formats:
+            for lpdm in old_lpdms:
+                if lpdm not in new_lpdms:
+                    for loan in lpdm.fulfills:
+                        self.log.info("Loan %i is associated with a format that is no longer available. Deleting its delivery mechanism." % loan.id)
+                        loan.fulfillment = None
+                    _db.delete(lpdm)
 
+            pool.delivery_mechanisms = new_lpdms
+
+                    
         changed_licenses = False
         if pool:
             # if we were not passed a last_checked value, then update pool as of now
@@ -816,29 +840,6 @@ class CirculationData(MetaToModelUtility):
                         new_patrons_in_hold_queue=self.patrons_in_hold_queue,
                         as_of=self.last_checked
                     )
-
-        if changed_licenses:
-            edition = pool.presentation_edition
-            if edition:
-                self.log.info(
-                    'CHANGED %s "%s" %s (%s) OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    edition.medium,
-                    edition.title or "[NO TITLE]",
-                    edition.author or "",
-                    edition.primary_identifier.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-            else:
-                self.log.info(
-                    'CHANGED %r OWN: %s=>%s AVAIL: %s=>%s HOLD: %s=>%s',
-                    pool.identifier,
-                    pool.licenses_owned, self.licenses_owned,
-                    pool.licenses_available, self.licenses_available,
-                    pool.patrons_in_hold_queue, self.patrons_in_hold_queue
-                )
-
 
         made_changes = made_changes or changed_licenses
 
@@ -961,7 +962,7 @@ class Metadata(MetaToModelUtility):
         for contribution in edition.contributions:
             contributor = ContributorData.from_contribution(contribution)
             contributors.append(contributor)
-        else:
+        if not edition.contributions:
             # This should only happen for low-quality data sources such as
             # the NYT best-seller API.
             if edition.sort_author:
@@ -1052,21 +1053,29 @@ class Metadata(MetaToModelUtility):
             # task.
             return
 
+        if not self.medium:
+            # We don't know the medium of this item, and we only want
+            # to associate it with other items of the same type.
+            return
+
         primary_identifier_obj, ignore = self.primary_identifier.load(_db)
 
         # Try to find the primary identifiers of other Editions with
-        # the same permanent work ID, representing books already in
-        # our collection.
+        # the same permanent work ID and the same medium, representing
+        # books already in our collection.
         qu = _db.query(Identifier).join(
             Identifier.primarily_identifies).filter(
                 Edition.permanent_work_id==self.permanent_work_id).filter(
                     Identifier.type.in_(
                         Identifier.LICENSE_PROVIDING_IDENTIFIER_TYPES
                     )
+                ).filter(
+                    Edition.medium==self.medium
                 )
         identifiers_same_work_id = qu.all()
         for same_work_id in identifiers_same_work_id:
-            if same_work_id != self.primary_identifier:
+            if (same_work_id.type != self.primary_identifier.type
+                or same_work_id.identifier != self.primary_identifier.identifier):
                 self.log.info(
                     "Discovered that %r is equivalent to %r because of matching permanent work ID %s",
                     same_work_id, primary_identifier_obj, self.permanent_work_id
@@ -1182,7 +1191,6 @@ class Metadata(MetaToModelUtility):
         """
         _db = Session.object_session(edition)
         made_core_changes = False
-
         if replace is None:
             replace = ReplacementPolicy(
                 identifiers=replace_identifiers,
@@ -1449,6 +1457,12 @@ class Metadata(MetaToModelUtility):
                     contributor.biography = contributor_data.biography
                 if contributor_data.aliases:
                     contributor.aliases = contributor_data.aliases
+                if contributor_data.lc:
+                    contributor.lc = contributor_data.lc
+                if contributor_data.viaf:
+                    contributor.viaf = contributor_data.viaf
+                if contributor_data.wikipedia_name:
+                    contributor.wikipedia_name = contributor_data.wikipedia_name
             else:
                 self.log.info(
                     "Not registering %s because no sort name, LC, or VIAF",
@@ -1556,9 +1570,8 @@ class CSVMetadataImporter(object):
                 break
         if not found_identifier_field:
             raise CSVFormatError(
-                "Could not find a primary identifier field. Possibilities: %s. Actualities: %s." %
-                (", ".join(possibilities),
-                 ", ".join(fields))
+                "Could not find a primary identifier field. Possibilities: %r. Actualities: %r." %
+                (possibilities, fields)
             )
 
         for row in dictreader:

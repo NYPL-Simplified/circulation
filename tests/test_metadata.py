@@ -25,6 +25,7 @@ from metadata_layer import (
 
 import os
 from model import (
+    Contributor,
     CoverageRecord,
     DataSource,
     Edition,
@@ -278,6 +279,36 @@ class TestMetadataImporter(DatabaseTest):
         # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
         eq_(None, pool.license_exception)
 
+    def test_mirror_404_error(self):
+        mirror = DummyS3Uploader()
+        h = DummyHTTPClient()
+        h.queue_response(404)
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        link = LinkData(
+            rel=Hyperlink.IMAGE,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            href="http://example.com/",
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            license_pool=pool, media_type=link.media_type,
+            content=link.content,
+        )
+
+        m = Metadata(data_source=data_source)
+        
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+
+        # Since we got a 404 error, the cover image was not mirrored.
+        eq_(404, link_obj.resource.representation.status_code)
+        eq_(None, link_obj.resource.representation.mirror_url)
+        eq_([], mirror.uploaded)
 
     def test_mirror_open_access_link_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -334,7 +365,6 @@ class TestMetadataImporter(DatabaseTest):
         # the license pool only gets its license_exception column filled in
         # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
         eq_(None, pool.license_exception)
-
 
     def test_measurements(self):
         edition = self._edition()
@@ -546,6 +576,39 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.issued, edition_old.issued)
 
 
+    def test_update_contributions(self):
+        edition = self._edition()
+
+        # A test edition is created with a test contributor. This
+        # particular contributor is about to be destroyed and replaced by
+        # new data.
+        [old_contributor] = edition.contributors
+
+        contributor = ContributorData(
+            display_name="Robert Jordan", 
+            sort_name="Jordan, Robert",
+            wikipedia_name="Robert_Jordan",
+            viaf="79096089",
+            lc="123",
+            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+
+        metadata = Metadata(DataSource.OVERDRIVE, contributors=[contributor])
+        metadata.update_contributions(self._db, edition, replace=True)
+
+        # The old contributor has been removed and replaced with the new
+        # one.
+        [contributor] = edition.contributors
+        assert contributor != old_contributor
+
+        # And the new one has all the information provided by 
+        # the Metadata object.
+        eq_("Jordan, Robert", contributor.name)
+        eq_("Robert Jordan", contributor.display_name)
+        eq_("79096089", contributor.viaf)
+        eq_("123", contributor.lc)
+        eq_("Robert_Jordan", contributor.wikipedia_name)
+
     def test_filter_recommendations(self):
         metadata = Metadata(DataSource.OVERDRIVE)
         known_identifier = self._identifier()
@@ -672,3 +735,42 @@ class TestMetadata(DatabaseTest):
 
         circulation_pool, is_new = circulation.license_pool(self._db)
         eq_(thumbnail_link.license_pool, circulation_pool)
+
+
+class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
+
+    def test_success(self):
+        pwid = 'pwid1'
+
+        # Here's a print book.
+        book = self._edition()
+        book.medium = Edition.BOOK_MEDIUM
+        book.permanent_work_id = pwid
+
+        # Here's an audio book with the same PWID.
+        audio = self._edition()
+        audio.medium = Edition.AUDIO_MEDIUM
+        audio.permanent_work_id=pwid
+
+        # Here's an Metadata object for a second print book with the
+        # same PWID.
+        identifier = self._identifier()
+        identifierdata = IdentifierData(
+            type=identifier.type, identifier=identifier.identifier
+        )
+        metadata = Metadata(
+            DataSource.GUTENBERG,
+            primary_identifier=identifierdata, medium=Edition.BOOK_MEDIUM
+        )
+        metadata.permanent_work_id=pwid
+
+        # Call the method we're testing.
+        metadata.associate_with_identifiers_based_on_permanent_work_id(
+            self._db
+        )
+
+        # The identifier of the second print book has been associated
+        # with the identifier of the first print book, but not
+        # with the identifier of the audiobook
+        equivalent_identifiers = [x.output for x in identifier.equivalencies]
+        eq_([book.primary_identifier], equivalent_identifiers)

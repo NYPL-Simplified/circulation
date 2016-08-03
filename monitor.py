@@ -67,6 +67,7 @@ class Monitor(object):
             start = self.timestamp.timestamp or self.default_start_time
         else:
             start = self.default_start_time
+            self.timestamp = None
 
         while not self.stop_running:
             cutoff = datetime.datetime.utcnow()           

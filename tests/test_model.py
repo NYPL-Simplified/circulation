@@ -1,4 +1,5 @@
 # encoding: utf-8
+from StringIO import StringIO
 import datetime
 import os
 import sys
@@ -33,6 +34,7 @@ from model import (
     Contributor,
     CoverageRecord,
     Credential,
+    CustomListEntry,
     DataSource,
     DeliveryMechanism,
     Genre,
@@ -74,7 +76,10 @@ from . import (
     DummyHTTPClient,
 )
 
-from analytics import Analytics
+from analytics import (
+    Analytics,
+    temp_analytics
+)
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDataSource(DatabaseTest):
@@ -236,6 +241,160 @@ class TestIdentifier(DatabaseTest):
             Identifier.UnresolvableIdentifierException, 
             Identifier.parse_urn, self._db, isbn_urn, 
             must_support_license_pools=True)
+
+    def test_recursively_equivalent_identifier_ids(self):
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.MANUAL)
+
+        strong_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, strong_equivalent, 0.9)
+
+        weak_equivalent = self._identifier()
+        identifier.equivalent_to(data_source, weak_equivalent, 0.2)
+
+        level_2_equivalent = self._identifier()
+        strong_equivalent.equivalent_to(data_source, level_2_equivalent, 0.5)
+
+        level_3_equivalent = self._identifier()
+        level_2_equivalent.equivalent_to(data_source, level_3_equivalent, 0.9)
+
+        level_4_equivalent = self._identifier()
+        level_3_equivalent.equivalent_to(data_source, level_4_equivalent, 0.6)
+
+        unrelated = self._identifier()
+
+        # With a low threshold and enough levels, we find all the identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we only look at one level, we don't find the level 2, 3, or 4 identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # If we raise the threshold, we don't find the weak identifier.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=1, threshold=0.4)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # For deeper levels, the strength is the product of the strengths
+        # of all the equivalencies in between the two identifiers.
+
+        # In this example:
+        # identifier - level_2_equivalent = 0.9 * 0.5 = 0.45
+        # identifier - level_3_equivalent = 0.9 * 0.5 * 0.9 = 0.405
+        # identifier - level_4_equivalent = 0.9 * 0.5 * 0.9 * 0.6 = 0.243
+
+        # With a threshold of 0.5, level 2 and all subsequent levels are too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.5)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # With a threshold of 0.25, level 2 is strong enough, but level
+        # 4 is too weak.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], levels=5, threshold=0.25)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[identifier.id]))
+
+        # It also works if we start from other identifiers.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [strong_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[strong_equivalent.id]))
+
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.1)
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [level_4_equivalent.id], levels=5, threshold=0.5)
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivs[level_4_equivalent.id]))
+        
+        # A chain of very strong equivalents can keep a high strength
+        # even at deep levels. This wouldn't work if we changed the strength
+        # threshold by level instead of accumulating a strength product.
+        another_identifier = self._identifier()
+        l2 = self._identifier()
+        l3 = self._identifier()
+        l4 = self._identifier()
+        l2.equivalent_to(data_source, another_identifier, 1)
+        l3.equivalent_to(data_source, l2, 1)
+        l4.equivalent_to(data_source, l3, 0.9)
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [another_identifier.id], levels=5, threshold=0.89)
+        eq_(set([another_identifier.id,
+                 l2.id,
+                 l3.id,
+                 l4.id]),
+            set(equivs[another_identifier.id]))
+
+        # We can look for multiple identifiers at once.
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id, level_3_equivalent.id], levels=2, threshold=0.8)
+        eq_(set([identifier.id,
+                 strong_equivalent.id]),
+            set(equivs[identifier.id]))
+        eq_(set([level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivs[level_3_equivalent.id]))
+
+        # The query uses the same db function, but returns equivalents
+        # for all identifiers together so it can be used as a subquery.
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=5, threshold=0.1)
+        query = query.where(Identifier.id==identifier.id)
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 weak_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id,
+                 level_4_equivalent.id]),
+            set(equivalent_ids))
+
+        query = Identifier.recursively_equivalent_identifier_ids_query(
+            Identifier.id, levels=2, threshold=0.8)
+        query = query.where(Identifier.id.in_([identifier.id, level_3_equivalent.id]))
+        results = self._db.execute(query)
+        equivalent_ids = [r[0] for r in results]
+        eq_(set([identifier.id,
+                 strong_equivalent.id,
+                 level_2_equivalent.id,
+                 level_3_equivalent.id]),
+            set(equivalent_ids))
+
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -561,6 +720,32 @@ class TestContributor(DatabaseTest):
 
 class TestEdition(DatabaseTest):
 
+    def test_author_contributors(self):
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        id = self._str
+        type = Identifier.GUTENBERG_ID
+
+        edition, was_new = Edition.for_foreign_id(
+            self._db, data_source, type, id
+        )
+
+        # We've listed the same person as primary author and author.
+        [alice], ignore = Contributor.lookup(self._db, "Adder, Alice")
+        edition.add_contributor(
+            alice, [Contributor.AUTHOR_ROLE, Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+
+        # We've listed a different person as illustrator.
+        [bob], ignore = Contributor.lookup(self._db, "Bitshifter, Bob")
+        edition.add_contributor(bob, [Contributor.ILLUSTRATOR_ROLE])
+
+        # Both contributors show up in .contributors.
+        eq_(set([alice, bob]), edition.contributors)
+
+        # Only the author shows up in .author_contributors, and she
+        # only shows up once.
+        eq_([alice], edition.author_contributors)
+
     def test_for_foreign_id(self):
         """Verify we can get a data source's view of a foreign id."""
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -574,7 +759,7 @@ class TestEdition(DatabaseTest):
         eq_(id, identifier.identifier)
         eq_(type, identifier.type)
         eq_(True, was_new)
-        eq_(set([identifier.id]), record.equivalent_identifier_ids())
+        eq_([identifier], record.equivalent_identifiers())
 
         # We can get the same work record by providing only the name
         # of the data source.
@@ -631,6 +816,20 @@ class TestEdition(DatabaseTest):
         # return both Gutenberg records (but not the web record).
         eq_([g1.id, g2.id], sorted([x.id for x in Edition.missing_coverage_from(
             self._db, gutenberg, web)]))
+
+    def test_equivalent_identifiers(self):
+
+        edition = self._edition()
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+
+        identifier.equivalent_to(data_source, edition.primary_identifier, 0.6)
+
+        eq_(set([identifier, edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.5)))
+
+        eq_(set([edition.primary_identifier]),
+            set(edition.equivalent_identifiers(threshold=0.7)))
 
     def test_recursive_edition_equivalence(self):
 
@@ -702,7 +901,7 @@ class TestEdition(DatabaseTest):
         assert recovering in results
 
         # Here's a Work that incorporates one of the Gutenberg records.
-        work = Work()
+        work = self._work()
         work.license_pools.extend([gutenberg2_pool])
 
         # Its set-of-all-editions contains only one record.
@@ -876,6 +1075,7 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 
+
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
@@ -946,12 +1146,11 @@ class TestLicensePool(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
-        with temp_config() as config:
-            provider = MockAnalyticsProvider()
-            config[Configuration.POLICIES][Configuration.ANALYTICS_POLICY] = Analytics([provider])
+        with temp_analytics("mock_analytics_provider", {}):
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
             pool.update_availability(30, 20, 2, 0)
+            provider = Analytics.instance().providers[0]
             count = provider.count
             pool.update_availability(30, 21, 2, 0)
             eq_(count + 1, provider.count)
@@ -1217,26 +1416,17 @@ class TestLicensePool(DatabaseTest):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
         edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
         edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
- 
+
         edition_mw.primary_identifier = pool.identifier
         edition_admin.primary_identifier = pool.identifier
 
         # set overlapping fields on editions
         edition_od.title = u"OverdriveTitle1"
-        [joe], ignore = Contributor.lookup(self._db, u"Sloppy, Joe")
-        joe.family_name, joe.display_name = joe.default_names()
-        edition_od.add_contributor(joe, Contributor.AUTHOR_ROLE)
 
         edition_mw.title = u"MetadataWranglerTitle1"
         edition_mw.subtitle = u"MetadataWranglerSubTitle1"
-        [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
-        bob.family_name, bob.display_name = bob.default_names()
-        edition_mw.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
         edition_admin.title = u"AdminInterfaceTitle1"
-        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
-        jane.family_name, jane.display_name = jane.default_names()
-        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
 
         pool.set_presentation_edition(None)
 
@@ -1249,11 +1439,70 @@ class TestLicensePool(DatabaseTest):
 
         # make sure admin pool data had precedence
         eq_(edition_composite.title, u"AdminInterfaceTitle1")
+        eq_(edition_admin.contributors, edition_composite.contributors)
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
         license_pool = edition_composite.is_presentation_for
         eq_(license_pool, pool)
+
+        # Change the admin interface's opinion about who the author
+        # is.
+        for c in edition_admin.contributions:
+            self._db.delete(c)
+        self._db.commit()
+        [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
+        jane.family_name, jane.display_name = jane.default_names()
+        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
+        pool.set_presentation_edition(None)
+
+        # The old contributor has been removed from the composite
+        # edition, and the new contributor added.
+        eq_(set([jane]), edition_composite.contributors)
+
+    def test_circulation_changelog(self):
+        
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 8
+        pool.patrons_in_hold_queue = 7
+
+        msg, args = pool.circulation_changelog(1, 2, 3, 4)
+
+        # Since all four circulation values changed, the message is as
+        # long as it could possibly get.
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
+        )
+
+        # If only one circulation value changes, the message is a lot shorter.
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_(
+            'CHANGED %s "%s" %s (%s) %s: %s=>%s',
+            msg
+        )
+        eq_(
+            args,
+            (edition.medium, edition.title, edition.author, pool.identifier,
+             'HOLD', 15, 7)
+        )
+
+        # This works even if, for whatever reason, the edition's
+        # bibliographic data is missing.
+        edition.title = None
+        edition.author = None
+        
+        msg, args = pool.circulation_changelog(10, 9, 8, 15)
+        eq_("[NO TITLE]", args[1])
+        eq_("[NO AUTHOR]", args[2])
+
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
@@ -1261,23 +1510,26 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
         pool.open_access = False
         lpdm = pool.delivery_mechanisms[0]
-        uri = "http://foo"
+        uri = RightsStatus.IN_COPYRIGHT
         status = lpdm.set_rights_status(uri)
         eq_(status, lpdm.rights_status)
         eq_(uri, status.uri)
+        eq_(RightsStatus.NAMES.get(uri), status.name)
         eq_(False, pool.open_access)
 
         status2 = lpdm.set_rights_status(uri)
         eq_(status, status2)
 
-        uri2 = "http://baz"
+        uri2 = "http://unknown"
         status3 = lpdm.set_rights_status(uri2)
         assert status != status3
-        eq_(uri2, status3.uri)
+        eq_(RightsStatus.UNKNOWN, status3.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status3.name)
 
         open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
         open_access_status = lpdm.set_rights_status(open_access_uri)
         eq_(open_access_uri, open_access_status.uri)
+        eq_(RightsStatus.NAMES.get(open_access_uri), open_access_status.name)
         eq_(True, pool.open_access)
 
         non_open_access_status = lpdm.set_rights_status(uri)
@@ -1299,6 +1551,24 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(False, pool.open_access)
 
 class TestWork(DatabaseTest):
+
+    def test_all_identifier_ids(self):
+        work = self._work(with_license_pool=True)
+        lp = work.license_pools[0]
+        identifier = self._identifier()
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        identifier.equivalent_to(data_source, lp.identifier, 1)
+
+        # Make sure there aren't duplicates in the list, if an
+        # identifier's equivalent to two of the primary identifiers.
+        lp2 = self._licensepool(None)
+        work.license_pools.append(lp2)
+        identifier.equivalent_to(data_source, lp2.identifier, 1)
+
+        all_identifier_ids = work.all_identifier_ids()
+        eq_(3, len(all_identifier_ids))
+        eq_(set([lp.identifier.id, lp2.identifier.id, identifier.id]),
+            set(all_identifier_ids))
 
     def test_from_identifiers(self):
         # Prep a work to be identified and a work to be ignored.
@@ -1330,6 +1600,7 @@ class TestWork(DatabaseTest):
         # Unless the strength is too low.
         lp.identifier.equivalencies[0].strength = 0.8
         identifiers = [isbn]
+
         result = Work.from_identifiers(self._db, identifiers).all()
         eq_([], result)
 
@@ -1567,7 +1838,10 @@ class TestWork(DatabaseTest):
         classification2 = self._classification(
             identifier=identifier, subject=subject2, 
             data_source=source, weight=2)
-                
+        classification3 = self._classification(
+            identifier=identifier, subject=subject3, 
+            data_source=source, weight=2)
+
         results = work.classifications_with_genre().all()
         
         eq_([classification2, classification1], results)
@@ -1783,6 +2057,147 @@ class TestWork(DatabaseTest):
                 self._db, operation, count_as_missing_before=cutoff
             ).all()
         )
+
+    def test_top_genre(self):
+        work = self._work()
+        identifier = work.presentation_edition.primary_identifier
+        genres = self._db.query(Genre).all()
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+
+        # returns None when work has no genres
+        eq_(None, work.top_genre())
+
+        # returns only genre
+        wg1, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[0], affinity=1
+        )
+        eq_(genres[0].name, work.top_genre())
+
+        # returns top genre
+        wg1.affinity = 0.2
+        wg2, is_new = get_one_or_create(
+            self._db, WorkGenre, work=work, genre=genres[1], affinity=0.8
+        )
+        eq_(genres[1].name, work.top_genre())
+
+    def test_to_search_document(self):
+        # Set up an edition and work.
+        edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
+        work = self._work(presentation_edition=edition)
+
+        # These are the edition's authors.
+        [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
+        contributor1.family_name = self._str
+        [contributor2] = [c.contributor for c in edition.contributions if c.role == Contributor.AUTHOR_ROLE]
+
+        data_source = DataSource.lookup(self._db, DataSource.THREEM)
+        
+        # This identifier is strongly equivalent to the edition's.
+        identifier = self._identifier()
+        identifier.equivalent_to(data_source, edition.primary_identifier, 0.9)
+
+        # This identifier is equivalent to the other identifier, but the strength
+        # is too weak for it to be used.
+        identifier2 = self._identifier()
+        identifier.equivalent_to(data_source, identifier, 0.1)
+
+        # Add some classifications.
+
+        # This classification has no subject name, so the search document will use the subject identifier.
+        edition.primary_identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 6)
+
+        # This one has the same subject type and identifier, so their weights will be combined.
+        identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 1)
+
+        # Here's another classification with a different subject type.
+        edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
+
+        # This classification has a subject name, so the search document will use that instead of the identifier.
+        identifier.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
+
+        # This classification will be left out because its subject type isn't useful for search.
+        identifier.classify(data_source, Subject.DDC, self._str, None)
+
+        # This classification will be left out because its identifier isn't sufficiently equivalent to the edition's.
+        identifier2.classify(data_source, Subject.FAST, self._str, None)
+
+        # Add some genres.
+        genre1, ignore = Genre.lookup(self._db, "Science Fiction")
+        genre2, ignore = Genre.lookup(self._db, "Romance")
+        work.genres = [genre1, genre2]
+        work.work_genres[0].affinity = 1
+
+        # Add the other fields used in the search document.
+        work.target_age = NumericRange(7, 8, '[]')
+        edition.subtitle = self._str
+        edition.series = self._str
+        edition.publisher = self._str
+        edition.imprint = self._str
+        work.fiction = False
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        work.summary_text = self._str
+        work.rating = 5
+        work.popularity = 4
+
+        # Make sure all of this will show up in a database query.
+        self._db.flush()
+
+
+        search_doc = work.to_search_document()
+        eq_(work.id, search_doc['_id'])
+        eq_(work.title, search_doc['title'])
+        eq_(edition.subtitle, search_doc['subtitle'])
+        eq_(edition.series, search_doc['series'])
+        eq_(edition.language, search_doc['language'])
+        eq_(work.sort_title, search_doc['sort_title'])
+        eq_(work.author, search_doc['author'])
+        eq_(work.sort_author, search_doc['sort_author'])
+        eq_(edition.medium, search_doc['medium'])
+        eq_(edition.publisher, search_doc['publisher'])
+        eq_(edition.imprint, search_doc['imprint'])
+        eq_(edition.permanent_work_id, search_doc['permanent_work_id'])
+        eq_("Nonfiction", search_doc['fiction'])
+        eq_("YoungAdult", search_doc['audience'])
+        eq_(work.summary_text, search_doc['summary'])
+        eq_(work.quality, search_doc['quality'])
+        eq_(work.rating, search_doc['rating'])
+        eq_(work.popularity, search_doc['popularity'])
+
+        contributors = search_doc['contributors']
+        eq_(2, len(contributors))
+        [contributor1_doc] = [c for c in contributors if c['name'] == contributor1.name]
+        [contributor2_doc] = [c for c in contributors if c['name'] == contributor2.name]
+        eq_(contributor1.family_name, contributor1_doc['family_name'])
+        eq_(None, contributor2_doc['family_name'])
+        eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])
+        eq_(Contributor.AUTHOR_ROLE, contributor2_doc['role'])
+
+        classifications = search_doc['classifications']
+        eq_(3, len(classifications))
+        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.THREEM]]
+        [classification2_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.OVERDRIVE]]
+        [classification3_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.FAST]]
+        eq_("FICTION Science Fiction Time Travel", classification1_doc['term'])
+        eq_(float(6 + 1)/(6 + 1 + 2 + 7), classification1_doc['weight'])
+        eq_("Romance", classification2_doc['term'])
+        eq_(float(2)/(6 + 1 + 2 + 7), classification2_doc['weight'])
+        eq_("Sea Stories", classification3_doc['term'])
+        eq_(float(7)/(6 + 1 + 2 + 7), classification3_doc['weight'])
+        
+        genres = search_doc['genres']
+        eq_(2, len(genres))
+        [genre1_doc] = [g for g in genres if g['name'] == genre1.name]
+        [genre2_doc] = [g for g in genres if g['name'] == genre2.name]
+        eq_(Subject.SIMPLIFIED_GENRE, genre1_doc['scheme'])
+        eq_(genre1.id, genre1_doc['term'])
+        eq_(1, genre1_doc['weight'])
+        eq_(Subject.SIMPLIFIED_GENRE, genre2_doc['scheme'])
+        eq_(genre2.id, genre2_doc['term'])
+        eq_(0, genre2_doc['weight'])
+
+        target_age_doc = search_doc['target_age']
+        eq_(work.target_age.lower, target_age_doc['lower'])
+        eq_(work.target_age.upper, target_age_doc['upper'])
 
 
 class TestCirculationEvent(DatabaseTest):
@@ -2267,6 +2682,64 @@ class TestWorkConsolidation(DatabaseTest):
         )
         eq_(expect_audiobook_work, audiobook.work)
 
+    def test_calculate_work_detaches_licensepool_with_no_title(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # But the LicensePool's presentation edition has lost its
+        # title.
+        book.presentation_edition.title = None
+
+        # Calling calculate_work() on the LicensePool will detach the
+        # book from its work, since a book with no title cannot have
+        # an associated Work.
+        work_after, is_new = book.calculate_work()
+        eq_(None, work_after)
+        eq_([], work.license_pools)
+
+    def test_calculate_work_detaches_licensepool_with_no_pwid(self):
+        # Here's a Work with an open-access edition of "abcd".
+        work = self._work(with_license_pool=True)
+        [book] = work.license_pools
+        book.presentation_edition.permanent_work_id = "abcd"
+
+        # Due to a earlier error, the Work also contains an edition
+        # with no title or author, and thus no permanent work ID.
+        edition, no_title = self._edition(with_license_pool=True)
+
+        no_title.presentation_edition.title=None
+        no_title.presentation_edition.author=None
+        no_title.presentation_edition.permanent_work_id = None
+        work.license_pools.append(no_title)
+
+        # Calling calculate_work() on the functional LicensePool will
+        # split off the bad one.
+        work_after, is_new = book.calculate_work()
+        eq_([book], work.license_pools)
+        eq_(None, no_title.work)
+        eq_(None, no_title.presentation_edition.work)
+
+        # calculate_work() on the bad LicensePool will split it off from
+        # the good one.
+        work.license_pools.append(no_title)
+        work_after_2, is_new = no_title.calculate_work()
+        eq_(None, work_after_2)
+        eq_([book], work.license_pools)
+
+        # The same thing happens if the bad LicensePool has no
+        # presentation edition at all.
+        work.license_pools.append(no_title)
+        no_title.presentation_edition = None
+        work_after, is_new = book.calculate_work()
+        eq_([book], work.license_pools)
+
+        work.license_pools.append(no_title)
+        work_after, is_new = no_title.calculate_work()
+        eq_([book], work.license_pools)
+
+
     def test_pwids(self):
         """Test the property that finds all permanent work IDs
         associated with a Work.
@@ -2410,6 +2883,39 @@ class TestWorkConsolidation(DatabaseTest):
 
         # A third work has been created for the commercial edition of "abcd".
         assert abcd_commercial.work not in (work1, work2)
+
+    def test_make_exclusive_open_access_for_null_permanent_work_id(self):
+        # Here's a LicensePool that, due to a previous error, has
+        # a null PWID in its presentation edition.
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        [null1] = work.license_pools
+        null1.presentation_edition.title = None
+        null1.presentation_edition.sort_author = None
+        null1.presentation_edition.permanent_work_id = None
+        
+        # Here's another LicensePool associated with the same work and
+        # with the same problem.
+        edition, null2 = self._edition(
+            with_license_pool=True, with_open_access_download=True
+        )
+        work.license_pools.append(null2)
+
+        for pool in work.license_pools:
+            pool.presentation_edition.title = None
+            pool.presentation_edition.sort_author = None
+            pool.presentation_edition.permanent_work_id = None
+
+        work.make_exclusive_open_access_for_permanent_work_id(
+            None, Edition.BOOK_MEDIUM
+        )
+
+        # Since a LicensePool with no PWID cannot have an associated Work,
+        # this Work now have no LicensePools at all.
+        eq_([], work.license_pools)
+
+        eq_(None, null1.work)
+        eq_(None, null2.work)
 
     def test_merge_into_success(self):
         # Here's a work with an open-access LicensePool.
@@ -2623,9 +3129,26 @@ class TestWorkConsolidation(DatabaseTest):
         )
 
     def test_licensepool_without_identifier_gets_no_work(self):
-        edition, lp = self._edition(with_license_pool=True)
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
         lp.identifier = None
+
+        # Even if the LicensePool had a work before, it gets removed.
         eq_((None, False), lp.calculate_work())
+        eq_(None, lp.work)
+
+    def test_licensepool_without_presentation_edition_gets_no_work(self):
+        work = self._work(with_license_pool=True)
+        [lp] = work.license_pools
+
+        # This LicensePool has no presentation edition and no way of 
+        # getting one.
+        lp.presentation_edition = None
+        lp.identifier.primarily_identifies = []
+
+        # Even if the LicensePool had a work before, it gets removed.
+        eq_((None, False), lp.calculate_work())
+        eq_(None, lp.work)
 
 class TestLoans(DatabaseTest):
 
@@ -2817,6 +3340,84 @@ class TestRepresentation(DatabaseTest):
         eq_("/foo/bar/baz", Representation.normalize_content_path(
             "/foo/bar/baz", "/blah/blah/"))
 
+    def test_best_media_type(self):
+        """Test our ability to determine whether the Content-Type
+        header should override a presumed media type.
+        """
+        m = Representation._best_media_type
+
+        # If there are no headers or no content-type header, the
+        # presumed media type takes precedence.
+        eq_("text/plain", m(None, "text/plain"))
+        eq_("text/plain", m({}, "text/plain"))
+
+        # Most of the time, the content-type header takes precedence over
+        # the presumed media type.
+        eq_("image/gif", m({"content-type": "image/gif"}, "text/plain"))
+
+        # Except when the content-type header is so generic as to be uselses.
+        eq_("text/plain", m(
+            {"content-type": "application/octet-stream;profile=foo"}, 
+            "text/plain")
+        )
+
+    def test_mirrorable_media_type(self):
+        representation, ignore = self._representation(self._url)
+
+        # Ebook formats and image formats get mirrored.
+        representation.media_type = Representation.EPUB_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+        representation.media_type = Representation.MOBI_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+        representation.media_type = Representation.JPEG_MEDIA_TYPE
+        eq_(True, representation.mirrorable_media_type)
+
+        # Other media types don't get mirrored
+        representation.media_type = "text/plain"
+        eq_(False, representation.mirrorable_media_type)
+
+    def test_external_media_type_and_extension(self):
+        """Test the various transformations that might happen to media type
+        and extension when we mirror a representation.
+        """
+
+        # A text file at /foo
+        representation, ignore = self._representation(self._url, "text/plain")
+        eq_("text/plain", representation.external_media_type)
+        eq_('', representation.extension())
+
+        # A JPEG at /foo.jpg
+        representation, ignore = self._representation(
+            self._url + ".jpg", "image/jpeg"
+        )
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        # A JPEG at /foo
+        representation, ignore = self._representation(self._url, "image/jpeg")
+        eq_("image/jpeg", representation.external_media_type)
+        eq_(".jpg", representation.extension())
+
+        # A PNG at /foo
+        representation, ignore = self._representation(self._url, "image/png")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
+        # An EPUB at /foo.epub.images -- information present in the URL
+        # is preserved.
+        representation, ignore = self._representation(
+            self._url + '.epub.images', Representation.EPUB_MEDIA_TYPE
+        )
+        eq_(Representation.EPUB_MEDIA_TYPE, representation.external_media_type)
+        eq_(".epub.images", representation.extension())
+        
+
+        # SVG representations are always converted to PNG on the way out.
+        # This affects the media type.
+        representation, ignore = self._representation(self._url + ".svg", "image/svg+xml")
+        eq_("image/png", representation.external_media_type)
+        eq_(".png", representation.extension())
+
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content("some text")
@@ -2833,12 +3434,21 @@ class TestRepresentation(DatabaseTest):
         eq_("some text", fh.read())
 
     def test_unicode_content_utf8_default(self):
-        unicode_content = u"A “love” story"
+        unicode_content = u"It’s complicated."
+
         utf8_content = unicode_content.encode("utf8")
+
+        # This bytestring can be decoded as Windows-1252, but that
+        # would be the wrong answer.
+        bad_windows_1252 = utf8_content.decode("windows-1252")
+        eq_(u"Itâ€™s complicated.", bad_windows_1252)
 
         representation, ignore = self._representation(self._url, "text/plain")
         representation.set_fetched_content(unicode_content, None)
         eq_(utf8_content, representation.content)
+
+        # By trying to interpret the content as UTF-8 before falling back to 
+        # Windows-1252, we get the right answer.
         eq_(unicode_content, representation.unicode_content)
 
     def test_unicode_content_windows_1252(self):
@@ -2856,6 +3466,38 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(byte_content)
         eq_(byte_content, representation.content)
         eq_(None, representation.unicode_content)
+
+    def test_presumed_media_type(self):
+        h = DummyHTTPClient()
+
+        # In the absence of a content-type header, the presumed_media_type
+        # takes over.
+        h.queue_response(200, None, content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # In the presence of a generic content-type header, the
+        # presumed_media_type takes over.
+        h.queue_response(200, 'application/octet-stream',
+                         content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/xml', representation.media_type)
+
+        # A non-generic content-type header takes precedence over
+        # presumed_media_type.
+        h.queue_response(200, 'text/plain', content='content')
+        representation, cached = Representation.get(
+            self._db, 'http://url', do_get=h.do_get, max_age=0,
+            presumed_media_type="text/xml"
+        )
+        eq_('text/plain', representation.media_type)
+
 
     def test_404_creates_cachable_representation(self):
         h = DummyHTTPClient()
@@ -2968,6 +3610,7 @@ class TestRepresentation(DatabaseTest):
     def test_extension(self):
         m = Representation._extension
         eq_(".jpg", m("image/jpeg"))
+        eq_(".mobi", m("application/x-mobipocket-ebook"))
         eq_("", m("no/such-media-type"))
 
     def test_default_filename(self):
@@ -3015,7 +3658,7 @@ class TestRepresentation(DatabaseTest):
         filename = representation.default_filename(link=link, destination_type="image/png")
         eq_('cover.png', filename)
 
-    def test_as_image_converts_svg_to_png(self):
+    def test_automatic_conversion_svg_to_png(self):
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
@@ -3028,14 +3671,31 @@ class TestRepresentation(DatabaseTest):
         hyperlink, ignore = pool.add_link(
             Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
             content=svg)
-        image = hyperlink.resource.representation.as_image()
+        representation = hyperlink.resource.representation
+
+        eq_(Representation.SVG_MEDIA_TYPE, representation.media_type)
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
+
+        # If we get the Representation as a PIL image, it's automatically
+        # converted to PNG.
+        image = representation.as_image()
         eq_("PNG", image.format)
+        expect = StringIO()
+        image.save(expect, format='PNG')
+
+        # When we prepare to mirror the Representation to an external
+        # file store, it's automatically converted to PNG.
+        external_fh = representation.external_content()
+        eq_(expect.getvalue(), external_fh.read())
+        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
+        
+        # Verify that the conversion happened correctly.
 
         # Even though the SVG image is smaller than the thumbnail
         # size, thumbnailing it will create a separate PNG-format
         # Representation, because we want all the thumbnails to be
         # bitmaps.
-        thumbnail, is_new = hyperlink.resource.representation.scale(
+        thumbnail, is_new = representation.scale(
             Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
             self._url, Representation.PNG_MEDIA_TYPE
         )
@@ -3362,6 +4022,22 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(mech.NO_DRM, mech.drm_scheme)
 
 
+class TestRightsStatus(DatabaseTest):
+
+    def test_lookup(self):
+        status = RightsStatus.lookup(self._db, RightsStatus.IN_COPYRIGHT)
+        eq_(RightsStatus.IN_COPYRIGHT, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), status.name)
+        
+        status = RightsStatus.lookup(self._db, RightsStatus.CC0)
+        eq_(RightsStatus.CC0, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.CC0), status.name)
+        
+        status = RightsStatus.lookup(self._db, "not a known rights uri")
+        eq_(RightsStatus.UNKNOWN, status.uri)
+        eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status.name)
+
+
 class TestCredentials(DatabaseTest):
     
     def test_temporary_token(self):
@@ -3400,15 +4076,18 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
  
-        # A token with no expiration date is treated as expired.
+        # A token with no expiration date is treated as expired...
         token.expires = None
         self._db.commit()
         no_expiration_token = Credential.lookup_by_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, no_expiration_token)
 
+        # ...unless we specifically say we're looking for a persistent token.
         no_expiration_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, True)
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
         eq_(token, no_expiration_token)
 
     def test_temporary_token_overwrites_old_token(self):
@@ -3426,6 +4105,36 @@ class TestCredentials(DatabaseTest):
         eq_(False, is_new)
         eq_(token.id, old_token.id)
         assert old_credential != token.credential
+
+    def test_persistent_token(self):
+
+        # Create a persistent token.
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        patron = self._patron()
+        token, is_new = Credential.persistent_token_create(
+            self._db, data_source, "some random type", patron
+        )
+        eq_(data_source, token.data_source)
+        eq_("some random type", token.type)
+        eq_(patron, token.patron)
+
+        # Now try to look up the credential based solely on the UUID.
+        new_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(new_token, token)
+        credential = new_token.credential
+
+        # We can keep calling lookup_by_token and getting the same
+        # Credential object with the same .credential -- it doesn't
+        # expire.
+        again_token = Credential.lookup_by_token(
+            self._db, data_source, token.type, token.credential, 
+            allow_persistent_token=True
+        )
+        eq_(again_token, new_token)
+        eq_(again_token.credential, credential)
 
     def test_cannot_look_up_nonexistent_token(self):
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
@@ -3733,6 +4442,76 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
+
+
+class TestDeliveryMechanism(DatabaseTest):
+
+    def setup(self):
+        super(TestDeliveryMechanism, self).setup()
+        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+    def test_implicit_medium(self):
+        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+
+    def test_is_media_type(self):
+        eq_(False, DeliveryMechanism.is_media_type(None))
+        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+
+    def test_is_streaming(self):
+        eq_(False, self.epub_no_drm.is_streaming)
+        eq_(False, self.epub_adobe_drm.is_streaming)
+        eq_(True, self.overdrive_streaming_text.is_streaming)
+
+    def test_drm_scheme_media_type(self):
+        eq_(None, self.epub_no_drm.drm_scheme_media_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
+        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+
+    def test_content_type_media_type(self):
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            self.overdrive_streaming_text.content_type_media_type)
+
+class TestCustomListEntry(DatabaseTest):
+
+    def test_set_license_pool(self):
+
+        # Start with a custom list with no entries
+        list, ignore = self._customlist(num_entries=0)
+
+        # Now create an entry with an edition but no license pool.
+        edition = self._edition()
+
+        entry, ignore = get_one_or_create(
+            self._db, CustomListEntry,
+            list_id=list.id, edition_id=edition.id,
+        )
+
+        eq_(edition, entry.edition)
+        eq_(None, entry.license_pool)
+
+        # Here's another edition, with a license pool.
+        other_edition, lp = self._edition(with_open_access_download=True)
+
+        # And its identifier is equivalent to the entry's edition's identifier.
+        data_source = DataSource.lookup(self._db, DataSource.OCLC)
+        lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
+
+        # If we call set_license_pool, it should find the license pool
+        # from the equivalent identifier.
+        entry.set_license_pool()
+
+        eq_(lp, entry.license_pool)
 
 
 class TestCollection(DatabaseTest):

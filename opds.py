@@ -1,7 +1,8 @@
+
 from collections import (
     defaultdict,
-    Counter,
 )
+
 from urlparse import urlparse, urljoin
 import copy
 import datetime
@@ -41,44 +42,28 @@ from model import (
     Measurement,
     Subject,
     Work,
-    )
+)
 from lane import (
     Facets,
     Lane,
     Pagination,
 )
+from util.opds_writer import (
+    AtomFeed,
+    OPDSFeed, 
+)
 from util.cdn import cdnify
 
-ATOM_NAMESPACE = atom_ns = 'http://www.w3.org/2005/Atom'
-app_ns = 'http://www.w3.org/2007/app'
-bibframe_ns = 'http://bibframe.org/vocab/'
-xhtml_ns = 'http://www.w3.org/1999/xhtml'
-dcterms_ns = 'http://purl.org/dc/terms/'
-opds_ns = 'http://opds-spec.org/2010/catalog'
-schema_ns = 'http://schema.org/'
+class UnfulfillableWork(Exception):
+    """Raise this exception when it turns out a Work currently cannot be
+    fulfilled through any means, *and* this is a problem sufficient to
+    cancel the creation of an <entry> for the Work.
 
-# This is a placeholder namespace for stuff we've invented.
-simplified_ns = 'http://librarysimplified.org/terms/'
-
-
-nsmap = {
-    None: atom_ns,
-    'app': app_ns,
-    'dcterms' : dcterms_ns,
-    'opds' : opds_ns,
-    'schema' : schema_ns,
-    'simplified' : simplified_ns,
-    'bibframe' : bibframe_ns,
-}
-
-def _strftime(d):
+    For commercial works, this might be because the collection
+    contains no licenses. For open-access works, it might be because
+    none of the delivery mechanisms could be mirrored.
     """
-Format a date the way Atom likes it (RFC3339?)
-"""
-    return d.strftime(AtomFeed.TIME_FORMAT)
 
-default_typemap = {datetime: lambda e, v: _strftime(v)}
-E = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap)
 
 class Annotator(object):
     """The Annotator knows how to present an OPDS feed in a specific
@@ -109,11 +94,11 @@ class Annotator(object):
     @classmethod
     def rating_tag(cls, type_uri, value):
         """Generate a schema:Rating tag for the given type and value."""
-        rating_tag = E._makeelement("{%s}Rating" % schema_ns)
-        value_key = '{%s}ratingValue' % schema_ns
+        rating_tag = AtomFeed.makeelement(AtomFeed.schema_("Rating"))
+        value_key = AtomFeed.schema_('ratingValue')
         rating_tag.set(value_key, "%.4f" % value)
         if type_uri:
-            type_key = '{%s}additionalType' % schema_ns
+            type_key = AtomFeed.schema_('additionalType')
             rating_tag.set(type_key, type_uri)
         return rating_tag
 
@@ -130,16 +115,16 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdn_host = Configuration.cdn_host(Configuration.CDN_BOOK_COVERS)
+        cdns = Configuration.cdns()
         if work:
             if work.cover_thumbnail_url:
                 thumb = work.cover_thumbnail_url
                 old_thumb = thumb
-                thumbnails = [cdnify(thumb, cdn_host)]
+                thumbnails = [cdnify(thumb, cdns)]
 
             if work.cover_full_url:
                 full = work.cover_full_url
-                full = [cdnify(full, cdn_host)]
+                full = [cdnify(full, cdns)]
         return thumbnails, full
 
     @classmethod
@@ -181,7 +166,7 @@ class Annotator(object):
 
         # Add the appeals as a category of schema
         # http://librarysimplified.org/terms/appeal
-        schema_url = simplified_ns + "appeals/"
+        schema_url = AtomFeed.SIMPLIFIED_NS + "appeals/"
         appeals = []
         categories[schema_url] = appeals
         for name, value in (
@@ -192,14 +177,14 @@ class Annotator(object):
         ):
             if value:
                 appeal = dict(term=schema_url + name, label=name)
-                weight_field = "{%s}ratingValue" % schema_ns
+                weight_field = AtomFeed.schema_("ratingValue")
                 appeal[weight_field] = value
                 appeals.append(appeal)
 
         # Add the audience as a category of schema
         # http://schema.org/audience
         if work.audience:
-            audience_uri = schema_ns + "audience"
+            audience_uri = AtomFeed.SCHEMA_NS + "audience"
             categories[audience_uri] = [
                 dict(term=work.audience, label=work.audience)
             ]
@@ -215,7 +200,7 @@ class Annotator(object):
     @classmethod
     def authors(cls, work, license_pool, edition, identifier):
         """Create one or more <author> tags for the given work."""
-        return [E.author(E.name(edition.author or ""))]
+        return [AtomFeed.author(AtomFeed.name(edition.author or ""))]
 
     @classmethod
     def series(cls, series_name, series_position):
@@ -225,8 +210,8 @@ class Annotator(object):
         series_details = dict()
         series_details['name'] = series_name
         if series_position:
-            series_details['{%s}position' % schema_ns] = unicode(series_position)
-        series_tag = E._makeelement("{%s}Series" % schema_ns, **series_details)
+            series_details[AtomFeed.schema_('position')] = unicode(series_position)
+        series_tag = AtomFeed.makeelement(AtomFeed.schema_("Series"), **series_details)
         return series_tag
 
     @classmethod
@@ -289,7 +274,6 @@ class Annotator(object):
         """Which license pool would be/has been used to issue a license for
         this work?
         """
-        open_access_license_pool = None
         active_license_pool = None
 
         if not work:
@@ -299,32 +283,23 @@ class Annotator(object):
             # Active license pool is preloaded from database.
             return work.license_pool
             
-        if work.has_open_access_license:
-            # All licenses are issued from the license pool associated with
-            # the work's presentation edition.
-            edition = work.presentation_edition
-
-            if (edition and edition.license_pool and
-                edition.open_access_download_url and edition.title):
-                # Looks good.
-                open_access_license_pool = edition.license_pool
-
-        if not open_access_license_pool:
-            # The active license pool is the one that *would* be
-            # associated with a loan, were a loan to be issued right
-            # now.
-            for p in work.license_pools:
-                edition = p.presentation_edition
-                if p.open_access:
-                    # Make sure there's a usable link--it might be
-                    # audio-only or something.
-                    if edition and edition.open_access_download_url:
-                        open_access_license_pool = p
-                elif edition and edition.title and p.licenses_owned > 0:
+        # The active license pool is the one that *would* be
+        # associated with a loan, were a loan to be issued right
+        # now.
+        for p in work.license_pools:
+            if p.superceded:
+                continue
+            edition = p.presentation_edition
+            if p.open_access:
+                # Make sure there's a usable link--it might be
+                # audio-only or something.
+                if edition and edition.open_access_download_url:
                     active_license_pool = p
+                    # We have an unlimited source for this book.
+                    # There's no need to keep looking.
                     break
-        if not active_license_pool:
-            active_license_pool = open_access_license_pool
+            elif edition and edition.title and p.licenses_owned > 0:
+                active_license_pool = p
         return active_license_pool
 
 
@@ -367,7 +342,7 @@ class VerboseAnnotator(Annotator):
             if subject.type in Subject.uri_lookup:
                 scheme = Subject.uri_lookup[subject.type]
                 term = subject.identifier
-                weight_field = "{%s}ratingValue" % schema_ns
+                weight_field = AtomFeed.schema_("ratingValue")
                 key = (scheme, term)
                 if not key in by_scheme_and_term:
                     value = dict(term=subject.identifier)
@@ -394,97 +369,42 @@ class VerboseAnnotator(Annotator):
     def detailed_author(cls, contributor):
         """Turn a Contributor into a detailed <author> tag."""
         children = []
-        children.append(E.name(contributor.display_name or ""))
-        sort_name = E._makeelement("{%s}sort_name" % simplified_ns)
+        children.append(AtomFeed.name(contributor.display_name or ""))
+        sort_name = AtomFeed.makeelement("{%s}sort_name" % AtomFeed.SIMPLIFIED_NS)
         sort_name.text = contributor.name
 
         children.append(sort_name)
 
         if contributor.family_name:
-            family_name = E._makeelement("{%s}family_name" % schema_ns)
+            family_name = AtomFeed.makeelement(AtomFeed.schema_("family_name"))
             family_name.text = contributor.family_name
             children.append(family_name)
 
         if contributor.wikipedia_name:
-            wikipedia_name = E._makeelement(
-                "{%s}wikipedia_name" % simplified_ns)
+            wikipedia_name = AtomFeed.makeelement(
+                "{%s}wikipedia_name" % AtomFeed.SIMPLIFIED_NS)
             wikipedia_name.text = contributor.wikipedia_name
             children.append(wikipedia_name)
 
         if contributor.viaf:
-            viaf_tag = E._makeelement("{%s}sameas" % schema_ns)
+            viaf_tag = AtomFeed.makeelement(AtomFeed.schema_("sameas"))
             viaf_tag.text = "http://viaf.org/viaf/%s" % contributor.viaf
             children.append(viaf_tag)
 
         if contributor.lc:
-            lc_tag = E._makeelement("{%s}sameas" % schema_ns)
+            lc_tag = AtomFeed.makeelement(AtomFeed.schema_("sameas"))
             lc_tag.text = "http://id.loc.gov/authorities/names/%s" % contributor.lc
             children.append(lc_tag)
 
 
-        return E.author(*children)
+        return AtomFeed.author(*children)
 
 
-class AtomFeed(object):
-
-    TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
-
-    def __init__(self, title, url):
-        self.feed = E.feed(
-            E.id(url),
-            E.title(title),
-            E.updated(_strftime(datetime.datetime.utcnow())),
-            E.link(href=url, rel="self"),
-        )
-
-    def add_link(self, children=None, **kwargs):
-        link = E.link(**kwargs)
-        self.feed.append(link)
-        if children:
-            for i in children:
-                link.append(i)
-
-    def add_link_to_entry(self, entry, children=None, **kwargs):
-        link = E.link(**kwargs)
-        entry.append(link)
-        if children:
-            for i in children:
-                link.append(i)
-
-    def __unicode__(self):
-        return etree.tostring(self.feed, pretty_print=True)
-
-class OPDSFeed(AtomFeed):
-
-    ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
-    NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
-    ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
-
-    GROUP_REL = "collection"
-    FEATURED_REL = "http://opds-spec.org/featured"
-    RECOMMENDED_REL = "http://opds-spec.org/recommended"
-    POPULAR_REL = "http://opds-spec.org/sort/popular"
-    OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
-    ACQUISITION_REL = "http://opds-spec.org/acquisition"
-    BORROW_REL = "http://opds-spec.org/acquisition/borrow"
-    FULL_IMAGE_REL = "http://opds-spec.org/image" 
-    EPUB_MEDIA_TYPE = "application/epub+zip"
-
-    REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
-
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
-
-    NO_TITLE = "http://librarysimplified.org/terms/problem/no-title"
-
-    def __init__(self, title, url, annotator):
-        if not annotator:
-            annotator = Annotator()
-        self.annotator = annotator
-        super(OPDSFeed, self).__init__(title, url)
 
 class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
+    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
@@ -562,7 +482,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # Render a 'start' link and an 'up' link.
         top_level_title = annotator.top_level_title() or "Collection Home"
-        feed.add_link(href=annotator.default_lane_url(), rel="start", title=top_level_title)
+        AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=annotator.default_lane_url(), rel="start", title=top_level_title)
 
         if isinstance(lane, Lane):
             visible_parent = lane.visible_parent()
@@ -571,7 +491,7 @@ class AcquisitionFeed(OPDSFeed):
             else:
                 title = top_level_title
             up_uri = annotator.groups_url(visible_parent)
-            feed.add_link(href=up_uri, rel="up", title=title)
+            AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
             feed.add_breadcrumbs(lane, annotator)
         
         annotator.annotate_feed(feed, lane)
@@ -617,18 +537,18 @@ class AcquisitionFeed(OPDSFeed):
 
         # Add URLs to change faceted views of the collection.
         for args in cls.facet_links(annotator, facets):
-            feed.add_link(**args)
+            OPDSFeed.add_link_to_feed(feed=feed.feed, **args)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            feed.add_link(rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
 
         if pagination.offset > 0:
-            feed.add_link(rel="first", href=annotator.feed_url(lane, facets, pagination.first_page))
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=annotator.feed_url(lane, facets, pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link(rel="previous", href=annotator.feed_url(lane, facets, previous_page))
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
@@ -639,10 +559,10 @@ class AcquisitionFeed(OPDSFeed):
             title = top_level_title
         if visible_parent:
             up_uri = annotator.lane_url(visible_parent)
-            feed.add_link(href=up_uri, rel="up", title=title)
+            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
             feed.add_breadcrumbs(lane, annotator)
 
-        feed.add_link(rel='start', href=annotator.default_lane_url(), title=top_level_title)
+        OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
         
         annotator.annotate_feed(feed, lane)
 
@@ -662,21 +582,21 @@ class AcquisitionFeed(OPDSFeed):
 
         results = search_lane.search(query, search_engine, pagination=pagination)
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
-        opds_feed.add_link(rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
-            opds_feed.add_link(rel="next", href=annotator.search_url(lane, query, pagination.next_page))
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="next", href=annotator.search_url(lane, query, pagination.next_page))
 
         if pagination.offset > 0:
-            opds_feed.add_link(rel="first", href=annotator.search_url(lane, query, pagination.first_page))
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="first", href=annotator.search_url(lane, query, pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            opds_feed.add_link(rel="previous", href=annotator.search_url(lane, query, previous_page))
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=annotator.search_url(lane, query, previous_page))
 
         # Add "up" link and breadcrumbs
-        opds_feed.add_link(rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
         opds_feed.add_breadcrumbs(search_lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
@@ -695,17 +615,24 @@ class AcquisitionFeed(OPDSFeed):
     def render_messages(cls, messages_by_urn):
         """Create minimal OPDS entries for custom messages."""
         for urn, (status, message) in messages_by_urn.items():
-            entry = E.entry(
-                E.id(urn)
+            entry = AtomFeed.entry(
+                AtomFeed.id(urn)
             )
-            status_tag = E._makeelement("{%s}status_code" % simplified_ns)
+            status_tag = AtomFeed.makeelement("{%s}status_code" % AtomFeed.SIMPLIFIED_NS)
             status_tag.text = str(status)
             entry.append(status_tag)
 
-            message_tag = E._makeelement("{%s}message" % simplified_ns)
+            message_tag = AtomFeed.makeelement("{%s}message" % AtomFeed.SIMPLIFIED_NS)
             message_tag.text = unicode(message)
+
             entry.append(message_tag)
             yield entry
+
+    @classmethod
+    def error_message(cls, identifier, error_status, error_message):
+        """Create a minimal OPDS entry for an error message."""
+        message = { identifier.urn : (error_status, error_message)}
+        return list(cls.render_messages(message))[0]
 
     @classmethod
     def facet_links(self, annotator, facets):
@@ -717,17 +644,22 @@ class AcquisitionFeed(OPDSFeed):
             facet_title = Facets.FACET_DISPLAY_TITLES[value]
             link = dict(href=url, title=facet_title)
             link['rel'] = self.FACET_REL
-            link['{%s}facetGroup' % opds_ns] = group_title
+            link['{%s}facetGroup' % AtomFeed.OPDS_NS] = group_title
             if selected:
-                link['{%s}activeFacet' % opds_ns] = "true"
+                link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
+
 
     def __init__(self, _db, title, url, works, annotator=None,
                  messages_by_urn={}, precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
         into a feed.
         """
-        super(AcquisitionFeed, self).__init__(title, url, annotator)
+        if not annotator:
+            annotator = Annotator()
+        self.annotator = annotator
+
+        super(AcquisitionFeed, self).__init__(title, url)
 
         # Add minimal entries for the messages.
         for entry in self.render_messages(messages_by_urn):
@@ -753,6 +685,7 @@ class AcquisitionFeed(OPDSFeed):
     def create_entry(self, work, lane_link, even_if_no_license_pool=False,
                      force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
+        identifier = None
         if isinstance(work, Edition):
             active_edition = work
             identifier = active_edition.primary_identifier
@@ -776,21 +709,46 @@ class AcquisitionFeed(OPDSFeed):
                 identifier = active_edition.primary_identifier
 
         # There's no reason to present a book that has no active license pool.
-        if not active_license_pool and not even_if_no_license_pool:
-            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
-            return None
-
-        if not active_edition and not isinstance(work, BaseMaterializedWork):
-            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
-            return None
-
         if not identifier:
             logging.warn("%r HAS NO IDENTIFIER", work)
             return None
 
-        return self._create_entry(work, active_license_pool, active_edition,
-                                  identifier, lane_link, force_create, 
-                                  use_cache)
+        if not active_license_pool and not even_if_no_license_pool:
+            logging.warn("NO ACTIVE LICENSE POOL FOR %r", work)
+            return self.error_message(
+                identifier,
+                403,
+                "I've heard about this work but have no active licenses for it."
+            )
+
+        if not active_edition and not isinstance(work, BaseMaterializedWork):
+            logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
+            return self.error_message(
+                identifier,
+                403,
+                "I've heard about this work but have no metadata for it."
+            )
+
+        try:
+            return self._create_entry(work, active_license_pool, active_edition,
+                                      identifier, lane_link, force_create, 
+                                      use_cache)
+        except UnfulfillableWork, e:
+            logging.info(
+                "Work %r is not fulfillable, refusing to create an <entry>.",
+                work,
+            )
+            return self.error_message(
+                identifier, 
+                403,
+                "I know about this work but can offer no way of fulfilling it."
+            )
+        except Exception, e:
+            logging.error(
+                "Exception generating OPDS entry for %r", work,
+                exc_info = e
+            )
+            return None
 
     def _create_entry(self, work, license_pool, edition, identifier, lane_link,
                       force_create=False, use_cache=True):
@@ -850,7 +808,7 @@ class AcquisitionFeed(OPDSFeed):
                     image_type = "image/jpeg"
                 elif url.endswith(".gif"):
                     image_type = "image/gif"
-                links.append(E.link(rel=rel, href=url, type=image_type))
+                links.append(AtomFeed.link(rel=rel, href=url, type=image_type))
            
 
         permalink = self.annotator.permalink_for(work, license_pool, identifier)
@@ -867,24 +825,24 @@ class AcquisitionFeed(OPDSFeed):
             if not additional_type:
                 logging.warn("No additionalType for medium %s",
                              edition.medium)
-            additional_type_field = "{%s}additionalType" % schema_ns
+            additional_type_field = AtomFeed.schema_("additionalType")
             kw[additional_type_field] = additional_type
 
-        entry = E.entry(
-            E.id(permalink),
-            E.title(edition.title or OPDSFeed.NO_TITLE),
+        entry = AtomFeed.entry(
+            AtomFeed.id(permalink),
+            AtomFeed.title(edition.title or OPDSFeed.NO_TITLE),
             **kw
         )
         if edition.subtitle:
-            subtitle_tag = E._makeelement("{%s}alternativeHeadline" % schema_ns)
+            subtitle_tag = AtomFeed.makeelement(AtomFeed.schema_("alternativeHeadline"))
             subtitle_tag.text = edition.subtitle
             entry.append(subtitle_tag)
 
         if license_pool:
-            provider_name_attr = "{%s}ProviderName" % bibframe_ns
+            provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
             kwargs = {provider_name_attr : license_pool.data_source.name}
-            data_source_tag = E._makeelement(
-                "{%s}distribution" % bibframe_ns,
+            data_source_tag = AtomFeed.makeelement(
+                "{%s}distribution" % AtomFeed.BIBFRAME_NS,
                 **kwargs
             )
             entry.extend([data_source_tag])
@@ -896,13 +854,13 @@ class AcquisitionFeed(OPDSFeed):
             entry.extend([self.annotator.series(edition.series, edition.series_position)])
 
         if content:
-            entry.extend([E.summary(content, type=content_type)])
+            entry.extend([AtomFeed.summary(content, type=content_type)])
 
         entry.extend([
-            E.updated(_strftime(datetime.datetime.utcnow())),
+            AtomFeed.updated(AtomFeed._strftime(datetime.datetime.utcnow())),
         ])
 
-        permanent_work_id_tag = E._makeelement("{%s}pwid" % simplified_ns)
+        permanent_work_id_tag = AtomFeed.makeelement("{%s}pwid" % AtomFeed.SIMPLIFIED_NS)
         permanent_work_id_tag.text = edition.permanent_work_id
         entry.append(permanent_work_id_tag)
 
@@ -915,19 +873,19 @@ class AcquisitionFeed(OPDSFeed):
                 if isinstance(category, basestring):
                     category = dict(term=category)
                 category = dict(map(unicode, (k, v)) for k, v in category.items())
-                category_tag = E.category(scheme=scheme, **category)
+                category_tag = AtomFeed.category(scheme=scheme, **category)
                 category_tags.append(category_tag)
         entry.extend(category_tags)
 
         # print " ID %s TITLE %s AUTHORS %s" % (tag, work.title, work.authors)
         language = edition.language_code
         if language:
-            language_tag = E._makeelement("{%s}language" % dcterms_ns)
+            language_tag = AtomFeed.makeelement("{%s}language" % AtomFeed.DCTERMS_NS)
             language_tag.text = language
             entry.append(language_tag)
 
         if edition.publisher:
-            publisher_tag = E._makeelement("{%s}publisher" % dcterms_ns)
+            publisher_tag = AtomFeed.makeelement("{%s}publisher" % AtomFeed.DCTERMS_NS)
             publisher_tag.text = edition.publisher
             entry.extend([publisher_tag])
 
@@ -940,9 +898,9 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(avail, datetime.datetime):
                 avail = avail.date()
             if avail <= today:
-                availability_tag = E._makeelement("published")
+                availability_tag = AtomFeed.makeelement("published")
                 # TODO: convert to local timezone.
-                availability_tag.text = _strftime(license_pool.availability_time)
+                availability_tag.text = AtomFeed._strftime(license_pool.availability_time)
                 entry.extend([availability_tag])
 
         # Entry.issued is the date the ebook came out, as distinct
@@ -968,7 +926,7 @@ class AcquisitionFeed(OPDSFeed):
             elif isinstance(issued, datetime.date):
                 issued_already = (issued <= today)
             if issued_already:
-                issued_tag = E._makeelement("{%s}created" % dcterms_ns)
+                issued_tag = AtomFeed.makeelement("{%s}created" % AtomFeed.DCTERMS_NS)
                 # TODO: convert to local timezone, not that it matters much.
                 issued_tag.text = issued.strftime("%Y-%m-%d")
                 entry.extend([issued_tag])
@@ -979,12 +937,12 @@ class AcquisitionFeed(OPDSFeed):
         """Add list of ancestor links in a breadcrumbs element."""
         # Ensure that lane isn't top-level before proceeding
         if annotator.lane_url(lane) != annotator.default_lane_url():
-            breadcrumbs = E._makeelement("{%s}breadcrumbs" % simplified_ns)
+            breadcrumbs = AtomFeed.makeelement("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
 
             # Add root link
             root_url = annotator.default_lane_url()
             breadcrumbs.append(
-                E.link(title=annotator.top_level_title(), href=root_url)
+                AtomFeed.link(title=annotator.top_level_title(), href=root_url)
             )
             
             # Add links for all visible ancestors that aren't root
@@ -992,14 +950,14 @@ class AcquisitionFeed(OPDSFeed):
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
-                        E.link(title=ancestor.display_name, href=lane_url)
+                        AtomFeed.link(title=ancestor.display_name, href=lane_url)
                     )
 
             # Include link to lane
             # For search, breadcrumbs include the searched lane
             if include_lane:
                 breadcrumbs.append(
-                    E.link(title=lane.display_name, href=annotator.lane_url(lane))
+                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane))
                 )
 
             self.feed.append(breadcrumbs)
@@ -1012,14 +970,14 @@ class AcquisitionFeed(OPDSFeed):
         if cover:
             cover_representation = cover.representation
             representations.append(cover.representation)
-            cover_link = E._makeelement(
+            cover_link = AtomFeed.makeelement(
                 "link", href=cover_representation.mirror_url,
                 type=cover_representation.media_type, rel=Hyperlink.IMAGE)
             elements.append(cover_link)
             if cover_representation.thumbnails:
                 thumbnail = cover_representation.thumbnails[0]
                 representations.append(thumbnail)
-                thumbnail_link = E._makeelement(
+                thumbnail_link = AtomFeed.makeelement(
                     "link", href=thumbnail.mirror_url,
                     type=thumbnail.media_type,
                     rel=Hyperlink.THUMBNAIL_IMAGE
@@ -1029,7 +987,7 @@ class AcquisitionFeed(OPDSFeed):
             content = description.representation.content
             if isinstance(content, str):
                 content = content.decode("utf8")
-            description_e = E.summary(content, type='html')
+            description_e = AtomFeed.summary(content, type='html')
             elements.append(description_e)
             representations.append(description.representation)
 
@@ -1046,17 +1004,17 @@ class AcquisitionFeed(OPDSFeed):
         
         if potential_update_dates:
             update_date = max(potential_update_dates)
-            elements.append(E.updated(_strftime(update_date)))
-        entry = E.entry(
-            E.id(identifier.urn),
-            E.title(OPDSFeed.NO_TITLE),
+            elements.append(AtomFeed.updated(AtomFeed._strftime(update_date)))
+        entry = AtomFeed.entry(
+            AtomFeed.id(identifier.urn),
+            AtomFeed.title(OPDSFeed.NO_TITLE),
             *elements
         )
         return entry
 
     @classmethod
     def link(cls, rel, href, type):
-        return E._makeelement("link", type=type, rel=rel, href=href)
+        return AtomFeed.makeelement("link", type=type, rel=rel, href=href)
 
     @classmethod
     def acquisition_link(cls, rel, href, types):
@@ -1077,8 +1035,8 @@ class AcquisitionFeed(OPDSFeed):
         top_level_parent = None
         parent = None
         for t in indirect_types:
-            indirect_link = E._makeelement(
-                "{%s}indirectAcquisition" % opds_ns, type=t)
+            indirect_link = AtomFeed.makeelement(
+                "{%s}indirectAcquisition" % AtomFeed.OPDS_NS, type=t)
             if parent is not None:
                 parent.extend([indirect_link])
             parent = indirect_link
@@ -1097,6 +1055,8 @@ class AcquisitionFeed(OPDSFeed):
         since = None
         until = None
 
+        if not license_pool:
+            return
         if license_pool.open_access:
             default_loan_period = default_reservation_period = None
         else:
@@ -1125,11 +1085,11 @@ class AcquisitionFeed(OPDSFeed):
 
         kw = dict(status=status)
         if since:
-            kw['since'] = _strftime(since)
+            kw['since'] = AtomFeed._strftime(since)
         if until:
-            kw['until'] = _strftime(until)
-        tag_name = "{%s}availability" % opds_ns
-        availability_tag = E._makeelement(tag_name, **kw)
+            kw['until'] = AtomFeed._strftime(until)
+        tag_name = "{%s}availability" % AtomFeed.OPDS_NS
+        availability_tag = AtomFeed.makeelement(tag_name, **kw)
         tags.append(availability_tag)
 
         # Open-access pools do not need to display <opds:holds> or <opds:copies>.
@@ -1140,14 +1100,14 @@ class AcquisitionFeed(OPDSFeed):
         holds_kw = dict(total=str(license_pool.patrons_in_hold_queue or 0))
         if hold and hold.position:
             holds_kw['position'] = str(hold.position)
-        holds = E._makeelement("{%s}holds" % opds_ns, **holds_kw)
+        holds = AtomFeed.makeelement("{%s}holds" % AtomFeed.OPDS_NS, **holds_kw)
         tags.append(holds)
 
         copies_kw = dict(
             total=str(license_pool.licenses_owned or 0),
             available=str(license_pool.licenses_available or 0),
         )
-        copies = E._makeelement("{%s}copies" % opds_ns, **copies_kw)
+        copies = AtomFeed.makeelement("{%s}copies" % AtomFeed.OPDS_NS, **copies_kw)
         tags.append(copies)
 
         return tags
@@ -1214,14 +1174,25 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            
         if error_status:
-            message = { identifier.urn : (error_status, error_message)}
-            return list(self.render_messages(message))[0]
+            return self.error_message(identifier, error_status, error_message)
 
         if active_licensepool:
             edition = active_licensepool.presentation_edition
         else:
             edition = work.presentation_edition
-        return self._create_entry(
-            work, active_licensepool, edition, identifier, lane_link,
-            use_cache=use_cache
-        )
+        try:
+            return self._create_entry(
+                work, active_licensepool, edition, identifier, lane_link,
+                use_cache=use_cache
+            )
+        except UnfulfillableWork, e:
+            logging.info(
+                "Work %r is not fulfillable, refusing to create an <entry>.",
+                work
+            )
+            return self.error_message(
+                identifier,
+                403,
+                "I know about this work but can offer no way of fulfilling it."
+            )
+

@@ -1,17 +1,21 @@
 import argparse
 import datetime
-import os
 import logging
+import os
+import requests
+import time
+from requests.exceptions import (
+    ConnectionError, 
+    HTTPError,
+)
 import sys
+
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.session import Session
-import time
 
 from config import Configuration, CannotLoadConfiguration
-import log # This sets the appropriate log format and level.
-import random
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one_or_create,
@@ -32,6 +36,8 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from util.opds_writer import OPDSFeed
+
 from monitor import SubjectAssignmentMonitor
 
 from overdrive import (
@@ -88,6 +94,15 @@ class Script(object):
                 except ValueError, e:
                     continue
         raise ValueError("Could not parse time: %s" % time_string)
+
+    def __init__(self, _db=None):
+        """Basic constructor.
+
+        :_db: A database session to be used instead of
+        creating a new one. Useful in tests.
+        """
+        if _db:
+            self._session = _db
 
     def run(self):
         self.load_configuration()
@@ -288,8 +303,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parsed
 
     def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
-        if _db:
-            self._session = _db
+        super(RunCoverageProviderScript, self).__init__(_db)
         args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
             if args.identifier_type:
@@ -521,6 +535,23 @@ class WorkClassificationScript(WorkPresentationScript):
         update_search_index=False,
     )
 
+class WorkOPDSScript(WorkPresentationScript):
+    """Recalculate the OPDS entries and search index entries for Work objects.
+
+    This is intended to verify that a problem has already been resolved and just
+    needs to be propagated to these two 'caches'.
+    """
+    policy = PresentationCalculationPolicy(
+        choose_edition=False,
+        set_edition_metadata=False,
+        classify=True,
+        choose_summary=False,
+        calculate_quality=False,
+        choose_cover=False,
+        regenerate_opds_entries=True, 
+        update_search_index=True,
+    )
+
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a
     MembershipManager.
@@ -550,19 +581,45 @@ class CustomListManagementScript(Script):
 
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
-    def __init__(self, feed_url, default_data_source, importer_class, 
-                 keep_timestamp=True, immediately_presentation_ready=False):
-        self.feed_url = feed_url
-        self.default_data_source = default_data_source
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--url', 
+            help='URL of the OPDS feed to be imported'
+        )
+        parser.add_argument(
+            '--data-source', 
+            help='The name of the data source providing the OPDS feed.'
+        )
+        parser.add_argument(
+            '--force', 
+            help='Import the feed from scratch, even if it seems like it was already imported.',
+            dest='force', action='store_true'
+        )
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, cmd_args=None):
+        parser = cls.arg_parser()
+        return parser.parse_args(cmd_args)
+
+    def __init__(self, feed_url, opds_data_source, importer_class, 
+                 immediately_presentation_ready=False, cmd_args=None):
+        args = self.parse_command_line(cmd_args)
+        self.force_reimport = args.force
+        self.feed_url = args.url or feed_url
+        self.opds_data_source = args.data_source or opds_data_source
         self.importer_class = importer_class
-        self.keep_timestamp = keep_timestamp
         self.immediately_presentation_ready = immediately_presentation_ready
 
     def do_run(self):
         monitor = OPDSImportMonitor(
-            self._db, self.feed_url, self.default_data_source, 
-            self.importer_class, keep_timestamp=self.keep_timestamp,
-            immediately_presentation_ready = self.immediately_presentation_ready
+            self._db, self.feed_url, self.opds_data_source, 
+            self.importer_class, 
+            immediately_presentation_ready = self.immediately_presentation_ready,
+            force_reimport=self.force_reimport
         )
         monitor.run()
         
@@ -598,8 +655,28 @@ class NYTBestSellerListsScript(Script):
 
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
-    
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--blocking-refresh', 
+            help="Provide this argument if you're on an older version of Postgres and can't refresh materialized views concurrently.",
+            action='store_true',
+        )
+        return parser
+
+    @classmethod
+    def parse_command_line(cls, cmd_args=None):
+        parser = cls.arg_parser()
+        return parser.parse_args(cmd_args)
+
     def do_run(self):
+        args = self.parse_command_line()
+        if args.blocking_refresh:
+            concurrently = ''
+        else:
+            concurrently = 'CONCURRENTLY'
         # Initialize database
         from model import (
             MaterializedWork,
@@ -609,7 +686,7 @@ class RefreshMaterializedViewsScript(Script):
         for i in (MaterializedWork, MaterializedWorkWithGenre):
             view_name = i.__table__.name
             a = time.time()
-            db.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY %s" % view_name)
+            db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
             print "%s refreshed in %.2f sec." % (view_name, b-a)
 
@@ -638,8 +715,10 @@ class Explain(IdentifierInputScript):
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
+        #policy = PresentationCalculationPolicy.recalculate_everything()
+        policy = None
         for edition in editions:
-            self.explain(self._db, edition)
+            self.explain(self._db, edition, policy)
             print "-" * 80
         #self._db.commit()
 
@@ -647,8 +726,9 @@ class Explain(IdentifierInputScript):
     def explain(cls, _db, edition, presentation_calculation_policy=None):
         if edition.medium != 'Book':
             return
-        output = "%s (%s, %s)" % (edition.title, edition.author, edition.medium)
+        output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
+        print " Permanent work ID: %s" % edition.permanent_work_id
         work = edition.work
         lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
@@ -717,7 +797,7 @@ class Explain(IdentifierInputScript):
                     fulfillable = "Fulfillable"
                 else:
                     fulfillable = "Unfulfillable"
-                    print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
+                print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
         else:
             print " No delivery mechanisms."
         print " %s owned, %d available, %d holds, %d reserves" % (
@@ -727,12 +807,23 @@ class Explain(IdentifierInputScript):
     @classmethod
     def explain_work(cls, work):
         print "Work info:"
+        if work.presentation_edition:
+            print " Identifier of presentation edition: %r" % work.presentation_edition.primary_identifier
+        else:
+            print " No presentation edition."
         print " Fiction: %s" % work.fiction
         print " Audience: %s" % work.audience
         print " Target age: %r" % work.target_age
         print " %s genres." % (len(work.genres))
         for genre in work.genres:
             print " ", genre
+        print " License pools:"
+        for pool in work.license_pools:
+            active = "SUPERCEDED"
+            if not pool.superceded:
+                active = "ACTIVE"
+            print "  %s: %r" % (active, pool.identifier)
+
 
 class SubjectAssignmentScript(SubjectInputScript):
 
@@ -744,6 +835,7 @@ class SubjectAssignmentScript(SubjectInputScript):
         monitor.run()
 
 
+
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
     def __init__(self, *lines):
@@ -753,3 +845,5 @@ class MockStdin(object):
         lines = self.lines
         self.lines = []
         return lines
+
+

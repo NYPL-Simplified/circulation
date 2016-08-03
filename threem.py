@@ -60,7 +60,7 @@ class ThreeMAPI(object):
 
     log = logging.getLogger("3M API")
 
-    def __init__(self, _db, base_url = "https://cloudlibraryapi.3m.com/",
+    def __init__(self, _db, base_url = "https://partner.yourcloudlibrary.com/",
                  version="2.0", testing=False):
         self._db = _db
         self.version = version
@@ -179,11 +179,15 @@ class ThreeMAPI(object):
                 results[identifier] = (edition, metadata)
         return results
 
-    def bibliographic_lookup(self, identifier, max_age=None):
-        data = self.request(
+    def bibliographic_lookup_request(self, identifier, max_age=None):
+        return self.request(
             "/items/%s" % identifier.identifier,
             max_age=max_age or self.MAX_METADATA_AGE
         )
+
+
+    def bibliographic_lookup(self, identifier, max_age=None):
+        data = self.bibliographic_lookup_request(identifier, max_age)
         response = list(self.item_list_parser.parse(data))
         if not response:
             return None
@@ -427,7 +431,12 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         )
 
     def process_item(self, identifier):
-        metadata = self.api.bibliographic_lookup(identifier)
+        # We don't accept a representation from the cache because
+        # either this is being run for the first time (in which case
+        # there is nothing in the cache) or it's being run to correct
+        # for an earlier failure (in which case the representation
+        # in the cache might be wrong).
+        metadata = self.api.bibliographic_lookup(identifier, max_age=0)
         if not metadata:
             return CoverageFailure(
                 identifier, "3M bibliographic lookup failed.",
