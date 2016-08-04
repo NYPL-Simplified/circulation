@@ -118,8 +118,8 @@ else:
         return decorated
 
 @app.route('/')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def index():
     return app.manager.index_controller()
 
@@ -128,8 +128,8 @@ def index():
 @app.route('/groups/<languages>', defaults=dict(lane_name=None))
 @app.route('/groups/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/groups/<languages>/<lane_name>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
 
@@ -138,8 +138,8 @@ def acquisition_groups(languages, lane_name):
 @app.route('/feed/<languages>', defaults=dict(lane_name=None))
 @app.route('/feed/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/feed/<languages>/<lane_name>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
 
@@ -148,109 +148,109 @@ def feed(languages, lane_name):
 @app.route('/search/<languages>', defaults=dict(lane_name=None))
 @app.route('/search/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/search/<languages>/<lane_name>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
 @app.route('/preload')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def preload():
     return app.manager.opds_feeds.preload()
 
 @app.route('/me', methods=['GET'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def account():
     return app.manager.accounts.account()
 
 @app.route('/loans', methods=['GET', 'HEAD'])
 @app.route('/loans/', methods=['GET', 'HEAD'], strict_slashes=False)
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def active_loans():
     return app.manager.loans.sync()
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def borrow(data_source, identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(data_source, identifier_type, identifier, mechanism_id)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill')
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def fulfill(data_source, identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.fulfill(data_source, identifier_type, identifier, mechanism_id)
 
 @app.route('/loans/<data_source>/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def revoke_loan_or_hold(data_source, identifier_type, identifier):
     return app.manager.loans.revoke(data_source, identifier_type, identifier)
 
 @app.route('/loans/<data_source>/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-@allows_patron_web()
 def loan_or_hold_detail(data_source, identifier_type, identifier):
     return app.manager.loans.detail(data_source, identifier_type, identifier)
 
 @app.route('/works/')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
 @app.route('/works/contributor/<contributor_name>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def contributor(contributor_name):
     return app.manager.work_controller.contributor(contributor_name)
 
 @app.route('/works/series/<series_name>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def series(series_name):
     return app.manager.work_controller.series(series_name)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def permalink(data_source, identifier_type, identifier):
     return app.manager.work_controller.permalink(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/recommendations')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def recommendations(data_source, identifier_type, identifier):
     return app.manager.work_controller.recommendations(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/related_books')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def related_books(data_source, identifier_type, identifier):
     return app.manager.work_controller.related(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def report(data_source, identifier_type, identifier):
     return app.manager.work_controller.report(data_source, identifier_type, identifier)
 
 @app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
-@returns_problem_detail
 @allows_patron_web()
+@returns_problem_detail
 def track_analytics_event(data_source, identifier_type, identifier, event_type):
     return app.manager.analytics_controller.track_event(data_source, identifier_type, identifier, event_type)
 
