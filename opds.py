@@ -1182,3 +1182,93 @@ class LookupAcquisitionFeed(AcquisitionFeed):
                 "I know about this work but can offer no way of fulfilling it."
             )
 
+# Mock annotators for use in unit tests.
+
+class TestAnnotator(Annotator):
+
+    @classmethod
+    def lane_url(cls, lane):
+        if lane and lane.has_visible_sublane():
+            return cls.groups_url(lane)
+        elif lane:
+            return cls.feed_url(lane)
+        else:
+            return ""
+
+    @classmethod
+    def feed_url(cls, lane, facets=None, pagination=None):
+        base = "http://%s/" % lane.url_name
+        sep = '?'
+        if facets:
+            base += sep + facets.query_string
+            sep = '&'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
+
+    @classmethod
+    def search_url(cls, lane, query, pagination):
+        base = "http://search/%s/" % lane.url_name
+        sep = '?'
+        if pagination:
+            base += sep + pagination.query_string
+        return base
+
+    @classmethod
+    def groups_url(cls, lane):
+        if lane:
+            name = lane.name
+        else:
+            name = ""
+        return "http://groups/%s" % name
+
+    @classmethod
+    def default_lane_url(cls):
+        return cls.groups_url(None)
+
+    @classmethod
+    def facet_url(cls, facets):
+        return "http://facet/" + "&".join(
+            ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
+        )
+
+    @classmethod
+    def top_level_title(cls):
+        return "Test Top Level Title"
+
+
+class TestAnnotatorWithGroup(TestAnnotator):
+
+    def __init__(self):
+        self.lanes_by_work = defaultdict(list)
+
+    def group_uri(self, work, license_pool, identifier):
+        lanes = self.lanes_by_work.get(work, None)
+
+        if lanes:
+            lane_name = lanes[0]['lane'].display_name
+            additional_lanes = lanes[1:]
+            if additional_lanes:
+                self.lanes_by_work[work] = additional_lanes
+        else:
+            lane_name = str(work.id)
+        return ("http://group/%s" % lane_name,
+                "Group Title for %s!" % lane_name)
+
+    def group_uri_for_lane(self, lane):
+        if lane:
+            return ("http://groups/%s" % lane.display_name, 
+                    "Groups of %s" % lane.display_name)
+        else:
+            return "http://groups/", "Top-level groups"
+
+    def top_level_title(self):
+        return "Test Top Level Title"
+
+
+class TestUnfulfillableAnnotator(TestAnnotator):
+    """Raise an UnfulfillableWork exception when asked to annotate an entry."""
+
+    @classmethod
+    def annotate_work_entry(self, *args, **kwargs):
+        raise UnfulfillableWork()

@@ -15,6 +15,8 @@ from . import (
     DatabaseTest,
 )
 
+from opds import TestAnnotator
+
 from model import (
     Identifier,
     UnresolvedIdentifier,
@@ -38,20 +40,30 @@ from problem_details import (
     INVALID_URN,
 )
 
+from util.opds_writer import OPDSFeed
+
+
 class TestURNLookupController(DatabaseTest):
 
     def setup(self):
         super(TestURNLookupController, self).setup()
         self.controller = URNLookupController(self._db)
 
+    def assert_one_message(self, urn, code, message):
+        """Assert that the given message is the only one in
+        messages_by_urn.
+        """
+        [(u, (c, m))] = self.controller.messages_by_urn.items()
+        eq_(u, urn)
+        eq_(c, code)
+        eq_(m, message)
+        eq_([], self.controller.works)
+        eq_([], self.controller.precomposed_entries)
+        
     def test_process_urn_invalid_urn(self):
         urn = "not even a URN"
         self.controller.process_urn(urn)
-
-        key, (code, message) = self.controller.messages_by_urn.items()
-        eq_(urn, key)
-        eq_(400, code)
-        eq_(INVALID_URN.detail, message)
+        self.assert_one_message(urn, 400, INVALID_URN.detail)
 
     def test_process_urn_unrecognized_identifier(self):
         # Give the controller a URN that, although valid, doesn't
@@ -60,10 +72,9 @@ class TestURNLookupController(DatabaseTest):
         self.controller.process_urn(urn)
 
         # The result is a 404 message.
-        key, (code, message) = self.controller.messages_by_urn.items()
-        eq_(urn, key)
-        eq_(404, code)
-        eq_(self.controller.UNRECOGNIZED_IDENTIFIER, message)
+        self.assert_one_message(
+            urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
+        )
 
     def test_process_urn_no_license_pool(self):
         # Give the controller a URN that corresponds to an Identifier
@@ -73,40 +84,78 @@ class TestURNLookupController(DatabaseTest):
         self.controller.process_urn(urn)
 
         # The result is a 404 message.
-        key, (code, message) = self.controller.messages_by_urn.items()
-        eq_(urn, key)
-        eq_(404, code)
-        eq_(self.controller.UNRECOGNIZED_IDENTIFIER, message)
+        self.assert_one_message(
+            urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
+        )
+
+    def test_process_urn_license_pool_but_no_work(self):
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = edition.primary_identifier
+        self.controller.process_urn(identifier.urn)
+        self.assert_one_message(
+            identifier.urn, 202, self.controller.WORK_NOT_CREATED
+        )
+
+    def test_process_urn_work_not_presentation_ready(self):
+        work = self._work(with_license_pool=True)
+        work.presentation_ready = False
+        identifier = work.license_pools[0].identifier
+        self.controller.process_urn(identifier.urn)
+
+        self.assert_one_message(
+            identifier.urn, 202, self.controller.WORK_NOT_PRESENTATION_READY
+        )
         
     def test_process_urn_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         self.controller.process_urn(identifier.urn)
-        eq_(0, len(self.controller.messages_by_urn.keys()))
-        eq_([(work.presentation_edition.primary_identifier, work)], self.controller.works)
+        eq_(0, len(self.controller.messages_by_urn))
+        eq_([(work.presentation_edition.primary_identifier, work)],
+            self.controller.works
+        )
 
-    def test_process_urn_work_is_not_presentation_ready(self):
+    # Set up a mock Flask app for testing the controller methods.
+    app = Flask(__name__)
+    @app.route('/lookup')
+    def lookup(self, urn):
+        pass
+    @app.route('/work')
+    def work(self, urn):
+        pass
+    
+    def test_work_lookup(self):
         work = self._work(with_license_pool=True)
-        work.presentation_ready = False
         identifier = work.license_pools[0].identifier
-        self.controller.process_urn(identifier.urn)
-        eq_(1, len(self.controller.messages_by_urn.keys()))
-        code, message = self.controller.messages_by_urn[identifier.urn]
-        eq_(202, code)
-        eq_(self.controller.WORK_NOT_PRESENTATION_READY, message)
-        eq_([], self.controller.works)
+        annotator = TestAnnotator()
+        with self.app.test_request_context("/?urn=%s" % identifier.urn):
+            response = self.controller.work_lookup(
+                annotator=annotator
+            )
 
-    def test_process_urn_work_not_created_yet(self):
-        edition, pool = self._edition(with_license_pool=True)
-        identifier = edition.primary_identifier
-        self.controller.process_urn(identifier.urn)
-        eq_(1, len(self.controller.messages_by_urn.keys()))
-        code, message = self.controller.messages_by_urn[identifier.urn]
-        eq_(202, code)
-        eq_(self.controller.WORK_NOT_CREATED, message)
-        eq_([], self.controller.works)        
+            # We got an OPDS feed that includes an entry for the work.
+            eq_(200, response.status_code)
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+                response.headers['Content-Type'])
+            assert identifier.urn in response.data
+            assert work.title in response.data
 
+    def test_permalink(self):
+        work = self._work(with_license_pool=True)
+        work.license_pools[0].open_access = False
+        identifier = work.license_pools[0].identifier
+        annotator = TestAnnotator()
+        with self.app.test_request_context("/?urn=%s" % identifier.urn):
+            response = self.controller.permalink(identifier.urn, annotator)
 
+            # We got an OPDS feed that includes an entry for the work.
+            eq_(200, response.status_code)
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+                response.headers['Content-Type'])
+            assert identifier.urn in response.data
+            assert work.title in response.data
+        
+        
 class TestComplaintController(DatabaseTest):
     
     def setup(self):

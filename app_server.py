@@ -255,13 +255,13 @@ class URNLookupController(object):
         self.precomposed_entries = []
         self.unresolved_identifiers = []
 
-    def work_lookup(self, annotator, route_name='lookup'):
+    def work_lookup(self, annotator, route_name='lookup', urns=[]):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
         for urn in urns:
-            self.handle_result(self.process_urn(urn))
+            self.process_urn(urn)
         self.post_lookup_hook()
 
         opds_feed = LookupAcquisitionFeed(
@@ -274,11 +274,15 @@ class URNLookupController(object):
     def permalink(self, urn, annotator, route_name='work'):
         """Look up a single identifier and generate an OPDS feed."""
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
-        self.handle_result(self.process_urn(urn))
+        self.process_urn(urn)
         self.post_lookup_hook()
 
+        # A LookupAcquisitionFeed's .works is a list of (identifier,
+        # work) tuples, but an AcquisitionFeed's .works is just a
+        # list of works.
+        works = [work for (identifier, work) in self.works]
         opds_feed = AcquisitionFeed(
-            self._db, urn, this_url, self.works, annotator,
+            self._db, urn, this_url, works, annotator,
             messages_by_urn=self.messages_by_urn
         )
 
