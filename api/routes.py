@@ -124,9 +124,9 @@ def index():
     return app.manager.index_controller()
 
 @app.route('/groups', defaults=dict(lane_name=None, languages=None))
-@app.route('/groups/', defaults=dict(lane_name=None, languages=None))
+@app.route('/groups/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
 @app.route('/groups/<languages>', defaults=dict(lane_name=None))
-@app.route('/groups/<languages>/', defaults=dict(lane_name=None))
+@app.route('/groups/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/groups/<languages>/<lane_name>')
 @returns_problem_detail
 @allows_patron_web()
@@ -134,9 +134,9 @@ def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
 
 @app.route('/feed', defaults=dict(lane_name=None, languages=None))
-@app.route('/feed/', defaults=dict(lane_name=None, languages=None))
+@app.route('/feed/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
 @app.route('/feed/<languages>', defaults=dict(lane_name=None))
-@app.route('/feed/<languages>/', defaults=dict(lane_name=None))
+@app.route('/feed/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/feed/<languages>/<lane_name>')
 @returns_problem_detail
 @allows_patron_web()
@@ -144,9 +144,9 @@ def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
 
 @app.route('/search', defaults=dict(lane_name=None, languages=None))
-@app.route('/search/', defaults=dict(lane_name=None, languages=None))
+@app.route('/search/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
 @app.route('/search/<languages>', defaults=dict(lane_name=None))
-@app.route('/search/<languages>/', defaults=dict(lane_name=None))
+@app.route('/search/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
 @app.route('/search/<languages>/<lane_name>')
 @returns_problem_detail
 @allows_patron_web()
@@ -166,7 +166,8 @@ def preload():
 def account():
     return app.manager.accounts.account()
 
-@app.route('/loans/', methods=['GET', 'HEAD'])
+@app.route('/loans', methods=['GET', 'HEAD'])
+@app.route('/loans/', methods=['GET', 'HEAD'], strict_slashes=False)
 @requires_auth
 @returns_problem_detail
 @allows_patron_web()
@@ -182,7 +183,7 @@ def active_loans():
 def borrow(data_source, identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(data_source, identifier_type, identifier, mechanism_id)
 
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/')
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill')
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
 @requires_auth
 @returns_problem_detail
