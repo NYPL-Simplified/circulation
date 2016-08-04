@@ -288,11 +288,14 @@ class URNLookupController(object):
         """Turn a URN into a Work suitable for use in an OPDS feed.
 
         """
-        identifier, is_new = Identifier.parse_urn(_db, urn)
+        try:
+            identifier, is_new = Identifier.parse_urn(self._db, urn)
+        except ValueError, e:
+            identifier = None
 
         if not identifier:
-            # URN is probably invalid.
-            return self.add_message(urn, 400, self.UNRESOLVABLE_URN)
+            # Not a well-formed URN.
+            return self.add_message(urn, 400, INVALID_URN.detail)
 
         if not identifier.licensed_through:
             # The default URNLookupController cannot look up an
