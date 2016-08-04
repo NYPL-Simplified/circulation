@@ -1118,6 +1118,11 @@ class AcquisitionFeed(OPDSFeed):
         acquisition_link().
         """
         types = []
+        # If this is a streaming book, you have to get an OPDS entry, then
+        # get a direct link to the streaming reader from that.
+        if delivery_mechanism.is_streaming:
+            types.append(OPDSFeed.ENTRY_TYPE)
+
         # If this is a DRM-encrypted book, you have to get through the DRM
         # to get the goodies inside.
         drm = delivery_mechanism.drm_scheme_media_type
