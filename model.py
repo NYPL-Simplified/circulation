@@ -6357,6 +6357,8 @@ class CirculationEvent(Base):
             )
         return event, was_new
 
+Index("ix_circulationevents_start_desc_nullslast", CirculationEvent.start.desc().nullslast())
+
 
 class Credential(Base):
     """A place to store credentials for external services."""
