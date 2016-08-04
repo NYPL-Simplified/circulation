@@ -64,7 +64,6 @@ class UnfulfillableWork(Exception):
     none of the delivery mechanisms could be mirrored.
     """
 
-
 class Annotator(object):
     """The Annotator knows how to present an OPDS feed in a specific
     application context.
@@ -1136,15 +1135,6 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     which may be different from the identifier used by the Work's
     default LicensePool.
     """
-    def __init__(self, _db, title, url, works, annotator=None,
-                 messages_by_urn={}, precomposed_entries=[],
-                 require_active_licensepool=True):
-        self.require_active_licensepool=require_active_licensepool
-
-        super(LookupAcquisitionFeed, self).__init__(
-            _db, title, url, works, annotator,
-            messages_by_urn, precomposed_entries
-        )
 
     def create_entry(self, work, lane_link):
         """Turn an Identifier and a Work into an entry for an acquisition
@@ -1164,10 +1154,6 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         use_cache = (active_licensepool == default_licensepool)
 
         error_status = error_message = None
-        if self.require_active_licensepool and not active_licensepool:
-            error_status = 404
-            error_message = "Identifier not found in collection"
-        
         if (identifier.licensed_through and 
             identifier.licensed_through.work != work):
             error_status = 500
