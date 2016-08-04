@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from functools import wraps
+from functools import wraps, partial
 import os
 
 import flask
@@ -8,6 +8,7 @@ from flask import (
     redirect,
     request,
 )
+from flask_cors import cross_origin
 
 from app import app, _db, babel
 
@@ -95,8 +96,30 @@ def requires_auth(f):
             return f(*args, **kwargs)
     return decorated
 
+patron_web_integration = Configuration.integration(Configuration.PATRON_WEB_CLIENT_INTEGRATION)
+if patron_web_integration:
+    # The allows_patron_web decorator will add Cross-Origin Resource Sharing
+    # (CORS) headers to routes that will be used by the patron web interface.
+    # This is necessary for a JS app on a different domain to make requests.
+    #
+    # The partial function sets the arguments to the cross_origin decorator,
+    # since they're the same for all routes that use it.
+    patron_web_url = patron_web_integration.get(Configuration.URL)
+    allows_patron_web = partial(
+        cross_origin,
+        origins=[patron_web_url],
+        supports_credentials=True,
+    )
+else:
+    # If the patron web client isn't configured, the decorator will do nothing.
+    def allows_patron_web():
+        def decorated(f):
+            return f
+        return decorated
+
 @app.route('/')
 @returns_problem_detail
+@allows_patron_web()
 def index():
     return app.manager.index_controller()
 
@@ -106,6 +129,7 @@ def index():
 @app.route('/groups/<languages>/', defaults=dict(lane_name=None))
 @app.route('/groups/<languages>/<lane_name>')
 @returns_problem_detail
+@allows_patron_web()
 def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
 
@@ -115,6 +139,7 @@ def acquisition_groups(languages, lane_name):
 @app.route('/feed/<languages>/', defaults=dict(lane_name=None))
 @app.route('/feed/<languages>/<lane_name>')
 @returns_problem_detail
+@allows_patron_web()
 def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
 
@@ -124,23 +149,27 @@ def feed(languages, lane_name):
 @app.route('/search/<languages>/', defaults=dict(lane_name=None))
 @app.route('/search/<languages>/<lane_name>')
 @returns_problem_detail
+@allows_patron_web()
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
 @app.route('/preload')
 @returns_problem_detail
+@allows_patron_web()
 def preload():
     return app.manager.opds_feeds.preload()
 
 @app.route('/me', methods=['GET'])
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def account():
     return app.manager.accounts.account()
 
 @app.route('/loans/', methods=['GET', 'HEAD'])
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def active_loans():
     return app.manager.loans.sync()
 
@@ -149,6 +178,7 @@ def active_loans():
            methods=['GET', 'PUT'])
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def borrow(data_source, identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(data_source, identifier_type, identifier, mechanism_id)
 
@@ -156,59 +186,70 @@ def borrow(data_source, identifier_type, identifier, mechanism_id=None):
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def fulfill(data_source, identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.fulfill(data_source, identifier_type, identifier, mechanism_id)
 
 @app.route('/loans/<data_source>/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def revoke_loan_or_hold(data_source, identifier_type, identifier):
     return app.manager.loans.revoke(data_source, identifier_type, identifier)
 
 @app.route('/loans/<data_source>/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @requires_auth
 @returns_problem_detail
+@allows_patron_web()
 def loan_or_hold_detail(data_source, identifier_type, identifier):
     return app.manager.loans.detail(data_source, identifier_type, identifier)
 
 @app.route('/works/')
 @returns_problem_detail
+@allows_patron_web()
 def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
 @app.route('/works/contributor/<contributor_name>')
 @returns_problem_detail
+@allows_patron_web()
 def contributor(contributor_name):
     return app.manager.work_controller.contributor(contributor_name)
 
 @app.route('/works/series/<series_name>')
 @returns_problem_detail
+@allows_patron_web()
 def series(series_name):
     return app.manager.work_controller.series(series_name)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>')
 @returns_problem_detail
+@allows_patron_web()
 def permalink(data_source, identifier_type, identifier):
     return app.manager.work_controller.permalink(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/recommendations')
 @returns_problem_detail
+@allows_patron_web()
 def recommendations(data_source, identifier_type, identifier):
     return app.manager.work_controller.recommendations(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/related_books')
 @returns_problem_detail
+@allows_patron_web()
 def related_books(data_source, identifier_type, identifier):
     return app.manager.work_controller.related(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
 @returns_problem_detail
+@allows_patron_web()
 def report(data_source, identifier_type, identifier):
     return app.manager.work_controller.report(data_source, identifier_type, identifier)
 
 @app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
 @returns_problem_detail
+@allows_patron_web()
 def track_analytics_event(data_source, identifier_type, identifier, event_type):
     return app.manager.analytics_controller.track_event(data_source, identifier_type, identifier, event_type)
 
