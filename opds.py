@@ -1154,6 +1154,10 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         use_cache = (active_licensepool == default_licensepool)
 
         error_status = error_message = None
+        if not active_licensepool:
+            error_status = 404
+            error_message = "Identifier not found in collection"
+            
         if (identifier.licensed_through and 
             identifier.licensed_through.work != work):
             error_status = 500

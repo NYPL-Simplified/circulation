@@ -1219,18 +1219,8 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
-        eq_(True, feed.require_active_licensepool)
         assert "Identifier not found in collection" in entry
         assert work.title not in entry
-
-        # But if the LookupAcquisitionFeed is set up to allow a lookup
-        # even in the absense of a LicensePool (as might happen in the
-        # metadata wrangler), the same lookup succeeds.
-        feed, entry = self.entry(
-            identifier, work, require_active_licensepool = False
-        )
-        assert 'simplified:status_code' not in entry
-        assert work.title in entry
 
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
