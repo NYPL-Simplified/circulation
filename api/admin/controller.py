@@ -58,6 +58,7 @@ from core.classifier import (
 from datetime import datetime, timedelta
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast
+from sqlalchemy.orm import lazyload
 
 
 def setup_admin_controllers(manager):
@@ -618,7 +619,7 @@ class FeedController(CirculationManagerController):
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
-            .order_by(nullslast(desc(CirculationEvent.start))) \
+            .order_by(desc(CirculationEvent.start)) \
             .limit(num) \
             .all()
 
@@ -644,12 +645,15 @@ class FeedController(CirculationManagerController):
                 CirculationEvent, Identifier, Work, Edition
             ) \
             .join(LicensePool, LicensePool.id == CirculationEvent.license_pool_id) \
+            .join(Identifier, Identifier.id == LicensePool.identifier_id) \
             .join(Work, Work.id == LicensePool.work_id) \
             .join(Edition, Edition.id == Work.presentation_edition_id) \
-            .join(Identifier, Identifier.id == Edition.primary_identifier_id) \
             .filter(CirculationEvent.start >= date) \
             .filter(CirculationEvent.start < next_date) \
             .order_by(CirculationEvent.start.asc())
+        query = query \
+            .options(lazyload(Identifier.licensed_through)) \
+            .options(lazyload(Work.license_pools))
         results = query.all()
         
         work_ids = map(lambda result: result[2].id, results)
