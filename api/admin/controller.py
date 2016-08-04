@@ -619,7 +619,7 @@ class FeedController(CirculationManagerController):
             .join(Work) \
             .join(DataSource) \
             .join(Identifier) \
-            .order_by(desc(CirculationEvent.start)) \
+            .order_by(nullslast(desc(CirculationEvent.start))) \
             .limit(num) \
             .all()
 
