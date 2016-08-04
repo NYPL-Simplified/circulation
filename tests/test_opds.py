@@ -21,9 +21,11 @@ from model import (
     CachedFeed,
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Genre,
     Measurement,
     Patron,
+    Representation,
     SessionManager,
     Subject,
     Work,
@@ -41,6 +43,7 @@ from opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
+    OPDSFeed,
     UnfulfillableWork,
     VerboseAnnotator,
 )
@@ -1227,6 +1230,22 @@ class TestAcquisitionFeed(DatabaseTest):
             "I know about this work but can offer no way of fulfilling it."
         )
         assert etree.tostring(expect) in etree.tostring(entry)
+
+    def test_format_types(self):
+        epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+        eq_([Representation.EPUB_MEDIA_TYPE],
+            AcquisitionFeed.format_types(epub_no_drm))
+        eq_([DeliveryMechanism.ADOBE_DRM, Representation.EPUB_MEDIA_TYPE],
+            AcquisitionFeed.format_types(epub_adobe_drm))
+        eq_([OPDSFeed.ENTRY_TYPE, Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
+            AcquisitionFeed.format_types(overdrive_streaming_text))
+
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
