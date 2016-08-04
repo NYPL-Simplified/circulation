@@ -35,7 +35,8 @@ from lanes import QueryGeneratedLane
 class CirculationManagerAnnotator(Annotator):
 
     def __init__(self, circulation, lane, patron=None,
-                 active_loans_by_work={}, active_holds_by_work={}, 
+                 active_loans_by_work={}, active_holds_by_work={},
+                 active_fulfillments_by_work={},
                  facet_view='feed',
                  test_mode=False,
                  top_level_title="All Books"
@@ -45,6 +46,7 @@ class CirculationManagerAnnotator(Annotator):
         self.patron = patron
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
+        self.active_fulfillments_by_work = active_fulfillments_by_work
         self.lanes_by_work = defaultdict(list)
         self.facet_view = facet_view
         self.test_mode = test_mode
@@ -214,6 +216,7 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
+        active_fulfillment = self.active_fulfillments_by_work.get(work)
 
         if isinstance(work, BaseMaterializedWork):
             data_source_name = work.name
@@ -245,8 +248,8 @@ class CirculationManagerAnnotator(Annotator):
         # Now we need to generate a <link> tag for every delivery mechanism
         # that has well-defined media types.
         link_tags = self.acquisition_links(
-            active_license_pool, active_loan, active_hold, feed,
-            data_source_name, identifier
+            active_license_pool, active_loan, active_hold, active_fulfillment,
+            feed, data_source_name, identifier
         )
         for tag in link_tags:
             entry.append(tag)
@@ -333,7 +336,7 @@ class CirculationManagerAnnotator(Annotator):
                     link = OPDSFeed.link(**d)
                     feed.append(link)
 
-    def acquisition_links(self, active_license_pool, active_loan, active_hold,
+    def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, data_source_name, identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
 
@@ -358,6 +361,9 @@ class CirculationManagerAnnotator(Annotator):
                 self.circulation.can_revoke_hold(
                     active_license_pool, active_hold)
             )
+        elif active_fulfillment:
+            can_fulfill = True
+            can_revoke = True
         else:
             # The patron has no existing relationship with this
             # work. Give them the opportunity to check out the work
@@ -430,7 +436,16 @@ class CirculationManagerAnnotator(Annotator):
         # Add links for fulfilling an active loan.
         fulfill_links = []
         if can_fulfill:
-            if active_loan.fulfillment:
+            if active_fulfillment:
+                # We're making an entry for a specific fulfill link.
+                type = active_fulfillment.content_type
+                url = active_fulfillment.content_link
+                rel = OPDSFeed.ACQUISITION_REL
+                link_tag = AcquisitionFeed.acquisition_link(
+                    rel=rel, href=url, types=[type])
+                fulfill_links.append(link_tag)
+
+            elif active_loan.fulfillment:
                 # The delivery mechanism for this loan has been
                 # set. There is one link for the delivery mechanism
                 # that was locked in, and links for any streaming
@@ -620,6 +635,24 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         annotator = cls(circulation, None, active_loans_by_work={}, 
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
+        return AcquisitionFeed.single_entry(db, work, annotator)
+
+    @classmethod
+    def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False):
+        db = Session.object_session(loan)
+        work = loan.license_pool.work or loan.license_pool.presentation_edition.work
+        annotator = cls(circulation, None, 
+                        active_loans_by_work={}, 
+                        active_holds_by_work={}, 
+                        active_fulfillments_by_work={work:fulfillment},
+                        test_mode=test_mode)
+        identifier = loan.license_pool.identifier
+        url = annotator.url_for(
+            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
+            identifier_type=identifier.type, identifier=identifier.identifier, _external=True)
+        if not work:
+            return AcquisitionFeed(
+                db, "Active loan for unknown work", url, [], annotator)
         return AcquisitionFeed.single_entry(db, work, annotator)
 
 
