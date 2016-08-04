@@ -36,7 +36,10 @@ from core.opds_import import (
     OPDSXMLParser
 )
 
-from api.circulation import CirculationAPI
+from api.circulation import (
+    CirculationAPI,
+    FulfillmentInfo,
+)
 from api.config import (
     Configuration, 
     temp_config,
@@ -467,7 +470,7 @@ class TestOPDS(DatabaseTest):
         eq_(3, len(fulfill_links))
         
         eq_(set([mech1.delivery_mechanism.drm_scheme_media_type, mech2.delivery_mechanism.drm_scheme_media_type,
-                 streaming_mech.delivery_mechanism.content_type_media_type]),
+                 OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
 
         # When the loan is fulfilled, there are only fulfill links for that mechanism
@@ -487,8 +490,44 @@ class TestOPDS(DatabaseTest):
         eq_(2, len(fulfill_links))
         
         eq_(set([mech1.delivery_mechanism.drm_scheme_media_type,
-                 streaming_mech.delivery_mechanism.content_type_media_type]),
+                 OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
+
+    def test_fulfill_feed(self):
+        patron = self._patron()
+
+        work = self._work(with_license_pool=True, with_open_access_download=False)
+        pool = work.license_pools[0]
+        pool.open_access = False
+        streaming_mech = pool.set_delivery_mechanism(
+            DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+        
+        now = datetime.datetime.utcnow()
+        loan, ignore = pool.loan_to(patron, start=now)
+        fulfillment = FulfillmentInfo(
+            pool.identifier.type, pool.identifier.identifier,
+            "http://streaming_link",
+            Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            None, None)
+
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.single_fulfillment_feed(
+            None, loan, fulfillment, test_mode=True)
+        raw = etree.tostring(feed_obj)
+
+        entries = feedparser.parse(raw)['entries']
+        eq_(1, len(entries))
+
+        links = entries[0]['links']
+        
+        # The feed for a single fulfillment only includes one fulfill link.
+        fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
+        eq_(1, len(fulfill_links))
+        
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            fulfill_links[0]['type'])
+        eq_("http://streaming_link", fulfill_links[0]['href'])
 
 
     def test_borrow_link_raises_unfulfillable_work(self):

@@ -250,6 +250,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         try:
             url, media_type = self.get_fulfillment_link(
                 patron, pin, licensepool.identifier.identifier, internal_format)
+            if internal_format in self.STREAMING_FORMATS:
+                media_type += DeliveryMechanism.STREAMING_PROFILE
         except FormatNotAvailable, e:
 
             # It's possible the available formats for this book have changed and we
