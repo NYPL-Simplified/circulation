@@ -47,11 +47,37 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urn_invalid_urn(self):
         urn = "not even a URN"
         self.controller.process_urn(urn)
-        eq_(1, len(self.controller.messages_by_urn.keys()))
-        code, message = self.controller.messages_by_urn[urn]
+
+        key, (code, message) = self.controller.messages_by_urn.items()
+        eq_(urn, key)
         eq_(400, code)
         eq_(INVALID_URN.detail, message)
 
+    def test_process_urn_unrecognized_identifier(self):
+        # Give the controller a URN that, although valid, doesn't
+        # correspond to any Identifier in the database.
+        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
+        self.controller.process_urn(urn)
+
+        # The result is a 404 message.
+        key, (code, message) = self.controller.messages_by_urn.items()
+        eq_(urn, key)
+        eq_(404, code)
+        eq_(self.controller.UNRECOGNIZED_IDENTIFIER, message)
+
+    def test_process_urn_no_license_pool(self):
+        # Give the controller a URN that corresponds to an Identifier
+        # which has no LicensePool.
+        identifier = self._identifier()
+        urn = identifier.urn
+        self.controller.process_urn(urn)
+
+        # The result is a 404 message.
+        key, (code, message) = self.controller.messages_by_urn.items()
+        eq_(urn, key)
+        eq_(404, code)
+        eq_(self.controller.UNRECOGNIZED_IDENTIFIER, message)
+        
     def test_process_urn_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
@@ -79,18 +105,6 @@ class TestURNLookupController(DatabaseTest):
         eq_(202, code)
         eq_(self.controller.WORK_NOT_CREATED, message)
         eq_([], self.controller.works)        
-
-    def test_process_urn_unrecognized_identifier(self):
-        # Give the controller a URN that, although valid, doesn't
-        # correspond to any Identifier in the database.
-        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
-        self.controller.process_urn(urn)
-        eq_(1, len(controller.messages_by_urn.keys()))
-
-        # The result is a 404 message.
-        code, message = controller.messages_by_urn[urn]
-        eq_(404, code)
-        eq_(self.controller.UNRECOGNIZED_IDENTIFIER, message)
 
 
 class TestComplaintController(DatabaseTest):
