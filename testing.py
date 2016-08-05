@@ -44,6 +44,7 @@ from coverage import (
     CoverageFailure,
     WorkCoverageProvider,
 )
+
 from external_search import DummyExternalSearchIndex
 import mock
 import model
