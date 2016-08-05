@@ -244,7 +244,6 @@ class URNLookupController(object):
     """
 
     UNRECOGNIZED_IDENTIFIER = "This work is not in the collection."
-    UNRESOLVABLE_URN = "I don't know how to get metadata for this kind of identifier."
     WORK_NOT_PRESENTATION_READY = "Work created but not yet presentation-ready."
     WORK_NOT_CREATED = "Identifier resolved but work not yet created."
 
@@ -255,14 +254,14 @@ class URNLookupController(object):
         self.precomposed_entries = []
         self.unresolved_identifiers = []
 
-    def work_lookup(self, annotator, route_name='lookup', collection=None,
-                    urns=[]):
+    def work_lookup(self, annotator, route_name='lookup',
+                    urns=[], **process_urn_kwargs):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
         for urn in urns:
-            self.process_urn(urn, collection)
+            self.process_urn(urn, **process_urn_kwargs)
         self.post_lookup_hook()
 
         opds_feed = LookupAcquisitionFeed(
@@ -289,10 +288,8 @@ class URNLookupController(object):
 
         return feed_response(opds_feed)
     
-    def process_urn(self, urn, collection=None):
+    def process_urn(self, urn, **kwargs):
         """Turn a URN into a Work suitable for use in an OPDS feed.
-
-        :param collection: Not used in this base class.
         """
         try:
             identifier, is_new = Identifier.parse_urn(self._db, urn)
