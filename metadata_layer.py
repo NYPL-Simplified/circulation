@@ -160,9 +160,12 @@ class ContributorData(object):
         self.viaf = viaf
         self.biography = biography
         self.aliases = aliases
+        # TODO:  consider if it's time for ContributorData to connect back to Contributions
+
 
     def __repr__(self):
         return '<ContributorData sort="%s" display="%s" family="%s" wiki="%s" roles=%r lc=%s viaf=%s>' % (self.sort_name, self.display_name, self.family_name, self.wikipedia_name, self.roles, self.lc, self.viaf)
+
 
     @classmethod
     def from_contribution(cls, contribution):
@@ -181,6 +184,54 @@ class ContributorData(object):
             aliases=c.aliases,
             roles=[contribution.role]
         )
+
+
+    def apply(self, destination, replace=None):
+        """  Update the passed-in Contributor with this ContributorData's information.
+
+        :param: destination -- the Contributor object to write this ContributorData 
+        object's metadata to.
+        :param: replace -- Replacement policy (not currently used).
+
+        :return: the possibly changed Contributor object and a flag of whether it's been changed.
+        """
+        made_changes = False
+
+        log = logging.getLogger("Abstract metadata layer")
+        log.debug(u"Applying %r (%s) into %r (%s)", self, self.viaf, destination, destination.viaf)
+
+        existing_aliases = set(destination.aliases)
+        new_aliases = list(destination.aliases)
+        for name in [self.name] + self.aliases:
+            if name != destination.name and name not in existing_aliases:
+                new_aliases.append(name)
+                made_changes = True
+        if new_aliases != destination.aliases:
+            destination.aliases = new_aliases
+            made_changes = True
+
+        if not destination.lc:
+            destination.lc = self.lc
+            made_changes = True
+        if not destination.viaf:
+            destination.viaf = self.viaf
+            made_changes = True
+        if not destination.family_name:
+            destination.family_name = self.family_name
+            made_changes = True
+        if not destination.display_name:
+            destination.display_name = self.display_name
+            made_changes = True
+        if not destination.wikipedia_name:
+            destination.wikipedia_name = self.wikipedia_name
+            made_changes = True
+
+        # TODO:  Contributor.merge_into also looks at extra.items and 
+        # contributions.  Could maybe extract contributions from roles, 
+        # but not sure it'd be useful.
+
+        return destination, made_changes
+
 
     def find_sort_name(self, _db, identifiers, metadata_client):
 
