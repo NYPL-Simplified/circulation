@@ -46,6 +46,9 @@ from opds import (
     OPDSFeed,
     UnfulfillableWork,
     VerboseAnnotator,
+    TestAnnotator,
+    TestAnnotatorWithGroup,
+    TestUnfulfillableAnnotator
 )
 
 from util.opds_writer import (    
@@ -61,99 +64,10 @@ from classifier import (
     History,
     Mystery,
 )
+
 from external_search import DummyExternalSearchIndex
 import xml.etree.ElementTree as ET
 from flask.ext.babel import lazy_gettext as _
-
-class TestAnnotator(Annotator):
-
-    @classmethod
-    def lane_url(cls, lane):
-        if lane and lane.has_visible_sublane():
-            return cls.groups_url(lane)
-        elif lane:
-            return cls.feed_url(lane)
-        else:
-            return ""
-
-    @classmethod
-    def feed_url(cls, lane, facets=None, pagination=None):
-        base = "http://%s/" % lane.url_name
-        sep = '?'
-        if facets:
-            base += sep + facets.query_string
-            sep = '&'
-        if pagination:
-            base += sep + pagination.query_string
-        return base
-
-    @classmethod
-    def search_url(cls, lane, query, pagination):
-        base = "http://search/%s/" % lane.url_name
-        sep = '?'
-        if pagination:
-            base += sep + pagination.query_string
-        return base
-
-    @classmethod
-    def groups_url(cls, lane):
-        if lane:
-            name = lane.name
-        else:
-            name = ""
-        return "http://groups/%s" % name
-
-    @classmethod
-    def default_lane_url(cls):
-        return cls.groups_url(None)
-
-    @classmethod
-    def facet_url(cls, facets):
-        return "http://facet/" + "&".join(
-            ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
-        )
-
-    @classmethod
-    def top_level_title(cls):
-        return "Test Top Level Title"
-
-
-class TestAnnotatorWithGroup(TestAnnotator):
-
-    def __init__(self):
-        self.lanes_by_work = defaultdict(list)
-
-    def group_uri(self, work, license_pool, identifier):
-        lanes = self.lanes_by_work.get(work, None)
-
-        if lanes:
-            lane_name = lanes[0]['lane'].display_name
-            additional_lanes = lanes[1:]
-            if additional_lanes:
-                self.lanes_by_work[work] = additional_lanes
-        else:
-            lane_name = str(work.id)
-        return ("http://group/%s" % lane_name,
-                "Group Title for %s!" % lane_name)
-
-    def group_uri_for_lane(self, lane):
-        if lane:
-            return ("http://groups/%s" % lane.display_name, 
-                    "Groups of %s" % lane.display_name)
-        else:
-            return "http://groups/", "Top-level groups"
-
-    def top_level_title(self):
-        return "Test Top Level Title"
-
-
-class UnfulfillableAnnotator(TestAnnotator):
-    """Raise an UnfulfillableWork exception when asked to annotate an entry."""
-
-    @classmethod
-    def annotate_work_entry(self, *args, **kwargs):
-        raise UnfulfillableWork()
-
 
 class TestBaseAnnotator(DatabaseTest):
 
@@ -1223,7 +1137,7 @@ class TestAcquisitionFeed(DatabaseTest):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         entry = AcquisitionFeed.single_entry(
-            self._db, work, UnfulfillableAnnotator
+            self._db, work, TestUnfulfillableAnnotator
         )
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403, 
@@ -1324,24 +1238,14 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
-        eq_(True, feed.require_active_licensepool)
         assert "Identifier not found in collection" in entry
         assert work.title not in entry
-
-        # But if the LookupAcquisitionFeed is set up to allow a lookup
-        # even in the absense of a LicensePool (as might happen in the
-        # metadata wrangler), the same lookup succeeds.
-        feed, entry = self.entry(
-            identifier, work, require_active_licensepool = False
-        )
-        assert 'simplified:status_code' not in entry
-        assert work.title in entry
 
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         feed, entry = self.entry(pool.identifier, work, 
-                                 UnfulfillableAnnotator)
+                                 TestUnfulfillableAnnotator)
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403, 
             "I know about this work but can offer no way of fulfilling it."
