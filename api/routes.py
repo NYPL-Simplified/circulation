@@ -117,8 +117,13 @@ else:
             return f
         return decorated
 
-def dir_route(path_without_slash, *args, **kwargs):
+def dir_route(path, *args, **kwargs):
     """Decorator to create routes that work with or without a trailing slash."""
+
+    if path.endswith("/"):
+        path_without_slash = path[:-1]
+    else:
+        path_without_slash = path
 
     def decorator(f):
         # By default, creating a route with a slash will make flask redirect
