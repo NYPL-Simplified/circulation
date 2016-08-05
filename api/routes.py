@@ -117,36 +117,46 @@ else:
             return f
         return decorated
 
+def dir_route(path_without_slash, *args, **kwargs):
+    """Decorator to create routes that work with or without a trailing slash."""
+
+    def decorator(f):
+        # By default, creating a route with a slash will make flask redirect
+        # requests without the slash, even if that route also exists.
+        # Setting strict_slashes to False disables this behavior.
+        # This is important for CORS because the redirects are not processed
+        # by the CORS decorator and won't be valid CORS responses.
+
+        # Decorate f with two routes, with and without the slash.
+        g = app.route(path_without_slash + "/", strict_slashes=False, *args, **kwargs)(f)
+        h = app.route(path_without_slash, *args, **kwargs)(g)
+        return h
+    return decorator
+
 @app.route('/')
 @allows_patron_web()
 @returns_problem_detail
 def index():
     return app.manager.index_controller()
 
-@app.route('/groups', defaults=dict(lane_name=None, languages=None))
-@app.route('/groups/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
-@app.route('/groups/<languages>', defaults=dict(lane_name=None))
-@app.route('/groups/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
+@dir_route('/groups', defaults=dict(lane_name=None, languages=None))
+@dir_route('/groups/<languages>', defaults=dict(lane_name=None))
 @app.route('/groups/<languages>/<lane_name>')
 @allows_patron_web()
 @returns_problem_detail
 def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
 
-@app.route('/feed', defaults=dict(lane_name=None, languages=None))
-@app.route('/feed/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
-@app.route('/feed/<languages>', defaults=dict(lane_name=None))
-@app.route('/feed/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
+@dir_route('/feed', defaults=dict(lane_name=None, languages=None))
+@dir_route('/feed/<languages>', defaults=dict(lane_name=None))
 @app.route('/feed/<languages>/<lane_name>')
 @allows_patron_web()
 @returns_problem_detail
 def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
 
-@app.route('/search', defaults=dict(lane_name=None, languages=None))
-@app.route('/search/', defaults=dict(lane_name=None, languages=None), strict_slashes=False)
-@app.route('/search/<languages>', defaults=dict(lane_name=None))
-@app.route('/search/<languages>/', defaults=dict(lane_name=None), strict_slashes=False)
+@dir_route('/search', defaults=dict(lane_name=None, languages=None))
+@dir_route('/search/<languages>', defaults=dict(lane_name=None))
 @app.route('/search/<languages>/<lane_name>')
 @allows_patron_web()
 @returns_problem_detail
@@ -166,8 +176,7 @@ def preload():
 def account():
     return app.manager.accounts.account()
 
-@app.route('/loans', methods=['GET', 'HEAD'])
-@app.route('/loans/', methods=['GET', 'HEAD'], strict_slashes=False)
+@dir_route('/loans', methods=['GET', 'HEAD'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
@@ -205,7 +214,7 @@ def revoke_loan_or_hold(data_source, identifier_type, identifier):
 def loan_or_hold_detail(data_source, identifier_type, identifier):
     return app.manager.loans.detail(data_source, identifier_type, identifier)
 
-@app.route('/works/')
+@dir_route('/works')
 @allows_patron_web()
 @returns_problem_detail
 def work():
