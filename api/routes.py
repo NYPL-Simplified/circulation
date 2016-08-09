@@ -290,6 +290,12 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
+# Route that redirects to the authentication URL for an OAuth provider
+@app.route('/oauth_authenticate')
+@returns_problem_detail
+def oauth_authenticate():
+    return app.manager.auth.oauth_authenticate(flask.request.args)
+
 # Redirect URI for OAuth providers, eg. Clever
 @app.route('/oauth_callback')
 @returns_problem_detail

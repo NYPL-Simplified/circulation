@@ -179,13 +179,24 @@ class TestBaseController(CirculationControllerTest):
 
 
     def test_authentication_sends_proper_headers(self):
-        '''
-        Make sure the reals header has quotes around the realm name.  
-        Without quotes, some iOS versions don't recognize the header value.
-        '''
-        response = self.controller.authenticate()
+
+        # Make sure the realm header has quotes around the realm name.  
+        # Without quotes, some iOS versions don't recognize the header value.
         
-        eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS] = {
+                Configuration.CIRCULATION_MANAGER_INTEGRATION: {
+                    Configuration.URL: "http://url"
+                }
+            }
+
+            with self.app.test_request_context("/"):
+                response = self.controller.authenticate()
+                eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+
+            with self.app.test_request_context("/", headers={"X-Requested-With": "XMLHttpRequest"}):
+                response = self.controller.authenticate()
+                eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
         eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))

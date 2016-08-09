@@ -15,6 +15,8 @@ class FirstBookAuthenticationAPI(BasicAuthAuthenticator):
 
     NAME = 'First Book'
 
+    LOGIN_LABEL = "Access Code"
+
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
 
     SECRET_KEY = 'key'
