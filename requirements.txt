@@ -32,6 +32,7 @@ textblob
 # Used only by circulation
 oauth2client
 pyjwt
+flask-cors
 
 
 # A NYPL-specific requirement

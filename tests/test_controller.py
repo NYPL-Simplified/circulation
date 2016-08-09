@@ -539,7 +539,7 @@ class TestLoanController(CirculationControllerTest):
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
-                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
                     None,
                     None,
                 )
@@ -548,9 +548,21 @@ class TestLoanController(CirculationControllerTest):
                 data_source.name, identifier.type, identifier.identifier,
                 streaming_mechanism.delivery_mechanism.id
             )
-            eq_(302, response.status_code)
-            eq_("http://streaming-content-link",
-                response.headers['Location'])
+            
+            # We get an OPDS entry.
+            eq_(200, response.status_code)
+            opds_entries = feedparser.parse(response.response[0])['entries']
+            eq_(1, len(opds_entries))
+            links = opds_entries[0]['links']
+        
+            # The entry includes one fulfill link.
+            fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
+            eq_(1, len(fulfill_links))
+
+            eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+                fulfill_links[0]['type'])
+            eq_("http://streaming-content-link", fulfill_links[0]['href'])
+
 
             # The mechanism has not been set, since fulfilling a streaming
             # mechanism does not lock in the format.
@@ -584,18 +596,27 @@ class TestLoanController(CirculationControllerTest):
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
-                    Representation.TEXT_HTML_MEDIA_TYPE,
+                    Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
                     None,
                     None,
                 )
             )
+
             response = self.manager.loans.fulfill(
                 data_source.name, identifier.type, identifier.identifier,
                 streaming_mechanism.delivery_mechanism.id
             )
-            eq_(302, response.status_code)
-            eq_("http://streaming-content-link",
-                response.headers['Location'])
+            eq_(200, response.status_code)
+            opds_entries = feedparser.parse(response.response[0])['entries']
+            eq_(1, len(opds_entries))
+            links = opds_entries[0]['links']
+        
+            fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
+            eq_(1, len(fulfill_links))
+
+            eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+                fulfill_links[0]['type'])
+            eq_("http://streaming-content-link", fulfill_links[0]['href'])
 
 
     def test_borrow_nonexistent_delivery_mechanism(self):

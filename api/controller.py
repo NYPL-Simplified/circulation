@@ -664,6 +664,8 @@ class LoanController(CirculationManagerController):
         pool = self.load_licensepool(data_source, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
+
+        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
     
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
@@ -671,10 +673,9 @@ class LoanController(CirculationManagerController):
             mechanism = self.load_licensepooldelivery(pool, mechanism_id)
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
-    
+            
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
-            loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
             if loan and loan.fulfillment:
                 mechanism =  loan.fulfillment
             else:
@@ -703,16 +704,30 @@ class LoanController(CirculationManagerController):
             return BAD_DELIVERY_MECHANISM.with_debug(
                 str(e), status_code=e.status_code
             )
-    
+
         headers = dict()
-        if fulfillment.content_link:
-            status_code = 302
-            headers["Location"] = fulfillment.content_link
-        else:
+        if mechanism.delivery_mechanism.is_streaming:
+            # If this is a streaming delivery mechanism, create an OPDS entry
+            # with a fulfillment link to the streaming reader url.
+            feed = CirculationManagerLoanAndHoldAnnotator.single_fulfillment_feed(
+                self.circulation, loan, fulfillment)
+            if isinstance(feed, OPDSFeed):
+                content = unicode(feed)
+            else:
+                content = etree.tostring(feed)
             status_code = 200
-        if fulfillment.content_type:
-            headers['Content-Type'] = fulfillment.content_type
-        return Response(fulfillment.content, status_code, headers)
+            headers["Content-Type"] = OPDSFeed.ACQUISITION_FEED_TYPE
+        else:
+            content = fulfillment.content
+            if fulfillment.content_link:
+                status_code = 302
+                headers["Location"] = fulfillment.content_link
+            else:
+                status_code = 200
+            if fulfillment.content_type:
+                headers['Content-Type'] = fulfillment.content_type
+
+        return Response(content, status_code, headers)
 
     def revoke(self, data_source, identifier_type, identifier):
         patron = flask.request.patron

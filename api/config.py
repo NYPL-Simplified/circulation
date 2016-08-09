@@ -44,6 +44,7 @@ class Configuration(CoreConfiguration):
     MILLENIUM_INTEGRATION = "Millenium"
     AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
+    PATRON_WEB_CLIENT_INTEGRATION = "Patron Web Client"
 
     LIST_FIELDS = "fields"
    
