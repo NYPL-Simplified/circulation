@@ -159,6 +159,22 @@ class HTTP(object):
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
+
+        # Unicode data can't be sent over the wire. Convert it
+        # to UTF-8.
+        if 'data' in kwargs and isinstance(kwargs['data'], unicode):
+            kwargs['data'] = kwargs.get('data').encode("utf8")
+        if 'headers' in kwargs:
+            headers = kwargs['headers']
+            new_headers = {}
+            for k, v in headers.items():
+                if isinstance(k, unicode):
+                    k = k.encode("utf8")
+                if isinstance(v, unicode):
+                    v = v.encode("utf8")
+                new_headers[k] = v
+            kwargs['headers'] = new_headers
+
         try:
             response = m(*args, **kwargs)
         except requests.exceptions.Timeout, e:
