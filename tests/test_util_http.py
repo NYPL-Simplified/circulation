@@ -146,6 +146,36 @@ class TestHTTP(object):
         eq_('The server made a request to url, and got an unexpected or invalid response.', no_debug_doc.detail)
         eq_(None, no_debug_doc.debug_message)
 
+    def test_unicode_converted_to_utf8(self):
+        """Any Unicode that sneaks into the URL, headers or body is
+        converted to UTF-8.
+        """
+        class ResponseGenerator(object):
+            def __init__(self):
+                self.requests = []
+
+            def response(self, *args, **kwargs):
+                self.requests.append((args, kwargs))
+                return MockRequestsResponse(200, content="Success!")
+
+        generator = ResponseGenerator()
+        url = "http://foo"
+        response = HTTP._request_with_timeout(
+            url, generator.response, url, "POST",
+            headers = { u"unicode header": u"unicode value"},
+            data=u"unicode data"
+        )
+        [(args, kwargs)] = generator.requests
+        url, method = args
+        headers = kwargs['headers']
+        data = kwargs['data']
+
+        # All the Unicode data was converted to bytes before being sent
+        # "over the wire".
+        for k,v in headers.items():
+            assert isinstance(k, bytes)
+            assert isinstance(v, bytes)
+        assert isinstance(data, bytes)
 
 class TestRemoteIntegrationException(object):
 
