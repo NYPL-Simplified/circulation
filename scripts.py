@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import imp
 import logging
 import os
 import requests
@@ -10,6 +11,7 @@ from requests.exceptions import (
 )
 import sys
 
+from collections import defaultdict
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
@@ -18,6 +20,7 @@ from sqlalchemy.orm.session import Session
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
+    get_one,
     get_one_or_create,
     production_session,
     CustomList,
@@ -27,6 +30,7 @@ from model import (
     LicensePool,
     PresentationCalculationPolicy,
     Subject,
+    Timestamp,
     Work,
     WorkCoverageRecord,
     WorkGenre,
@@ -705,6 +709,134 @@ class RefreshMaterializedViewsScript(Script):
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
         print "Vacuumed in %.2f sec." % (b-a)
+
+
+class DatabaseMigrationScript(Script):
+    """Runs new migrations"""
+
+    name = "Database Migration"
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--last-run-date',
+            help=('A date string representing the migration file run'
+                  ' against your database, formatted as YYYY-MM-DD')
+        )
+        return parser
+
+    def do_run(self):
+        last_run_date = self.parse_command_line().last_run_date
+        existing_timestamp = get_one(self._db, Timestamp, service=self.name)
+        if last_run_date:
+            last_run_datetime = self.parse_time(last_run_date)
+            if existing_timestamp:
+                existing_timestamp.timestamp = last_run_datetime
+            else:
+                existing_timestamp, ignore = get_one_or_create(
+                    self._db, Timestamp,
+                    service=self.name,
+                    timestamp=last_run_datetime
+                )
+
+        migrations = list()
+        migrations_by_dir = defaultdict(list)
+        if existing_timestamp:
+            # Get migration directory path for core and its containing server
+            current_dir = os.path.split(os.path.abspath(__file__))[0]
+            core = os.path.join(current_dir, 'migration')
+            server = os.path.join(os.path.split(current_dir)[0], 'migration')
+            directories_by_priority = [core, server]
+
+            # Get all migrations from both directories.
+            for directory in directories_by_priority:
+                dir_migrations = self.migration_files(os.listdir(directory))
+                migrations += dir_migrations
+                migrations_by_dir[directory] = dir_migrations
+
+            # Find any new migrations and run them.
+            new_migrations = self.get_new_migrations(
+                existing_timestamp, migrations
+            )
+            if new_migrations:
+                print "%d new migrations found." % len(new_migrations)
+                for migration in new_migrations:
+                    print "- %s" % migration
+
+                self.run_migrations(
+                    new_migrations, directories_by_priority, migrations_by_dir,
+                    existing_timestamp
+                )
+                print "All new migrations have been run."
+
+                # Update timestamp for the last run migration.
+                self.update_timestamp(existing_timestamp, new_migrations[-1])
+            else:
+                print "No new migrations found. Your database is up-to-date."
+        else:
+            print ''
+            print (
+                "NO TIMESTAMP FOUND. Run script with timestamp that indicates"
+                " the last migration run against this database."
+            )
+            self.argparser.print_help()
+
+    def migration_files(self, filelist):
+        """Filter a list of files for migration file extensions"""
+
+        migratable = [f for f in filelist
+            if (f.endswith('.py') or f.endswith('.sql'))]
+        return sorted(migratable)
+
+    def get_new_migrations(self, timestamp, migrations):
+        """Return a list of migration filenames, created since the timestamp
+        """
+        last_run = timestamp.timestamp.strftime('%Y%m%d')
+        new = [migration for migration in migrations
+                if int(migration[0:8]) >= int(last_run)]
+        return sorted(new)
+
+    def run_migrations(self, migrations, directories, migrations_by_dir,
+                       timestamp):
+        """Run the migrations in date order"""
+        previous = ''
+
+        for migration_file in sorted(migrations):
+            for d in directories:
+                if migration_file in migrations_by_dir[d]:
+                    # Create timestamp for previous migration, in case of
+                    # error while running this migration.
+                    if previous:
+                        set_trace()
+                        self.update_timestamp(timestamp, previous)
+
+                    # Run migration.
+                    full_migration_path = os.path.join(d, migration_file)
+                    self._run_migration(full_migration_path)
+                    self._db.commit()
+                    previous = migration_file
+
+    def _run_migration(self, migration_path):
+        """Runs a single SQL or Python migration file"""
+
+        if migration_path.endswith('.sql'):
+            with open(migration) as clause:
+                sql = clause.read()
+                self._db.execute(sql)
+        if migration_path.endswith('.py'):
+            module_name = os.path.split(migration_path)[1]
+            imp.load_source(module_name, migration_path)
+
+    def update_timestamp(self, timestamp, migration_file):
+        """Updates this service's timestamp to match a given migration"""
+
+        last_run_date = self.parse_time(migration_file[0:8])
+        timestamp.timestamp = last_run_date
+        self._db.commit()
+        print "New timestamp created at %s for %s" % (
+            last_run_date.strftime('%Y-%m-%d'), migration_file
+        )
 
 
 class Explain(IdentifierInputScript):

@@ -14,10 +14,12 @@ from model import (
     CustomList,
     DataSource,
     Identifier,
+    Timestamp
 )
 from scripts import (
     Script,
     CustomListManagementScript,
+    DatabaseMigrationScript,
     IdentifierInputScript,
     RunCoverageProviderScript,
     WorkProcessingScript,
@@ -132,3 +134,46 @@ class TestWorkProcessingScript(DatabaseTest):
             self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
         )
         eq_([g1], one_gutenberg.all())
+
+
+class TestDatabaseMigrationScript(DatabaseTest):
+
+    def setup(self):
+        super(TestDatabaseMigrationScript, self).setup()
+        self.script = DatabaseMigrationScript(_db=self._db)
+        stamp = datetime.datetime.strptime('20161028', '%Y%m%d')
+        self.timestamp = Timestamp(service=self.script.name, timestamp=stamp)
+
+    def test_migration_files(self):
+        """Removes migration files that aren't python or SQL from a list."""
+        migrations = [
+            '.gitkeep', '20150521-make-bananas.sql', '20161028-do-a-thing.py',
+            '20161020-did-a-thing.pyc', 'why-am-i-here.rb'
+        ]
+
+        result = self.script.migration_files(migrations)
+        eq_(2, len(result))
+        eq_(['20150521-make-bananas.sql', '20161028-do-a-thing.py'], result)
+
+    def test_new_migrations(self):
+        """Filters out migrations that were run before a given timestamp"""
+
+        migrations = [
+            '20171202-future-migration-funtime.sql', '20150521-make-bananas.sql',
+            '20161028-do-a-thing.py', '20161027-already-done.sql'
+        ]
+
+        result = self.script.get_new_migrations(self.timestamp, migrations)
+        expected = ['20161028-do-a-thing.py', '20171202-future-migration-funtime.sql']
+
+        eq_(2, len(result))
+        eq_(expected, result)
+
+    def test_update_timestamp(self):
+        """Resets a timestamp according to the date of a migration file"""
+
+        migration = '20171202-future-migration-funtime.sql'
+
+        assert self.timestamp.timestamp.strftime('%Y%m%d') != migration[0:8]
+        self.script.update_timestamp(self.timestamp, migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
