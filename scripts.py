@@ -124,6 +124,7 @@ class Script(object):
         if not Configuration.instance:
             Configuration.load()
 
+
 class RunMonitorScript(Script):
 
     def __init__(self, monitor, **kwargs):
@@ -134,6 +135,7 @@ class RunMonitorScript(Script):
 
     def do_run(self):
         self.monitor.run()
+
 
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
@@ -346,6 +348,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         else:
             self.provider.run()
 
+
 class BibliographicRefreshScript(RunCoverageProviderScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
@@ -474,6 +477,7 @@ class WorkProcessingScript(IdentifierInputScript):
     def process_work(self, work):
         raise NotImplementedError()      
 
+
 class WorkConsolidationScript(WorkProcessingScript):
     """Given an Identifier, make sure all the LicensePools for that
     Identifier are in Works that follow these rules:
@@ -525,6 +529,7 @@ class WorkPresentationScript(WorkProcessingScript):
     def process_work(self, work):
         work.calculate_presentation(policy=self.policy)
 
+
 class WorkClassificationScript(WorkPresentationScript):
     """Recalculate the classification--and nothing else--for Work objects.
     """
@@ -538,6 +543,7 @@ class WorkClassificationScript(WorkPresentationScript):
         regenerate_opds_entries=False, 
         update_search_index=False,
     )
+
 
 class WorkOPDSScript(WorkPresentationScript):
     """Recalculate the OPDS entries and search index entries for Work objects.
@@ -555,6 +561,7 @@ class WorkOPDSScript(WorkPresentationScript):
         regenerate_opds_entries=True, 
         update_search_index=True,
     )
+
 
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a
@@ -604,11 +611,6 @@ class OPDSImportScript(Script):
         )
         return parser
 
-    @classmethod
-    def parse_command_line(cls, cmd_args=None):
-        parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
-
     def __init__(self, feed_url, opds_data_source, importer_class, 
                  immediately_presentation_ready=False, cmd_args=None):
         args = self.parse_command_line(cmd_args)
@@ -626,7 +628,7 @@ class OPDSImportScript(Script):
             force_reimport=self.force_reimport
         )
         monitor.run()
-        
+
 
 class NYTBestSellerListsScript(Script):
 
@@ -669,11 +671,6 @@ class RefreshMaterializedViewsScript(Script):
             action='store_true',
         )
         return parser
-
-    @classmethod
-    def parse_command_line(cls, cmd_args=None):
-        parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
 
     def do_run(self):
         args = self.parse_command_line()
@@ -967,7 +964,6 @@ class SubjectAssignmentScript(SubjectInputScript):
         monitor.run()
 
 
-
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
     def __init__(self, *lines):
@@ -977,5 +973,3 @@ class MockStdin(object):
         lines = self.lines
         self.lines = []
         return lines
-
-
