@@ -737,33 +737,21 @@ class DatabaseMigrationScript(Script):
                     timestamp=last_run_datetime
                 )
 
-        migrations = list()
-        migrations_by_dir = defaultdict(list)
         if existing_timestamp:
-            # Get migration directory path for core and its containing server
-            current_dir = os.path.split(os.path.abspath(__file__))[0]
-            core = os.path.join(current_dir, 'migration')
-            server = os.path.join(os.path.split(current_dir)[0], 'migration')
-            directories_by_priority = [core, server]
+            migrations, migrations_by_dir = self.fetch_migration_files()
 
-            # Get all migrations from both directories.
-            for directory in directories_by_priority:
-                dir_migrations = self.migration_files(os.listdir(directory))
-                migrations += dir_migrations
-                migrations_by_dir[directory] = dir_migrations
-
-            # Find any new migrations and run them.
             new_migrations = self.get_new_migrations(
                 existing_timestamp, migrations
             )
             if new_migrations:
+                # Log the new migrations.
                 print "%d new migrations found." % len(new_migrations)
                 for migration in new_migrations:
                     print "- %s" % migration
 
                 self.run_migrations(
-                    new_migrations, directories_by_priority, migrations_by_dir,
-                    existing_timestamp
+                    new_migrations, directories_by_priority,
+                    migrations_by_dir, existing_timestamp
                 )
                 print "All new migrations have been run."
 
@@ -772,14 +760,40 @@ class DatabaseMigrationScript(Script):
             else:
                 print "No new migrations found. Your database is up-to-date."
         else:
-            print ''
+            print ""
             print (
                 "NO TIMESTAMP FOUND. Run script with timestamp that indicates"
                 " the last migration run against this database."
             )
             self.argparser.print_help()
 
-    def migration_files(self, filelist):
+    def fetch_migration_files(self):
+        """Pulls migration files from the expected locations
+
+        Return a list of migration filenames and a dictionary of those
+        files separated by their absolute directory location.
+        """
+        migrations = list()
+        migrations_by_dir = defaultdict(list)
+
+        # Get migration directory path for core and its container server
+        current_dir = os.path.split(os.path.abspath(__file__))[0]
+        core = os.path.join(current_dir, 'migration')
+        server = os.path.join(os.path.split(current_dir)[0], 'migration')
+        directories_by_priority = [core, server]
+
+        # Get all migrations from both directories.
+        for directory in directories_by_priority:
+            # In the case of tests, the container server migration directory
+            # may not exist.
+            if os.direxists(directory):
+                dir_migrations = self._migration_files(os.listdir(directory))
+                migrations += dir_migrations
+                migrations_by_dir[directory] = dir_migrations
+
+        return migrations, migrations_by_dir
+
+    def _migration_files(self, filelist):
         """Filter a list of files for migration file extensions"""
 
         migratable = [f for f in filelist
