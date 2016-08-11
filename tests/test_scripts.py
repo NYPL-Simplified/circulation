@@ -154,7 +154,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         # DatabaseMigrationScript expects them.
         for migration_dir in [self.core_migration_dir, self.parent_migration_dir]:
             if not os.path.isdir(migration_dir):
-                temp_migration_dir = os.mkdtemp()
+                temp_migration_dir = tempfile.mkdtemp()
                 os.rename(temp_migration_dir, migration_dir)
 
         def _create_test_migration_file(directory, unique_string):
@@ -223,7 +223,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20160802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
-        result = self.script.migration_files(migrations)
+        result = self.script._migration_files(migrations)
         eq_(2, len(result))
         eq_(['20150521-make-bananas.sql', '20160810-do-a-thing.py'], result)
 
@@ -236,7 +236,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)
-        expected = ['20161028-do-a-thing.py', '20171202-future-migration-funtime.sql']
+        expected = ['20160810-do-a-thing.py', '20171202-future-migration-funtime.sql']
 
         eq_(2, len(result))
         eq_(expected, result)
