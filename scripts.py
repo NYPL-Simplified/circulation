@@ -819,7 +819,6 @@ class DatabaseMigrationScript(Script):
                     # Create timestamp for previous migration, in case of
                     # error while running this migration.
                     if previous:
-                        set_trace()
                         self.update_timestamp(timestamp, previous)
 
                     # Run migration.
