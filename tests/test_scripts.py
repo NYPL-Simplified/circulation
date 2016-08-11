@@ -1,4 +1,6 @@
 import datetime
+import os
+import tempfile
 
 from nose.tools import (
     assert_raises,
@@ -138,29 +140,99 @@ class TestWorkProcessingScript(DatabaseTest):
 
 class TestDatabaseMigrationScript(DatabaseTest):
 
+    def _create_test_migrations(self):
+        """Sets up migrations in the expected locations"""
+
+        core = os.path.split(os.path.split(__file__)[0])[0]
+        parent = os.path.split(core)[0]
+
+        self.core_migration_dir = os.path.join(core, 'migration')
+        self.parent_migration_dir = os.path.join(parent, 'migration')
+        self.migration_files = []
+
+        # Create temporary migration directories where
+        # DatabaseMigrationScript expects them.
+        for migration_dir in [self.core_migration_dir, self.parent_migration_dir]:
+            if not os.path.isdir(migration_dir):
+                temp_migration_dir = os.mkdtemp()
+                os.rename(temp_migration_dir, migration_dir)
+
+        def _create_test_migration_file(directory, unique_string):
+            service = "Test Database Migration Script - %s" % unique_string
+            sql = (("insert into timestamps(service, timestamp)"
+                    " values (%s, %s)") % (service, '1970-01-01'))
+
+            migration_file_info = tempfile.mkstemp(
+                prefix='20160811-', suffix='.sql', dir=directory
+            )
+            self.migration_files.append(migration_file_info)
+
+        _create_test_migration_file(self.core_migration_dir, 'CORE')
+        _create_test_migration_file(self.parent_migration_dir, 'SERVER')
+
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
+
+        self._create_test_migrations()
+
         self.script = DatabaseMigrationScript(_db=self._db)
-        stamp = datetime.datetime.strptime('20161028', '%Y%m%d')
+        stamp = datetime.datetime.strptime('20160810', '%Y%m%d')
         self.timestamp = Timestamp(service=self.script.name, timestamp=stamp)
+
+    def teardown(self):
+        # delete any created records, files and directories
+        test_timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Test Database Migration Script - %')
+        )
+        for timestamp in test_timestamps.all():
+            self._db.delete(timestamp)
+
+        for fd, fpath in self.migration_files:
+            os.close(fd)
+            os.remove(fpath)
+
+        for directory in [self.core_migration_dir, self.parent_migration_dir]:
+            if not os.listdir(directory):
+                os.rmdir(directory)
+
+        super(TestDatabaseMigrationScript, self).teardown()
+
+    def test_fetch_migration_files(self):
+        result = self.script.fetch_migration_files()
+        result_migrations, result_migrations_by_dir = result
+
+        for mfd, migration_file in self.migration_files:
+            assert os.path.split(migration_file)[1] in result_migrations
+
+        [core_migration_pathname] = [cmf for cmd, cmf in self.migration_files if 'core' in cmf]
+        core_migration_filename = os.path.split(core_migration_pathname)[1]
+        assert core_migration_filename in result_migrations_by_dir[self.core_migration_dir]
+
+        [parent_migration_pathname] = [pmf
+                                       for pmd, pmf in self.migration_files
+                                       if pmf != core_migration_pathname]
+        parent_migration_filename = os.path.split(parent_migration_pathname)[1]
+        assert parent_migration_filename in result_migrations_by_dir[self.parent_migration_dir]
+
 
     def test_migration_files(self):
         """Removes migration files that aren't python or SQL from a list."""
+
         migrations = [
-            '.gitkeep', '20150521-make-bananas.sql', '20161028-do-a-thing.py',
-            '20161020-did-a-thing.pyc', 'why-am-i-here.rb'
+            '.gitkeep', '20150521-make-bananas.sql', '20160810-do-a-thing.py',
+            '20160802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
         result = self.script.migration_files(migrations)
         eq_(2, len(result))
-        eq_(['20150521-make-bananas.sql', '20161028-do-a-thing.py'], result)
+        eq_(['20150521-make-bananas.sql', '20160810-do-a-thing.py'], result)
 
     def test_new_migrations(self):
         """Filters out migrations that were run before a given timestamp"""
 
         migrations = [
             '20171202-future-migration-funtime.sql', '20150521-make-bananas.sql',
-            '20161028-do-a-thing.py', '20161027-already-done.sql'
+            '20160810-do-a-thing.py', '20160809-already-done.sql'
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)

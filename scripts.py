@@ -786,7 +786,7 @@ class DatabaseMigrationScript(Script):
         for directory in directories_by_priority:
             # In the case of tests, the container server migration directory
             # may not exist.
-            if os.direxists(directory):
+            if os.path.isdir(directory):
                 dir_migrations = self._migration_files(os.listdir(directory))
                 migrations += dir_migrations
                 migrations_by_dir[directory] = dir_migrations
