@@ -1885,8 +1885,15 @@ class Contributor(Base):
 
     @classmethod
     def lookup(cls, _db, name=None, viaf=None, lc=None, aliases=None,
-               extra=None):
-        """Find or create a record for the given Contributor."""
+               extra=None, create_new=True):
+        """Find or create a record (or list of records) for the given Contributor.
+        :return: A tuple of found Contributor (or None), and a boolean flag 
+        indicating if new Contributor database object has beed created.
+        """
+
+        new = False
+        contributors = []
+
         extra = extra or dict()
 
         create_method_kwargs = {
@@ -1911,7 +1918,7 @@ class Contributor(Base):
             q = _db.query(Contributor).filter(Contributor.name==name)
             contributors = q.all()
             if contributors:
-                return contributors, False
+                return contributors, new
             else:
                 try:
                     contributor = Contributor(**create_method_kwargs)
@@ -1932,10 +1939,19 @@ class Contributor(Base):
             if viaf:
                 query[Contributor.viaf.name] = viaf
 
-            contributors, new = get_one_or_create(
-                _db, Contributor, create_method_kwargs=create_method_kwargs,
-                **query)
+            if create_new:
+                contributor, new = get_one_or_create(
+                    _db, Contributor, create_method_kwargs=create_method_kwargs,
+                    **query)
+                if contributor:
+                    contributors = [contributor]
+            else:
+                contributor = get_one(_db, Contributor, **query)
+                if contributor:
+                    contributors = [contributor]
+
         return contributors, new
+
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
@@ -1979,6 +1995,9 @@ class Contributor(Base):
             destination.display_name = self.display_name
         if not destination.wikipedia_name:
             destination.wikipedia_name = self.wikipedia_name
+
+        if not destination.biography:
+            destination.biography = self.biography
 
         _db = Session.object_session(self)
         for contribution in self.contributions:
@@ -2103,6 +2122,53 @@ class Contributor(Base):
             display_name = name
 
         return family_name, display_name
+
+
+class ContributorEquivalency(Base):
+    """ 
+    Some authors are in the VIAF database more than once, 
+    with different ids.  This table connects authors who have different 
+    primary keys, but are actually the same person. 
+    """
+    __tablename__ = 'contributor_equivalency'
+    id = Column(Integer, primary_key=True)
+    contributor_a_id = Column(Integer, ForeignKey('contributors.id'), index=True,
+                            nullable=False)
+    contributor_a = relationship("Contributor", foreign_keys=contributor_a_id)
+    contributor_b_id = Column(Integer, ForeignKey('contributors.id'), index=True,
+                            nullable=False)
+    contributor_b = relationship("Contributor", foreign_keys=contributor_b_id)
+    match_confidence = Column(Float, default=0)
+
+
+    @classmethod
+    def lookup(cls, _db, contributor_a, contributor_b, match_confidence):
+        """Finds or creates a new ContributorEquivalency with the contributors 
+        A and B in arbitrary places."""
+        new = False
+        if not contributor_a or not contributor_b:
+            raise ValueError(
+                "Cannot lookup a ContributorEquivalency with non-existent contributors (contributor_a=%r, contributor_b=%r)." %
+                (contributor_a, contributor_b)
+            )
+
+        # try both combinations of key columns
+        contributor_equivalency = get_one(_db, cls, contributor_a=contributor_a, contributor_b=contributor_b)
+        if contributor_equivalency:
+            return contributor_equivalency, new
+
+        contributor_equivalency = get_one(_db, cls, contributor_a=contributor_b, contributor_b=contributor_a)
+        if contributor_equivalency:
+            return contributor_equivalency, new
+
+        contributor_equivalency, new = get_one_or_create(
+            _db, cls, contributor_a=contributor_a, contributor_b=contributor_b, 
+            match_confidence=match_confidence
+        )
+
+        _db.commit()
+        return contributor_equivalency, new
+
 
 
 class Contribution(Base):

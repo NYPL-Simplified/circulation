@@ -1,20 +1,8 @@
-from nameparser import HumanName
 from nose.tools import set_trace
 import re
 
 from permanent_work_id import WorkIDCalculator;
 
-
-"""Fallback algorithms for dealing with personal names when VIAF fails us."""
-
-def is_corporate_title(display_name):
-    """Does this display name look like a corporate name?"""
-    c = display_name.lower().replace(".", "").replace(",", "")
-    if (c.startswith('the ') or c.startswith('editor ') 
-        or c.startswith('editors ') or c.endswith(' inc')
-        or c.endswith(' llc') or c.startswith('compiled')):
-        return True
-    return False
 
 
 def normalize_title_for_matching(title):

@@ -12,21 +12,21 @@ def is_corporate_name(display_name):
     """Does this display name look like a corporate name?"""
     corporations = ['National Geographic', 'Smithsonian Institution', 
         'Verlag', 'College', 'University',  
-        'Harper & Brothers', 'Harper &amp; Brothers', 'Williams & Wilkins', 'Williams &amp; Wilkins', 
+        'Harper & Brothers', 'Williams & Wilkins', 
         'Estampie', 'Paul Taylor Dance', 'Gallery']
 
+    display_name = display_name.lower().replace(".", "").replace(",", "").replace("&amp;", "&")
+
     for corporation in corporations:
-        if corporation in display_name:
-            # TODO: consider making case-insensitive
+        if corporation.lower() in display_name:
             return True
 
         if fuzz.ratio(corporation, display_name) > 90:
             return True
 
-    c = display_name.lower().replace(".", "").replace(",", "")
-    if (c.startswith('the ') or c.startswith('editor ') 
-        or c.startswith('editors ') or c.endswith(' inc')
-        or c.endswith(' llc') or c.startswith('compiled')):
+    if (display_name.startswith('the ') or display_name.startswith('editor ') 
+        or display_name.startswith('editors ') or display_name.endswith(' inc')
+        or display_name.endswith(' llc') or display_name.startswith('compiled')):
         return True
     return False
 

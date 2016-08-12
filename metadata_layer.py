@@ -147,7 +147,7 @@ class SubjectData(object):
 class ContributorData(object):
     def __init__(self, sort_name=None, display_name=None,
                  family_name=None, wikipedia_name=None, roles=None,
-                 lc=None, viaf=None, biography=None, aliases=None):
+                 lc=None, viaf=None, biography=None, aliases=None, extra=None):
         self.sort_name = sort_name
         self.display_name = display_name
         self.family_name = family_name
@@ -160,6 +160,8 @@ class ContributorData(object):
         self.viaf = viaf
         self.biography = biography
         self.aliases = aliases
+        # extra is a dictionary of stuff like birthdates
+        self.extra = extra
         # TODO:  consider if it's time for ContributorData to connect back to Contributions
 
 
@@ -195,14 +197,18 @@ class ContributorData(object):
 
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
         """
-        made_changes = False
-
         log = logging.getLogger("Abstract metadata layer")
         log.debug(u"Applying %r (%s) into %r (%s)", self, self.viaf, destination, destination.viaf)
 
+        made_changes = False
+
+        if self.sort_name != destination.name:
+            destination.name = self.sort_name
+            made_changes = True
+
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
-        for name in [self.name] + self.aliases:
+        for name in [self.sort_name] + self.aliases:
             if name != destination.name and name not in existing_aliases:
                 new_aliases.append(name)
                 made_changes = True
@@ -210,23 +216,31 @@ class ContributorData(object):
             destination.aliases = new_aliases
             made_changes = True
 
-        if not destination.lc:
+        for k, v in self.extra.items():
+            if not k in destination.extra:
+                destination.extra[k] = v
+
+        if self.lc != destination.lc:
             destination.lc = self.lc
             made_changes = True
-        if not destination.viaf:
+        if self.viaf != destination.viaf:
             destination.viaf = self.viaf
             made_changes = True
-        if not destination.family_name:
+        if self.family_name != destination.family_name:
             destination.family_name = self.family_name
             made_changes = True
-        if not destination.display_name:
+        if self.display_name != destination.display_name:
             destination.display_name = self.display_name
             made_changes = True
-        if not destination.wikipedia_name:
+        if self.wikipedia_name != destination.wikipedia_name:
             destination.wikipedia_name = self.wikipedia_name
             made_changes = True
 
-        # TODO:  Contributor.merge_into also looks at extra.items and 
+        if self.biography != destination.biography:
+            destination.biography = self.biography
+            made_changes = True
+
+        # TODO:  Contributor.merge_into also looks at 
         # contributions.  Could maybe extract contributions from roles, 
         # but not sure it'd be useful.
 
