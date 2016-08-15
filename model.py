@@ -2124,52 +2124,6 @@ class Contributor(Base):
         return family_name, display_name
 
 
-class ContributorEquivalency(Base):
-    """ 
-    Some authors are in the VIAF database more than once, 
-    with different ids.  This table connects authors who have different 
-    primary keys, but are actually the same person. 
-    """
-    __tablename__ = 'contributor_equivalency'
-    id = Column(Integer, primary_key=True)
-    contributor_a_id = Column(Integer, ForeignKey('contributors.id'), index=True,
-                            nullable=False)
-    contributor_a = relationship("Contributor", foreign_keys=contributor_a_id)
-    contributor_b_id = Column(Integer, ForeignKey('contributors.id'), index=True,
-                            nullable=False)
-    contributor_b = relationship("Contributor", foreign_keys=contributor_b_id)
-    match_confidence = Column(Float, default=0)
-
-
-    @classmethod
-    def lookup(cls, _db, contributor_a, contributor_b, match_confidence):
-        """Finds or creates a new ContributorEquivalency with the contributors 
-        A and B in arbitrary places."""
-        new = False
-        if not contributor_a or not contributor_b:
-            raise ValueError(
-                "Cannot lookup a ContributorEquivalency with non-existent contributors (contributor_a=%r, contributor_b=%r)." %
-                (contributor_a, contributor_b)
-            )
-
-        # try both combinations of key columns
-        contributor_equivalency = get_one(_db, cls, contributor_a=contributor_a, contributor_b=contributor_b)
-        if contributor_equivalency:
-            return contributor_equivalency, new
-
-        contributor_equivalency = get_one(_db, cls, contributor_a=contributor_b, contributor_b=contributor_a)
-        if contributor_equivalency:
-            return contributor_equivalency, new
-
-        contributor_equivalency, new = get_one_or_create(
-            _db, cls, contributor_a=contributor_a, contributor_b=contributor_b, 
-            match_confidence=match_confidence
-        )
-
-        _db.commit()
-        return contributor_equivalency, new
-
-
 
 class Contribution(Base):
     """A contribution made by a Contributor to a Edition."""
