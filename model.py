@@ -3599,7 +3599,6 @@ class Work(Base):
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
             _db.flush()
-
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
