@@ -165,7 +165,6 @@ class BaseCoverageProvider(object):
             transient_failures += t
             persistent_failures += p
             records += r
-            self._db.commit()
             index += self.batch_size
         return (successes, transient_failures, persistent_failures), records
 
@@ -321,9 +320,10 @@ class BaseCoverageProvider(object):
         """Do whatever is necessary to complete this batch before moving on to
         the next one.
         
-        e.g. uploading a bunch of assets to S3.
+        e.g. committing the database session or uploading a bunch of
+        assets to S3.
         """
-        pass
+        self._db.commit()
 
     #
     # Subclasses must implement these virtual methods.

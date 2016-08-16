@@ -3594,12 +3594,13 @@ class Work(Base):
 
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
+            changed = True
 
         if changed or policy.update_search_index:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
             _db.flush()
-
+            changed = True
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
