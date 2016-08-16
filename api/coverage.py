@@ -338,7 +338,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
                 )
         for record in coverage_records.all():
             self._db.delete(record)
-
+        super(MetadataWranglerCollectionReaper, self).finalize_batch()
 
 class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     """Make sure our records for open-access books match what the content
