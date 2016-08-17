@@ -161,6 +161,9 @@ class OPDSFeed(AtomFeed):
         super(OPDSFeed, self).__init__(title, url)
 
 
+class SimplifiedStatusMessage(object):
+    """An indicator that an <entry> could not be created for an 
+    identifier.
+    """
 
-
-
+    def __init__(self, identifier, status_code, message):

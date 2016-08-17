@@ -612,20 +612,24 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def render_messages(cls, messages_by_urn):
-        """Create minimal OPDS entries for custom messages."""
+        """Create <simplified:message> tags for custom messages."""
+        ns = AtomFeed.SIMPLIFIED_NS
         for urn, (status, message) in messages_by_urn.items():
-            entry = AtomFeed.entry(
-                AtomFeed.id(urn)
-            )
-            status_tag = AtomFeed.makeelement("{%s}status_code" % AtomFeed.SIMPLIFIED_NS)
+            message_tag = AtomFeed._makeelement("{%s}message" % ns)
+            identifier_tag = AtomFeed._makeelement("{%s}identifier" % ns)
+            identifier_tag.text=urn
+            message_tag.append(identifier_tag)
+            status_tag = E._makeelement("{%s}status_code" % ns)
             status_tag.text = str(status)
-            entry.append(status_tag)
+            message_tag.append(status_tag)
 
-            message_tag = AtomFeed.makeelement("{%s}message" % AtomFeed.SIMPLIFIED_NS)
-            message_tag.text = unicode(message)
+            description_tag = E._makeelement(
+                AtomFeed.schema_("description")
+            )
+            description_tag.text = unicode(message)
 
-            entry.append(message_tag)
-            yield entry
+            message_tag.append(description_tag)
+            yield message_tag
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
@@ -661,8 +665,8 @@ class AcquisitionFeed(OPDSFeed):
         super(AcquisitionFeed, self).__init__(title, url)
 
         # Add minimal entries for the messages.
-        for entry in self.render_messages(messages_by_urn):
-            self.feed.append(entry)
+        for message in self.render_messages(messages_by_urn):
+            self.feed.append(message)
 
         lane_link = dict(rel="collection", href=url)
         for work in works:

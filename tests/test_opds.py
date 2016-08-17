@@ -1089,6 +1089,11 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = feed.create_entry(work, self._url)
         eq_(None, entry)
 
+    def test_render_messages(self):
+        by_urn = { "urn1" : (201, "message1")}
+        [m1] = list(AcquisitionFeed.render_messages(by_urn))
+        eq_("", etree.tostring(m1))
+        
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
