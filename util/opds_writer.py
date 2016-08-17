@@ -32,7 +32,8 @@ class AtomFeed(object):
 
     default_typemap = {datetime: lambda e, v: _strftime(v)}
     E = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap)
-    SCHEMA = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace="http://schema.org/")
+    SIMPLIFIED = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SIMPLIFIED_NS)
+    SCHEMA = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SCHEMA_NS)
 
     @classmethod
     def _strftime(self, date):
@@ -161,9 +162,49 @@ class OPDSFeed(AtomFeed):
         super(OPDSFeed, self).__init__(title, url)
 
 
-class SimplifiedStatusMessage(object):
-    """An indicator that an <entry> could not be created for an 
+class SimplifiedMessage(object):
+    """An indication that an <entry> could not be created for an 
     identifier.
+
+    Inserted into an OPDS feed as an extension tag.
     """
 
-    def __init__(self, identifier, status_code, message):
+    def __init__(self, urn, status_code, message):
+        self.urn = urn
+        self.status_code = status_code
+        self.message = message
+
+    def __str__(self):
+        return etree.tostring(self.tag)
+
+    def __repr__(self):
+        return etree.tostring(self.tag)
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+
+        if not isinstance(other, SimplifiedMessage):
+            return False
+
+        if (self.urn != other.urn or self.status_code != other.status_code
+            or self.message != other.message):
+            return False
+        return True
+        
+    @property
+    def tag(self):
+        ns = AtomFeed.SIMPLIFIED_NS
+        message_tag = AtomFeed.SIMPLIFIED.message()
+        identifier_tag = AtomFeed.SIMPLIFIED.identifier()
+        identifier_tag.text = self.urn
+        message_tag.append(identifier_tag)
+
+        status_tag = AtomFeed.SIMPLIFIED.status_code()
+        status_tag.text = str(self.status_code)
+        message_tag.append(status_tag)
+
+        description_tag = AtomFeed.SCHEMA.description()
+        description_tag.text = unicode(self.message)
+        message_tag.append(description_tag)
+        return message_tag
