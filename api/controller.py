@@ -731,6 +731,7 @@ class LoanController(CirculationManagerController):
                 # We need to fetch the content and return it instead of redirecting to it.
                 try:
                     status_code, headers, content = do_get(fulfillment.content_link, headers={})
+                    headers = dict(headers)
                 except RemoteIntegrationException, e:
                     return e.as_problem_detail_document(debug=False)
             else:
