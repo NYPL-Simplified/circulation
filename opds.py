@@ -51,7 +51,7 @@ from lane import (
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed, 
-    SimplifiedMessage,
+    OPDSMessage,
 )
 from util.cdn import cdnify
 
@@ -614,7 +614,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
         """Create a minimal OPDS entry for an error message."""
-        return SimplifiedMessage(identifier.urn, error_status, error_message)
+        return OPDSMessage(identifier.urn, error_status, error_message)
 
     @classmethod
     def facet_links(self, annotator, facets):
@@ -661,7 +661,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         entry = self.create_entry(work, lane_link)
         if entry is not None:
-            if isinstance(entry, SimplifiedMessage):
+            if isinstance(entry, OPDSMessage):
                 entry = entry.tag
             self.feed.append(entry)
         return entry

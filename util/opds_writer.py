@@ -162,8 +162,8 @@ class OPDSFeed(AtomFeed):
         super(OPDSFeed, self).__init__(title, url)
 
 
-class SimplifiedMessage(object):
-    """An indication that an <entry> could not be created for an 
+class OPDSMessage(object):
+    """An indication that an <entry> could not be created for an
     identifier.
 
     Inserted into an OPDS feed as an extension tag.
@@ -184,7 +184,7 @@ class SimplifiedMessage(object):
         if self is other:
             return True
 
-        if not isinstance(other, SimplifiedMessage):
+        if not isinstance(other, OPDSMessage):
             return False
 
         if (self.urn != other.urn or self.status_code != other.status_code
