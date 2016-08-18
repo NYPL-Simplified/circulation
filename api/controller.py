@@ -50,6 +50,7 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
+    Representation,
     Work,
 )
 from core.opds import (
@@ -63,6 +64,9 @@ from core.util.flask_util import (
     problem,
 )
 from core.util.problem_detail import ProblemDetail
+from core.util.http import (
+    RemoteIntegrationException,
+)
 
 from circulation_exceptions import *
 
@@ -648,7 +652,7 @@ class LoanController(CirculationManagerController):
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(content, status_code, headers)
 
-    def fulfill(self, data_source, identifier_type, identifier, mechanism_id=None):
+    def fulfill(self, data_source, identifier_type, identifier, mechanism_id=None, do_get=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -656,6 +660,8 @@ class LoanController(CirculationManagerController):
         book). Alternatively, it may serve an HTTP redirect that sends the
         patron to a copy of the book or a license file.
         """
+        do_get = do_get or Representation.simple_http_get
+
         patron = flask.request.patron
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
@@ -720,8 +726,13 @@ class LoanController(CirculationManagerController):
         else:
             content = fulfillment.content
             if fulfillment.content_link:
-                status_code = 302
-                headers["Location"] = fulfillment.content_link
+                # If we have a link to the content on a remote server, web clients may not
+                # be able to access it if the remote server does not support CORS requests.
+                # We need to fetch the content and return it instead of redirecting to it.
+                try:
+                    status_code, headers, content = do_get(fulfillment.content_link, headers={})
+                except RemoteIntegrationException, e:
+                    return e.as_problem_detail_document(debug=False)
             else:
                 status_code = 200
             if fulfillment.content_type:

@@ -51,6 +51,8 @@ from core.lane import (
 )
 from core.problem_details import *
 from core.util.problem_detail import ProblemDetail
+from core.util.http import RemoteIntegrationException
+from core.testing import DummyHTTPClient
 
 from api.problem_details import *
 from api.circulation_exceptions import *
@@ -446,26 +448,34 @@ class TestLoanController(CirculationControllerTest):
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
 
+            http = DummyHTTPClient()
+
             # Now let's try to fulfill the loan.
+            http.queue_response(200, content="I am an ACSM file")
+
             response = self.manager.loans.fulfill(
                 self.data_source.name, self.identifier.type, self.identifier.identifier,
-                fulfillable_mechanism.delivery_mechanism.id
+                fulfillable_mechanism.delivery_mechanism.id, do_get=http.do_get
             )
-            eq_(302, response.status_code)
-            eq_(fulfillable_mechanism.resource.url,
-                response.headers['Location'])
+            eq_(200, response.status_code)
+            eq_(["I am an ACSM file"],
+                response.response)
+            eq_(http.requests, [fulfillable_mechanism.resource.url])
 
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
 
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
+            http.queue_response(200, content="I am an ACSM file")
+
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.type, self.identifier.identifier
+                self.data_source.name, self.identifier.type, self.identifier.identifier, do_get=http.do_get
             )
-            eq_(302, response.status_code)
-            eq_(fulfillable_mechanism.resource.url,
-                response.headers['Location'])
+            eq_(200, response.status_code)
+            eq_(["I am an ACSM file"],
+                response.response)
+            eq_(http.requests, [fulfillable_mechanism.resource.url, fulfillable_mechanism.resource.url])
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
@@ -476,6 +486,17 @@ class TestLoanController(CirculationControllerTest):
 
             eq_(409, response.status_code)
             assert "You already fulfilled this loan as application/epub+zip (DRM-free), you can't also do it as application/pdf (DRM-free)" in response.detail
+
+            # If the remote server fails, we get a problem detail.
+            def doomed_get(url, headers, **kwargs):
+                raise RemoteIntegrationException("fulfill service", "Error!")
+
+            response = self.manager.loans.fulfill(
+                self.data_source.name, self.identifier.type, self.identifier.identifier,
+                do_get=doomed_get
+            )
+            assert isinstance(response, ProblemDetail)
+            eq_(502, response.status_code)
 
     def test_borrow_and_fulfill_with_streaming_delivery_mechanism(self):
         # Create a pool with a streaming delivery mechanism
@@ -569,6 +590,9 @@ class TestLoanController(CirculationControllerTest):
             eq_(None, loan.fulfillment)
 
             # We can still use the other mechanism too.
+            http = DummyHTTPClient()
+            http.queue_response(200, content="I am an ACSM file")
+
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
@@ -578,13 +602,13 @@ class TestLoanController(CirculationControllerTest):
                     Representation.TEXT_HTML_MEDIA_TYPE,
                     None,
                     None,
-                )
+                ),
             )
             response = self.manager.loans.fulfill(
                 data_source.name, identifier.type, identifier.identifier,
-                mech1.delivery_mechanism.id
+                mech1.delivery_mechanism.id, do_get=http.do_get
             )
-            eq_(302, response.status_code)
+            eq_(200, response.status_code)
 
             # Now the fulfillment has been set to the other mechanism.
             eq_(mech1, loan.fulfillment)
