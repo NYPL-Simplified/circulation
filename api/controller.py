@@ -657,8 +657,9 @@ class LoanController(CirculationManagerController):
 
         If successful, this will serve the patron a downloadable copy of
         the book, or a DRM license file which can be used to get the
-        book). Alternatively, it may serve an HTTP redirect that sends the
-        patron to a copy of the book or a license file.
+        book). Alternatively, for a streaming delivery mechanism it may
+        serve an OPDS entry with a link to a third-party web page that
+        streams the content.
         """
         do_get = do_get or Representation.simple_http_get
 
