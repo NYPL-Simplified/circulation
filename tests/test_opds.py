@@ -54,7 +54,7 @@ from opds import (
 from util.opds_writer import (    
     AtomFeed,
     OPDSFeed,
-    SimplifiedMessage,
+    OPDSMessage,
 )
 
 from classifier import (
@@ -747,21 +747,31 @@ class TestOPDS(DatabaseTest):
             eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
-        """Test the ability to include messages (with HTTP-style status code)
-        for a given URI in lieu of a proper ODPS entry.
+        """Test the ability to include OPDSMessage objects for a given URN in
+        lieu of a proper ODPS entry.
         """
         messages = [
-            SimplifiedMessage("urn:foo", 400, _("msg1")),
-            SimplifiedMessage("urn:bar", 500, _("msg2")),
+            OPDSMessage("urn:foo", 400, _("msg1")),
+            OPDSMessage("urn:bar", 500, _("msg2")),
         ]
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               [], messages=messages)
+                               [], precomposed_entries=messages)
         feed = unicode(feed)
         for m in messages:
             assert m.urn in feed
             assert str(m.status_code) in feed
             assert str(m.message) in feed
 
+    def test_precomposed_entries(self):
+        """Test the ability to include precomposed OPDS entries
+        in a feed.
+        """
+        entry = AcquisitionFeed.E.entry()
+        entry.text='foo'
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               works=[], precomposed_entries=[entry])
+        feed = unicode(feed)
+        assert '<entry>foo</entry>' in feed
 
     def test_page_feed(self):
         """Test the ability to create a paginated feed of works for a given
@@ -1171,7 +1181,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             annotator=annotator, **kwargs
         )
         entry = feed.create_entry((identifier, work), u"http://lane/")
-        if isinstance(entry, SimplifiedMessage):
+        if isinstance(entry, OPDSMessage):
             return feed, entry
         if entry:
             entry = etree.tostring(entry)
@@ -1213,9 +1223,9 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         feed, entry = self.entry(identifier, work)
 
         # We were not successful at creating an <entry> for this
-        # lookup. We got a SimplifiedMessage instead of an entry
+        # lookup. We got a OPDSMessage instead of an entry
         eq_(entry,
-            SimplifiedMessage(identifier.urn, 404,
+            OPDSMessage(identifier.urn, 404,
                               "Identifier not found in collection")
         )
 
@@ -1226,7 +1236,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         identifier = lp.identifier
         feed, entry = self.entry(identifier, work)
         eq_(entry,
-            SimplifiedMessage(
+            OPDSMessage(
                 identifier.urn, 500,
                 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
             )
@@ -1244,7 +1254,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
-        isinstance(entry, SimplifiedMessage)
+        isinstance(entry, OPDSMessage)
         eq_(404, entry.status_code)
         eq_("Identifier not found in collection", entry.message)
 
@@ -1258,18 +1268,3 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             "I know about this work but can offer no way of fulfilling it."
         )
         eq_(expect, entry)
-
-
-class TestSimplifiedMessage(object):
-
-    def test_xml_rendering(self):
-        """Test that a SimplifiedMessage renders to a reasonable
-        XML representation.
-        """
-        message = SimplifiedMessage("urn:foo", 404, "Not found")
-        tag = message.tag
-        xml = etree.tostring(tag)
-        assert tag.tag.endswith('message')
-        assert '<simplified:identifier>urn:foo</simplified:identifier>' in xml
-        assert '<simplified:status_code>404</simplified:status_code>' in xml
-        assert '<schema:description>Not found</schema:description>' in xml

@@ -633,7 +633,7 @@ class AcquisitionFeed(OPDSFeed):
 
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 messages=[], precomposed_entries=[]):
+                 precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
         into a feed.
         """
@@ -643,16 +643,14 @@ class AcquisitionFeed(OPDSFeed):
 
         super(AcquisitionFeed, self).__init__(title, url)
 
-        # Add minimal entries for the messages.
-        for message in messages:
-            self.feed.append(message.tag)
-
         lane_link = dict(rel="collection", href=url)
         for work in works:
             self.add_entry(work, lane_link)
 
-        # Add the precomposed entries.
+        # Add the precomposed entries and the messages.
         for entry in precomposed_entries:
+            if isinstance(entry, OPDSMessage):
+                entry = entry.tag
             self.feed.append(entry)
 
     def add_entry(self, work, lane_link):
