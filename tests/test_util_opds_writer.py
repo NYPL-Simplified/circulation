@@ -37,8 +37,7 @@ class TestOPDSMessage(object):
         assert 'xmlns:simplified="http://librarysimplified.org/terms/"' in text
 
         # Verify that the tags we want are in place.
-        assert '<simplified:identifier>urn</simplified:identifier>' in text
-        
+        assert '<id>urn</id>' in text
         assert '<simplified:status_code>200</simplified:status_code>' in text
         assert '<schema:description>message</schema:description>' in text
         assert text.endswith('</simplified:message>')
