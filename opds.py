@@ -613,7 +613,9 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
-        """Create a minimal OPDS entry for an error message."""
+        """Turn an error result into an OPDSMessage suitable for
+        adding to a feed.
+        """
         return OPDSMessage(identifier.urn, error_status, error_message)
 
     @classmethod
