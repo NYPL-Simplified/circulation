@@ -647,6 +647,7 @@ class DataSource(Base):
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
+    INTERNAL_PROCESSING = "Flags work needed"
 
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
@@ -940,6 +941,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
     IMPORT_OPERATION = 'import'
+    RESOLVE_IDENTIFIER_OPERATION = 'resolve-identifier'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
