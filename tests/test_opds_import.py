@@ -948,17 +948,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 class TestOPDSImportMonitor(OPDSImporterTest):
 
-    def setup(self):
-        super(TestOPDSImportMonitor, self).setup()
-        feed = self.content_server_mini_feed
-        # Remove the last entry, since it's a message and will always be new.
-        last_entry_start = feed.rfind('<entry>')
-        last_entry_end = feed.rfind('</entry>') + len('</entry>')
-        self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
-
-
     def test_check_for_new_data(self):
-        feed = self.content_server_mini_feed_without_message
+        feed = self.content_server_mini_feed
 
         class MockOPDSImportMonitor(OPDSImportMonitor):
             def _get(self, url, headers):
@@ -1029,7 +1020,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
-        feed = self.content_server_mini_feed_without_message
+        feed = self.content_server_mini_feed
 
         # If there's new data, follow_one_link extracts the next links.
 

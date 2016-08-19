@@ -194,7 +194,6 @@ class OPDSMessage(object):
         
     @property
     def tag(self):
-        ns = AtomFeed.SIMPLIFIED_NS
         message_tag = AtomFeed.SIMPLIFIED.message()
         identifier_tag = AtomFeed.E.id()
         identifier_tag.text = self.urn
