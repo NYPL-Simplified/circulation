@@ -171,6 +171,8 @@ class OPDSMessage(object):
 
     def __init__(self, urn, status_code, message):
         self.urn = urn
+        if status_code:
+            status_code = int(status_code)
         self.status_code = status_code
         self.message = message
 

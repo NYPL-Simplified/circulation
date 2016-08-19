@@ -25,7 +25,9 @@ from opds_import import (
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
+    OPDSXMLParser,
 )
+from util.opds_writer import OPDSMessage
 from metadata_layer import (
     LinkData
 )
@@ -342,42 +344,53 @@ class TestOPDSImporter(OPDSImporterTest):
         failure = failures[key]
         eq_("404: I've never heard of this work.", failure.exception)
         eq_(key, failure.obj.urn)
+
+    def test_extract_messages(self):
+        parser = OPDSXMLParser()
+        feed = open(
+            os.path.join(self.resource_path, "unrecognized_identifier.opds")
+        ).read()
+        root = etree.parse(StringIO(feed))
+        [message] = OPDSImporter.extract_messages(parser, root)
+        eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
+        eq_(404, message.status_code)
+        eq_("I've never heard of this work.", message.message)
         
-    def test_coveragefailure_from_message_data(self):
+    def test_coveragefailure_from_message(self):
         """Test all the different ways a <simplified:message> tag might
         become a CoverageFailure.
         """
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        m = OPDSImporter.coveragefailure_from_message_data
+        def f(*args):
+            message = OPDSMessage(*args)
+            return OPDSImporter.coveragefailure_from_message(
+                data_source, message
+            )
 
         # If the URN is invalid we can't create a CoverageFailure.
-        invalid_urn = m(data_source, "urn:blah", "500", "description")
+        invalid_urn = f("urn:blah", "500", "description")
         eq_(invalid_urn, None)
 
         identifier = self._identifier()
 
         # If the 'message' is that everything is fine, no CoverageFailure
         # is created.
-        this_is_fine = m(data_source, identifier.urn, "200", "description")
+        this_is_fine = f(identifier.urn, "200", "description")
         eq_(None, this_is_fine)
 
         # Test the various ways the status code and message might be
         # transformed into CoverageFailure.exception.
-        description_and_status_code = m(
-            data_source, identifier.urn, "404", "description"
-        )
+        description_and_status_code = f(identifier.urn, "404", "description")
         eq_("404: description", description_and_status_code.exception)
         eq_(identifier, description_and_status_code.obj)
         
-        description_only = m(
-            data_source, identifier.urn, None, "description"
-        )
+        description_only = f(identifier.urn, None, "description")
         eq_("description", description_only.exception)
         
-        status_code_only = m(data_source, identifier.urn, "404", None)
+        status_code_only = f(identifier.urn, "404", None)
         eq_("404", status_code_only.exception)
         
-        no_information = m(data_source, identifier.urn, None, None)
+        no_information = f(identifier.urn, None, None)
         eq_("No detail provided.", no_information.exception)
         
     def test_extract_metadata_from_elementtree_handles_exception(self):

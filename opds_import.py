@@ -50,7 +50,10 @@ from model import (
 )
 from coverage import CoverageFailure
 from util.http import HTTP
-from util.opds_writer import OPDSFeed
+from util.opds_writer import (
+    OPDSFeed,
+    OPDSMessage,
+)
 from s3 import S3Uploader
 
 class AccessNotAuthenticated(Exception):
@@ -662,78 +665,82 @@ class OPDSImporter(object):
         return kwargs_meta
 
     @classmethod
+    def extract_messages(cls, parser, feed_tag):
+        """Extract <simplified:message> tags from an OPDS feed and convert
+        them into OPDSMessage objects.
+        """
+        path = '/atom:feed/simplified:message'
+        for message_tag in parser._xpath(feed_tag, path):
+
+            # First thing to do is determine which Identifier we're
+            # talking about.
+            identifier_tag = parser._xpath1(message_tag, 'atom:id')
+            if identifier_tag is None:
+                urn = None
+            else:
+                urn = identifier_tag.text
+
+            # What status code is associated with the message?
+            status_code_tag = parser._xpath1(message_tag, 'simplified:status_code')
+            if status_code_tag is None:
+                status_code = None
+            else:
+                try:
+                    status_code = int(status_code_tag.text)
+                except ValueError:
+                    status_code = None
+
+            # What is the human-readable message?
+            description_tag = parser._xpath1(message_tag, 'schema:description')
+            if description_tag is None:
+                description = ''
+            else:
+                description = description_tag.text
+        
+            yield OPDSMessage(urn, status_code, description)
+    
+    @classmethod
     def coveragefailures_from_messages(cls, data_source, parser, feed_tag):
         """Extract CoverageFailure objects from a parsed OPDS document. This
         allows us to determine the fate of books which could not
         become <entry> tags.
         """
-        path = '/atom:feed/simplified:message'
-        for message_tag in parser._xpath(feed_tag, path):
-            failure = cls.coveragefailure_from_message(
-                data_source, parser, message_tag
-            )
+        for message in cls.extract_messages(parser, feed_tag):
+            failure = cls.coveragefailure_from_message(data_source, message)
             if failure:
                 yield failure
 
     @classmethod
-    def coveragefailure_from_message(cls, data_source, parser, message_tag):
+    def coveragefailure_from_message(cls, data_source, message):
         """Turn a <simplified:message> tag into a CoverageFailure."""
-       
+
+        _db = Session.object_session(data_source)
+        
         # First thing to do is determine which Identifier we're
         # talking about. If we can't do that, we can't create a
         # CoverageFailure object.
-        identifier_tag = parser._xpath1(message_tag, 'atom:id')
-        if identifier_tag is None:
-            urn = None
-        else:
-            urn = identifier_tag.text
-
-        # What will the CoverageFailure say is the problem?
-        description_tag = parser._xpath1(message_tag, 'schema:description')
-        if description_tag is None:
-            description = ''
-        else:
-            description = description_tag.text
-        
-        # What status code is associated with the error?
-        status_code_tag = parser._xpath1(message_tag, 'simplified:status_code')
-        if status_code_tag is None:
-            status_code = None
-        else:
-            status_code = status_code_tag.text
-
-        return cls.coveragefailure_from_message_data(
-            data_source, urn, status_code, description
-        )
-
-    @classmethod
-    def coveragefailure_from_message_data(
-            cls, data_source, urn, status_code, description
-    ):
-        """Turn pre-parsed information into a CoverageFailure object."""
-        _db = Session.object_session(data_source)
+        urn = message.urn
         try:
             identifier, ignore = Identifier.parse_urn(_db, urn)
         except ValueError, e:
             identifier = None
+
         if not identifier:
             # We can't associate this message with any particular
             # Identifier so we can't turn it into a CoverageFailure.
             return None
 
-        if status_code:
-            status_code = unicode(status_code)
-        if status_code == u'200':
-            # Apparently this message is telling us that everything's
-            # fine. That's a little weird--if everything's fine you
-            # should let the <entry> speak for itself--but it
+        if message.status_code == 200:
+            # This message is telling us that nothing went wrong. It
             # shouldn't become a CoverageFailure.
             return None
 
+        description = message.message
+        status_code = message.status_code
         if description and status_code:
             exception = u"%s: %s" % (status_code, description)
         elif status_code:
-            exception = status_code
+            exception = unicode(status_code)
         elif description:
             exception = description
         else:
