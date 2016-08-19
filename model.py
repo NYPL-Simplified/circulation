@@ -1887,8 +1887,15 @@ class Contributor(Base):
 
     @classmethod
     def lookup(cls, _db, name=None, viaf=None, lc=None, aliases=None,
-               extra=None):
-        """Find or create a record for the given Contributor."""
+               extra=None, create_new=True):
+        """Find or create a record (or list of records) for the given Contributor.
+        :return: A tuple of found Contributor (or None), and a boolean flag 
+        indicating if new Contributor database object has beed created.
+        """
+
+        new = False
+        contributors = []
+
         extra = extra or dict()
 
         create_method_kwargs = {
@@ -1913,7 +1920,7 @@ class Contributor(Base):
             q = _db.query(Contributor).filter(Contributor.name==name)
             contributors = q.all()
             if contributors:
-                return contributors, False
+                return contributors, new
             else:
                 try:
                     contributor = Contributor(**create_method_kwargs)
@@ -1934,10 +1941,19 @@ class Contributor(Base):
             if viaf:
                 query[Contributor.viaf.name] = viaf
 
-            contributors, new = get_one_or_create(
-                _db, Contributor, create_method_kwargs=create_method_kwargs,
-                **query)
+            if create_new:
+                contributor, new = get_one_or_create(
+                    _db, Contributor, create_method_kwargs=create_method_kwargs,
+                    **query)
+                if contributor:
+                    contributors = [contributor]
+            else:
+                contributor = get_one(_db, Contributor, **query)
+                if contributor:
+                    contributors = [contributor]
+
         return contributors, new
+
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
@@ -1981,6 +1997,9 @@ class Contributor(Base):
             destination.display_name = self.display_name
         if not destination.wikipedia_name:
             destination.wikipedia_name = self.wikipedia_name
+
+        if not destination.biography:
+            destination.biography = self.biography
 
         _db = Session.object_session(self)
         for contribution in self.contributions:
@@ -2105,6 +2124,7 @@ class Contributor(Base):
             display_name = name
 
         return family_name, display_name
+
 
 
 class Contribution(Base):

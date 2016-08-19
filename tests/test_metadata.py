@@ -444,6 +444,48 @@ class TestContributorData(DatabaseTest):
         eq_(contributor_data.biography, contributor.biography)
 
 
+    def test_apply(self):
+        # Makes sure ContributorData.apply copies all the fields over when there's changes to be made.
+
+
+        contributor_old, made_new = self._contributor(name="Doe, John", viaf="viaf12345")
+
+        kwargs = dict()
+        kwargs[Contributor.BIRTH_DATE] = '2001-01-01'
+
+        contributor_data = ContributorData(
+            sort_name = "Doerr, John",
+            lc = "1234567", 
+            viaf = "ABC123", 
+            aliases = ["Primo"], 
+            display_name = "Test Author For The Win", 
+            family_name = "TestAuttie", 
+            wikipedia_name = "TestWikiAuth", 
+            biography = "He was born on Main Street.", 
+            extra = kwargs, 
+        )
+
+        contributor_new, changed = contributor_data.apply(contributor_old)
+
+        eq_(changed, True)
+        eq_(contributor_new.name, u"Doerr, John")
+        eq_(contributor_new.lc, u"1234567")
+        eq_(contributor_new.viaf, u"ABC123")
+        eq_(contributor_new.aliases, [u"Primo"])
+        eq_(contributor_new.display_name, u"Test Author For The Win")
+        eq_(contributor_new.family_name, u"TestAuttie")
+        eq_(contributor_new.wikipedia_name, u"TestWikiAuth")
+        eq_(contributor_new.biography, u"He was born on Main Street.")
+
+        eq_(contributor_new.extra[Contributor.BIRTH_DATE], u"2001-01-01")
+        #eq_(contributor_new.contributions, u"Audio")
+        #eq_(contributor_new.work_contributions, u"Audio")
+
+        contributor_new, changed = contributor_data.apply(contributor_new)
+        eq_(changed, False)
+
+
+
 class TestMetadata(DatabaseTest):
     def test_from_edition(self):
         # Makes sure Metadata.from_edition copies all the fields over.
