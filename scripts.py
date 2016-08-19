@@ -3,6 +3,7 @@ import datetime
 import imp
 import logging
 import os
+import re
 import requests
 import time
 from requests.exceptions import (
@@ -712,14 +713,21 @@ class DatabaseMigrationScript(Script):
     """Runs new migrations"""
 
     name = "Database Migration"
+    MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(\w|-)+\.(py|sql)")
 
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--last-run-date',
-            help=('A date string representing the migration file run'
-                  ' against your database, formatted as YYYY-MM-DD')
+            help=('A date string representing the last migration file '
+                  'run against your database, formatted as YYYY-MM-DD')
+        )
+        parser.add_argument(
+            '--last-run-counter',
+            help=('An optional digit representing the counter of the last '
+              'migration run against your database. Only necessary if '
+              'multiple migrations were created on the same date.')
         )
         return parser
 
@@ -728,8 +736,12 @@ class DatabaseMigrationScript(Script):
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if last_run_date:
             last_run_datetime = self.parse_time(last_run_date)
+            counter = self.parse_command_line().last_run_counter
             if existing_timestamp:
                 existing_timestamp.timestamp = last_run_datetime
+                if counter:
+                    existing_timestamp.counter = int(counter)
+                self._db.commit()
             else:
                 existing_timestamp, ignore = get_one_or_create(
                     self._db, Timestamp,
@@ -747,7 +759,7 @@ class DatabaseMigrationScript(Script):
                 # Log the new migrations.
                 print "%d new migrations found." % len(new_migrations)
                 for migration in new_migrations:
-                    print "- %s" % migration
+                    print "  - %s" % migration
 
                 self.run_migrations(
                     new_migrations, directories_by_priority,
@@ -801,12 +813,51 @@ class DatabaseMigrationScript(Script):
         return sorted(migratable)
 
     def get_new_migrations(self, timestamp, migrations):
-        """Return a list of migration filenames, created since the timestamp
+        """Return a list of migration filenames, representing migrations
+        created since the timestamp
         """
         last_run = timestamp.timestamp.strftime('%Y%m%d')
-        new = [migration for migration in migrations
-                if int(migration[0:8]) >= int(last_run)]
-        return sorted(new)
+        new_migrations = sorted([migration for migration in migrations
+                                 if int(migration[:8]) >= int(last_run)])
+
+        # Multiple migrations run on the same day have an additional digit
+        # after the date and a dash, eg:
+        #
+        #     20150826-1-change_target_age_from_int_to_range.sql
+        #
+        # When that migration is run, the number will be saved to the
+        # 'counter' column of Timestamp, so we have to account for that.
+        if timestamp.counter:
+            start_found = False
+            index = 0
+            while not start_found and index < len(new_migrations):
+                start_found = self._is_matching_migration(
+                    new_migrations[index], timestamp
+                )
+                index += 1
+            new_migrations = new_migrations[index:]
+        return new_migrations
+
+    def _is_matching_migration(self, migration_file, timestamp):
+        """Determine whether a given migration filename is the right match
+        for a timestamp.
+        """
+        match = False
+        timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+
+        if migration_file[:8]==timestamp_str:
+            if timestamp.counter:
+                count = self.MIGRATION_WITH_COUNTER.search(migration_file)
+                if count:
+                    migration_num = int(count.groups()[0])
+                    if migration_num==timestamp.counter:
+                        match = True
+                else:
+                    match = False
+            else:
+                match = True
+
+        return match
 
     def run_migrations(self, migrations, directories, migrations_by_dir,
                        timestamp):
@@ -843,6 +894,14 @@ class DatabaseMigrationScript(Script):
 
         last_run_date = self.parse_time(migration_file[0:8])
         timestamp.timestamp = last_run_date
+
+        # When multiple migration files are created on the same date, an
+        # additional number is added. This number is held in the 'counter'
+        # column of Timestamp.
+        # (It's not ideal, but it avoids creating a new database table.)
+        match = self.MIGRATION_WITH_COUNTER.search(migration_file)
+        if match:
+            timestamp.counter = int(match.groups()[0])
         self._db.commit()
         print "New timestamp created at %s for %s" % (
             last_run_date.strftime('%Y-%m-%d'), migration_file

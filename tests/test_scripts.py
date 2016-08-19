@@ -214,7 +214,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         parent_migration_filename = os.path.split(parent_migration_pathname)[1]
         assert parent_migration_filename in result_migrations_by_dir[self.parent_migration_dir]
 
-
     def test_migration_files(self):
         """Removes migration files that aren't python or SQL from a list."""
 
@@ -227,16 +226,39 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(2, len(result))
         eq_(['20150521-make-bananas.sql', '20160810-do-a-thing.py'], result)
 
-    def test_new_migrations(self):
+    def test_get_new_migrations(self):
         """Filters out migrations that were run before a given timestamp"""
 
         migrations = [
-            '20171202-future-migration-funtime.sql', '20150521-make-bananas.sql',
-            '20160810-do-a-thing.py', '20160809-already-done.sql'
+            '20171202-future-migration-funtime.sql',
+            '20150521-make-bananas.sql',
+            '20160810-do-a-thing.py',
+            '20160809-already-done.sql'
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)
-        expected = ['20160810-do-a-thing.py', '20171202-future-migration-funtime.sql']
+        # Expected migrations will be sorted by timestamp.
+        expected = [
+            '20160810-do-a-thing.py', '20171202-future-migration-funtime.sql'
+        ]
+
+        eq_(2, len(result))
+        eq_(expected, result)
+
+        # If the timestamp has a counter, the filter only finds new migrations
+        # past the counter.
+        migrations = [
+            '20171202-future-migration-funtime.sql',
+            '20160810-1-do-a-thing.sql',
+            '20160810-2-do-all-the-things.sql',
+            '20160809-already-done.sql'
+        ]
+        self.timestamp.counter = 1
+        result = self.script.get_new_migrations(self.timestamp, migrations)
+        expected = [
+            '20160810-2-do-all-the-things.sql',
+            '20171202-future-migration-funtime.sql'
+        ]
 
         eq_(2, len(result))
         eq_(expected, result)
@@ -249,3 +271,10 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert self.timestamp.timestamp.strftime('%Y%m%d') != migration[0:8]
         self.script.update_timestamp(self.timestamp, migration)
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+
+        # It also takes care counter digits when multiple migrations
+        # exist for the same date.
+        migration = '20160810-2-do-all-the-things.sql'
+        self.script.update_timestamp(self.timestamp, migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(str(self.timestamp.counter), migration[9])
