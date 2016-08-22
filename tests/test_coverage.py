@@ -1,6 +1,7 @@
 import datetime
 
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     set_trace,
     eq_,
@@ -37,6 +38,7 @@ from core.coverage import (
 )
 
 from core.util.http import BadResponseException
+from core.util.opds_writer import OPDSMessage
 
 from api.coverage import (
     ContentServerBibliographicCoverageProvider,
@@ -377,6 +379,31 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         cr.status = CoverageRecord.TRANSIENT_FAILURE
         eq_([], self.reaper.items_that_need_coverage().all())
 
+    def test_process_feed(self):
+        data = sample_data("metadata_reaper_response.opds", "opds")
+        response = MockRequestsResponse(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+
+        # A successful response gives us OPDSMessage objects.
+        values = list(self.reaper.process_feed_response(response, {}))
+        for x in values:
+            assert isinstance(x, OPDSMessage)
+
+        eq_(['Successfully removed', 'Not in collection catalog',
+             "I've never heard of this work."],
+            [x.message for x in values]
+        )
+
+        # We get an error if the 'server' sends data with the wrong media
+        # type.
+        response = MockRequestsResponse(200, {"content-type" : "text/plain"},
+                                        data)
+        assert_raises(
+            BadResponseException, self.reaper.process_feed_response,
+            response, {}
+        )
+        
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
         when the the batch is finalized if the item has been reaped.
