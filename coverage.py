@@ -33,6 +33,15 @@ class CoverageFailure(object):
         self.exception = exception
         self.transient = transient
 
+    def __repr__(self):
+        if self.data_source:
+            data_source = self.data_source.name
+        else:
+            data_source = None
+        return "<CoverageFailure: obj=%r data_source=%r transient=%r exception=%r>" % (
+            self.obj, data_source, self.transient, self.exception
+        )
+
     def to_coverage_record(self, operation=None):
         """Convert this failure into a CoverageRecord."""
         if not self.data_source:

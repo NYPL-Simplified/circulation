@@ -54,11 +54,11 @@
     <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
 
-  <entry>
+  <simplified:message>
    <id>http://www.gutenberg.org/ebooks/1984</id>
    <simplified:status_code>202</simplified:status_code>
-   <simplified:message>I'm working to locate a source for this identifier.</simplified:message>
-  </entry>
+   <schema:description>I'm working to locate a source for this identifier.</schema:description>
+  </simplified:message>
 
   <link href="http://localhost:5000/?after=327&amp;size=100" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="next"/>
 </feed>

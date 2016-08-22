@@ -52,8 +52,9 @@ from opds import (
 )
 
 from util.opds_writer import (    
-     AtomFeed,
-     OPDSFeed,
+    AtomFeed,
+    OPDSFeed,
+    OPDSMessage,
 )
 
 from classifier import (
@@ -700,17 +701,19 @@ class TestOPDS(DatabaseTest):
         # the non-open-access book--and two error messages--the book with
         # no license pool and the book but with no download.
         works = self._db.query(Work)
-        by_title = AcquisitionFeed(self._db, "test", "url", works)
-        by_title = feedparser.parse(unicode(by_title))
+        by_title_feed = AcquisitionFeed(self._db, "test", "url", works)
+        by_title_raw = unicode(by_title_feed)
+        by_title = feedparser.parse(by_title_raw)
 
-        eq_(4, len(by_title['entries']))
+        # We have two entries...
+        eq_(2, len(by_title['entries']))
         eq_(["not open access", "open access"], sorted(
-            [x['title'] for x in by_title['entries'] if 'title' in x]))
+            [x['title'] for x in by_title['entries']]))
 
-        errors = [x['simplified_message'] for x in by_title['entries']
-                  if 'title' not in x]
-        expect = [u"I've heard about this work but have no active licenses for it."] * 2
-        eq_(expect, errors)
+        # ...and two messages.
+        eq_(2,
+            by_title_raw.count("I've heard about this work but have no active licenses for it.")
+        )
 
     def test_acquisition_feed_includes_image_links(self):
         lane=self.lanes.by_languages['']['Fantasy']
@@ -744,23 +747,31 @@ class TestOPDS(DatabaseTest):
             eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
-        """Test the ability to include messages (with HTTP-style status code)
-        for a given URI in lieu of a proper ODPS entry.
+        """Test the ability to include OPDSMessage objects for a given URN in
+        lieu of a proper ODPS entry.
         """
-        messages = { "urn:foo" : (400, _("msg1")),
-                     "urn:bar" : (500, _("msg2"))}
+        messages = [
+            OPDSMessage("urn:foo", 400, _("msg1")),
+            OPDSMessage("urn:bar", 500, _("msg2")),
+        ]
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
-                               [], messages_by_urn=messages)
-        parsed = feedparser.parse(unicode(feed))
-        bar, foo = sorted(parsed['entries'], key = lambda x: x['id'])
-        eq_("urn:foo", foo['id'])
-        eq_("msg1", foo['simplified_message'])
-        eq_("400", foo['simplified_status_code'])
+                               [], precomposed_entries=messages)
+        feed = unicode(feed)
+        for m in messages:
+            assert m.urn in feed
+            assert str(m.status_code) in feed
+            assert str(m.message) in feed
 
-        eq_("urn:bar", bar['id'])
-        eq_("msg2", bar['simplified_message'])
-        eq_("500", bar['simplified_status_code'])
-
+    def test_precomposed_entries(self):
+        """Test the ability to include precomposed OPDS entries
+        in a feed.
+        """
+        entry = AcquisitionFeed.E.entry()
+        entry.text='foo'
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               works=[], precomposed_entries=[entry])
+        feed = unicode(feed)
+        assert '<entry>foo</entry>' in feed
 
     def test_page_feed(self):
         """Test the ability to create a paginated feed of works for a given
@@ -1074,7 +1085,7 @@ class TestAcquisitionFeed(DatabaseTest):
             403,
             "I've heard about this work but have no active licenses for it.",
         )
-        eq_(etree.tostring(expect), etree.tostring(entry))
+        eq_(expect, entry)
 
     def test_error_when_work_has_no_presentation_edition(self):
         """We cannot create an OPDS entry (or even an error message) for a
@@ -1088,7 +1099,7 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         entry = feed.create_entry(work, self._url)
         eq_(None, entry)
-
+        
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1143,7 +1154,7 @@ class TestAcquisitionFeed(DatabaseTest):
             pool.identifier, 403, 
             "I know about this work but can offer no way of fulfilling it."
         )
-        assert etree.tostring(expect) in etree.tostring(entry)
+        eq_(expect, entry)
 
     def test_format_types(self):
         epub_no_drm, ignore = DeliveryMechanism.lookup(
@@ -1170,6 +1181,8 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             annotator=annotator, **kwargs
         )
         entry = feed.create_entry((identifier, work), u"http://lane/")
+        if isinstance(entry, OPDSMessage):
+            return feed, entry
         if entry:
             entry = etree.tostring(entry)
         return feed, entry
@@ -1210,21 +1223,24 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         feed, entry = self.entry(identifier, work)
 
         # We were not successful at creating an <entry> for this
-        # lookup.
-        expect_status = '<simplified:status_code>404'
-        expect_message = '<simplified:message>Identifier not found in collection'
-        assert expect_status in entry
-        assert expect_message in entry
+        # lookup. We got a OPDSMessage instead of an entry
+        eq_(entry,
+            OPDSMessage(identifier.urn, 404,
+                              "Identifier not found in collection")
+        )
 
         # We also get an error if we use an Identifier that is
         # associated with a LicensePool, but that LicensePool is not
         # associated with the Work.
         edition, lp = self._edition(with_license_pool=True)
-        feed, entry = self.entry(lp.identifier, work)
-        expect_status = '<simplified:status_code>500'
-        expect_message = '<simplified:message>I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
-        assert expect_status in entry
-        assert (expect_message % lp.identifier.urn) in entry
+        identifier = lp.identifier
+        feed, entry = self.entry(identifier, work)
+        eq_(entry,
+            OPDSMessage(
+                identifier.urn, 500,
+                'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
+            )
+        )
 
     def test_error_when_work_has_no_licensepool(self):
         """Under most circumstances, a Work must have at least one
@@ -1238,8 +1254,9 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
-        assert "Identifier not found in collection" in entry
-        assert work.title not in entry
+        isinstance(entry, OPDSMessage)
+        eq_(404, entry.status_code)
+        eq_("Identifier not found in collection", entry.message)
 
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
@@ -1250,4 +1267,4 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             pool.identifier, 403, 
             "I know about this work but can offer no way of fulfilling it."
         )
-        assert etree.tostring(expect) in entry
+        eq_(expect, entry)

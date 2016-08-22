@@ -51,6 +51,7 @@ from lane import (
 from util.opds_writer import (
     AtomFeed,
     OPDSFeed, 
+    OPDSMessage,
 )
 from util.cdn import cdnify
 
@@ -611,27 +612,11 @@ class AcquisitionFeed(OPDSFeed):
                                  force_create=force_create)
 
     @classmethod
-    def render_messages(cls, messages_by_urn):
-        """Create minimal OPDS entries for custom messages."""
-        for urn, (status, message) in messages_by_urn.items():
-            entry = AtomFeed.entry(
-                AtomFeed.id(urn)
-            )
-            status_tag = AtomFeed.makeelement("{%s}status_code" % AtomFeed.SIMPLIFIED_NS)
-            status_tag.text = str(status)
-            entry.append(status_tag)
-
-            message_tag = AtomFeed.makeelement("{%s}message" % AtomFeed.SIMPLIFIED_NS)
-            message_tag.text = unicode(message)
-
-            entry.append(message_tag)
-            yield entry
-
-    @classmethod
     def error_message(cls, identifier, error_status, error_message):
-        """Create a minimal OPDS entry for an error message."""
-        message = { identifier.urn : (error_status, error_message)}
-        return list(cls.render_messages(message))[0]
+        """Turn an error result into an OPDSMessage suitable for
+        adding to a feed.
+        """
+        return OPDSMessage(identifier.urn, error_status, error_message)
 
     @classmethod
     def facet_links(self, annotator, facets):
@@ -650,7 +635,7 @@ class AcquisitionFeed(OPDSFeed):
 
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 messages_by_urn={}, precomposed_entries=[]):
+                 precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
         into a feed.
         """
@@ -660,16 +645,14 @@ class AcquisitionFeed(OPDSFeed):
 
         super(AcquisitionFeed, self).__init__(title, url)
 
-        # Add minimal entries for the messages.
-        for entry in self.render_messages(messages_by_urn):
-            self.feed.append(entry)
-
         lane_link = dict(rel="collection", href=url)
         for work in works:
             self.add_entry(work, lane_link)
 
-        # Add the precomposed entries.
+        # Add the precomposed entries and the messages.
         for entry in precomposed_entries:
+            if isinstance(entry, OPDSMessage):
+                entry = entry.tag
             self.feed.append(entry)
 
     def add_entry(self, work, lane_link):
@@ -678,6 +661,8 @@ class AcquisitionFeed(OPDSFeed):
         """
         entry = self.create_entry(work, lane_link)
         if entry is not None:
+            if isinstance(entry, OPDSMessage):
+                entry = entry.tag
             self.feed.append(entry)
         return entry
 
