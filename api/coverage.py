@@ -1,6 +1,8 @@
 import logging
+from lxml import etree
 from nose.tools import set_trace
 from config import Configuration
+from StringIO import StringIO
 from core.coverage import (
     CoverageFailure,
     CoverageProvider,
@@ -26,6 +28,7 @@ from core.opds_import import (
     AccessNotAuthenticated,
     SimplifiedOPDSLookup,
     OPDSImporter,
+    OPDSXMLParser,
 )
 
 from core.util.http import BadResponseException
@@ -146,12 +149,8 @@ class OPDSImportCoverageProvider(CoverageProvider):
             response, id_mapping
         )
 
-
-    def import_feed_response(self, response, id_mapping):
-        """Confirms OPDS feed response and imports feed.
-        """
-        
-        content_type = response.headers['content-type']
+    def check_content_type(self, response):
+        content_type = response.headers.get('content-type')
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise BadResponseException.from_response(
                 response.url, 
@@ -159,6 +158,10 @@ class OPDSImportCoverageProvider(CoverageProvider):
                 response
             )
 
+    def import_feed_response(self, response, id_mapping):
+        """Confirms OPDS feed response and imports feed.
+        """        
+        self.check_content_type(response)
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
                                 data_source_name=self.output_source.name)
         return importer.import_from_feed(response.text)
@@ -294,21 +297,17 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         id_mapping = self.create_identifier_mapping(batch)
         batch = id_mapping.keys()
         response = self.lookup.remove(batch)
-        removed, messages_by_id = self.import_feed_response(
-            response, id_mapping
-        )
+        return self.process_feed_response(response, id_mapping)
 
-        results = []
-        for identifier in removed:
-            results.append(id_mapping[identifier])
-        for failure in self.handle_import_messages(messages_by_id):
-            # 404 error indicates that the identifier wasn't in the
-            # collection to begin with.
-            if failure.message.starts_with("404"):
-                results.append(id_mapping[failure.obj])
-            else:
-                results.append(failure)
-        return results
+    def process_feed_response(self, response, id_mapping):
+        """Confirms OPDS feed response and extracts messages.
+        """        
+        self.check_content_type(response)
+        importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
+                                data_source_name=self.output_source.name)
+        parser = OPDSXMLParser()
+        root = etree.parse(StringIO(response.text))
+        return importer.extract_messages(parser, root)
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
