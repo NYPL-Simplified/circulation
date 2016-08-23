@@ -8,6 +8,7 @@ import sys
 import time
 import urlparse
 import logging
+import argparse
 
 from sqlalchemy import (
     or_,
@@ -21,7 +22,7 @@ from psycopg2.extras import NumericRange
 
 from api.lanes import make_lanes
 from api.controller import CirculationManager
-from api.coverage import SearchIndexCoverageProvider
+from api.monitor import SearchIndexMonitor
 from api.threem import ThreeMCirculationSweep
 from api.overdrive import OverdriveAPI
 from core import log
@@ -46,6 +47,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    RunMonitorScript,
 )
 from core.lane import (
     Pagination,
@@ -548,21 +550,17 @@ class CompileTranslationsScript(Script):
         
         os.system("pybabel compile -f -d translations")
 
-class UpdateSearchIndexScript(RunCoverageProviderScript):
+class UpdateSearchIndexScript(RunMonitorScript):
 
-    @classmethod
-    def arg_parser(cls):
-        parser = RunCoverageProviderScript.arg_parser()
+    def __init__(self):
+        parser = argparse.ArgumentParser()
         parser.add_argument(
             '--works-index', 
             help='The ElasticSearch index to update, if other than the default.'
         )
-        return parser
+        parsed = parser.parse_args()
 
-    def extract_additional_command_line_arguments(self, args):
-        return dict(index_name=args.works_index)
-
-    def __init__(self):
         super(UpdateSearchIndexScript, self).__init__(
-            SearchIndexCoverageProvider
+            SearchIndexMonitor,
+            index_name=parsed.works_index,
         )

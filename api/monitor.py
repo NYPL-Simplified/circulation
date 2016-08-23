@@ -8,12 +8,14 @@ import logging
 from config import Configuration
 from core.monitor import (
     EditionSweepMonitor,
+    WorkSweepMonitor,
 )
 from core.model import (
     DataSource,
     Edition,
     LicensePool,
 )
+from core.external_search import ExternalSearchIndex
 
 
 class UpdateOpenAccessURL(EditionSweepMonitor):
@@ -33,4 +35,32 @@ class UpdateOpenAccessURL(EditionSweepMonitor):
 
     def process_edition(self, edition):
         edition.set_open_access_link()
+
+class SearchIndexMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work."""
+
+    def __init__(self, _db, index_name=None, index_client=None, batch_size=500, **kwargs):
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                works_index=index_name
+            )
+
+        index_name = self.search_index_client.works_index
+        super(SearchIndexMonitor, self).__init__(
+            _db,
+            "Search index update (%s)" % index_name,
+            batch_size=batch_size,
+            **kwargs
+        )
+
+    def process_batch(self, batch):
+        """Update the search ndex for a set of Works."""
+
+        successes, failures = self.search_index_client.bulk_update(batch)
+
+        for work, message in failures:
+            self.log.error("Failed to update search index for %s: %s" % (work, message))
 

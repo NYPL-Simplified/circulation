@@ -375,38 +375,3 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             LicensePool.open_access==True
         )
         return qu
-
-
-class SearchIndexCoverageProvider(WorkCoverageProvider):
-    """Make sure the search index is up-to-date for every Work."""
-
-    def __init__(self, _db, index_name, index_client=None, batch_size=500, **kwargs):
-        if index_client:
-            # This would only happen during a test.
-            self.search_index_client = index_client
-        else:
-            self.search_index_client = ExternalSearchIndex(
-                works_index=index_name
-            )
-            
-        index_name = self.search_index_client.works_index
-        self.operation_name = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + '-' + index_name
-        super(SearchIndexCoverageProvider, self).__init__(
-            _db, 
-            service_name="Search index update (%s)" % index_name,
-            operation=self.operation_name,
-            batch_size=batch_size,
-            **kwargs
-        )
-
-    def process_batch(self, batch):
-        """Update the search ndex for a set of Works."""
-
-        successes, failures = self.search_index_client.bulk_update(batch)
-        
-        coverage_failures = []
-
-        for work, message in failures:
-            coverage_failures.append(CoverageFailure(work, message, data_source=None, transient=True))
-
-        return successes + coverage_failures
