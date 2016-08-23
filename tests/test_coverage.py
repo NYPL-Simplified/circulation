@@ -13,7 +13,6 @@ from . import (
 )
 
 from core.scripts import RunCoverageProviderScript
-from core.external_search import DummyExternalSearchIndex
 from core.testing import MockRequestsResponse
 
 from core.config import (
@@ -46,7 +45,6 @@ from api.coverage import (
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
     MockOPDSImportCoverageProvider,
-    SearchIndexCoverageProvider,
 )
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
@@ -464,52 +462,4 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Only the open-access work needs coverage.
         eq_([w1.license_pools[0].identifier],
             provider.items_that_need_coverage().all())
-
-
-class TestSearchIndexCoverageProvider(DatabaseTest):
-
-    def test_run(self):
-        index = DummyExternalSearchIndex()
-
-        # Here's a work.
-        work = self._work()
-        work.presentation_ready = True
-
-        # Here's a CoverageProvider that can index it.
-        provider = SearchIndexCoverageProvider(self._db, "works-index", index)
-
-        # Let's run the provider.
-        provider.run()
-
-        # We've got a coverage record.
-        [record] = [x for x in work.coverage_records if
-                    x.operation == provider.operation_name]
-
-        eq_(record.work, work)
-        timestamp = record.timestamp
-
-        # And the work was actually added to the search index.
-        eq_([('works', 'work-type', work.id)], index.docs.keys())
-
-        # Running the provider again does nothing -- does not create
-        # a new WorkCoverageRecord and does not update the timestamp.
-        provider.run()
-        [record2] = [x for x in work.coverage_records if
-                     x.operation == provider.operation_name]
-        eq_(record2, record)
-        eq_(timestamp, record2.timestamp)
-
-        # However, if we create a CoverageProvider that updates a
-        # different index (e.g. because the index format has changed
-        # and we're recreating the search index), we can get a second
-        # WorkCoverageRecord for _that_ index.
-        index.works_index = 'works-index-2'
-        provider2 = SearchIndexCoverageProvider(self._db, "works-index-2", index)
-        provider2.run()
-
-        [record3] = [x for x in work.coverage_records if
-                     x.operation == provider2.operation_name]
-
-        eq_(record3.work, work)
-        assert record3.timestamp > timestamp
 
