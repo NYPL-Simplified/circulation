@@ -3923,6 +3923,11 @@ class Work(Base):
 
         _db = Session.object_session(works[0])
 
+        # If this is a batch of search documents, postgres needs extra working
+        # memory to process the query quickly.
+        if len(works) > 50:
+            _db.execute("set work_mem='200MB'")
+
         # This query gets relevant columns from Work and Edition for the Works we're
         # interested in. The work_id, edition_id, and identifier_id columns are used
         # by other subqueries to filter, and the remaining columns are used directly
