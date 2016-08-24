@@ -77,7 +77,7 @@ class Script(object):
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
+        return parser.parse_known_args(cmd_args)[0]
 
     @classmethod
     def arg_parser(cls):
@@ -719,28 +719,30 @@ class DatabaseMigrationScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--last-run-date',
+            '-d', '--last-run-date',
             help=('A date string representing the last migration file '
                   'run against your database, formatted as YYYY-MM-DD')
         )
         parser.add_argument(
-            '--last-run-counter',
+            '-c', '--last-run-counter', type=int,
             help=('An optional digit representing the counter of the last '
-              'migration run against your database. Only necessary if '
-              'multiple migrations were created on the same date.')
+                  'migration run against your database. Only necessary if '
+                  'multiple migrations were created on the same date.')
         )
         return parser
 
     def do_run(self):
-        last_run_date = self.parse_command_line().last_run_date
+        args = self.parse_command_line()
+        last_run_date = args.last_run_date
+        last_run_counter = args.last_run_counter
+
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if last_run_date:
             last_run_datetime = self.parse_time(last_run_date)
-            counter = self.parse_command_line().last_run_counter
             if existing_timestamp:
                 existing_timestamp.timestamp = last_run_datetime
-                if counter:
-                    existing_timestamp.counter = int(counter)
+                if last_run_counter:
+                    existing_timestamp.counter = last_run_counter
                 self._db.commit()
             else:
                 existing_timestamp, ignore = get_one_or_create(
@@ -777,7 +779,7 @@ class DatabaseMigrationScript(Script):
                 "NO TIMESTAMP FOUND. Run script with timestamp that indicates"
                 " the last migration run against this database."
             )
-            self.argparser.print_help()
+            self.arg_parser().print_help()
 
     def fetch_migration_files(self):
         """Pulls migration files from the expected locations
