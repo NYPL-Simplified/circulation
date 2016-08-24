@@ -781,9 +781,6 @@ class DatabaseMigrationScript(Script):
                     new_migrations, migrations_by_dir, existing_timestamp
                 )
                 print "All new migrations have been run."
-
-                # Update timestamp for the last run migration.
-                self.update_timestamp(existing_timestamp, new_migrations[-1])
             else:
                 print "No new migrations found. Your database is up-to-date."
         else:
@@ -875,27 +872,26 @@ class DatabaseMigrationScript(Script):
         for migration_file in sorted(migrations):
             for d in self.directories_by_priority:
                 if migration_file in migrations_by_dir[d]:
-                    # Create timestamp for previous migration, in case of
-                    # error while running this migration.
-                    if previous:
-                        self.update_timestamp(timestamp, previous)
-
-                    # Run migration.
                     full_migration_path = os.path.join(d, migration_file)
-                    self._run_migration(full_migration_path)
+                    self._run_migration(full_migration_path, timestamp)
                     self._db.commit()
                     previous = migration_file
 
-    def _run_migration(self, migration_path):
+    def _run_migration(self, migration_path, timestamp):
         """Runs a single SQL or Python migration file"""
+
+        migration_filename = os.path.split(migration_path)[1]
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
                 sql = clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
-            module_name = os.path.split(migration_path)[1]
+            module_name = migration_filename
             imp.load_source(module_name, migration_path)
+
+        # Update timestamp for the migration.
+        self.update_timestamp(timestamp, migration_filename)
 
     def update_timestamp(self, timestamp, migration_file):
         """Updates this service's timestamp to match a given migration"""
@@ -911,6 +907,7 @@ class DatabaseMigrationScript(Script):
         if match:
             timestamp.counter = int(match.groups()[0])
         self._db.commit()
+
         print "New timestamp created at %s for %s" % (
             last_run_date.strftime('%Y-%m-%d'), migration_file
         )
