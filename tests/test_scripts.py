@@ -148,31 +148,54 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         self.core_migration_dir = os.path.join(core, 'migration')
         self.parent_migration_dir = os.path.join(parent, 'migration')
-        self.migration_files = []
 
         # Create temporary migration directories where
         # DatabaseMigrationScript expects them.
-        for migration_dir in [self.core_migration_dir, self.parent_migration_dir]:
+        directories = [self.core_migration_dir, self.parent_migration_dir]
+        for migration_dir in directories:
             if not os.path.isdir(migration_dir):
                 temp_migration_dir = tempfile.mkdtemp()
                 os.rename(temp_migration_dir, migration_dir)
 
-        def _create_test_migration_file(directory, unique_string):
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+
+    def _create_test_migration_file(self, directory, unique_string,
+                                    migration_type):
+        suffix = '.'+migration_type
+
+        if migration_type=='sql':
+            # Create content for a SQL file.
             service = "Test Database Migration Script - %s" % unique_string
-            sql = (("insert into timestamps(service, timestamp)"
-                    " values (%s, %s)") % (service, '1970-01-01'))
-
-            migration_file_info = tempfile.mkstemp(
-                prefix='20160811-', suffix='.sql', dir=directory
+            content = (("insert into timestamps(service, timestamp)"
+                        " values ('%s', '%s');") % (service, '1970-01-01'))
+        elif migration_type=='py':
+            # Create content for a Python file.
+            core = os.path.split(self.core_migration_dir)[0]
+            target_dir = os.path.join(core, 'tests')
+            content = (
+                "import tempfile\nimport os\n\n"+
+                "file_info = tempfile.mkstemp(prefix='"+
+                unique_string+"-', suffix='.py', dir='"+target_dir+"')\n\n"+
+                "# Close file descriptor\n"+
+                "os.close(file_info[0])\n"
             )
-            self.migration_files.append(migration_file_info)
 
-        _create_test_migration_file(self.core_migration_dir, 'CORE')
-        _create_test_migration_file(self.parent_migration_dir, 'SERVER')
+        migration_file_info = tempfile.mkstemp(
+            prefix='20160811-', suffix=suffix, dir=directory
+        )
+        self.migration_files.append(migration_file_info)
+        with open(migration_file_info[1], 'w') as migration:
+            migration.write(content)
 
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
 
+        # This list holds any temporary files created during tests
+        # so they can be deleted during teardown().
+        self.migration_files = []
         self._create_test_migrations()
 
         self.script = DatabaseMigrationScript(_db=self._db)
@@ -204,15 +227,29 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for mfd, migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
-        [core_migration_pathname] = [cmf for cmd, cmf in self.migration_files if 'core' in cmf]
-        core_migration_filename = os.path.split(core_migration_pathname)[1]
-        assert core_migration_filename in result_migrations_by_dir[self.core_migration_dir]
+        def extract_filenames(core=True):
+            pathnames = [pathname for desc, pathname in self.migration_files]
+            if core:
+                pathnames = [p for p in pathnames if 'core' in p]
+            else:
+                pathnames = [p for p in pathnames if 'core' not in p]
 
-        [parent_migration_pathname] = [pmf
-                                       for pmd, pmf in self.migration_files
-                                       if pmf != core_migration_pathname]
-        parent_migration_filename = os.path.split(parent_migration_pathname)[1]
-        assert parent_migration_filename in result_migrations_by_dir[self.parent_migration_dir]
+            return [os.path.split(p)[1] for p in pathnames]
+
+        # Ensure that all the expected migrations from CORE are included in
+        # the 'core' directory array in migrations_by_directory.
+        core_migration_files = extract_filenames()
+        # TODO: Document that this timestamp will pass.
+        eq_(2, len(core_migration_files))
+        for filename in core_migration_files:
+            assert filename in result_migrations_by_dir[self.core_migration_dir]
+
+        # Ensure that all the expected migrations from the parent server
+        # are included in the appropriate array in migrations_by_directory.
+        parent_migration_files = extract_filenames(core=False)
+        eq_(2, len(parent_migration_files))
+        for filename in parent_migration_files:
+            assert filename in result_migrations_by_dir[self.parent_migration_dir]
 
     def test_migration_files(self):
         """Removes migration files that aren't python or SQL from a list."""
