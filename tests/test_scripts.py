@@ -143,15 +143,11 @@ class TestDatabaseMigrationScript(DatabaseTest):
     def _create_test_migrations(self):
         """Sets up migrations in the expected locations"""
 
-        core = os.path.split(os.path.split(__file__)[0])[0]
-        parent = os.path.split(core)[0]
-
-        self.core_migration_dir = os.path.join(core, 'migration')
-        self.parent_migration_dir = os.path.join(parent, 'migration')
+        directories = self.script.directories_by_priority
+        [self.core_migration_dir, self.parent_migration_dir] = directories
 
         # Create temporary migration directories where
         # DatabaseMigrationScript expects them.
-        directories = [self.core_migration_dir, self.parent_migration_dir]
         for migration_dir in directories:
             if not os.path.isdir(migration_dir):
                 temp_migration_dir = tempfile.mkdtemp()
@@ -219,6 +215,17 @@ class TestDatabaseMigrationScript(DatabaseTest):
                 os.rmdir(directory)
 
         super(TestDatabaseMigrationScript, self).teardown()
+
+    def test_directories_by_priority(self):
+        core = os.path.split(os.path.split(__file__)[0])[0]
+        parent = os.path.split(core)[0]
+        expected_core = os.path.join(core, 'migration')
+        expected_parent = os.path.join(parent, 'migration')
+
+        eq_(
+            [expected_core, expected_parent],
+            self.script.directories_by_priority
+        )
 
     def test_fetch_migration_files(self):
         result = self.script.fetch_migration_files()

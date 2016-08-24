@@ -731,6 +731,20 @@ class DatabaseMigrationScript(Script):
         )
         return parser
 
+    @property
+    def directories_by_priority(self):
+        """Returns a list containing the migration directory path for core
+        and its container server, organized in priority order (core first)
+        """
+        current_dir = os.path.split(os.path.abspath(__file__))[0]
+        core = os.path.join(current_dir, 'migration')
+        server = os.path.join(os.path.split(current_dir)[0], 'migration')
+
+        # Core is listed first, since core makes changes to the core database
+        # schema. Server migrations generally fix bugs or otherwise update
+        # the data itself.
+        return [core, server]
+
     def do_run(self):
         args = self.parse_command_line()
         last_run_date = args.last_run_date
@@ -764,8 +778,7 @@ class DatabaseMigrationScript(Script):
                     print "  - %s" % migration
 
                 self.run_migrations(
-                    new_migrations, directories_by_priority,
-                    migrations_by_dir, existing_timestamp
+                    new_migrations, migrations_by_dir, existing_timestamp
                 )
                 print "All new migrations have been run."
 
@@ -790,14 +803,7 @@ class DatabaseMigrationScript(Script):
         migrations = list()
         migrations_by_dir = defaultdict(list)
 
-        # Get migration directory path for core and its container server
-        current_dir = os.path.split(os.path.abspath(__file__))[0]
-        core = os.path.join(current_dir, 'migration')
-        server = os.path.join(os.path.split(current_dir)[0], 'migration')
-        directories_by_priority = [core, server]
-
-        # Get all migrations from both directories.
-        for directory in directories_by_priority:
+        for directory in self.directories_by_priority:
             # In the case of tests, the container server migration directory
             # may not exist.
             if os.path.isdir(directory):
@@ -861,13 +867,12 @@ class DatabaseMigrationScript(Script):
 
         return match
 
-    def run_migrations(self, migrations, directories, migrations_by_dir,
-                       timestamp):
+    def run_migrations(self, migrations, migrations_by_dir, timestamp):
         """Run the migrations in date order"""
         previous = ''
 
         for migration_file in sorted(migrations):
-            for d in directories:
+            for d in self.directories_by_priority:
                 if migration_file in migrations_by_dir[d]:
                     # Create timestamp for previous migration, in case of
                     # error while running this migration.
