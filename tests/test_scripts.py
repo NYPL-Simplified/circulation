@@ -322,3 +322,37 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self.script.update_timestamp(self.timestamp, migration)
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
         eq_(str(self.timestamp.counter), migration[9])
+
+    def test_all_migration_files_are_run(self):
+        self.script.do_run()
+
+        # There are two test timestamps in the database, confirming that
+        # the test SQL files created by self._create_test_migration_files()
+        # have been run.
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Test Database Migration Script - %')
+        ).order_by(Timestamp.service).all()
+        eq_(2, len(timestamps))
+
+        # A timestamp has been generated from each migration directory.
+        eq_(True, timestamps[0].service.endswith('CORE'))
+        eq_(True, timestamps[1].service.endswith('SERVER'))
+
+        for timestamp in timestamps:
+            self._db.delete(timestamp)
+
+        # There are two temporary files created in core/tests,
+        # confirming that the test Python files created by
+        # self._create_test_migration_files() have been run.
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted([f for f in all_files
+                                       if f.startswith(('CORE', 'SERVER'))])
+        eq_(2, len(test_generated_files))
+
+        # A file has been generated from each migration directory.
+        assert 'CORE' in test_generated_files[0]
+        assert 'SERVER' in test_generated_files[1]
+
+        for filename in test_generated_files:
+            os.remove(os.path.join(test_dir, filename))

@@ -864,11 +864,12 @@ class DatabaseMigrationScript(Script):
                     match = False
             else:
                 match = True
-
         return match
 
     def run_migrations(self, migrations, migrations_by_dir, timestamp):
-        """Run the migrations in date order"""
+        """Run each migration, orderd first by directory priority, then by
+        timestamp and counter.
+        """
         previous = ''
 
         for migration_file in sorted(migrations):
@@ -889,7 +890,7 @@ class DatabaseMigrationScript(Script):
         """Runs a single SQL or Python migration file"""
 
         if migration_path.endswith('.sql'):
-            with open(migration) as clause:
+            with open(migration_path) as clause:
                 sql = clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
