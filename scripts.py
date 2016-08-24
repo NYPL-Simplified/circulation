@@ -822,8 +822,9 @@ class DatabaseMigrationScript(Script):
         created since the timestamp
         """
         last_run = timestamp.timestamp.strftime('%Y%m%d')
-        new_migrations = sorted([migration for migration in migrations
-                                 if int(migration[:8]) >= int(last_run)])
+        migrations = self._sort_migrations_with_counter(migrations)
+        new_migrations = [migration for migration in migrations
+                          if int(migration[:8]) >= int(last_run)]
 
         # Multiple migrations run on the same day have an additional digit
         # after the date and a dash, eg:
@@ -832,50 +833,90 @@ class DatabaseMigrationScript(Script):
         #
         # When that migration is run, the number will be saved to the
         # 'counter' column of Timestamp, so we have to account for that.
-        if timestamp.counter:
-            start_found = False
-            index = 0
-            while not start_found and index < len(new_migrations):
-                start_found = self._is_matching_migration(
-                    new_migrations[index], timestamp
-                )
-                index += 1
-            new_migrations = new_migrations[index:]
+        start_found = False
+        later_found = False
+        index = 0
+        while not start_found and not later_found and index < len(new_migrations):
+            start_found, later_found = self._is_matching_migration(
+                new_migrations[index], timestamp
+            )
+            index += 1
+
+        if later_found:
+            index -= 1
+        new_migrations = new_migrations[index:]
         return new_migrations
 
     def _is_matching_migration(self, migration_file, timestamp):
-        """Determine whether a given migration filename is the right match
-        for a timestamp.
+        """Determine whether a given migration filename matches a given
+        timestamp or is after it.
         """
-        match = False
-        timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+        is_match = False
+        is_after_timestamp = False
 
-        if migration_file[:8]==timestamp_str:
-            if timestamp.counter:
+        timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+        counter = timestamp.counter
+
+        if migration_file[:8]>=timestamp_str:
+            if migration_file[:8]>timestamp_str:
+                is_after_timestamp = True
+            if counter:
                 count = self.MIGRATION_WITH_COUNTER.search(migration_file)
                 if count:
                     migration_num = int(count.groups()[0])
-                    if migration_num==timestamp.counter:
-                        match = True
+                    if migration_num==counter:
+                        is_match = True
+                    if migration_num > counter:
+                        is_after_timestamp = True
                 else:
-                    match = False
+                    is_match = False
             else:
-                match = True
-        return match
+                is_match = True
+        return is_match, is_after_timestamp
 
     def run_migrations(self, migrations, migrations_by_dir, timestamp):
-        """Run each migration, orderd first by directory priority, then by
-        timestamp and counter.
+        """Run each migration, first by timestamp and then by directory
+        priority.
         """
         previous = ''
 
-        for migration_file in sorted(migrations):
+        migrations = self._sort_migrations_with_counter(migrations)
+        for migration_file in migrations:
             for d in self.directories_by_priority:
                 if migration_file in migrations_by_dir[d]:
                     full_migration_path = os.path.join(d, migration_file)
                     self._run_migration(full_migration_path, timestamp)
                     self._db.commit()
                     previous = migration_file
+
+    def _sort_migrations_with_counter(self, migrations):
+        """Ensures that migrations with a counter digit are sorted after
+        migrations without one.
+        """
+
+        WITHOUT_COUNTER = "-(\D+).(py|sql)"
+        migrations = sorted(migrations)
+        counter_migrations = [m for m in migrations
+                              if self.MIGRATION_WITH_COUNTER.search(m)]
+
+        if counter_migrations:
+            counter_migrations = sorted(counter_migrations)
+            # Go through each migration with a counter and ensures that it's
+            # not preceding any migration with the same date that doesn't
+            # have a counter.
+            for migration in counter_migrations:
+                current_index = migrations.index(migration)
+                current_match_regex = re.compile(migration[0:8]+WITHOUT_COUNTER)
+
+                for later_migration in migrations[current_index:]:
+                    if current_match_regex.search(later_migration):
+                        # Move the later migration without a counter ahead
+                        # of its same-date-but-with-a-counter migration friend.
+                        later_migration_index = migrations.index(later_migration)
+                        earlier_migration = migrations.pop(later_migration_index)
+                        migrations.insert(current_index, earlier_migration)
+
+        return migrations
 
     def _run_migration(self, migration_path, timestamp):
         """Runs a single SQL or Python migration file"""

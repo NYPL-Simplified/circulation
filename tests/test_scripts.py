@@ -280,19 +280,20 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(['20250521-make-bananas.sql', '20260810-do-a-thing.py'], result)
 
     def test_get_new_migrations(self):
-        """Filters out migrations that were run before a given timestamp"""
+        """Filters out migrations that were run on or before a given timestamp"""
 
         migrations = [
             '20271202-future-migration-funtime.sql',
             '20250521-make-bananas.sql',
-            '20260810-do-a-thing.py',
+            '20260810-last-timestamp',
+            '20260811-do-a-thing.py',
             '20260809-already-done.sql'
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)
         # Expected migrations will be sorted by timestamp.
         expected = [
-            '20260810-do-a-thing.py', '20271202-future-migration-funtime.sql'
+            '20260811-do-a-thing.py', '20271202-future-migration-funtime.sql'
         ]
 
         eq_(2, len(result))
@@ -302,6 +303,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         # past the counter.
         migrations = [
             '20271202-future-migration-funtime.sql',
+            '20260810-last-timestamp.sql',
             '20260810-1-do-a-thing.sql',
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
@@ -314,6 +316,27 @@ class TestDatabaseMigrationScript(DatabaseTest):
         ]
 
         eq_(2, len(result))
+        eq_(expected, result)
+
+        # If the timestamp has a (unlikely) mix of counter and non-counter
+        # migrations with the same datetime, migrations with counters are
+        # sorted after migrations without them.
+        migrations = [
+            '20260810-do-a-thing.sql',
+            '20271202-1-more-future-migration-funtime.sql',
+            '20260810-1-do-all-the-things.sql',
+            '20260809-already-done.sql',
+            '20271202-future-migration-funtime.sql',
+        ]
+        self.timestamp.counter = None
+
+        result = self.script.get_new_migrations(self.timestamp, migrations)
+        expected = [
+            '20260810-1-do-all-the-things.sql',
+            '20271202-future-migration-funtime.sql',
+            '20271202-1-more-future-migration-funtime.sql'
+        ]
+        eq_(3, len(result))
         eq_(expected, result)
 
     def test_update_timestamp(self):
