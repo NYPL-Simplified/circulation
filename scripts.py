@@ -861,7 +861,7 @@ class DatabaseMigrationScript(Script):
         if migration_file[:8]>=timestamp_str:
             if migration_file[:8]>timestamp_str:
                 is_after_timestamp = True
-            if counter:
+            elif counter:
                 count = self.MIGRATION_WITH_COUNTER.search(migration_file)
                 if count:
                     migration_num = int(count.groups()[0])
@@ -869,8 +869,6 @@ class DatabaseMigrationScript(Script):
                         is_match = True
                     if migration_num > counter:
                         is_after_timestamp = True
-                else:
-                    is_match = False
             else:
                 is_match = True
         return is_match, is_after_timestamp
