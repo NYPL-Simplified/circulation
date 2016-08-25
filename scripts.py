@@ -877,7 +877,7 @@ class DatabaseMigrationScript(Script):
         """Run each migration, first by timestamp and then by directory
         priority.
         """
-        previous = ''
+        previous = None
 
         migrations = self._sort_migrations_with_counter(migrations)
         for migration_file in migrations:
@@ -892,17 +892,23 @@ class DatabaseMigrationScript(Script):
         """Ensures that migrations with a counter digit are sorted after
         migrations without one.
         """
-
         WITHOUT_COUNTER = "-(\D+).(py|sql)"
         migrations = sorted(migrations)
+
+        # The built-in sorted() method places migrations that start with
+        # just a date (e.g. '20160825-do-this.sql') AFTER migrations
+        # with a counter digit (e.g. '20160825-1-and-that.py').
+        #
+        # Therefore, if there are counter migrations, the list needs
+        # to be resorted to the more likely case: that a migration with
+        # a digit was created after a migration without one.
         counter_migrations = [m for m in migrations
                               if self.MIGRATION_WITH_COUNTER.search(m)]
-
         if counter_migrations:
             counter_migrations = sorted(counter_migrations)
-            # Go through each migration with a counter and ensures that it's
-            # not preceding any migration with the same date that doesn't
-            # have a counter.
+            # Go through each migration with a counter and ensure that
+            # it doesn't precede a migration with the same date and
+            # _no_ counter digit.
             for migration in counter_migrations:
                 current_index = migrations.index(migration)
                 current_match_regex = re.compile(migration[0:8]+WITHOUT_COUNTER)

@@ -153,6 +153,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
                 temp_migration_dir = tempfile.mkdtemp()
                 os.rename(temp_migration_dir, migration_dir)
 
+        # Put a file of each migratable type in both directories.
         self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
         self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
         self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
@@ -163,12 +164,14 @@ class TestDatabaseMigrationScript(DatabaseTest):
         suffix = '.'+migration_type
 
         if migration_type=='sql':
-            # Create content for a SQL file.
+            # Create unique, innocuous content for a SQL file.
+            # This SQL inserts a timestamp into the test database.
             service = "Test Database Migration Script - %s" % unique_string
             content = (("insert into timestamps(service, timestamp)"
                         " values ('%s', '%s');") % (service, '1970-01-01'))
         elif migration_type=='py':
-            # Create content for a Python file.
+            # Create unique, innocuous content for a Python file.
+            # This python creates a temporary .py file in core/tests.
             core = os.path.split(self.core_migration_dir)[0]
             target_dir = os.path.join(core, 'tests')
             content = (
@@ -180,13 +183,18 @@ class TestDatabaseMigrationScript(DatabaseTest):
             )
 
         if not migration_date:
+            # Default date is just after self.timestamp.
             migration_date = '20260811'
         prefix = migration_date + '-'
+
         migration_file_info = tempfile.mkstemp(
             prefix=prefix, suffix=suffix, dir=directory
         )
+        # Hold onto details about the file for deletion in teardown().
         self.migration_files.append(migration_file_info)
+
         with open(migration_file_info[1], 'w') as migration:
+            # Write content to the file.
             migration.write(content)
 
     def setup(self):
@@ -203,7 +211,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self._db.add(self.timestamp)
 
     def teardown(self):
-        # delete any created records, files and directories
+        """Delete any created records, files and directories."""
+
         test_timestamps = self._db.query(Timestamp).filter(
             Timestamp.service.like('Test Database Migration Script - %')
         )
@@ -235,7 +244,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.fetch_migration_files()
         result_migrations, result_migrations_by_dir = result
 
-        for mfd, migration_file in self.migration_files:
+        for desc, migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
         def extract_filenames(core=True):
@@ -366,10 +375,10 @@ class TestDatabaseMigrationScript(DatabaseTest):
             migration_date='20261202'
         )
 
-        # Pop the last migration filepath off and run the migration with the
-        # relevant information.
+        # Pop the last migration filepath off and run the migration with
+        # the relevant information.
         migration_filepath = self.migration_files[-1][1]
-        directory, migration_filename = os.path.split(migration_filepath)
+        migration_filename = os.path.split(migration_filepath)[1]
         migrations_by_dir = {
             self.core_migration_dir : [migration_filename],
             self.parent_migration_dir : []
