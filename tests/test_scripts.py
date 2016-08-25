@@ -267,7 +267,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for filename in parent_migration_files:
             assert filename in result_migrations_by_dir[self.parent_migration_dir]
 
-    def test_migration_files(self):
+    def test_migratable_files(self):
         """Removes migration files that aren't python or SQL from a list."""
 
         migrations = [
@@ -275,7 +275,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
-        result = self.script._migration_files(migrations)
+        result = self.script.migratable_files(migrations)
         eq_(2, len(result))
         eq_(['20250521-make-bananas.sql', '20260810-do-a-thing.py'], result)
 

@@ -731,6 +731,14 @@ class DatabaseMigrationScript(Script):
         )
         return parser
 
+    @classmethod
+    def migratable_files(cls, filelist):
+        """Filter a list of files for migratable file extensions"""
+
+        migratable = [f for f in filelist
+            if (f.endswith('.py') or f.endswith('.sql'))]
+        return sorted(migratable)
+
     @property
     def directories_by_priority(self):
         """Returns a list containing the migration directory path for core
@@ -804,18 +812,11 @@ class DatabaseMigrationScript(Script):
             # In the case of tests, the container server migration directory
             # may not exist.
             if os.path.isdir(directory):
-                dir_migrations = self._migration_files(os.listdir(directory))
+                dir_migrations = self.migratable_files(os.listdir(directory))
                 migrations += dir_migrations
                 migrations_by_dir[directory] = dir_migrations
 
         return migrations, migrations_by_dir
-
-    def _migration_files(self, filelist):
-        """Filter a list of files for migration file extensions"""
-
-        migratable = [f for f in filelist
-            if (f.endswith('.py') or f.endswith('.sql'))]
-        return sorted(migratable)
 
     def get_new_migrations(self, timestamp, migrations):
         """Return a list of migration filenames, representing migrations
