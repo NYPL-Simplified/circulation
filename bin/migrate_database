@@ -8,5 +8,4 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from scripts import DatabaseMigrationScript
-DatabaseMigrationScript.parse_command_line()
 DatabaseMigrationScript().run()
