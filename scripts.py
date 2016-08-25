@@ -713,7 +713,7 @@ class DatabaseMigrationScript(Script):
     """Runs new migrations"""
 
     name = "Database Migration"
-    MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(\w|-)+\.(py|sql)")
+    MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
 
     @classmethod
     def arg_parser(cls):
@@ -738,6 +738,39 @@ class DatabaseMigrationScript(Script):
         migratable = [f for f in filelist
             if (f.endswith('.py') or f.endswith('.sql'))]
         return sorted(migratable)
+
+    @classmethod
+    def sort_migrations(self, migrations):
+        """Ensures that migrations with a counter digit are sorted after
+        migrations without one.
+        """
+
+        def compare_migrations(first, second):
+            """Compares migrations according to ideal sorting order.
+
+            - Migrations are first ordered by timestamp (asc).
+            - If two migrations have the same timestamp, any migrations
+              without counters come before migrations with counters.
+            - If two migrations with the same timestamp, have counters,
+              migrations are sorted by counter (asc).
+            """
+            first_datestamp = int(first[:8])
+            second_datestamp = int(second[:8])
+            datestamp_difference = first_datestamp - second_datestamp
+            if datestamp_difference != 0:
+                return datestamp_difference
+
+            # Both migrations have the same timestamp, so compare using
+            # their counters (default to 0 if no counter is included)
+            first_count = self.MIGRATION_WITH_COUNTER.search(first) or 0
+            second_count = self.MIGRATION_WITH_COUNTER.search(second) or 0
+            if not isinstance(first_count, int):
+                first_count = int(first_count.groups()[0])
+            if not isinstance(second_count, int):
+                second_count = int(second_count.groups()[0])
+            return first_count - second_count
+
+        return sorted(migrations, cmp=compare_migrations)
 
     @property
     def directories_by_priority(self):
@@ -765,7 +798,6 @@ class DatabaseMigrationScript(Script):
                 existing_timestamp.timestamp = last_run_datetime
                 if last_run_counter:
                     existing_timestamp.counter = last_run_counter
-                self._db.commit()
             else:
                 existing_timestamp, ignore = get_one_or_create(
                     self._db, Timestamp,
@@ -823,7 +855,7 @@ class DatabaseMigrationScript(Script):
         created since the timestamp
         """
         last_run = timestamp.timestamp.strftime('%Y%m%d')
-        migrations = self._sort_migrations_with_counter(migrations)
+        migrations = self.sort_migrations(migrations)
         new_migrations = [migration for migration in migrations
                           if int(migration[:8]) >= int(last_run)]
 
@@ -879,7 +911,7 @@ class DatabaseMigrationScript(Script):
         """
         previous = None
 
-        migrations = self._sort_migrations_with_counter(migrations)
+        migrations = self.sort_migrations(migrations)
         for migration_file in migrations:
             for d in self.directories_by_priority:
                 if migration_file in migrations_by_dir[d]:
@@ -887,41 +919,6 @@ class DatabaseMigrationScript(Script):
                     self._run_migration(full_migration_path, timestamp)
                     self._db.commit()
                     previous = migration_file
-
-    def _sort_migrations_with_counter(self, migrations):
-        """Ensures that migrations with a counter digit are sorted after
-        migrations without one.
-        """
-        WITHOUT_COUNTER = "-(\D+).(py|sql)"
-        migrations = sorted(migrations)
-
-        # The built-in sorted() method places migrations that start with
-        # just a date (e.g. '20160825-do-this.sql') AFTER migrations
-        # with a counter digit (e.g. '20160825-1-and-that.py').
-        #
-        # Therefore, if there are counter migrations, the list needs
-        # to be resorted to the more likely case: that a migration with
-        # a digit was created after a migration without one.
-        counter_migrations = [m for m in migrations
-                              if self.MIGRATION_WITH_COUNTER.search(m)]
-        if counter_migrations:
-            counter_migrations = sorted(counter_migrations)
-            # Go through each migration with a counter and ensure that
-            # it doesn't precede a migration with the same date and
-            # _no_ counter digit.
-            for migration in counter_migrations:
-                current_index = migrations.index(migration)
-                current_match_regex = re.compile(migration[0:8]+WITHOUT_COUNTER)
-
-                for later_migration in migrations[current_index:]:
-                    if current_match_regex.search(later_migration):
-                        # Move the later migration without a counter ahead
-                        # of its same-date-but-with-a-counter migration friend.
-                        later_migration_index = migrations.index(later_migration)
-                        earlier_migration = migrations.pop(later_migration_index)
-                        migrations.insert(current_index, earlier_migration)
-
-        return migrations
 
     def _run_migration(self, migration_path, timestamp):
         """Runs a single SQL or Python migration file"""
