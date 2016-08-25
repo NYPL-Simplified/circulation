@@ -138,6 +138,23 @@ class TestWorkProcessingScript(DatabaseTest):
         eq_([g1], one_gutenberg.all())
 
 
+class MockDatabaseMigrationScript(DatabaseMigrationScript):
+
+    @property
+    def directories_by_priority(self):
+        """Uses test migration directories for """
+        real_migration_directories = super(
+            MockDatabaseMigrationScript, self
+        ).directories_by_priority
+
+        test_directories = [
+            os.path.join(os.path.split(d)[0], 'test_migration')
+            for d in real_migration_directories
+        ]
+
+        return test_directories
+
+
 class TestDatabaseMigrationScript(DatabaseTest):
 
     def _create_test_migrations(self):
@@ -199,7 +216,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
-        self.script = DatabaseMigrationScript(_db=self._db)
+        self.script = MockDatabaseMigrationScript(_db=self._db)
 
         # This list holds any temporary files created during tests
         # so they can be deleted during teardown().
@@ -229,9 +246,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
                 except OSError:
                     pass
 
-        for directory in [self.core_migration_dir, self.parent_migration_dir]:
-            if not os.listdir(directory):
-                os.rmdir(directory)
+        for directory in self.script.directories_by_priority:
+            os.rmdir(directory)
 
         super(TestDatabaseMigrationScript, self).teardown()
 
@@ -241,9 +257,12 @@ class TestDatabaseMigrationScript(DatabaseTest):
         expected_core = os.path.join(core, 'migration')
         expected_parent = os.path.join(parent, 'migration')
 
+        # This is the only place we're testing the real script.
+        # Everywhere else should use the mock.
+        script = DatabaseMigrationScript()
         eq_(
             [expected_core, expected_parent],
-            self.script.directories_by_priority
+            script.directories_by_priority
         )
 
     def test_fetch_migration_files(self):
@@ -265,12 +284,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         # Ensure that all the expected migrations from CORE are included in
         # the 'core' directory array in migrations_by_directory.
         core_migration_files = extract_filenames()
-
-        # At some point, August 10th, 2026 will come and go and a migration
-        # may be added and this unit test will start to fail right below.
-        # At that point, move all dates to the 2030s.
-        #
-        # This is fine. <insert now-outdatedly-retro dog cartoon meme by KC Green>
         eq_(2, len(core_migration_files))
         for filename in core_migration_files:
             assert filename in result_migrations_by_dir[self.core_migration_dir]
