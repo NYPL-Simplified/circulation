@@ -222,6 +222,12 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for fd, fpath in self.migration_files:
             os.close(fd)
             os.remove(fpath)
+            if fpath.endswith('.py'):
+                # Remove compiled files.
+                try:
+                    os.remove(fpath+'c')
+                except OSError:
+                    pass
 
         for directory in [self.core_migration_dir, self.parent_migration_dir]:
             if not os.listdir(directory):
