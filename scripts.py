@@ -1,7 +1,9 @@
 import argparse
 import datetime
+import imp
 import logging
 import os
+import re
 import requests
 import time
 from requests.exceptions import (
@@ -10,6 +12,7 @@ from requests.exceptions import (
 )
 import sys
 
+from collections import defaultdict
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
@@ -18,6 +21,7 @@ from sqlalchemy.orm.session import Session
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
+    get_one,
     get_one_or_create,
     production_session,
     CustomList,
@@ -27,6 +31,7 @@ from model import (
     LicensePool,
     PresentationCalculationPolicy,
     Subject,
+    Timestamp,
     Work,
     WorkCoverageRecord,
     WorkGenre,
@@ -72,7 +77,7 @@ class Script(object):
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
+        return parser.parse_known_args(cmd_args)[0]
 
     @classmethod
     def arg_parser(cls):
@@ -120,6 +125,7 @@ class Script(object):
         if not Configuration.instance:
             Configuration.load()
 
+
 class RunMonitorScript(Script):
 
     def __init__(self, monitor, **kwargs):
@@ -130,6 +136,7 @@ class RunMonitorScript(Script):
 
     def do_run(self):
         self.monitor.run()
+
 
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
@@ -342,6 +349,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         else:
             self.provider.run()
 
+
 class BibliographicRefreshScript(RunCoverageProviderScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
@@ -470,6 +478,7 @@ class WorkProcessingScript(IdentifierInputScript):
     def process_work(self, work):
         raise NotImplementedError()      
 
+
 class WorkConsolidationScript(WorkProcessingScript):
     """Given an Identifier, make sure all the LicensePools for that
     Identifier are in Works that follow these rules:
@@ -521,6 +530,7 @@ class WorkPresentationScript(WorkProcessingScript):
     def process_work(self, work):
         work.calculate_presentation(policy=self.policy)
 
+
 class WorkClassificationScript(WorkPresentationScript):
     """Recalculate the classification--and nothing else--for Work objects.
     """
@@ -534,6 +544,7 @@ class WorkClassificationScript(WorkPresentationScript):
         regenerate_opds_entries=False, 
         update_search_index=False,
     )
+
 
 class WorkOPDSScript(WorkPresentationScript):
     """Recalculate the OPDS entries and search index entries for Work objects.
@@ -551,6 +562,7 @@ class WorkOPDSScript(WorkPresentationScript):
         regenerate_opds_entries=True, 
         update_search_index=True,
     )
+
 
 class CustomListManagementScript(Script):
     """Maintain a CustomList whose membership is determined by a
@@ -600,11 +612,6 @@ class OPDSImportScript(Script):
         )
         return parser
 
-    @classmethod
-    def parse_command_line(cls, cmd_args=None):
-        parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
-
     def __init__(self, feed_url, opds_data_source, importer_class, 
                  immediately_presentation_ready=False, cmd_args=None):
         args = self.parse_command_line(cmd_args)
@@ -622,7 +629,7 @@ class OPDSImportScript(Script):
             force_reimport=self.force_reimport
         )
         monitor.run()
-        
+
 
 class NYTBestSellerListsScript(Script):
 
@@ -666,11 +673,6 @@ class RefreshMaterializedViewsScript(Script):
         )
         return parser
 
-    @classmethod
-    def parse_command_line(cls, cmd_args=None):
-        parser = cls.arg_parser()
-        return parser.parse_args(cmd_args)
-
     def do_run(self):
         args = self.parse_command_line()
         if args.blocking_refresh:
@@ -705,6 +707,273 @@ class RefreshMaterializedViewsScript(Script):
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
         print "Vacuumed in %.2f sec." % (b-a)
+
+
+class DatabaseMigrationScript(Script):
+    """Runs new migrations"""
+
+    name = "Database Migration"
+    MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '-d', '--last-run-date',
+            help=('A date string representing the last migration file '
+                  'run against your database, formatted as YYYY-MM-DD')
+        )
+        parser.add_argument(
+            '-c', '--last-run-counter', type=int,
+            help=('An optional digit representing the counter of the last '
+                  'migration run against your database. Only necessary if '
+                  'multiple migrations were created on the same date.')
+        )
+        return parser
+
+    @classmethod
+    def migratable_files(cls, filelist):
+        """Filter a list of files for migratable file extensions"""
+
+        migratable = [f for f in filelist
+            if (f.endswith('.py') or f.endswith('.sql'))]
+        return sorted(migratable)
+
+    @classmethod
+    def sort_migrations(self, migrations):
+        """Ensures that migrations with a counter digit are sorted after
+        migrations without one.
+        """
+
+        def compare_migrations(first, second):
+            """Compares migrations according to ideal sorting order.
+
+            - Migrations are first ordered by timestamp (asc).
+            - If two migrations have the same timestamp, any migrations
+              without counters come before migrations with counters.
+            - If two migrations with the same timestamp, have counters,
+              migrations are sorted by counter (asc).
+            """
+            first_datestamp = int(first[:8])
+            second_datestamp = int(second[:8])
+            datestamp_difference = first_datestamp - second_datestamp
+            if datestamp_difference != 0:
+                return datestamp_difference
+
+            # Both migrations have the same timestamp, so compare using
+            # their counters (default to 0 if no counter is included)
+            first_count = self.MIGRATION_WITH_COUNTER.search(first) or 0
+            second_count = self.MIGRATION_WITH_COUNTER.search(second) or 0
+            if not isinstance(first_count, int):
+                first_count = int(first_count.groups()[0])
+            if not isinstance(second_count, int):
+                second_count = int(second_count.groups()[0])
+            return first_count - second_count
+
+        return sorted(migrations, cmp=compare_migrations)
+
+    @property
+    def directories_by_priority(self):
+        """Returns a list containing the migration directory path for core
+        and its container server, organized in priority order (core first)
+        """
+        current_dir = os.path.split(os.path.abspath(__file__))[0]
+        core = os.path.join(current_dir, 'migration')
+        server = os.path.join(os.path.split(current_dir)[0], 'migration')
+
+        # Core is listed first, since core makes changes to the core database
+        # schema. Server migrations generally fix bugs or otherwise update
+        # the data itself.
+        return [core, server]
+
+    def do_run(self):
+        args = self.parse_command_line()
+        last_run_date = args.last_run_date
+        last_run_counter = args.last_run_counter
+
+        existing_timestamp = get_one(self._db, Timestamp, service=self.name)
+        if last_run_date:
+            last_run_datetime = self.parse_time(last_run_date)
+            if existing_timestamp:
+                existing_timestamp.timestamp = last_run_datetime
+                if last_run_counter:
+                    existing_timestamp.counter = last_run_counter
+            else:
+                existing_timestamp, ignore = get_one_or_create(
+                    self._db, Timestamp,
+                    service=self.name,
+                    timestamp=last_run_datetime
+                )
+
+        if existing_timestamp:
+            migrations, migrations_by_dir = self.fetch_migration_files()
+
+            new_migrations = self.get_new_migrations(
+                existing_timestamp, migrations
+            )
+            if new_migrations:
+                # Log the new migrations.
+                print "%d new migrations found." % len(new_migrations)
+                for migration in new_migrations:
+                    print "  - %s" % migration
+
+                self.run_migrations(
+                    new_migrations, migrations_by_dir, existing_timestamp
+                )
+                print "All new migrations have been run."
+            else:
+                print "No new migrations found. Your database is up-to-date."
+        else:
+            print ""
+            print (
+                "NO TIMESTAMP FOUND. Run script with timestamp that indicates"
+                " the last migration run against this database."
+            )
+            self.arg_parser().print_help()
+
+    def fetch_migration_files(self):
+        """Pulls migration files from the expected locations
+
+        Return a list of migration filenames and a dictionary of those
+        files separated by their absolute directory location.
+        """
+        migrations = list()
+        migrations_by_dir = defaultdict(list)
+
+        for directory in self.directories_by_priority:
+            # In the case of tests, the container server migration directory
+            # may not exist.
+            if os.path.isdir(directory):
+                dir_migrations = self.migratable_files(os.listdir(directory))
+                migrations += dir_migrations
+                migrations_by_dir[directory] = dir_migrations
+
+        return migrations, migrations_by_dir
+
+    def get_new_migrations(self, timestamp, migrations):
+        """Return a list of migration filenames, representing migrations
+        created since the timestamp
+        """
+        last_run = timestamp.timestamp.strftime('%Y%m%d')
+        migrations = self.sort_migrations(migrations)
+        new_migrations = [migration for migration in migrations
+                          if int(migration[:8]) >= int(last_run)]
+
+        # Multiple migrations run on the same day have an additional digit
+        # after the date and a dash, eg:
+        #
+        #     20150826-1-change_target_age_from_int_to_range.sql
+        #
+        # When that migration is run, the number will be saved to the
+        # 'counter' column of Timestamp, so we have to account for that.
+        start_found = False
+        later_found = False
+        index = 0
+        while not start_found and not later_found and index < len(new_migrations):
+            start_found, later_found = self._is_matching_migration(
+                new_migrations[index], timestamp
+            )
+            index += 1
+
+        if later_found:
+            index -= 1
+        new_migrations = new_migrations[index:]
+        return new_migrations
+
+    def _is_matching_migration(self, migration_file, timestamp):
+        """Determine whether a given migration filename matches a given
+        timestamp or is after it.
+        """
+        is_match = False
+        is_after_timestamp = False
+
+        timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+        counter = timestamp.counter
+
+        if migration_file[:8]>=timestamp_str:
+            if migration_file[:8]>timestamp_str:
+                is_after_timestamp = True
+            elif counter:
+                count = self.MIGRATION_WITH_COUNTER.search(migration_file)
+                if count:
+                    migration_num = int(count.groups()[0])
+                    if migration_num==counter:
+                        is_match = True
+                    if migration_num > counter:
+                        is_after_timestamp = True
+            else:
+                is_match = True
+        return is_match, is_after_timestamp
+
+    def run_migrations(self, migrations, migrations_by_dir, timestamp):
+        """Run each migration, first by timestamp and then by directory
+        priority.
+        """
+        previous = None
+
+        migrations = self.sort_migrations(migrations)
+        for migration_file in migrations:
+            for d in self.directories_by_priority:
+                if migration_file in migrations_by_dir[d]:
+                    full_migration_path = os.path.join(d, migration_file)
+                    self._run_migration(full_migration_path, timestamp)
+                    self._db.commit()
+                    previous = migration_file
+
+    def _run_migration(self, migration_path, timestamp):
+        """Runs a single SQL or Python migration file"""
+
+        migration_filename = os.path.split(migration_path)[1]
+
+        if migration_path.endswith('.sql'):
+            with open(migration_path) as clause:
+                sql = clause.read()
+                self._db.execute(sql)
+        if migration_path.endswith('.py'):
+            module_name = migration_filename
+            imp.load_source(module_name, migration_path)
+
+        # Update timestamp for the migration.
+        self.update_timestamp(timestamp, migration_filename)
+
+    def update_timestamp(self, timestamp, migration_file):
+        """Updates this service's timestamp to match a given migration"""
+
+        last_run_date = self.parse_time(migration_file[0:8])
+        timestamp.timestamp = last_run_date
+
+        # When multiple migration files are created on the same date, an
+        # additional number is added. This number is held in the 'counter'
+        # column of Timestamp.
+        # (It's not ideal, but it avoids creating a new database table.)
+        match = self.MIGRATION_WITH_COUNTER.search(migration_file)
+        if match:
+            timestamp.counter = int(match.groups()[0])
+        self._db.commit()
+
+        print "New timestamp created at %s for %s" % (
+            last_run_date.strftime('%Y-%m-%d'), migration_file
+        )
+
+
+class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
+
+    """Creates a timestamp to kickoff the regular use of
+    DatabaseMigrationScript to manage migrations.
+    """
+
+    def do_run(self):
+        existing_timestamp = get_one(self._db, Timestamp, service=self.name)
+        if existing_timestamp:
+            raise Exception(
+                "Timestamp for Database Migration script already exists"
+            )
+
+        migrations = self.fetch_migration_files()[0]
+        most_recent_migration = self.sort_migrations(migrations)[-1]
+
+        initial_timestamp = Timestamp.stamp(self._db, self.name)
+        self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
 class Explain(IdentifierInputScript):
@@ -835,7 +1104,6 @@ class SubjectAssignmentScript(SubjectInputScript):
         monitor.run()
 
 
-
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
     def __init__(self, *lines):
@@ -845,5 +1113,3 @@ class MockStdin(object):
         lines = self.lines
         self.lines = []
         return lines
-
-
