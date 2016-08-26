@@ -21,6 +21,7 @@ from model import (
 from scripts import (
     Script,
     CustomListManagementScript,
+    DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
     RunCoverageProviderScript,
@@ -449,3 +450,20 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         for filename in test_generated_files:
             os.remove(os.path.join(test_dir, filename))
+
+
+class TestDatabaseMigrationInitializationScript(DatabaseTest):
+
+    def setup(self):
+        super(TestDatabaseMigrationInitializationScript, self).setup()
+        self.script = DatabaseMigrationInitializationScript(_db=self._db)
+
+    def test_timestamp_created(self):
+        timestamps = self._db.query(Timestamp).all()
+        eq_(timestamps, [])
+
+        self.script.do_run()
+
+        last_migration_date = self.script.fetch_migration_files()[0][-1][:8]
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)

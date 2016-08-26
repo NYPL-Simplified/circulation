@@ -956,6 +956,20 @@ class DatabaseMigrationScript(Script):
         )
 
 
+class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
+
+    """Creates a timestamp to kickoff the regular use of
+    DatabaseMigrationScript to manage migrations.
+    """
+
+    def do_run(self):
+        migrations = self.fetch_migration_files()[0]
+        most_recent_migration = self.sort_migrations(migrations)[-1]
+
+        initial_timestamp = Timestamp.stamp(self._db, self.name)
+        self.update_timestamp(initial_timestamp, most_recent_migration)
+
+
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
