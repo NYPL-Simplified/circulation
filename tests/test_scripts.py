@@ -228,13 +228,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self._db.add(self.timestamp)
 
     def teardown(self):
-        """Delete any created records, files and directories."""
-
-        test_timestamps = self._db.query(Timestamp).filter(
-            Timestamp.service.like('Test Database Migration Script - %')
-        )
-        for timestamp in test_timestamps.all():
-            self._db.delete(timestamp)
+        """Delete any files and directories created during testing."""
 
         for fd, fpath in self.migration_files:
             os.close(fd)
