@@ -454,7 +454,7 @@ class ExternalSearchIndex(object):
         else:
             return {}
 
-    def bulk_update(self, works):
+    def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
 
         from model import Work
@@ -473,6 +473,11 @@ class ExternalSearchIndex(object):
             raise_on_exception=False,
         )
 
+        # If the entire update failed, try it one more time before giving up on the batch.
+        if retry_on_batch_failure and len(errors) == len(docs):
+            self.log.info("Elasticsearch bulk update timed out, trying again.")
+            return self.bulk_update(works, retry_on_batch_failure=False)
+
         time3 = time.time()
         self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
         self.log.info("Uploaded %i search documents in  %.2f seconds" % (len(docs), time3 - time2))
@@ -482,8 +487,12 @@ class ExternalSearchIndex(object):
         # We weren't able to create search documents for these works, maybe
         # because they don't have presentation editions yet.
         missing_works = [work for work in works if work.id not in doc_ids]
-
-        error_ids = [error['data']["_id"] for error in errors]
+            
+        error_ids = [
+            error.get('data', {}).get("_id", None) or
+            error.get('index', {}).get('_id', None)
+            for error in errors
+        ]
 
         successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
 
@@ -495,9 +504,18 @@ class ExternalSearchIndex(object):
                 failures.append((work, "Work not indexed"))
 
         for error in errors:
-            work = [work for work in works if work.id == error['data']['_id']][0]
+            error_id = error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)
+
+            work = None
+            works_with_error = [work for work in works if work.id == error_id]
+            if works_with_error:
+                work = works_with_error[0]
+
             exception = error.get('exception', None)
             error_message = error.get('error', None)
+            if not error_message:
+                error_message = error.get('index', {}).get('error', None)
+
             failures.append((work, error_message))
 
         self.log.info("Successfully indexed %i documents, failed to index %i." % (success_count, len(failures)))
