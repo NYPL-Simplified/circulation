@@ -458,12 +458,17 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         super(TestDatabaseMigrationInitializationScript, self).setup()
         self.script = DatabaseMigrationInitializationScript(_db=self._db)
 
-    def test_timestamp_created(self):
+    def test_accurate_timestamp_created(self):
         timestamps = self._db.query(Timestamp).all()
         eq_(timestamps, [])
 
         self.script.do_run()
 
-        last_migration_date = self.script.fetch_migration_files()[0][-1][:8]
+        migrations = self.script.fetch_migration_files()[0]
+        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
         [timestamp] = self._db.query(Timestamp).all()
         eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+
+    def test_error_raised_when_timestamp_exists(self):
+        Timestamp.stamp(self._db, self.script.name)
+        assert_raises(Exception, self.script.do_run)

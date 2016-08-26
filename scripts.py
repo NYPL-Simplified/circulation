@@ -963,6 +963,12 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
     """
 
     def do_run(self):
+        existing_timestamp = get_one(self._db, Timestamp, service=self.name)
+        if existing_timestamp:
+            raise Exception(
+                "Timestamp for Database Migration script already exists"
+            )
+
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
 
