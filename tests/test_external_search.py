@@ -818,7 +818,7 @@ class TestSearchErrors(DatabaseTest):
         def bulk_with_timeout(docs, raise_on_error=False, raise_on_exception=False):
             attempts.append(docs)
             def error(doc):
-                return dict(index=dict(status='TIMEOUT', 
+                return dict(index=dict(status='TIMEOUT',
                                        exception='ConnectionTimeout',
                                        error='Connection Timeout!',
                                        _id=doc['_id'],
@@ -841,15 +841,16 @@ class TestSearchErrors(DatabaseTest):
         eq_([work.id, work.id],
             [docs[0]['_id'] for docs in attempts])
 
-    def search_single_document_error(self):
+    def test_search_single_document_error(self):
         successful_work = self._work()
         failing_work = self._work()
         
         def bulk_with_error(docs, raise_on_error=False, raise_on_exception=False):
-            failure = ([doc for doc in docs if doc['_id'] == failing_work.id][0], "Error!")
+            failures = [dict(data=dict(_id=failing_work.id),
+                             error="There was an error!",
+                             exception="Exception")]
             success_count = 1
-            return success_count
-
+            return success_count, failures
         search = ExternalSearchIndex()
         search.bulk = bulk_with_error
 

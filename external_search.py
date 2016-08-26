@@ -1,7 +1,6 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from elasticsearch.exceptions import ConnectionTimeout
 from config import Configuration
 from classifier import (
     KeywordBasedClassifier,
