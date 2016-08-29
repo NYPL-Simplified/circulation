@@ -732,7 +732,7 @@ class BibliographicCoverageProvider(CoverageProvider):
         self.api = api
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
-        service_name = "%s Bibliographic Monitor" % datasource
+        service_name = "%s Bibliographic Coverage Provider" % datasource
         metadata_replacement_policy = (
             metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
         )
