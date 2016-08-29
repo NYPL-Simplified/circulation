@@ -26,8 +26,6 @@ from model import (
 from monitor import (
     Monitor,
     PresentationReadyMonitor,
-    IdentifierResolutionMonitor,
-    ResolutionFailed,
     SubjectSweepMonitor,
 )
 

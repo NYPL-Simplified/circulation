@@ -4587,7 +4587,7 @@ class TestMaterializedViews(DatabaseTest):
 
     def test_license_pool_is_works_preferred_license_pool(self):
         """Verify that the license_pool_id stored in the materialized views
-        identifiers the LicensePool associated with the Work's
+        identifies the LicensePool associated with the Work's
         presentation edition, not some other LicensePool.
         """
         # Create a Work with two LicensePools
