@@ -1266,6 +1266,8 @@ class Identifier(Base):
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
 
+        if not foreign_identifier_type or not foreign_id:
+            return None
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
             foreign_id = foreign_id.lower()
@@ -1303,7 +1305,7 @@ class Identifier(Base):
     @classmethod
     def type_and_identifier_for_urn(cls, identifier_string):
         if not identifier_string:
-            return None
+            return None, None
         m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
         if m:
             type = Identifier.GUTENBERG_ID
@@ -3922,6 +3924,11 @@ class Work(Base):
             return []
 
         _db = Session.object_session(works[0])
+
+        # If this is a batch of search documents, postgres needs extra working
+        # memory to process the query quickly.
+        if len(works) > 50:
+            _db.execute("set work_mem='200MB'")
 
         # This query gets relevant columns from Work and Edition for the Works we're
         # interested in. The work_id, edition_id, and identifier_id columns are used

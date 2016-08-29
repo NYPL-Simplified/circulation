@@ -189,7 +189,7 @@ class TestExternalSearch(DatabaseTest):
 
             self.search.bulk_update(works)
 
-            time.sleep(1)
+            time.sleep(2)
 
     def teardown(self):
         if self.search:
@@ -810,3 +810,52 @@ class TestSearchFilterFromLane(DatabaseTest):
         assert 'terms' in exclude_languages_filter['not']
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
+
+class TestSearchErrors(DatabaseTest):
+    def test_search_connection_timeout(self):
+        attempts = []
+
+        def bulk_with_timeout(docs, raise_on_error=False, raise_on_exception=False):
+            attempts.append(docs)
+            def error(doc):
+                return dict(index=dict(status='TIMEOUT',
+                                       exception='ConnectionTimeout',
+                                       error='Connection Timeout!',
+                                       _id=doc['_id'],
+                                       data=doc))
+
+            errors = map(error, docs)
+            return 0, errors
+
+        search = ExternalSearchIndex()
+        search.bulk = bulk_with_timeout
+        
+        work = self._work()
+        successes, failures = search.bulk_update([work])
+        eq_([], successes)
+        eq_(1, len(failures))
+        eq_(work, failures[0][0])
+        eq_("Connection Timeout!", failures[0][1])
+
+        # When all the documents fail, it tries again once with the same arguments.
+        eq_([work.id, work.id],
+            [docs[0]['_id'] for docs in attempts])
+
+    def test_search_single_document_error(self):
+        successful_work = self._work()
+        failing_work = self._work()
+        
+        def bulk_with_error(docs, raise_on_error=False, raise_on_exception=False):
+            failures = [dict(data=dict(_id=failing_work.id),
+                             error="There was an error!",
+                             exception="Exception")]
+            success_count = 1
+            return success_count, failures
+        search = ExternalSearchIndex()
+        search.bulk = bulk_with_error
+
+        successes, failures = search.bulk_update([successful_work, failing_work])
+        eq_([successful_work], successes)
+        eq_(1, len(failures))
+        eq_(failing_work, failures[0][0])
+        eq_("There was an error!", failures[0][1])

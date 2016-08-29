@@ -40,7 +40,10 @@ from problem_details import (
     INVALID_URN,
 )
 
-from util.opds_writer import OPDSFeed
+from util.opds_writer import (
+    OPDSFeed,
+    OPDSMessage,
+)
 
 
 class TestURNLookupController(DatabaseTest):
@@ -50,15 +53,16 @@ class TestURNLookupController(DatabaseTest):
         self.controller = URNLookupController(self._db)
 
     def assert_one_message(self, urn, code, message):
-        """Assert that the given message is the only one in
-        messages_by_urn.
+        """Assert that the given message is the only thing
+        in the feed.
         """
-        [(u, (c, m))] = self.controller.messages_by_urn.items()
-        eq_(u, urn)
-        eq_(c, code)
-        eq_(m, message)
+        [obj] = self.controller.precomposed_entries
+        expect = OPDSMessage(urn, code, message)
+        assert isinstance(obj, OPDSMessage)
+        eq_(urn, obj.urn)
+        eq_(code, obj.status_code)
+        eq_(message, obj.message)
         eq_([], self.controller.works)
-        eq_([], self.controller.precomposed_entries)
         
     def test_process_urn_invalid_urn(self):
         urn = "not even a URN"
@@ -110,7 +114,7 @@ class TestURNLookupController(DatabaseTest):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
         self.controller.process_urn(identifier.urn)
-        eq_(0, len(self.controller.messages_by_urn))
+        eq_([], self.controller.precomposed_entries)
         eq_([(work.presentation_edition.primary_identifier, work)],
             self.controller.works
         )

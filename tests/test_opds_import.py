@@ -25,7 +25,9 @@ from opds_import import (
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
+    OPDSXMLParser,
 )
+from util.opds_writer import OPDSMessage
 from metadata_layer import (
     LinkData
 )
@@ -131,15 +133,18 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_last_update_dates(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
+
+        # This file has two <entry> tags and one <simplified:message> tag.
+        # The <entry> tags have their last update dates extracted,
+        # the message is ignored.
         last_update_dates = importer.extract_last_update_dates(
             self.content_server_mini_feed
         )
 
-        eq_(3, len(last_update_dates))
+        eq_(2, len(last_update_dates))
 
         identifier1, updated1 = last_update_dates[0]
         identifier2, updated2 = last_update_dates[1]
-        identifier3, updated3 = last_update_dates[2]
 
         eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441", identifier1)
         eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated1)
@@ -147,8 +152,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557", identifier2)
         eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated2)
 
-        eq_("http://www.gutenberg.org/ebooks/1984", identifier3)
-        eq_(None, updated3)
 
     def test_extract_metadata(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
@@ -189,13 +192,14 @@ class TestOPDSImporter(OPDSImporterTest):
         link = OPDSImporter.extract_link(relative, "http://server")
         eq_("http://server/foo/bar", link.href)
 
-    def test_extract_metadata_from_feedparser(self):
+    def test_extract_data_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
         values, failures = OPDSImporter.extract_data_from_feedparser(
             self.content_server_mini_feed, data_source
         )
 
+        # The <entry> tag became a Metadata object.
         metadata = values['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         eq_("The Green Mouse", metadata['title'])
         eq_("A Tale of Mousy Terror", metadata['subtitle'])
@@ -205,11 +209,13 @@ class TestOPDSImporter(OPDSImporterTest):
         circulation = metadata['circulation']
         eq_(DataSource.GUTENBERG, circulation['data_source'])
 
-        failure = failures['http://www.gutenberg.org/ebooks/1984']
-        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
+        # The <simplified:message> tag did not become a
+        # CoverageFailure -- that's handled by
+        # extract_metadata_from_elementtree.
+        eq_({}, failures)
 
 
-    def test_extract_metadata_from_feedparser_handles_exception(self):
+    def test_extract_data_from_feedparser_handles_exception(self):
         class DoomedFeedparserOPDSImporter(OPDSImporter):
             """An importer that can't extract metadata from feedparser."""
             @classmethod
@@ -225,22 +231,18 @@ class TestOPDSImporter(OPDSImporterTest):
         # No metadata was extracted.
         eq_(0, len(values.keys()))
 
-        # There are 3 failures, the 202 in the feed and 2 from exceptions.
-        eq_(3, len(failures))
+        # There are 2 failures, both from exceptions. The 202 message
+        # found in content_server_mini.opds is not extracted
+        # here--it's extracted by extract_metadata_from_elementtree.
+        eq_(2, len(failures))
 
-        # The regular status message is there.
-        failure = failures['http://www.gutenberg.org/ebooks/1984']
-        assert isinstance(failure, CoverageFailure)
-        eq_(True, failure.transient)
-        eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
-
-        # The first error message is there.
+        # The first error message became a CoverageFailure.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
-        # The second error message is there.
+        # The second error message became a CoverageFailure.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
@@ -322,6 +324,75 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
 
+    def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        feed = open(
+            os.path.join(self.resource_path, "unrecognized_identifier.opds")
+        ).read()        
+        values, failures = OPDSImporter.extract_metadata_from_elementtree(
+            feed, data_source
+        )
+
+        # We have no Metadata objects and one CoverageFailure.
+        eq_({}, values)
+
+        # The CoverageFailure contains the information that was in a
+        # <simplified:message> tag in unrecognized_identifier.opds.
+        key = 'http://www.gutenberg.org/ebooks/100'
+        eq_([key], failures.keys())
+        failure = failures[key]
+        eq_("404: I've never heard of this work.", failure.exception)
+        eq_(key, failure.obj.urn)
+
+    def test_extract_messages(self):
+        parser = OPDSXMLParser()
+        feed = open(
+            os.path.join(self.resource_path, "unrecognized_identifier.opds")
+        ).read()
+        root = etree.parse(StringIO(feed))
+        [message] = OPDSImporter.extract_messages(parser, root)
+        eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
+        eq_(404, message.status_code)
+        eq_("I've never heard of this work.", message.message)
+        
+    def test_coveragefailure_from_message(self):
+        """Test all the different ways a <simplified:message> tag might
+        become a CoverageFailure.
+        """
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        def f(*args):
+            message = OPDSMessage(*args)
+            return OPDSImporter.coveragefailure_from_message(
+                data_source, message
+            )
+
+        # If the URN is invalid we can't create a CoverageFailure.
+        invalid_urn = f("urn:blah", "500", "description")
+        eq_(invalid_urn, None)
+
+        identifier = self._identifier()
+
+        # If the 'message' is that everything is fine, no CoverageFailure
+        # is created.
+        this_is_fine = f(identifier.urn, "200", "description")
+        eq_(None, this_is_fine)
+
+        # Test the various ways the status code and message might be
+        # transformed into CoverageFailure.exception.
+        description_and_status_code = f(identifier.urn, "404", "description")
+        eq_("404: description", description_and_status_code.exception)
+        eq_(identifier, description_and_status_code.obj)
+        
+        description_only = f(identifier.urn, None, "description")
+        eq_("description", description_only.exception)
+        
+        status_code_only = f(identifier.urn, "404", None)
+        eq_("404", status_code_only.exception)
+        
+        no_information = f(identifier.urn, None, None)
+        eq_("No detail provided.", no_information.exception)
+        
     def test_extract_metadata_from_elementtree_handles_exception(self):
         class DoomedElementtreeOPDSImporter(OPDSImporter):
             """An importer that can't extract metadata from elementttree."""
@@ -338,16 +409,21 @@ class TestOPDSImporter(OPDSImporterTest):
         # No metadata was extracted.
         eq_(0, len(values.keys()))
 
-        # There are 3 messages - every entry threw an exception.
+        # There are 3 CoverageFailures - every <entry> threw an
+        # exception and the <simplified:message> indicated failure.
         eq_(3, len(failures))
 
-        # The entry with the 202 message threw an exception.
+        # The entry with the 202 message became an appropriate
+        # CoverageFailure because its data was not extracted through
+        # extract_metadata_from_elementtree.
         failure = failures['http://www.gutenberg.org/ebooks/1984']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
-        assert "Utter failure!" in failure.exception
+        assert failure.exception.startswith('202')
+        assert 'Utter failure!' not in failure.exception
 
-        # And so did the other entries.
+        # The other entries became generic CoverageFailures due to the failure
+        # of extract_metadata_from_elementtree.
         failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
@@ -624,7 +700,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(True, mouse.presentation_ready)
 
 
-    def test_status_and_message(self):
+    def test_import_from_feed_treats_message_as_failure(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
         imported_editions, imported_pools, imported_works, failures = (
@@ -885,17 +961,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 class TestOPDSImportMonitor(OPDSImporterTest):
 
-    def setup(self):
-        super(TestOPDSImportMonitor, self).setup()
-        feed = self.content_server_mini_feed
-        # Remove the last entry, since it's a message and will always be new.
-        last_entry_start = feed.rfind('<entry>')
-        last_entry_end = feed.rfind('</entry>') + len('</entry>')
-        self.content_server_mini_feed_without_message = feed[0:last_entry_start] + feed[last_entry_end:]
-
-
     def test_check_for_new_data(self):
-        feed = self.content_server_mini_feed_without_message
+        feed = self.content_server_mini_feed
 
         class MockOPDSImportMonitor(OPDSImportMonitor):
             def _get(self, url, headers):
@@ -966,7 +1033,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
-        feed = self.content_server_mini_feed_without_message
+        feed = self.content_server_mini_feed
 
         # If there's new data, follow_one_link extracts the next links.
 

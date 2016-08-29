@@ -693,7 +693,7 @@ nonfiction_genres = [
         u"Music",
         u"Performing Arts",
     ]),
-    "Life Strategies",
+    u"Life Strategies",
     u"Literary Criticism",
     u"Periodicals",
     u"Philosophy",

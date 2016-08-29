@@ -50,7 +50,10 @@ from model import (
 )
 from coverage import CoverageFailure
 from util.http import HTTP
-from util.opds_writer import OPDSFeed
+from util.opds_writer import (
+    OPDSFeed,
+    OPDSMessage,
+)
 from s3 import S3Uploader
 
 class AccessNotAuthenticated(Exception):
@@ -498,6 +501,14 @@ class OPDSImporter(object):
             if self_links:
                 feed_url = self_links[0]
 
+        # First, turn Simplified <message> tags into CoverageFailure
+        # objects.
+        for failure in cls.coveragefailures_from_messages(
+                data_source, parser, root
+        ):
+            failures[failure.obj.urn] = failure
+
+        # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
             if identifier:
@@ -532,27 +543,18 @@ class OPDSImporter(object):
         if not identifier:
             return None, None, None
 
-        failure = None
-        status_code = entry.get('simplified_status_code', None)
-        message = entry.get('simplified_message', None)
-        if status_code is not None and status_code != 200:
-            _db = Session.object_session(data_source)
-            identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
-            error_message = "%s: %s" % (status_code, message)
-            failure = CoverageFailure(identifier_obj, error_message, data_source, transient=True)
-
-        if failure:
-            return identifier, None, failure
-
         # At this point we can assume that we successfully got some
         # metadata, and possibly a link to the actual book.
         try:
             kwargs_meta = cls._data_detail_for_feedparser_entry(entry, data_source)
-            return identifier, kwargs_meta, failure
+            return identifier, kwargs_meta, None
         except Exception, e:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
-            failure = CoverageFailure(identifier_obj, traceback.format_exc(), data_source, transient=True)
+            failure = CoverageFailure(
+                identifier_obj, traceback.format_exc(), data_source,
+                transient=True
+            )
             return identifier, None, failure
 
     @classmethod
@@ -662,6 +664,94 @@ class OPDSImporter(object):
             kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
 
+    @classmethod
+    def extract_messages(cls, parser, feed_tag):
+        """Extract <simplified:message> tags from an OPDS feed and convert
+        them into OPDSMessage objects.
+        """
+        path = '/atom:feed/simplified:message'
+        for message_tag in parser._xpath(feed_tag, path):
+
+            # First thing to do is determine which Identifier we're
+            # talking about.
+            identifier_tag = parser._xpath1(message_tag, 'atom:id')
+            if identifier_tag is None:
+                urn = None
+            else:
+                urn = identifier_tag.text
+
+            # What status code is associated with the message?
+            status_code_tag = parser._xpath1(message_tag, 'simplified:status_code')
+            if status_code_tag is None:
+                status_code = None
+            else:
+                try:
+                    status_code = int(status_code_tag.text)
+                except ValueError:
+                    status_code = None
+
+            # What is the human-readable message?
+            description_tag = parser._xpath1(message_tag, 'schema:description')
+            if description_tag is None:
+                description = ''
+            else:
+                description = description_tag.text
+        
+            yield OPDSMessage(urn, status_code, description)
+    
+    @classmethod
+    def coveragefailures_from_messages(cls, data_source, parser, feed_tag):
+        """Extract CoverageFailure objects from a parsed OPDS document. This
+        allows us to determine the fate of books which could not
+        become <entry> tags.
+        """
+        for message in cls.extract_messages(parser, feed_tag):
+            failure = cls.coveragefailure_from_message(data_source, message)
+            if failure:
+                yield failure
+
+    @classmethod
+    def coveragefailure_from_message(cls, data_source, message):
+        """Turn a <simplified:message> tag into a CoverageFailure."""
+
+        _db = Session.object_session(data_source)
+        
+        # First thing to do is determine which Identifier we're
+        # talking about. If we can't do that, we can't create a
+        # CoverageFailure object.
+        urn = message.urn
+        try:
+            identifier, ignore = Identifier.parse_urn(_db, urn)
+        except ValueError, e:
+            identifier = None
+
+        if not identifier:
+            # We can't associate this message with any particular
+            # Identifier so we can't turn it into a CoverageFailure.
+            return None
+
+        if message.status_code == 200:
+            # This message is telling us that nothing went wrong. It
+            # shouldn't become a CoverageFailure.
+            return None
+
+        description = message.message
+        status_code = message.status_code
+        if description and status_code:
+            exception = u"%s: %s" % (status_code, description)
+        elif status_code:
+            exception = unicode(status_code)
+        elif description:
+            exception = description
+        else:
+            exception = 'No detail provided.'
+            
+        # All these CoverageFailures are transient because ATM we can
+        # only assume that the server will eventually have the data.
+        return CoverageFailure(
+            identifier, exception, data_source, transient=True
+        )
+    
     @classmethod
     def detail_for_elementtree_entry(cls, parser, entry_tag, data_source, feed_url=None):
 

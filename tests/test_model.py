@@ -137,6 +137,9 @@ class TestIdentifier(DatabaseTest):
         eq_(identifier, identifier2)
         eq_(False, was_new)
 
+        # If we pass in no data we get nothing back.
+        eq_(None, Identifier.for_foreign_id(self._db, None, None))
+        
     def test_for_foreign_id_without_autocreate(self):
         identifier_type = Identifier.ISBN
         isbn = self._str
@@ -232,6 +235,9 @@ class TestIdentifier(DatabaseTest):
         # An invalid ISBN raises an exception.
         assert_raises(ValueError, Identifier.parse_urn, self._db, "urn:isbn:notanisbn")
 
+        # Pass in None and you get None.
+        eq_(None, Identifier.parse_urn(self._db, None))
+        
     def parse_urn_must_support_license_pools(self):
         # We have no way of associating ISBNs with license pools.
         # If we try to parse an ISBN URN in a context that only accepts

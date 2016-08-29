@@ -20,6 +20,7 @@ from opds import (
 )
 from util.opds_writer import (    
     OPDSFeed,
+    OPDSMessage,
 )
 from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
@@ -250,7 +251,6 @@ class URNLookupController(object):
     def __init__(self, _db):
         self._db = _db
         self.works = []
-        self.messages_by_urn = dict()
         self.precomposed_entries = []
         self.unresolved_identifiers = []
 
@@ -266,7 +266,6 @@ class URNLookupController(object):
 
         opds_feed = LookupAcquisitionFeed(
             self._db, "Lookup results", this_url, self.works, annotator,
-            messages_by_urn=self.messages_by_urn, 
             precomposed_entries=self.precomposed_entries,
         )
         return feed_response(opds_feed)
@@ -283,7 +282,7 @@ class URNLookupController(object):
         works = [work for (identifier, work) in self.works]
         opds_feed = AcquisitionFeed(
             self._db, urn, this_url, works, annotator,
-            messages_by_urn=self.messages_by_urn
+            precomposed_entries=self.precomposed_entries
         )
 
         return feed_response(opds_feed)
@@ -329,7 +328,9 @@ class URNLookupController(object):
     
     def add_message(self, urn, status_code, message):
         """An identifier lookup resulted in the creation of a message."""
-        self.messages_by_urn[urn] = (status_code, message)
+        self.precomposed_entries.append(
+            OPDSMessage(urn, status_code, message)
+        )
         
     def post_lookup_hook(self):
         """Run after looking up a number of Identifiers.
