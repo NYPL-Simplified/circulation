@@ -970,14 +970,26 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
+        name = 'John Bull'
+        
+        # Similarly if the pagination data is bad.
+        with self.app.test_request_context('/?size=abc'):
+            response = self.manager.work_controller.contributor(name)
+            eq_(400, response.status_code)
+
+        # Or if the facet data is bad.
+        with self.app.test_request_context('/?order=nosuchorder'):
+            response = self.manager.work_controller.contributor(name)
+            eq_(400, response.status_code)
+        
         # If the work has a contributor, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.contributor("John Bull")
+            response = self.manager.work_controller.contributor(name)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('John Bull', feed['feed']['title'])
+        eq_(name, feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
@@ -1002,16 +1014,37 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
+        args = [self.datasource, self.identifier.type,
+                self.identifier.identifier]
+        kwargs = dict(novelist_api=mock_api)
+        
+        # We get a 400 response if the pagination data is bad.
+        with self.app.test_request_context('/?size=abc'):
+            response = self.manager.work_controller.recommendations(
+                *args, **kwargs
+            )
+            eq_(400, response.status_code)
+
+        # Or if the facet data is bad.
+        mock_api.setup(metadata)
+        with self.app.test_request_context('/?order=nosuchorder'):
+            response = self.manager.work_controller.recommendations(
+                *args, **kwargs
+            )
+            eq_(400, response.status_code)
+
+        # Show it working.
+        mock_api.setup(metadata)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
+                *args, **kwargs
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
+       
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
@@ -1157,16 +1190,25 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
+        series_name = "Like As If Whatever Mysteries"
+        self.lp.presentation_edition.series = series_name
+        # Similarly if the pagination data is bad.
+        with self.app.test_request_context('/?size=abc'):
+            response = self.manager.work_controller.series(series_name)
+            eq_(400, response.status_code)
+
+        # Or if the facet data is bad
+        with self.app.test_request_context('/?order=nosuchorder'):
+            response = self.manager.work_controller.series(series_name)
+            eq_(400, response.status_code)
+            
         # If the work is in a series, a feed is returned.
-        self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(
-                "Like As If Whatever Mysteries"
-            )
+            response = self.manager.work_controller.series(series_name)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_("Like As If Whatever Mysteries", feed['feed']['title'])
+        eq_(series_name, feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
