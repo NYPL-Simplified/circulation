@@ -11,6 +11,7 @@ from requests.exceptions import (
     HTTPError,
 )
 import sys
+import traceback
 
 from collections import defaultdict
 from nose.tools import set_trace
@@ -737,7 +738,7 @@ class DatabaseMigrationScript(Script):
 
         migratable = [f for f in filelist
             if (f.endswith('.py') or f.endswith('.sql'))]
-        return sorted(migratable)
+        return cls.sort_migrations(migratable)
 
     @classmethod
     def sort_migrations(self, migrations):
@@ -820,7 +821,6 @@ class DatabaseMigrationScript(Script):
                 self.run_migrations(
                     new_migrations, migrations_by_dir, existing_timestamp
                 )
-                print "All new migrations have been run."
             else:
                 print "No new migrations found. Your database is up-to-date."
         else:
@@ -916,9 +916,19 @@ class DatabaseMigrationScript(Script):
             for d in self.directories_by_priority:
                 if migration_file in migrations_by_dir[d]:
                     full_migration_path = os.path.join(d, migration_file)
-                    self._run_migration(full_migration_path, timestamp)
-                    self._db.commit()
-                    previous = migration_file
+                    try:
+                        self._run_migration(full_migration_path, timestamp)
+                        self._db.commit()
+                        previous = migration_file
+                    except Exception:
+                        print
+                        print "ERROR: Migration has been halted."
+                        print "%s must be migrated manually." % full_migration_path
+                        print "=" * 50
+                        print traceback.print_exc(file=sys.stdout)
+                        sys.exit(1)
+        else:
+            print "All new migrations have been run."
 
     def _run_migration(self, migration_path, timestamp):
         """Runs a single SQL or Python migration file"""
@@ -930,7 +940,7 @@ class DatabaseMigrationScript(Script):
                 sql = clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
-            module_name = migration_filename
+            module_name = migration_filename[:-3]
             imp.load_source(module_name, migration_path)
 
         # Update timestamp for the migration.
