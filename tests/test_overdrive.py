@@ -169,6 +169,18 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
             for key in 'availability_link', 'id', 'title':
                 assert key in item
 
+    def test_availability_info_missing_data(self):
+        data, raw = self.sample_json("overdrive_book_list_missing_data.json")
+        [item] = OverdriveRepresentationExtractor.availability_link_list(
+            raw)
+
+        # We got a data structure for the item that has an ID but no title.
+        # We did not get a data structure for the item that has a title
+        # but no ID.
+        eq_('title is missing', item['id'])
+        eq_(None, item['title'])
+
+                
     def test_link(self):
         data, raw = self.sample_json("overdrive_book_list.json")
         expect = OverdriveAPI.make_link_safe("http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open")

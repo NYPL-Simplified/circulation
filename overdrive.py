@@ -391,7 +391,7 @@ class OverdriveRepresentationExtractor(object):
     log = logging.getLogger("Overdrive representation extractor")
 
     @classmethod
-    def availability_link_list(self, book_list):
+    def availability_link_list(cls, book_list):
         """:return: A list of dictionaries with keys `id`, `title`,
         `availability_link`.
         """
@@ -401,8 +401,12 @@ class OverdriveRepresentationExtractor(object):
 
         products = book_list['products']
         for product in products:
-            data = dict(id=product['id'],
-                        title=product['title'],
+            if not 'id' in product:
+                cls.log.warn("No ID found in %r", product)
+                continue
+            book_id = product['id']
+            data = dict(id=book_id,
+                        title=product.get('title'),
                         author_name=None)
             
             if 'primaryCreator' in product:
