@@ -832,10 +832,16 @@ class WorkController(CirculationManagerController):
         lane = ContributorLane(self._db, contributor_name)
 
         annotator = self.manager.annotator(lane)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
         url = annotator.feed_url(
             lane,
-            facets=load_facets_from_request(),
-            pagination=load_pagination_from_request()
+            facets=facets,
+            pagination=pagination,
         )
 
         feed = AcquisitionFeed.page(
@@ -882,10 +888,16 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
         annotator = self.manager.annotator(lane)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
         url = annotator.feed_url(
             lane,
-            facets=load_facets_from_request(),
-            pagination=load_pagination_from_request()
+            facets=facets,
+            pagination=pagination,
         )
 
         feed = AcquisitionFeed.page(
@@ -914,10 +926,15 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(e.message)
 
         annotator = self.manager.annotator(lane)
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
         url = annotator.feed_url(
             lane,
-            facets=load_facets_from_request(),
-            pagination=load_pagination_from_request()
+            facets=facets,
+            pagination=pagination,
         )
 
         feed = AcquisitionFeed.groups(
