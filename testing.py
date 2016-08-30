@@ -34,7 +34,6 @@ from model import (
     Subject,
     Work,
     WorkCoverageRecord,
-    UnresolvedIdentifier,
     get_one_or_create,
     production_session
 )
@@ -390,12 +389,6 @@ class DatabaseTest(object):
                 repr.mirror_url = "http://foo.com/" + self._str
                 repr.mirrored_at = datetime.utcnow()            
         return repr, is_new
-
-    def _unresolved_identifier(self, identifier=None):
-        identifier = identifier
-        if not identifier:
-            identifier  = self._identifier()
-        return UnresolvedIdentifier.register(self._db, identifier, force=True)
 
     def _customlist(self, foreign_identifier=None, 
                     name=None,

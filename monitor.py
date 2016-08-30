@@ -15,7 +15,6 @@ from coverage import CoverageFailure
 from model import (
     get_one_or_create,
     CoverageRecord,
-    DataSource,
     Edition,
     CustomListEntry,
     Identifier,
@@ -23,7 +22,6 @@ from model import (
     PresentationCalculationPolicy,
     Subject,
     Timestamp,
-    UnresolvedIdentifier,
     Work,
 )
 

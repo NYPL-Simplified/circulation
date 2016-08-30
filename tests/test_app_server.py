@@ -17,10 +17,7 @@ from . import (
 
 from opds import TestAnnotator
 
-from model import (
-    Identifier,
-    UnresolvedIdentifier,
-)
+from model import Identifier
 
 from lane import (
     Facets,

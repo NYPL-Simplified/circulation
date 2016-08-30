@@ -14,13 +14,10 @@ from testing import (
 )
 
 from model import (
-    get_one,
-    CoverageRecord,
     DataSource,
     Identifier,
     Subject,
     Timestamp,
-    UnresolvedIdentifier,
 )
 
 from monitor import (
@@ -77,7 +74,6 @@ class TestPresentationReadyMonitor(DatabaseTest):
     def setup(self):
         super(TestPresentationReadyMonitor, self).setup()
         self.gutenberg = Identifier.GUTENBERG_ID
-        # DataSource.lookup(self._db, DataSource.GUTENBERG)
         self.oclc = DataSource.lookup(self._db, DataSource.OCLC)
         self.overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         self.edition, self.edition_license_pool = self._edition(DataSource.GUTENBERG, with_license_pool=True)
