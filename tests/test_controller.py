@@ -1157,16 +1157,25 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
+        series_name = "Like As If Whatever Mysteries"
+        self.lp.presentation_edition.series = series_name
+        # Similarly if the pagination data is bad.
+        with self.app.test_request_context('/?size=abc'):
+            response = self.manager.work_controller.series(series_name)
+            eq_(400, response.status_code)
+
+        # Or if the facet data is bad
+        with self.app.test_request_context('/?order=nosuchorder'):
+            response = self.manager.work_controller.series(series_name)
+            eq_(400, response.status_code)
+            
         # If the work is in a series, a feed is returned.
-        self.lp.presentation_edition.series = "Like As If Whatever Mysteries"
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(
-                "Like As If Whatever Mysteries"
-            )
+            response = self.manager.work_controller.series(series_name)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_("Like As If Whatever Mysteries", feed['feed']['title'])
+        eq_(series_name, feed['feed']['title'])
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
