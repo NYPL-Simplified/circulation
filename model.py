@@ -647,7 +647,7 @@ class DataSource(Base):
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
-    INTERNAL_PROCESSING = "Flags work needed"
+    INTERNAL_PROCESSING = "Library Simplified Internal Process"
 
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
