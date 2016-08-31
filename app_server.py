@@ -29,13 +29,8 @@ from sqlalchemy.orm.exc import (
 from model import (
     get_one,
     Complaint,
-    CoverageRecord,
-    DataSource,
-    Edition,
     Identifier,
     Patron,
-    UnresolvedIdentifier,
-    Work,
 )
 from util.cdn import cdnify
 from classifier import Classifier

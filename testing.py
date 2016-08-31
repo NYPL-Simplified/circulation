@@ -34,7 +34,6 @@ from model import (
     Subject,
     Work,
     WorkCoverageRecord,
-    UnresolvedIdentifier,
     get_one_or_create,
     production_session
 )
@@ -391,12 +390,6 @@ class DatabaseTest(object):
                 repr.mirrored_at = datetime.utcnow()            
         return repr, is_new
 
-    def _unresolved_identifier(self, identifier=None):
-        identifier = identifier
-        if not identifier:
-            identifier  = self._identifier()
-        return UnresolvedIdentifier.register(self._db, identifier, force=True)
-
     def _customlist(self, foreign_identifier=None, 
                     name=None,
                     data_source_name=DataSource.NYT, num_entries=1,
@@ -673,9 +666,19 @@ class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     """A WorkCoverageProvider that does nothing and always succeeds."""
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
+    """A CoverageProvider that does nothing and always fails."""
+
+    def __init__(self, _db, *args, **kwargs):
+        super(NeverSuccessfulCoverageProvider, self).__init__(
+            _db, *args, **kwargs
+        )
+        self.transient = kwargs.get('transient') or False
+
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "What did you expect?", self.output_source, False)
+        return CoverageFailure(
+            item, "What did you expect?", self.output_source, self.transient
+        )
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     def process_item(self, item):

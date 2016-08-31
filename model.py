@@ -647,6 +647,7 @@ class DataSource(Base):
     PLYMPTON = "Plympton"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
+    INTERNAL_PROCESSING = "Library Simplified Internal Process"
 
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
@@ -849,6 +850,7 @@ class DataSource(Base):
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
+                (cls.INTERNAL_PROCESSING, False, False, None, None),
         ):
 
             extra = dict()
@@ -940,6 +942,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     SYNC_OPERATION = 'sync'
     REAP_OPERATION = 'reap'
     IMPORT_OPERATION = 'import'
+    RESOLVE_IDENTIFIER_OPERATION = 'resolve-identifier'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(

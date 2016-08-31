@@ -384,11 +384,14 @@ class BaseCoverageProvider(object):
 
 class CoverageProvider(BaseCoverageProvider):
 
-    """Run Identifiers of certain types (the input_identifier_types)
-    through code associated with a DataSource (the
-    `output_source`). If the code returns success, add a
-    CoverageRecord for the Edition and the output DataSource, so that
+    """Run Identifiers of certain types (isbn, overdrive, oclc, etc.) 
+    (the input_identifier_types) through code associated with a DataSource 
+    (the `output_source`). 
+    For each identifier, if coverage provider successfully processes the identifier 
+    (obtains third-party data, flags in db, etc.), then add a
+    CoverageRecord for the identifier with a "success" status flag, so that
     the record doesn't get processed next time.
+    Turns errors in processing into coverage records with failure flags.
     """
 
     # Does this CoverageProvider get its data from a source that also
@@ -412,7 +415,7 @@ class CoverageProvider(BaseCoverageProvider):
         TODO: Could potentially be moved into BaseCoverageProvider.
 
         :param force: Run the coverage code even if an existing
-           covreage record for this item was created after
+           coverage record for this item was created after
            `self.cutoff_time`.
 
         :return: Either a coverage record or a CoverageFailure.
@@ -738,7 +741,7 @@ class BibliographicCoverageProvider(CoverageProvider):
         self.api = api
         output_source = DataSource.lookup(_db, datasource)
         input_identifier_types = [output_source.primary_identifier_type]
-        service_name = "%s Bibliographic Monitor" % datasource
+        service_name = "%s Bibliographic Coverage Provider" % datasource
         metadata_replacement_policy = (
             metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
         )
