@@ -1,4 +1,5 @@
 import datetime
+import json
 from lxml import etree
 from StringIO import StringIO
 from nose.tools import (
@@ -34,6 +35,7 @@ from api.axis import (
     HoldReleaseResponseParser,
     MockAxis360API,
     ResponseParser,
+    TitleLicenseResponseParser,
 )
 
 from . import (
@@ -372,3 +374,54 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_("0015176429", loan.identifier)
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
+
+
+class TestTitleLicenseResponseParser(TestResponseParser):
+
+    def test_not_json(self):
+        data = "This is not JSON"
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Bad response: This is not JSON",
+            parser.process_all, data
+        )
+
+    def test_not_a_dict(self):
+        data = '"foo"'
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, 'Bad response: "foo"',
+            parser.process_all, data
+        )
+        
+    def test_no_status_code(self):
+        data = '{}'
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "No status code: {}",
+            parser.process_all, data
+        )
+
+    def test_failure_condition(self):
+        data = self.sample_data("server_error.json")
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Internal Server Error",
+            parser.process_all, data
+        )
+
+    def test_no_titles(self):
+        data = self.sample_data("licenses_without_titles.json")
+        parser = TitleLicenseResponseParser()
+        eq_(
+            ([], []), parser.process_all(data)
+        )
+        
+    def test_some_titles(self):
+        data = self.sample_data("licenses_with_titles.json")
+        parser = TitleLicenseResponseParser()
+        added, removed = parser.process_all(data)
+
+        # One title was added, one removed.
+        eq_([u'0012436005'], added)
+        eq_([u'0012436003'], removed)

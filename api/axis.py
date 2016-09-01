@@ -1,3 +1,4 @@
+import json
 from nose.tools import set_trace
 from datetime import datetime, timedelta
 
@@ -166,6 +167,20 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def licensing_changes(self, since=None):
+        """Check on books that were added to or removed from the collection.
+
+        :return: a 2-tuple of lists ([added], [removed]). Each
+        list is a list of Axis 360 IDs.
+        """
+        url = self.base_url + self.license_endpoint
+        args = dict()
+        if since:
+            since = since.strftime(self.ISO_DATE_FORMAT)
+            args['modifiedSince'] = since
+        response = self.request(url, params=args)
+        return TitleLicenseResponseParser().process(response)
+
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
 
@@ -302,18 +317,40 @@ class Axis360CirculationMonitor(Monitor):
 class MockAxis360API(BaseMockAxis360API, Axis360API):
     pass
 
-class AxisCollectionReaper(IdentifierSweepMonitor):
-    """Check for books that are in the local collection but have left our
-    Axis 360 collection.
+
+class AxisCollectionReaper(Monitor):
+    """Check for books that were in our collection but are no longer."""
+
+    def __init__(self, _db, interval_seconds=3600):
+        default_start_time = datetime.utcnow() - self.ONE_YEAR_AGO
+        super(AxisCollectionReaper, self).__init__(
+            _db, "Axis Collection Reaper", interval_seconds=interval_seconds,
+            default_start_time=default_start_time,
+            keep_timestamp=True
+        )
+        
+    def run_once(self, start, cutoff):
+        api = Axis360API(self._db)
+        # Subtract five minutes from the last timestamp to compensate for
+        # clock skew.
+        new_cutoff = datetime.utcnow()
+        since = start - timedelta(seconds=60*5)
+        since = start - self.ONE_YEAR_AGO
+        changes = api.licensing_changes(since=since)
+        return new_cutoff
+
+        
+class AxisCollectionSweep(IdentifierSweepMonitor):
+    """Check availability for every book in the collection.
     """
 
-    def __init__(self, _db, interval_seconds=3600*12):
-        super(AxisCollectionReaper, self).__init__(
-            _db, "Axis Collection Reaper", interval_seconds)
+    def __init__(self, _db, interval_seconds=3600*24*7):
+        super(AxisCollectionSweep, self).__init__(
+            _db, "Axis Collection Sweep", interval_seconds)
 
     def run(self):
         self.api = Axis360API(self._db)
-        super(AxisCollectionReaper, self).run()
+        super(AxisCollectionSweep, self).run()
 
     def identifier_query(self):
         return self._db.query(Identifier).join(
@@ -393,9 +430,17 @@ class ResponseParser(Axis360Parser):
             message = message.text
 
         if code is None:
+            code = code
+        else:
+            code = code.text
+        return exception_for_response_code(code, message, custom_error_classes)
+
+    @classmethod
+    def exception_for_response_code(cls, code, message,
+                                    custom_error_classes={}):
+        if code is None:
             # Something is so wrong that we don't know what to do.
-            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        code = code.text
+            raise RemoteInitiatedServerError(message, cls.SERVICE_NAME)
         try:
             code = int(code)
         except ValueError:
@@ -405,20 +450,19 @@ class ResponseParser(Axis360Parser):
                 self.SERVICE_NAME
             )
 
-        for d in custom_error_classes, self.code_to_exception:
+        for d in custom_error_classes, cls.code_to_exception:
             if (code, message) in d:
                 raise d[(code, message)]
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                cls = d[code]
-                if cls is RemoteInitiatedServerError:
-                    e = cls(message, self.SERVICE_NAME)
+                exc = d[code]
+                if exc is RemoteInitiatedServerError:
+                    e = exc(message, cls.SERVICE_NAME)
                 else:
-                    e = cls(message)
+                    e = exc(message)
                 raise e
         return code, message
-
 
 class CheckoutResponseParser(ResponseParser):
 
@@ -566,3 +610,56 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
+
+
+class TitleLicenseResponseParser(object):
+    """Parse the response to a titleLicense response.
+
+    This doesn't subclass ResponseParser because it is processing a
+    JSON entity-body rather than XML. It reuses
+    exception_for_response_code, though.
+    """
+    def process_all(self, content):
+        service_name = DataSource.AXIS_360
+        bad_response = RemoteInitiatedServerError(
+                "Bad response: %s" % content, service_name
+            )
+        try:
+            data = json.loads(content)
+        except Exception, e:
+            raise bad_response
+
+        if not isinstance(data, dict):
+            raise bad_response
+
+        no_status_code = RemoteInitiatedServerError(
+            "No status code: %s" % content, service_name
+        )
+        if not 'status' in data:
+            raise no_status_code
+
+        status_block = data['status']
+        code = status_block.get('Code')
+        message = status_block.get('Message')
+
+        # If the status code indicates a failure condition, this will
+        # raise an appropriate exception.
+        ResponseParser.exception_for_response_code(code, message)
+
+        added = []
+        removed = []
+
+        if data.get('titles') is None:
+            # Nothing has changed.
+            return added, removed
+
+        for title in data['titles']:
+            id = title.get('TitleID')
+            active = title.get('active', None)
+            if not id or active is None:
+                continue
+            if active:
+                added.append(id)
+            else:
+                removed.append(id)
+        return added, removed
