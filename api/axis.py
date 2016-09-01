@@ -216,12 +216,15 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            self.reap_license_pool(removed_identifier)
+            self.reap_license_pool_for(removed_identifier)
 
-    def reap_license_pool(self, identifier):
+    def reap_license_pool_for(self, identifier):
         """Reflect the fact that the LicensePool associated with an Identifier
         is no longer in the collection.
         """
+        if not identifier:
+            return
+
         pool = identifier.licensed_through
         if not pool:
             self.log.warn(
@@ -356,7 +359,7 @@ class AxisCollectionReaper(Monitor):
                 # A book we didn't know about in the first place was
                 # removed. Do nothing.
                 continue
-            api.reap_license_pool(identifier)
+            api.reap_license_pool_for(identifier)
         return new_cutoff
 
     def process_identifier(self, identifier_string):
@@ -460,7 +463,9 @@ class ResponseParser(Axis360Parser):
             code = code
         else:
             code = code.text
-        return exception_for_response_code(code, message, custom_error_classes)
+        return self.exception_for_response_code(
+            code, message, custom_error_classes
+        )
 
     @classmethod
     def exception_for_response_code(cls, code, message,

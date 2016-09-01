@@ -151,6 +151,29 @@ class TestAxis360API(DatabaseTest, UsesSampleData):
         formatted_date = since.strftime(self.api.ISO_DATE_FORMAT)
         eq_(formatted_date, kwargs['params']['modifiedSince'])
 
+    def test_reap_license_pool_for(self):
+
+        has_no_pool = self._identifier()
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        pool.patrons_in_hold_queue = 10
+        pool.licenses_reserved = 10
+
+        # If an Identifier has no LicensePool, reap_license_pool does nothing.
+        self.api.reap_license_pool_for(None)
+        self.api.reap_license_pool_for(has_no_pool)
+
+        eq_(10, pool.licenses_owned)
+
+        # If an Identifier does have a LicensePool, reap_license_pool
+        # clears it out of the collection.
+        self.api.reap_license_pool_for(pool.identifier)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+        
 
 class TestCirculationMonitor(DatabaseTest, UsesSampleData):
 
