@@ -216,29 +216,34 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            pool = removed_identifier.licensed_through
-            if not pool:
-                self.log.warn(
-                    "Was about to reap %r but no local license pool.",
-                    removed_identifier
-                )
-                continue
-            if pool.licenses_owned == 0:
-                # Already reaped.
-                continue
-            self.log.info(
-                "Reaping %r", removed_identifier
-            )
+            self.reap_license_pool(removed_identifier)
 
-            availability = CirculationData(
-                data_source=pool.data_source,
-                primary_identifier=removed_identifier,
-                licenses_owned=0,
-                licenses_available=0,
-                licenses_reserved=0,
-                patrons_in_hold_queue=0,
+    def reap_license_pool(self, identifier):
+        """Reflect the fact that the LicensePool associated with an Identifier
+        is no longer in the collection.
+        """
+        pool = identifier.licensed_through
+        if not pool:
+            self.log.warn(
+                "Was about to reap %r but no local license pool.",
+                identifier
             )
-            availability.apply(pool, False)
+            return
+
+        if pool.licenses_owned == 0:
+            # Already reaped.
+            return
+
+        self.log.info("Reaping %r", identifier)
+        availability = CirculationData(
+            data_source=pool.data_source,
+            primary_identifier=identifier,
+            licenses_owned=0,
+            licenses_available=0,
+            licenses_reserved=0,
+            patrons_in_hold_queue=0,
+        )
+        availability.apply(pool)
 
 
 class Axis360CirculationMonitor(Monitor):
@@ -333,15 +338,33 @@ class AxisCollectionReaper(Monitor):
             keep_timestamp=True
         )
         
-    def run_once(self, start, cutoff):
-        api = Axis360API(self._db)
-        # Subtract five minutes from the last timestamp to compensate for
-        # clock skew.
+    def run_once(self, start, cutoff, api=None):
+        api = api or Axis360API(self._db)
         new_cutoff = datetime.utcnow()
+
+        # Subtract five minutes from the last timestamp to compensate for
+        # clock skew or database replication problems.
         since = start - timedelta(seconds=60*5)
-        since = start - self.ONE_YEAR_AGO
-        changes = api.licensing_changes(since=since)
+        added, removed = api.licensing_changes(since=since)
+        set_trace()
+        for identifier_string in removed:
+            identifier, ignore = Identifier.for_foreign_id(
+                self._db, Identifier.AXIS_360_ID,
+                identifier_string, autocreate=False
+            )
+            if not identifier:
+                # A book we didn't know about in the first place was
+                # removed. Do nothing.
+                continue
+            api.reap_license_pool(identifier)
         return new_cutoff
+
+    def process_identifier(self, identifier_string):
+        if not identifier.licensed_through:
+            # We know about this identifier but have no LicensePool
+            # for it. Do nothing.
+            return
+        pool = identifier.licensed_through
 
         
 class AxisCollectionSweep(IdentifierSweepMonitor):
