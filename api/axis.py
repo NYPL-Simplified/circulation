@@ -349,7 +349,6 @@ class AxisCollectionReaper(Monitor):
         # clock skew or database replication problems.
         since = start - timedelta(seconds=60*5)
         added, removed = api.licensing_changes(since=since)
-        set_trace()
         for identifier_string in removed:
             identifier, ignore = Identifier.for_foreign_id(
                 self._db, Identifier.AXIS_360_ID,
