@@ -213,7 +213,7 @@ class ContributorData(object):
         def destination_name():
             return getattr(destination, name_attr)
 
-        if self.sort_name != destination_name():
+        if self.sort_name and self.sort_name != destination_name():
             setattr(destination, name_attr, self.sort_name)
             made_changes = True
 
@@ -231,23 +231,27 @@ class ContributorData(object):
             if not k in destination.extra:
                 destination.extra[k] = v
 
-        if self.lc != destination.lc:
+        if self.lc and self.lc != destination.lc:
             destination.lc = self.lc
             made_changes = True
-        if self.viaf != destination.viaf:
+        if self.viaf and self.viaf != destination.viaf:
             destination.viaf = self.viaf
             made_changes = True
-        if self.family_name != destination.family_name:
+        if (self.family_name and
+            self.family_name != destination.family_name):
             destination.family_name = self.family_name
             made_changes = True
-        if self.display_name != destination.display_name:
+        if (self.display_name and
+            self.display_name != destination.display_name):
             destination.display_name = self.display_name
             made_changes = True
-        if self.wikipedia_name != destination.wikipedia_name:
+        if (self.wikipedia_name and
+            self.wikipedia_name != destination.wikipedia_name):
             destination.wikipedia_name = self.wikipedia_name
             made_changes = True
 
-        if self.biography != destination.biography:
+        if (self.biography and
+            self.biography != destination.biography):
             destination.biography = self.biography
             made_changes = True
 
