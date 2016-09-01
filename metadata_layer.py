@@ -159,9 +159,9 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
         self.biography = biography
-        self.aliases = aliases
+        self.aliases = aliases or []
         # extra is a dictionary of stuff like birthdates
-        self.extra = extra
+        self.extra = extra or dict()
         # TODO:  consider if it's time for ContributorData to connect back to Contributions
 
 
@@ -189,10 +189,11 @@ class ContributorData(object):
 
 
     def apply(self, destination, replace=None):
-        """  Update the passed-in Contributor with this ContributorData's information.
+        """ Update the passed-in Contributor-type object with this
+        ContributorData's information.
 
-        :param: destination -- the Contributor object to write this ContributorData 
-        object's metadata to.
+        :param: destination -- the Contributor or ContributorData object to
+                write this ContributorData object's metadata to.
         :param: replace -- Replacement policy (not currently used).
 
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
@@ -202,14 +203,19 @@ class ContributorData(object):
 
         made_changes = False
 
-        if self.sort_name != destination.name:
-            destination.name = self.sort_name
+        if isinstance(destination, ContributorData):
+            destination_name = destination.sort_name
+        else:
+            destination_name = destination.name
+
+        if self.sort_name != destination_name:
+            destination_name = self.sort_name
             made_changes = True
 
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
-            if name != destination.name and name not in existing_aliases:
+            if name != destination_name and name not in existing_aliases:
                 new_aliases.append(name)
                 made_changes = True
         if new_aliases != destination.aliases:
