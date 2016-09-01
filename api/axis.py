@@ -467,7 +467,7 @@ class ResponseParser(Axis360Parser):
             # Non-numeric code? Inconcievable!
             raise RemoteInitiatedServerError(
                 "Invalid response code from Axis 360: %s" % code,
-                self.SERVICE_NAME
+                cls.SERVICE_NAME
             )
 
         for d in custom_error_classes, cls.code_to_exception:
