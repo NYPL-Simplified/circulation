@@ -354,19 +354,8 @@ class AxisCollectionReaper(Monitor):
                 self._db, Identifier.AXIS_360_ID,
                 identifier_string, autocreate=False
             )
-            if not identifier:
-                # A book we didn't know about in the first place was
-                # removed. Do nothing.
-                continue
             api.reap_license_pool_for(identifier)
         return new_cutoff
-
-    def process_identifier(self, identifier_string):
-        if not identifier.licensed_through:
-            # We know about this identifier but have no LicensePool
-            # for it. Do nothing.
-            return
-        pool = identifier.licensed_through
 
         
 class AxisCollectionSweep(IdentifierSweepMonitor):
