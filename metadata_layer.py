@@ -203,19 +203,24 @@ class ContributorData(object):
 
         made_changes = False
 
-        if isinstance(destination, ContributorData):
-            destination_name = destination.sort_name
-        else:
-            destination_name = destination.name
+        if hasattr(destination, 'name'):
+            # For Contributor objects.
+            name_attr = 'name'
+        elif hasattr(destination, 'sort_name'):
+            # For ContributorData objects.
+            name_attr = 'sort_name'
 
-        if self.sort_name != destination_name:
-            destination_name = self.sort_name
+        def destination_name():
+            return getattr(destination, name_attr)
+
+        if self.sort_name != destination_name():
+            setattr(destination, name_attr, self.sort_name)
             made_changes = True
 
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
-            if name != destination_name and name not in existing_aliases:
+            if name != destination_name() and name not in existing_aliases:
                 new_aliases.append(name)
                 made_changes = True
         if new_aliases != destination.aliases:
