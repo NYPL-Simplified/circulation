@@ -128,6 +128,27 @@ class TestAxis360API(DatabaseTest):
             params = request[-1]['params']
             eq_('notifications@example.com', params['email'])
 
+    def test_licensing_changes(self):
+        data = self.sample_data("licenses_with_titles.json")
+        self.api.queue_response(200, content=data)
+        since = datetime.datetime.utcnow()
+
+        result = self.api.licensing_changes(since=since)
+        expect = ([u'0012436005'], [u'0012436003'])
+        eq_(expect, result)
+
+        [request] = self.api.requests
+        (url, args, kwargs) = request
+
+        # The request went to the right URL.
+        eq_('http://axis.test/titleLicense/v2', url)
+
+        # The date we passed in as `since` became the `modifiedSince`
+        # query parameter and was passed in to `request()`.
+        formatted_date = since.strftime(self.api.ISO_DATE_FORMAT)
+        eq_(formatted_date, kwargs['params']['modifiedSince'])
+
+
 class TestCirculationMonitor(DatabaseTest):
 
     BIBLIOGRAPHIC_DATA = Metadata(

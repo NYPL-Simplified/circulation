@@ -62,6 +62,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     SERVICE_NAME = "Axis 360"
 
+    ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+    license_endpoint = 'titleLicense/v2'
+    
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -179,7 +183,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             since = since.strftime(self.ISO_DATE_FORMAT)
             args['modifiedSince'] = since
         response = self.request(url, params=args)
-        return TitleLicenseResponseParser().process(response)
+        return TitleLicenseResponseParser().process_all(response.content)
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
