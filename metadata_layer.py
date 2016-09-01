@@ -319,22 +319,23 @@ class ContributorData(object):
         response = metadata_client.canonicalize_author_name(
             identifier_obj, self.display_name)
         sort_name = None
-        log = logging.getLogger("Abstract metadata layer")
-        if (response.status_code == 200
-            and response.headers['Content-Type'].startswith('text/plain')):
-            sort_name = response.content.decode("utf8")
-            log.info(
-                "Canonicalizer found sort name for %r: %s => %s",
-                identifier_obj,
-                self.display_name,
-                sort_name
-            )
+
+        if isinstance(response, basestring):
+            sort_name = response
         else:
-            log.warn(
-                "Canonicalizer could not find sort name for %r/%s",
-                identifier_obj,
-                self.display_name
-            )
+            log = logging.getLogger("Abstract metadata layer")
+            if (response.status_code == 200
+                and response.headers['Content-Type'].startswith('text/plain')):
+                sort_name = response.content.decode("utf8")
+                log.info(
+                    "Canonicalizer found sort name for %r: %s => %s",
+                    identifier_obj, self.display_name, sort_name
+                )
+            else:
+                log.warn(
+                    "Canonicalizer could not find sort name for %r/%s",
+                    identifier_obj, self.display_name
+                )
         return sort_name
 
     def display_name_to_sort_name_through_canonicalizer(
