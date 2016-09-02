@@ -740,7 +740,7 @@ class MetadataSimilarity(object):
 
     @classmethod
     def _wordbags_for_author(cls, author):
-        bags = [cls._wordbag(author.name)]
+        bags = [cls._wordbag(author.sort_name)]
         for alias in author.aliases:
             bags.append(cls._wordbag(alias))
         return bags
@@ -799,7 +799,7 @@ class MetadataSimilarity(object):
         are present in both sets?
         """
         return cls._proportion(
-            set([x.name for x in authors1]), set([x.name for x in authors2]))
+            set([x.sort_name for x in authors1]), set([x.sort_name for x in authors2]))
 
 class TitleProcessor(object):
 

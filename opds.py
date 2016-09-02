@@ -371,7 +371,7 @@ class VerboseAnnotator(Annotator):
         children = []
         children.append(AtomFeed.name(contributor.display_name or ""))
         sort_name = AtomFeed.makeelement("{%s}sort_name" % AtomFeed.SIMPLIFIED_NS)
-        sort_name.text = contributor.name
+        sort_name.text = contributor.sort_name
 
         children.append(sort_name)
 

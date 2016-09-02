@@ -468,7 +468,7 @@ class TestContributorData(DatabaseTest):
         contributor_new, changed = contributor_data.apply(contributor_old)
 
         eq_(changed, True)
-        eq_(contributor_new.name, u"Doerr, John")
+        eq_(contributor_new.sort_name, u"Doerr, John")
         eq_(contributor_new.lc, u"1234567")
         eq_(contributor_new.viaf, u"ABC123")
         eq_(contributor_new.aliases, [u"Primo"])
@@ -501,7 +501,7 @@ class TestMetadata(DatabaseTest):
 
         e_contribution = edition.contributions[0]
         m_contributor_data = metadata.contributors[0]
-        eq_(e_contribution.contributor.name, m_contributor_data.sort_name)
+        eq_(e_contribution.contributor.sort_name, m_contributor_data.sort_name)
         eq_(e_contribution.role, m_contributor_data.roles[0])
 
         eq_(edition.data_source, metadata.data_source(self._db))
@@ -645,7 +645,7 @@ class TestMetadata(DatabaseTest):
 
         # And the new one has all the information provided by 
         # the Metadata object.
-        eq_("Jordan, Robert", contributor.name)
+        eq_("Jordan, Robert", contributor.sort_name)
         eq_("Robert Jordan", contributor.display_name)
         eq_("79096089", contributor.viaf)
         eq_("123", contributor.lc)

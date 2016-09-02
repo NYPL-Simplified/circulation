@@ -1993,7 +1993,7 @@ class Contributor(Base):
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
-            if name != destination.name and name not in existing_aliases:
+            if name != destination.sort_name and name not in existing_aliases:
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
             destination.aliases = new_aliases
@@ -2281,7 +2281,7 @@ class Edition(Base):
         id_repr = repr(self.primary_identifier).decode("utf8")
         a = (u"Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,
-            ", ".join([x.name for x in self.contributors]),
+            ", ".join([x.sort_name for x in self.contributors]),
             self.language))
         return a.encode("utf8")
 
@@ -2352,7 +2352,7 @@ class Edition(Base):
             return deduped
 
         if primary_author:
-            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.name))
+            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.sort_name))
 
         if other_authors:
             return dedupe(other_authors)
@@ -2363,7 +2363,7 @@ class Edition(Base):
         ):
             if role in acceptable_substitutes:
                 contributors = acceptable_substitutes[role]
-                return dedupe(sorted(contributors, key=lambda x: x.name))
+                return dedupe(sorted(contributors, key=lambda x: x.sort_name))
         else:
             # There are roles, but they're so random that we can't be
             # sure who's the 'author' or so low on the creativity
@@ -2660,7 +2660,7 @@ class Edition(Base):
         authors = self.author_contributors
         if authors:
             # Use the sort name of the primary author.
-            author = authors[0].name
+            author = authors[0].sort_name
         else:
             # This may be an Edition that represents an item on a best-seller list
             # or something like that. In this case it wouldn't have any Contributor
@@ -2788,12 +2788,12 @@ class Edition(Base):
         sort_names = []
         display_names = []
         for author in self.author_contributors:
-            if author.name and not author.display_name or not author.family_name:
+            if author.sort_name and not author.display_name or not author.family_name:
                 default_family, default_display = author.default_names()
-            display_name = author.display_name or default_display or author.name
-            family_name = author.family_name or default_family or author.name
+            display_name = author.display_name or default_display or author.sort_name
+            family_name = author.family_name or default_family or author.sort_name
             display_names.append([family_name, display_name])
-            sort_names.append(author.name)
+            sort_names.append(author.sort_name)
         if display_names:
             author = ", ".join([x[1] for x in sorted(display_names)])
         else:

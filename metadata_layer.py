@@ -176,7 +176,7 @@ class ContributorData(object):
         """
         c = contribution.contributor
         return cls(
-            sort_name=c.name,
+            sort_name=c.sort_name,
             display_name=c.display_name,
             family_name=c.family_name,
             wikipedia_name=c.wikipedia_name,
@@ -317,9 +317,9 @@ class ContributorData(object):
             log.debug(
                 "Determined that sort name of %s is %s based on previously existing contributor",
                 display_name,
-                contributors[0].name
+                contributors[0].sort_name
             )
-            return contributors[0].name
+            return contributors[0].sort_name
         return None
 
     def _display_name_to_sort_name(
