@@ -601,7 +601,7 @@ class TestContributor(DatabaseTest):
         # The standalone 'Bob' record has been removed from the database.
         eq_(
             [], 
-            self._db.query(Contributor).filter(Contributor.name=="Bob").all())
+            self._db.query(Contributor).filter(Contributor.sort_name=="Bob").all())
 
         # Bob's book is now associated with 'Robert', not the standalone
         # 'Bob' record.
@@ -2099,8 +2099,8 @@ class TestWork(DatabaseTest):
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
-        [contributor1_doc] = [c for c in contributors if c['name'] == contributor1.name]
-        [contributor2_doc] = [c for c in contributors if c['name'] == contributor2.name]
+        [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.name]
+        [contributor2_doc] = [c for c in contributors if c['sort_name'] == contributor2.name]
         eq_(contributor1.family_name, contributor1_doc['family_name'])
         eq_(None, contributor2_doc['family_name'])
         eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])

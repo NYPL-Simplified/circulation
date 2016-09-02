@@ -311,7 +311,7 @@ class ContributorData(object):
         """
         contributors = _db.query(Contributor).filter(
             Contributor.display_name==display_name).filter(
-                Contributor.name != None).all()
+                Contributor.sort_name != None).all()
         if contributors:
             log = logging.getLogger("Abstract metadata layer")
             log.debug(

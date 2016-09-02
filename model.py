@@ -1879,7 +1879,7 @@ class Contributor(Base):
             extra += " lc=%s" % self.lc
         if self.viaf:
             extra += " viaf=%s" % self.viaf
-        return (u"Contributor %d (%s)" % (self.id, self.name)).encode("utf8")
+        return (u"Contributor %d (%s)" % (self.id, self.sort_name)).encode("utf8")
 
     @classmethod
     def author_contributor_tiers(cls):
@@ -1902,7 +1902,7 @@ class Contributor(Base):
         extra = extra or dict()
 
         create_method_kwargs = {
-            Contributor.name.name : name,
+            Contributor.sort_name.name : name,
             Contributor.aliases.name : aliases,
             Contributor.extra.name : extra
         }
@@ -1920,7 +1920,7 @@ class Contributor(Base):
             # return all of them.
             #
             # We currently do not check aliases when doing name lookups.
-            q = _db.query(Contributor).filter(Contributor.name==name)
+            q = _db.query(Contributor).filter(Contributor.sort_name==name)
             contributors = q.all()
             if contributors:
                 return contributors, new
@@ -1989,7 +1989,7 @@ class Contributor(Base):
         )
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
-        for name in [self.name] + self.aliases:
+        for name in [self.sort_name] + self.aliases:
             if name != destination.name and name not in existing_aliases:
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
@@ -2063,7 +2063,7 @@ class Contributor(Base):
         this algorithm is better than the input in pretty much every
         case.
         """
-        return self._default_names(self.name, default_display_name)
+        return self._default_names(self.sort_name, default_display_name)
 
     @classmethod
     def _default_names(cls, name, default_display_name=None):
@@ -3975,7 +3975,7 @@ class Work(Base):
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
-            [Contributor.name,
+            [Contributor.sort_name,
              Contributor.family_name,
              Contribution.role,
             ]
