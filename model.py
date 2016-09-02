@@ -1889,8 +1889,8 @@ class Contributor(Base):
         yield cls.PERFORMER_ROLES
 
     @classmethod
-    def lookup(cls, _db, name=None, viaf=None, lc=None, aliases=None,
-               extra=None, create_new=True):
+    def lookup(cls, _db, sort_name=None, viaf=None, lc=None, aliases=None,
+               extra=None, create_new=True, name=None):
         """Find or create a record (or list of records) for the given Contributor.
         :return: A tuple of found Contributor (or None), and a boolean flag 
         indicating if new Contributor database object has beed created.
@@ -1899,20 +1899,22 @@ class Contributor(Base):
         new = False
         contributors = []
 
+        # TODO: Stop using 'name' attribute, everywhere.
+        sort_name = sort_name or name
         extra = extra or dict()
 
         create_method_kwargs = {
-            Contributor.sort_name.name : name,
+            Contributor.sort_name.name : sort_name,
             Contributor.aliases.name : aliases,
             Contributor.extra.name : extra
         }
 
-        if not name and not lc and not viaf:
+        if not sort_name and not lc and not viaf:
             raise ValueError(
                 "Cannot look up a Contributor without any identifying "
                 "information whatsoever!")
 
-        if name and not lc and not viaf:
+        if sort_name and not lc and not viaf:
             # We will not create a Contributor based solely on a name
             # unless there is no existing Contributor with that name.
             #
@@ -1920,7 +1922,7 @@ class Contributor(Base):
             # return all of them.
             #
             # We currently do not check aliases when doing name lookups.
-            q = _db.query(Contributor).filter(Contributor.sort_name==name)
+            q = _db.query(Contributor).filter(Contributor.sort_name==sort_name)
             contributors = q.all()
             if contributors:
                 return contributors, new
@@ -1957,6 +1959,7 @@ class Contributor(Base):
 
         return contributors, new
 
+    # TODO: Stop using 'name' attribute, everywhere.
     @property
     def name(self):
         return self.sort_name
