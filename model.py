@@ -1800,7 +1800,7 @@ class Contributor(Base):
 
     # This is the name by which this person is known in the original
     # catalog. It is sortable, e.g. "Twain, Mark".
-    name = Column(Unicode, index=True)
+    sort_name = Column(Unicode, index=True)
     aliases = Column(ARRAY(Unicode), default=[])
 
     # This is the name we will display publicly. Ideally it will be
@@ -1957,6 +1957,13 @@ class Contributor(Base):
 
         return contributors, new
 
+    @property
+    def name(self):
+        return self.sort_name
+
+    @name.setter
+    def name(self, value):
+        self.sort_name = value
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
