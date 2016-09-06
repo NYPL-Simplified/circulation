@@ -299,7 +299,7 @@ class CirculationAPI(object):
             __transaction.commit()
 
             if loan and new_loan:
-                # Send out a circulation event to record the fact that
+                # Send out an analytics event to record the fact that
                 # a loan was initiated through the circulation
                 # manager.
                 Analytics.collect_event(
