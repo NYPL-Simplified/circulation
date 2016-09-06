@@ -29,6 +29,7 @@ from core.model import (
     Loan,
     Hold,
 )
+from core.mock_analytics_provider import MockAnalyticsProvider
 
 from . import DatabaseTest
 from api.testing import MockCirculationAPI
@@ -75,6 +76,10 @@ class TestCirculationAPI(DatabaseTest):
             }
         }
         with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
             loan, hold, is_new = self.borrow()
 
             # The Loan looks good.

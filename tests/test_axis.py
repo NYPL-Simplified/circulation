@@ -55,7 +55,6 @@ from api.config import (
 )
 
 from core.analytics import Analytics
-from core.local_analytics_provider import LocalAnalyticsProvider
 
 
 class TestAxis360API(DatabaseTest):
@@ -170,14 +169,6 @@ class TestCirculationMonitor(DatabaseTest):
 
     def test_process_book(self):
         with temp_config() as config:
-            provider = LocalAnalyticsProvider()
-            analytics = Analytics([provider])
-            config = {
-                Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : analytics 
-                }
-            }
-            
             monitor = Axis360CirculationMonitor(self._db)
             monitor.api = None
             edition, license_pool = monitor.process_book(
