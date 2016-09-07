@@ -88,6 +88,11 @@ class TestDataSource(DatabaseTest):
         eq_(DataSource.GUTENBERG, gutenberg.name)
         eq_(True, gutenberg.offers_licenses)
 
+    def test_lookup_by_deprecated_name(self):
+        threem = DataSource.lookup(self._db, "3M")
+        eq_(DataSource.BIBLIOTECHA, threem.name)
+        assert DataSource.BIBLIOTECHA != "3M"
+        
     def test_lookup_returns_none_for_nonexistent_source(self):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
@@ -138,6 +143,13 @@ class TestIdentifier(DatabaseTest):
 
         # If we pass in no data we get nothing back.
         eq_(None, Identifier.for_foreign_id(self._db, None, None))
+
+    def test_for_foreign_id_by_deprecated_type(self):
+        threem_id, is_new = Identifier.for_foreign_id(
+            self._db, "3M ID", self._str
+        )
+        eq_(Identifier.BIBLIOTHECA_ID, threem_id.type)
+        assert Identifier.BIBLIOTHECA_ID != "3M ID"
         
     def test_for_foreign_id_without_autocreate(self):
         identifier_type = Identifier.ISBN

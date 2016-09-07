@@ -625,7 +625,7 @@ class DataSource(Base):
     PROJECT_GITENBERG = "Project GITenberg"
     STANDARD_EBOOKS = "Standard Ebooks"
     UNGLUE_IT = "unglue.it"
-    THREEM = "3M"
+    BIBLIOTECHA = "Bibliotecha"
     OCLC = "OCLC Classify"
     OCLC_LINKED_DATA = "OCLC Linked Data"
     AMAZON = "Amazon"
@@ -649,6 +649,11 @@ class DataSource(Base):
     PRESENTATION_EDITION = "Presentation edition generator"
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
 
+    DEPRECATED_NAMES = {
+        "3M" : BIBLIOTECHA
+    }
+    THREEM = BIBLIOTECHA
+    
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
     # priority. unglue.it is lowest priority because it tends to
@@ -725,6 +730,9 @@ class DataSource(Base):
 
     @classmethod
     def lookup(cls, _db, name):
+        # Turn a deprecated name (e.g. "3M" into the current name
+        # (e.g. "Bibliotheca").
+        name = cls.DEPRECATED_NAMES.get(name, name)
         return get_one(_db, DataSource, name=name)
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
@@ -1153,7 +1161,7 @@ class Identifier(Base):
     
     # Common types of identifiers.
     OVERDRIVE_ID = "Overdrive ID"
-    THREEM_ID = "3M ID"
+    BIBLIOTHECA_ID = "Bibliotheca ID"
     GUTENBERG_ID = "Gutenberg ID"
     AXIS_360_ID = "Axis 360 ID"
     ASIN = "ASIN"
@@ -1166,6 +1174,11 @@ class Identifier(Base):
     URI = "URI"
     DOI = "DOI"
     UPC = "UPC"
+
+    DEPRECATED_NAMES = {
+        "3M ID" : BIBLIOTHECA_ID
+    }
+    THREEM_ID = BIBLIOTHECA_ID
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         THREEM_ID, OVERDRIVE_ID, AXIS_360_ID,
@@ -1269,6 +1282,13 @@ class Identifier(Base):
 
         if not foreign_identifier_type or not foreign_id:
             return None
+
+        # Turn a deprecated identifier type (e.g. "3M ID" into the
+        # current type (e.g. "Bibliotheca ID").
+        foreign_identifier_type = cls.DEPRECATED_NAMES.get(
+            foreign_identifier_type, foreign_identifier_type
+        )
+        
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
             foreign_id = foreign_id.lower()
