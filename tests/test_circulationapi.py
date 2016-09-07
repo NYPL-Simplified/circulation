@@ -6,6 +6,11 @@ from nose.tools import (
     eq_,
 )
 
+from api.config import (
+    Configuration,
+    temp_config,
+)
+
 from datetime import (
     datetime, 
     timedelta,
@@ -17,12 +22,14 @@ from api.circulation import (
     HoldInfo,
 )
 
+from core.analytics import Analytics
 from core.model import (
     DataSource,
     Identifier,
     Loan,
     Hold,
 )
+from core.mock_analytics_provider import MockAnalyticsProvider
 
 from . import DatabaseTest
 from api.testing import MockCirculationAPI
@@ -53,6 +60,59 @@ class TestCirculationAPI(DatabaseTest):
             self.patron, '1234'
         )
 
+    def test_borrow_sends_analytics_event(self):
+        now = datetime.utcnow()
+        loaninfo = LoanInfo(
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+        now = datetime.utcnow()
+
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            loan, hold, is_new = self.borrow()
+
+            # The Loan looks good.
+            eq_(loaninfo.identifier, loan.license_pool.identifier.identifier)
+            eq_(self.patron, loan.patron)
+            eq_(None, hold)
+            eq_(True, is_new)
+
+            # An analytics event was created.
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            eq_(MockCirculationAPI.CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE,
+                mock.event_type)
+            
+            # Try to 'borrow' the same book again.
+            self.remote.queue_checkout(AlreadyCheckedOut())
+            loan, hold, is_new = self.borrow()
+            eq_(False, is_new)
+
+            # Since the loan already existed, no new analytics event was
+            # sent.
+            eq_(1, mock.count)
+            
+            # Now try to renew the book.
+            self.remote.queue_checkout(loaninfo)
+            loan, hold, is_new = self.borrow()
+            eq_(False, is_new)
+
+            # Renewals are counted as loans, since from an accounting
+            # perspective they _are_ loans.
+            eq_(2, mock.count)
+
+            
     def test_attempt_borrow_with_existing_remote_loan(self):
         """The patron has a remote loan that the circ manager doesn't know
         about, and they just tried to borrow a book they already have
