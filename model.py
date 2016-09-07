@@ -625,7 +625,7 @@ class DataSource(Base):
     PROJECT_GITENBERG = "Project GITenberg"
     STANDARD_EBOOKS = "Standard Ebooks"
     UNGLUE_IT = "unglue.it"
-    BIBLIOTECHA = "Bibliotecha"
+    BIBLIOTHECA = "Bibliotecha"
     OCLC = "OCLC Classify"
     OCLC_LINKED_DATA = "OCLC Linked Data"
     AMAZON = "Amazon"
@@ -650,9 +650,9 @@ class DataSource(Base):
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
 
     DEPRECATED_NAMES = {
-        "3M" : BIBLIOTECHA
+        "3M" : BIBLIOTHECA
     }
-    THREEM = BIBLIOTECHA
+    THREEM = BIBLIOTHECA
     
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of

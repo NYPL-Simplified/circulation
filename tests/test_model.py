@@ -90,8 +90,8 @@ class TestDataSource(DatabaseTest):
 
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
-        eq_(DataSource.BIBLIOTECHA, threem.name)
-        assert DataSource.BIBLIOTECHA != "3M"
+        eq_(DataSource.BIBLIOTHECA, threem.name)
+        assert DataSource.BIBLIOTHECA != "3M"
         
     def test_lookup_returns_none_for_nonexistent_source(self):
         eq_(None, DataSource.lookup(
