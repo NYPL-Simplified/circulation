@@ -448,7 +448,7 @@ class TestContributorData(DatabaseTest):
         # Makes sure ContributorData.apply copies all the fields over when there's changes to be made.
 
 
-        contributor_old, made_new = self._contributor(name="Doe, John", viaf="viaf12345")
+        contributor_old, made_new = self._contributor(sort_name="Doe, John", viaf="viaf12345")
 
         kwargs = dict()
         kwargs[Contributor.BIRTH_DATE] = '2001-01-01'
