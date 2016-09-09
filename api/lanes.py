@@ -487,7 +487,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 # at the /works/contributor/<NAME> route.
                 contributor_name = contributor.display_name
             else:
-                contributor_name = contributor.name
+                contributor_name = contributor.sort_name
 
             contributor_lane = ContributorLane(
                 _db, contributor_name, contributor_id=contributor.id
@@ -607,7 +607,7 @@ class ContributorLane(QueryGeneratedLane):
         if contributor_id:
             self.contributor = get_one(_db, Contributor, id=contributor_id)
             if (self.contributor_name!=self.contributor.display_name and
-                self.contributor_name!=self.contributor.name):
+                self.contributor_name!=self.contributor.sort_name):
                 raise ValueError(
                     "ContributorLane can't be created with inaccurate"
                     " Contributor data."
@@ -636,7 +636,7 @@ class ContributorLane(QueryGeneratedLane):
         # available contributor information: name, display name, id, viaf.
         clauses = [
             Contributor.display_name==self.contributor_name,
-            Contributor.name==self.contributor_name
+            Contributor.sort_name==self.contributor_name
         ]
         if self.contributor:
             clauses.append(Contributor.id==self.contributor.id)

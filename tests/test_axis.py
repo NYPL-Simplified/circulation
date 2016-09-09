@@ -187,7 +187,7 @@ class TestCirculationMonitor(DatabaseTest):
             eq_(u'9780375504587', isbn.identifier)
 
             eq_(["McCain, John", "Salter, Mark"], 
-                sorted([x.name for x in edition.contributors]),
+                sorted([x.sort_name for x in edition.contributors]),
             )
 
             subs = sorted(

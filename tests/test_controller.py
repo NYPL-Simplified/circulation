@@ -1095,7 +1095,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Prep book with a contribution, a series, and a recommendation.
         self.lp.presentation_edition.add_contributor(original, role)
-        original.display_name = original.name
+        original.display_name = original.sort_name
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
