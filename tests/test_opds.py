@@ -24,12 +24,10 @@ from model import (
     DeliveryMechanism,
     Genre,
     Measurement,
-    Patron,
     Representation,
     SessionManager,
     Subject,
     Work,
-    get_one_or_create,
 )
 
 from lane import (

@@ -34,17 +34,13 @@ from metadata_layer import (
 from model import (
     get_one,
     get_one_or_create,
-    Contributor,
     CoverageRecord,
     DataSource,
-    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
     LicensePool,
     Measurement,
-    Representation,
-    Resource,
     Subject,
     RightsStatus,
 )

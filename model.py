@@ -1820,7 +1820,7 @@ class Contributor(Base):
 
     # This is the name by which this person is known in the original
     # catalog. It is sortable, e.g. "Twain, Mark".
-    name = Column(Unicode, index=True)
+    sort_name = Column(Unicode, index=True)
     aliases = Column(ARRAY(Unicode), default=[])
 
     # This is the name we will display publicly. Ideally it will be
@@ -1899,7 +1899,7 @@ class Contributor(Base):
             extra += " lc=%s" % self.lc
         if self.viaf:
             extra += " viaf=%s" % self.viaf
-        return (u"Contributor %d (%s)" % (self.id, self.name)).encode("utf8")
+        return (u"Contributor %d (%s)" % (self.id, self.sort_name)).encode("utf8")
 
     @classmethod
     def author_contributor_tiers(cls):
@@ -1909,8 +1909,8 @@ class Contributor(Base):
         yield cls.PERFORMER_ROLES
 
     @classmethod
-    def lookup(cls, _db, name=None, viaf=None, lc=None, aliases=None,
-               extra=None, create_new=True):
+    def lookup(cls, _db, sort_name=None, viaf=None, lc=None, aliases=None,
+               extra=None, create_new=True, name=None):
         """Find or create a record (or list of records) for the given Contributor.
         :return: A tuple of found Contributor (or None), and a boolean flag 
         indicating if new Contributor database object has beed created.
@@ -1919,20 +1919,22 @@ class Contributor(Base):
         new = False
         contributors = []
 
+        # TODO: Stop using 'name' attribute, everywhere.
+        sort_name = sort_name or name
         extra = extra or dict()
 
         create_method_kwargs = {
-            Contributor.name.name : name,
+            Contributor.sort_name.name : sort_name,
             Contributor.aliases.name : aliases,
             Contributor.extra.name : extra
         }
 
-        if not name and not lc and not viaf:
+        if not sort_name and not lc and not viaf:
             raise ValueError(
                 "Cannot look up a Contributor without any identifying "
                 "information whatsoever!")
 
-        if name and not lc and not viaf:
+        if sort_name and not lc and not viaf:
             # We will not create a Contributor based solely on a name
             # unless there is no existing Contributor with that name.
             #
@@ -1940,7 +1942,7 @@ class Contributor(Base):
             # return all of them.
             #
             # We currently do not check aliases when doing name lookups.
-            q = _db.query(Contributor).filter(Contributor.name==name)
+            q = _db.query(Contributor).filter(Contributor.sort_name==sort_name)
             contributors = q.all()
             if contributors:
                 return contributors, new
@@ -1977,6 +1979,14 @@ class Contributor(Base):
 
         return contributors, new
 
+    # TODO: Stop using 'name' attribute, everywhere.
+    @property
+    def name(self):
+        return self.sort_name
+
+    @name.setter
+    def name(self, value):
+        self.sort_name = value
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
@@ -2002,8 +2012,8 @@ class Contributor(Base):
         )
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
-        for name in [self.name] + self.aliases:
-            if name != destination.name and name not in existing_aliases:
+        for name in [self.sort_name] + self.aliases:
+            if name != destination.sort_name and name not in existing_aliases:
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
             destination.aliases = new_aliases
@@ -2076,7 +2086,7 @@ class Contributor(Base):
         this algorithm is better than the input in pretty much every
         case.
         """
-        return self._default_names(self.name, default_display_name)
+        return self._default_names(self.sort_name, default_display_name)
 
     @classmethod
     def _default_names(cls, name, default_display_name=None):
@@ -2291,7 +2301,7 @@ class Edition(Base):
         id_repr = repr(self.primary_identifier).decode("utf8")
         a = (u"Edition %s [%r] (%s/%s/%s)" % (
             self.id, id_repr, self.title,
-            ", ".join([x.name for x in self.contributors]),
+            ", ".join([x.sort_name for x in self.contributors]),
             self.language))
         return a.encode("utf8")
 
@@ -2362,7 +2372,7 @@ class Edition(Base):
             return deduped
 
         if primary_author:
-            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.name))
+            return dedupe([primary_author] + sorted(other_authors, key=lambda x: x.sort_name))
 
         if other_authors:
             return dedupe(other_authors)
@@ -2373,7 +2383,7 @@ class Edition(Base):
         ):
             if role in acceptable_substitutes:
                 contributors = acceptable_substitutes[role]
-                return dedupe(sorted(contributors, key=lambda x: x.name))
+                return dedupe(sorted(contributors, key=lambda x: x.sort_name))
         else:
             # There are roles, but they're so random that we can't be
             # sure who's the 'author' or so low on the creativity
@@ -2670,7 +2680,7 @@ class Edition(Base):
         authors = self.author_contributors
         if authors:
             # Use the sort name of the primary author.
-            author = authors[0].name
+            author = authors[0].sort_name
         else:
             # This may be an Edition that represents an item on a best-seller list
             # or something like that. In this case it wouldn't have any Contributor
@@ -2798,12 +2808,12 @@ class Edition(Base):
         sort_names = []
         display_names = []
         for author in self.author_contributors:
-            if author.name and not author.display_name or not author.family_name:
+            if author.sort_name and not author.display_name or not author.family_name:
                 default_family, default_display = author.default_names()
-            display_name = author.display_name or default_display or author.name
-            family_name = author.family_name or default_family or author.name
+            display_name = author.display_name or default_display or author.sort_name
+            family_name = author.family_name or default_family or author.sort_name
             display_names.append([family_name, display_name])
-            sort_names.append(author.name)
+            sort_names.append(author.sort_name)
         if display_names:
             author = ", ".join([x[1] for x in sorted(display_names)])
         else:
@@ -3988,7 +3998,7 @@ class Work(Base):
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
-            [Contributor.name,
+            [Contributor.sort_name,
              Contributor.family_name,
              Contribution.role,
             ]

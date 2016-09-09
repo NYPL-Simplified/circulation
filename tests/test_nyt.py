@@ -201,7 +201,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
 
         title = NYTBestSellerListTitle(self.one_list_title)
         edition = title.to_edition(self._db, self.metadata_client)
-        eq_(contributor.name, edition.sort_author)
+        eq_(contributor.sort_name, edition.sort_author)
         eq_(contributor.display_name, edition.author)
         assert edition.permanent_work_id is not None
 

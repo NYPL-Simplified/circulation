@@ -159,9 +159,9 @@ class ContributorData(object):
         self.lc = lc
         self.viaf = viaf
         self.biography = biography
-        self.aliases = aliases
+        self.aliases = aliases or []
         # extra is a dictionary of stuff like birthdates
-        self.extra = extra
+        self.extra = extra or dict()
         # TODO:  consider if it's time for ContributorData to connect back to Contributions
 
 
@@ -176,7 +176,7 @@ class ContributorData(object):
         """
         c = contribution.contributor
         return cls(
-            sort_name=c.name,
+            sort_name=c.sort_name,
             display_name=c.display_name,
             family_name=c.family_name,
             wikipedia_name=c.wikipedia_name,
@@ -189,10 +189,11 @@ class ContributorData(object):
 
 
     def apply(self, destination, replace=None):
-        """  Update the passed-in Contributor with this ContributorData's information.
+        """ Update the passed-in Contributor-type object with this
+        ContributorData's information.
 
-        :param: destination -- the Contributor object to write this ContributorData 
-        object's metadata to.
+        :param: destination -- the Contributor or ContributorData object to
+                write this ContributorData object's metadata to.
         :param: replace -- Replacement policy (not currently used).
 
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
@@ -202,14 +203,14 @@ class ContributorData(object):
 
         made_changes = False
 
-        if self.sort_name != destination.name:
-            destination.name = self.sort_name
+        if self.sort_name and self.sort_name != destination.sort_name:
+            destination.sort_name = self.sort_name
             made_changes = True
 
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
-            if name != destination.name and name not in existing_aliases:
+            if name != destination.sort_name and name not in existing_aliases:
                 new_aliases.append(name)
                 made_changes = True
         if new_aliases != destination.aliases:
@@ -220,23 +221,27 @@ class ContributorData(object):
             if not k in destination.extra:
                 destination.extra[k] = v
 
-        if self.lc != destination.lc:
+        if self.lc and self.lc != destination.lc:
             destination.lc = self.lc
             made_changes = True
-        if self.viaf != destination.viaf:
+        if self.viaf and self.viaf != destination.viaf:
             destination.viaf = self.viaf
             made_changes = True
-        if self.family_name != destination.family_name:
+        if (self.family_name and
+            self.family_name != destination.family_name):
             destination.family_name = self.family_name
             made_changes = True
-        if self.display_name != destination.display_name:
+        if (self.display_name and
+            self.display_name != destination.display_name):
             destination.display_name = self.display_name
             made_changes = True
-        if self.wikipedia_name != destination.wikipedia_name:
+        if (self.wikipedia_name and
+            self.wikipedia_name != destination.wikipedia_name):
             destination.wikipedia_name = self.wikipedia_name
             made_changes = True
 
-        if self.biography != destination.biography:
+        if (self.biography and
+            self.biography != destination.biography):
             destination.biography = self.biography
             made_changes = True
 
@@ -296,15 +301,15 @@ class ContributorData(object):
         """
         contributors = _db.query(Contributor).filter(
             Contributor.display_name==display_name).filter(
-                Contributor.name != None).all()
+                Contributor.sort_name != None).all()
         if contributors:
             log = logging.getLogger("Abstract metadata layer")
             log.debug(
                 "Determined that sort name of %s is %s based on previously existing contributor",
                 display_name,
-                contributors[0].name
+                contributors[0].sort_name
             )
-            return contributors[0].name
+            return contributors[0].sort_name
         return None
 
     def _display_name_to_sort_name(
@@ -313,22 +318,23 @@ class ContributorData(object):
         response = metadata_client.canonicalize_author_name(
             identifier_obj, self.display_name)
         sort_name = None
-        log = logging.getLogger("Abstract metadata layer")
-        if (response.status_code == 200
-            and response.headers['Content-Type'].startswith('text/plain')):
-            sort_name = response.content.decode("utf8")
-            log.info(
-                "Canonicalizer found sort name for %r: %s => %s",
-                identifier_obj,
-                self.display_name,
-                sort_name
-            )
+
+        if isinstance(response, basestring):
+            sort_name = response
         else:
-            log.warn(
-                "Canonicalizer could not find sort name for %r/%s",
-                identifier_obj,
-                self.display_name
-            )
+            log = logging.getLogger("Abstract metadata layer")
+            if (response.status_code == 200
+                and response.headers['Content-Type'].startswith('text/plain')):
+                sort_name = response.content.decode("utf8")
+                log.info(
+                    "Canonicalizer found sort name for %r: %s => %s",
+                    identifier_obj, self.display_name, sort_name
+                )
+            else:
+                log.warn(
+                    "Canonicalizer could not find sort name for %r/%s",
+                    identifier_obj, self.display_name
+                )
         return sort_name
 
     def display_name_to_sort_name_through_canonicalizer(

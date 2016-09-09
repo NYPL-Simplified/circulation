@@ -528,8 +528,8 @@ class TestContributor(DatabaseTest):
     def test_lookup_by_viaf(self):
 
         # Two contributors named Bob.
-        bob1, new = Contributor.lookup(self._db, name="Bob", viaf="foo")
-        bob2, new = Contributor.lookup(self._db, name="Bob", viaf="bar")
+        bob1, new = Contributor.lookup(self._db, sort_name="Bob", viaf="foo")
+        bob2, new = Contributor.lookup(self._db, sort_name="Bob", viaf="bar")
 
         assert bob1 != bob2
 
@@ -538,8 +538,8 @@ class TestContributor(DatabaseTest):
     def test_lookup_by_lc(self):
 
         # Two contributors named Bob.
-        bob1, new = Contributor.lookup(self._db, name="Bob", lc="foo")
-        bob2, new = Contributor.lookup(self._db, name="Bob", lc="bar")
+        bob1, new = Contributor.lookup(self._db, sort_name="Bob", lc="foo")
+        bob2, new = Contributor.lookup(self._db, sort_name="Bob", lc="bar")
 
         assert bob1 != bob2
 
@@ -548,30 +548,30 @@ class TestContributor(DatabaseTest):
     def test_lookup_by_name(self):
 
         # Two contributors named Bob.
-        bob1, new = Contributor.lookup(self._db, name=u"Bob", lc=u"foo")
-        bob2, new = Contributor.lookup(self._db, name=u"Bob", lc=u"bar")
+        bob1, new = Contributor.lookup(self._db, sort_name=u"Bob", lc=u"foo")
+        bob2, new = Contributor.lookup(self._db, sort_name=u"Bob", lc=u"bar")
 
         # Lookup by name finds both of them.
-        bobs, new = Contributor.lookup(self._db, name=u"Bob")
+        bobs, new = Contributor.lookup(self._db, sort_name=u"Bob")
         eq_(False, new)
-        eq_(["Bob", "Bob"], [x.name for x in bobs])
+        eq_(["Bob", "Bob"], [x.sort_name for x in bobs])
 
     def test_create_by_lookup(self):
-        [bob1], new = Contributor.lookup(self._db, name=u"Bob")
-        eq_("Bob", bob1.name)
+        [bob1], new = Contributor.lookup(self._db, sort_name=u"Bob")
+        eq_("Bob", bob1.sort_name)
         eq_(True, new)
 
-        [bob2], new = Contributor.lookup(self._db, name=u"Bob")
+        [bob2], new = Contributor.lookup(self._db, sort_name=u"Bob")
         eq_(bob1, bob2)
         eq_(False, new)
 
     def test_merge(self):
 
         # Here's Robert.
-        [robert], ignore = Contributor.lookup(self._db, name=u"Robert")
+        [robert], ignore = Contributor.lookup(self._db, sort_name=u"Robert")
         
         # Here's Bob.
-        [bob], ignore = Contributor.lookup(self._db, name=u"Bob")
+        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Bob")
         bob.extra[u'foo'] = u'bar'
         bob.aliases = [u'Bobby']
         bob.viaf = u'viaf'
@@ -613,7 +613,7 @@ class TestContributor(DatabaseTest):
         # The standalone 'Bob' record has been removed from the database.
         eq_(
             [], 
-            self._db.query(Contributor).filter(Contributor.name=="Bob").all())
+            self._db.query(Contributor).filter(Contributor.sort_name=="Bob").all())
 
         # Bob's book is now associated with 'Robert', not the standalone
         # 'Bob' record.
@@ -877,8 +877,8 @@ class TestEdition(DatabaseTest):
         eq_(u"[Unknown]", wr.author)
 
     def test_calculate_presentation_author(self):
-        bob, ignore = self._contributor(name="Bitshifter, Bob")
-        wr = self._edition(authors=bob.name)
+        bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
+        wr = self._edition(authors=bob.sort_name)
         wr.calculate_presentation()
         eq_("Bob Bitshifter", wr.author)
         eq_("Bitshifter, Bob", wr.sort_author)
@@ -888,7 +888,7 @@ class TestEdition(DatabaseTest):
         eq_("Bob A. Bitshifter", wr.author)
         eq_("Bitshifter, Bob", wr.sort_author)
 
-        kelly, ignore = self._contributor(name="Accumulator, Kelly")
+        kelly, ignore = self._contributor(sort_name="Accumulator, Kelly")
         wr.add_contributor(kelly, Contributor.AUTHOR_ROLE)
         wr.calculate_presentation()
         eq_("Kelly Accumulator, Bob A. Bitshifter", wr.author)
@@ -2111,8 +2111,8 @@ class TestWork(DatabaseTest):
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
-        [contributor1_doc] = [c for c in contributors if c['name'] == contributor1.name]
-        [contributor2_doc] = [c for c in contributors if c['name'] == contributor2.name]
+        [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.sort_name]
+        [contributor2_doc] = [c for c in contributors if c['sort_name'] == contributor2.sort_name]
         eq_(contributor1.family_name, contributor1_doc['family_name'])
         eq_(None, contributor2_doc['family_name'])
         eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])

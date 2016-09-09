@@ -21,14 +21,9 @@ from metadata_layer import (
 from model import (
     get_one_or_create,
     CustomList,
-    CustomListEntry,
-    Contributor,
     DataSource,
-    Edition,
-    Hyperlink,
     Identifier,
     Representation,
-    Resource,
 )
 from external_list import TitleFromExternalList
 
