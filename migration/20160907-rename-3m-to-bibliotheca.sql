@@ -1,2 +1,2 @@
 update datasources set name='Bibliotheca' where name='3M';
-update identifiers set name='Bibliotheca ID' where name='3M ID';
+update identifiers set type='Bibliotheca ID' where type='3M ID';
