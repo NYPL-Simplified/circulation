@@ -858,7 +858,7 @@ class DataSource(Base):
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
-                (cls.INTERNAL_PROCESSING, False, False, None, None),
+                (cls.INTERNAL_PROCESSING, True, False, None, None),
         ):
 
             extra = dict()
@@ -5960,7 +5960,7 @@ class LicensePool(Base):
             # We don't have any information about the identifier
             # associated with this LicensePool, so we can't create a work.
             logging.warn("NO EDITION for %s, cowardly refusing to create work.",
-                     self.identifier)            
+                     self.identifier)
 
             # If there was a work associated with this LicensePool,
             # it was by mistake. Remove it.
