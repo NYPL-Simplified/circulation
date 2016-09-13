@@ -41,6 +41,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    Annotation,
     CachedFeed,
     CirculationEvent,
     Complaint,
@@ -74,6 +75,10 @@ from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
     PreloadFeed,
+)
+from annotations import (
+  AnnotationWriter,
+  AnnotationParser,
 )
 from problem_details import *
 
@@ -197,6 +202,7 @@ class CirculationManager(object):
         self.index_controller = IndexController(self)
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
+        self.annotations = AnnotationController(self)
         self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
@@ -819,6 +825,63 @@ class LoanController(CirculationManagerController):
                     self.circulation, hold)
             feed = unicode(feed)
             return feed_response(feed, None)
+
+class AnnotationController(CirculationManagerController):
+
+    def container(self):
+        headers = dict()
+        headers['Allow'] = 'GET,HEAD,OPTIONS,POST'
+        headers['Accept-Post'] = AnnotationWriter.CONTENT_TYPE
+
+        if flask.request.method=='HEAD':
+            return Response(status=200, headers=headers)
+
+        patron = flask.request.patron
+
+        if flask.request.method == 'GET':
+            headers['Link'] = ['<http://www.w3.org/ns/ldp#BasicContainer>; rel="type"',
+                               '<http://www.w3.org/TR/annotation-protocol/>; rel="http://www.w3.org/ns/ldp#constrainedBy"']
+            headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
+
+            container = AnnotationWriter.annotation_container_for(patron)
+            content = json.dumps(container)
+            return Response(content, status=200, headers=headers)
+
+        data = flask.request.data
+        annotation = AnnotationParser.parse(self._db, data, patron)
+
+        if isinstance(annotation, ProblemDetail):
+            return annotation
+
+        return Response(status=200, headers=headers)
+
+    def detail(self, annotation_id):
+        headers = dict()
+        headers['Allow'] = 'GET,HEAD,OPTIONS,DELETE'
+
+        if flask.request.method=='HEAD':
+            return Response(status=200, headers=headers)
+
+        patron = flask.request.patron
+
+        annotation = get_one(
+            self._db, Annotation,
+            patron=patron,
+            id=annotation_id,
+            active=True)
+
+        if not annotation:
+            return NO_ANNOTATION
+
+        if flask.request.method == 'DELETE':
+            annotation.set_inactive()
+            return Response()
+
+        content = json.dumps(AnnotationWriter.detail(annotation))
+        status_code = 200
+        headers['Link'] = '<http://www.w3.org/ns/ldp#Resource>; rel="type"'
+        headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
+        return Response(content, status_code, headers)
 
 
 class WorkController(CirculationManagerController):

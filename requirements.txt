@@ -33,7 +33,7 @@ textblob
 oauth2client
 pyjwt
 flask-cors
-
+PyLD
 
 # A NYPL-specific requirement
 newrelic

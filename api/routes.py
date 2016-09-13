@@ -188,6 +188,20 @@ def account():
 def active_loans():
     return app.manager.loans.sync()
 
+@app.route('/annotations/', methods=['HEAD', 'GET', 'POST'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotations():
+    return app.manager.annotations.container()
+
+@app.route('/annotations/<annotation_id>', methods=['HEAD', 'GET', 'DELETE'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotation_detail(annotation_id):
+    return app.manager.annotations.detail(annotation_id)
+
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])

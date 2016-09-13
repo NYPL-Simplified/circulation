@@ -30,7 +30,7 @@ from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
 from novelist import NoveListAPI
 from lanes import QueryGeneratedLane
-
+from annotations import AnnotationWriter
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -316,6 +316,12 @@ class CirculationManagerAnnotator(Annotator):
             type=OPDSFeed.ACQUISITION_FEED_TYPE,
             href=self.url_for('active_loans', _external=True))
         feed.add_link_to_feed(feed.feed, **shelf_link)
+
+        annotations_link = dict(
+            rel="http://www.w3.org/ns/oa#annotationService",
+            type=AnnotationWriter.CONTENT_TYPE,
+            href=self.url_for('annotations', _external=True))
+        feed.add_link_to_feed(feed.feed, **annotations_link)
 
         self.add_configuration_links(feed)
 
