@@ -26,6 +26,7 @@ from config import (
 )
 
 from model import (
+    Annotation,
     BaseCoverageRecord,
     CirculationEvent,
     Classification,
@@ -54,6 +55,7 @@ from model import (
     WorkGenre,
     Identifier,
     Edition,
+    create,
     get_one,
     get_one_or_create,
 )
@@ -3239,6 +3241,24 @@ class TestHold(DatabaseTest):
             start, 10, 0, default_loan, default_reservation)
         eq_(e, None)
 
+class TestAnnotation(DatabaseTest):
+    def test_set_inactive(self):
+        pool = self._licensepool(None)
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=pool.identifier,
+            motivation=Annotation.IDLING,
+            content="The content",
+            active=True,
+        )
+        yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
+        annotation.timestamp = yesterday
+
+        annotation.set_inactive()
+        eq_(False, annotation.active)
+        eq_(None, annotation.content)
+        assert annotation.timestamp > yesterday
 
 class TestHyperlink(DatabaseTest):
 

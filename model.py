@@ -404,6 +404,8 @@ class Patron(Base):
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
+    annotations = relationship('Annotation', backref='patron')
+
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
 
@@ -615,6 +617,32 @@ class Hold(Base, LoanAndHoldMixin):
         UniqueConstraint('patron_id', 'license_pool_id'),
     )
 
+class Annotation(Base):
+    LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
+
+    IDLING = LS_NAMESPACE + u'idling'
+
+    MOTIVATIONS = [
+        IDLING
+    ]
+
+    __tablename__ = 'annotations'
+    id = Column(Integer, primary_key=True)
+    patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
+    motivation = Column(
+        Enum(*MOTIVATIONS, name="motivation"),
+        index=True
+    )
+    timestamp = Column(DateTime, index=True)
+    active = Column(Boolean, default=True)
+    content = Column(Unicode)
+    target = Column(Unicode)
+
+    def set_inactive(self):
+        self.active = False
+        self.content = None
+        self.timestamp = datetime.datetime.now()
 
 class DataSource(Base):
 
@@ -1249,6 +1277,11 @@ class Identifier(Base):
     # One Identifier may participate in many Classifications.
     classifications = relationship(
         "Classification", backref="identifier"
+    )
+
+    # One identifier may participate in many Annotations.
+    annotations = relationship(
+        "Annotation", backref="identifier"
     )
 
     # Type + identifier is unique.
