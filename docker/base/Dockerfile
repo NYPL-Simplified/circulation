@@ -1,6 +1,7 @@
 FROM python:2.7
-
 MAINTAINER Library Simplified <info@librarysimplified.org>
+
+ARG version
 
 # Development libraries we'll need on top of python:2.7
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www
 RUN git clone https://github.com/NYPL-Simplified/circulation.git
 WORKDIR circulation
+RUN git checkout tags/$version
 RUN /bin/bash -c 'git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git && git submodule update --init --recursive'
 COPY post-receive.sample .git/hooks
 
