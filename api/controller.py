@@ -127,7 +127,7 @@ class CirculationManager(object):
 
         self.auth = Authenticator.initialize(self._db, test=testing)
         self.setup_circulation()
-        self.external_search = self.setup_search()
+        self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -136,6 +136,17 @@ class CirculationManager(object):
         self.setup_adobe_vendor_id()
 
         self.opds_authentication_document = None
+
+    @property
+    def external_search(self):
+        """Retrieve or create a connection to the search interface.
+
+        This is created lazily so that a failure to connect only
+        affects searches, not the rest of the circulation manager.
+        """
+        if not self.__external_search:
+            self.__external_search = self.setup_search()
+        return self.__external_search
 
     def create_top_level_lane(self, lanelist):
         name = 'All Books'
