@@ -843,7 +843,13 @@ class AnnotationController(CirculationManagerController):
                                '<http://www.w3.org/TR/annotation-protocol/>; rel="http://www.w3.org/ns/ldp#constrainedBy"']
             headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
 
-            container = AnnotationWriter.annotation_container_for(patron)
+            container, timestamp = AnnotationWriter.annotation_container_for(patron)
+            etag = 'W/""'
+            if timestamp:
+                etag = 'W/"%s"' % timestamp
+                headers['Last-Modified'] = timestamp
+            headers['ETag'] = etag
+
             content = json.dumps(container)
             return Response(content, status=200, headers=headers)
 

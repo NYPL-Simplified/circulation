@@ -22,7 +22,7 @@ class AnnotationWriterTest(DatabaseTest):
     def test_annotation_container_for(self):
         patron = self._patron()
 
-        container = AnnotationWriter.annotation_container_for(patron)
+        container, timestamp = AnnotationWriter.annotation_container_for(patron)
         eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
             set(container['@context']))
         assert "annotations" in container["id"]
@@ -38,6 +38,9 @@ class AnnotationWriterTest(DatabaseTest):
         # The patron doesn't have any annotations yet.
         eq_(0, container['total'])
 
+        # There's no timestamp since the container is empty.
+        eq_(None, timestamp)
+
         # Now, add an annotation.
         identifier = self._identifier()
         annotation = create(
@@ -46,8 +49,9 @@ class AnnotationWriterTest(DatabaseTest):
             identifier_id=identifier.id,
             motivation=Annotation.IDLING,
         )
+        annotation.timestamp = datetime.datetime.now()
         
-        container = AnnotationWriter.annotation_container_for(patron)
+        container, timestamp = AnnotationWriter.annotation_container_for(patron)
 
         # The context, type, and id stay the same.
         eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
@@ -66,11 +70,15 @@ class AnnotationWriterTest(DatabaseTest):
         first_item = first_page['items'][0]
         eq_(None, first_item['@context'])
 
+        # The timestamp is the annotation's timestamp.
+        eq_(annotation.timestamp, timestamp)
+
         # If the annotation is deleted, the container will be empty again.
         annotation.active = False
 
-        container = AnnotationWriter.annotation_container_for(patron)
+        container, timestamp = AnnotationWriter.annotation_container_for(patron)
         eq_(0, container['total'])
+        eq_(None, timestamp)
         
     def test_annotation_page_for(self):
         patron = self._patron()

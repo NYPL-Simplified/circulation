@@ -984,6 +984,7 @@ class TestAnnotationController(CirculationControllerTest):
 
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Accept-Post'])
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            eq_('W/""', response.headers['ETag'])
 
     def test_get_container_with_item(self):
         self.pool.loan_to(self.default_patron)
@@ -995,6 +996,7 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
         annotation.active = True
+        annotation.timestamp = datetime.datetime.now()
 
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -1015,6 +1017,9 @@ class TestAnnotationController(CirculationControllerTest):
 
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Accept-Post'])
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            expected_etag = 'W/"%s"' % annotation.timestamp
+            eq_(expected_etag, response.headers['ETag'])
+            eq_(str(annotation.timestamp), response.headers['Last-Modified'])
 
     def test_post_to_container(self):
         data = dict()

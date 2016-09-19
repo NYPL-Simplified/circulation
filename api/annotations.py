@@ -27,13 +27,19 @@ class AnnotationWriter(object):
         url = url_for("annotations", _external=True)
         annotations = [annotation for annotation in patron.annotations if annotation.active]
 
+        latest_timestamp = None
+        if len(annotations) > 0:
+            # patron.annotations is already sorted by timestamp, so the first
+            # annotation is the most recent.
+            latest_timestamp = annotations[0].timestamp
+
         container = dict()
         container["@context"] = [cls.JSONLD_CONTEXT, cls.LDP_CONTEXT]
         container["id"] = url
         container["type"] = ["BasicContainer", "AnnotationCollection"]
         container["total"] = len(annotations)
         container["first"] = cls.annotation_page_for(patron, with_context=False)
-        return container
+        return container, latest_timestamp
         
 
     @classmethod
