@@ -404,7 +404,7 @@ class Patron(Base):
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
-    annotations = relationship('Annotation', backref='patron')
+    annotations = relationship('Annotation', backref='patron', order_by="desc(Annotation.timestamp)")
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
@@ -630,10 +630,7 @@ class Annotation(Base):
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
-    motivation = Column(
-        Enum(*MOTIVATIONS, name="motivation"),
-        index=True
-    )
+    motivation = Column(Unicode, index=True)
     timestamp = Column(DateTime, index=True)
     active = Column(Boolean, default=True)
     content = Column(Unicode)
