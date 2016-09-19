@@ -4,6 +4,8 @@ import logging
 import sys
 import urllib
 import datetime
+from wsgiref.handlers import format_date_time
+from time import mktime
 
 from lxml import etree
 
@@ -858,7 +860,7 @@ class AnnotationController(CirculationManagerController):
             etag = 'W/""'
             if timestamp:
                 etag = 'W/"%s"' % timestamp
-                headers['Last-Modified'] = timestamp
+                headers['Last-Modified'] = format_date_time(mktime(timestamp.timetuple()))
             headers['ETag'] = etag
 
             content = json.dumps(container)

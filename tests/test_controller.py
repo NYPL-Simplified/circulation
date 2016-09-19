@@ -7,6 +7,8 @@ from contextlib import contextmanager
 import os
 import datetime
 import re
+from wsgiref.handlers import format_date_time
+from time import mktime
 
 import flask
 from flask import url_for
@@ -1019,7 +1021,8 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
             expected_etag = 'W/"%s"' % annotation.timestamp
             eq_(expected_etag, response.headers['ETag'])
-            eq_(str(annotation.timestamp), response.headers['Last-Modified'])
+            expected_time = format_date_time(mktime(annotation.timestamp.timetuple()))
+            eq_(expected_time, response.headers['Last-Modified'])
 
     def test_post_to_container(self):
         data = dict()
