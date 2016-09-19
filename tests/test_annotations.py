@@ -132,6 +132,26 @@ class TestAnnotationParser(DatabaseTest):
         self.pool = self._licensepool(None)
         self.identifier = self.pool.identifier
 
+    def _sample_jsonld(self):
+        data = dict()
+        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
+                            {'ls': Annotation.LS_NAMESPACE}]
+        data["type"] = "Annotation"
+        data["motivation"] = Annotation.IDLING.replace(Annotation.LS_NAMESPACE, 'ls:')
+        data["body"] = {
+            "type": "TextualBody",
+            "bodyValue": "A good description of the topic that bears further investigation",
+            "purpose": "describing"
+        }
+        data["target"] = {
+            "source": self.identifier.urn,
+            "selector": {
+                "type": "oa:FragmentSelector",
+                "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
+            }
+        }
+        return data
+
     def test_parse_invalid_json(self):
         annotation = AnnotationParser.parse(self._db, "not json", self.default_patron)
         eq_(INVALID_ANNOTATION_FORMAT, annotation)
@@ -209,24 +229,7 @@ class TestAnnotationParser(DatabaseTest):
     def test_parse_jsonld_with_context(self):
         self.pool.loan_to(self.default_patron)
 
-        data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
-                            {'ls': Annotation.LS_NAMESPACE}]
-        data["type"] = "Annotation"
-        data["motivation"] = Annotation.IDLING.replace(Annotation.LS_NAMESPACE, 'ls:')
-        data["body"] = {
-            "type": "TextualBody",
-            "bodyValue": "A good description of the topic that bears further investigation",
-            "purpose": "describing"
-        }
-        data["target"] = {
-            "source": self.identifier.urn,
-            "selector": {
-                "type": "oa:FragmentSelector",
-                "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
-            }
-        }
-
+        data = self._sample_jsonld()
         data = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data, self.default_patron)
@@ -239,24 +242,8 @@ class TestAnnotationParser(DatabaseTest):
     def test_parse_jsonld_with_invalid_motivation(self):
         self.pool.loan_to(self.default_patron)
 
-        data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
-                            {'ls': Annotation.LS_NAMESPACE}]
-        data["type"] = "Annotation"
+        data = self._sample_jsonld()
         data["motivation"] = "bookmarking"
-        data["body"] = {
-            "type": "TextualBody",
-            "bodyValue": "A good description of the topic that bears further investigation",
-            "purpose": "describing"
-        }
-        data["target"] = {
-            "source": self.identifier.urn,
-            "selector": {
-                "type": "oa:FragmentSelector",
-                "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
-            }
-        }
-
         data = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data, self.default_patron)
@@ -264,24 +251,7 @@ class TestAnnotationParser(DatabaseTest):
         eq_(INVALID_ANNOTATION_MOTIVATION, annotation)
 
     def test_parse_jsonld_with_no_loan(self):
-        data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
-                            {'ls': Annotation.LS_NAMESPACE}]
-        data["type"] = "Annotation"
-        data["motivation"] = Annotation.IDLING
-        data["body"] = {
-            "type": "TextualBody",
-            "bodyValue": "A good description of the topic that bears further investigation",
-            "purpose": "describing"
-        }
-        data["target"] = {
-            "source": self.identifier.urn,
-            "selector": {
-                "type": "oa:FragmentSelector",
-                "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
-            }
-        }
-
+        data = self._sample_jsonld()
         data = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data, self.default_patron)
@@ -289,17 +259,8 @@ class TestAnnotationParser(DatabaseTest):
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 
     def test_parse_jsonld_with_no_target(self):
-        data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
-                            {'ls': Annotation.LS_NAMESPACE}]
-        data["type"] = "Annotation"
-        data["motivation"] = Annotation.IDLING
-        data["body"] = {
-            "type": "TextualBody",
-            "bodyValue": "A good description of the topic that bears further investigation",
-            "purpose": "describing"
-        }
-
+        data = self._sample_jsonld()
+        del data['target']
         data = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data, self.default_patron)
@@ -319,23 +280,7 @@ class TestAnnotationParser(DatabaseTest):
         yesterday = datetime.datetime.now() - datetime.timedelta(days=1)
         original_annotation.timestamp = yesterday
 
-        data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT]
-        data["type"] = "Annotation"
-        data["motivation"] = Annotation.IDLING
-        data["body"] = {
-            "type": "TextualBody",
-            "bodyValue": "A good description of the topic that bears further investigation",
-            "purpose": "describing"
-        }
-        data["target"] = {
-            "source": self.identifier.urn,
-            "selector": {
-                "type": "oa:FragmentSelector",
-                "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
-            }
-        }
-
+        data = self._sample_jsonld()
         data = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data, self.default_patron)
