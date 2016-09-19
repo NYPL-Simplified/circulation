@@ -410,6 +410,17 @@ class TestOPDS(DatabaseTest):
         [preload_link] = [x for x in links if x['rel'] == 'http://librarysimplified.org/terms/rel/preload']
         assert '/preload' in preload_link['href']
         
+    def test_loans_feed_includes_annotations_link(self):
+        patron = self._patron()
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
+        raw = unicode(feed_obj)
+        feed = feedparser.parse(raw)['feed']
+        links = feed['links']
+
+        [annotations_link] = [x for x in links if x['rel'].lower() == "http://www.w3.org/ns/oa#annotationService".lower()]
+        assert '/annotations' in annotations_link['href']
+
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]

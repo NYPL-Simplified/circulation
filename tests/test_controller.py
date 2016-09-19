@@ -7,6 +7,8 @@ from contextlib import contextmanager
 import os
 import datetime
 import re
+from wsgiref.handlers import format_date_time
+from time import mktime
 
 import flask
 from flask import url_for
@@ -27,6 +29,7 @@ from core.app_server import (
 )
 from core.metadata_layer import Metadata
 from core.model import (
+    Annotation,
     Patron,
     DeliveryMechanism,
     Representation,
@@ -74,6 +77,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from api.opds import CirculationManagerAnnotator
+from api.annotations import AnnotationWriter
 from api.admin.oauth import DummyGoogleClient
 from lxml import etree
 import random
@@ -954,6 +958,199 @@ class TestLoanController(CirculationControllerTest):
             account_links = [link for link in links if link['rel'] == 'http://librarysimplified.org/terms/rel/account']
             eq_(1, len(account_links))
             assert 'me' in account_links[0]['href']
+
+class TestAnnotationController(CirculationControllerTest):
+    def setup(self):
+        super(TestAnnotationController, self).setup()
+        self.pool = self.english_1.license_pools[0]
+        self.edition = self.pool.presentation_edition
+        self.data_source = self.edition.data_source
+        self.identifier = self.edition.primary_identifier
+
+    def test_get_empty_container(self):
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.annotations.container()
+            eq_(200, response.status_code)
+
+            # We've been given an annotation container with no items.
+            container = json.loads(response.data)
+            eq_([], container['first']['items'])
+            eq_(0, container['total'])
+
+            # The response has the appropriate headers.
+            allow_header = response.headers['Allow']
+            for method in ['GET', 'HEAD', 'OPTIONS', 'POST']:
+                assert method in allow_header
+
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Accept-Post'])
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            eq_('W/""', response.headers['ETag'])
+
+    def test_get_container_with_item(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+        annotation.timestamp = datetime.datetime.now()
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.container()
+            eq_(200, response.status_code)
+
+            # We've been given an annotation container with one item.
+            container = json.loads(response.data)
+            eq_(1, container['total'])
+            item = container['first']['items'][0]
+            eq_(annotation.motivation, item['motivation'])
+
+            # The response has the appropriate headers.
+            allow_header = response.headers['Allow']
+            for method in ['GET', 'HEAD', 'OPTIONS', 'POST']:
+                assert method in allow_header
+
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Accept-Post'])
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            expected_etag = 'W/"%s"' % annotation.timestamp
+            eq_(expected_etag, response.headers['ETag'])
+            expected_time = format_date_time(mktime(annotation.timestamp.timetuple()))
+            eq_(expected_time, response.headers['Last-Modified'])
+
+    def test_post_to_container(self):
+        data = dict()
+        data['@context'] = AnnotationWriter.JSONLD_CONTEXT
+        data['type'] = "Annotation"
+        data['motivation'] = Annotation.IDLING
+        data['target'] = dict(source=self.identifier.urn, selector="epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)")
+
+        with self.app.test_request_context(
+            "/", headers=dict(Authorization=self.valid_auth), method='POST', data=json.dumps(data)):
+            patron = self.manager.annotations.authenticated_patron_from_request()
+            # The patron doesn't have any annotations yet.
+            annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
+            eq_(0, len(annotations))
+
+            response = self.manager.annotations.container()
+
+            # The patron doesn't have the pool on loan yet, so the request fails.
+            eq_(400, response.status_code)
+            annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
+            eq_(0, len(annotations))
+
+            # Give the patron a loan and try again, and the request creates an annotation.
+            self.pool.loan_to(patron)
+            response = self.manager.annotations.container()
+            eq_(200, response.status_code)
+            
+            annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
+            eq_(1, len(annotations))
+            annotation = annotations[0]
+            eq_(Annotation.IDLING, annotation.motivation)
+            selector = json.loads(annotation.target).get("http://www.w3.org/ns/oa#hasSelector")[0].get('@id')
+            eq_(data['target']['selector'], selector)
+
+    def test_detail(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.detail(annotation.id)
+            eq_(200, response.status_code)
+
+            # We've been given a single annotation item.
+            item = json.loads(response.data)
+            assert str(annotation.id) in item['id']
+            eq_(annotation.motivation, item['motivation'])
+
+            # The response has the appropriate headers.
+            allow_header = response.headers['Allow']
+            for method in ['GET', 'HEAD', 'OPTIONS', 'DELETE']:
+                assert method in allow_header
+
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+
+    def test_detail_for_other_patrons_annotation_returns_404(self):
+        patron = self._patron()
+        self.pool.loan_to(patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+
+            # The patron can't see that this annotation exists.
+            response = self.manager.annotations.detail(annotation.id)
+            eq_(404, response.status_code)
+
+    def test_detail_for_missing_annotation_returns_404(self):
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+
+            # This annotation does not exist.
+            response = self.manager.annotations.detail(100)
+            eq_(404, response.status_code)
+
+    def test_detail_for_deleted_annotation_returns_404(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = False
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.detail(annotation.id)
+            eq_(404, response.status_code)
+
+    def test_delete(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+
+        with self.app.test_request_context(
+                "/", method='DELETE', headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.detail(annotation.id)
+            eq_(200, response.status_code)
+
+            # The annotation has been marked inactive.
+            eq_(False, annotation.active)
 
 class TestWorkController(CirculationControllerTest):
     def setup(self):
