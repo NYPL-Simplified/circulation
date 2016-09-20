@@ -23,6 +23,7 @@ from core.model import (
     CoverageRecord,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     LicensePool,
     Work,
@@ -221,7 +222,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
                 Configuration.URL : "http://url.gov"
             }
-            return MetadataWranglerCoverageProvider(self._db, **kwargs)
+            lookup = MockSimplifiedOPDSLookup.from_config()
+            return MetadataWranglerCoverageProvider(self._db, lookup=lookup, **kwargs)
 
     def setup(self):
         super(TestMetadataWranglerCoverageProvider, self).setup()
@@ -331,6 +333,44 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             ).all()
         )
 
+    def test_isbn_covers_are_imported_from_mapped_identifiers(self):
+        # Now that we pass ISBN equivalents instead of Bibliotheca identifiers
+        # to the Metadata Wrangler, they're not getting covers. Let's confirm
+        # that the problem isn't on the Circulation Manager import side of things.
+
+        # Create a Bibliotheca identifier with a license pool.
+        source = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
+        identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
+        LicensePool.for_foreign_id(
+            self._db, source, identifier.type, identifier.identifier
+        )
+
+        # Create an ISBN and set it equivalent.
+        isbn = self._identifier(identifier_type=Identifier.ISBN)
+        isbn.identifier = '9781594632556'
+        identifier.equivalent_to(source, isbn, 1)
+
+        opds = sample_data('metadata_isbn_response.opds', 'opds')
+        self.provider.lookup.queue_response(
+            200, {'content-type': 'application/atom+xml;profile=opds-catalog;kind=acquisition'}, opds
+        )
+
+        result = self.provider.process_item(identifier)
+        # The lookup is successful
+        eq_(result, identifier)
+        # The appropriate cover links are transferred.
+        identifier_uris = [l.resource.url for l in identifier.links
+                           if l.rel in [Hyperlink.IMAGE, Hyperlink.THUMBNAIL_IMAGE]]
+        expected = [
+            'http://book-covers.nypl.org/Content%20Cafe/ISBN/9781594632556/cover.jpg',
+            'http://book-covers.nypl.org/scaled/300/Content%20Cafe/ISBN/9781594632556/cover.jpg'
+        ]
+
+        eq_(sorted(identifier_uris), sorted(expected))
+
+        # The ISBN doesn't get any information.
+        eq_(isbn.links, [])
+
 
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
@@ -401,7 +441,7 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
             BadResponseException, self.reaper.process_feed_response,
             response, {}
         )
-        
+
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
         when the the batch is finalized if the item has been reaped.

@@ -65,7 +65,6 @@ class OPDSImportCoverageProvider(CoverageProvider):
         """By default, no identifier mapping is needed."""
         return None
 
-
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
         imported_editions, pools, works, error_messages_by_id = self.lookup_and_import_batch(
@@ -103,7 +102,6 @@ class OPDSImportCoverageProvider(CoverageProvider):
         for failure in error_messages_by_id.values():
             results.append(failure)
         return results
-
 
     def process_item(self, identifier):
         """Handle an individual item (e.g. through ensure_coverage) as a very
@@ -237,7 +235,10 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 filter(LicensePool.licenses_owned > 0).\
                 options(contains_eager(Identifier.coverage_records))
 
-        # Remove Wrangler Reaper coverage records from relicensed identifiers
+        # Remove MetadataWranglerCollectionReaper coverage records from
+        # relicensed identifiers. This ensures that we can get Metadata
+        # Wrangler coverage for books that have had their licenses repurchased
+        # or extended.
         for identifier in relicensed.all():
             [reaper_coverage_record] = [record
                     for record in identifier.coverage_records
