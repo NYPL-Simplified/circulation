@@ -127,9 +127,15 @@ class CirculationAPI(object):
                 DataSource.lookup(_db, DataSource.AXIS_360)
             )
 
-        self.identifier_type_to_data_source_name = dict(
-            (ds.primary_identifier_type, ds.name) 
-            for ds in data_sources_for_sync)
+
+        h = dict()
+        for ds in data_sources_for_sync:
+            type = ds.primary_identifier_type 
+            h[type] = ds.name
+            if type in Identifier.DEPRECATED_NAMES:
+                new_name = Identifier.DEPRECATED_NAMES[type]
+                h[new_name] = ds.name
+        self.identifier_type_to_data_source_name = h
         self.data_source_ids_for_sync = [
             x.id for x in data_sources_for_sync
         ]
