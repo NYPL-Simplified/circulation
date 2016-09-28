@@ -8,6 +8,7 @@ import re
 import time
 from flask.ext.babel import lazy_gettext as _
 
+from core.analytics import Analytics
 from core.model import (
     get_one,
     Identifier,
@@ -98,6 +99,8 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
+    CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE = "circulation_manager_check_out"
+    
     def __init__(self, _db, overdrive=None, threem=None, axis=None):
         self._db = _db
         self.overdrive = overdrive
@@ -222,10 +225,21 @@ class CirculationAPI(object):
                 on_multiple='interchangeable'
             )
 
+        new_loan = False
         try:
             loan_info = api.checkout(
                 patron, pin, licensepool, internal_format
             )
+
+            # We asked the API to create a loan and it gave us a
+            # LoanInfo object, rather than raising an exception like
+            # AlreadyCheckedOut.
+            #
+            # For record-keeping purposes we're going to treat this as
+            # a newly transacted loan, although it's possible that the
+            # API does something unusual like return LoanInfo instead
+            # of raising AlreadyCheckedOut.
+            new_loan = True
         except AlreadyCheckedOut:
             # This is good, but we didn't get the real loan info.
             # Just fake it.
@@ -268,7 +282,7 @@ class CirculationAPI(object):
             # We successfuly secured a loan.  Now create it in our
             # database.
             __transaction = self._db.begin_nested()
-            loan, is_new = licensepool.loan_to(
+            loan, new_loan_record = licensepool.loan_to(
                 patron, start=loan_info.start_date or now,
                 end=loan_info.end_date)
 
@@ -283,7 +297,16 @@ class CirculationAPI(object):
                 # Delete the record of the hold.
                 self._db.delete(existing_hold)
             __transaction.commit()
-            return loan, None, is_new
+
+            if loan and new_loan:
+                # Send out an analytics event to record the fact that
+                # a loan was initiated through the circulation
+                # manager.
+                Analytics.collect_event(
+                    self._db, licensepool,
+                    self.CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE
+                )
+            return loan, None, new_loan_record
 
         # At this point we know that we neither successfully
         # transacted a loan, nor discovered a preexisting loan.

@@ -58,7 +58,6 @@ from api.config import (
 )
 
 from core.analytics import Analytics
-from core.local_analytics_provider import LocalAnalyticsProvider
 
 
 class UsesSampleData(object):
@@ -219,14 +218,6 @@ class TestCirculationMonitor(DatabaseTest, UsesSampleData):
 
     def test_process_book(self):
         with temp_config() as config:
-            provider = LocalAnalyticsProvider()
-            analytics = Analytics([provider])
-            config = {
-                Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : analytics 
-                }
-            }
-            
             monitor = Axis360CirculationMonitor(self._db)
             monitor.api = None
             edition, license_pool = monitor.process_book(
@@ -245,7 +236,7 @@ class TestCirculationMonitor(DatabaseTest, UsesSampleData):
             eq_(u'9780375504587', isbn.identifier)
 
             eq_(["McCain, John", "Salter, Mark"], 
-                sorted([x.name for x in edition.contributors]),
+                sorted([x.sort_name for x in edition.contributors]),
             )
 
             subs = sorted(

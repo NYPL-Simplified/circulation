@@ -204,3 +204,31 @@ INVALID_ANALYTICS_EVENT_TYPE = pd(
     title=_("Invalid analytics event type."),
     detail=_("The analytics event must be a supported type."),
 )
+
+INVALID_ANNOTATION_MOTIVATION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-annotation-motivation",
+    status_code=400,
+    title=_("Invalid annotation motivation."),
+    detail=_("The annotation must have a supported motivation."),
+)
+
+INVALID_ANNOTATION_TARGET = pd(
+    "http://librarysimplified.org/terms/problem/invalid-annotation-target",
+    status_code=400,
+    title=_("Invalid annotation target."),
+    detail=_("The annotation target must be a work in your current loans."),
+)
+
+INVALID_ANNOTATION_FORMAT = pd(
+    "http://librarysimplified.org/terms/problem/invalid-annotation-format",
+    status_code=400,
+    title=_("Invalid annotation format."),
+    detail=_("The annotation could not be parsed as JSON-LD."),
+)
+
+NO_ANNOTATION = pd(
+    "http://librarysimplified.org/terms/problem/no-annotation",
+    status_code=404,
+    title=_("No annotation."),
+    detail=_("The annotation you requested does not exist."),
+)
