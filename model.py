@@ -5519,7 +5519,9 @@ class LicensePool(Base):
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
         if (data_source.primary_identifier_type and 
-            foreign_id_type != data_source.primary_identifier_type):
+            foreign_id_type != data_source.primary_identifier_type
+            and foreign_id_type != Identifier.DEPRECATED_NAMES.get(data_source.primary_identifier_type)
+        ):
             raise ValueError(
                 "License pools for data source '%s' are keyed to "
                 "identifier type '%s' (not '%s', which was provided)" % (
