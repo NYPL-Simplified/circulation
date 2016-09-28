@@ -11,6 +11,7 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
+from classifier import Classifier
 from model import (
     get_one,
     CustomList,
@@ -24,6 +25,7 @@ from scripts import (
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
+    AddClassificationScript,
     RunCoverageProviderScript,
     WorkProcessingScript,
     MockStdin,
@@ -472,3 +474,33 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name)
         assert_raises(Exception, self.script.do_run)
+
+
+class TestAddClassificationScript(DatabaseTest):
+
+    def test_end_to_end(self):
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+        eq_(Classifier.AUDIENCE_ADULT, work.audience)
+        
+        cmd_args = [
+            "--identifier-type", identifier.type,
+            "--subject-type", Classifier.FREEFORM_AUDIENCE,
+            "--subject-identifier", Classifier.AUDIENCE_CHILDREN,
+            "--weight", "42",
+            identifier.identifier
+        ]
+        script = AddClassificationScript(self._db, cmd_args)
+        script.run()
+
+        # The identifier has been classified under 'children'.
+        [classification] = identifier.classifications
+        eq_(42, classification.weight)
+        subject = classification.subject
+        eq_(Classifier.FREEFORM_AUDIENCE, subject.type)
+        eq_(Classifier.AUDIENCE_CHILDREN, subject.identifier)
+        
+        # The work has been reclassified and is now known as a
+        # children's book.
+        eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
+

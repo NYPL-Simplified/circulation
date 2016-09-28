@@ -422,7 +422,7 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             provider.ensure_coverage(identifier, force=True)
 
 
-class ReclassifyScript(IdentifierInputScript):
+class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
     @classmethod
@@ -449,12 +449,14 @@ class ReclassifyScript(IdentifierInputScript):
         parser.add_argument(
             '--weight', 
             help='The weight to use when classifying.',
+            type=int,
             default=1000
         )     
         return parser
     
-    def __init__(self):
-        args = self.parse_command_line(self._db)
+    def __init__(self, _db=None, cmd_args=None):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
         subject_type = args.subject_type
@@ -464,10 +466,10 @@ class ReclassifyScript(IdentifierInputScript):
             raise ValueError(
                 "Either subject-name or subject-identifier must be provided."
             )
-        self.data_source = DataSource.lookup(self._db, args.data_source)
+        self.data_source = DataSource.lookup(_db, args.data_source)
         self.weight = args.weight
         self.subject, ignore = Subject.lookup(
-            self._db, subject_type, subject_identifier, subject_name
+            _db, subject_type, subject_identifier, subject_name
         )
         
     def run(self):
@@ -487,7 +489,7 @@ class ReclassifyScript(IdentifierInputScript):
                                 self.subject.identifier, self.subject.name,
                                 self.weight)
             pool = identifier.licensed_through
-            if pool.work:
+            if pool and pool.work:
                 pool.work.calculate_presentation(policy=policy)
                     
         
