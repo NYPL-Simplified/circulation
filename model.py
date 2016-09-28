@@ -650,7 +650,7 @@ class DataSource(Base):
     PROJECT_GITENBERG = "Project GITenberg"
     STANDARD_EBOOKS = "Standard Ebooks"
     UNGLUE_IT = "unglue.it"
-    BIBLIOTHECA = "Bibliotecha"
+    BIBLIOTHECA = "Bibliotheca"
     OCLC = "OCLC Classify"
     OCLC_LINKED_DATA = "OCLC Linked Data"
     AMAZON = "Amazon"
