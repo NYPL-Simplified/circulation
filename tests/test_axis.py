@@ -117,7 +117,7 @@ class TestAxis360API(DatabaseTest):
         patron = self.default_patron
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
-            response = self.api.place_hold(patron, 'pin', pool, 'format', None)
+            response = self.api.place_hold(patron, 'pin', pool, None)
             eq_(1, response.hold_position)
             eq_(response.identifier_type, pool.identifier.type)
             eq_(response.identifier, pool.identifier.identifier)

@@ -116,8 +116,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
     def checkin(self, patron, pin, licensepool):
         pass
 
-    def place_hold(self, patron, pin, licensepool, format_type,
-                   hold_notification_email):
+    def place_hold(self, patron, pin, licensepool, hold_notification_email):
         if not hold_notification_email:
             hold_notification_email = self.default_notification_email_address(
                 patron, pin
@@ -127,7 +126,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         identifier = licensepool.identifier
         title_id = identifier.identifier
         patron_id = patron.authorization_identifier
-        params = dict(titleId=title_id, patronId=patron_id, format=format_type,
+        params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
         hold_info = HoldResponseParser().process_all(response.content)
