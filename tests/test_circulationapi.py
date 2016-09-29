@@ -273,6 +273,41 @@ class TestCirculationAPI(DatabaseTest):
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
 
+    def test_sync_bookshelf_ignores_local_loan_with_no_identifier(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.start = self.YESTERDAY
+        self.pool.identifier = None
+
+        # Verify that we can sync without crashing.
+        self.sync_bookshelf()
+
+        # The invalid loan was ignored and is still there.
+        loans = self._db.query(Loan).all()
+        eq_([loan], loans)
+
+        # Even worse - the loan has no license pool!
+        loan.license_pool = None
+
+        # But we can still sync without crashing.
+        self.sync_bookshelf()
+        
+    def test_sync_bookshelf_ignores_local_hold_with_no_identifier(self):
+        hold, ignore = self.pool.on_hold_to(self.patron)
+        self.pool.identifier = None
+
+        # Verify that we can sync without crashing.
+        self.sync_bookshelf()
+
+        # The invalid hold was ignored and is still there.
+        holds = self._db.query(Hold).all()
+        eq_([hold], holds)
+
+        # Even worse - the hold has no license pool!
+        hold.license_pool = None
+
+        # But we can still sync without crashing.
+        self.sync_bookshelf()
+        
     def test_sync_bookshelf_with_old_local_loan_and_no_remote_loan_deletes_local_loan(self):
         # Local loan that was created yesterday.
         loan, ignore = self.pool.loan_to(self.patron)

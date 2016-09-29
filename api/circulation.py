@@ -575,11 +575,29 @@ class CirculationAPI(object):
         local_loans_by_identifier = {}
         local_holds_by_identifier = {}
         for l in local_loans:
+            if not l.license_pool:
+                self.log.error("Active loan with no license pool!")
+                continue
             i = l.license_pool.identifier
+            if not i:
+                self.log.error(
+                    "Active loan on license pool %s, which has no identifier!",
+                    l.license_pool
+                )
+                continue
             key = (i.type, i.identifier)
             local_loans_by_identifier[key] = l
         for h in local_holds:
+            if not h.license_pool:
+                self.log.error("Active hold with no license pool!")
+                continue
             i = h.license_pool.identifier
+            if not i:
+                self.log.error(
+                    "Active hold on license pool %r, which has no identifier!",
+                    h.license_pool
+                )
+                continue
             key = (i.type, i.identifier)
             local_holds_by_identifier[key] = h
 
