@@ -517,7 +517,7 @@ class TestSubject(DatabaseTest):
 
         # But you can tell it not to autocreate.
         identifier2 = self._str
-        subject = Subject.lookup(
+        subject, was_new = Subject.lookup(
             self._db, Subject.TAG, identifier2, None, autocreate=False
         )
         eq_(False, was_new)
