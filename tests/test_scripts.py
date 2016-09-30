@@ -487,7 +487,7 @@ class TestAddClassificationScript(DatabaseTest):
             "--identifier-type", identifier.type,
             "--subject-type", Classifier.FREEFORM_AUDIENCE,
             "--subject-identifier", Classifier.AUDIENCE_CHILDREN,
-            "--weight", "42",
+            "--weight", "42", '--create-subject',
             identifier.identifier
         ]
         script = AddClassificationScript(self._db, cmd_args)
