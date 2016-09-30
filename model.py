@@ -1567,7 +1567,8 @@ class Identifier(Base):
         # Turn the subject type and identifier into a Subject.
         classifications = []
         subject, is_new = Subject.lookup(
-            _db, subject_type, subject_identifier, subject_name)
+            _db, subject_type, subject_identifier, subject_name,
+        )
 
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
@@ -5015,16 +5016,18 @@ class Subject(Base):
         return False
 
     @classmethod
-    def lookup(cls, _db, type, identifier, name):
+    def lookup(cls, _db, type, identifier, name, autocreate=True):
         """Turn a subject type and identifier into a Subject."""
         classifier = Classifier.lookup(type)
-        subject, new = get_one_or_create(
-            _db, Subject, type=type,
-            identifier=identifier,
-            create_method_kwargs=dict(
-                name=name,
+        if autocreate:
+            subject, new = get_one_or_create(
+                _db, Subject, type=type,
+                identifier=identifier,
+                create_method_kwargs=dict(name=name)
             )
-        )
+        else:
+            new = False
+            subject = get_one(_db, Subject, type=type, identifier=identifier)
         if name and not subject.name:
             # We just discovered the name of a subject that previously
             # had only an ID.

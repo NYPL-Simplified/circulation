@@ -272,7 +272,7 @@ class SubjectInputScript(Script):
     :return: a 2-tuple (subject type, subject filter) that can be
     passed into the SubjectSweepMonitor constructor.
     """
-
+    
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -420,6 +420,89 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
                 metadata_replacement_policy=self.metadata_replacement_policy,
             )
             provider.ensure_coverage(identifier, force=True)
+
+
+class AddClassificationScript(IdentifierInputScript):
+    name = "Add a classification to an identifier"
+
+    @classmethod
+    def arg_parser(cls):
+        parser = IdentifierInputScript.arg_parser()
+        parser.add_argument(
+            '--subject-type', 
+            help='The type of the subject to add to each identifier.',
+            required=True
+        )
+        parser.add_argument(
+            '--subject-identifier', 
+            help='The identifier of the subject to add to each identifier.'
+        )        
+        parser.add_argument(
+            '--subject-name', 
+            help='The name of the subject to add to each identifier.'
+        )        
+        parser.add_argument(
+            '--data-source', 
+            help='The data source to use when classifying.',
+            default=DataSource.MANUAL
+        )     
+        parser.add_argument(
+            '--weight', 
+            help='The weight to use when classifying.',
+            type=int,
+            default=1000
+        )     
+        parser.add_argument(
+            '--create-subject', 
+            help="Add the subject to the database if it doesn't already exist",
+            action='store_const',
+            const=True
+        )     
+        return parser
+    
+    def __init__(self, _db=None, cmd_args=None):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        self.identifier_type = args.identifier_type
+        self.identifiers = args.identifiers
+        subject_type = args.subject_type
+        subject_identifier = args.subject_identifier
+        subject_name = args.subject_name
+        if not subject_name and not subject_identifier:
+            raise ValueError(
+                "Either subject-name or subject-identifier must be provided."
+            )
+        self.data_source = DataSource.lookup(_db, args.data_source)
+        self.weight = args.weight
+        self.subject, ignore = Subject.lookup(
+            _db, subject_type, subject_identifier, subject_name,
+            autocreate=args.create_subject
+        )
+        
+    def run(self):
+        policy = PresentationCalculationPolicy(
+            choose_edition=False, 
+            set_edition_metadata=False,
+            classify=True,
+            choose_summary=False, 
+            calculate_quality=False,
+            choose_cover=False,
+            regenerate_opds_entries=True,
+            update_search_index=True,
+            verbose=True,
+        )
+        if self.subject:
+            for identifier in self.identifiers:
+                identifier.classify(
+                    self.data_source, self.subject.type,
+                    self.subject.identifier, self.subject.name,
+                    self.weight
+                )
+                pool = identifier.licensed_through
+                if pool and pool.work:
+                    pool.work.calculate_presentation(policy=policy)
+        else:
+            self.log.warn("Could not locate subject, doing nothing.")
 
 
 class WorkProcessingScript(IdentifierInputScript):
