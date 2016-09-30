@@ -506,6 +506,23 @@ class TestIdentifier(DatabaseTest):
 
 class TestSubject(DatabaseTest):
 
+    def test_lookup_autocreate(self):
+        # By default, Subject.lookup creates a Subject that doesn't exist.
+        identifier = self._str
+        subject, was_new = Subject.lookup(
+            self._db, Subject.TAG, identifier, None
+        )
+        eq_(True, was_new)
+        eq_(identifier, subject.identifier)
+
+        # But you can tell it not to autocreate.
+        identifier2 = self._str
+        subject = Subject.lookup(
+            self._db, Subject.TAG, identifier2, None, autocreate=False
+        )
+        eq_(False, was_new)
+        eq_(None, subject)
+        
     def test_assign_to_genre_can_remove_genre(self):
         # Here's a Subject that identifies children's books.
         subject, was_new = Subject.lookup(self._db, Subject.TAG, "Children's books", None)

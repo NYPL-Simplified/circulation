@@ -5019,18 +5019,14 @@ class Subject(Base):
         """Turn a subject type and identifier into a Subject."""
         classifier = Classifier.lookup(type)
         if autocreate:
-            m = get_one_or_create
-            kwargs = dict(create_method_kwargs=dict(
-                name=name,
-            ))
+            subject, new = get_one_or_create(
+                _db, Subject, type=type,
+                identifier=identifier,
+                create_method_kwargs=dict(name=name)
+            )
         else:
-            m = get_one
-            kwargs = {}
-        subject, new = m(
-            _db, Subject, type=type,
-            identifier=identifier,
-            **kwargs
-        )
+            new = False
+            subject = get_one(_db, Subject, type=type, identifier=identifier)
         if name and not subject.name:
             # We just discovered the name of a subject that previously
             # had only an ID.
