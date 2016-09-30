@@ -130,6 +130,7 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
 
     def update_patron(self, patron, identifier, dump=None):
         """Update a Patron record with information from a data dump."""
+        now = datetime.datetime.utcnow()
         if not dump:
             dump = self.dump(identifier)
 
@@ -177,7 +178,8 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
             # dump as the empty string.
             expires = None
         patron.authorization_expires = expires
-
+        patron.last_external_sync = now
+        
     def patron_info(self, identifier):
         """Get patron information from the ILS."""
         dump = self.dump(identifier)
@@ -210,7 +212,6 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
             return None
 
         now = datetime.datetime.utcnow()
-
         # Now it gets more complicated. There is *some* authenticated
         # patron, but it might not correspond to a Patron in our
         # database, and if it does, that Patron's
@@ -224,7 +225,7 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
         if not patron:
             # The patron might have used a username instead of a barcode.
             kwargs = {Patron.username.name: identifier}
-            patron = get_one(db, Patron, *kwargs)
+            patron = get_one(db, Patron, **kwargs)
 
         __transaction = db.begin_nested()
         if patron:
@@ -245,7 +246,6 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
                 # Sync our internal Patron record with what the API
                 # says.
                 self.update_patron(patron, identifier)
-                patron.last_external_sync = now
             __transaction.commit()
             return patron
 
