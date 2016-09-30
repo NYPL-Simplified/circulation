@@ -64,7 +64,8 @@ class AnnotationWriter(object):
         item["type"] = "Annotation"
         item["motivation"] = annotation.motivation
         item["body"] = annotation.content
-        item["target"] = annotation.target
+        if annotation.target:
+            item["target"] = json.loads(annotation.target)
 
         return item
 
