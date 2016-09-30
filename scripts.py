@@ -452,6 +452,12 @@ class AddClassificationScript(IdentifierInputScript):
             type=int,
             default=1000
         )     
+        parser.add_argument(
+            '--create-subject', 
+            help="Add the subject to the database if it doesn't already exist",
+            action='store_const',
+            const=True
+        )     
         return parser
     
     def __init__(self, _db=None, cmd_args=None):
@@ -469,7 +475,8 @@ class AddClassificationScript(IdentifierInputScript):
         self.data_source = DataSource.lookup(_db, args.data_source)
         self.weight = args.weight
         self.subject, ignore = Subject.lookup(
-            _db, subject_type, subject_identifier, subject_name
+            _db, subject_type, subject_identifier, subject_name,
+            autocreate=args.create_subject
         )
         
     def run(self):
@@ -484,15 +491,20 @@ class AddClassificationScript(IdentifierInputScript):
             update_search_index=True,
             verbose=True,
         )
-        for identifier in self.identifiers:
-            identifier.classify(self.data_source, self.subject.type,
-                                self.subject.identifier, self.subject.name,
-                                self.weight)
-            pool = identifier.licensed_through
-            if pool and pool.work:
-                pool.work.calculate_presentation(policy=policy)
-                    
-        
+        if self.subject:
+            for identifier in self.identifiers:
+                identifier.classify(
+                    self.data_source, self.subject.type,
+                    self.subject.identifier, self.subject.name,
+                    self.weight
+                )
+                pool = identifier.licensed_through
+                if pool and pool.work:
+                    pool.work.calculate_presentation(policy=policy)
+        else:
+            self.log.warn("Could not locate subject, doing nothing.")
+
+
 class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"

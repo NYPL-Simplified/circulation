@@ -1567,7 +1567,8 @@ class Identifier(Base):
         # Turn the subject type and identifier into a Subject.
         classifications = []
         subject, is_new = Subject.lookup(
-            _db, subject_type, subject_identifier, subject_name)
+            _db, subject_type, subject_identifier, subject_name,
+        )
 
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",

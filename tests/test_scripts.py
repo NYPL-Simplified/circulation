@@ -504,3 +504,32 @@ class TestAddClassificationScript(DatabaseTest):
         # children's book.
         eq_(Classifier.AUDIENCE_CHILDREN, work.audience)
 
+    def test_autocreate(self):
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+        eq_(Classifier.AUDIENCE_ADULT, work.audience)
+        
+        cmd_args = [
+            "--identifier-type", identifier.type,
+            "--subject-type", Classifier.TAG,
+            "--subject-identifier", "some random tag",
+            identifier.identifier
+        ]
+        script = AddClassificationScript(self._db, cmd_args)
+        script.run()
+
+        # Nothing has happened. There was no Subject with that
+        # identifier, so we assumed there was a typo and did nothing.
+        eq_([], identifier.classifications)
+
+        # If we stick the 'create-subject' onto the end of the
+        # command-line arguments, the Subject is created and the
+        # classification happens.
+        cmd_args.append('--create-subject')
+        script = AddClassificationScript(self._db, cmd_args)
+        script.run()
+
+        [classification] = identifier.classifications
+        subject = classification.subject
+        eq_("some random tag", subject.identifier)
+
