@@ -65,7 +65,10 @@ class AnnotationWriter(object):
         item["motivation"] = annotation.motivation
         item["body"] = annotation.content
         if annotation.target:
-            item["target"] = json.loads(annotation.target)
+            target = json.loads(annotation.target)
+            compacted = jsonld.compact(target, cls.JSONLD_CONTEXT)
+            del compacted["@context"]
+            item["target"] = compacted
 
         return item
 

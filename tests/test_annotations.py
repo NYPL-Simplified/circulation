@@ -115,16 +115,25 @@ class TestAnnotationWriter(ControllerTest):
 
             eq_(0, len(page['items']))
 
-    def test_detail(self):
+    def test_detail_target(self):
         patron = self._patron()
         identifier = self._identifier()
-        target = json.dumps(dict(source="a book"))
+        target = {
+            "http://www.w3.org/ns/oa#hasSource": {
+                "@id": identifier.urn
+            },
+            "http://www.w3.org/ns/oa#hasSelector": {
+                "@type": "http://www.w3.org/ns/oa#FragmentSelector",
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
+            }
+        }
+
         annotation, ignore = create(
             self._db, Annotation,
             patron=patron,
             identifier=identifier,
             motivation=Annotation.IDLING,
-            target=target,
+            target=json.dumps(target),
         )
 
         with self.app.test_request_context("/"):
@@ -133,8 +142,14 @@ class TestAnnotationWriter(ControllerTest):
             assert "annotations/%i" % annotation.id in detail["id"]
             eq_("Annotation", detail['type'])
             eq_(Annotation.IDLING, detail['motivation'])
-            eq_(json.loads(target), detail["target"])
-
+            compacted_target = {
+                "source": identifier.urn,
+                "selector": {
+                    "type": "FragmentSelector",
+                    "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
+                }
+            }
+            eq_(compacted_target, detail["target"])
 
 class TestAnnotationParser(DatabaseTest):
     def setup(self):
