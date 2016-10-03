@@ -401,7 +401,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
             len(cached_feeds), lane_key, (b-a), total_size
         )
-
+        return cached_feeds
+        
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
 
@@ -458,6 +459,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         parser.add_argument(
             '--pages',
             help="Number of pages to cache for each collection. Default: %d" % default_pages,
+            type=int,
             default=default_pages
         )
         return parser
@@ -487,6 +489,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         self.collections = self.filter_facets(
             parsed.collection, Facets.COLLECTION_FACET_GROUP_NAME
         )
+        self.pages = parsed.pages
         return parsed
         
     def do_generate(self, lane):
@@ -522,7 +525,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                         order=sort_order, order_ascending=True
                     )
                     title = lane.display_name
-                    for pagenum in (0, 2):
+                    for pagenum in range(0, self.pages):
                         yield AcquisitionFeed.page(
                             self._db, title, url, lane, annotator, 
                             facets=facets, pagination=pagination,
