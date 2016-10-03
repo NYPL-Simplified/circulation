@@ -268,7 +268,8 @@ class UpdateStaffPicksScript(Script):
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
-    def __init__(self):
+    def __init__(self, _db=None):
+        super(LaneSweeperScript, self).__init__(_db)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
@@ -304,14 +305,48 @@ class LaneSweeperScript(Script):
     def process_lane(self, lane):
         pass
 
+
 class CacheRepresentationPerLane(LaneSweeperScript):
 
     name = "Cache one representation per lane"
 
-    def __init__(self, max_depth=None):
-        self.max_depth = max_depth
-        super(CacheRepresentationPerLane, self).__init__()
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--language', 
+            help='Process only lanes that include books in this language.',
+            action='append'
+        )
+        parser.add_argument(
+            '--max-depth', 
+            help='Stop processing lanes once you reach this depth.',
+            type=int,
+            default=None
+        )
+        return parser
 
+    def __init__(self, _db=None, cmd_args=None):
+        super(CacheRepresentationPerLane, self).__init__(_db)
+        self.parse_args(cmd_args)
+        
+    def parse_args(self, cmd_args=None):
+        parser = self.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        self.languages = []
+        if parsed.language:
+            for language in parsed.language:
+                alpha = LanguageCodes.string_to_alpha_3(language)
+                if alpha:
+                    self.languages.append(alpha)
+                else:
+                    self.log.warn("Ignored unrecognized language code %s", alpha)
+        self.max_depth = parsed.max_depth        
+
+        # Return the parsed arguments in case a subclass needs to
+        # process more args.
+        return parsed
+    
     def should_process_lane(self, lane):
         if lane.name is None:
             return False
@@ -319,7 +354,23 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         if lane.parent is None and not isinstance(lane, Lane):
             return False
 
-        if self.max_depth and lane.depth > self.max_depth:
+        language_ok = False
+        if not self.languages:
+            # We are considering lanes for every single language.
+            language_ok = True
+        
+        if not lane.languages and not lane.exclude_languages:
+            # The lane has no language restrictions.
+            language_ok = True
+        
+        for language in self.languages:
+            if lane.includes_language(language):
+                language_ok = True
+                break
+        if not language_ok:
+            return False
+        
+        if self.max_depth is not None and lane.depth > self.max_depth:
             return False
 
         return True
@@ -343,10 +394,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         self.log.info(
             "Generating feed(s) for %s", lane_key
         )
-        cached_feeds = self.do_generate(lane)
+        cached_feeds = list(self.do_generate(lane))
         b = time.time()
-        if not isinstance(cached_feeds, list):
-            cached_feeds = [cached_feeds]
         total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
@@ -356,8 +405,90 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every facet list for this lane."""
 
-    name = "Cache first two pages of every facet list for each lane"
+    name = "Cache OPDS feeds"
 
+    @classmethod
+    def facet_settings(cls, group_name):
+        enabled = Configuration.enabled_facets(group_name)
+        default = Configuration.default_facet(group_name)
+        return enabled, default
+    
+    @classmethod
+    def arg_parser(cls):       
+        parser = CacheRepresentationPerLane.arg_parser()
+
+        enabled, default = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
+        order_help = 'Generate feeds for this ordering. Possible values: %s. Default: %s' % (
+            ", ".join(enabled), default
+        )
+        parser.add_argument(
+            '--order',
+            help=order_help,
+            action='append',
+            default=[],
+        )
+
+        enabled, default = cls.facet_settings(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        availability_help = 'Generate feeds for this availability setting. Possible values: %s. Default: %s' % (
+            ", ".join(enabled), default
+        )
+        parser.add_argument(
+            '--availability',
+            help=availability_help,
+            action='append',
+            default=[],
+        )
+
+        enabled, default = cls.facet_settings(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        collection_help = 'Generate feeds for this collection within each lane. Possible values: %s. Default: %s' % (
+            ", ".join(enabled), default
+        )
+        parser.add_argument(
+            '--collection',
+            help=collection_help,
+            action='append',
+            default=[],
+        )
+
+        default_pages = 2
+        parser.add_argument(
+            '--pages',
+            help="Number of pages to cache for each collection. Default: %d" % default_pages,
+            default=default_pages
+        )
+        return parser
+
+    def filter_facets(self, values, group_name):
+        allowable = Configuration.enabled_facets(group_name)
+        default = Configuration.default_facet(group_name)
+        if not values:
+            return [default]
+        
+        filtered = []
+        for v in values:
+            if v in allowable:
+                filtered.append(v)
+            else:
+                self.log.warn('Ignoring unrecognized value "%s"', v)
+        return filtered
+
+    def parse_args(self, cmd_args=None):
+        parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
+        self.orders = self.filter_facets(
+            parsed.order, Facets.ORDER_FACET_GROUP_NAME
+        )
+        self.availabilities = self.filter_facets(
+            parsed.availability, Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        self.collections = self.filter_facets(
+            parsed.collection, Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        return parsed
+        
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
@@ -382,23 +513,23 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
-        for sort_order in order_facets:
-            pagination = Pagination.default()
-            facets = Facets(
-                collection=collection, availability=availability,
-                order=sort_order, order_ascending=True
-            )
-            title = lane.display_name
-            for pagenum in (0, 2):
-                feeds.append(
-                    AcquisitionFeed.page(
-                        self._db, title, url, lane, annotator, 
-                        facets=facets, pagination=pagination,
-                        force_refresh=True
+        for sort_order in self.orders:
+            for availability in self.availabilities:
+                for collection in self.collections:
+                    pagination = Pagination.default()
+                    facets = Facets(
+                        collection=collection, availability=availability,
+                        order=sort_order, order_ascending=True
                     )
-                )
-                pagination = pagination.next_page
-        return feeds
+                    title = lane.display_name
+                    for pagenum in (0, 2):
+                        yield AcquisitionFeed.page(
+                            self._db, title, url, lane, annotator, 
+                            facets=facets, pagination=pagination,
+                            force_refresh=True
+                        )
+                        pagination = pagination.next_page
+
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
