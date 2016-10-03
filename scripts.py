@@ -324,6 +324,12 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             type=int,
             default=None
         )
+        parser.add_argument(
+            '--min-depth', 
+            help='Start processing lanes once you reach this depth.',
+            type=int,
+            default=1
+        )
         return parser
 
     def __init__(self, _db=None, cmd_args=None):
@@ -341,7 +347,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
                     self.languages.append(alpha)
                 else:
                     self.log.warn("Ignored unrecognized language code %s", alpha)
-        self.max_depth = parsed.max_depth        
+        self.max_depth = parsed.max_depth
+        self.min_depth = parsed.min_depth
 
         # Return the parsed arguments in case a subclass needs to
         # process more args.
@@ -372,7 +379,9 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         
         if self.max_depth is not None and lane.depth > self.max_depth:
             return False
-
+        if self.min_depth is not None and lane.depth < self.min_depth:
+            return False
+        
         return True
 
     def cache_url(self, annotator, lane, languages):
