@@ -202,6 +202,13 @@ def annotations():
 def annotation_detail(annotation_id):
     return app.manager.annotations.detail(annotation_id)
 
+@app.route('/annotations/<identifier_type>/<path:identifier>/', methods=['GET'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotations_for_work(identifier_type, identifier):
+    return app.manager.annotations.container_for_work(identifier_type, identifier)
+
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
