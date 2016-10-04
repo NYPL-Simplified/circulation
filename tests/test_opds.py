@@ -326,6 +326,19 @@ class TestOPDS(DatabaseTest):
             work.license_pools[0].presentation_edition.series = "Serious Cereal Series"
             confirm_related_books_link()
 
+    def test_acquisition_feed_includes_annotations_link(self):
+        w1 = self._work(with_open_access_download=True)
+        self._db.commit()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [w1], CirculationManagerAnnotator(
+                None, Fantasy, test_mode=True))
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed['entries']
+        [annotations_link] = [x for x in entry['links'] if x['rel'] == 'http://www.w3.org/ns/oa#annotationservice']
+        assert '/annotations' in annotations_link['href']
+        identifier = w1.license_pools[0].identifier
+        assert identifier.identifier in annotations_link['href']
+
     def test_active_loan_feed(self):
         patron = self.default_patron
         raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
