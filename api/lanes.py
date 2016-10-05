@@ -398,14 +398,35 @@ class QueryGeneratedLane(Lane):
             _db, full_name, parent=parent, **kwargs
         )
 
-    def apply_filters(self, qu, facets=None, pagination=None,
-            work_model=Work, edition_model=Edition):
-        """Incorporates additional filters to be run on a query of all Works
-        in the db or materialized view
+    def audiences_list_from_source(self, original_audience, strict=False):
+        if strict:
+            # Only return books of the same original audience. Useful for
+            # SeriesLane / series differentiation / more specific lanes.
+            if not original_audience:
+                return []
+            return [original_audience]
+        if (not original_audience or
+            original_audience in Classifier.AUDIENCES_ADULT):
+            return Classifier.AUDIENCES
+        if original_audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return Classifier.AUDIENCES_JUVENILE
+        else:
+            return Classifier.AUDIENCE_CHILDREN
 
-        :return: query
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+                      edition_model=Edition):
+        """Incorporates general filters that help determine which works can be
+        usefully presented to users with lane-specific queries that select
+        the works specific to the QueryGeneratedLane
+
+        :return: query or None
         """
-        raise NotImplementedError()
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Add lane-specific details to query and return the result.
+        qu = self.lane_query_hook(qu, work_model=work_model)
+        return qu
 
     def featured_works(self, use_materialized_works=True):
         """Find a random sample of books for the feed"""
@@ -425,19 +446,12 @@ class QueryGeneratedLane(Lane):
 
         return self.randomized_sample_works(query, use_min_size=True)
 
-    def audiences_list_from_source(self, original_audience, strict=False):
-        if not original_audience:
-            return []
-        if strict:
-            # Only return books of the same original audience. Useful for
-            # SeriesLane / series differentiation / more specific lanes.
-            return [original_audience]
-        if original_audience in Classifier.AUDIENCES_ADULT:
-            return Classifier.AUDIENCES
-        if original_audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return Classifier.AUDIENCES_JUVENILE
-        else:
-            return Classifier.AUDIENCE_CHILDREN
+    def lane_query_hook(self, qu, work_model=Work):
+        """Create the query specific to a subclass of  QueryGeneratedLane
+
+        :return: query or None
+        """
+        raise NotImplementedError()
 
 
 class LicensePoolBasedLane(QueryGeneratedLane):
@@ -541,7 +555,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
 
         return sublanes
 
-    def apply_filters(self, qu, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         # This lane is composed entirely of sublanes and
         # should only be used to create groups feeds.
         return None
@@ -572,12 +586,10 @@ class RecommendationLane(LicensePoolBasedLane):
             return metadata.recommendations
         return []
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
-
+    def lane_query_hook(self, qu, work_model=Work):
         if not self.recommendations:
             return None
 
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
         if work_model != Work:
             qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
@@ -597,9 +609,16 @@ class SeriesLane(QueryGeneratedLane):
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
         full_name = display_name = self.series
+
+        strict = True
+        if not (source_audience or parent):
+            # There's no source of audience information, so just send back
+            # whatever is found.
+            strict = False
+
         super(SeriesLane, self).__init__(
             _db, full_name, display_name=display_name,
-            source_audience=source_audience, parent=parent
+            source_audience=source_audience, strict=strict, parent=parent
         )
 
     @property
@@ -607,10 +626,9 @@ class SeriesLane(QueryGeneratedLane):
         kwargs = dict(series_name=self.series)
         return self.ROUTE, kwargs
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         if not self.series:
             return None
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
 
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
@@ -653,10 +671,9 @@ class ContributorLane(QueryGeneratedLane):
         kwargs = dict(contributor_name=self.contributor_name)
         return self.ROUTE, kwargs
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         if not self.contributor_name:
             return None
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
 
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).join(work_edition.contributions)

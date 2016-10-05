@@ -308,7 +308,6 @@ class TestRelatedBooksLane(DatabaseTest):
         [sublane] = result.sublanes
         eq_(luthor, sublane.contributor)
 
-
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
 
@@ -324,36 +323,86 @@ class LaneTest(DatabaseTest):
         """Tests resulting Lane.works() and Lane.materialized_works() results"""
 
         query = lane.works()
-        eq_(expected, query.all())
+        eq_(sorted(expected), sorted(query.all()))
 
         materialized_expected = expected
         if expected:
             materialized_expected = [work.id for work in expected]
         results = lane.materialized_works().all()
         materialized_results = [work.works_id for work in results]
-        eq_(materialized_expected, materialized_results)
+        eq_(sorted(materialized_expected), sorted(materialized_results))
+
+    def sample_works_for_each_audience(self):
+        """Create a work for each audience-type."""
+        works = list()
+        audiences = [
+            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT,
+            Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ]
+
+        for audience in audiences:
+            work = self._work(with_license_pool=True, audience=audience)
+            works.append(work)
+
+        return works
 
 
 class TestRecommendationLane(LaneTest):
 
-    def test_works_query(self):
-        # Prep an empty result.
+    def setup(self):
+        super(TestRecommendationLane, self).setup()
+        self.lp = self._work(with_license_pool=True).license_pools[0]
+
+    def generate_mock_api(self):
+        """Prep an empty NoveList result."""
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         metadata = Metadata(source)
+
         mock_api = MockNoveListAPI()
         mock_api.setup(metadata)
+        return mock_api
 
-        # With an empty result, the lane is empty.
-        work = self._work(with_license_pool=True)
-        lp = work.license_pools[0]
-        lane = RecommendationLane(self._db, lp, '', novelist_api=mock_api)
+    def test_works_query(self):
+        # Prep an empty result.
+        mock_api = self.generate_mock_api()
+
+        # With an empty recommendation result, the lane is empty.
+        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
         eq_(None, lane.works())
         eq_(None, lane.materialized_works())
 
+        # Resulting recommendations are returned when available, though.
         result = self._work(with_license_pool=True)
         lane.recommendations = [result.license_pools[0].identifier]
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [result])
+
+    def test_works_query_with_source_audience(self):
+
+        # If the lane is created with a source audience, it filters the
+        # recommendations appropriately.
+        works = self.sample_works_for_each_audience()
+        [children, ya, adult, adults_only] = works
+        recommendations = list()
+        for work in works:
+            recommendations.append(work.license_pools[0].identifier)
+
+        expected = {
+            Classifier.AUDIENCE_CHILDREN : [children],
+            Classifier.AUDIENCE_YOUNG_ADULT : [children, ya],
+            Classifier.AUDIENCE_ADULTS_ONLY : works
+        }
+
+        for audience, results in expected.items():
+            self.lp.work.audience = audience
+            SessionManager.refresh_materialized_views(self._db)
+
+            mock_api = self.generate_mock_api()
+            lane = RecommendationLane(
+                self._db, self.lp, '', novelist_api=mock_api
+            )
+            lane.recommendations = recommendations
+            self.assert_works_queries(lane, results)
 
 
 class TestSeriesLane(LaneTest):
@@ -393,6 +442,34 @@ class TestSeriesLane(LaneTest):
         w2.presentation_edition.series_position = 13
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1, w2])
+
+    def test_childrens_series_with_same_name_as_adult_series(self):
+        [children, ya, adult, adults_only] = self.sample_works_for_each_audience()
+
+        # Give them all the same series name.
+        series_name = "Monkey Business"
+        for work in [children, adult, adults_only]:
+            work.presentation_edition.series = series_name
+        SessionManager.refresh_materialized_views(self._db)
+
+        # SeriesLane only returns works that match a given audience.
+        children_lane = SeriesLane(
+            self._db, series_name, source_audience=Classifier.AUDIENCE_CHILDREN
+        )
+        self.assert_works_queries(children_lane, [children])
+
+        # It's strict about this, in an attempt to increase series accuracy.
+        # A request for adult material, only returns Adult material, not
+        # Adults Only material.
+        adult_lane = SeriesLane(
+            self._db, series_name, source_audience=Classifier.AUDIENCE_ADULT
+        )
+        self.assert_works_queries(adult_lane, [adult])
+
+        adult_lane = SeriesLane(
+            self._db, series_name, source_audience=Classifier.AUDIENCE_ADULTS_ONLY
+        )
+        self.assert_works_queries(adult_lane, [adults_only])
 
 
 class TestContributorLane(LaneTest):
@@ -449,3 +526,38 @@ class TestContributorLane(LaneTest):
         # only searches by name.
         lane = ContributorLane(self._db, 'Lois Lane')
         self.assert_works_queries(lane, [w3, w2])
+
+    def test_author_who_writes_for_multiple_audiences(self):
+        works = self.sample_works_for_each_audience()
+        [children, ya, adult, adults_only] = works
+
+        # Give them all the same contributor.
+        for work in works:
+            work.presentation_edition.contributions[0].contributor = self.contributor
+        SessionManager.refresh_materialized_views(self._db)
+
+        # Only childrens works are available in a ContributorLane with a
+        # Children audience source
+        children_lane = ContributorLane(
+            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_CHILDREN
+        )
+        self.assert_works_queries(children_lane, [children])
+
+        # Only juvenile works are available in a ContributorLane with a
+        # YA audience source
+        ya_lane = ContributorLane(
+            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        self.assert_works_queries(ya_lane, [children, ya])
+
+        # All of the works are shared for a ContributorLane source for
+        # Adult or Adults Only audiences.
+        adult_lane = ContributorLane(
+            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_ADULT
+        )
+        self.assert_works_queries(adult_lane, works)
+
+        adults_only_lane = ContributorLane(
+            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_ADULTS_ONLY
+        )
+        self.assert_works_queries(adults_only_lane, works)
