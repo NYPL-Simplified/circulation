@@ -208,7 +208,9 @@ class TestRelatedBooksLane(DatabaseTest):
 
     def setup(self):
         super(TestRelatedBooksLane, self).setup()
-        self.work = self._work(with_license_pool=True)
+        self.work = self._work(
+            with_license_pool=True, audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
         [self.lp] = self.work.license_pools
         self.edition = self.lp.presentation_edition
 
@@ -259,6 +261,11 @@ class TestRelatedBooksLane(DatabaseTest):
             mock_api.setup(response)
             result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
             eq_(3, len(result.sublanes))
+
+            # The book's audience list is passed down to all sublanes.
+            for sublane in result.sublanes:
+                eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
+
             contributor, recommendations, series = result.sublanes
             eq_(True, isinstance(recommendations, RecommendationLane))
             eq_(True, isinstance(series, SeriesLane))

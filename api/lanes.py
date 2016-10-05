@@ -391,11 +391,11 @@ class QueryGeneratedLane(Lane):
     MINIMUM_SAMPLE_SIZE = 1
 
     def __init__(self, _db, full_name, source_audience=None, strict=False,
-                 *args, **kwargs):
-        self.source_audience = source_audience
-        audiences = self.audiences_list_from_source(self.source_audience, strict)
+                 parent=None, **kwargs):
+        if not parent:
+            kwargs['audiences'] = self.audiences_list_from_source(source_audience, strict)
         super(QueryGeneratedLane, self).__init__(
-            _db, full_name, audiences=audiences, *args, **kwargs
+            _db, full_name, parent=parent, **kwargs
         )
 
     def apply_filters(self, qu, facets=None, pagination=None,
@@ -447,12 +447,13 @@ class LicensePoolBasedLane(QueryGeneratedLane):
     ROUTE = None
 
     def __init__(self, _db, license_pool, full_name,
-                 display_name=None, sublanes=[], invisible=False):
+                 display_name=None, sublanes=[], invisible=False, **kwargs):
         self.license_pool = license_pool
+        source_audience = license_pool.work.audience
         display_name = display_name or self.DISPLAY_NAME
         super(LicensePoolBasedLane, self).__init__(
-            _db, full_name, display_name=display_name,
-            sublanes=sublanes
+            _db, full_name, source_audience=source_audience,
+            display_name=display_name, sublanes=sublanes, **kwargs
         )
 
     @property
@@ -468,26 +469,27 @@ class LicensePoolBasedLane(QueryGeneratedLane):
 
 
 class RelatedBooksLane(LicensePoolBasedLane):
-    """A lane of Works all related to the Work of a particular LicensePool
+    """A lane of Works all related to the Work of a particular LicensePool.
 
-    Sublanes currently include a SeriesLane and a RecommendationLane"""
-
+    Sublanes currently include a ContributorLane, a SeriesLane and a
+    RecommendationLane
+    """
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
                  novelist_api=None):
+        super(RelatedBooksLane, self).__init__(
+            _db, license_pool, full_name,
+            display_name=display_name, invisible=True
+        )
         sublanes = self._get_sublanes(_db, license_pool, novelist_api=novelist_api)
         if not sublanes:
             edition = license_pool.presentation_edition
             raise ValueError(
                 "No related books for %s by %s" % (edition.title, edition.author)
             )
-        super(RelatedBooksLane, self).__init__(
-            _db, license_pool, full_name,
-            display_name=display_name, sublanes=sublanes,
-            invisible=True
-        )
+        self.set_sublanes(self._db, sublanes, [])
 
     def _get_sublanes(self, _db, license_pool, novelist_api=None):
         sublanes = list()
@@ -512,7 +514,8 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 contributor_name = contributor.sort_name
 
             contributor_lane = ContributorLane(
-                _db, contributor_name, contributor_id=contributor.id
+                _db, contributor_name, contributor_id=contributor.id,
+                parent=self
             )
             sublanes.append(contributor_lane)
 
@@ -522,7 +525,8 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 license_pool.work.title, license_pool.work.author
             )
             recommendation_lane = RecommendationLane(
-                _db, license_pool, lane_name, novelist_api=novelist_api
+                _db, license_pool, lane_name, novelist_api=novelist_api,
+                parent=self
             )
             if recommendation_lane.recommendations:
                 sublanes.append(recommendation_lane)
@@ -533,7 +537,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
         # Create a series sublane.
         series_name = edition.series
         if series_name:
-            sublanes.append(SeriesLane(_db, series_name))
+            sublanes.append(SeriesLane(_db, series_name, parent=self))
 
         return sublanes
 
@@ -551,10 +555,11 @@ class RecommendationLane(LicensePoolBasedLane):
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-            novelist_api=None):
+                 novelist_api=None, source_audience=None, parent=None):
         self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
-            _db, license_pool, full_name, display_name=display_name
+            _db, license_pool, full_name, display_name=display_name,
+            parent=parent
         )
         self.recommendations = self.fetch_recommendations()
 
@@ -587,13 +592,14 @@ class SeriesLane(QueryGeneratedLane):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, series_name):
+    def __init__(self, _db, series_name, source_audience=None, parent=None):
         if not series_name:
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
         full_name = display_name = self.series
         super(SeriesLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, full_name, display_name=display_name,
+            source_audience=source_audience, parent=parent
         )
 
     @property
@@ -620,7 +626,8 @@ class ContributorLane(QueryGeneratedLane):
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, contributor_name, contributor_id=None):
+    def __init__(self, _db, contributor_name, contributor_id=None,
+                 source_audience=None, parent=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
@@ -637,7 +644,8 @@ class ContributorLane(QueryGeneratedLane):
 
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, full_name, display_name=display_name,
+            source_audience=source_audience, parent=parent
         )
 
     @property
