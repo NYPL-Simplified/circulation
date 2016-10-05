@@ -101,19 +101,6 @@ class Facets(FacetConstants):
             yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
     @property
-    def depth(self):
-        """How deep is this lane in this site's hierarchy?
-
-        i.e. how many times do we have to follow .parent before we get None?
-        """
-        depth = 0
-        tmp = self
-        while tmp.parent:
-            depth += 1
-            tmp = tmp.parent
-        return depth
-
-    @property
     def query_string(self):
         return "&".join("=".join(x) for x in sorted(self.items()))
 
@@ -418,6 +405,19 @@ class Lane(object):
             key = ",".join("!" + l for l in self.exclude_languages)
         return key
 
+    @property
+    def depth(self):
+        """How deep is this lane in this site's hierarchy?
+
+        i.e. how many times do we have to follow .parent before we get None?
+        """
+        depth = 0
+        tmp = self
+        while tmp.parent:
+            depth += 1
+            tmp = tmp.parent
+        return depth
+    
     def __repr__(self):
         template = "<Lane name=%(full_name)s, display=%(display_name)s, media=%(media)s, genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(language)s, sublanes=%(sublanes)d>"
 
@@ -666,6 +666,22 @@ class Lane(object):
             raise UndefinedLane(
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
+
+    def includes_language(self, language):
+        """Would you expect to find books in the given language in
+        this lane?
+        """
+        if self.exclude_languages:
+            # We include all language except the ones on the exclude list.
+            if language in self.exclude_languages:
+                return False
+            else:
+                return True
+        if self.languages and language not in self.languages:
+            # We only include languages on the include list.
+            return False
+        # We include all languages.
+        return True        
 
     def audience_list_for_age_range(self, audiences, age_range, default=[]):
         """Normalize a value for Work.audience based on .age_range

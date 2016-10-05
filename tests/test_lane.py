@@ -281,6 +281,28 @@ class TestFacetsApply(DatabaseTest):
                 random_order.all())
 
 
+class TestLane(DatabaseTest):
+
+    def test_depth(self):
+        child = Lane(self._db, "sublane")
+        parent = Lane(self._db, "parent", sublanes=[child])
+        eq_(0, parent.depth)
+        eq_(1, child.depth)
+
+    def test_includes_language(self):
+        english_lane = Lane(self._db, self._str, languages=['eng'])
+        eq_(True, english_lane.includes_language('eng'))
+        eq_(False, english_lane.includes_language('fre'))
+
+        no_english_lane = Lane(self._db, self._str, exclude_languages=['eng'])
+        eq_(False, no_english_lane.includes_language('eng'))
+        eq_(True, no_english_lane.includes_language('fre'))
+
+        all_language_lane = Lane(self._db, self._str)
+        eq_(True, all_language_lane.includes_language('eng'))
+        eq_(True, all_language_lane.includes_language('fre'))
+
+        
 class TestLanes(DatabaseTest):
 
     def test_all_matching_genres(self):

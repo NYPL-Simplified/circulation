@@ -580,9 +580,9 @@ zza|||Zaza; Dimili; Dimli; Kirdki; Kirmanjki; Zazaki|zaza; dimili; dimli; kirdki
             language, place = locale.lower().split("-",1)
         else:
             language = locale
-        if language in cls.two_to_three:
+        if cls.two_to_three[language]:
             return cls.two_to_three[language]
-        elif language in cls.three_to_two:
+        elif cls.three_to_two[language]:
             # It's already ISO-639-2.
             return language
         return None
