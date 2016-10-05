@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """A simple SIP2 client.
 
 This client implements a very small part of SIP2 but is easily extensible.
@@ -25,6 +24,7 @@ limitations under the License.
 import datetime
 import logging
 from nose.tools import set_trace
+import re
 import socket
 import sys
 import time
@@ -36,7 +36,7 @@ class fixed(object):
         self.internal_name = internal_name
         self.length = length
 
-    def consume(self, data, in_progress, separator):
+    def consume(self, data, in_progress):
         value = data[:self.length]
         in_progress[self.internal_name] = value
         return data[self.length:]
@@ -72,28 +72,16 @@ class named(object):
         return named(self.internal_name, self.sip_code, True,
                      self.length, self.allow_multiple)
 
-    def consume(self, data, in_progress, separator):
-        keep_going = True
-        if self.req and not data.startswith(self.sip_code):
-            raise ValueError (
-                "Unexpected field code in response (expected %s): %s" % (
-                    self.sip_code, data
-                )                
+    def consume(self, value, in_progress):
+        if self.length and len(value) != self.length:
+            self.log.warn(
+                "Expected string of length %d for field %s, but got %r",
+                self.length, self.sip_code, value
             )
-        while data.startswith(self.sip_code):
-            data = data[len(self.sip_code):]
-            if self.length:
-                end = self.length
-            else:
-                end = data.index(separator)
-            value = data[:end]
-            data = data[end+1:]
-            if self.allow_multiple:
-                in_progress.setdefault(self.internal_name,[]).append(value)
-            else:
-                in_progress[self.internal_name] = value
-                break
-        return data
+        if self.allow_multiple:
+            in_progress.setdefault(self.internal_name,[]).append(value)
+        else:
+            in_progress[self.internal_name] = value
 
     @classmethod
     def _add(cls, internal_name, *args, **kwargs):
@@ -120,36 +108,45 @@ named._add("unavailable_hold_items", "CD", allow_multiple=True)
 named._add("home_address", "BD")
 named._add("email_address", "BE")
 named._add("phone_number", "BF")
+named._add("sequence_number", "AY")
 
 # The spec doesn't say there can be more than one screen message,
 # but I have seen it happen.
 named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
-class Constants:
+class Constants(object):
     UNKNOWN_LANGUAGE = "000"
     ENGLISH = "001"
 
-       
 class SIPClient(Constants):
 
     log = logging.getLogger("SIPClient")
-
+   
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, separator='|'):
         self.target_server = target_server
-        self.target_port = int(target_port)
+        if target_port:
+            self.target_port = int(target_port)
         # keeps count of messages sent to ACS
         self.sequence_index = 1
         self.socket = self.connect()
         self.separator = separator
+        if self.separator in '|.^$*+?{}()[]\\':
+            escaped = '\\' + self.separator
+        else:
+            escaped = self.separator
+        self.separator_re = re.compile(escaped + "([A-Z][A-Z])")
 
+        self.login_user_id = login_user_id
+        self.login_password = login_password
         if login_user_id and login_password:
-            # The first thing we need to do is log in.
-            response = self.login(login_user_id, login_password)
-            if response['login_ok'] != '1':
-                raise IOError("Error logging in: %r" % response)
-        
+            # We need to log in before using this server.
+            self.logged_in = False
+        else:
+            # We're implicitly logged in.
+            self.logged_in = True
+
     def connect(self):
         """Create a socket connection to a SIP server."""
         try:
@@ -162,13 +159,13 @@ class SIPClient(Constants):
         except socket.error, msg:
             self.log.warn("Error connecting to SIP server: %s", msg)
         return sock
-
+    
     def now(self):
         """Return the current time, formatted as SIP expects it."""
         now = datetime.datetime.utcnow()
         return datetime.datetime.strftime(now, "%Y%m%d0000%H%M%S")
 
-    def login_request(self, login_user_id, login_password, uid_algorithm="0",
+    def login_message(self, login_user_id, login_password, uid_algorithm="0",
                       pwd_algorithm="0"):
         message = ("93" + uid_algorithm + pwd_algorithm
                    + "CN" + login_user_id + self.separator
@@ -326,10 +323,71 @@ class SIPClient(Constants):
 
     def parse_response(self, data, expect_status_code, *fields):
         parsed = {}
-        print data
+        original_message = data
         data = self.consume_status_code(data, str(expect_status_code), parsed)
+
+        fields_by_sip_code = dict()
+
+        required_fields_not_seen = set()
+        
+        # We've been given a list of fixed-width fields (which must
+        # appear at the front) followed by a list of named fields
+        # (which are given in a certain order in the spec, but
+        # implementations often use a different order). Go through the
+        # list once, consume all the fixed-width fields, and build a
+        # dictionary of named fields to use later.
         for field in fields:
-            data = field.consume(data, parsed, self.separator)
+            if isinstance(field, fixed):
+                data = field.consume(data, parsed)
+            else:
+                fields_by_sip_code[field.sip_code] = field
+                if field.req:
+                    required_fields_not_seen.add(field)
+                
+        # We now have a list of named fields separated by
+        # self.separator.  Use separator_re to split the data in a way
+        # that minimizes the chances that embedded separators (which
+        # shouldn't happen, but do) don't ruin the data.
+        split = self.separator_re.split(data)
+
+        # We now have alternating field name/value pairs, except for
+        # the first field, which wasn't split because it didn't start with
+        # the separator. Fix that.
+        first_field = split[0]
+        first_field = [first_field[:2], first_field[2:]]
+        split = first_field + split[1:]
+        i = 0
+        while i < len(split):
+            sip_code = split[i]
+            value = split[i+1]
+            if sip_code == named.sequence_number.sip_code:
+                # Sequence number is special in two ways. First, it
+                # indicates the end of the message. Second, it doesn't
+                # have to be explicitly mentioned in the list of
+                # fields -- we always expect it.
+                named.sequence_number.consume(value, parsed)
+                break
+            else:
+                field = fields_by_sip_code.get(sip_code)
+                if field:
+                    field.consume(value, parsed)
+                    if field.required and field in required_fields_not_seen:
+                        required_fields_not_seen.remove(field)
+                else:
+                    # This is not an error.
+                    self.log.info(
+                        "Unknown SIP code %s occured in message %r", sip_code,
+                        original_message
+                    )
+            i += 2
+            field = fields_by_sip_code
+                
+        # If a named field is required and never showed up, sound the alarm.
+        for field in required_fields_not_seen:
+            self.log.error(
+                "Expected required field %s but did not find it.",
+                field.sip_code
+            )
         return parsed
     
     def consume_status_code(self, data, expected, in_progress):
@@ -343,7 +401,7 @@ class SIPClient(Constants):
 
     def login(self, *args, **kwargs):
         return self.make_request(
-            self.login_request, self.login_response_parser,
+            self.login_message, self.login_response_parser,
             *args, **kwargs
         )
     
@@ -354,6 +412,13 @@ class SIPClient(Constants):
         )
 
     def make_request(self, message_creator, parser, *args, **kwargs):
+        if not self.logged_in and message_creator != self.login_message:
+            # The first thing we need to do is log in.
+            response = self.login(self.login_user_id, self.login_password)
+            if response['login_ok'] != '1':
+                raise IOError("Error logging in: %r" % response)
+            self.logged_in = True
+            
         message = message_creator(*args, **kwargs)
         message = self.append_checksum(message)
         print "Sending message: %r" % message
@@ -367,11 +432,18 @@ class SIPClient(Constants):
         if (reset_sequence):
             self.sequence_index = 0
 
-        self.socket.send(data + '\r')
+        self.do_send(data + '\r')
         self.sequence_index += 1
         if self.sequence_index > 9:
             self.sequence_index = 0
-        
+
+    def do_send(self):
+        """Actually send data over the socket.
+
+        This method exists only to be subclassed by MockSIPClient.
+        """
+        self.socket.send(data + '\r')
+
     def read_message(self, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
 
@@ -419,4 +491,32 @@ class SIPClient(Constants):
         # before its AZ tag.  This is as should be.
         text += checksum
 
-        return text
+        return text      
+
+
+class MockSIPClient(SIPClient):
+
+    def __init__(self, login_user_id=None, login_password=None, separator="|"):
+        super(MockSIPClient, self).__init__(
+            None, None, login_user_id=login_user_id,
+            login_password=login_password, separator=separator
+        )
+        self.requests = []
+        self.responses = []
+
+    def queue_response(self, response):
+        self.responses.append(response)
+
+    def connect(self):
+        # No-op.
+        pass
+        
+    def do_send(self, data):
+        self.requests.append(data)
+    
+    def read_message(self):
+        """Read a response message off the queue."""
+        response = self.responses[0]
+        self.responses = self.responses[1:]
+        return response
+        
