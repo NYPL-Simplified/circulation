@@ -5,6 +5,7 @@ from . import (
     DatabaseTest,
 )
 
+from core.classifier import Classifier
 from core.lane import (
     Lane,
     LaneList,
@@ -28,6 +29,7 @@ from api.lanes import (
     lane_for_small_collection,
     lane_for_other_languages,
     ContributorLane,
+    QueryGeneratedLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -170,6 +172,36 @@ class TestLaneCreation(DatabaseTest):
             eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
                 [x.display_name for x in english_lane.sublanes.lanes]
             )
+
+
+class TestQueryGeneratedLane(DatabaseTest):
+
+    def test_initialization_sets_appropriate_audiences(self):
+        children_lane = QueryGeneratedLane(
+            self._db, '', source_audience=Classifier.AUDIENCE_CHILDREN
+        )
+        eq_(set([Classifier.AUDIENCE_CHILDREN]), children_lane.audiences)
+
+        ya_lane = QueryGeneratedLane(
+            self._db, '', source_audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        eq_(sorted(Classifier.AUDIENCES_JUVENILE), sorted(ya_lane.audiences))
+
+        adult_lane = QueryGeneratedLane(
+            self._db, '', source_audience=Classifier.AUDIENCE_ADULT
+        )
+        eq_(sorted(Classifier.AUDIENCES), sorted(adult_lane.audiences))
+
+        adults_only_lane = QueryGeneratedLane(
+            self._db, '', source_audience=Classifier.AUDIENCE_ADULTS_ONLY
+        )
+        eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
+
+        strict_adult_lane = QueryGeneratedLane(
+            self._db, '', source_audience=Classifier.AUDIENCE_ADULTS_ONLY,
+            strict=True
+        )
+        eq_(set([Classifier.AUDIENCE_ADULTS_ONLY]), strict_adult_lane.audiences)
 
 
 class TestRelatedBooksLane(DatabaseTest):

@@ -390,6 +390,14 @@ class QueryGeneratedLane(Lane):
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
 
+    def __init__(self, _db, full_name, source_audience=None, strict=False,
+                 *args, **kwargs):
+        self.source_audience = source_audience
+        audiences = self.audiences_list_from_source(self.source_audience, strict)
+        super(QueryGeneratedLane, self).__init__(
+            _db, full_name, audiences=audiences, *args, **kwargs
+        )
+
     def apply_filters(self, qu, facets=None, pagination=None,
             work_model=Work, edition_model=Edition):
         """Incorporates additional filters to be run on a query of all Works
@@ -416,6 +424,20 @@ class QueryGeneratedLane(Lane):
             return []
 
         return self.randomized_sample_works(query, use_min_size=True)
+
+    def audiences_list_from_source(self, original_audience, strict=False):
+        if not original_audience:
+            return []
+        if strict:
+            # Only return books of the same original audience. Useful for
+            # SeriesLane / series differentiation / more specific lanes.
+            return [original_audience]
+        if original_audience in Classifier.AUDIENCES_ADULT:
+            return Classifier.AUDIENCES
+        if original_audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return Classifier.AUDIENCES_JUVENILE
+        else:
+            return Classifier.AUDIENCE_CHILDREN
 
 
 class LicensePoolBasedLane(QueryGeneratedLane):
