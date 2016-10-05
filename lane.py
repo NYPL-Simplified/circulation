@@ -683,7 +683,7 @@ class Lane(object):
         # We include all languages.
         return True        
 
-    def audience_list_for_age_range(self, audiences, age_range, default=[]):
+    def audience_list_for_age_range(self, audiences, age_range):
         """Normalize a value for Work.audience based on .age_range
 
         If you set audience to Young Adult but age_range to 16-18,
@@ -915,7 +915,11 @@ class Lane(object):
             q = q.options(contains_eager(Work.work_genres))
             q = q.filter(WorkGenre.genre_id.in_(self.genre_ids))
 
-        q = self.apply_filters(q, facets, pagination, Work, Edition)
+        q = self.apply_filters(
+            q,
+            facets=facets, pagination=pagination,
+            work_model=Work, edition_model=Edition
+        )
         if not q:
             # apply_filters may return None in subclasses of Lane
             return None
@@ -946,7 +950,11 @@ class Lane(object):
 
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
-        q = self.apply_filters(q, facets, pagination, mw, mw)
+        q = self.apply_filters(
+                q,
+                facets=facets, pagination=pagination,
+                work_model=mw, edition_model=mw
+            )
         if not q:
             # apply_filters may return None in subclasses of Lane
             return None
