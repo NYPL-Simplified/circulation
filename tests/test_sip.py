@@ -9,13 +9,35 @@ from api.sip import (
     MockSIPClient,
 )
 
-class TestLogin(object):
+class TestBasicProtocol(object):
 
     def test_login_message(self):
         sip = MockSIPClient()
         message = sip.login_message('user_id', 'password')
         eq_('9300CNuser_id|COpassword', message)
+
+    def test_append_checksum(self):
+        sip = MockSIPClient()
+        sip.sequence_index=7
+        data = "some data"
+        new_data = sip.append_checksum(data)
+        eq_("some data|AY7AZFAAA", new_data)
+
+    def test_sequence_index_increment(self):
+        sip = MockSIPClient()
+        sip.sequence_index=0
+        sip.queue_response('941')
+        response = sip.login('user_id', 'password')
+        eq_(1, sip.sequence_index)
+
+        # Test wraparound from 9 to 0
+        sip.sequence_index=9
+        sip.queue_response('941')
+        response = sip.login('user_id', 'password')
+        eq_(0, sip.sequence_index)
         
+class TestLogin(object):
+       
     def test_login_success(self):
         sip = MockSIPClient()
         sip.queue_response('941')
@@ -66,22 +88,48 @@ class TestPatronResponse(object):
         self.sip = MockSIPClient()
     
     def test_incorrect_card_number(self):
-        data = "64Y                201610050000114734                        AOnypl |AA24014027290454|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE"
+        self.sip.queue_response("64Y                201610050000114734                        AOnypl |AA240|AENo Name|BLN|AFYour library card number cannot be located.|AY1AZC9DE")
+        response = self.sip.patron_information('identifier')
 
+        # Test some of the basic fields.
+        response['institution_id'] = 'nypl '
+        response['peronal_name'] = 'No Name'
+        response['screen_message'] = ['Your library card number cannot be located.']
+        response['valid_patron'] = 'N'
+        response['patron_status'] = 'Y             '
+        
     def test_hold_items(self):
-        data = "64              000201610050000114837000300020002000000000000AOnypl |AA23333086712393|AESCHOR, STEPHEN TODD|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|AS123|AS456|AS789|BEFOO@BAR.COM|AY1AZC848"
+        "A patron has multiple items on hold."
+        self.sip.queue_response("64              000201610050000114837000300020002000000000000AOnypl |AA233|AEBAR, FOO|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|AS123|AS456|AS789|BEFOO@BAR.COM|AY1AZC848")
+        response = self.sip.patron_information('identifier')        
+        eq_('0003', response['hold_items_count'])
+        eq_(['123', '456', '789'], response['hold_items'])
 
     def test_multiple_screen_messages(self):
-        data = "64Y  YYYYYYYYYYY000201610050000115040000000000000000000000000AOnypl |AA23333078284203|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY2AZ9B64"
+        self.sip.queue_response("64Y  YYYYYYYYYYY000201610050000115040000000000000000000000000AOnypl |AA233|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY2AZ9B64")
+        response = self.sip.patron_information('identifier')
+        eq_(2, len(response['screen_message']))
 
-    def test_expired_card(self):
-        data = "64Y             000201610050000115547000000000000000000000000AOnypl |AA23333078284203|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY2AZB98D"
-
-    def test_intervening_extension_fields(self):
+    def test_extension_field_captured(self):
         """This SIP2 message includes an extension field with the code XI.
         """
-        data = "64  Y           00020161005    122942000000000000000000000000AA24014027290454|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|CQN|PA20191004|PCAdult|PIAllowed|XI863715|AOBiblioTest|AY2AZ0000"
-
+        self.sip.queue_response("64  Y           00020161005    122942000000000000000000000000AA240|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|CQN|PA20191004|PCAdult|PIAllowed|XI86371|AOBiblioTest|AY2AZ0000")
+        response = self.sip.patron_information('identifier')
+        eq_(["86371"], response['XI'])
+       
     def test_embedded_pipe(self):
-        data = '64              000201610050000134405000000000000000000000000AOnypl |AA12345|AERICHARDSON, LEONARD|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEleona|rdr@|bar.com|AY1AZD1BB\r'
+        """In most cases we can handle data even if it contains embedded
+        instances of the separator character.
+        """
+        self.sip.queue_response('64              000201610050000134405000000000000000000000000AOnypl |AA12345|AERICHARDSON, LEONARD|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEleona|rdr@|bar.com|AY1AZD1BB\r')
+        response = self.sip.patron_information('identifier')
+        eq_("leona|rdr@|bar.com", response['email_address'])
 
+    def test_different_separator(self):
+        """When you create the SIPClient you get to specify which character
+        to use as the field separator.
+        """
+        sip = MockSIPClient(separator='^')
+        sip.queue_response("64Y                201610050000114734                        AOnypl ^AA240^AENo Name^BLN^AFYour library card number cannot be located.^AY1AZC9DE")
+        response = sip.patron_information('identifier')
+        eq_('240', response['patron_identifier'])

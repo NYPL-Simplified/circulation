@@ -369,16 +369,15 @@ class SIPClient(Constants):
                 break
             else:
                 field = fields_by_sip_code.get(sip_code)
-                if field:
-                    field.consume(value, parsed)
-                    if field.required and field in required_fields_not_seen:
-                        required_fields_not_seen.remove(field)
-                else:
-                    # This is not an error.
-                    self.log.info(
-                        "Unknown SIP code %s occured in message %r", sip_code,
-                        original_message
-                    )
+                if not field:
+                    # This is an extension field. Do the best we can.
+                    # This basically means storing it in the dictionary
+                    # under its SIP code.
+                    field = named(sip_code, sip_code, allow_multiple=True)
+
+                field.consume(value, parsed)
+                if field.required and field in required_fields_not_seen:
+                    required_fields_not_seen.remove(field)
             i += 2
             field = fields_by_sip_code
                 
