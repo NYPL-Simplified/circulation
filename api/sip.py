@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """A simple SIP2 client.
 
+Implementation is guided by the SIP2 specification:
+ http://multimedia.3m.com/mws/media/355361O/sip2-protocol.pdf
+
 This client implements a very small part of SIP2 but is easily extensible.
 
 This client is based on sip2talk.py. Here is the original licensing
@@ -19,6 +22,7 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
 """
 
 import datetime
@@ -29,6 +33,11 @@ import socket
 import sys
 import time
 
+# SIP2 defines a large number of fields which are used in request and
+# response messages. This library focuses on defining the response
+# fields in a way that makes it easy to reliably parse response
+# documents.
+
 class fixed(object):
     """A fixed-width field in a SIP2 response."""
 
@@ -37,6 +46,14 @@ class fixed(object):
         self.length = length
 
     def consume(self, data, in_progress):
+        """Eat the value of this field from the beginning of the input string.
+
+        :param in_progress: A dictionary mapping field names to
+        values. The value of this field will be stored in this
+        dictionary.
+
+        :return: The input string with the value of this field removed.
+        """
         value = data[:self.length]
         in_progress[self.internal_name] = value
         return data[self.length:]
@@ -69,10 +86,29 @@ class named(object):
         
     @property
     def required(self):
+        """Create a variant of this field which is required.
+
+        Most variable-length fields are not required, but certain
+        fields may be required in the responses to specific types of
+        requests.
+
+        To check whether a specific field actually is required, check
+        `field.req`.
+        """
         return named(self.internal_name, self.sip_code, True,
                      self.length, self.allow_multiple)
 
     def consume(self, value, in_progress):
+        """Process the given value for this field.
+
+        Unlike fixed.consume, this does not modify the value -- it's
+        assumed that this particular field value has already been
+        isolated from the response string.
+
+        :param in_progress: A dictionary mapping field names to
+        values. The value of this field will be stored in this
+        dictionary.
+        """
         if self.length and len(value) != self.length:
             self.log.warn(
                 "Expected string of length %d for field %s, but got %r",
@@ -115,10 +151,12 @@ named._add("sequence_number", "AY")
 named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
+
 class Constants(object):
     UNKNOWN_LANGUAGE = "000"
     ENGLISH = "001"
 
+    
 class SIPClient(Constants):
 
     log = logging.getLogger("SIPClient")
@@ -132,6 +170,9 @@ class SIPClient(Constants):
         self.sequence_index = 1
         self.socket = self.connect()
         self.separator = separator
+
+        # Turn the separator string into a regular expression that splits
+        # field name/field value pairs on the separator string.
         if self.separator in '|.^$*+?{}()[]\\':
             escaped = '\\' + self.separator
         else:
@@ -147,6 +188,23 @@ class SIPClient(Constants):
             # We're implicitly logged in.
             self.logged_in = True
 
+
+    def login(self, *args, **kwargs):
+        """Log in to the SIP server."""
+        return self.make_request(
+            self.login_message, self.login_response_parser,
+            *args, **kwargs
+        )
+    
+    def patron_information(self, *args, **kwargs):
+        """Get information about a patron, possibly also verifying their 
+        password.
+        """
+        return self.make_request(
+            self.patron_information_request, self.patron_information_parser,
+            *args, **kwargs
+        )
+            
     def connect(self):
         """Create a socket connection to a SIP server."""
         try:
@@ -159,52 +217,43 @@ class SIPClient(Constants):
         except socket.error, msg:
             self.log.warn("Error connecting to SIP server: %s", msg)
         return sock
-    
-    def now(self):
-        """Return the current time, formatted as SIP expects it."""
-        now = datetime.datetime.utcnow()
-        return datetime.datetime.strftime(now, "%Y%m%d0000%H%M%S")
+
+    def make_request(self, message_creator, parser, *args, **kwargs):
+        """Send a request to a SIP server and parse the response.
+        
+        :param message_creator: A function that creates the message to send.
+        :param parser: A function that parses the response message.
+        """
+        if not self.logged_in and message_creator != self.login_message:
+            # The first thing we need to do is log in.
+            response = self.login(self.login_user_id, self.login_password)
+            if response['login_ok'] != '1':
+                raise IOError("Error logging in: %r" % response)
+            self.logged_in = True
+            
+        message = message_creator(*args, **kwargs)
+        message = self.append_checksum(message)
+        # print "Sending message: %r" % message
+        self.send(message)
+        response = self.read_message()
+        # print "Response: %r" % response
+        return parser(response)
 
     def login_message(self, login_user_id, login_password, uid_algorithm="0",
                       pwd_algorithm="0"):
+        """Generate a message for logging in to a SIP server."""
         message = ("93" + uid_algorithm + pwd_algorithm
                    + "CN" + login_user_id + self.separator
                    + "CO" + login_password)
         return message      
 
     def login_response_parser(self, message):
+        """Parse the response from a login message."""
         return self.parse_response(
             message,
             94,
             fixed.login_ok
         )
-    
-    def summary(self, hold_items=False, overdue_items=False,
-                charged_items=False, fine_items=False, recall_items=False,
-                unavailable_holds=False):
-        """Generate a summary: a 10-character query string for requesting
-        detailed information about a patron's relationship with items.
-        """
-        summary = ""
-        for item in (
-                hold_items, overdue_items,
-                charged_items, fine_items, recall_items,
-                unavailable_holds
-        ):
-            if item:
-                summary += "Y"
-            else:
-                summary += " "
-        # The last four spaces are always empty.
-        summary += '    '
-        if summary.count('Y') > 1:
-            # This violates the spec but in my tests it seemed to
-            # work, so we'll allow it.
-            self.log.warn(
-                'Summary requested too many kinds of detailed information: %s' %
-                summary
-            )
-        return summary
 
     def patron_information_request(
             self, patron_identifier, patron_password="", institution_id="",
@@ -242,7 +291,7 @@ class SIPClient(Constants):
 
     def patron_information_parser(self, data):
         """
-        Sent in response to the Patron Information Request, and a superset of the Patron Status message.
+        Parse the message sent in response to a patron information request.
         
         Format of message expected from ILS:
         64<patron status><language><transaction date><hold items count><overdue items count>
@@ -322,6 +371,12 @@ class SIPClient(Constants):
         )
 
     def parse_response(self, data, expect_status_code, *fields):
+        """Verify that the given response string starts with the expected
+        status code. Then extract the values of both fixed-width and
+        named fields.
+
+        :param return: A dictionary containing the parsed-out information.
+        """
         parsed = {}
         original_message = data
         data = self.consume_status_code(data, str(expect_status_code), parsed)
@@ -330,12 +385,16 @@ class SIPClient(Constants):
 
         required_fields_not_seen = set()
         
-        # We've been given a list of fixed-width fields (which must
-        # appear at the front) followed by a list of named fields
-        # (which are given in a certain order in the spec, but
-        # implementations often use a different order). Go through the
-        # list once, consume all the fixed-width fields, and build a
-        # dictionary of named fields to use later.
+        # We've been given a list of unnamed fixed-width fields (which
+        # must appear at the front) followed by a list of named
+        # fields. Named fields must appear after the fixed-width
+        # fields but otherwise may appear in any order, some of them
+        # multiple times. Some named fields may themselves have a
+        # fixed-width requirement.
+        #
+        # Go through the list once, consume all the unnamed
+        # fixed-width fields, and build a dictionary of named fields
+        # to use later.
         for field in fields:
             if isinstance(field, fixed):
                 data = field.consume(data, parsed)
@@ -357,6 +416,9 @@ class SIPClient(Constants):
         first_field = [first_field[:2], first_field[2:]]
         split = first_field + split[1:]
         i = 0
+
+        # Now go through each name/value pair, find the corresponding
+        # field object, and process it.
         while i < len(split):
             sip_code = split[i]
             value = split[i+1]
@@ -390,6 +452,9 @@ class SIPClient(Constants):
         return parsed
     
     def consume_status_code(self, data, expected, in_progress):
+        """Pull the status code (the first two characters) off the 
+        given response string, and verify that it's as expected.
+        """
         status_code = data[:2]
         in_progress['_status'] = status_code
         if status_code != expected:
@@ -398,40 +463,47 @@ class SIPClient(Constants):
             )
         return data[2:]
 
-    def login(self, *args, **kwargs):
-        return self.make_request(
-            self.login_message, self.login_response_parser,
-            *args, **kwargs
-        )
+    def now(self):
+        """Return the current time, formatted as SIP expects it."""
+        now = datetime.datetime.utcnow()
+        return datetime.datetime.strftime(now, "%Y%m%d0000%H%M%S")
     
-    def patron_information(self, *args, **kwargs):
-        return self.make_request(
-            self.patron_information_request, self.patron_information_parser,
-            *args, **kwargs
-        )
-
-    def make_request(self, message_creator, parser, *args, **kwargs):
-        if not self.logged_in and message_creator != self.login_message:
-            # The first thing we need to do is log in.
-            response = self.login(self.login_user_id, self.login_password)
-            if response['login_ok'] != '1':
-                raise IOError("Error logging in: %r" % response)
-            self.logged_in = True
-            
-        message = message_creator(*args, **kwargs)
-        message = self.append_checksum(message)
-        print "Sending message: %r" % message
-        self.send(message)
-        response = self.read_message()
-        print "Response: %r" % response
-        return parser(response)
-
+    def summary(self, hold_items=False, overdue_items=False,
+                charged_items=False, fine_items=False, recall_items=False,
+                unavailable_holds=False):
+        """Generate the SIP summary field: a 10-character query string for
+        requesting detailed information about a patron's relationship
+        with items.
+        """
+        summary = ""
+        for item in (
+                hold_items, overdue_items,
+                charged_items, fine_items, recall_items,
+                unavailable_holds
+        ):
+            if item:
+                summary += "Y"
+            else:
+                summary += " "
+        # The last four spaces are always empty.
+        summary += '    '
+        if summary.count('Y') > 1:
+            # This violates the spec but in my tests it seemed to
+            # work, so we'll allow it.
+            self.log.warn(
+                'Summary requested too many kinds of detailed information: %s' %
+                summary
+            )
+        return summary
+    
     def send(self, data, reset_sequence=False):
         """Send a message over the socket and update the sequence index."""
         if (reset_sequence):
             self.sequence_index = 0
 
         self.do_send(data + '\r')
+
+        # Sequence numbers range from 0-9 and wrap around.
         self.sequence_index += 1
         if self.sequence_index > 9:
             self.sequence_index = 0
@@ -494,7 +566,10 @@ class SIPClient(Constants):
 
 
 class MockSIPClient(SIPClient):
-
+    """A SIP client that relies on canned responses rather than a socket
+    connection.
+    """
+    
     def __init__(self, login_user_id=None, login_password=None, separator="|"):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
