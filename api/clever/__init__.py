@@ -167,7 +167,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
             type=self.TOKEN_TYPE, patron=patron,
         )
         credential.credential = token
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(weeks=6)
+        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.token_expiration_days)
 
         return token, dict(name=user_data.get('name'))
 
