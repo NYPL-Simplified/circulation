@@ -135,9 +135,16 @@ class TestPatronResponse(object):
     def test_extension_field_captured(self):
         """This SIP2 message includes an extension field with the code XI.
         """
-        self.sip.queue_response("64  Y           00020161005    122942000000000000000000000000AA240|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|CQN|PA20191004|PCAdult|PIAllowed|XI86371|AOBiblioTest|AY2AZ0000")
+        self.sip.queue_response("64  Y           00020161005    122942000000000000000000000000AA240|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|CQN|PA20191004|PCAdult|PIAllowed|XI86371|AOBiblioTest|ZZfoo|AY2AZ0000")
         response = self.sip.patron_information('identifier')
-        eq_(["86371"], response['XI'])
+
+        # The Evergreen XI field is a known extension and is picked up
+        # as internal_id.
+        eq_("86371", response['internal_id'])
+
+        # The ZZ field is an unknown extension and is captured under
+        # its SIP code.
+        eq_(["foo"], response['ZZ'])
        
     def test_embedded_pipe(self):
         """In most cases we can handle data even if it contains embedded

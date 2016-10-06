@@ -153,12 +153,16 @@ named._add("sequence_number", "AY")
 named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
+# SIP extensions found in Evergreen installation.
+named._add('patron_expire', 'PA')
+named._add('patron_class', 'PC')
+named._add('internet_privileges', 'PI')
+named._add('internal_id', 'XI')
 
 class RequestResend(IOError):
     """There was an error transmitting a message and the server has requested
     that it be resent.
     """
-
 
 class Constants(object):
     UNKNOWN_LANGUAGE = "000"
@@ -386,6 +390,12 @@ class SIPClient(Constants):
             named.phone_number,
             named.screen_message,
             named.print_line,
+
+            # Add common extension fields.
+            named.patron_expire,
+            named.patron_class,
+            named.internet_privileges,
+            named.internal_id
         )
 
     def parse_response(self, data, expect_status_code, *fields):
