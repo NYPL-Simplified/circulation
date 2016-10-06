@@ -18,31 +18,53 @@ class TestBasicProtocol(object):
 
     def test_append_checksum(self):
         sip = MockSIPClient()
-        sip.sequence_index=7
+        sip.sequence_number=7
         data = "some data"
         new_data = sip.append_checksum(data)
         eq_("some data|AY7AZFAAA", new_data)
 
-    def test_sequence_index_increment(self):
+    def test_sequence_number_increment(self):
         sip = MockSIPClient()
-        sip.sequence_index=0
+        sip.sequence_number=0
         sip.queue_response('941')
         response = sip.login('user_id', 'password')
-        eq_(1, sip.sequence_index)
+        eq_(1, sip.sequence_number)
 
         # Test wraparound from 9 to 0
-        sip.sequence_index=9
+        sip.sequence_number=9
         sip.queue_response('941')
         response = sip.login('user_id', 'password')
-        eq_(0, sip.sequence_index)
-        
+        eq_(0, sip.sequence_number)
+
+    def test_resend(self):
+        sip = MockSIPClient()
+        # The first response will be a request to resend the original message.
+        sip.queue_response('96')
+        # The second response will indicate a successful login.
+        sip.queue_response('941')
+
+        response = sip.login('user_id', 'password')
+
+        # We made two requests for a single login command.
+        req1, req2 = sip.requests
+        # The first request includes a sequence ID field, "AY1".
+        eq_('9300CNuser_id|COpassword|AY1AZF555\r', req1)
+
+        # The second request does not include a sequence ID field. As
+        # a consequence its checksum is different.
+        eq_('9300CNuser_id|COpassword|AZF620\r', req2)
+
+        # The login request eventually succeeded.
+        eq_({'login_ok': '1', '_status': '94'}, response)
+
+
 class TestLogin(object):
        
     def test_login_success(self):
         sip = MockSIPClient()
         sip.queue_response('941')
         response = sip.login('user_id', 'password')
-        eq_('1', response['login_ok'])
+        eq_({'login_ok': '1', '_status': '94'}, response)
 
     def test_login_failure(self):
         sip = MockSIPClient()

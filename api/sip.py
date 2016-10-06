@@ -154,6 +154,12 @@ named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
 
+class RequestResend(IOError):
+    """There was an error transmitting a message and the server has requested
+    that it be resent.
+    """
+
+
 class Constants(object):
     UNKNOWN_LANGUAGE = "000"
     ENGLISH = "001"
@@ -169,7 +175,7 @@ class SIPClient(Constants):
         if target_port:
             self.target_port = int(target_port)
         # keeps count of messages sent to ACS
-        self.sequence_index = 1
+        self.sequence_number = 1
         self.socket = self.connect()
         self.separator = separator
 
@@ -233,13 +239,23 @@ class SIPClient(Constants):
                 raise IOError("Error logging in: %r" % response)
             self.logged_in = True
             
-        message = message_creator(*args, **kwargs)
-        message = self.append_checksum(message)
-        # print "Sending message: %r" % message
-        self.send(message)
-        response = self.read_message()
-        # print "Response: %r" % response
-        return parser(response)
+        original_message = message_creator(*args, **kwargs)
+        message_with_checksum = self.append_checksum(original_message)
+        parsed = None
+        while not parsed:
+            self.send(message_with_checksum)
+            response = self.read_message()
+            try:
+                parsed = parser(response)
+            except RequestResend, e:
+                # Instead of a response, we got a request to resend the data.
+                # Generate a new checksum but do not include or increment
+                # the sequence number.
+                message_with_checksum = self.append_checksum(
+                    original_message, include_sequence_number=False
+                )
+        return parsed
+        
 
     def login_message(self, login_user_id, login_password, uid_algorithm="0",
                       pwd_algorithm="0"):
@@ -433,15 +449,16 @@ class SIPClient(Constants):
                 break
             else:
                 field = fields_by_sip_code.get(sip_code)
-                if not field:
+                if sip_code and not field:
                     # This is an extension field. Do the best we can.
                     # This basically means storing it in the dictionary
                     # under its SIP code.
                     field = named(sip_code, sip_code, allow_multiple=True)
 
-                field.consume(value, parsed)
-                if field.required and field in required_fields_not_seen:
-                    required_fields_not_seen.remove(field)
+                if field:
+                    field.consume(value, parsed)
+                    if field.required and field in required_fields_not_seen:
+                        required_fields_not_seen.remove(field)
             i += 2
             field = fields_by_sip_code
                 
@@ -460,9 +477,12 @@ class SIPClient(Constants):
         status_code = data[:2]
         in_progress['_status'] = status_code
         if status_code != expected:
-            raise IOError(
-                "Unexpected status code %s: %s" % (status_code, data)
-            )
+            if status_code == '96': # Request SC Resend
+                raise RequestResend()
+            else:
+                raise IOError(
+                    "Unexpected status code %s: %s" % (status_code, data)
+                )
         return data[2:]
 
     def now(self):
@@ -501,14 +521,9 @@ class SIPClient(Constants):
     def send(self, data, reset_sequence=False):
         """Send a message over the socket and update the sequence index."""
         if (reset_sequence):
-            self.sequence_index = 0
+            self.sequence_number = 0
 
         self.do_send(data + '\r')
-
-        # Sequence numbers range from 0-9 and wrap around.
-        self.sequence_index += 1
-        if self.sequence_index > 9:
-            self.sequence_index = 0
 
     def do_send(self, data):
         """Actually send data over the socket.
@@ -537,20 +552,32 @@ class SIPClient(Constants):
 
         return data
   
-    def append_checksum(self, text, skip_index=False):
+    def append_checksum(self, text, include_sequence_number=True):
         """Calculates checksum for passed-in message, and returns the message
-        with the checksum appended.  If we're using sequence_indexes,
-        then appends the current index to the message.  Some
-        communications (s.a. "repeat last communication" requests)
-        should not have sequence indices.
+        with the checksum appended.
+
+        :param include_sequence_number: If this is true, include the
+        current sequence number in the message, just before the
+        checksum, and increment the sequence number. If this is false,
+        do not include or increment the sequence number.
 
         When error checking is enabled between the ACS and the SC, 
-        each SC->ACS message is labeled with a sequence index (1, 2, 3, ...).
+        each SC->ACS message is labeled with a sequence number (0, 1, 2, ...).
         When responding, the ACS tells the SC which sequence message it's 
         responding to.
         """
-        if not skip_index:
-            text = text + self.separator + "AY" + str(self.sequence_index) + "AZ"
+
+        text += self.separator
+        
+        if include_sequence_number:
+            text += "AY" + str(self.sequence_number)
+            # Sequence numbers range from 0-9 and wrap around.
+            self.sequence_number += 1
+            if self.sequence_number > 9:
+                self.sequence_number = 0
+            
+        # Finally, add the checksum.
+        text += "AZ"
 
         check = 0
         for each in text:
