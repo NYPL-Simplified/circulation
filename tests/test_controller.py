@@ -1299,7 +1299,8 @@ class TestWorkController(CirculationControllerTest):
         )
 
         self.lp.presentation_edition.series = "Around the World"
-        self.french_1.presentation_edition.series = "Around the World"
+        same_series = self._work(with_license_pool=True)
+        same_series.presentation_edition.series = "Around the World"
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
@@ -1332,7 +1333,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(True, href.endswith(expected))
 
         # The other book in the series is in the series feed.
-        [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
+        [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
         title, href = collection_link(e2)
         eq_("Around the World", title)
         expected_series_link = urllib.quote('series/Around the World')
