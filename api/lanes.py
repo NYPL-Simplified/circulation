@@ -421,8 +421,16 @@ class QueryGeneratedLane(Lane):
 
         :return: query or None
         """
+        # Only show works that can be borrowed or reserved.
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Only show works for the proper audiences.
+        if self.audiences:
+            qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Only show works in the source language.
+        if self.languages:
+            qu = qu.filter(edition_model.language.in_(self.languages))
 
         # Add lane-specific details to query and return the result.
         qu = self.lane_query_hook(qu, work_model=work_model)
@@ -464,10 +472,13 @@ class LicensePoolBasedLane(QueryGeneratedLane):
                  display_name=None, sublanes=[], invisible=False, **kwargs):
         self.license_pool = license_pool
         source_audience = license_pool.work.audience
+        languages = [license_pool.presentation_edition.language]
         display_name = display_name or self.DISPLAY_NAME
+
         super(LicensePoolBasedLane, self).__init__(
             _db, full_name, source_audience=source_audience,
-            display_name=display_name, sublanes=sublanes, **kwargs
+            display_name=display_name, sublanes=sublanes, languages=languages,
+            **kwargs
         )
 
     @property
@@ -604,7 +615,8 @@ class SeriesLane(QueryGeneratedLane):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, series_name, source_audience=None, parent=None):
+    def __init__(self, _db, series_name, source_audience=None,
+                 parent=None, languages=None):
         if not series_name:
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
@@ -617,8 +629,9 @@ class SeriesLane(QueryGeneratedLane):
             strict = False
 
         super(SeriesLane, self).__init__(
-            _db, full_name, display_name=display_name,
-            source_audience=source_audience, strict=strict, parent=parent
+            _db, full_name, display_name=display_name, parent=parent,
+            source_audience=source_audience, strict=strict,
+            languages=languages
         )
 
     @property
@@ -645,7 +658,7 @@ class ContributorLane(QueryGeneratedLane):
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
     def __init__(self, _db, contributor_name, contributor_id=None,
-                 source_audience=None, parent=None):
+                 source_audience=None, parent=None, languages=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
@@ -662,8 +675,8 @@ class ContributorLane(QueryGeneratedLane):
 
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
-            _db, full_name, display_name=display_name,
-            source_audience=source_audience, parent=parent
+            _db, full_name, display_name=display_name, parent=parent,
+            source_audience=source_audience, languages=languages
         )
 
     @property

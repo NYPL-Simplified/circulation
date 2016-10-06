@@ -262,8 +262,10 @@ class TestRelatedBooksLane(DatabaseTest):
             result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
             eq_(3, len(result.sublanes))
 
-            # The book's audience list is passed down to all sublanes.
+            # The book's language and audience list is passed down to all sublanes.
+            eq_(['eng'], result.languages)
             for sublane in result.sublanes:
+                eq_(result.languages, sublane.languages)
                 eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
 
             contributor, recommendations, series = result.sublanes
@@ -404,6 +406,32 @@ class TestRecommendationLane(LaneTest):
             lane.recommendations = recommendations
             self.assert_works_queries(lane, results)
 
+    def test_works_query_with_source_language(self):
+        # Prepare a number of works with different languages.
+        eng = self._work(with_license_pool=True, language='eng')
+        fre = self._work(with_license_pool=True, language='fre')
+        spa = self._work(with_license_pool=True, language='spa')
+        SessionManager.refresh_materialized_views(self._db)
+
+        # They're all returned as recommendations from NoveList Select.
+        recommendations = list()
+        for work in [eng, fre, spa]:
+            recommendations.append(work.license_pools[0].identifier)
+
+        # But only the work that matches the source work is included.
+        mock_api = self.generate_mock_api()
+        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane.recommendations = recommendations
+        self.assert_works_queries(lane, [eng])
+
+        # It doesn't matter the language.
+        self.lp.presentation_edition.language = 'fre'
+        SessionManager.refresh_materialized_views(self._db)
+        mock_api = self.generate_mock_api()
+        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane.recommendations = recommendations
+        self.assert_works_queries(lane, [fre])
+
 
 class TestSeriesLane(LaneTest):
 
@@ -442,6 +470,18 @@ class TestSeriesLane(LaneTest):
         w2.presentation_edition.series_position = 13
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1, w2])
+
+        # If the lane is created with languages, works in other languages
+        # aren't included.
+        fre = self._work(with_license_pool=True, language='fre')
+        spa = self._work(with_license_pool=True, language='spa')
+        for work in [fre, spa]:
+            work.presentation_edition.series = series_name
+        SessionManager.refresh_materialized_views(self._db)
+
+        lane.languages = ['fre', 'spa']
+        self.assert_works_queries(lane, [fre, spa])
+
 
     def test_childrens_series_with_same_name_as_adult_series(self):
         [children, ya, adult, adults_only] = self.sample_works_for_each_audience()
@@ -527,7 +567,22 @@ class TestContributorLane(LaneTest):
         lane = ContributorLane(self._db, 'Lois Lane')
         self.assert_works_queries(lane, [w3, w2])
 
-    def test_author_who_writes_for_multiple_audiences(self):
+        # If the lane is created with languages, works in other languages
+        # aren't included.
+        fre = self._work(with_license_pool=True, language='fre')
+        spa = self._work(with_license_pool=True, language='spa')
+        for work in [fre, spa]:
+            main_contribution = work.presentation_edition.contributions[0]
+            main_contribution.contributor = self.contributor
+        SessionManager.refresh_materialized_views(self._db)
+
+        lane = ContributorLane(self._db, 'Lois Lane', languages=['eng'])
+        self.assert_works_queries(lane, [w3, w2])
+
+        lane.languages = ['fre', 'spa']
+        self.assert_works_queries(lane, [fre, spa])
+
+    def test_works_query_accounts_for_source_audience(self):
         works = self.sample_works_for_each_audience()
         [children, ya, adult, adults_only] = works
 
