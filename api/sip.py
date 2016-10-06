@@ -46,13 +46,15 @@ class fixed(object):
         self.length = length
 
     def consume(self, data, in_progress):
-        """Eat the value of this field from the beginning of the input string.
+        """Remove the value of this field from the beginning of the 
+        input string, and store it in the given dictionary.
 
         :param in_progress: A dictionary mapping field names to
         values. The value of this field will be stored in this
         dictionary.
 
-        :return: The input string with the value of this field removed.
+        :return: The original input string, after the value of this
+        field has been removed.
         """
         value = data[:self.length]
         in_progress[self.internal_name] = value
@@ -458,7 +460,7 @@ class SIPClient(Constants):
         status_code = data[:2]
         in_progress['_status'] = status_code
         if status_code != expected:
-            raise ValueError(
+            raise IOError(
                 "Unexpected status code %s: %s" % (status_code, data)
             )
         return data[2:]
@@ -508,12 +510,12 @@ class SIPClient(Constants):
         if self.sequence_index > 9:
             self.sequence_index = 0
 
-    def do_send(self):
+    def do_send(self, data):
         """Actually send data over the socket.
 
         This method exists only to be subclassed by MockSIPClient.
         """
-        self.socket.send(data + '\r')
+        self.socket.send(data)
 
     def read_message(self, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
