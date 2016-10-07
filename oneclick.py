@@ -148,12 +148,9 @@ class OneClickAPI(object):
     https://api.oneclickdigital.us/v1/libraries/1931/media/all
     get
 
-    search
-    &availability=available
-    &page-index=2
-    &title=dragon&page-size=2&page-index=2
-    /search?pageIndex=1&mediatype=ebook&author=Alexander%20Mccall%20Smith&title=Tea%20Time%20for%20the%20Traditionally%20Built&availability=available
-    get
+
+    http://api.oneclickdigital.us/v1/libraries/1931/media/9780307378101
+
     '''
 
     def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
@@ -181,7 +178,7 @@ class OneClickAPI(object):
         if mediatype:
             args['media-type'] = mediatype
         if genres:
-            args['genre'] = '/'.join(genres)
+            args['genre'] = genres
         if audience:
             args['audience'] = audience
         if availability:
@@ -200,16 +197,22 @@ class OneClickAPI(object):
 
 
 
-    def get_available(self):
+    def get_all_available_through_search(self):
         """
-        Gets a list of ebook items this library has access to.
+        Gets a list of ebook and eaudio items this library has access to, that are currently
+        available to lend.  Uses the "availability" facet of the search function.
+        An alternative to self.get_availability_info().
         Calls paged search until done.
         Uses minimal verbosity for result set.
 
-        :return A dictionary representation of the response, containing item count information and ebook item - interest pairs.
+        Note:  Some libraries can see other libraries' catalogs, even if the patron 
+        cannot checkout the items.  The library ownership information is in the "interest" 
+        fields of the response.
+
+        :return A dictionary representation of the response, containing catalog count and ebook item - interest pairs.
         """
         page = 0;
-        response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], author="Alexander Mccall Smith")
+        response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0])
 
         respdict = response.json()
         if not respdict:
@@ -219,24 +222,44 @@ class OneClickAPI(object):
             raise IOError("OneClick availability response not parseable - has no page counts.")
         page_index = respdict['pageIndex']
         page_count = respdict['pageCount']
-        print "pageIndex=%s" % str(page_index)
-        print "pageCount=%s" % str(page_count)
-        print "resultSetCount=%s" % str(respdict['resultSetCount'])
-        for iteminterest in respdict['items']:
-            print "item=%s" % iteminterest['item']['title']
 
         while (page_count > (page_index+1)):
             page_index += 1
-            response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], page_index=page_index, author="Alexander Mccall Smith")
+            response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], page_index=page_index)
             tempdict = response.json()
             if not ('items' in tempdict):
                 raise IOError("OneClick availability response not parseable - has no next dict.")
             item_interest_pairs = tempdict['items']
-            for iteminterest in item_interest_pairs:
-                print "item=%s" % iteminterest['item']['title']
             respdict['items'].append(item_interest_pairs)
 
         return respdict
+
+
+    def get_ebook_availability_info(self):
+        """
+        Gets a list of ebook items this library has access to, through the "availability" endpoint.
+        The response at this endpoint is laconic -- just enough fields per item to 
+        identify the item and declare it either available to lend or not.
+
+        :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
+        Example of returned item format:
+            "timeStamp": "2016-10-07T16:11:52.5887333Z"
+            "isbn": "9781420128567"
+            "mediaType": "eBook"
+            "availability": false
+            "titleId": 39764
+        """
+        url = self.base_url + "libraries/" + self.library_id + "/media/ebook/availability" 
+
+        args = dict()
+
+        response = self.request(url)
+
+        resplist = response.json()
+        if not resplist:
+            raise IOError("OneClick availability response not parseable - has no resplist.")
+
+        return resplist
 
 
     @classmethod
@@ -252,15 +275,11 @@ class OneClickAPI(object):
         return identifier_strings
 
 
-    '''
-    @classmethod
-    def parse_token(cls, token):
-        data = json.loads(token)
-        return data['access_token']
-    '''
+    def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
+        print "url= %s" % url
+        print "params= %s" % params
+        print "kwargs= %s" % kwargs
 
-    def _make_request(self, url, method, headers, data=None, params=None, 
-                      **kwargs):
         """Actually make an HTTP request."""
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
@@ -288,11 +307,13 @@ class MockOneClickAPI(OneClickAPI):
         self.responses = []
         self.requests = []
 
+
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
+
 
     def _make_request(self, url, *args, **kwargs):
         self.requests.append([url, args, kwargs])
@@ -304,28 +325,25 @@ class MockOneClickAPI(OneClickAPI):
 
 
 
-'''
 class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for Axis 360 records.
+    """Fill in bibliographic metadata for OneClick records.
 
-    Currently this is only used by BibliographicRefreshScript. It's
-    not normally necessary because the Axis 360 API combines
-    bibliographic and availability data.
     """
     def __init__(self, _db, input_identifier_types=None, 
-                 metadata_replacement_policy=None, axis_360_api=None,
+                 metadata_replacement_policy=None, oneclick_api=None,
                  **kwargs):
         # We ignore the value of input_identifier_types, but it's
         # passed in by RunCoverageProviderScript, so we accept it as
         # part of the signature.
         self.parser = BibliographicParser()
-        axis_360_api = axis_360_api or Axis360API(_db)
-        super(Axis360BibliographicCoverageProvider, self).__init__(
-            _db, axis_360_api, DataSource.AXIS_360,
+        oneclick_api = oneclick_api or OneClickAPI(_db)
+        super(OneClickBibliographicCoverageProvider, self).__init__(
+            _db, oneclick_api, DataSource.ONE_CLICK,
             batch_size=25, 
             metadata_replacement_policy=metadata_replacement_policy,
             **kwargs
         )
+
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
@@ -364,9 +382,9 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
     def process_item(self, identifier):
         results = self.process_batch([identifier])
         return results[0]
-'''
 
-'''
+
+
 class OneClickParser(XMLParser):
 
     NS = {"axis": "http://axis360api.baker-taylor.com/vendorAPI"}
@@ -395,7 +413,7 @@ class OneClickParser(XMLParser):
         except ValueError:
             pass
         return datetime.datetime.strptime(value, self.FULL_DATE_FORMAT)
-'''
+
 
 '''
 class BibliographicParser(OneClickParser):

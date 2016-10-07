@@ -63,7 +63,7 @@ class TestOneClickAPI(OneClickTest):
 
     def test_search(self):
         api = MockOneClickAPI(self._db)
-        data = self.get_data("available_response_single_book_1.json")
+        data = self.get_data("response_search_one_item_1.json")
         api.queue_response(status_code=200, content=data)
 
         response = api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
@@ -71,18 +71,25 @@ class TestOneClickAPI(OneClickTest):
         eq_(1, response_dictionary['pageCount'])
         eq_(u'Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
 
-    def test_get_available(self):
+    def test_get_all_available_through_search(self):
         api = MockOneClickAPI(self._db)
-        data = self.get_data("available_response_five_books_1.json")
+        data = self.get_data("response_search_five_items_1.json")
         api.queue_response(status_code=200, content=data)
 
-        response_dictionary = api.get_available()
+        response_dictionary = api.get_all_available_through_search()
         eq_(1, response_dictionary['pageCount'])
         eq_(5, response_dictionary['resultSetCount'])
         eq_(5, len(response_dictionary['items']))
         returned_titles = [iteminterest['item']['title'] for iteminterest in response_dictionary['items']]
         assert (u'Unusual Uses for Olive Oil' in returned_titles)
 
+    def test_get_ebook_availability_info(self):
+        api = MockOneClickAPI(self._db)
+        data = self.get_data("response_availability_ebook_1.json")
+        api.queue_response(status_code=200, content=data)
+        response_list = api.get_ebook_availability_info()
+        eq_(u'9781420128567', response_list[0]['isbn'])
+        eq_(False, response_list[0]['availability'])
 
 
 
