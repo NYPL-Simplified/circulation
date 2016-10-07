@@ -905,13 +905,25 @@ class AnnotationController(CirculationManagerController):
 
 class WorkController(CirculationManagerController):
 
-    def contributor(self, contributor_name):
+    def _lane_details(self, languages, audiences):
+        if languages:
+            languages = languages.split(',')
+        if audiences:
+            audiences = [urllib.unquote_plus(a) for a in audiences.split(',')]
+
+        return languages, audiences
+
+    def contributor(self, contributor_name, languages, audiences):
         """Serve a feed of books written by a particular author"""
 
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
-        lane = ContributorLane(self._db, contributor_name)
+        languages, audiences = self._lane_details(languages, audiences)
+
+        lane = ContributorLane(
+            self._db, contributor_name, languages=languages, audiences=audiences
+        )
 
         annotator = self.manager.annotator(lane)
         facets = load_facets_from_request()
@@ -1044,13 +1056,15 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
-    def series(self, series_name):
+    def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""
 
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
-        lane = SeriesLane(self._db, series_name)
+        languages, audiences = self._lane_details(languages, audiences)
+
+        lane = SeriesLane(self._db, series_name, languages, audiences)
         annotator = self.manager.annotator(lane)
         facets = load_facets_from_request()
         if isinstance(facets, ProblemDetail):

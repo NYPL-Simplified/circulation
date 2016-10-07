@@ -1,3 +1,5 @@
+import urllib
+
 from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
@@ -390,6 +392,15 @@ class QueryGeneratedLane(Lane):
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
 
+    @property
+    def audience_key(self):
+        """Translates audiences list into url-safe string"""
+        key = ''
+        if (self.audiences and
+            Classifier.AUDIENCES.difference(self.audiences)):
+            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            key += ','.join(audiences)
+        return key
 
     def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
                       edition_model=Edition):
@@ -622,7 +633,11 @@ class SeriesLane(QueryGeneratedLane):
 
     @property
     def url_arguments(self):
-        kwargs = dict(series_name=self.series)
+        kwargs = dict(
+            series_name=self.series,
+            languages=self.language_key,
+            audiences=self.audience_key
+        )
         return self.ROUTE, kwargs
 
     def lane_query_hook(self, qu, **kwargs):
@@ -662,12 +677,16 @@ class ContributorLane(QueryGeneratedLane):
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
             _db, full_name, display_name=display_name, parent=parent,
-            source_audience=source_audience, languages=languages
+            audiences=audiences, languages=languages
         )
 
     @property
     def url_arguments(self):
-        kwargs = dict(contributor_name=self.contributor_name)
+        kwargs = dict(
+            contributor_name=self.contributor_name,
+            languages=self.language_key,
+            audiences=self.audience_key
+        )
         return self.ROUTE, kwargs
 
     def lane_query_hook(self, qu, **kwargs):

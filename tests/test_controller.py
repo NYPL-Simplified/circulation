@@ -1162,7 +1162,7 @@ class TestWorkController(CirculationControllerTest):
     def test_contributor(self):
         # For works without a contributor name, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.contributor('')
+            response = self.manager.work_controller.contributor('', None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
@@ -1170,18 +1170,18 @@ class TestWorkController(CirculationControllerTest):
         
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad.
         with self.app.test_request_context('/?order=nosuchorder'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
         
         # If the work has a contributor, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -1336,15 +1336,15 @@ class TestWorkController(CirculationControllerTest):
         [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
         title, href = collection_link(e2)
         eq_("Around the World", title)
-        expected_series_link = urllib.quote('series/Around the World')
+        expected_series_link = urllib.quote('series/Around the World/eng/Adult')
         eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.
         [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
         title, href = collection_link(e3)
         eq_("John Bull", title)
-        expected_contributor_link = urllib.quote('contributor/John Bull')
-        eq_(True, href.endswith(expected_contributor_link))
+        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
+        eq_(True, href.endswith(unicode(expected_contributor_link)))
 
         # The original book is listed in both the series and contributor feeds.
         title_to_link_ending = {
@@ -1383,7 +1383,7 @@ class TestWorkController(CirculationControllerTest):
     def test_series(self):
         # If the work doesn't have a series, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series("")
+            response = self.manager.work_controller.series("", None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
@@ -1391,18 +1391,18 @@ class TestWorkController(CirculationControllerTest):
         self.lp.presentation_edition.series = series_name
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad
         with self.app.test_request_context('/?order=nosuchorder'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
             
         # If the work is in a series, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(series_name, feed['feed']['title'])
