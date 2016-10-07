@@ -167,6 +167,14 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
+        # Create another patron who has a different barcode and username,
+        # to verify that our authentication mechanism chooses the right patron
+        # and doesn't look up whoever happens to be in the database.
+        p = self._patron()
+        p.username = 'notalice'
+        p.authorization_identifier='111111111111'
+        self._db.commit()
+
         # Patron is in the db, now authenticate with barcode
         self.api.enqueue("pintest.good.html")
         alice = self.api.authenticated_patron(self._db, dict(username="44444444444447", password="4444"))

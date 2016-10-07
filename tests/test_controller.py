@@ -1024,6 +1024,49 @@ class TestAnnotationController(CirculationControllerTest):
             expected_time = format_date_time(mktime(annotation.timestamp.timetuple()))
             eq_(expected_time, response.headers['Last-Modified'])
 
+    def test_get_container_for_work(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+        annotation.timestamp = datetime.datetime.now()
+
+        other_annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self._identifier(),
+            motivation=Annotation.IDLING,
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.container_for_work(self.identifier.type, self.identifier.identifier)
+            eq_(200, response.status_code)
+
+            # We've been given an annotation container with one item.
+            container = json.loads(response.data)
+            eq_(1, container['total'])
+            item = container['first']['items'][0]
+            eq_(annotation.motivation, item['motivation'])
+
+            # The response has the appropriate headers - POST is not allowed.
+            allow_header = response.headers['Allow']
+            for method in ['GET', 'HEAD', 'OPTIONS']:
+                assert method in allow_header
+
+            assert 'Accept-Post' not in response.headers.keys()
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            expected_etag = 'W/"%s"' % annotation.timestamp
+            eq_(expected_etag, response.headers['ETag'])
+            expected_time = format_date_time(mktime(annotation.timestamp.timetuple()))
+            eq_(expected_time, response.headers['Last-Modified'])
+
     def test_post_to_container(self):
         data = dict()
         data['@context'] = AnnotationWriter.JSONLD_CONTEXT

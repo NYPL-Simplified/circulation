@@ -841,10 +841,13 @@ class LoanController(CirculationManagerController):
 
 class AnnotationController(CirculationManagerController):
 
-    def container(self):
+    def container(self, identifier=None, accept_post=True):
         headers = dict()
-        headers['Allow'] = 'GET,HEAD,OPTIONS,POST'
-        headers['Accept-Post'] = AnnotationWriter.CONTENT_TYPE
+        if accept_post:
+            headers['Allow'] = 'GET,HEAD,OPTIONS,POST'
+            headers['Accept-Post'] = AnnotationWriter.CONTENT_TYPE
+        else:
+            headers['Allow'] = 'GET,HEAD,OPTIONS'
 
         if flask.request.method=='HEAD':
             return Response(status=200, headers=headers)
@@ -856,7 +859,7 @@ class AnnotationController(CirculationManagerController):
                                '<http://www.w3.org/TR/annotation-protocol/>; rel="http://www.w3.org/ns/ldp#constrainedBy"']
             headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
 
-            container, timestamp = AnnotationWriter.annotation_container_for(patron)
+            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier=identifier)
             etag = 'W/""'
             if timestamp:
                 etag = 'W/"%s"' % timestamp
@@ -874,6 +877,11 @@ class AnnotationController(CirculationManagerController):
 
         return Response(status=200, headers=headers)
 
+    def container_for_work(self, identifier_type, identifier):
+        id_obj, ignore = Identifier.for_foreign_id(
+            self._db, identifier_type, identifier)
+        return self.container(identifier=id_obj, accept_post=False)
+ 
     def detail(self, annotation_id):
         headers = dict()
         headers['Allow'] = 'GET,HEAD,OPTIONS,DELETE'

@@ -6,6 +6,7 @@ import json
 import datetime
 
 from . import DatabaseTest
+from test_controller import ControllerTest
 
 from core.model import (
     Annotation,
@@ -18,113 +19,283 @@ from api.annotations import (
 )
 from api.problem_details import *
 
-class AnnotationWriterTest(DatabaseTest):
+class TestAnnotationWriter(ControllerTest):
+    def test_annotations_for(self):
+        patron = self._patron()
+
+        # The patron doesn't have any annotations yet.
+        eq_([], AnnotationWriter.annotations_for(patron))
+
+        identifier = self._identifier()
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=patron,
+            identifier=identifier,
+            motivation=Annotation.IDLING,
+        )
+
+        # The patron has one annotation.
+        eq_([annotation], AnnotationWriter.annotations_for(patron))
+        eq_([annotation], AnnotationWriter.annotations_for(patron, identifier))
+
+        identifier2 = self._identifier()
+        annotation2, ignore = create(
+            self._db, Annotation,
+            patron=patron,
+            identifier=identifier2,
+            motivation=Annotation.IDLING,
+        )
+
+        # The patron has two annotations for different identifiers.
+        eq_(set([annotation, annotation2]), set(AnnotationWriter.annotations_for(patron)))
+        eq_([annotation], AnnotationWriter.annotations_for(patron, identifier))
+        eq_([annotation2], AnnotationWriter.annotations_for(patron, identifier2))
+
     def test_annotation_container_for(self):
         patron = self._patron()
 
-        container, timestamp = AnnotationWriter.annotation_container_for(patron)
-        eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
-            set(container['@context']))
-        assert "annotations" in container["id"]
-        eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
-        eq_(0, container["total"])
+        with self.app.test_request_context("/"):
+            container, timestamp = AnnotationWriter.annotation_container_for(patron)
 
-        first_page = container["first"]
-        eq_("AnnotationPage", first_page["type"])
+            eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
+                set(container['@context']))
+            assert "annotations" in container["id"]
+            eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
+            eq_(0, container["total"])
 
-        # The page doesn't have a context, since it's in the container.
-        eq_(None, first_page.get('@context'))
+            first_page = container["first"]
+            eq_("AnnotationPage", first_page["type"])
 
-        # The patron doesn't have any annotations yet.
-        eq_(0, container['total'])
+            # The page doesn't have a context, since it's in the container.
+            eq_(None, first_page.get('@context'))
 
-        # There's no timestamp since the container is empty.
-        eq_(None, timestamp)
+            # The patron doesn't have any annotations yet.
+            eq_(0, container['total'])
 
-        # Now, add an annotation.
-        identifier = self._identifier()
-        annotation = create(
-            self._db, Annotation,
-            patron_id=patron.id,
-            identifier_id=identifier.id,
-            motivation=Annotation.IDLING,
-        )
-        annotation.timestamp = datetime.datetime.now()
+            # There's no timestamp since the container is empty.
+            eq_(None, timestamp)
+
+            # Now, add an annotation.
+            identifier = self._identifier()
+            annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+            annotation.timestamp = datetime.datetime.now()
+
+            container, timestamp = AnnotationWriter.annotation_container_for(patron)
+
+            # The context, type, and id stay the same.
+            eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
+                set(container['@context']))
+            assert "annotations" in container["id"]
+            assert identifier.identifier not in container["id"]
+            eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
+
+            # But now there is one item.
+            eq_(1, container['total'])
+
+            first_page = container["first"]
+
+            eq_(1, len(first_page['items']))
+
+            # The item doesn't have a context, since it's in the container.
+            first_item = first_page['items'][0]
+            eq_(None, first_item.get('@context'))
+
+            # The timestamp is the annotation's timestamp.
+            eq_(annotation.timestamp, timestamp)
+
+            # If the annotation is deleted, the container will be empty again.
+            annotation.active = False
+
+            container, timestamp = AnnotationWriter.annotation_container_for(patron)
+            eq_(0, container['total'])
+            eq_(None, timestamp)
         
-        container, timestamp = AnnotationWriter.annotation_container_for(patron)
+    def test_annotation_container_for_with_identifier(self):
+        patron = self._patron()
+        identifier = self._identifier()
 
-        # The context, type, and id stay the same.
-        eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
-            set(container['@context']))
-        assert "annotations" in container["id"]
-        eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
+        with self.app.test_request_context("/"):
+            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier)
 
-        # But now there is one item.
-        eq_(1, container['total'])
+            eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
+                set(container['@context']))
+            assert "annotations" in container["id"]
+            assert identifier.identifier in container["id"]
+            eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
+            eq_(0, container["total"])
 
-        first_page = container["first"]
+            first_page = container["first"]
+            eq_("AnnotationPage", first_page["type"])
 
-        eq_(1, len(first_page['items']))
+            # The page doesn't have a context, since it's in the container.
+            eq_(None, first_page.get('@context'))
 
-        # The item doesn't have a context, since it's in the container.
-        first_item = first_page['items'][0]
-        eq_(None, first_item['@context'])
+            # The patron doesn't have any annotations yet.
+            eq_(0, container['total'])
 
-        # The timestamp is the annotation's timestamp.
-        eq_(annotation.timestamp, timestamp)
+            # There's no timestamp since the container is empty.
+            eq_(None, timestamp)
 
-        # If the annotation is deleted, the container will be empty again.
-        annotation.active = False
+            # Now, add an annotation for this identifier, and one for a different identifier.
+            annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+            annotation.timestamp = datetime.datetime.now()
 
-        container, timestamp = AnnotationWriter.annotation_container_for(patron)
-        eq_(0, container['total'])
-        eq_(None, timestamp)
+            other_annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=self._identifier(),
+                motivation=Annotation.IDLING,
+            )
+
+            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier)
+
+            # The context, type, and id stay the same.
+            eq_(set([AnnotationWriter.JSONLD_CONTEXT, AnnotationWriter.LDP_CONTEXT]),
+                set(container['@context']))
+            assert "annotations" in container["id"]
+            assert identifier.identifier in container["id"]
+            eq_(set(["BasicContainer", "AnnotationCollection"]), set(container["type"]))
+
+            # But now there is one item.
+            eq_(1, container['total'])
+
+            first_page = container["first"]
+
+            eq_(1, len(first_page['items']))
+
+            # The item doesn't have a context, since it's in the container.
+            first_item = first_page['items'][0]
+            eq_(None, first_item.get('@context'))
+
+            # The timestamp is the annotation's timestamp.
+            eq_(annotation.timestamp, timestamp)
+
+            # If the annotation is deleted, the container will be empty again.
+            annotation.active = False
+
+            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier)
+            eq_(0, container['total'])
+            eq_(None, timestamp)
         
     def test_annotation_page_for(self):
         patron = self._patron()
-        page = AnnotationWriter.annotation_page_for(patron)
 
-        # The patron doesn't have any annotations, so the page is empty.
-        eq_(AnnotationWriter.JSONLD_CONTEXT, page['@context'])
-        assert 'annotations' in page['id']
-        eq_('AnnotationPage', page['type'])
-        eq_(0, len(page['items']))
+        with self.app.test_request_context("/"):
+            page = AnnotationWriter.annotation_page_for(patron)
 
-        # If we add an annotation, the page will have an item.
-        identifier = self._identifier()
-        annotation = create(
-            self._db, Annotation,
-            patron_id=patron.id,
-            identifier_id=identifier.id,
-            motivation=Annotation.IDLING,
-        )
+            # The patron doesn't have any annotations, so the page is empty.
+            eq_(AnnotationWriter.JSONLD_CONTEXT, page['@context'])
+            assert 'annotations' in page['id']
+            eq_('AnnotationPage', page['type'])
+            eq_(0, len(page['items']))
 
-        page = AnnotationWriter.annotation_page_for(patron)
+            # If we add an annotation, the page will have an item.
+            identifier = self._identifier()
+            annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
 
-        eq_(1, len(page['items']))
+            page = AnnotationWriter.annotation_page_for(patron)
 
-        # But if the annotation is deleted, the page will be empty again.
-        annotation.active = False
+            eq_(1, len(page['items']))
 
-        page = AnnotationWriter.annotation_page_for(patron)
+            # But if the annotation is deleted, the page will be empty again.
+            annotation.active = False
 
-        eq_(0, len(page['items']))
+            page = AnnotationWriter.annotation_page_for(patron)
 
-    def test_detail(self):
+            eq_(0, len(page['items']))
+
+    def test_annotation_page_for_with_identifier(self):
         patron = self._patron()
         identifier = self._identifier()
-        annotation = create(
+
+        with self.app.test_request_context("/"):
+            page = AnnotationWriter.annotation_page_for(patron, identifier)
+
+            # The patron doesn't have any annotations, so the page is empty.
+            eq_(AnnotationWriter.JSONLD_CONTEXT, page['@context'])
+            assert 'annotations' in page['id']
+            assert identifier.identifier in page['id']
+            eq_('AnnotationPage', page['type'])
+            eq_(0, len(page['items']))
+
+            # If we add an annotation, the page will have an item.
+            annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+
+            page = AnnotationWriter.annotation_page_for(patron, identifier)
+            eq_(1, len(page['items']))
+
+            # If a different identifier has an annotation, the page will still have one item.
+            other_annotation, ignore = create(
+                self._db, Annotation,
+                patron=patron,
+                identifier=self._identifier(),
+                motivation=Annotation.IDLING,
+            )
+
+            page = AnnotationWriter.annotation_page_for(patron, identifier)
+            eq_(1, len(page['items']))
+
+            # But if the annotation is deleted, the page will be empty again.
+            annotation.active = False
+
+            page = AnnotationWriter.annotation_page_for(patron, identifier)
+            eq_(0, len(page['items']))
+
+    def test_detail_target(self):
+        patron = self._patron()
+        identifier = self._identifier()
+        target = {
+            "http://www.w3.org/ns/oa#hasSource": {
+                "@id": identifier.urn
+            },
+            "http://www.w3.org/ns/oa#hasSelector": {
+                "@type": "http://www.w3.org/ns/oa#FragmentSelector",
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
+            }
+        }
+
+        annotation, ignore = create(
             self._db, Annotation,
-            patron_id=patron.id,
-            identifier_id=identifier.id,
+            patron=patron,
+            identifier=identifier,
             motivation=Annotation.IDLING,
+            target=json.dumps(target),
         )
 
-        detail = AnnotationWriter.detail(annotation)
-        assert "annotations/%i" % annotation.id in detail["id"]
-        eq_("Annotation", detail['type'])
-        eq_(Annotation.IDLING, detail['motivation'])
+        with self.app.test_request_context("/"):
+            detail = AnnotationWriter.detail(annotation)
 
+            assert "annotations/%i" % annotation.id in detail["id"]
+            eq_("Annotation", detail['type'])
+            eq_(Annotation.IDLING, detail['motivation'])
+            compacted_target = {
+                "source": identifier.urn,
+                "selector": {
+                    "type": "FragmentSelector",
+                    "value": "epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)"
+                }
+            }
+            eq_(compacted_target, detail["target"])
 
 class TestAnnotationParser(DatabaseTest):
     def setup(self):

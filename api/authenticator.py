@@ -265,16 +265,18 @@ class OAuthAuthenticator(Authenticator):
     TYPE = Authenticator.OAUTH
     # Subclass must define NAME, URI, and METHOD
 
-    def __init__(self, client_id, client_secret):
+    def __init__(self, client_id, client_secret, token_expiration_days=42):
         self.client_id = client_id
         self.client_secret = client_secret
+        self.token_expiration_days = token_expiration_days
 
     @classmethod
     def from_config(cls):
         config = Configuration.integration(cls.NAME, required=True)
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
-        return cls(client_id, client_secret)
+        token_expiration_days = config.get(Configuration.OAUTH_TOKEN_EXPIRATION_DAYS, 42)
+        return cls(client_id, client_secret, token_expiration_days)
 
     def external_authenticate_url(self, client_redirect_uri):
         raise NotImplementedError()
