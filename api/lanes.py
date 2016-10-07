@@ -390,28 +390,6 @@ class QueryGeneratedLane(Lane):
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
 
-    def __init__(self, _db, full_name, source_audience=None, strict=False,
-                 parent=None, **kwargs):
-        if not parent:
-            kwargs['audiences'] = self.audiences_list_from_source(source_audience, strict)
-        super(QueryGeneratedLane, self).__init__(
-            _db, full_name, parent=parent, **kwargs
-        )
-
-    def audiences_list_from_source(self, original_audience, strict=False):
-        if strict:
-            # Only return books of the same original audience. Useful for
-            # SeriesLane / series differentiation / more specific lanes.
-            if not original_audience:
-                return []
-            return [original_audience]
-        if (not original_audience or
-            original_audience in Classifier.AUDIENCES_ADULT):
-            return Classifier.AUDIENCES
-        if original_audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return Classifier.AUDIENCES_JUVENILE
-        else:
-            return Classifier.AUDIENCE_CHILDREN
 
     def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
                       edition_model=Edition):
@@ -471,14 +449,15 @@ class LicensePoolBasedLane(QueryGeneratedLane):
     def __init__(self, _db, license_pool, full_name,
                  display_name=None, sublanes=[], invisible=False, **kwargs):
         self.license_pool = license_pool
-        source_audience = license_pool.work.audience
         languages = [license_pool.presentation_edition.language]
+
+        self.source_audience = self.license_pool.work.audience
+        audiences = self.audiences_list_from_source()
         display_name = display_name or self.DISPLAY_NAME
 
         super(LicensePoolBasedLane, self).__init__(
-            _db, full_name, source_audience=source_audience,
-            display_name=display_name, sublanes=sublanes, languages=languages,
-            **kwargs
+            _db, full_name, display_name=display_name, sublanes=sublanes,
+            languages=languages, audiences=audiences, **kwargs
         )
 
     @property
@@ -491,6 +470,15 @@ class LicensePoolBasedLane(QueryGeneratedLane):
             identifier=self.license_pool.identifier.identifier
         )
         return self.ROUTE, kwargs
+
+    def audiences_list_from_source(self):
+        if (not self.source_audience or
+            self.source_audience in Classifier.AUDIENCES_ADULT):
+            return Classifier.AUDIENCES
+        if self.source_audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return Classifier.AUDIENCES_JUVENILE
+        else:
+            return Classifier.AUDIENCE_CHILDREN
 
 
 class RelatedBooksLane(LicensePoolBasedLane):
@@ -615,23 +603,21 @@ class SeriesLane(QueryGeneratedLane):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, series_name, source_audience=None,
-                 parent=None, languages=None):
+    def __init__(self, _db, series_name, parent=None, languages=None,
+                 audiences=None):
         if not series_name:
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
         full_name = display_name = self.series
 
-        strict = True
-        if not (source_audience or parent):
-            # There's no source of audience information, so just send back
-            # whatever is found.
-            strict = False
+        if parent:
+            # In an attempt to secure the accurate series, limit the
+            # listing to the source's audience sourced from parent data.
+            audiences = [parent.source_audience]
 
         super(SeriesLane, self).__init__(
-            _db, full_name, display_name=display_name, parent=parent,
-            source_audience=source_audience, strict=strict,
-            languages=languages
+            _db, full_name, parent=parent, display_name=display_name,
+            audiences=audiences, languages=languages
         )
 
     @property
@@ -658,7 +644,7 @@ class ContributorLane(QueryGeneratedLane):
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
     def __init__(self, _db, contributor_name, contributor_id=None,
-                 source_audience=None, parent=None, languages=None):
+                 parent=None, languages=None, audiences=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 

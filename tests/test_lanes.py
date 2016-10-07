@@ -29,7 +29,7 @@ from api.lanes import (
     lane_for_small_collection,
     lane_for_other_languages,
     ContributorLane,
-    QueryGeneratedLane,
+    LicensePoolBasedLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -174,34 +174,27 @@ class TestLaneCreation(DatabaseTest):
             )
 
 
-class TestQueryGeneratedLane(DatabaseTest):
+class TestLicensePoolBasedLane(DatabaseTest):
 
     def test_initialization_sets_appropriate_audiences(self):
-        children_lane = QueryGeneratedLane(
-            self._db, '', source_audience=Classifier.AUDIENCE_CHILDREN
-        )
+        work = self._work(with_license_pool=True)
+        lp = work.license_pools[0]
+
+        work.audience = Classifier.AUDIENCE_CHILDREN
+        children_lane = LicensePoolBasedLane(self._db, lp, '')
         eq_(set([Classifier.AUDIENCE_CHILDREN]), children_lane.audiences)
 
-        ya_lane = QueryGeneratedLane(
-            self._db, '', source_audience=Classifier.AUDIENCE_YOUNG_ADULT
-        )
+        work.audience = Classifier.AUDIENCE_YOUNG_ADULT
+        ya_lane = LicensePoolBasedLane(self._db, lp, '')
         eq_(sorted(Classifier.AUDIENCES_JUVENILE), sorted(ya_lane.audiences))
 
-        adult_lane = QueryGeneratedLane(
-            self._db, '', source_audience=Classifier.AUDIENCE_ADULT
-        )
+        work.audience = Classifier.AUDIENCE_ADULT
+        adult_lane = LicensePoolBasedLane(self._db, lp, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adult_lane.audiences))
 
-        adults_only_lane = QueryGeneratedLane(
-            self._db, '', source_audience=Classifier.AUDIENCE_ADULTS_ONLY
-        )
+        work.audience = Classifier.AUDIENCE_ADULTS_ONLY
+        adults_only_lane = LicensePoolBasedLane(self._db, lp, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
-
-        strict_adult_lane = QueryGeneratedLane(
-            self._db, '', source_audience=Classifier.AUDIENCE_ADULTS_ONLY,
-            strict=True
-        )
-        eq_(set([Classifier.AUDIENCE_ADULTS_ONLY]), strict_adult_lane.audiences)
 
 
 class TestRelatedBooksLane(DatabaseTest):
@@ -266,7 +259,10 @@ class TestRelatedBooksLane(DatabaseTest):
             eq_(['eng'], result.languages)
             for sublane in result.sublanes:
                 eq_(result.languages, sublane.languages)
-                eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
+                if isinstance(sublane, SeriesLane):
+                    eq_(set([result.source_audience]), sublane.audiences)
+                else:
+                    eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
 
             contributor, recommendations, series = result.sublanes
             eq_(True, isinstance(recommendations, RecommendationLane))
@@ -494,7 +490,7 @@ class TestSeriesLane(LaneTest):
 
         # SeriesLane only returns works that match a given audience.
         children_lane = SeriesLane(
-            self._db, series_name, source_audience=Classifier.AUDIENCE_CHILDREN
+            self._db, series_name, audiences=[Classifier.AUDIENCE_CHILDREN]
         )
         self.assert_works_queries(children_lane, [children])
 
@@ -502,12 +498,12 @@ class TestSeriesLane(LaneTest):
         # A request for adult material, only returns Adult material, not
         # Adults Only material.
         adult_lane = SeriesLane(
-            self._db, series_name, source_audience=Classifier.AUDIENCE_ADULT
+            self._db, series_name, audiences=[Classifier.AUDIENCE_ADULT]
         )
         self.assert_works_queries(adult_lane, [adult])
 
         adult_lane = SeriesLane(
-            self._db, series_name, source_audience=Classifier.AUDIENCE_ADULTS_ONLY
+            self._db, series_name, audiences=[Classifier.AUDIENCE_ADULTS_ONLY]
         )
         self.assert_works_queries(adult_lane, [adults_only])
 
@@ -584,7 +580,7 @@ class TestContributorLane(LaneTest):
 
     def test_works_query_accounts_for_source_audience(self):
         works = self.sample_works_for_each_audience()
-        [children, ya, adult, adults_only] = works
+        [children, ya] = works[:2]
 
         # Give them all the same contributor.
         for work in works:
@@ -594,25 +590,12 @@ class TestContributorLane(LaneTest):
         # Only childrens works are available in a ContributorLane with a
         # Children audience source
         children_lane = ContributorLane(
-            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_CHILDREN
+            self._db, 'Lois Lane', audiences=[Classifier.AUDIENCE_CHILDREN]
         )
         self.assert_works_queries(children_lane, [children])
 
-        # Only juvenile works are available in a ContributorLane with a
-        # YA audience source
+        # When more than one audience is requested, all are included.
         ya_lane = ContributorLane(
-            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_YOUNG_ADULT
+            self._db, 'Lois Lane', audiences=list(Classifier.AUDIENCES_JUVENILE)
         )
         self.assert_works_queries(ya_lane, [children, ya])
-
-        # All of the works are shared for a ContributorLane source for
-        # Adult or Adults Only audiences.
-        adult_lane = ContributorLane(
-            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_ADULT
-        )
-        self.assert_works_queries(adult_lane, works)
-
-        adults_only_lane = ContributorLane(
-            self._db, 'Lois Lane', source_audience=Classifier.AUDIENCE_ADULTS_ONLY
-        )
-        self.assert_works_queries(adults_only_lane, works)
