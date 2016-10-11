@@ -39,6 +39,7 @@ class Configuration(CoreConfiguration):
 
     OAUTH_CLIENT_ID = 'client_id'
     OAUTH_CLIENT_SECRET = 'client_secret'
+    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
     SECRET_KEY = "secret_key"
 
     MILLENIUM_INTEGRATION = "Millenium"

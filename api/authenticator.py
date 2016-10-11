@@ -170,14 +170,118 @@ class Authenticator(object):
               and isinstance(header, basestring)
               and 'bearer' in header.lower()):
             simplified_token = header.split(' ')[1]
-            provider_name, provider_token = self.decode_token(simplified_token)
-            provider = self.oauth_providers.get(provider_name)
-            if provider:
-                return provider.authenticated_patron(_db, provider_token)
-            else:
-                return UNKNOWN_OAUTH_PROVIDER
+            provider_name, provider_token = self.decode_bearer_token(
+                simplified_token
+            )
+            provider = self.oauth_provider_lookup(provider_name)
+            if isinstance(provider, ProblemDetail):
+                return provider
+            return provider.authenticated_patron(_db, provider_token)
         return UNSUPPORTED_AUTHENTICATION_MECHANISM
 
+    def oauth_provider_lookup(self, provider_name):
+        """Look up the OAuthAuthenticationProvider with the given name. If that
+        doesn't work, return an appropriate error.
+        """
+        if not self.oauth_providers:
+            return UNKNOWN_OAUTH_PROVIDER.detailed(
+                _("No OAuth providers are configured.")
+            )
+
+        if (not provider_name
+            or not provider_name in self.oauth_providers_by_name):
+            # They neglected to specify a provider, or specified one we
+            # don't support.
+            possibilities = ", ".join(self.oauth_providers_by_name.values())
+            return self._redirect_with_error(
+                redirect_uri,
+                UNKNOWN_OAUTH_PROVIDER.detailed(
+                    UNKNOWN_OAUTH_PROVIDER.detail +
+                    _(" The known providers are: %s") % possibilities)
+            )
+        return self.oauth_providers_by_name[provider_name]
+    
+    def oauth_authenticate(self, params):
+        """Redirect an unauthenticated patron to the appropriate OAuth
+        provider.
+
+        They will authenticate and end up in `Authenticator.oauth_callback`.
+
+        This method executes in an application context.
+        """
+        redirect_uri = params.get('redirect_uri') or ""
+
+        provider = self.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
+        return redirect(provider.external_authenticate_url(json.dumps(state)))
+
+    def oauth_callback(self, _db, params):
+        """Create a bearer token for a patron who has just authenticated with
+        one of our OAuth providers.
+
+        This method executes in an application context.
+        """
+        code = params.get('code')
+        state = params.get('state')
+        if not code or not state:
+            return INVALID_OAUTH_CALLBACK_PARAMETERS
+
+        client_redirect_uri = state.get('redirect_uri') or ""
+        provider_name = state.get('provider')
+        provider = self.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+
+        # Send the incoming parameters to the OAuth provider and get
+        # back a provider token.
+        provider_token, patron_info = provider.oauth_callback(_db, params)
+
+        # TODO: This patron_info seems like something we could use.
+        
+        if isinstance(provider_token, ProblemDetail):
+            return self._redirect_with_error(
+                client_redirect_uri, provider_token
+            )
+
+        # Turn the provider token into a bearer token we can give to
+        # the patron.
+        simplified_token = self.create_bearer_token(
+            provider.NAME, provider_token
+        )
+
+        params = dict(
+            access_token=simplified_token, patron_info=json.dumps(patron_info)
+        )
+        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
+
+    def create_bearer_token(self, provider_name, provider_token):
+        """Create a JSON web token with the provider name and access token.
+
+        The patron will use this as a bearer token in lieu of the
+        token we got from their OAuth provider (which probably expires
+        really quickly or has other undesirable properties).
+
+        When the patron uses the bearer token in the Authenticate header,
+        it will be decoded with `decode_bearer_token`.
+        """
+        payload = dict(
+            token=provider_token,
+            # I'm not sure this is the correct way to use an
+            # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
+            # Maybe we should use something custom instead.
+            iss=provider_name,
+        )
+        return jwt.encode(payload, self.secret_key, algorithm='HS256')
+
+    def decode_bearer_token(self, token):
+        """Extract auth provider name and access token from JSON web token."""
+        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+        provider_name = decoded['iss']
+        token = decoded['token']
+        return (provider_name, token)
+    
     def create_authentication_document(self):
         """Create the OPDS authentication document to be used when
         a request comes in with no authentication.
@@ -225,6 +329,12 @@ class Authenticator(object):
 
         return headers
 
+    def _redirect_with_error(self, redirect_uri, pd):
+        problem_detail_json = pd_json(pd.uri, pd.status_code, pd.title, pd.detail, pd.instance, pd.debug_message)
+        params = dict(error=problem_detail_json)
+        return redirect(redirect_uri + "#" + urllib.urlencode(params))
+
+
 
 class AuthenticationProvider(object):
     """Handle a specific patron authentication scheme.
@@ -265,7 +375,7 @@ class AuthenticationProvider(object):
         :param patron: A Patron object.
         """
         remote_patron_info = self.remote_patron_lookup(
-            self, PatronData.from_patron(patron)
+            PatronData.from_patron(patron)
         )
         remote_patron_info.apply(patron)
 
@@ -405,7 +515,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             return None
 
         # Check these credentials with the source of truth.
-        patrondata = self.remote_patron_lookup(username, password):
+        patrondata = self.remote_authenticate(username, password):
 
         if not patrondata or isinstance(patrondata, ProblemDetail):
             # Either an error occured or the credentials did not correspond
@@ -475,7 +585,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             )
         return valid
         
-    def remote_validation(self, credentials):
+    def remote_authenticate(self, username, password):
         """Does the source of truth approve of these credentials?
 
         :return: If the credentials are valid, but nothing more is
@@ -589,9 +699,18 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # CONFIGURATION_NAME, which is the name used to configure that
     # subclass in the configuration file. Failure to define this
     # attribute will result in an error in .from_config().
+    #
+    # Each subclass MUST define an attribute called TOKEN_TYPE, which
+    # is the name of the JWT given to patrons for use as a bearer
+    # token.
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
 
+    # After verifying the patron's OAuth credentials, we send them a
+    # token. This is how long they can use that token before we check
+    # their OAuth credentials again.
+    DEFAULT_TOKEN_EXPIRATION_DAYS = 42
+    
     @classmethod
     def from_config(cls):
         """Load this OAuthAuthenticationProvider from the site configuration.
@@ -602,13 +721,30 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
         secret_key = Configuration.get(Configuration.SECRET_KEY)
-        return cls(client_id, client_secret, secret_key)
+        token_expiration_days = config.get(
+            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
+            cls.DEFAULT_TOKEN_EXPIRATION_DAYS
+        )
+        return cls(client_id, client_secret, secret_key, token_expiration_days)
     
-    def __init__(self, client_id, client_secret, secret_key):
-        """Initialize this OAuthAuthenticationProvider."""
+    def __init__(self, client_id, client_secret, secret_key,
+                 token_expiration_days):
+        """Initialize this OAuthAuthenticationProvider.
+
+        :param client_id: An ID given to us by the OAuth provider, used
+            to distinguish between us and its other clients.
+        :param client_secret: A secret key given to us by the OAuth 
+            provider, used to validate that we are who we say we are.
+        :param secret_key: A key known only by this server, used to
+            sign the JWT that a Library Simplified client will pass
+            back as a bearer token.
+        :param token_expiration_days: The bearer tokens issued by this
+            authentication provider will be good for this many days.
+        """
         self.client_id = client_id
         self.client_secret = client_secret
-        self.secret_key = secret_key        
+        self.secret_key = secret_key
+        self.token_expiration_days = token_expiration_days
        
     def authenticated_patron(self, _db, token):
         """Go from an OAuth bearer token to an authenticated Patron.
@@ -619,25 +755,45 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         credentials do not authenticate any particular patron. A
         ProblemDetail if an error occurs.
         """
-        raise NotImplementedError()
+        credential = Credential.lookup_by_token(
+            _db, self._data_source(_db), self.TOKEN_TYPE, token
+        )
+        if credential:
+            return credential.patron
+
+        # This token wasn't in our database, or was expired. The
+        # patron will have to log in through the OAuth provider again
+        # to get a new token.
+        return None
 
     def remote_patron_lookup(self, patrondata):
         """By default, there is no way to ask an OAuth provider for
-        account-specific information about a specific patron.
+        information about a specific patron.
         """
         return None
-        
-    def external_authenticate_url(self, client_redirect_uri):
-        raise NotImplementedError()
 
+    def external_authenticate_url(self, client_redirect_uri):
+        """Generate the URL provided by the OAuth provider which will present
+        the patron with a login form.
+
+        :param client_redirect_url: Tell the OAuth provider to
+        redirect the authenticated patron to this URL.
+        """
+        raise NotImplementedError()
 
     def oauth_callback(self, _db, params):
+        """Send a set of parameters to the OAuth provider and get back 
+        a provider token.
+
+        :return: A 2-tuple (token, PatronInfo)
+        """
         raise NotImplementedError()
 
-    def patron_info(self, identifier):
-        return {}
-
     def _internal_authenticate_url(self):
+        """A patron who wants to log in should hit this URL on the circulation
+        manager. They'll be redirected to the OAuth provider, which will 
+        take care of it.
+        """
         return url_for('oauth_authenticate', _external=True, provider=self.NAME)
 
     def create_authentication_provider_document(self):
@@ -658,62 +814,3 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
-
-    def decode_token(self, token):
-        """Extract auth provider name and access token from JSON web token."""
-        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-        provider_name = decoded['iss']
-        token = decoded['token']
-        return (provider_name, token)
-
-    def create_token(self, provider_name, provider_token):
-        """Create a JSON web token with the provider name and access token."""
-        payload = dict(
-            token=provider_token,
-            # I'm not sure this is the correct way to use an
-            # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
-            # Maybe we should use something custom instead.
-            iss=provider_name,
-        )
-        return jwt.encode(payload, self.secret_key, algorithm='HS256')
-
-    
-    def _redirect_with_error(self, redirect_uri, pd):
-        problem_detail_json = pd_json(pd.uri, pd.status_code, pd.title, pd.detail, pd.instance, pd.debug_message)
-        params = dict(error=problem_detail_json)
-        return redirect(redirect_uri + "#" + urllib.urlencode(params))
-
-    def oauth_authenticate(self, params):
-        redirect_uri = params.get('redirect_uri') or ""
-        if self.oauth_providers and params.get('provider'):
-            for provider in self.oauth_providers:
-                if params.get('provider') == provider.NAME:
-                    state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
-                    return redirect(provider.external_authenticate_url(json.dumps(state)))
-        return self._redirect_with_error(
-            redirect_uri,
-            UNKNOWN_OAUTH_PROVIDER.detailed(UNKNOWN_OAUTH_PROVIDER.detail + _(" The known providers are: %s") % ", ".join([p.NAME for p in self.oauth_providers]))
-        )
-
-    def oauth_callback(self, _db, params):
-        if self.oauth_providers and params.get('code') and params.get('state'):
-            state = json.loads(params.get('state'))
-            client_redirect_uri = state.get('redirect_uri') or ""
-            for provider in self.oauth_providers:
-                if state.get('provider') == provider.NAME:
-                    provider_token, patron_info = provider.oauth_callback(_db, params)
-                    
-                    if isinstance(provider_token, ProblemDetail):
-                        return self._redirect_with_error(client_redirect_uri, provider_token)
-
-                    # Create an access token for our app that includes the provider
-                    # as well as the provider's token.
-                    simplified_token = self.create_token(provider.NAME, provider_token)
-
-                    params = dict(access_token=simplified_token, patron_info=json.dumps(patron_info))
-                    return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
-            return self._redirect_with_error(
-                client_redirect_uri,
-                UNKNOWN_OAUTH_PROVIDER.detailed(UNKNOWN_OAUTH_PROVIDER.detail + _(" The known providers are: %s") % ", ".join([p.NAME for p in self.oauth_providers]))
-            )
-        return INVALID_OAUTH_CALLBACK_PARAMETERS

@@ -3,6 +3,7 @@ import logging
 import base64
 import json
 import os
+import datetime
 from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
@@ -11,6 +12,8 @@ from api.config import Configuration
 from core.model import (
     get_one,
     get_one_or_create,
+    Credential,
+    DataSource,
     Patron,
 )
 from core.util.http import HTTP
@@ -56,7 +59,17 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
     # need to get a code from First Book instead.
     SUPPORTED_USER_TYPES = ['student', 'teacher']
 
+    TOKEN_TYPE = "Clever token"
+
     log = logging.getLogger('Clever authentication API')
+
+    def _data_source(self, _db):
+        data_source, is_new = get_one_or_create(
+            _db, DataSource, name="Clever",
+            offers_licenses=False,
+            primary_identifier_type=None
+        )
+        return data_source
 
     def _server_redirect_uri(self):
         return url_for('oauth_callback', _external=True)
@@ -64,22 +77,6 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
     def external_authenticate_url(self, state):
         """URL to direct patrons to for authentication with the provider."""
         return self.CLEVER_OAUTH_URL % (self.client_id, self._server_redirect_uri(), state)
-
-    def authenticated_patron(self, _db, token):
-        bearer_headers = {
-            'Authorization': 'Bearer %s' % token
-        }
-
-        result = self._get(self.CLEVER_API_BASE_URL + '/me', headers=bearer_headers)
-        if 'error' in result:
-            return None
-
-        data = result['data']
-
-        identifier = data['id']
-
-        patron = get_one(_db, Patron, authorization_identifier=identifier)
-        return patron
 
     def _get_token(self, payload, headers):
         return HTTP.post_with_timeout(self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers).json()
@@ -153,6 +150,13 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
             authorization_identifier=identifier,
         )
         patron._external_type = external_type
+
+        credential, is_new = get_one_or_create(
+            _db, Credential, data_source=self._data_source(_db),
+            type=self.TOKEN_TYPE, patron=patron,
+        )
+        credential.credential = token
+        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.token_expiration_days)
 
         return token, dict(name=user_data.get('name'))
 
