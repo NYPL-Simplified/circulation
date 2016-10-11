@@ -198,6 +198,13 @@ UNKNOWN_OAUTH_PROVIDER = pd(
     detail=_("The specified OAuth provider name isn't one of the known providers."),
 )
 
+UNSUPPORTED_AUTHENTICATION_MECHANISM = pd(
+    "http://librarysimplified.org/terms/problem/unsupported-authentication-mechanism",
+    status_code=400,
+    title=_("Unsupported authentication mechanism."),
+    detail=_("The specified authentication mechanism isn't supported."),
+)
+
 INVALID_ANALYTICS_EVENT_TYPE = pd(
     "http://librarysimplified.org/terms/problem/invalid-analytics-event-type",
     status_code=400,

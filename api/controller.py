@@ -534,18 +534,6 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(opds_feed)
 
 
-class AccountController(CirculationManagerController):
-
-    def account(self):
-        header = self.authorization_header()
-
-        patron_info = self.manager.auth.patron_info(header)
-        return json.dumps(dict(
-            username=patron_info.get('username', None),
-            barcode=patron_info.get('barcode'),
-        ))
-
-
 class LoanController(CirculationManagerController):
 
     def sync(self):

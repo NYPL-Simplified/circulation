@@ -174,13 +174,6 @@ def lane_search(languages, lane_name):
 def preload():
     return app.manager.opds_feeds.preload()
 
-@app.route('/me', methods=['GET'])
-@allows_patron_web()
-@requires_auth
-@returns_problem_detail
-def account():
-    return app.manager.accounts.account()
-
 @dir_route('/loans', methods=['GET', 'HEAD'])
 @allows_patron_web()
 @requires_auth
