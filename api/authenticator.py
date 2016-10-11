@@ -159,8 +159,9 @@ class Authenticator(object):
         header `Authorization`. Otherwise, this is the literal value
         of the `Authorization` HTTP header.
 
-        :return: A Patron, if one can be authenticated.
-        Otherwise, a ProblemDetail.
+        :return: A Patron, if one can be authenticated. None, if the
+        credentials do not authenticate any particular patron. A
+        ProblemDetail if an error occurs.
         """
         if (self.basic_auth_provider
             and isinstance(header, dict) and 'password' in header):
@@ -237,6 +238,11 @@ class AuthenticationProvider(object):
     """
     
     NAME = None
+
+    # A subclass MUST define a value for URI. This is used in the
+    # Authentication for OPDS document to distinguish between
+    # different types of authentication.
+    URI = None
     
     def authenticated_patron(self, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
@@ -288,6 +294,22 @@ class AuthenticationProvider(object):
         """
         raise NotImplementedError()
 
+    def create_authentication_provider_document(self):
+        """Create a stanza for use in an Authentication for OPDS document.
+
+        :return: A dictionary that can be associated with the
+        provider's .URI in an Authentication for OPDS document, e.g.:
+
+        { "providers": { [provider.URI] : [this document] } }
+
+        For example:
+
+
+
+        {"providers": {"http://librarysimplified.org/terms/auth/library-barcode": {"methods": {"http://opds-spec.org/auth/basic": {"labels": {"login": "Barcode", "password": "PIN"}}}}
+        """
+        raise NotImplementedError()
+
 
 class BasicAuthenticationProvider(AuthenticationProvider):
     """Verify a username/password, obtained through HTTP Basic Auth, with
@@ -299,9 +321,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # subclass in the configuration file. Failure to define this
     # attribute will result in an error in .from_config().
     
-    TYPE = Authenticator.BASIC_AUTH
     METHOD = "http://opds-spec.org/auth/basic"
-    NAME = _("Library Barcode")
+    DISPLAY_NAME = _("Library Barcode")
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
 
     AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
@@ -529,40 +550,86 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             patron = get_one(_db, Patron, **lookup)
             if patron:
                 # We found them!
-                break
-            
+                break            
         return patron
         
     def create_authentication_provider_document(self):
-        method_doc = dict(labels=dict(login=unicode(self.LOGIN_LABEL), password=unicode(self.PASSWORD_LABEL)))
+        """Create a stanza for use in an Authentication for OPDS document.
+
+        Example:
+        {
+            'name': 'My Basic Provider',
+            'methods': {
+                'http://opds-spec.org/auth/basic': {
+                    'labels': {'login': 'Barcode', 'password': 'PIN'}
+                 }
+            }
+        }
+        """
+        method_doc = dict(
+            labels=dict(login=unicode(self.LOGIN_LABEL),
+                        password=unicode(self.PASSWORD_LABEL))
+        )
         methods = {}
         methods[self.METHOD] = method_doc
-        return dict(name=unicode(self.NAME), methods=methods)
+        return dict(name=unicode(self.DISPLAY_NAME), methods=methods)
 
     
-class OAuthAuthenticator(Authenticator):
+class OAuthAuthenticationProvider(AuthenticationProvider):
 
-    TYPE = Authenticator.OAUTH
-    # Subclass must define NAME, URI, and METHOD
+    # NOTE: Each subclass must define URI as per
+    # AuthenticationProvider superclass. This is the URI used to
+    # identify this particular authentication provider.
+    #
+    # Each subclass MAY define a value for METHOD. This is the URI
+    # used to identify the authentication mechanism. The default is
+    # used to indicate the Library Simplified variant of OAuth.
+    #
+    # Each subclass MUST define an attribute called
+    # CONFIGURATION_NAME, which is the name used to configure that
+    # subclass in the configuration file. Failure to define this
+    # attribute will result in an error in .from_config().
+    
+    METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
 
-    def __init__(self, client_id, client_secret, secret_key):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.secret_key = secret_key
-        
     @classmethod
     def from_config(cls):
-        config = Configuration.integration(cls.NAME, required=True)
+        """Load this OAuthAuthenticationProvider from the site configuration.
+        """
+        config = Configuration.integration(
+            cls.CONFIGURATION_NAME, required=True
+        )
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
         secret_key = Configuration.get(Configuration.SECRET_KEY)
         return cls(client_id, client_secret, secret_key)
+    
+    def __init__(self, client_id, client_secret, secret_key):
+        """Initialize this OAuthAuthenticationProvider."""
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.secret_key = secret_key        
+       
+    def authenticated_patron(self, _db, token):
+        """Go from an OAuth bearer token to an authenticated Patron.
 
+        :param token: The bearer token extracted from the Authorization header.
+
+        :return: A Patron, if one can be authenticated. None, if the
+        credentials do not authenticate any particular patron. A
+        ProblemDetail if an error occurs.
+        """
+        raise NotImplementedError()
+
+    def remote_patron_lookup(self, patrondata):
+        """By default, there is no way to ask an OAuth provider for
+        account-specific information about a specific patron.
+        """
+        return None
+        
     def external_authenticate_url(self, client_redirect_uri):
         raise NotImplementedError()
 
-    def authenticated_patron(self, _db, token):
-        raise NotImplementedError()
 
     def oauth_callback(self, _db, params):
         raise NotImplementedError()
@@ -574,6 +641,19 @@ class OAuthAuthenticator(Authenticator):
         return url_for('oauth_authenticate', _external=True, provider=self.NAME)
 
     def create_authentication_provider_document(self):
+        """Create a stanza for use in an Authentication for OPDS document.
+
+        Example:
+        {
+            "name": "My OAuth Provider",
+            "methods": {
+                "http://librarysimplified.org/authtype/MyOAuthProvider" : {
+                "links": {
+                    "authenticate": "https://circulation.library.org/oauth_authenticate?provider=MyOAuth"
+                 }
+            }
+        }
+        """
         method_doc = dict(links=dict(authenticate=self._internal_authenticate_url()))
         methods = {}
         methods[self.METHOD] = method_doc
