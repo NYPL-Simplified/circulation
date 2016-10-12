@@ -354,7 +354,7 @@ class AuthenticationController(object):
 
         Then the redirect URI might be:
 
-            http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22NAME%22%3A+%22Mary+Shell%22%7D
+            http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22name%22%3A+%22Mary+Shell%22%7D
 
         It's the client's responsibility to extract the access_token,
         start using it as a bearer token, and make sense of the
@@ -410,6 +410,11 @@ class AuthenticationController(object):
 
         When the patron uses the bearer token in the Authenticate header,
         it will be decoded with `decode_bearer_token`.
+
+        TODO: What I wrote above doesn't seem right given the
+        code. The JWT is based on the provider token, and we don't
+        store it separately--we look up the provider token based on
+        what the JWT says. So why have the JWT?
         """
         payload = dict(
             token=provider_token,
@@ -912,14 +917,14 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         :return: A 3-tuple (Credential, Patron, PatronData). The
         Credential contains the access token provided by the OAuth
         provider. (This is not the bearer token the patron will use to
-        authenticate -- that is created in
+        authenticate -- that is a JWT token _based_ on this token,
+        created in
         AuthenticationController.oauth_authentication_callback). The
         Patron object represents the authenticated Patron, and the
-        PatronData object may inclide information about the patron
+        PatronData object may include information about the patron
         obtained from the OAuth provider which cannot be stored in the
         circulation manager's database but which should be passed on
         to the client.
-
         """
         raise NotImplementedError()
 
