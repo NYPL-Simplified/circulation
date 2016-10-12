@@ -31,15 +31,18 @@ class PatronData(object):
     """A container for basic information about a patron.
 
     Like Metadata and CirculationData, this offers a layer of
-    abstraction between various ILS systems and the database. Some of
-    this data will never be written to the database for data retention
-    reasons.
+    abstraction between various account managment systems and the
+    circulation manager database. Unlike with those classes, some of
+    this data cannot be written to the database for data retention
+    reasons. But it can be passed from the account management system
+    to the client application.
     """
     
     def __init__(self,
                  internal_id=None,
                  authorization_identifier=None,
                  username=None,
+                 personal_name=None,
                  email_address=None,
                  authorization_expires=None,
                  fines=None,
@@ -47,13 +50,37 @@ class PatronData(object):
     ):
         """Store basic information about a patron.
 
-        :param authorization_identifier: The credential (usually
-        numeric) the patron uses to identify themselves. Whenever
-        possible this should be the authorization identifier *actually
-        used by the patron*. Patrons sometimes have multiple
-        authorization identifiers, but generally choose one and
-        consistently log in with it. We should keep track of the one
-        they use.
+        :param internal_id: A unique and unchanging internal
+        identifier for the patron, as used by the account management
+        system. This is not required, but it is very useful to have
+        because other identifiers tend to change.
+
+        :param authorization_identifier: An assigned identifier
+        (usually numeric) the patron uses to identify
+        themselves. Whenever possible this should be the authorization
+        identifier *actually used by the patron*. Patrons sometimes
+        have multiple authorization identifiers, but generally choose
+        one and consistently log in with it. We should keep track of
+        the one they use.
+
+        :param username: An identifier (usually alphanumeric) chosen
+        by the patron and used to identify themselves.
+
+        :param personal_name: The name of the patron. This information
+        is not stored in the circulation manager database but may be
+        passed on to the client.
+
+        :param authorization_expires: The date, if any, at which the patron's
+        authorization to borrow items from the library expires.
+
+        :param fines: An amount of money representing the amount the
+        patron owes in fines.
+
+        :param blocked: A boolean indicating whether or not the patron
+        is blocked from borrowing items for any reason. (Even if this
+        is set to False, it may turn out the patron cannot borrow
+        items because their card has expired or their fines are
+        excessive.)
         """
         self.internal_id = internal_id
         self.authorization_identifier = authorization_identifier
@@ -62,6 +89,10 @@ class PatronData(object):
         self.fines = fines
         self.blocked = blocked
 
+        # We do not store personal_name in the database, but we provide
+        # it to the client if possible.
+        self.personal_name = personal_name
+        
         # We do not store email address in the database, but we need
         # to have it available for notifications.
         self.email_address = email_address
@@ -82,10 +113,17 @@ class PatronData(object):
             patron.fines = self.fines
         patron.last_local_sync = datetime.datetime.utcnow()
 
+    @property
+    def to_response_parameters(self):
+        """Return information about this patron which the client might
+        find useful.
+        """
+        return dict(name=self.personal_name)
+        
 
 class Authenticator(object):
-    """Handle incoming requests by delegating to one or more 
-    AuthenticationProviders.
+    """Use the registered AuthenticationProviders to turn incoming
+    credentials into Patron objects.
     """    
 
     @classmethod
@@ -155,7 +193,7 @@ class Authenticator(object):
             yield provider
         
     def authenticated_patron(self, _db, header):
-        """Go from an Authorization header to a Patron object.
+        """Go from an Authorization header value to a Patron object.
 
         :param header: If Basic Auth is in use, this is a dictionary
         with 'user' and 'password' components, derived from the HTTP
@@ -196,7 +234,7 @@ class Authenticator(object):
 
     def oauth_provider_lookup(self, provider_name):
         """Look up the OAuthAuthenticationProvider with the given name. If that
-        doesn't work, return an appropriate error.
+        doesn't work, return an appropriate ProblemDetail.
         """
         if not self.oauth_providers_by_name:
             # We don't support OAuth at all.
@@ -216,101 +254,7 @@ class Authenticator(object):
                     _(" The known providers are: %s") % possibilities)
             )
         return self.oauth_providers_by_name[provider_name]
-    
-    def oauth_authenticate(self, params):
-        """Redirect an unauthenticated patron to the authentication URL of the
-        appropriate OAuth provider.
 
-        Over on that other site, the patron will authenticate and be
-        redirected back to the circulation manager
-        (params['redirect_uri']), ending up in
-        `Authenticator.oauth_callback`.
-
-        This method executes in an application context.
-        """
-        redirect_uri = params.get('redirect_uri') or ""
-
-        provider_name = params.get('provider')
-        provider = self.oauth_provider_lookup(provider_name)
-        if isinstance(provider, ProblemDetail):
-            return self._redirect_with_error(redirect_uri, provider)
-        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
-        return redirect(provider.external_authenticate_url(json.dumps(state)))
-
-    def oauth_callback(self, _db, params):
-        """Create a bearer token for a patron who has just authenticated with
-        one of our OAuth providers.
-
-        This method executes in an application context.
-        """
-        code = params.get('code')
-        state = params.get('state')
-        if not code or not state:
-            return INVALID_OAUTH_CALLBACK_PARAMETERS
-
-        client_redirect_uri = state.get('redirect_uri') or ""
-        provider_name = state.get('provider')
-        provider = self.oauth_provider_lookup(provider_name)
-        if isinstance(provider, ProblemDetail):
-            return self._redirect_with_error(redirect_uri, provider)
-
-        # Send the incoming parameters to the OAuth provider and get
-        # back a provider token.
-        provider_token, patrondata = provider.oauth_callback(_db, params)
-
-        # TODO: This patrondata seems like something we could usefully
-        # put in the database, but I'm not sure how or when.
-        
-        if isinstance(provider_token, ProblemDetail):
-            return self._redirect_with_error(
-                client_redirect_uri, provider_token
-            )
-
-        # Turn the provider token into a bearer token we can give to
-        # the patron.
-        simplified_token = self.create_bearer_token(
-            provider.NAME, provider_token
-        )
-
-        params = dict(
-            access_token=simplified_token,
-            patron_info=patrondata.to_request_parameters
-        )
-        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
-
-    def create_bearer_token(self, provider_name, provider_token):
-        """Create a JSON web token with the provider name and access token.
-
-        The patron will use this as a bearer token in lieu of the
-        token we got from their OAuth provider (which probably expires
-        really quickly or has other undesirable properties).
-
-        When the patron uses the bearer token in the Authenticate header,
-        it will be decoded with `decode_bearer_token`.
-        """
-        payload = dict(
-            token=provider_token,
-            # I'm not sure this is the correct way to use an
-            # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
-            # Maybe we should use something custom instead.
-            iss=provider_name,
-        )
-        return jwt.encode(payload, self.secret_key, algorithm='HS256')
-
-    def decode_bearer_token_from_header(self, header):
-        """Extract auth provider name and access token from an Authenticate
-        header value.
-        """
-        simplified_token = header.split(' ')[1]
-        return self.decode_bearer_token(simplified_token)
-    
-    def decode_bearer_token(self, token):
-        """Extract auth provider name and access token from JSON web token."""
-        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-        provider_name = decoded['iss']
-        token = decoded['token']
-        return (provider_name, token)
-    
     def create_authentication_document(self):
         """Create the OPDS authentication document to be used when
         a request comes in with no authentication.
@@ -358,11 +302,140 @@ class Authenticator(object):
 
         return headers
 
-    def _redirect_with_error(self, redirect_uri, pd):
-        problem_detail_json = pd_json(pd.uri, pd.status_code, pd.title, pd.detail, pd.instance, pd.debug_message)
-        params = dict(error=problem_detail_json)
-        return redirect(redirect_uri + "#" + urllib.urlencode(params))
 
+class AuthenticationController(object):
+
+    """A controller for handling requests that require HTTP authentication,
+    and requests that are part of the OAuth credential dance.
+    """
+    
+    def __init__(self, authenticator):
+        self.authenticator = authenticator
+
+    def oauth_authentication_redirect(self, params):
+        """Redirect an unauthenticated patron to the authentication URL of the
+        appropriate OAuth provider.
+
+        Over on that other site, the patron will authenticate and be
+        redirected back to the circulation manager
+        (params['redirect_uri']), ending up in oauth_authentication_callback.
+        """
+        redirect_uri = params.get('redirect_uri') or ""
+
+        provider_name = params.get('provider')
+        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
+        return redirect(provider.external_authenticate_url(json.dumps(state)))
+
+    def oauth_authentication_callback(self, _db, params):
+        """Create a bearer token for a patron who has just authenticated with
+        one of our OAuth providers.
+
+        :return: A redirect to the `redirect_uri` kept in
+        `params['state']`, with the bearer token encoded into the
+        fragment identifier as `access_token` and useful information
+        about the patron encoded into the fragment identifier as
+        `patron_info`. For example, if params is 
+
+            dict(state="http://oauthprovider.org/success")
+
+        Then the redirect URI might be:
+
+            http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22NAME%22%3A+%22Mary+Shell%22%7D
+
+        """
+        code = params.get('code')
+        state = params.get('state')
+        if not code or not state:
+            return INVALID_OAUTH_CALLBACK_PARAMETERS
+
+        # TODO: Does it really make sense to allow redirect_uri to be empty?
+        # What do we actually redirect to?
+        client_redirect_uri = state.get('redirect_uri') or ""
+        provider_name = state.get('provider')
+        provider = self.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+
+        # Send the incoming parameters to the OAuth provider and get
+        # back a provider token (a Credential object), the
+        # authenticated patron (a Patron object), and a PatronData
+        # including any personal information obtained from the OAuth
+        # provider (such as patron name) which we can't store in the
+        # database.
+        response = provider.oauth_callback(_db, params)
+        if isinstance(response, ProblemDetail):
+            # Most likely the OAuth provider didn't like the credentials
+            # we sent.
+            return self._redirect_with_error(
+                client_redirect_uri, response
+            )
+        provider_token, patron, patrondata = response
+        
+        # Turn the provider token into a bearer token we can give to
+        # the patron.
+        simplified_token = self.create_bearer_token(
+            provider.NAME, provider_token
+        )
+
+        patron_info = json.dumps(patrondata.to_response_parameters)
+        params = dict(
+            access_token=simplified_token,
+            patron_info=patron_info
+        )
+        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
+
+    def create_bearer_token(self, provider_name, provider_token):
+        """Create a JSON web token with the provider name and access token.
+
+        The patron will use this as a bearer token in lieu of the
+        token we got from their OAuth provider (which probably expires
+        really quickly or has other undesirable properties).
+
+        When the patron uses the bearer token in the Authenticate header,
+        it will be decoded with `decode_bearer_token`.
+        """
+        payload = dict(
+            token=provider_token,
+            # I'm not sure this is the correct way to use an
+            # Issuer claim (https://tools.ietf.org/html/rfc7519#section-4.1.1).
+            # Maybe we should use something custom instead.
+            iss=provider_name,
+        )
+        return jwt.encode(payload, self.secret_key, algorithm='HS256')
+
+    def decode_bearer_token_from_header(self, header):
+        """Extract auth provider name and access token from an Authenticate
+        header value.
+        """
+        simplified_token = header.split(' ')[1]
+        return self.decode_bearer_token(simplified_token)
+    
+    def decode_bearer_token(self, token):
+        """Extract auth provider name and access token from JSON web token."""
+        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+        provider_name = decoded['iss']
+        token = decoded['token']
+        return (provider_name, token)
+
+    def _redirect_with_error(self, redirect_uri, pd):
+        """Redirect the patron to the given URL, with the given ProblemDetail
+        encoded into the fragment identifier.
+        """
+        return redirect(self._error_uri, redirect_uri, pd)
+    
+    def _error_uri(self, redirect_uri, pd):
+        """Encode the given ProblemDetail into the fragment identifier
+        of the given URI.
+        """
+        problem_detail_json = pd_json(
+            pd.uri, pd.status_code, pd.title, pd.detail, pd.instance,
+            pd.debug_message
+        )
+        params = dict(error=problem_detail_json)
+        return redirect_uri + "#" + urllib.urlencode(params)
 
 
 class AuthenticationProvider(object):
@@ -813,10 +886,12 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         raise NotImplementedError()
 
     def oauth_callback(self, _db, params):
-        """Send a set of parameters to the OAuth provider and get back 
-        a provider token.
-
-        :return: A 2-tuple (token, PatronInfo)
+        """Verify the incoming parameters with the OAuth provider.  Create (if
+        necessary) a Patron object for the Patron, and a Credential
+        object for the token provided by the OAuth provider. (This is
+        not the bearer token the patron will use to authenticate --
+        it's the token that allows the circulation manager to verify
+        the patron's identity with the OAuth provider.)
         """
         raise NotImplementedError()
 

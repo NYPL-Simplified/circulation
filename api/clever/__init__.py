@@ -111,10 +111,10 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         identifier = data.get('id', None)
 
         if not identifier:
-            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required.")), None            
+            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required."))
 
         if result.get('type') not in self.SUPPORTED_USER_TYPES:
-            return UNSUPPORTED_CLEVER_USER_TYPE, None
+            return UNSUPPORTED_CLEVER_USER_TYPE
 
         links = result['links']
 
@@ -131,7 +131,7 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
 
         if school_nces_id not in TITLE_I_NCES_IDS:
             self.log.info("%s didn't match a Title I NCES ID" % school_nces_id)
-            return CLEVER_NOT_ELIGIBLE, None
+            return CLEVER_NOT_ELIGIBLE
 
         if result['type'] == 'student':
             grade = user_data.get('grade')
@@ -145,6 +145,8 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         else:
             external_type = "A"
 
+        # TODO: we used to do something with user_data.get('name')
+        # and now we don't.
         patron, is_new = get_one_or_create(
             _db, Patron, external_identifier=identifier,
             authorization_identifier=identifier,
@@ -158,6 +160,6 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         credential.credential = token
         credential.expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.token_expiration_days)
 
-        return token, dict(name=user_data.get('name'))
+        return token, patron
 
 AuthenticationAPI = CleverAuthenticationAPI
