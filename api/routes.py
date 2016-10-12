@@ -247,13 +247,17 @@ def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
-@app.route('/works/contributor/<contributor_name>')
+@app.route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
+@app.route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/contributor/<contributor_name>/<languages>/<audiences>')
 @allows_patron_web()
 @returns_problem_detail
 def contributor(contributor_name):
     return app.manager.work_controller.contributor(contributor_name)
 
-@app.route('/works/series/<series_name>')
+@app.route('/works/series/<series_name>', defaults=dict(languages=None, audiences=None))
+@app.route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/series/<series_name>/<languages>/<audiences>')
 @allows_patron_web()
 @returns_problem_detail
 def series(series_name):
