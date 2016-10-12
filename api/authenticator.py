@@ -218,18 +218,19 @@ class Authenticator(object):
         return self.oauth_providers_by_name[provider_name]
     
     def oauth_authenticate(self, params):
-        """Redirect an unauthenticated patron to the appropriate OAuth
-        provider.
+        """Redirect an unauthenticated patron to the authentication URL of the
+        appropriate OAuth provider.
 
         Over on that other site, the patron will authenticate and be
-        redirected back to this site, ending up in
+        redirected back to the circulation manager
+        (params['redirect_uri']), ending up in
         `Authenticator.oauth_callback`.
 
         This method executes in an application context.
         """
         redirect_uri = params.get('redirect_uri') or ""
 
-        # TODO: Where does provider name come from?
+        provider_name = params.get('provider')
         provider = self.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
@@ -795,8 +796,10 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         return None
 
     def remote_patron_lookup(self, patrondata):
-        """By default, there is no way to ask an OAuth provider for
-        information about a specific patron.
+        """Ask the remote for detailed information about a patron's account.
+
+        By default, there is no way to ask an OAuth provider for
+        information about a specific patron after the fact.
         """
         return None
 
