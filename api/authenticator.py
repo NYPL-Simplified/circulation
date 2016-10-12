@@ -3,7 +3,10 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from core.model import Patron
+from core.model import (
+    Credential,
+    Patron,
+)
 from core.util.problem_detail import (
     ProblemDetail,
     json as pd_json,
@@ -242,7 +245,6 @@ class Authenticator(object):
                 )
             )
         self.oauth_providers_by_name[provider.NAME] = provider
-
         
     @property
     def providers(self):
@@ -265,11 +267,11 @@ class Authenticator(object):
         ProblemDetail if an error occurs.
         """
         if (self.basic_auth_provider
-            and isinstance(header, dict) and 'password' in header):
+            and isinstance(header, dict) and 'username' in header):
             # The patron wants to authenticate with the
             # BasicAuthenticationProvider.
             return self.basic_auth_provider.authenticated_patron(_db, header)
-        elif (self.oauth_providers
+        elif (self.oauth_providers_by_name
               and isinstance(header, basestring)
               and 'bearer' in header.lower()):
 
@@ -332,7 +334,9 @@ class Authenticator(object):
             # Maybe we should use something custom instead.
             iss=provider_name,
         )
-        return jwt.encode(payload, self.secret_key, algorithm='HS256')
+        return jwt.encode(
+            payload, self.bearer_token_signing_secret, algorithm='HS256'
+        )
     
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate
@@ -512,7 +516,7 @@ class AuthenticationProvider(object):
     # different types of authentication.
     URI = None
     
-    def authenticated_patron(self, header):
+    def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
 
         If the Patron needs to have their metadata updated, it happens
@@ -522,7 +526,7 @@ class AuthenticationProvider(object):
         if an error occurs; None if the credentials are missing or
         wrong.
         """
-        patron = self.authenticate(header)
+        patron = self.authenticate(_db, header)
         if not isinstance(patron, Patron):
             return patron
         if patron.needs_metadata_update:
@@ -539,12 +543,11 @@ class AuthenticationProvider(object):
 
         :param patron: A Patron object.
         """
-        remote_patron_info = self.remote_patron_lookup(
-            PatronData.from_patron(patron)
-        )
-        remote_patron_info.apply(patron)
+        remote_patron_info = self.remote_patron_lookup(patron)
+        if remote_patron_info:
+            remote_patron_info.apply(patron)
 
-    def authenticate(self, header):
+    def authenticate(self, _db, header):
         """Authenticate a patron based on a WWW-Authenticate header
         (or equivalent).
 
@@ -554,7 +557,7 @@ class AuthenticationProvider(object):
         """
         raise NotImplementedError()
         
-    def remote_patron_lookup(self, patrondata):
+    def remote_patron_lookup(self, patron):
         """Ask the remote for detailed information about a patron's account.
 
         This may be called in the course of authenticating a patron,
@@ -562,7 +565,7 @@ class AuthenticationProvider(object):
         of learning some personal information (primarily email
         address) that can't be stored in the database.
 
-        :param patrondata: A PatronData object.
+        :param patron: A Patron object.
 
         :return: An updated PatronData object.
 
@@ -663,7 +666,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
     
-    def authenticate(self, credentials):
+    def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.
 
         :param credentials: A dictionary with keys `username` and `password`.
@@ -925,7 +928,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         # to get a new token.
         return None
 
-    def remote_patron_lookup(self, patrondata):
+    def remote_patron_lookup(self, patron):
         """Ask the remote for detailed information about a patron's account.
 
         By default, there is no way to ask an OAuth provider for

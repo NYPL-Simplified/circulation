@@ -47,29 +47,28 @@ class MockAuthenticationProvider(object):
         self.patron = patron
         self.patrondata = patrondata
 
-    def authenticate(self, header):
+    def authenticate(self, _db, header):
         return self.patron
 
     def remote_patron_lookup(self, patrondata):
         return self.patrondata
 
 class MockBasicAuthenticationProvider(
-        MockAuthenticationProvider,
         BasicAuthenticationProvider,
+        MockAuthenticationProvider
 ):
     def __init__(self, patron=None, patrondata=None):
         self.patron = patron
         self.patrondata = patrondata
 
 class MockOAuthAuthenticationProvider(
-        MockAuthenticationProvider,
         OAuthAuthenticationProvider,
+        MockAuthenticationProvider
 ):
     def __init__(self, provider_name, patron=None, patrondata=None):
         self.NAME = provider_name
         self.patron = patron
         self.patrondata = patrondata
-    
 
 class TestPatronData(DatabaseTest):
 
@@ -220,6 +219,7 @@ class TestAuthenticator(DatabaseTest):
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
+
         provider = authenticator.oauth_provider_lookup("provider1")
         eq_(oauth1, provider)
 
@@ -230,9 +230,65 @@ class TestAuthenticator(DatabaseTest):
             problem.detail
         )
 
-    def test_authenticated_patron(self):
+    def test_authenticated_patron_basic(self):
+        patron = self._patron()
+        basic = MockBasicAuthenticationProvider(patron=patron)
+        authenticator = Authenticator(basic_auth_provider=basic)
+        eq_(
+            patron,
+            authenticator.authenticated_patron(
+                self._db, dict(username="foo", password="bar")
+            )
+        )        
+
+        # OAuth doesn't work.
+        problem = authenticator.authenticated_patron(
+            self._db, "Bearer abcd"
+        )
+        eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
+        
+    def test_authenticated_patron_oauth(self):
+        patron1 = self._patron()
+        patron2 = self._patron()
+        oauth1 = MockOAuthAuthenticationProvider("oauth1", patron=patron1)
+        oauth2 = MockOAuthAuthenticationProvider("oauth2", patron=patron2)
+        authenticator = Authenticator(
+            oauth_providers=[oauth1, oauth2],
+            bearer_token_signing_secret='foo'
+        )
+
+        # Figure out a token that looks okay.
+        token = authenticator.create_bearer_token(oauth1.NAME, "some token")
+
+        # The authenticator will decode the bearer token into a
+        # provider and a provider token. It will look up the oauth1
+        # provider and ask it to authenticate the provider token.
+        #
+        # This gives us patron1, as opposed to patron2.
+        eq_(patron1, authenticator.authenticated_patron(
+            self._db, "Bearer " + token)
+        )
+
+        
+        
+        # Basic auth doesn't work.
+        eq_(
+            patron,
+            authenticator.authenticated_patron(
+                self._db, dict(username="foo", password="bar")
+            )
+        )        
+        eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
+        
         pass
 
+    def test_authenticated_patron_unsupported_mechanism(self):
+        authenticator = Authenticator()
+        problem = authenticator.authenticated_patron(
+            self._db, object()
+        )
+        eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
+        
     def test_create_bearer_token(self):
         pass
 
