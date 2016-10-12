@@ -26,33 +26,40 @@ from . import DatabaseTest
 
 class TestPatronData(DatabaseTest):
 
-    def test_apply(self):
-        patron = self._patron()
-        now = datetime.datetime.utcnow()
-        data = PatronData(
+    def setup(self):
+        super(TestPatronData, self).setup()
+        self.data = PatronData(
             permanent_id="1",
             authorization_identifier="2",
             username="3",
             personal_name="4",
             email_address="5",
-            authorization_expires=now,
+            authorization_expires=datetime.datetime.utcnow(),
             fines="6",
             blocked=False,
         )
+        
+    
+    def test_apply(self):
+        patron = self._patron()
 
-        data.apply(patron)
-        eq_(data.permanent_id, patron.external_identifier)
-        eq_(data.authorization_identifier, patron.authorization_identifier)
-        eq_(data.username, patron.username)
-        eq_(data.authorization_expires, patron.authorization_expires)
-        eq_(data.fines, patron.fines)
+        self.data.apply(patron)
+        eq_(self.data.permanent_id, patron.external_identifier)
+        eq_(self.data.authorization_identifier, patron.authorization_identifier)
+        eq_(self.data.username, patron.username)
+        eq_(self.data.authorization_expires, patron.authorization_expires)
+        eq_(self.data.fines, patron.fines)
 
         # TODO: blocked is not stored but should be.
-
-        eq_(False, data.blocked)
+        eq_(False, self.data.blocked)
 
         # This data is stored in PatronData but not applied to Patron.
-        eq_("4", data.personal_name)
+        eq_("4", self.data.personal_name)
         eq_(False, hasattr(patron, 'personal_name'))
-        eq_("5", data.email_address)
+        eq_("5", self.data.email_address)
         eq_(False, hasattr(patron, 'email_address'))
+
+    def test_to_response_parameters(self):
+
+        params = self.data.to_response_parameters
+        eq_(dict(name="4"), params)
