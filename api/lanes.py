@@ -398,6 +398,8 @@ class QueryGeneratedLane(Lane):
         key = ''
         if (self.audiences and
             Classifier.AUDIENCES.difference(self.audiences)):
+            # There are audiences and they're not the default
+            # "any audience", so add them to the URL.
             audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
             key += ','.join(audiences)
         return key
@@ -579,7 +581,7 @@ class RecommendationLane(LicensePoolBasedLane):
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-                 novelist_api=None, source_audience=None, parent=None):
+                 novelist_api=None, parent=None):
         self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
             _db, license_pool, full_name, display_name=display_name,

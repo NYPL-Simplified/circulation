@@ -1387,7 +1387,7 @@ class TestWorkController(CirculationControllerTest):
         title, href = collection_link(e3)
         eq_("John Bull", title)
         expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
-        eq_(True, href.endswith(unicode(expected_contributor_link)))
+        eq_(True, href.endswith(expected_contributor_link))
 
         # The original book is listed in both the series and contributor feeds.
         title_to_link_ending = {
