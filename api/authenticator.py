@@ -212,20 +212,38 @@ class Authenticator(object):
         """
         provider_module = importlib.import_module(provider_string)
         provider_class = getattr(provider_module, "AuthenticationAPI")
-        if isinstance(provider_class, BasicAuthProvider):
-            if self.basic_auth_provider != None:
-                raise CannotLoadConfiguration(
-                    "Two basic auth providers configured"
-                )
-            self.basic_auth_provider = provider_class.from_config()
+        if isinstance(provider_class, BasicAuthenticationProvider):
+            provider = provider_class.from_config()
+            self.register_basic_auth_provider(provider)
         elif isinstance(provider_class, OAuthProvider):
             provider = provider_class.from_config()
-            self.oauth_providers_by_name[provider.NAME] = provider
+            self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
                 "Unrecognized authentication provider: %s" % provider_class
             )
 
+    def register_basic_auth_provider(self, provider):
+        if (self.basic_auth_provider != None
+            and self.basic_auth_provider != provider):
+            raise CannotLoadConfiguration(
+                "Two basic auth providers configured"
+            )
+        self.basic_auth_provider = provider
+        
+    def register_oauth_provider(self, provider):
+        already_registered = self.oauth_providers_by_name.get(
+            provider.NAME
+        )
+        if already_registered and already_registered != provider:
+            raise CannotLoadConfiguration(
+                'Two different OAuth providers claim the name "%s"' % (
+                    provider.NAME
+                )
+            )
+        self.oauth_providers_by_name[provider.NAME] = provider
+
+        
     @property
     def providers(self):
         """An iterator over all registered AuthenticationProviders."""
@@ -288,7 +306,7 @@ class Authenticator(object):
             or not provider_name in self.oauth_providers_by_name):
             # The patron neglected to specify a provider, or specified
             # one we don't support.
-            possibilities = ", ".join(self.oauth_providers_by_name.values())
+            possibilities = ", ".join(self.oauth_providers_by_name.keys())
             return UNKNOWN_OAUTH_PROVIDER.detailed(
                 UNKNOWN_OAUTH_PROVIDER.detail +
                 _(" The known providers are: %s") % possibilities
@@ -485,13 +503,6 @@ class OAuthController(object):
 
 class AuthenticationProvider(object):
     """Handle a specific patron authentication scheme.
-
-    TODO: I've taken out the code that checks whether your card has
-    expired, whether you have too many fines, and whether you're
-    blocked for some other reason. We need a method of Patron that
-    runs this check and it needs to be called just before the patron
-    is about to do something that actually requires borrowing
-    privileges.
     """
     
     NAME = None
@@ -512,10 +523,17 @@ class AuthenticationProvider(object):
         wrong.
         """
         patron = self.authenticate(header)
-        if isinstance(patron, Patron) and patron.needs_metadata_update:
+        if not isinstance(patron, Patron):
+            return patron
+        if patron.needs_metadata_update:
             self.update_patron_metadata(patron)
+        if not patron.has_borrowing_privileges:
+            # TODO: This should be checked at the point the patron
+            # actually does something that requires borrowing
+            # privileges.
+            return None
         return patron
-            
+
     def update_patron_metadata(self, patron):
         """Refresh our local record of this patron's account information.
 
@@ -771,15 +789,13 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 # a patron, since this is supposed to be an internal
                 # ID that never changes.
                 lookups.append(
-                    dict(Patron.external_identifier==patrondata.permanent_id)
+                    dict(external_identifier=patrondata.permanent_id)
                 )
             if patrondata.username:
                 # Username is fairly reliable, since the patron
                 # generally has to decide to change it.
                 lookups.append(
-                    dict(
-                        Patron.username==patrondata.username
-                    )
+                    dict(username=patrondata.username)
                 )
 
             if patrondata.authorization_identifier:
@@ -787,8 +803,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 # they're not terribly reliable.
                 lookups.append(
                     dict(
-                        Patron.authorization_identifier
-                        ==patrondata.authorization_identifier
+                        authorization_identifier=
+                        patrondata.authorization_identifier
                     )
                 )
 
@@ -799,8 +815,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             #
             # TODO: We could save a bit of time in a common case by
             # combining these into a single query.
-            lookups.append(dict(Patron.authorization_identifier==username))
-            lookups.append(dict(Patron.username==username))
+            lookups.append(dict(authorization_identifier=username))
+            lookups.append(dict(username=username))
 
         patron = None
         for lookup in lookups:
