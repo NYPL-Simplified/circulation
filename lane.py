@@ -555,59 +555,10 @@ class Lane(object):
         if self.searchable and (self.list_data_source_id or self.list_ids):
             raise UndefinedLane("Lane with list data source cannot be searchable")
 
-        # However the genres came in, turn them into database Genre
-        # objects and the corresponding GenreData objects.
-        genres, genredata = self.load_genres(self._db, genres)
-
-        # Create a complete list of genres to exclude.
-        full_exclude_genres = set()
-        if exclude_genres:
-            for genre in exclude_genres:
-                genre, ignore = self.load_genre(self._db, genre)
-                for l in genre.self_and_subgenres:
-                    full_exclude_genres.add(l)
-
-        if fiction is None:
-            fiction = self.FICTION_DEFAULT_FOR_GENRE
-
-        # Find all the genres that will go into this lane.
-        genres, self.fiction = self.gather_matching_genres(
-            genres, fiction, full_exclude_genres
+        self.set_sublanes(
+            self._db, sublanes, genres,
+            exclude_genres=exclude_genres, fiction=fiction
         )
-        self.genre_ids = [x.id for x in genres]
-        self.genre_names = [x.name for x in genres]
-        if sublanes and not isinstance(sublanes, list):
-            sublanes = [sublanes]
-        subgenre_sublanes = []
-        if self.subgenre_behavior == self.IN_SUBLANES:
-            # All subgenres of the given genres that are not in
-            # full_exclude_genres must get a constructed sublane.
-            for genre in genres:                
-                for subgenre in genre.subgenres:
-                    if subgenre in full_exclude_genres:
-                        continue
-                    sublane = Lane(
-                            self._db, full_name=subgenre.name,
-                            parent=self, genres=[subgenre],
-                            subgenre_behavior=self.IN_SUBLANES
-                    )
-                    subgenre_sublanes.append(sublane)
-
-        if sublanes and subgenre_sublanes:
-            raise UndefinedLane(
-                "Explicit list of sublanes was provided, but I'm also asked to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
-            )
-
-        if subgenre_sublanes:
-            self.sublanes = LaneList(self)
-            for sl in subgenre_sublanes:
-                self.sublanes.add(sl)
-        elif sublanes:
-            self.sublanes = LaneList.from_description(
-                _db, self, sublanes
-            )
-        else:
-            self.sublanes = LaneList.from_description(_db, self, [])
 
         # Best-seller and staff pick lanes go at the top.
         base_args = dict(
@@ -667,6 +618,66 @@ class Lane(object):
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
 
+    def set_sublanes(self, _db, sublanes, genres,
+                     exclude_genres=None, fiction=None):
+        """Transforms a list of genres or sublanes into a LaneList and sets
+        that LaneList as the value of self.sublanes
+        """
+        # However the genres came in, turn them into database Genre
+        # objects and the corresponding GenreData objects.
+        genres, genredata = self.load_genres(self._db, genres)
+
+        # Create a complete list of genres to exclude.
+        full_exclude_genres = set()
+        if exclude_genres:
+            for genre in exclude_genres:
+                genre, ignore = self.load_genre(self._db, genre)
+                for l in genre.self_and_subgenres:
+                    full_exclude_genres.add(l)
+
+        if fiction is None:
+            fiction = self.FICTION_DEFAULT_FOR_GENRE
+
+        # Find all the genres that will go into this lane.
+        genres, self.fiction = self.gather_matching_genres(
+            genres, fiction, full_exclude_genres
+        )
+        self.genre_ids = [x.id for x in genres]
+        self.genre_names = [x.name for x in genres]
+
+        if sublanes and not isinstance(sublanes, list):
+            sublanes = [sublanes]
+        subgenre_sublanes = []
+        if self.subgenre_behavior == self.IN_SUBLANES:
+            # All subgenres of the given genres that are not in
+            # full_exclude_genres must get a constructed sublane.
+            for genre in genres:
+                for subgenre in genre.subgenres:
+                    if subgenre in full_exclude_genres:
+                        continue
+                    sublane = Lane(
+                            self._db, full_name=subgenre.name,
+                            parent=self, genres=[subgenre],
+                            subgenre_behavior=self.IN_SUBLANES
+                    )
+                    subgenre_sublanes.append(sublane)
+
+        if sublanes and subgenre_sublanes:
+            raise UndefinedLane(
+                "Explicit list of sublanes was provided, but I'm also asked to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
+            )
+
+        if subgenre_sublanes:
+            self.sublanes = LaneList(self)
+            for sl in subgenre_sublanes:
+                self.sublanes.add(sl)
+        elif sublanes:
+            self.sublanes = LaneList.from_description(
+                _db, self, sublanes
+            )
+        else:
+            self.sublanes = LaneList.from_description(_db, self, [])
+
     def includes_language(self, language):
         """Would you expect to find books in the given language in
         this lane?
@@ -683,7 +694,7 @@ class Lane(object):
         # We include all languages.
         return True        
 
-    def audience_list_for_age_range(self, audiences, age_range, default=[]):
+    def audience_list_for_age_range(self, audiences, age_range):
         """Normalize a value for Work.audience based on .age_range
 
         If you set audience to Young Adult but age_range to 16-18,
@@ -915,7 +926,11 @@ class Lane(object):
             q = q.options(contains_eager(Work.work_genres))
             q = q.filter(WorkGenre.genre_id.in_(self.genre_ids))
 
-        q = self.apply_filters(q, facets, pagination, Work, Edition)
+        q = self.apply_filters(
+            q,
+            facets=facets, pagination=pagination,
+            work_model=Work, edition_model=Edition
+        )
         if not q:
             # apply_filters may return None in subclasses of Lane
             return None
@@ -946,7 +961,11 @@ class Lane(object):
 
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
-        q = self.apply_filters(q, facets, pagination, mw, mw)
+        q = self.apply_filters(
+                q,
+                facets=facets, pagination=pagination,
+                work_model=mw, edition_model=mw
+            )
         if not q:
             # apply_filters may return None in subclasses of Lane
             return None
