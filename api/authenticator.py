@@ -263,6 +263,23 @@ class Authenticator(object):
             )
         return self.oauth_providers_by_name[provider_name]
 
+    def decode_bearer_token_from_header(self, header):
+        """Extract auth provider name and access token from an Authenticate
+        header value.
+
+        TODO: Decoding the token requires the secret key, which
+        requires doing a provider lookup.
+        """
+        simplified_token = header.split(' ')[1]
+        return self.decode_bearer_token(simplified_token)
+    
+    def decode_bearer_token(self, token):
+        """Extract auth provider name and access token from JSON web token."""
+        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
+        provider_name = decoded['iss']
+        token = decoded['token']
+        return (provider_name, token)
+    
     def create_authentication_document(self):
         """Create the OPDS authentication document to be used when
         a request comes in with no authentication.
@@ -311,10 +328,10 @@ class Authenticator(object):
         return headers
 
 
-class AuthenticationController(object):
+class OAuthController(object):
 
-    """A controller for handling requests that require HTTP authentication,
-    and requests that are part of the OAuth credential dance.
+    """A controller for handling requests that are part of the OAuth
+    credential dance.
     """
     
     def __init__(self, authenticator):
@@ -424,20 +441,6 @@ class AuthenticationController(object):
             iss=provider_name,
         )
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
-
-    def decode_bearer_token_from_header(self, header):
-        """Extract auth provider name and access token from an Authenticate
-        header value.
-        """
-        simplified_token = header.split(' ')[1]
-        return self.decode_bearer_token(simplified_token)
-    
-    def decode_bearer_token(self, token):
-        """Extract auth provider name and access token from JSON web token."""
-        decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
-        provider_name = decoded['iss']
-        token = decoded['token']
-        return (provider_name, token)
 
     def _redirect_with_error(self, redirect_uri, pd):
         """Redirect the patron to the given URL, with the given ProblemDetail
@@ -919,7 +922,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         provider. (This is not the bearer token the patron will use to
         authenticate -- that is a JWT token _based_ on this token,
         created in
-        AuthenticationController.oauth_authentication_callback). The
+        OAuthAuthenticationController.oauth_authentication_callback). The
         Patron object represents the authenticated Patron, and the
         PatronData object may include information about the patron
         obtained from the OAuth provider which cannot be stored in the
