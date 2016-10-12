@@ -112,6 +112,9 @@ class Authenticator(object):
             and not authenticator.oauth_providers_by_name):
             # TODO: This isn't unacceptable: a fully open-access
             # collection doesn't need any authentication providers.
+            # But supporting that case requires specialized work, e.g.
+            # getting rid of all the links to controllers that require
+            # authentication.
             raise CannotLoadConfiguration(
                 "No authentication provider configured"
             )
@@ -165,33 +168,46 @@ class Authenticator(object):
         """
         if (self.basic_auth_provider
             and isinstance(header, dict) and 'password' in header):
+            # The patron wants to authenticate with the
+            # BasicAuthenticationProvider.
             return self.basic_auth_provider.authenticated_patron(_db, header)
         elif (self.oauth_providers
               and isinstance(header, basestring)
               and 'bearer' in header.lower()):
-            simplified_token = header.split(' ')[1]
-            provider_name, provider_token = self.decode_bearer_token(
-                simplified_token
+
+            # The patron wants to use an
+            # OAuthAuthenticationProvider. Figure out which one.
+            provider_name, provider_token = self.decode_bearer_token_from_header(
+                header
             )
             provider = self.oauth_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
+                # There was a problem turning the provider name into
+                # a registered OAuthAuthenticationProvider.
                 return provider
+
+            # Ask the OAuthAuthenticationProvider to turn its token
+            # into a Patron.
             return provider.authenticated_patron(_db, provider_token)
+
+        # We were unable to determine what was going on with the
+        # Authenticate header.
         return UNSUPPORTED_AUTHENTICATION_MECHANISM
 
     def oauth_provider_lookup(self, provider_name):
         """Look up the OAuthAuthenticationProvider with the given name. If that
         doesn't work, return an appropriate error.
         """
-        if not self.oauth_providers:
+        if not self.oauth_providers_by_name:
+            # We don't support OAuth at all.
             return UNKNOWN_OAUTH_PROVIDER.detailed(
                 _("No OAuth providers are configured.")
             )
 
         if (not provider_name
             or not provider_name in self.oauth_providers_by_name):
-            # They neglected to specify a provider, or specified one we
-            # don't support.
+            # The patron neglected to specify a provider, or specified
+            # one we don't support.
             possibilities = ", ".join(self.oauth_providers_by_name.values())
             return self._redirect_with_error(
                 redirect_uri,
@@ -205,12 +221,15 @@ class Authenticator(object):
         """Redirect an unauthenticated patron to the appropriate OAuth
         provider.
 
-        They will authenticate and end up in `Authenticator.oauth_callback`.
+        Over on that other site, the patron will authenticate and be
+        redirected back to this site, ending up in
+        `Authenticator.oauth_callback`.
 
         This method executes in an application context.
         """
         redirect_uri = params.get('redirect_uri') or ""
 
+        # TODO: Where does provider name come from?
         provider = self.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
@@ -236,9 +255,10 @@ class Authenticator(object):
 
         # Send the incoming parameters to the OAuth provider and get
         # back a provider token.
-        provider_token, patron_info = provider.oauth_callback(_db, params)
+        provider_token, patrondata = provider.oauth_callback(_db, params)
 
-        # TODO: This patron_info seems like something we could use.
+        # TODO: This patrondata seems like something we could usefully
+        # put in the database, but I'm not sure how or when.
         
         if isinstance(provider_token, ProblemDetail):
             return self._redirect_with_error(
@@ -252,7 +272,8 @@ class Authenticator(object):
         )
 
         params = dict(
-            access_token=simplified_token, patron_info=json.dumps(patron_info)
+            access_token=simplified_token,
+            patron_info=patrondata.to_request_parameters
         )
         return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
 
@@ -275,6 +296,13 @@ class Authenticator(object):
         )
         return jwt.encode(payload, self.secret_key, algorithm='HS256')
 
+    def decode_bearer_token_from_header(self, header):
+        """Extract auth provider name and access token from an Authenticate
+        header value.
+        """
+        simplified_token = header.split(' ')[1]
+        return self.decode_bearer_token(simplified_token)
+    
     def decode_bearer_token(self, token):
         """Extract auth provider name and access token from JSON web token."""
         decoded = jwt.decode(token, self.secret_key, algorithms=['HS256'])
