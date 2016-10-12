@@ -11,6 +11,8 @@ from core.util.problem_detail import (
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from problem_details import *
 
+import datetime
+import re
 import urlparse
 import urllib
 import uuid
@@ -39,7 +41,7 @@ class PatronData(object):
     """
     
     def __init__(self,
-                 internal_id=None,
+                 permanent_id=None,
                  authorization_identifier=None,
                  username=None,
                  personal_name=None,
@@ -50,10 +52,11 @@ class PatronData(object):
     ):
         """Store basic information about a patron.
 
-        :param internal_id: A unique and unchanging internal
-        identifier for the patron, as used by the account management
-        system. This is not required, but it is very useful to have
-        because other identifiers tend to change.
+        :param permanent_id: A unique and unchanging identifier for
+        the patron, as used by the account management system and
+        probably never seen by the patron. This is not required, but
+        it is very useful to have because other identifiers tend to
+        change.
 
         :param authorization_identifier: An assigned identifier
         (usually numeric) the patron uses to identify
@@ -81,8 +84,9 @@ class PatronData(object):
         is set to False, it may turn out the patron cannot borrow
         items because their card has expired or their fines are
         excessive.)
+
         """
-        self.internal_id = internal_id
+        self.permanent_id = permanent_id
         self.authorization_identifier = authorization_identifier
         self.username = username
         self.authorization_expires = authorization_expires
@@ -102,13 +106,13 @@ class PatronData(object):
         and write it to the given Patron record.
         """
         if self.permanent_id:
-            patron.permanent_id=self.permanent_id
+            patron.external_identifier=self.permanent_id
         if self.username:
             patron.username = self.username
         if self.authorization_identifier:
             patron.authorization_identifier = self.authorization_identifier
-        if self.expires:
-            patron.expires = self.expires
+        if self.authorization_expires:
+            patron.authorization_expires = self.authorization_expires
         if self.fines:
             patron.fines = self.fines
         patron.last_local_sync = datetime.datetime.utcnow()
@@ -639,7 +643,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             return None
 
         # Check these credentials with the source of truth.
-        patrondata = self.remote_authenticate(username, password):
+        patrondata = self.remote_authenticate(username, password)
 
         if not patrondata or isinstance(patrondata, ProblemDetail):
             # Either an error occured or the credentials did not correspond
