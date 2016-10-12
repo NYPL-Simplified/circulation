@@ -3,6 +3,7 @@ don't interact with any particular source of truth.
 """
 
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -22,7 +23,29 @@ from api.authenticator import (
     PatronData,
 )
 
+from api.config import (
+    CannotLoadConfiguration,
+    Configuration,
+    temp_config,
+)
+
 from . import DatabaseTest
+
+class MockAuthenticationProvider(object):
+    """An AuthenticationProvider that always authenticates requests for
+    the given Patron and always returns the given PatronData when
+    asked to look up data.
+    """
+    def __init__(self, patron, patrondata):
+        self.patron = patron
+        self.patrondata = patrondata
+
+    def authenticate(self, header):
+        return self.patron
+
+    def remote_patron_lookup(self, patrondata):
+        return self.patrondata
+
 
 class TestPatronData(DatabaseTest):
 
@@ -63,3 +86,31 @@ class TestPatronData(DatabaseTest):
 
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
+
+
+class TestAuthenticator(DatabaseTest):
+
+    def test_from_config(self):
+        """TODO: Since registration happens by loading modules, do this
+        after porting over some authorization providers.
+        """
+
+    def test_config_fails_when_no_providers_specified(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: []
+            }
+            assert_raises_regexp(
+                CannotLoadConfiguration, "No authentication policy given."
+            )
+        
+    def test_register_basic_auth_provider(self):
+        """TODO: Since registration happens by loading a module, do this
+        after porting over (say) FirstBook authorization provider.
+        """
+
+    def test_register_oauth_provider(self):
+        """TODO: Since registration happens by loading a module, do this
+        after porting over (say) Clever authorization provider.
+        """
+            

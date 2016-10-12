@@ -525,7 +525,7 @@ class AuthenticationProvider(object):
         of learning some personal information (primarily email
         address) that can't be stored in the database.
 
-        :param patron: A PatronData object.
+        :param patrondata: A PatronData object.
 
         :return: An updated PatronData object.
 
