@@ -113,13 +113,21 @@ class PatronData(object):
             patron.fines = self.fines
         patron.last_local_sync = datetime.datetime.utcnow()
 
+        # Note that we do not store personal_name or email_address in the
+        # database model.
+        
     @property
     def to_response_parameters(self):
         """Return information about this patron which the client might
         find useful.
+
+        This information will be sent to the client immediately after
+        a patron's credentials are verified by an OAuth provider.
         """
-        return dict(name=self.personal_name)
-        
+        if self.personal_name:
+            return dict(name=self.personal_name)
+        return None
+
 
 class Authenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
@@ -317,9 +325,12 @@ class AuthenticationController(object):
         appropriate OAuth provider.
 
         Over on that other site, the patron will authenticate and be
-        redirected back to the circulation manager
-        (params['redirect_uri']), ending up in oauth_authentication_callback.
+        redirected back to the circulation manager (the URL is stored
+        in params['redirect_uri']), ending up in
+        oauth_authentication_callback.
         """
+        # TODO: I'm not sure why it's acceptable for redirect_uri to
+        # be missing, since we frequently end up redirecting to it.
         redirect_uri = params.get('redirect_uri') or ""
 
         provider_name = params.get('provider')
@@ -330,8 +341,8 @@ class AuthenticationController(object):
         return redirect(provider.external_authenticate_url(json.dumps(state)))
 
     def oauth_authentication_callback(self, _db, params):
-        """Create a bearer token for a patron who has just authenticated with
-        one of our OAuth providers.
+        """Create a Patron object and a bearer token for a patron who has just
+        authenticated with one of our OAuth providers.
 
         :return: A redirect to the `redirect_uri` kept in
         `params['state']`, with the bearer token encoded into the
@@ -345,6 +356,9 @@ class AuthenticationController(object):
 
             http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22NAME%22%3A+%22Mary+Shell%22%7D
 
+        It's the client's responsibility to extract the access_token,
+        start using it as a bearer token, and make sense of the
+        patron_info.
         """
         code = params.get('code')
         state = params.get('state')
@@ -840,8 +854,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         :param secret_key: A key known only by this server, used to
             sign the JWT that a Library Simplified client will pass
             back as a bearer token.
-        :param token_expiration_days: The bearer tokens issued by this
-            authentication provider will be good for this many days.
+        :param token_expiration_days: This many days may elapse before
+            we ask the patron to go through the OAuth validation
+            process again.
         """
         self.client_id = client_id
         self.client_secret = client_secret
@@ -886,12 +901,25 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         raise NotImplementedError()
 
     def oauth_callback(self, _db, params):
-        """Verify the incoming parameters with the OAuth provider.  Create (if
-        necessary) a Patron object for the Patron, and a Credential
-        object for the token provided by the OAuth provider. (This is
-        not the bearer token the patron will use to authenticate --
-        it's the token that allows the circulation manager to verify
-        the patron's identity with the OAuth provider.)
+        """Verify the incoming parameters with the OAuth provider.
+
+        When creating a Credential, you must decide whether to reflect
+        the expiration date provided by the OAuth provider, or whether
+        to use the expiration date specified as
+        token_expiration_days. TODO: Would be good to have a guide for
+        this.
+
+        :return: A 3-tuple (Credential, Patron, PatronData). The
+        Credential contains the access token provided by the OAuth
+        provider. (This is not the bearer token the patron will use to
+        authenticate -- that is created in
+        AuthenticationController.oauth_authentication_callback). The
+        Patron object represents the authenticated Patron, and the
+        PatronData object may inclide information about the patron
+        obtained from the OAuth provider which cannot be stored in the
+        circulation manager's database but which should be passed on
+        to the client.
+
         """
         raise NotImplementedError()
 
