@@ -4,6 +4,8 @@ from config import (
     CannotLoadConfiguration,
 )
 from core.model import (
+    get_one,
+    get_one_or_create,
     Credential,
     Patron,
 )
@@ -697,7 +699,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # credentials.
         
         # First, try to look up the Patron object in our database.
-        patron = self.local_patron_lookup(username, password, patrondata)
+        patron = self.local_patron_lookup(_db, username, password, patrondata)
         if patron:
             # We found them!
             return patron
@@ -768,7 +770,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """
         raise NotImplementedError()
 
-    def local_patron_lookup(self, username, password, patrondata):
+    def local_patron_lookup(self, _db, username, password, patrondata):
         """Try to find a Patron object in the local database.
 
         :param username: An HTTP Basic Auth username. May or may not

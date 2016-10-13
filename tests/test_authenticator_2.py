@@ -48,19 +48,24 @@ class MockAuthenticationProvider(object):
         self.patrondata = patrondata
 
     def authenticate(self, _db, header):
-        return self.patron
-
-    def remote_patron_lookup(self, patrondata):
         return self.patrondata
+           
 
 class MockBasicAuthenticationProvider(
         BasicAuthenticationProvider,
         MockAuthenticationProvider
 ):
     def __init__(self, patron=None, patrondata=None):
+        super(MockBasicAuthenticationProvider, self).__init__()
         self.patron = patron
         self.patrondata = patrondata
 
+    def remote_authenticate(self, username, password):
+        return self.patrondata
+
+    def remote_patron_lookup(self, patrondata):
+        return self.patrondata
+    
 class MockOAuthAuthenticationProvider(
         OAuthAuthenticationProvider,
         MockAuthenticationProvider
@@ -70,6 +75,9 @@ class MockOAuthAuthenticationProvider(
         self.patron = patron
         self.patrondata = patrondata
 
+    def authenticated_patron(self, _db, provider_token):
+        return self.patron
+        
 class TestPatronData(DatabaseTest):
 
     def setup(self):
@@ -232,7 +240,14 @@ class TestAuthenticator(DatabaseTest):
 
     def test_authenticated_patron_basic(self):
         patron = self._patron()
-        basic = MockBasicAuthenticationProvider(patron=patron)
+        patrondata = PatronData(
+            permanent_id=patron.external_identifier,
+            authorization_identifier=patron.authorization_identifier,
+            username=patron.username
+        )
+        basic = MockBasicAuthenticationProvider(
+            patron=patron, patrondata=patrondata
+        )
         authenticator = Authenticator(basic_auth_provider=basic)
         eq_(
             patron,
@@ -259,7 +274,7 @@ class TestAuthenticator(DatabaseTest):
 
         # Figure out a token that looks okay.
         token = authenticator.create_bearer_token(oauth1.NAME, "some token")
-
+        
         # The authenticator will decode the bearer token into a
         # provider and a provider token. It will look up the oauth1
         # provider and ask it to authenticate the provider token.
@@ -269,18 +284,11 @@ class TestAuthenticator(DatabaseTest):
             self._db, "Bearer " + token)
         )
 
-        
-        
         # Basic auth doesn't work.
-        eq_(
-            patron,
-            authenticator.authenticated_patron(
-                self._db, dict(username="foo", password="bar")
-            )
-        )        
+        problem = authenticator.authenticated_patron(
+            self._db, dict(username="foo", password="bar")
+        )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
-        
-        pass
 
     def test_authenticated_patron_unsupported_mechanism(self):
         authenticator = Authenticator()
