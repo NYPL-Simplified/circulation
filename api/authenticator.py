@@ -54,6 +54,7 @@ class PatronData(object):
                  authorization_expires=None,
                  fines=None,
                  blocked=None,
+                 complete=True,
     ):
         """Store basic information about a patron.
 
@@ -90,6 +91,10 @@ class PatronData(object):
         items because their card has expired or their fines are
         excessive.)
 
+        :param complete: Does this PatronData represent the most
+        complete data we are likely to get for this patron from this
+        data source, or is it an abbreviated version of more complete
+        data we could get some other way?
         """
         self.permanent_id = permanent_id
         self.authorization_identifier = authorization_identifier
@@ -97,7 +102,8 @@ class PatronData(object):
         self.authorization_expires = authorization_expires
         self.fines = fines
         self.blocked = blocked
-
+        self.complete = complete
+        
         # We do not store personal_name in the database, but we provide
         # it to the client if possible.
         self.personal_name = personal_name
@@ -120,7 +126,8 @@ class PatronData(object):
             patron.authorization_expires = self.authorization_expires
         if self.fines:
             patron.fines = self.fines
-        patron.last_external_sync = datetime.datetime.utcnow()
+        if self.complete:
+            patron.last_external_sync = datetime.datetime.utcnow()
 
         # Note that we do not store personal_name or email_address in the
         # database model.

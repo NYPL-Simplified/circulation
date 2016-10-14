@@ -142,11 +142,24 @@ class TestPatronData(DatabaseTest):
         eq_("5", self.data.email_address)
         eq_(False, hasattr(patron, 'email_address'))
 
+    def test_apply_sets_last_external_sync_if_data_is_complete(self):
+        """Patron.last_external_sync is only updated when apply() is called on
+        a PatronData object that represents a full set of metadata.
+        What constitutes a 'full set' depends on the authentication
+        provider.
+        """
+        patron = self._patron()
+        self.data.apply(patron)
+        eq_(None, patron.last_external_sync)
+        self.data.complete = True
+        self.data.apply(patron)
+        assert None != patron.last_external_sync
+        
+        
     def test_to_response_parameters(self):
 
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
-
 
 class TestAuthenticator(DatabaseTest):
 
@@ -430,11 +443,69 @@ class TestAuthenticator(DatabaseTest):
 
 class TestAuthenticationProvider(DatabaseTest):
 
+    def test_authenticated_patron_passes_on_none(self):
+        provider = MockBasic(patrondata=None)
+        patron = provider.authenticated_patron(
+            self._db, dict(username='', password='')
+        )
+        eq_(None, patron)
+    
     def test_authenticated_patron_passes_on_problem_detail(self):
         provider = MockBasic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
-        patron = provider.authenticated_patron(self._db, object())
+        patron = provider.authenticated_patron(
+            self._db, dict(username='', password='')
+        )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, patron)
 
+    def test_authenticated_patron_updates_metadata_if_necessary(self):
+        patron = self._patron()
+        eq_(True, patron.needs_metadata_update)
+
+        # If we authenticate this patron we find out their username
+        # but not any other information about them.
+        username = "user"
+        barcode = "1234"
+        incomplete_data = PatronData(
+            permanent_id=patron.external_identifier,
+            username=username, complete=False
+        )
+
+        # If we do a lookup for this patron we will get more complete
+        # information.
+        complete_data = PatronData(
+            permanent_id=patron.external_identifier,
+            authorization_identifier=barcode,
+            username=username, complete=True
+        )
+        
+        provider = MockBasic(
+            patrondata=incomplete_data,
+            remote_patron_lookup_patrondata=complete_data
+        )
+        patron2 = provider.authenticated_patron(
+            self._db, dict(username='', password='')
+        )
+
+        # We found the right patron.
+        eq_(patron, patron2)
+
+        # We updated their metadata.
+        eq_("user", patron.username)
+
+        # We did a patron lookup, which means we updated
+        # .last_external_sync.
+        assert patron.last_external_sync != None
+
+        # Looking up the patron a second time does not cause another
+        # metadata refresh, because we just did a refresh and the
+        # patron has borrowing privileges.
+        last_sync = patron.last_external_sync
+        eq_(False, patron.needs_metadata_update)
+        patron = provider.authenticated_patron(
+            self._db, dict(username='', password='')
+        )
+        eq_(last_sync, patron.last_external_sync)
+        
     def test_update_patron_metadata(self):
         patron = self._patron()
         eq_(None, patron.last_external_sync)
