@@ -670,7 +670,7 @@ class DataSource(Base):
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
-    ONE_CLICK = "OneClick"
+    ONECLICK = "OneClick"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
@@ -4868,6 +4868,7 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
+    ONECLICK = Classifier.ONECLICK  # OneClick's genre system
     THREEM = Classifier.THREEM  # 3M's classification system
     BISAC = Classifier.BISAC
     TAG = Classifier.TAG   # Folksonomic tags.
@@ -4880,6 +4881,7 @@ class Subject(Base):
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
+    ONECLICK_AUDIENCE = Classifier.ONECLICK_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
@@ -7467,6 +7469,7 @@ class DeliveryMechanism(Base):
     KINDLE_DRM = "Kindle DRM"
     NOOK_DRM = "Nook DRM"
     STREAMING_DRM = "Streaming"
+    ONECLICK_DRM = "OneClick DRM"
     OVERDRIVE_DRM = "Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"

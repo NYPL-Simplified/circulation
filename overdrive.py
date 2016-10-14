@@ -854,6 +854,8 @@ class OverdriveRepresentationExtractor(object):
                         format_id, overdrive_id
                     )
 
+                # TODO: while reviewing the code, saw the medium variable
+                # is not used after declaration.  Consult with original coder and fix.
                 if format_id.startswith('audiobook-'):
                     medium = Edition.AUDIO_MEDIUM
                 elif format_id.startswith('video-'):
