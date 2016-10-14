@@ -379,7 +379,7 @@ class Authenticator(object):
                 links[rel] = dict(href=value, type="text/html")
 
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, self.providers,
+            base_opds_document, list(self.providers),
             name=unicode(_("Library")), id=opds_id, links=links,
         )
         return json.dumps(doc)
@@ -574,7 +574,7 @@ class AuthenticationProvider(object):
         """
         raise NotImplementedError()
 
-    def create_authentication_provider_document(self):
+    def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.
 
         :return: A dictionary that can be associated with the
@@ -830,8 +830,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 # We found them!
                 break            
         return patron
-        
-    def create_authentication_provider_document(self):
+
+    @property
+    def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -873,7 +874,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # token.
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
-
+    
     # After verifying the patron's OAuth credentials, we send them a
     # token. This is how long they can use that token before we check
     # their OAuth credentials again.
@@ -973,7 +974,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         return url_for('oauth_authenticate', _external=True, provider=self.NAME)
 
-    def create_authentication_provider_document(self):
+    @property
+    def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:

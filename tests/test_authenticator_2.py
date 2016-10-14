@@ -10,6 +10,8 @@ from nose.tools import (
 )
 
 import datetime
+import json
+import os
 
 from core.model import (
     Patron
@@ -18,6 +20,10 @@ from core.model import (
 from core.util.problem_detail import (
     ProblemDetail,
 )
+from core.util.opds_authentication_document import (
+    OPDSAuthenticationDocument,
+)
+
 
 from api.authenticator import (
     Authenticator,
@@ -272,17 +278,19 @@ class TestAuthenticator(DatabaseTest):
             bearer_token_signing_secret='foo'
         )
 
-        # Figure out a token that looks okay.
+        # Ask oauth1 to create a bearer token.
         token = authenticator.create_bearer_token(oauth1.NAME, "some token")
         
         # The authenticator will decode the bearer token into a
         # provider and a provider token. It will look up the oauth1
-        # provider and ask it to authenticate the provider token.
+        # provider (as opposed to oauth2) and ask it to authenticate
+        # the provider token.
         #
         # This gives us patron1, as opposed to patron2.
-        eq_(patron1, authenticator.authenticated_patron(
-            self._db, "Bearer " + token)
+        authenticated = authenticator.authenticated_patron(
+            self._db, "Bearer " + token
         )
+        eq_(patron1, authenticated)
 
         # Basic auth doesn't work.
         problem = authenticator.authenticated_patron(
@@ -298,16 +306,101 @@ class TestAuthenticator(DatabaseTest):
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
         
     def test_create_bearer_token(self):
-        pass
+        oauth1 = MockOAuthAuthenticationProvider("oauth1")
+        oauth2 = MockOAuthAuthenticationProvider("oauth2")
+        authenticator = Authenticator(
+            oauth_providers=[oauth1, oauth2],
+            bearer_token_signing_secret='foo'
+        )
 
-    def test_decode_bearer_token_from_header(self):
-        pass
+        # A token is created and signed with the bearer token.
+        token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
+        eq_("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng",
+            token1
+        )
 
+        # Varying the name of the OAuth provider varies the bearer
+        # token.
+        token2 = authenticator.create_bearer_token(oauth2.NAME, "some token")
+        assert token1 != token2
+
+        # Varying the token sent by the OAuth provider varies the
+        # bearer token.
+        token3 = authenticator.create_bearer_token(
+            oauth1.NAME, "some other token"
+        )
+        assert token3 != token1
+        
+        # Varying the secret used to sign the token varies the bearer
+        # token.
+        authenticator.bearer_token_signing_secret = "a different secret"
+        token4 = authenticator.create_bearer_token(oauth1.NAME, "some token")
+        assert token4 != token1
+        
     def test_decode_bearer_token(self):
-        pass
+        oauth = MockOAuthAuthenticationProvider("oauth")
+        authenticator = Authenticator(
+            oauth_providers=[oauth],
+            bearer_token_signing_secret='secret'
+        )
+
+        # A token is created and signed with the secret.
+        token_value = (oauth.NAME, "some token")
+        encoded = authenticator.create_bearer_token(*token_value)
+        decoded = authenticator.decode_bearer_token(encoded)
+        eq_(token_value, decoded)
+
+        decoded = authenticator.decode_bearer_token_from_header(
+            "Bearer " + encoded
+        )
+        eq_(token_value, decoded)
 
     def test_create_authentication_document(self):
-        pass
+        basic = MockBasicAuthenticationProvider()
+        oauth = MockOAuthAuthenticationProvider("oauth")
+        oauth.URI = "http://example.org/"
+        authenticator = Authenticator(
+            basic_auth_provider=basic, oauth_providers=[oauth],
+            bearer_token_signing_secret='secret'
+        )
 
-    def test_create_authentication_headers(self):
-        pass
+        # We're about to call url_for, so we must create an
+        # application context.
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        self.app = app
+        del os.environ['AUTOINITIALIZE']
+
+        with self.app.test_request_context("/"):        
+            doc = json.loads(authenticator.create_authentication_document())
+            # TODO: It would be good to verify other stuff such as the
+            # links, but the main thing we need to test is that the
+            # sub-documents are assembled properly and placed in the
+            # right position.
+            providers = doc['providers']
+            basic_doc = providers[basic.URI]
+            expect_basic = basic.authentication_provider_document
+            eq_(expect_basic, basic_doc)
+            
+            oauth_doc = providers[oauth.URI]
+            expect_oauth = oauth.authentication_provider_document
+            eq_(expect_oauth, oauth_doc)
+
+            # While we're in this context, let's also test
+            # create_authentication_headers.
+
+            # So long as the authenticator includes a basic auth
+            # provider, that provider's AUTHENTICATION_HEADER is used
+            # for WWW-Authenticate.
+            headers = authenticator.create_authentication_headers()
+            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+            eq_(basic.AUTHENTICATION_HEADER, headers['WWW-Authenticate'])
+
+            # If the authenticator does not include a basic auth provider,
+            # no WWW-Authenticate header is provided. 
+            authenticator = Authenticator(
+                oauth_providers=[oauth],
+                bearer_token_signing_secret='secret'
+            )
+            headers = authenticator.create_authentication_headers()
+            assert 'WWW-Authenticate' not in headers
