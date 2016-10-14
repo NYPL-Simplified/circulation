@@ -12,23 +12,40 @@ from config import (
     temp_config,
 )
 
+from util import LanguageCodes
+#from util.xmlparser import XMLParser
+#from util.jsonparser import JsonParser
 from util.http import (
     HTTP,
     RemoteIntegrationException,
 )
-
+from coverage import CoverageFailure
 from model import (
+    Contributor,
+    DataSource,
+    DeliveryMechanism,
+    LicensePool,
+    Edition,
     Identifier,
+    Representation,
+    Subject,
+)
+
+from metadata_layer import (
+    SubjectData,
+    ContributorData,
+    FormatData,
+    IdentifierData,
+    CirculationData,
+    Metadata,
 )
 
 from config import Configuration
 from coverage import BibliographicCoverageProvider
 
-
 class OneClickAPI(object):
 
     API_VERSION = "v1"
-
     DATE_FORMAT = "%m-%d-%Y"
 
     # a complete response returns the json structure with more data fields than a basic response does
@@ -47,8 +64,21 @@ class OneClickAPI(object):
         self.password = password or env_password
         self.remote_stage = remote_stage or env_remote_stage
         self.base_url = base_url or env_base_url
-        self.base_url = self.base_url + self.API_VERSION + '/'
+        self.base_url = self.base_url + self.API_VERSION
         self.token = basic_token or env_basic_token
+
+
+    @classmethod
+    def create_identifier_strings(cls, identifiers):
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+
+        return identifier_strings
 
 
     @classmethod
@@ -96,6 +126,18 @@ class OneClickAPI(object):
         return dict(Authorization="Basic " + authorization)
 
 
+    def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
+        print "url= %s" % url
+        print "params= %s" % params
+        print "kwargs= %s" % kwargs
+
+        """Actually make an HTTP request."""
+        return HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            params=params, **kwargs
+        )
+
+
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, verbosity='complete'):
         """Make an HTTP request, acquiring/refreshing a bearer token
@@ -121,49 +163,18 @@ class OneClickAPI(object):
         return response
 
 
-    def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
-        page_size=100, page_index=None, verbosity=None): 
-        """
-        Form a rest-ful search query, send to OneClick, and obtain the results.
+    ''' --------------------- Getters and Setters -------------------------- '''
 
-        :param mediatype Facet to limit results by media type.  Options are: "eaudio", "ebook".
-        :param genres The books found lie at intersection of genres passed.
-        :audience Facet to limit results by target age group.  Options include (there may be more): "adult", 
-            "beginning-reader", "childrens", "young-adult".
-        :param availability Facet to limit results by copies left.  Options are "available", "unavailable", or None
-        :param author Full name to search on.
-        :param author Book title to search on.
-        :param page_index Used for paginated result sets.  Zero-based.
-        :param verbosity "basic" returns smaller number of response json lines than "complete", etc..
-        """
-        url = self.base_url + "libraries/" + self.library_id + "/search" 
+    '''
+    TODO:
+    library delta:
+    http://api.oneclickdigital.us/v1/libraries/1998/media/delta?begin=2016-07-26&end=2016-09-26
+    get
 
-        # make sure availability is in allowed format
-        if availability not in ("available", "unavailable"):
-            availability = None
-
-        args = dict()
-        if mediatype:
-            args['media-type'] = mediatype
-        if genres:
-            args['genre'] = genres
-        if audience:
-            args['audience'] = audience
-        if availability:
-            args['availability'] = availability
-        if author:
-            args['author'] = author
-        if title:
-            args['title'] = title
-        if page_size != 100:
-            args['page-size'] = page_size
-        if page_index:
-            args['page-index'] = page_index
-
-        response = self.request(url, params=args, verbosity=verbosity)
-        return response
-
-
+    get whole catalog
+    https://api.oneclickdigital.us/v1/libraries/1931/media/all
+    get
+    '''
 
     def get_all_available_through_search(self):
         """
@@ -217,9 +228,7 @@ class OneClickAPI(object):
             "availability": false
             "titleId": 39764
         """
-        url = self.base_url + "libraries/" + self.library_id + "/media/ebook/availability" 
-
-        args = dict()
+        url = "%s/libraries/%s/media/ebook/availability" % (self.base_url, str(self.library_id)) 
 
         response = self.request(url)
 
@@ -230,29 +239,74 @@ class OneClickAPI(object):
         return resplist
 
 
-    @classmethod
-    def create_identifier_strings(cls, identifiers):
-        identifier_strings = []
-        for i in identifiers:
-            if isinstance(i, Identifier):
-                value = i.identifier
-            else:
-                value = i
-            identifier_strings.append(value)
+    def get_metadata_by_isbn(self, identifier):
+        """
+        Gets metadata, s.a. publisher, date published, genres, etc for the 
+        ebook or eaudio item passed, using isbn to search on. 
+        If isbn is not found, the response we get from OneClick is an error message, 
+        and we throw an error.
+        """
+        if not identifier:
+            raise ValueError("Need valid identifier to get metadata.")
 
-        return identifier_strings
+        identifier_string = self.create_identifier_strings(identifier)[0]
+        url = "%s/libraries/%s/media/%s" % (self.base_url, str(self.library_id), identifier_string) 
+
+        response = self.request(url)
+
+        respdict = response.json()
+        if not respdict:
+            # should never happen
+            raise IOError("OneClick isbn search response not parseable - has no respdict.")
+
+        if "message" in respdict:
+            # can happen if searched for item that's not in library's catalog
+            raise ValueError("ISBN [%s] is not in library []'s catalog." % (identifier_string, str(self.library_id)))
+
+        return respdict
 
 
-    def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
-        print "url= %s" % url
-        print "params= %s" % params
-        print "kwargs= %s" % kwargs
+    def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
+        page_size=100, page_index=None, verbosity=None): 
+        """
+        Form a rest-ful search query, send to OneClick, and obtain the results.
 
-        """Actually make an HTTP request."""
-        return HTTP.request_with_timeout(
-            method, url, headers=headers, data=data,
-            params=params, **kwargs
-        )
+        :param mediatype Facet to limit results by media type.  Options are: "eaudio", "ebook".
+        :param genres The books found lie at intersection of genres passed.
+        :audience Facet to limit results by target age group.  Options include (there may be more): "adult", 
+            "beginning-reader", "childrens", "young-adult".
+        :param availability Facet to limit results by copies left.  Options are "available", "unavailable", or None
+        :param author Full name to search on.
+        :param author Book title to search on.
+        :param page_index Used for paginated result sets.  Zero-based.
+        :param verbosity "basic" returns smaller number of response json lines than "complete", etc..
+        """
+        url = "%s/libraries/%s/search" % (self.base_url, str(self.library_id))
+
+        # make sure availability is in allowed format
+        if availability not in ("available", "unavailable"):
+            availability = None
+
+        args = dict()
+        if mediatype:
+            args['media-type'] = mediatype
+        if genres:
+            args['genre'] = genres
+        if audience:
+            args['audience'] = audience
+        if availability:
+            args['availability'] = availability
+        if author:
+            args['author'] = author
+        if title:
+            args['title'] = title
+        if page_size != 100:
+            args['page-size'] = page_size
+        if page_index:
+            args['page-index'] = page_index
+
+        response = self.request(url, params=args, verbosity=verbosity)
+        return response
 
 
 
@@ -292,6 +346,246 @@ class MockOneClickAPI(OneClickAPI):
         )
 
 
+
+class OneClickRepresentationExtractor(object):
+    """ Extract useful information from OneClick's JSON representations. """
+
+    log = logging.getLogger("OneClick representation extractor")
+
+    # TODO: the formats/encoding/drm information needs confirmation from OneClick
+    oneclick_formats = {
+        "ebook-epub-oneclick" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ONECLICK_DRM
+        ),
+        "ebook-epub-open" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        ),
+        "audiobook-mp3-oneclick" : (
+            "application/x-od-media", DeliveryMechanism.ONECLICK_DRM
+        ),
+    }
+
+    oneclick_medium_to_simplified_medium = {
+        "eBook" : Edition.BOOK_MEDIUM,
+        "eAudio" : Edition.AUDIO_MEDIUM,
+    }
+
+
+    @classmethod
+    def image_link_to_linkdata(cls, link_url, rel):
+        if not link_url or not 'href' in link_url:
+            return None
+
+        media_type = None
+        if link_url.endswith(".jpg"):
+            media_type = "image/jpeg"
+
+        return LinkData(rel=rel, href=link_url, media_type=media_type)
+
+
+    @classmethod
+    def isbn_info_to_metadata(cls, book, include_bibliographic=True, include_formats=True):
+        """Turn OneClick's JSON representation of a book into a Metadata object.
+        Assumes the JSON is in the format that comes from the media/{isbn} endpoint.
+        """
+        if not 'isbn' in book:
+            return None
+        oneclick_id = book['isbn']
+        primary_identifier = IdentifierData(
+            Identifier.ONECLICK_ID, oneclick_id
+        )
+
+        metadata = Metadata(
+            data_source=DataSource.ONECLICK,
+            primary_identifier=primary_identifier,
+        )
+
+        if include_bibliographic:
+            title = book.get('title', None)
+            series_name = book.get('seriesName', None)
+            # ignored for now
+            series_position = book.get('seriesPosition', None)
+            # ignored for now
+            series_total = book.get('seriesTotal', None)
+            # ignored for now
+            has_digital_rights = book.get('hasDigitalRights', None)
+
+            publisher = book.get('publisher', None)
+            if 'publicationDate' in book:
+                published = datetime.datetime.strptime(
+                    book['publicationDate'][:10], cls.DATE_FORMAT)
+            else:
+                published = None
+
+            if 'language' in book:
+                language = LanguageCodes.string_to_alpha_3(book['language'])
+            else:
+                language = 'eng'
+
+            contributors = []
+            if 'authors' in book:
+                authors = book['authors']
+                for author in authors.split(";"):
+                    sort_name = author.strip()
+                    roles = [Contributor.AUTHOR_ROLE]
+                    contributor = ContributorData(sort_name=sort_name, roles=roles)
+                    contributors.append(contributor)
+
+            subjects = []
+            if 'genres' in book:
+                # example: "FICTION / Humorous / General"
+                genres = book['genres']
+            for genre in genres.split("/"):
+                subject = SubjectData(
+                    type=Subject.ONECLICK, identifier=genre.strip(),
+                    weight=100
+                )
+                subjects.append(subject)
+
+            if 'primaryGenre' in book:
+                # example: "humorous-fiction,mystery,womens-fiction"
+                genres = book['primaryGenre']
+            for genre in genres.split(","):
+                subject = SubjectData(
+                    type=Subject.ONECLICK, identifier=genre.strip(),
+                    weight=100
+                )
+                subjects.append(subject)
+
+            # audience options are: adult, beginning-reader, childrens, young-adult
+            audience = book.get('audience', None)
+            if audience:
+                subject = SubjectData(
+                    type=Subject.ONECLICK_AUDIENCE,
+                    identifier=audience.strip().lower(),
+                    weight=10
+                )
+                subjects.append(subject)
+
+            # options are: "eBook", "eAudio"
+            oneclick_medium = book.get('mediaType', None)
+            if oneclick_medium and oneclick_medium not in cls.oneclick_medium_to_simplified_medium:
+                cls.log.error(
+                    "Could not process medium %s for %s", oneclick_medium, oneclick_id)
+                
+            medium = cls.oneclick_medium_to_simplified_medium.get(
+                oneclick_medium, Edition.BOOK_MEDIUM
+            )
+
+            identifiers = [IdentifierData(Identifier.ISBN, oneclick_id, 1)]
+            
+            links = []
+            # A cover and its thumbnail become a single LinkData.
+            # images come in small (ex: 71x108px), medium (ex: 95x140px), 
+            # and large (ex: 128x192px) sizes
+            if 'images' in book:
+                images = book['images']
+                for image in images:
+                    if image['name'] == "large":
+                        image_data = cls.image_link_to_linkdata(image['url'], Hyperlink.IMAGE)
+                    if image['name'] == "small":
+                        thumbnail_data = cls.image_link_to_linkdata(image['url'], Hyperlink.THUMBNAIL_IMAGE)
+
+                if image_data:
+                    if thumbnail_data:
+                        image_data.thumbnail = thumbnail_data
+                    links.append(image_data)
+
+
+            # Descriptions become links.
+            description = book.get('description', None)
+            if description:
+                links.append(
+                    LinkData(
+                        # there can be fuller descriptions in the search endpoint output
+                        rel=Hyperlink.SHORT_DESCRIPTION,
+                        content=description,
+                        media_type="text/html",
+                    )
+                )
+
+            metadata.title = title
+            metadata.language = language
+            metadata.medium = medium
+            metadata.series = series_name
+            metadata.publisher = publisher
+            metadata.published = published
+            metadata.identifiers = identifiers
+            metadata.subjects = subjects
+            metadata.contributors = contributors
+            metadata.links = links
+
+        if include_formats:
+            formats = []
+            if metadata.medium == Edition.BOOK_MEDIUM:
+                content_type, drm_scheme = cls.format_data_for_overdrive_format.get("ebook-epub-oneclick")
+                formats.append(FormatData(content_type, drm_scheme))
+            elif metadata.medium == Edition.AUDIO_MEDIUM:
+                content_type, drm_scheme = cls.format_data_for_overdrive_format.get("audiobook-mp3-oneclick")
+                formats.append(FormatData(content_type, drm_scheme))
+            else:
+                cls.log.warn("Unfamiliar format: %s", format_id)
+
+            # Make a CirculationData so we can write the formats, 
+            circulationdata = CirculationData(
+                data_source=DataSource.OVERDRIVE,
+                primary_identifier=primary_identifier,
+                formats=formats,
+            )
+
+            metadata.circulation = circulationdata
+
+        return metadata
+
+
+
+class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for OneClick records."""
+
+    def __init__(self, _db, input_identifier_types=None, 
+                 metadata_replacement_policy=None, oneclick_api=None,
+                 **kwargs):
+        # We ignore the value of input_identifier_types, but it's
+        # passed in by RunCoverageProviderScript, so we accept it as
+        # part of the signature.
+        
+        oneclick_api = oneclick_api or OneClickAPI(_db)
+        super(OneClickBibliographicCoverageProvider, self).__init__(
+            _db, oneclick_api, DataSource.ONE_CLICK,
+            batch_size=25, 
+            metadata_replacement_policy=metadata_replacement_policy,
+            **kwargs
+        )
+
+
+    def process_item(self, identifier):
+        """ OneClick availability information is served separately from 
+        the book's metadata.  Furthermore, the metadata returned by the 
+        "book by isbn" request is less comprehensive than the data returned 
+        by the "search titles/genres/etc." endpoint.
+
+        This method hits the "by isbn" endpoint and updates the bibliographic 
+        metadata returned by it. 
+        """
+        try:
+            response_dictionary = self.api.get_metadata_by_isbn(identifier)
+        except ValueError as error:
+            return CoverageFailure(identifier, error, data_source=self.output_source, transient=False)
+        except IOError as error:
+            return CoverageFailure(identifier, error, data_source=self.output_source, transient=True)
+
+        metadata = OneClickRepresentationExtractor.book_info_to_metadata(
+            info
+        )
+
+        if not metadata:
+            e = "Could not extract metadata from OneClick data: %r" % info
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        return self.set_metadata(
+            identifier, metadata, 
+            metadata_replacement_policy=self.metadata_replacement_policy
+        )
 
 
 
