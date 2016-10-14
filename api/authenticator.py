@@ -403,110 +403,6 @@ class Authenticator(object):
         return headers
 
 
-class OAuthController(object):
-
-    """A controller for handling requests that are part of the OAuth
-    credential dance.
-    """
-    
-    def __init__(self, authenticator):
-        self.authenticator = authenticator
-
-    def oauth_authentication_redirect(self, params):
-        """Redirect an unauthenticated patron to the authentication URL of the
-        appropriate OAuth provider.
-
-        Over on that other site, the patron will authenticate and be
-        redirected back to the circulation manager (the URL is stored
-        in params['redirect_uri']), ending up in
-        oauth_authentication_callback.
-        """
-        redirect_uri = params.get('redirect_uri') or ""
-
-        provider_name = params.get('provider')
-        provider = self.authenticator.oauth_provider_lookup(provider_name)
-        if isinstance(provider, ProblemDetail):
-            return self._redirect_with_error(redirect_uri, provider)
-        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
-        return redirect(provider.external_authenticate_url(json.dumps(state)))
-
-    def oauth_authentication_callback(self, _db, params):
-        """Create a Patron object and a bearer token for a patron who has just
-        authenticated with one of our OAuth providers.
-
-        :return: A redirect to the `redirect_uri` kept in
-        `params['state']`, with the bearer token encoded into the
-        fragment identifier as `access_token` and useful information
-        about the patron encoded into the fragment identifier as
-        `patron_info`. For example, if params is 
-
-            dict(state="http://oauthprovider.org/success")
-
-        Then the redirect URI might be:
-
-            http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22name%22%3A+%22Mary+Shell%22%7D
-
-        It's the client's responsibility to extract the access_token,
-        start using it as a bearer token, and make sense of the
-        patron_info.
-        """
-        code = params.get('code')
-        state = params.get('state')
-        if not code or not state:
-            return INVALID_OAUTH_CALLBACK_PARAMETERS
-
-        client_redirect_uri = state.get('redirect_uri') or ""
-        provider_name = state.get('provider')
-        provider = self.oauth_provider_lookup(provider_name)
-        if isinstance(provider, ProblemDetail):
-            return self._redirect_with_error(redirect_uri, provider)
-
-        # Send the incoming parameters to the OAuth provider and get
-        # back a provider token (a Credential object), the
-        # authenticated patron (a Patron object), and a PatronData
-        # including any personal information obtained from the OAuth
-        # provider (such as patron name) which we can't store in the
-        # database.
-        response = provider.oauth_callback(_db, params)
-        if isinstance(response, ProblemDetail):
-            # Most likely the OAuth provider didn't like the credentials
-            # we sent.
-            return self._redirect_with_error(
-                client_redirect_uri, response
-            )
-        provider_token, patron, patrondata = response
-        
-        # Turn the provider token into a bearer token we can give to
-        # the patron.
-        simplified_token = self.authenticator.create_bearer_token(
-            provider.NAME, provider_token
-        )
-
-        patron_info = json.dumps(patrondata.to_response_parameters)
-        params = dict(
-            access_token=simplified_token,
-            patron_info=patron_info
-        )
-        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
-
-    def _redirect_with_error(self, redirect_uri, pd):
-        """Redirect the patron to the given URL, with the given ProblemDetail
-        encoded into the fragment identifier.
-        """
-        return redirect(self._error_uri, redirect_uri, pd)
-    
-    def _error_uri(self, redirect_uri, pd):
-        """Encode the given ProblemDetail into the fragment identifier
-        of the given URI.
-        """
-        problem_detail_json = pd_json(
-            pd.uri, pd.status_code, pd.title, pd.detail, pd.instance,
-            pd.debug_message
-        )
-        params = dict(error=problem_detail_json)
-        return redirect_uri + "#" + urllib.urlencode(params)
-
-
 class AuthenticationProvider(object):
     """Handle a specific patron authentication scheme.
     """
@@ -625,19 +521,19 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         )
         identifier_re = password_re = test_username = test_password = None
         if config:
-            identifier_re = integration.get(
+            identifier_re = config.get(
                 Configuration.IDENTIFIER_REGULAR_EXPRESSION,
-                self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+                cls.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
             )
-            password_re = integration.get(
+            password_re = config.get(
                 Configuration.PASSWORD_REGULAR_EXPRESSION,
-                self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
+                cls.DEFAULT_PASSWORD_REGULAR_EXPRESSION
             )
-            test_username = integration.get(
+            test_username = config.get(
                 Configuration.AUTHENTICATION_TEST_USERNAME,
                 None
             )
-            test_password = integration.get(
+            test_password = config.get(
                 Configuration.AUTHENTICATION_TEST_PASSWORD,
                 None
             )
@@ -699,7 +595,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # credentials.
         
         # First, try to look up the Patron object in our database.
-        patron = self.local_patron_lookup(_db, username, password, patrondata)
+        patron = self.local_patron_lookup(_db, username, patrondata)
         if patron:
             # We found them!
             return patron
@@ -723,7 +619,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # At this point we have an updated PatronData object which we
         # know represents an existing patron on the remote side.  Try
         # the local lookup again.
-        patron = self.local_patron_lookup(username, password, patrondata)
+        patron = self.local_patron_lookup(username, patrondata)
 
         if not patron:
             # We have a PatronData from the ILS that does not
@@ -746,11 +642,11 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """
         valid = True
         if self.identifier_re:
-            valid = valid and username and (
+            valid = valid and username is not None and (
                 self.identifier_re.match(username) is not None
             )
         if self.password_re:
-            valid = valid and password and (
+            valid = valid and password is not None and (
                 self.password_re.match(password) is not None
             )
         return valid
@@ -770,13 +666,11 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """
         raise NotImplementedError()
 
-    def local_patron_lookup(self, _db, username, password, patrondata):
+    def local_patron_lookup(self, _db, username, patrondata):
         """Try to find a Patron object in the local database.
 
         :param username: An HTTP Basic Auth username. May or may not
         correspond to the `Patron.username` field.
-
-        :param password: An HTTP Basic Auth password.
 
         :param patrondata: A PatronData object recently obtained from
         the source of truth, possibly as a side effect of validating
@@ -993,3 +887,107 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
+
+
+class OAuthController(object):
+
+    """A controller for handling requests that are part of the OAuth
+    credential dance.
+    """
+    
+    def __init__(self, authenticator):
+        self.authenticator = authenticator
+
+    def oauth_authentication_redirect(self, params):
+        """Redirect an unauthenticated patron to the authentication URL of the
+        appropriate OAuth provider.
+
+        Over on that other site, the patron will authenticate and be
+        redirected back to the circulation manager (the URL is stored
+        in params['redirect_uri']), ending up in
+        oauth_authentication_callback.
+        """
+        redirect_uri = params.get('redirect_uri') or ""
+
+        provider_name = params.get('provider')
+        provider = self.authenticator.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
+        return redirect(provider.external_authenticate_url(json.dumps(state)))
+
+    def oauth_authentication_callback(self, _db, params):
+        """Create a Patron object and a bearer token for a patron who has just
+        authenticated with one of our OAuth providers.
+
+        :return: A redirect to the `redirect_uri` kept in
+        `params['state']`, with the bearer token encoded into the
+        fragment identifier as `access_token` and useful information
+        about the patron encoded into the fragment identifier as
+        `patron_info`. For example, if params is 
+
+            dict(state="http://oauthprovider.org/success")
+
+        Then the redirect URI might be:
+
+            http://oauthprovider.org/success#access_token=1234&patron_info=%7B%22name%22%3A+%22Mary+Shell%22%7D
+
+        It's the client's responsibility to extract the access_token,
+        start using it as a bearer token, and make sense of the
+        patron_info.
+        """
+        code = params.get('code')
+        state = params.get('state')
+        if not code or not state:
+            return INVALID_OAUTH_CALLBACK_PARAMETERS
+
+        client_redirect_uri = state.get('redirect_uri') or ""
+        provider_name = state.get('provider')
+        provider = self.oauth_provider_lookup(provider_name)
+        if isinstance(provider, ProblemDetail):
+            return self._redirect_with_error(redirect_uri, provider)
+
+        # Send the incoming parameters to the OAuth provider and get
+        # back a provider token (a Credential object), the
+        # authenticated patron (a Patron object), and a PatronData
+        # including any personal information obtained from the OAuth
+        # provider (such as patron name) which we can't store in the
+        # database.
+        response = provider.oauth_callback(_db, params)
+        if isinstance(response, ProblemDetail):
+            # Most likely the OAuth provider didn't like the credentials
+            # we sent.
+            return self._redirect_with_error(
+                client_redirect_uri, response
+            )
+        provider_token, patron, patrondata = response
+        
+        # Turn the provider token into a bearer token we can give to
+        # the patron.
+        simplified_token = self.authenticator.create_bearer_token(
+            provider.NAME, provider_token
+        )
+
+        patron_info = json.dumps(patrondata.to_response_parameters)
+        params = dict(
+            access_token=simplified_token,
+            patron_info=patron_info
+        )
+        return redirect(client_redirect_uri + "#" + urllib.urlencode(params))
+
+    def _redirect_with_error(self, redirect_uri, pd):
+        """Redirect the patron to the given URL, with the given ProblemDetail
+        encoded into the fragment identifier.
+        """
+        return redirect(self._error_uri, redirect_uri, pd)
+    
+    def _error_uri(self, redirect_uri, pd):
+        """Encode the given ProblemDetail into the fragment identifier
+        of the given URI.
+        """
+        problem_detail_json = pd_json(
+            pd.uri, pd.status_code, pd.title, pd.detail, pd.instance,
+            pd.debug_message
+        )
+        params = dict(error=problem_detail_json)
+        return redirect_uri + "#" + urllib.urlencode(params)

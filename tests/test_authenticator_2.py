@@ -54,17 +54,20 @@ class MockAuthenticationProvider(object):
         self.patrondata = patrondata
 
     def authenticate(self, _db, header):
-        return self.patrondata
+        return self.patron
            
 
 class MockBasicAuthenticationProvider(
         BasicAuthenticationProvider,
         MockAuthenticationProvider
-):
-    def __init__(self, patron=None, patrondata=None):
-        super(MockBasicAuthenticationProvider, self).__init__()
+):   
+    def __init__(self, patron=None, patrondata=None, *args, **kwargs):
+        super(MockBasicAuthenticationProvider, self).__init__(*args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
+
+    def authenticate(self, _db, header):
+        return self.patron
 
     def remote_authenticate(self, username, password):
         return self.patrondata
@@ -404,3 +407,150 @@ class TestAuthenticator(DatabaseTest):
             )
             headers = authenticator.create_authentication_headers()
             assert 'WWW-Authenticate' not in headers
+
+class TestAuthenticationProvider(DatabaseTest):
+
+    def test_authenticated_patron(self):
+        pass
+
+    def test_update_patron_metadata(self):
+        pass
+
+class TestBasicAuthenticationProvider(DatabaseTest):
+
+    def test_from_config(self):
+
+        class ConfigAuthenticationProvider(BasicAuthenticationProvider):
+            CONFIGURATION_NAME = "Config loading test"
+        
+        with temp_config() as config:
+            data = {
+                Configuration.IDENTIFIER_REGULAR_EXPRESSION : "idre",
+                Configuration.PASSWORD_REGULAR_EXPRESSION : "pwre",
+                Configuration.AUTHENTICATION_TEST_USERNAME : "username",
+                Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
+            }
+            config[Configuration.INTEGRATIONS] = {
+                ConfigAuthenticationProvider.CONFIGURATION_NAME : data
+            }
+            provider = ConfigAuthenticationProvider.from_config()
+            eq_("idre", provider.identifier_re.pattern)
+            eq_("pwre", provider.password_re.pattern)
+            eq_("username", provider.test_username)
+            eq_("pw", provider.test_password)
+
+    def test_testing_patron(self):
+        # You don't have to have a testing patron.
+        no_testing_patron = BasicAuthenticationProvider()
+        eq_((None, None), no_testing_patron.testing_patron(self._db))
+
+        # We configure a testing patron but their username and
+        # password don't actually authenticate anyone. We don't crash,
+        # but we can't look up the testing patron either.
+        missing_patron = MockBasicAuthenticationProvider(
+            patron=None, test_username="1", test_password="2"
+        )
+        value = missing_patron.testing_patron(self._db)
+        eq_((None, "2"), value)
+
+        # Here, we configure a testing patron who is authenticated by
+        # their username and password.
+        patron = self._patron()
+        present_patron = MockBasicAuthenticationProvider(
+            patron=patron, test_username="1", test_password="2"
+        )
+        value = present_patron.testing_patron(self._db)
+        eq_((patron, "2"), value)
+
+    def test_server_side_validation(self):
+        provider = BasicAuthenticationProvider(
+            identifier_re="foo", password_re="bar"
+        )
+        eq_(True, provider.server_side_validation("food", "barbecue"))
+        eq_(False, provider.server_side_validation("food", "arbecue"))
+        eq_(False, provider.server_side_validation("ood", "barbecue"))
+        eq_(False, provider.server_side_validation(None, None))
+
+        # It's okay not to provide anything for server side validation.
+        # Everything will be considered valid.
+        provider = BasicAuthenticationProvider(
+            identifier_re=None, password_re=None
+        )
+        eq_(True, provider.server_side_validation("food", "barbecue"))
+        eq_(True, provider.server_side_validation(None, None))
+        
+    def test_local_patron_lookup(self):
+        patron1 = self._patron("patron1_ext_id")
+        patron1.authorization_identifier = "patron1_auth_id"
+        patron1.username = "patron1"
+
+        patron2 = self._patron("patron2_ext_id")
+        patron2.authorization_identifier = "patron2_auth_id"
+        patron2.username = "patron2"
+        self._db.commit()
+        
+        provider = BasicAuthenticationProvider()
+
+        # If we provide PatronData associated with patron1, we look up
+        # patron1, even though we provided the username associated
+        # with patron2.
+        for patrondata_args in [
+                dict(permanent_id=patron1.external_identifier),
+                dict(authorization_identifier=patron1.authorization_identifier),
+                dict(username=patron1.username),
+        ]:
+            patrondata = PatronData(**patrondata_args)
+            eq_(
+                patron1, provider.local_patron_lookup(
+                    self._db, patron2.authorization_identifier, patrondata
+                )
+            )
+
+        # If no PatronData is provided, we can look up patron1 either
+        # by authorization identifier or username, but not by
+        # permanent identifier.
+        eq_(
+            patron2, provider.local_patron_lookup(
+                self._db, patron2.authorization_identifier, None
+            )
+        )
+        eq_(
+            patron2, provider.local_patron_lookup(
+                self._db, patron2.username, None
+            )
+        )
+        eq_(
+            None, provider.local_patron_lookup(
+                self._db, patron2.external_identifier, None
+            )
+        )        
+        
+    def test_authentication_provider_document(self):
+        provider = BasicAuthenticationProvider()
+        doc = provider.authentication_provider_document
+        eq_(_(provider.DISPLAY_NAME), doc['name'])
+        methods = doc['methods']
+        eq_([provider.METHOD], methods.keys())
+        method = methods[provider.METHOD]
+        eq_(['labels'], method.keys())
+        login = method['labels']['login']
+        password = method['labels']['password']
+        eq_(provider.LOGIN_LABEL, login)
+        eq_(provider.PASSWORD_LABEL, password)
+
+class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
+    """Test the complex BasicAuthenticationProvider.authenticate method."""
+
+    def setup(self):
+        super(TestBasicAuthenticationProviderAuthenticate, self).setup()
+        # The default MockBasicAuthenticationProvider mocks authenticate,
+        # so we need a different mock.
+        class MyMock(BasicAuthenticationProvider):
+            pass
+
+    def test_server_side_validation_runs(self):
+        pass
+
+    
+class TestOAuthController:
+    pass
