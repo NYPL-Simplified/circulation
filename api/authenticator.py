@@ -120,7 +120,7 @@ class PatronData(object):
             patron.authorization_expires = self.authorization_expires
         if self.fines:
             patron.fines = self.fines
-        patron.last_local_sync = datetime.datetime.utcnow()
+        patron.last_external_sync = datetime.datetime.utcnow()
 
         # Note that we do not store personal_name or email_address in the
         # database model.

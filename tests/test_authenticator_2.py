@@ -61,6 +61,9 @@ class MockBasicAuthenticationProvider(
         BasicAuthenticationProvider,
         MockAuthenticationProvider
 ):   
+    """A mock basic authentication provider for use in testing the overall
+    authentication process.
+    """
     def __init__(self, patron=None, patrondata=None, *args, **kwargs):
         super(MockBasicAuthenticationProvider, self).__init__(*args, **kwargs)
         self.patron = patron
@@ -74,6 +77,23 @@ class MockBasicAuthenticationProvider(
 
     def remote_patron_lookup(self, patrondata):
         return self.patrondata
+
+class MockBasic(BasicAuthenticationProvider):
+    """A second mock basic authentication provider for use in testing
+    the workflow around Basic Auth.
+    """
+    def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
+                 *args, **kwargs):
+        super(MockBasic, self).__init__(*args, **kwargs)
+        self.patrondata = patrondata
+        self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
+        
+    def remote_authenticate(self, username, password):
+        return self.patrondata
+
+    def remote_patron_lookup(self, patrondata):
+        return self.remote_patron_lookup_patrondata
+
     
 class MockOAuthAuthenticationProvider(
         OAuthAuthenticationProvider,
@@ -410,12 +430,36 @@ class TestAuthenticator(DatabaseTest):
 
 class TestAuthenticationProvider(DatabaseTest):
 
-    def test_authenticated_patron(self):
-        pass
+    def test_authenticated_patron_passes_on_problem_detail(self):
+        provider = MockBasic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        patron = provider.authenticated_patron(self._db, object())
+        eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, patron)
 
     def test_update_patron_metadata(self):
-        pass
+        patron = self._patron()
+        eq_(None, patron.last_external_sync)
+        eq_(None, patron.username)
+        
+        patrondata = PatronData(username="user")
+        provider = MockBasicAuthenticationProvider(patrondata=patrondata)
+        provider.update_patron_metadata(patron)
 
+        # The patron's username has been changed.
+        eq_("user", patron.username)
+        
+        # last_external_sync has been updated.
+        assert patron.last_external_sync != None
+    
+    def test_update_patron_metadata_noop_if_no_remote_metadata(self):
+
+        patron = self._patron()
+        provider = MockBasicAuthenticationProvider(patrondata=None)
+        provider.update_patron_metadata(patron)
+
+        # We can tell that update_patron_metadata was a no-op because
+        # patron.last_external_sync didn't change.
+        eq_(None, patron.last_external_sync)
+        
 class TestBasicAuthenticationProvider(DatabaseTest):
 
     def test_from_config(self):
@@ -537,20 +581,6 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         password = method['labels']['password']
         eq_(provider.LOGIN_LABEL, login)
         eq_(provider.PASSWORD_LABEL, password)
-
-
-class MockBasic(BasicAuthenticationProvider):
-    def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
-                 *args, **kwargs):
-        super(MockBasic, self).__init__(*args, **kwargs)
-        self.patrondata = patrondata
-        self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
-        
-    def remote_authenticate(self, username, password):
-        return self.patrondata
-
-    def remote_patron_lookup(self, patrondata):
-        return self.remote_patron_lookup_patrondata
 
 
 class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
