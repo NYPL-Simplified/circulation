@@ -538,19 +538,86 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         eq_(provider.LOGIN_LABEL, login)
         eq_(provider.PASSWORD_LABEL, password)
 
+
+class MockBasic(BasicAuthenticationProvider):
+    def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
+                 *args, **kwargs):
+        super(MockBasic, self).__init__(*args, **kwargs)
+        self.patrondata = patrondata
+        self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
+        
+    def remote_authenticate(self, username, password):
+        return self.patrondata
+
+    def remote_patron_lookup(self, patrondata):
+        return self.remote_patron_lookup_patrondata
+
+
 class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
 
-    def setup(self):
-        super(TestBasicAuthenticationProviderAuthenticate, self).setup()
-        # The default MockBasicAuthenticationProvider mocks authenticate,
-        # so we need a different mock.
-        class MyMock(BasicAuthenticationProvider):
-            pass
-
-    def test_server_side_validation_runs(self):
-        pass
-
+    # A dummy set of credentials, for use when the exact details of
+    # the credentials passed in are not important.
+    credentials = dict(username="", password="")
     
+    def test_success(self):
+        patron = self._patron()
+        patrondata = PatronData(permanent_id=patron.external_identifier)
+        provider = MockBasic(patrondata)
+
+        # authenticate() calls remote_authenticate(), which returns the
+        # queued up PatronData object. The corresponding Patron is then
+        # looked up in the database.
+        eq_(patron, provider.authenticate(
+            self._db, dict(username="", password=""))
+        )
+
+        # All the different ways the database lookup might go are covered in 
+        # test_local_patron_lookup. This test only covers the case where
+        # the server sends back the permanent ID of the patron.
+
+    def test_failure_when_remote_authentication_returns_problemdetail(self):
+        patron = self._patron()
+        patrondata = PatronData(permanent_id=patron.external_identifier)
+        provider = MockBasic(UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM,
+            provider.authenticate(self._db, self.credentials))
+
+    def test_failure_when_remote_authentication_returns_none(self):
+        patron = self._patron()
+        patrondata = PatronData(permanent_id=patron.external_identifier)
+        provider = MockBasic(None)
+        eq_(None,
+            provider.authenticate(self._db, self.credentials))
+        
+    def test_server_side_validation_runs(self):
+        patron = self._patron()
+        patrondata = PatronData(permanent_id=patron.external_identifier)
+        provider = MockBasic(
+            patrondata, identifier_re="foo", password_re="bar"
+        )
+
+        # This would succeed, but we don't get to remote_authenticate()
+        # because we fail the regex test.
+        eq_(None, provider.authenticate(self._db, self.credentials))
+
+        # This succeeds because we pass the regex test.
+        eq_(patron, provider.authenticate(
+            self._db, dict(username="food", password="barbecue"))
+        )
+
+    def test_authentication_succeeds_but_patronlookup_fails(self):
+        """This case should never happen--it indicates a malfunctioning 
+        authentication provider. But we handle it.
+        """
+        patrondata = PatronData(permanent_id=self._str)
+        provider = MockBasic(patrondata)
+
+        # When we call remote_authenticate(), we get patrondata, but
+        # there is no corresponding local patron, so we call
+        # remote_patron_lookup() for details, and we get nothing.  At
+        # this point we give up -- there is no authenticated patron.
+        eq_(None, provider.authenticate(self._db, self.credentials))
+        
 class TestOAuthController:
     pass

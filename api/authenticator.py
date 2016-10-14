@@ -455,7 +455,7 @@ class AuthenticationProvider(object):
         """
         raise NotImplementedError()
         
-    def remote_patron_lookup(self, patron):
+    def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
 
         This may be called in the course of authenticating a patron,
@@ -608,7 +608,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # information.  In some providers this step may be a no-op
         # because we may have gotten patron account information as a
         # side effect of remote validation.
-        patrondata = self.remote_patron_lookup(self, patrondata)
+        patrondata = self.remote_patron_lookup(patrondata)
         if not patrondata or isinstance(patrondata, ProblemDetail):
             # Either there was a problem looking up the patron data, or
             # the patron does not exist on the remote. How we passed
@@ -825,7 +825,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         # to get a new token.
         return None
 
-    def remote_patron_lookup(self, patron):
+    def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
 
         By default, there is no way to ask an OAuth provider for
