@@ -165,6 +165,7 @@ class TestPatronData(DatabaseTest):
         provider.
         """
         patron = self._patron()
+        self.data.complete = False
         self.data.apply(patron)
         eq_(None, patron.last_external_sync)
         self.data.complete = True
