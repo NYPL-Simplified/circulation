@@ -7,6 +7,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Credential,
+    DataSource,
     Patron,
 )
 from core.util.problem_detail import (
@@ -822,6 +823,10 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # Each subclass MUST define an attribute called TOKEN_TYPE, which
     # is the name of the JWT given to patrons for use as a bearer
     # token.
+    #
+    # Each subclass MUST define an attribute called
+    # TOKEN_DATA_SOURCE_NAME, which is the name of the DataSource
+    # under which bearer tokens for patrons will be registered.
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
     
@@ -839,12 +844,11 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         )
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
-        secret_key = Configuration.get(Configuration.SECRET_KEY)
         token_expiration_days = config.get(
             Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
             cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         )
-        return cls(client_id, client_secret, secret_key, token_expiration_days)
+        return cls(client_id, client_secret, token_expiration_days)
     
     def __init__(self, client_id, client_secret, token_expiration_days):
         """Initialize this OAuthAuthenticationProvider.
@@ -860,18 +864,21 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
-       
-    def authenticated_patron(self, _db, token):
-        """Go from an OAuth bearer token to an authenticated Patron.
 
-        :param token: The bearer token extracted from the Authorization header.
+    def authenticated_patron(self, _db, token):
+        """Go from an OAuth provider token to an authenticated Patron.
+
+        :param token: The provider token extracted from the
+        Authorization header. This is _not_ the bearer token found in
+        the Authorization header; it's the provider-specific token
+        embedded in that token.
 
         :return: A Patron, if one can be authenticated. None, if the
         credentials do not authenticate any particular patron. A
         ProblemDetail if an error occurs.
         """
         credential = Credential.lookup_by_token(
-            _db, self._data_source(_db), self.TOKEN_TYPE, token
+            _db, self.token_data_source(_db), self.TOKEN_TYPE, token
         )
         if credential:
             return credential.patron
@@ -881,6 +888,16 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         # to get a new token.
         return None
 
+    def create_token(self, _db, patron, token):
+        """Create a Credential object that ties the given patron to the
+        given provider token.
+        """
+        data_source = self.token_data_source(_db)
+        duration = datetime.timedelta(days=self.token_expiration_days)
+        return Credential.temporary_token_create(
+            _db, data_source, self.TOKEN_TYPE, patron, duration, token
+        )
+    
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
 
@@ -943,6 +960,11 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
+
+    def token_data_source(self, _db):
+        # TODO: This is one of those situations where we'd like to
+        # create the data source if it doesn't already exist.
+        return DataSource.lookup(_db, self.TOKEN_DATA_SOURCE_NAME)
 
 
 class OAuthController(object):

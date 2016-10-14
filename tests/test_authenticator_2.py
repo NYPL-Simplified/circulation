@@ -14,6 +14,7 @@ import json
 import os
 
 from core.model import (
+    DataSource,
     Patron
 )
 
@@ -99,6 +100,9 @@ class MockOAuthAuthenticationProvider(
         OAuthAuthenticationProvider,
         MockAuthenticationProvider
 ):
+    """A mock OAuth authentication provider for use in testing the overall
+    authentication process.
+    """
     def __init__(self, provider_name, patron=None, patrondata=None):
         self.NAME = provider_name
         self.patron = patron
@@ -106,7 +110,19 @@ class MockOAuthAuthenticationProvider(
 
     def authenticated_patron(self, _db, provider_token):
         return self.patron
-        
+
+
+class MockOAuth(OAuthAuthenticationProvider):
+    """A second mock basic authentication provider for use in testing
+    the workflow around OAuth.
+    """
+    URI = "http://example.org/"
+    TOKEN_TYPE = "test token"
+    TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
+
+    def __init__(self):
+        super(MockOAuth, self).__init__("", "", 20)
+
 class TestPatronData(DatabaseTest):
 
     def setup(self):
@@ -837,7 +853,80 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     # _and_ their username and authorization identifier both change,
     # then we have no way of locating them in our database. They will
     # appear no different to us than a patron who has never used the
-    # circulation manage before.
+    # circulation manager before.
+
+class TestOAuthAuthenticationProvider(DatabaseTest):
+
+    def test_from_config(self):
+        class ConfigAuthenticationProvider(OAuthAuthenticationProvider):
+            CONFIGURATION_NAME = "Config loading test"
+        
+        with temp_config() as config:
+            data = {
+                Configuration.OAUTH_CLIENT_ID : "client_id",
+                Configuration.OAUTH_CLIENT_SECRET : "client_secret",
+                Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
+            }
+            config[Configuration.INTEGRATIONS] = {
+                ConfigAuthenticationProvider.CONFIGURATION_NAME : data
+            }
+            provider = ConfigAuthenticationProvider.from_config()
+            eq_("client_id", provider.client_id)
+            eq_("client_secret", provider.client_secret)
+            eq_(20, provider.token_expiration_days)
+
+    def test_create_token(self):
+        patron = self._patron()
+        provider = MockOAuth()
+        in_twenty_days = (
+            datetime.datetime.utcnow() + datetime.timedelta(
+                days=provider.token_expiration_days
+            )
+        )
+        data_source = provider.token_data_source(self._db)
+        token, is_new = provider.create_token(self._db, patron, "some token")
+        eq_(True, is_new)
+        eq_(patron, token.patron)
+        eq_("some token", token.credential)
+
+        # The token expires in twenty days.
+        almost_no_time = abs(token.expires - in_twenty_days)
+        assert almost_no_time.seconds < 2
+            
+    def test_authenticated_patron_success(self):
+        patron = self._patron()
+        provider = MockOAuth()
+        data_source = provider.token_data_source(self._db)
+
+        # Until we call create_token, this won't work.
+        eq_(None, provider.authenticated_patron(self._db, "some other token"))
+
+        token, is_new = provider.create_token(self._db, patron, "some token")
+        eq_(True, is_new)
+        eq_(patron, token.patron)
+
+        # Now it works.
+        eq_(patron, provider.authenticated_patron(self._db, "some token"))
+        
+    def test_authentication_provider_document(self):
+        # We're about to call url_for, so we must create an
+        # application context.
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        self.app = app
+        del os.environ['AUTOINITIALIZE']
+        provider = MockOAuth()
+        with self.app.test_request_context("/"):
+            doc = provider.authentication_provider_document
+
+            # There is only one way to authenticate with this type
+            # of authentication.
+            eq_([provider.METHOD], doc['methods'].keys())
+            method = doc['methods'][provider.METHOD]
+
+            # And it involves following the 'authenticate' link.
+            link = method['links']['authenticate']
+            eq_(link, provider._internal_authenticate_url())
         
 class TestOAuthController:
     pass
