@@ -124,7 +124,54 @@ class PatronData(object):
 
         # Note that we do not store personal_name or email_address in the
         # database model.
-        
+
+    def create(self, _db):
+        """Create a Patron with this information.
+
+        TODO: I'm concerned in the general case with race
+        conditions. It's theoretically possible that two newly created
+        patrons could have the same username or authorization
+        identifier, violating a uniqueness constraint. This could
+        happen if one was identified by permanent ID and the other had
+        no permanent ID and was identified by username. (This would
+        only come up if the authentication provider has permanent IDs
+        for some patrons but not others.)
+
+        Something similar can happen if the authentication provider
+        provides username and authorization identifier, but not
+        permanent ID, and the patron's authorization identifier (but
+        not their username) changes while two different circulation
+        manager authentication requests are pending.
+
+        When these race conditions do happen, I think the worst that
+        will happen is the second request will fail. But it's very
+        important that authorization providers give some unique,
+        unchanging way of identifying patrons.
+        """
+        # We must be very careful when checking whether the patron
+        # already exists because three different fields might be in use
+        # as the patron identifier.
+        if self.permanent_id:
+            search_by = dict(external_identifier=self.permanent_id)
+        elif self.username:
+            search_by = dict(username=self.username)
+        if self.authorization_identifier:
+            search_by = dict(
+                authorization_identifier=self.authorization_identifier
+            )
+        else:
+            raise ValueError(
+                "Cannot create patron without some way of identifying them uniquely."
+            )
+        patron, is_new = get_one_or_create(_db, Patron, **search_by)
+
+        # This makes sure the Patron is brought into sync with the
+        # other fields of this PatronData object, regardless of
+        # whether or not it is newly created.
+        if patron:
+            self.apply(patron)
+        return patron
+
     @property
     def to_response_parameters(self):
         """Return information about this patron which the client might
@@ -597,7 +644,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # First, try to look up the Patron object in our database.
         patron = self.local_patron_lookup(_db, username, patrondata)
         if patron:
-            # We found them!
+            # We found them! Make sure their data is up to date
+            # with whatever we just got from remote.
+            patrondata.apply(patron)
             return patron
         
         # We didn't find them. Now the question is: _why_ didn't the
@@ -619,12 +668,12 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # At this point we have an updated PatronData object which we
         # know represents an existing patron on the remote side.  Try
         # the local lookup again.
-        patron = self.local_patron_lookup(username, patrondata)
+        patron = self.local_patron_lookup(_db, username, patrondata)
 
         if not patron:
             # We have a PatronData from the ILS that does not
             # correspond to any local Patron. Create the local Patron.
-            patron = patrondata.create(self._db)
+            patron = patrondata.create(_db)
             
         # The lookup failed in the first place either because the
         # Patron did not exist on the local side, or because one of

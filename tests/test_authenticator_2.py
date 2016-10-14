@@ -618,6 +618,125 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         # remote_patron_lookup() for details, and we get nothing.  At
         # this point we give up -- there is no authenticated patron.
         eq_(None, provider.authenticate(self._db, self.credentials))
+
+
+    def test_authentication_creates_missing_patron(self):
+        # The authentication provider knows about this patron,
+        # but this is the first we've heard about them.
+        patrondata = PatronData(
+            permanent_id=self._str,
+            authorization_identifier=self._str,
+            fines="$1.00",
+        )
+        provider = MockBasic(patrondata, patrondata)
+        patron = provider.authenticate(self._db, self.credentials)
+
+        # A server side Patron was created from the PatronData.
+        assert isinstance(patron, Patron)
+        eq_(patrondata.permanent_id, patron.external_identifier)
+        eq_(patrondata.authorization_identifier,
+            patron.authorization_identifier)
+
+        # Information not relevant to the patron's identity was stored
+        # in the Patron object after it was created.
+        eq_("$1.00", patron.fines)
+    
+    def test_authentication_updates_outdated_patron_on_permanent_id_match(self):
+        # A patron's permanent ID won't change.
+        permanent_id = self._str
+
+        # But this patron has not used the circulation manager in a
+        # long time, and their other identifiers are out of date.
+        old_identifier = "1234"
+        old_username = "user1"
+        patron = self._patron(old_identifier)
+        patron.external_identifier = permanent_id
+        patron.username = old_username
+        
+        # The authorization provider has all the new information about
+        # this patron.
+        new_identifier = "5678"
+        new_username = "user2"
+        patrondata = PatronData(
+            permanent_id=permanent_id,
+            authorization_identifier=new_identifier,
+            username=new_username,
+        )
+
+        provider = MockBasic(patrondata)
+        patron2 = provider.authenticate(self._db, self.credentials)
+
+        # We were able to match our local patron to the patron held by the
+        # authorization provider.
+        eq_(patron2, patron)
+
+        # And we updated our local copy of the patron to reflect their
+        # new identifiers.
+        eq_(new_identifier, patron.authorization_identifier)
+        eq_(new_username, patron.username)
+
+    def test_authentication_updates_outdated_patron_on_username_match(self):
+        # This patron has no permanent ID. Their library card number has
+        # changed but their username has not.
+        old_identifier = "1234"
+        new_identifier = "5678"
+        username = "user1"
+        patron = self._patron(old_identifier)
+        patron.external_identifier = None
+        patron.username = username
+        
+        # The authorization provider has all the new information about
+        # this patron.
+        patrondata = PatronData(
+            authorization_identifier=new_identifier,
+            username=username,
+        )
+
+        provider = MockBasic(patrondata)
+        patron2 = provider.authenticate(self._db, self.credentials)
+
+        # We were able to match our local patron to the patron held by the
+        # authorization provider, based on the username match.
+        eq_(patron2, patron)
+
+        # And we updated our local copy of the patron to reflect their
+        # new identifiers.
+        eq_(new_identifier, patron.authorization_identifier)
+
+    def test_authentication_updates_outdated_patron_on_username_match(self):
+        # This patron has no permanent ID. Their username has
+        # changed but their library card number has not.
+        identifier = "1234"
+        old_username = "user1"
+        new_username = "user2"
+        patron = self._patron()
+        patron.external_identifier = None
+        patron.authorization_identifier = identifier
+        patron.username = old_username
+        
+        # The authorization provider has all the new information about
+        # this patron.
+        patrondata = PatronData(
+            authorization_identifier=identifier,
+            username=new_username,
+        )
+
+        provider = MockBasic(patrondata)
+        patron2 = provider.authenticate(self._db, self.credentials)
+
+        # We were able to match our local patron to the patron held by the
+        # authorization provider, based on the username match.
+        eq_(patron2, patron)
+
+        # And we updated our local copy of the patron to reflect their
+        # new identifiers.
+        eq_(new_username, patron.username)
+
+    # Notice what's missing: If a patron has no permanent identifier,
+    # _and_ their username and authorization identifier both change,
+    # then we have no way of locating them in our database. They will
+    # appear no different to us than a patron who has never used the
+    # circulation manage before.
         
 class TestOAuthController:
     pass
