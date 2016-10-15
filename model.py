@@ -3010,7 +3010,7 @@ class Work(Base):
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
     work_genres = relationship("WorkGenre", backref="work",
-                               cascade="all, delete-orphan")
+                               cascade="all, delete, delete-orphan")
     audience = Column(Unicode, index=True)
     target_age = Column(INT4RANGE, index=True)
     fiction = Column(Boolean, index=True)
@@ -3371,10 +3371,8 @@ class Work(Base):
             other_work.license_pools.append(pool)
 
         # All WorkGenres and WorkCoverageRecords for this Work are
-        # deleted.
+        # deleted. (WorkGenres are deleted via cascade.)
         _db = Session.object_session(self)
-        for wg in self.work_genres:
-            _db.delete(wg)
         for cr in self.coverage_records:
             _db.delete(cr)
         _db.delete(self)
