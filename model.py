@@ -860,6 +860,7 @@ class DataSource(Base):
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
+                (cls.ONECLICK, True, True, Identifier.ONECLICK_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
@@ -1195,7 +1196,7 @@ class Identifier(Base):
     NOVELIST_ID = "NoveList ID"
     OCLC_WORK = "OCLC Work ID"
     OCLC_NUMBER = "OCLC Number"
-    ONE_CLICK_ID = "OneClick ID"
+    ONECLICK_ID = "OneClick ID"
     OPEN_LIBRARY_ID = "OLID"
     BIBLIOCOMMONS_ID = "Bibliocommons ID"
     URI = "URI"

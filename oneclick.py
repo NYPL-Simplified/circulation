@@ -17,27 +17,29 @@ from util import LanguageCodes
 #from util.jsonparser import JsonParser
 from util.http import (
     HTTP,
-    RemoteIntegrationException,
+    #RemoteIntegrationException,
 )
 from coverage import CoverageFailure
+
 from model import (
     Contributor,
     DataSource,
     DeliveryMechanism,
-    LicensePool,
     Edition,
+    Hyperlink,
     Identifier,
     Representation,
     Subject,
 )
 
 from metadata_layer import (
-    SubjectData,
+    CirculationData,
     ContributorData,
     FormatData,
     IdentifierData,
-    CirculationData,
+    LinkData,
     Metadata,
+    SubjectData,
 )
 
 from config import Configuration
@@ -46,7 +48,7 @@ from coverage import BibliographicCoverageProvider
 class OneClickAPI(object):
 
     API_VERSION = "v1"
-    DATE_FORMAT = "%m-%d-%Y"
+    #DATE_FORMAT = "%m-%d-%Y"
 
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
@@ -115,7 +117,7 @@ class OneClickAPI(object):
 
     @property
     def source(self):
-        return DataSource.lookup(self._db, DataSource.ONE_CLICK)
+        return DataSource.lookup(self._db, DataSource.ONECLICK)
 
 
     @property
@@ -249,7 +251,7 @@ class OneClickAPI(object):
         if not identifier:
             raise ValueError("Need valid identifier to get metadata.")
 
-        identifier_string = self.create_identifier_strings(identifier)[0]
+        identifier_string = self.create_identifier_strings([identifier])[0]
         url = "%s/libraries/%s/media/%s" % (self.base_url, str(self.library_id), identifier_string) 
 
         response = self.request(url)
@@ -261,7 +263,7 @@ class OneClickAPI(object):
 
         if "message" in respdict:
             # can happen if searched for item that's not in library's catalog
-            raise ValueError("ISBN [%s] is not in library []'s catalog." % (identifier_string, str(self.library_id)))
+            raise ValueError("ISBN [%s] is not in library [%s]'s catalog." % (identifier_string, str(self.library_id)))
 
         return respdict
 
@@ -349,6 +351,8 @@ class MockOneClickAPI(OneClickAPI):
 
 class OneClickRepresentationExtractor(object):
     """ Extract useful information from OneClick's JSON representations. """
+    DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ" #ex: 2013-12-27T00:00:00Z
+    DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27T00:00:00Z
 
     log = logging.getLogger("OneClick representation extractor")
 
@@ -373,7 +377,7 @@ class OneClickRepresentationExtractor(object):
 
     @classmethod
     def image_link_to_linkdata(cls, link_url, rel):
-        if not link_url or not 'href' in link_url:
+        if not link_url or (link_url.find("http") < 0):
             return None
 
         media_type = None
@@ -387,6 +391,8 @@ class OneClickRepresentationExtractor(object):
     def isbn_info_to_metadata(cls, book, include_bibliographic=True, include_formats=True):
         """Turn OneClick's JSON representation of a book into a Metadata object.
         Assumes the JSON is in the format that comes from the media/{isbn} endpoint.
+
+        :param book a json response-derived dictionary of book attributes
         """
         if not 'isbn' in book:
             return None
@@ -483,7 +489,7 @@ class OneClickRepresentationExtractor(object):
                 for image in images:
                     if image['name'] == "large":
                         image_data = cls.image_link_to_linkdata(image['url'], Hyperlink.IMAGE)
-                    if image['name'] == "small":
+                    if image['name'] == "medium":
                         thumbnail_data = cls.image_link_to_linkdata(image['url'], Hyperlink.THUMBNAIL_IMAGE)
 
                 if image_data:
@@ -518,17 +524,17 @@ class OneClickRepresentationExtractor(object):
         if include_formats:
             formats = []
             if metadata.medium == Edition.BOOK_MEDIUM:
-                content_type, drm_scheme = cls.format_data_for_overdrive_format.get("ebook-epub-oneclick")
+                content_type, drm_scheme = cls.oneclick_formats.get("ebook-epub-oneclick")
                 formats.append(FormatData(content_type, drm_scheme))
             elif metadata.medium == Edition.AUDIO_MEDIUM:
-                content_type, drm_scheme = cls.format_data_for_overdrive_format.get("audiobook-mp3-oneclick")
+                content_type, drm_scheme = cls.oneclick_formats.get("audiobook-mp3-oneclick")
                 formats.append(FormatData(content_type, drm_scheme))
             else:
                 cls.log.warn("Unfamiliar format: %s", format_id)
 
             # Make a CirculationData so we can write the formats, 
             circulationdata = CirculationData(
-                data_source=DataSource.OVERDRIVE,
+                data_source=DataSource.ONECLICK,
                 primary_identifier=primary_identifier,
                 formats=formats,
             )
@@ -551,7 +557,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         
         oneclick_api = oneclick_api or OneClickAPI(_db)
         super(OneClickBibliographicCoverageProvider, self).__init__(
-            _db, oneclick_api, DataSource.ONE_CLICK,
+            _db, oneclick_api, DataSource.ONECLICK,
             batch_size=25, 
             metadata_replacement_policy=metadata_replacement_policy,
             **kwargs
@@ -570,22 +576,21 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except ValueError as error:
-            return CoverageFailure(identifier, error, data_source=self.output_source, transient=False)
+            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=False)
         except IOError as error:
-            return CoverageFailure(identifier, error, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
 
-        metadata = OneClickRepresentationExtractor.book_info_to_metadata(
-            info
-        )
+        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(response_dictionary)
 
         if not metadata:
             e = "Could not extract metadata from OneClick data: %r" % info
             return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
-        return self.set_metadata(
+        result = self.set_metadata(
             identifier, metadata, 
             metadata_replacement_policy=self.metadata_replacement_policy
         )
+        return result
 
 
 
