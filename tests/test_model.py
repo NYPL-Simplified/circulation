@@ -16,7 +16,7 @@ from nose.tools import (
 )
 
 from psycopg2.extras import NumericRange
-from sqlalchemy import event
+
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
@@ -2903,33 +2903,6 @@ class TestWorkConsolidation(DatabaseTest):
                            with_open_access_download=True)
         [lp2] = work2.license_pools
         lp2.presentation_edition.permanent_work_id="abcd"
-
-
-        def print_session(session):
-            try:
-                print '==='
-                print 'DELETED: %r' % session.deleted
-                print 'NEW: %r' % session.new
-                print 'DIRTY: %r' % session.dirty
-            except AttributeError as e:
-                # Occasionally, in the course of this test, a new
-                # WorkCoverageRecord is created through WorkCoverageRecord.add_for
-                # but it doesn't have a timestamp yet. Print its details anyway
-                # so we can keep track of where we are in the code.
-                obj = session.new._members.items()[0][1]
-                print '\t Type: %s' % type(obj)
-                if obj.work_id:
-                    print '\t Work Id: %d' % obj.work_id
-                if obj.operation:
-                    print '\t Operation: %s' % obj.operation
- 
-        @event.listens_for(self._db, 'before_flush')
-        def print_session_status(session, flush_context, instances):
-            print_session(session)
-
-        @event.listens_for(self._db, 'after_flush')
-        def print_session_status(session, flush_context):
-            print_session(session)
 
         # Let's merge the first work into the second.
         work1.merge_into(work2)
