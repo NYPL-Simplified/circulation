@@ -19,7 +19,7 @@ from core.model import (
     DataSource,
 )
 
-from api.millenium_patron import DummyMilleniumPatronAPI       
+from api.millenium_patron import MockMilleniumPatronAPI       
 
 class TestVendorIDModel(DatabaseTest):
 
@@ -27,7 +27,7 @@ class TestVendorIDModel(DatabaseTest):
 
     def setup(self):
         super(TestVendorIDModel, self).setup()
-        self.authenticator = DummyMilleniumPatronAPI()
+        self.authenticator = MockMilleniumPatronAPI()
         self.model = AdobeVendorIDModel(self._db, self.authenticator,
                                         self.TEST_NODE_VALUE)
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)

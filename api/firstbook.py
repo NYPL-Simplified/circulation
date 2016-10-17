@@ -60,7 +60,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             host += '?'
         self.root = host + 'key=' + key
 
-    # Implementation of BasicAuthenticationProvider abstract methods.
+    # Begin implementation of BasicAuthenticationProvider abstract
+    # methods.
 
     def remote_authenticate(self, username, password):
         # All FirstBook credentials are in upper-case.
@@ -98,6 +99,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             return True
         return False
 
+    # End implementation of BasicAuthenticationProvider abstract methods.
+    
     def request(self, url):
         """Make an HTTP request.
 

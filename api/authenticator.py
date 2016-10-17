@@ -18,6 +18,7 @@ from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from problem_details import *
 
 import datetime
+import logging
 import re
 import urlparse
 import urllib
@@ -45,6 +46,10 @@ class PatronData(object):
     reasons. But it can be passed from the account management system
     to the client application.
     """
+
+    # Used to distinguish between "value has been unset" and "value
+    # has not changed".
+    NO_VALUE = object()
     
     def __init__(self,
                  permanent_id=None,
@@ -53,6 +58,7 @@ class PatronData(object):
                  personal_name=None,
                  email_address=None,
                  authorization_expires=None,
+                 external_type=None,
                  fines=None,
                  blocked=None,
                  complete=True,
@@ -83,6 +89,9 @@ class PatronData(object):
         :param authorization_expires: The date, if any, at which the patron's
         authorization to borrow items from the library expires.
 
+        :param external_type: A string classifying the patron
+        according to some library-specific scheme.
+
         :param fines: An amount of money representing the amount the
         patron owes in fines.
 
@@ -96,11 +105,13 @@ class PatronData(object):
         complete data we are likely to get for this patron from this
         data source, or is it an abbreviated version of more complete
         data we could get some other way?
+
         """
         self.permanent_id = permanent_id
         self.authorization_identifier = authorization_identifier
         self.username = username
         self.authorization_expires = authorization_expires
+        self.external_type = external_type
         self.fines = fines
         self.blocked = blocked
         self.complete = complete
@@ -112,27 +123,40 @@ class PatronData(object):
         # We do not store email address in the database, but we need
         # to have it available for notifications.
         self.email_address = email_address
+
+    def __repr__(self):
+        return "<PatronData permanent_id=%r authorization_identifier=%r username=%r>" % (
+            self.permanent_id, self.authorization_identifier,
+            self.username
+        )
         
     def apply(self, patron):
         """Take the portion of this data that can be stored in the database
         and write it to the given Patron record.
         """
-        if self.permanent_id:
-            patron.external_identifier=self.permanent_id
-        if self.username:
-            patron.username = self.username
-        if self.authorization_identifier:
-            patron.authorization_identifier = self.authorization_identifier
-        if self.authorization_expires:
-            patron.authorization_expires = self.authorization_expires
-        if self.fines:
-            patron.fines = self.fines
+        self.set_value(patron, 'external_identifier', self.permanent_id)
+        self.set_value(patron, 'username', self.username)
+        self.set_value(patron, 'authorization_identifier',
+                       self.authorization_identifier)
+        self.set_value(patron, '_external_type', self.external_type)
+        self.set_value(patron, 'authorization_expires',
+                       self.authorization_expires)
+        self.set_value(patron, 'fines', self.fines)
         if self.complete:
             patron.last_external_sync = datetime.datetime.utcnow()
 
         # Note that we do not store personal_name or email_address in the
         # database model.
 
+    def set_value(patron, field_name, value):
+        if value is None:
+            # Do nothing
+            return
+        elif value is self.NO_VALUE:
+            # Unset a previous value.
+            value = None
+        setattr(patron, field_name, value)
+        
     def create(self, _db):
         """Create a Patron with this information.
 
@@ -554,7 +578,6 @@ class AuthenticationProvider(object):
         """
         raise NotImplementedError()
 
-
 class BasicAuthenticationProvider(AuthenticationProvider):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
@@ -650,7 +673,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.password_re = password_re
         self.test_username = test_username
         self.test_password = test_password
-    
+        self.log = logging.getLogger(self.CONFIGURATION_NAME)
+        
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
 

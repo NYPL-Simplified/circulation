@@ -5,6 +5,12 @@ from nose.tools import (
     set_trace,
 )
 
+from api.config import (
+    Configuration,
+    temp_config,
+)
+
+from api.authenticator import PatronData
 from api.millenium_patron import MilleniumPatronAPI
 from . import DatabaseTest, sample_data
 
@@ -35,44 +41,100 @@ class TestMilleniumPatronAPI(DatabaseTest):
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
         self.api = MockAPI()
-        
-    def test_dump_no_such_barcode(self):
+
+    def test_from_config(self):
+        api = None
+        with temp_config() as config:
+            data = {
+                Configuration.URL : "http://example.com",
+                Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"]
+            }
+            config[Configuration.INTEGRATIONS] = {
+                MilleniumPatronAPI.CONFIGURATION_NAME : data
+            }
+            api = MilleniumPatronAPI.from_config()
+        eq_("http://example.com/", api.root)
+        eq_(["a", "b"], api.authorization_identifier_blacklist)
+            
+    def test_remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
-        eq_(dict(ERRNUM='1', ERRMSG="Requested record not found"),
-                 self.api.dump("bad barcode"))
+        patrondata = PatronData(authorization_identifier="bad barcode")
+        eq_(None, self.api.remote_patron_lookup(patrondata))
 
-    def test_dump_success(self):
+    def test_remote_patron_lookup_success(self):
         self.api.enqueue("dump.success.html")
-        response = self.api.dump("good barcode")
-        eq_('SHELDON, ALICE', response['PATRN NAME[pn]'])
+        patrondata = PatronData(authorization_identifier="good barcode")
+        patrondata = self.api.remote_patron_lookup(patrondata)
 
-        # The 'note' field has a list of values, not just one.
-        eq_(2, len(response['NOTE[px]']))
+        # Although "good barcode" was successful in lookup this patron
+        # up, it didn't show up in their patron dump as a barcode, so
+        # the authorization_identifier from the patron dump took
+        # precedence.
+        eq_("6666666", patrondata.permanent_id)
+        eq_("44444444444447", patrondata.authorization_identifier)
+        eq_("alice", patrondata.username)
 
+        # TODO: test fines, external_type, authorization_expires.
+        
     def test_parse_poorly_behaved_dump(self):
+        """The HTML parser is able to handle HTML embedded in
+        field values.
+        """
         self.api.enqueue("dump.embedded_html.html")
-        response = self.api.dump("good barcode")
+        patrondata = PatronData(authorization_identifier="good barcode")
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        eq_("abcd", patrondata.authorization_identifier)
 
-        # All the unparseable lines in this file were ignored.
-        eq_(set(['REC INFO[p!]', 'MESSAGE[pm]', 'P BARCODE[pb]']),
-            set(response.keys()))
+    def test_incoming_authorization_identifier_retained(self):
+        # TODO: This should test patron_dump_to_patrondata, not
+        # remote_patron_lookup.
+        
+        # This patron has two barcodes.
+        self.api.enqueue("dump.two_barcodes.html")
 
-        eq_('p', response['REC INFO[p!]'])
-        eq_(['abcd'], response['P BARCODE[pb]'])
-        eq_('This message<BR>includes <a href="http://example.com/">HTML</a>.',
-            response['MESSAGE[pm]'])
+        # Let's say they authenticate with the first one.
+        patrondata = PatronData(authorization_identifier="FIRST_barcode")
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        # Their Patron record will use their first barcode as authorization
+        # identifier, because that's what they typed in.
+        eq_("FIRST_barcode", patrondata.authorization_identifier)
 
-    def test_pintest_no_such_barcode(self):
+        # Let's say they authenticate with the second barcode.
+        self.api.enqueue("dump.two_barcodes.html")
+        patrondata = PatronData(authorization_identifier="SECOND_barcode")
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        # Their Patron record will use their second barcode as authorization
+        # identifier, because that's what they typed in.
+        eq_("SECOND_barcode", patrondata.authorization_identifier)
+
+        # Let's say they authenticate with a barcode that immediately
+        # stops working after they authenticate.
+        self.api.enqueue("dump.two_barcodes.html")
+        patrondata = PatronData(
+            authorization_identifier="some other identifier"
+        )
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        # Their Patron record will use the second barcode as
+        # authorization identifier, because it was probably added last.
+        eq_("SECOND_barcode", patrondata.authorization_identifier)
+
+        
+    def test_remote_authenticate_no_such_barcode(self):
         self.api.enqueue("pintest.no such barcode.html")
-        eq_(False, self.api.pintest("wrong barcode", "pin"))
+        eq_(False, self.api.remote_authenticate("wrong barcode", "pin"))
 
-    def test_pintest_wrong_pin(self):
+    def test_remote_authenticate_wrong_pin(self):
         self.api.enqueue("pintest.bad.html")
-        eq_(False, self.api.pintest("barcode", "wrong pin"))
+        eq_(False, self.api.remote_authenticate("barcode", "wrong pin"))
 
-    def test_pintest_correct_pin(self):
+    def test_remote_authenticate_correct_pin(self):
         self.api.enqueue("pintest.good.html")
-        eq_(True, self.api.pintest("barcode1234567", "correct pin"))
+        patrondata = self.api.remote_authenticate(
+            "barcode1234567", "correct pin"
+        )
+        # The return value includes everything we know about the
+        # authenticated patron, which isn't much.
+        eq_("barcode1234567", patrondata.authorization_identifier)
 
     def test_update_patron(self):
         # Patron with a username

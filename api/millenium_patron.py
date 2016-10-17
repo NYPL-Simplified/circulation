@@ -7,7 +7,10 @@ import datetime
 import requests
 
 from core.util.xmlparser import XMLParser
-from authenticator import BasicAuthAuthenticator
+from authenticator import (
+    BasicAuthenticationProvider,
+    PatronData,
+)
 from config import Configuration
 import os
 import re
@@ -17,9 +20,9 @@ from core.model import (
     Patron,
 )
 
-class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
+class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
-    NAME = "Millenium"
+    CONFIGURATION_NAME = "Millenium"
 
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
     PATRON_TYPE_FIELD = 'P TYPE[p47]'
@@ -27,50 +30,147 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
     BARCODE_FIELD = 'P BARCODE[pb]'
     USERNAME_FIELD = 'ALT ID[pu]'
     FINES_FIELD = 'MONEY OWED[p96]'
+    ERROR_MESSAGE_FIELD = 'ERRMSG'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
-
+    
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
-    # How long we should go before syncing our internal Patron record
-    # with Millenium.
-    MAX_STALE_TIME = datetime.timedelta(hours=12)
-
-    log = logging.getLogger("Millenium Patron API")
-
-    def __init__(self, root, authorization_blacklist=[], test_username=None,
-                 test_password=None):
-        if not root.endswith('/'):
-            root = root + "/"
-        self.root = root
-        self.parser = etree.HTMLParser()
-        self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
-        self.test_username = test_username
-        self.test_password = test_password
-
     @classmethod
-    def from_config(cls):
-        config = Configuration.integration(
-            Configuration.MILLENIUM_INTEGRATION, required=True)
-
+    def config_values(cls):
+        config, values = super(MilleniumPatronAPI, cls).config_values()
         host = config.get(Configuration.URL)
-        test_username = config.get(Configuration.AUTHENTICATION_TEST_USERNAME)
-        test_password = config.get(Configuration.AUTHENTICATION_TEST_PASSWORD)
         if not host:
-            cls.log.info("No Millenium Patron client configured.")
-            return None
-
+            raise CannotLoadConfiguration(
+                "Millenium Patron API server not configured."
+            )
+        values['host'] = host
         blacklist_strings = config.get(
             Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST, []
         )
-        return cls(host, authorization_blacklist=blacklist_strings, 
-                   test_username=test_username, test_password=test_password)
+        values['authorization_blacklist'] = blacklist_strings
+        return config, values
+    
+    def __init__(self, host, authorization_blacklist=[], **kwargs):
+        super(MilleniumPatronAPI, self).__init__(**kwargs)
+        if not host.endswith('/'):
+            host = host + "/"
+        self.root = host
+        self.parser = etree.HTMLParser()
+        self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
 
-    def request(self, url):
-        return requests.get(url)
+    # Begin implementation of BasicAuthenticationProvider abstract
+    # methods.
 
+    def remote_authenticate(self, username, password):
+        """Does the Millenium Patron API approve of these credentials?
+
+        :return: False if the credentials are invalid. If they are
+        valid, a PatronData that serves only to indicate which
+        authorization identifier the patron prefers.
+        """
+        path = "%(barcode)s/%(pin)s/pintest" % dict(
+            barcode=username, pin=password
+        )
+        url = self.root + path
+        response = self.request(url)
+        data = dict(self._extract_text_nodes(response.content))
+        if data.get('RETCOD') == '0':
+            return PatronData(authorization_identifier=username)
+        return False
+
+    def remote_patron_lookup(self, patron_or_patrondata):
+        """Ask the remote for detailed information about a patron's account.
+        """
+        current_identifier = patron_or_patrondata.authorization_identifier
+        path = "%(barcode)s/dump" % dict(barcode=current_identifier)
+        url = self.root + path
+        response = self.request(url)
+        return self.patron_dump_to_patrondata(
+            current_identifier, response.content
+        )
+
+    # End implementation of BasicAuthenticationProvider abstract
+    # methods.
+    
+    def request(self, url, *args, **kwargs):
+        """Actually make an HTTP request. This method exists only so the mock
+        can override it.
+        """
+        return HTTP.request_with_timeout("GET", url, *args, **kwargs)
+
+    def patron_dump_to_patrondata(self, current_identifier, content):
+        """Convert an HTML patron dump to a PatronData object.
+        
+        :param current_identifier: Either the authorization identifier
+        the patron just logged in with, or the one currently
+        associated with their Patron record. Keeping track of this
+        ensures we don't change a patron's preferred authorization
+        identifier out from under them.
+
+        :param content: The HTML document containing the patron dump.
+        """
+        data = PatronData()
+        
+        # If we don't see these fields, erase any previous value
+        # rather than leaving the old value in place. This shouldn't
+        # happen (unless the expiration date changes to an invalid
+        # date), but just to be safe.
+        data.username = data.NO_VALUE
+        data.authorization_expires = data.NO_VALUE
+        data.fines = data.NO_VALUE
+        data.external_type = data.NO_VALUE
+        
+        potential_identifiers = []
+        for k, v in self._extract_text_nodes(content):
+            if k == self.BARCODE_FIELD:
+                if any(x.search(v) for x in self.blacklist):
+                    # This barcode contains a blacklisted
+                    # string. Ignore it, even if this means the patron
+                    # ends up with no barcode whatsoever.
+                    continue
+                # We'll figure out which barcode is the 'right' one
+                # later.
+                potential_identifiers.append(v)
+            elif k == self.RECORD_NUMBER_FIELD:
+                data.permanent_id = v
+            elif k == self.USERNAME_FIELD:
+                data.username = v
+            elif k == self.FINES_FIELD:
+                data.fines = v
+            elif k == self.EXPIRATION_FIELD:
+                try:
+                    expires = datetime.datetime.strptime(
+                        v, self.EXPIRATION_DATE_FORMAT).date()
+                except ValueError:
+                    self.log.warn(
+                        'Malformed expiration date for patron: "%s". Treating as unexpirable.',
+                        expires
+                    )
+                data.authorization_expires = expires
+            elif k == self.PATRON_TYPE_FIELD:
+                data.external_type = v
+            elif k == self.ERROR_MESSAGE_FIELD:
+                # An error has occured. Most likely the patron lookup
+                # failed.
+                return None
+        # Now we need to figure out which of the potential_identifiers
+        # is the one to use.
+        if current_identifier in potential_identifiers:
+            # Don't rock the boat. The patron is used to using this
+            # identifier and there's no need to change it.
+            data.authorization_identifier=current_identifier
+        elif potential_identifiers:
+            # The identifier the patron is used to using has
+            # disappeared. We need to choose a new one for them.
+            data.authorization_identifier = potential_identifiers[-1]
+        else:
+            data.authorization_identifier = data.NO_VALUE
+        return data
+        
     def _extract_text_nodes(self, content):
+        """Parse the HTML representations sent by the Millenium Patron API."""
         for line in content.split("\n"):
             if line.startswith('<HTML><BODY>'):
                 line = line[12:]
@@ -83,247 +183,38 @@ class MilleniumPatronAPI(BasicAuthAuthenticator, XMLParser):
                 continue
             yield kv.split('=', 1)
 
-    def request_dump(self, barcode):
-        path = "%(barcode)s/dump" % dict(barcode=barcode)
-        url = self.root + path
-        return self.request(url)
 
-    def parse_dump(self, content):
-        d = dict()
-        for k, v in self._extract_text_nodes(content):
-            if k == self.BARCODE_FIELD and any(
-                    x.search(v) for x in self.blacklist
-            ):
-                # This barcode contains a blacklisted
-                # string. Ignore it, even if this means the patron
-                # ends up with no barcode whatsoever.
-                continue
-            elif k in self.MULTIVALUE_FIELDS:
-                d.setdefault(k, []).append(v)
-            else:
-                d[k] = v
-        return d
+class MockMilleniumPatronAPI(MilleniumPatronAPI):
 
-    def dump(self, barcode):
-        response = self.request_dump(barcode)
-        if response.status_code != 200:
-            msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, response.content
-            )
-            raise Exception(msg)
-        return self.parse_dump(response.content)
+    """This mocks the API on a higher level than the HTTP level.
 
-    def pintest(self, barcode, pin):
-        path = "%(barcode)s/%(pin)s/pintest" % dict(barcode=barcode, pin=pin)
-        url = self.root + path
-        print url
-        response = self.request(url)
-        if response.status_code != 200:
-            msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, response.content
-            )
-            raise Exception(msg)
-        data = dict(self._extract_text_nodes(response.content))
-        if data.get('RETCOD') == '0':
-            return True
-        return False
-
-    def update_patron(self, patron, identifier, dump=None):
-        """Update a Patron record with information from a data dump."""
-        now = datetime.datetime.utcnow()
-        if not dump:
-            dump = self.dump(identifier)
-
-        barcodes = dump.get(self.BARCODE_FIELD, [])
-        username = dump.get(self.USERNAME_FIELD, None)
-
-        # If this is a new patron, there won't be an authorization identifier
-        # yet. If they logged in with a barcode, we'll use what they logged in
-        # with. If they've also used that barcode to check out books from Encore or
-        # 3M, those books will show up. If they logged in with a username, it won't 
-        # work for Overdrive, so we'll pick one of the barcodes to use. If they checked
-        # out books from 3M with their username, those books won't show up.
-        #
-        # If the patron already has an authorization identifier, we'll leave it 
-        # alone, so they won't lose books they already checked out through our app.
-        # Except if it's a barcode that expired or was changed. Then we need to
-        # switch to the new barcode, and there's nothing we can do about books
-        # they already checked out with the old one.
-    
-        new_patron = (not patron.authorization_identifier)
-        expired_identifier = (patron.authorization_identifier not in barcodes)
-
-        if new_patron or expired_identifier:
-            if identifier in barcodes:
-                patron.authorization_identifier = identifier
-            else:
-                patron.authorization_identifier = barcodes[-1]
-
-        patron.username = username
-        patron.fines = dump.get(self.FINES_FIELD, None)
-        patron._external_type = dump.get(self.PATRON_TYPE_FIELD, None)
-        expires = dump.get(self.EXPIRATION_FIELD, None)
-        if expires:
-            try:
-                expires = datetime.datetime.strptime(
-                    expires, self.EXPIRATION_DATE_FORMAT).date()
-            except ValueError:
-                self.log.warn(
-                    'Malformed expiration date for patron %s: "%s". Treating as unexpirable.',
-                    patron.authorization_identifier, expires
-                )
-                expires = None
-        else:
-            # Handle the unlikely case where expires is present in the
-            # dump as the empty string.
-            expires = None
-        patron.authorization_expires = expires
-        patron.last_external_sync = now
-        
-    def patron_info(self, identifier):
-        """Get patron information from the ILS."""
-        dump = self.dump(identifier)
-        barcodes = dump.get(self.BARCODE_FIELD)
-        barcode = None
-        if barcodes:
-            barcode = barcodes[-1]
-        return dict(
-            barcode = barcode,
-            username = dump.get(self.USERNAME_FIELD),
-        )
-
-    def _to_date(self, x):
-        """Convert a datetime into a date. Leave a date alone."""
-        if isinstance(x, datetime.datetime):
-            return x.date()
-        return x
-        
-    def authenticated_patron(self, db, header):
-        identifier = header.get('username')
-        password = header.get('password')
-
-        # If they fail basic validation, there is no authenticated patron.
-        if not self.server_side_validation(identifier, password):
-            return None
-
-        # If they fail a PIN test, it's very simple: there is 
-        # no authenticated patron.
-        if not self.pintest(identifier, password):
-            return None
-
-        now = datetime.datetime.utcnow()
-        # Now it gets more complicated. There is *some* authenticated
-        # patron, but it might not correspond to a Patron in our
-        # database, and if it does, that Patron's
-        # authorization_identifier might be different from the
-        # identifier passed in to this method.
-
-        # Let's start with a simple lookup based on identifier.
-        kwargs = {Patron.authorization_identifier.name: identifier}
-        patron = get_one(db, Patron, **kwargs)
-
-        if not patron:
-            # The patron might have used a username instead of a barcode.
-            kwargs = {Patron.username.name: identifier}
-            patron = get_one(db, Patron, **kwargs)
-
-        __transaction = db.begin_nested()
-        if patron:
-            # We found them!
-            if (patron.authorization_expires and
-                self._to_date(patron.authorization_expires)
-                < self._to_date(now)
-            ):
-                # The card has expired. Set the stale time to zero, meaning
-                # we will always check with the ILS to see if it was
-                # just renewed. This way patrons don't have to wait 12
-                # hours after renewing their cards to start reading.
-                stale_time = datetime.timedelta(seconds=0)
-            else:
-                stale_time = self.MAX_STALE_TIME
-            if (not patron.last_external_sync
-                or (now - patron.last_external_sync) > stale_time):
-                # Sync our internal Patron record with what the API
-                # says.
-                self.update_patron(patron, identifier)
-            __transaction.commit()
-            return patron
-
-        # We didn't find them. Now the question is: _why_ doesn't this
-        # patron show up in our database? Have we never seen them
-        # before, has their authorization identifier (barcode)
-        # changed, or do they not exist in Millenium either?
-        dump = self.dump(identifier)
-        if dump.get('ERRNUM') in ('1', '2'):
-            # The patron does not exist in Millenium. This is a bad
-            # barcode. How we passed the PIN test is a mystery, but
-            # ours not to reason why. There is no authenticated
-            # patron.
-
-            # TODO: EXCEPT, this might be a test patron dynamically
-            # created by the test code.
-            if len(identifier) != 14:
-                print "Creating test patron!"
-                patron, is_new = get_one_or_create(
-                    db, Patron, external_identifier=identifier,
-                )
-                patron.authorization_identifier = identifier
-                __transaction.commit()
-                return patron
-            __transaction.commit()
-            return None
-
-        # If we've gotten this far, the patron does exist in
-        # Millenium.
-        permanent_id = dump.get(self.RECORD_NUMBER_FIELD)
-        if not permanent_id:
-            # We have no reliable way of identifying this patron.
-            # This should never happen, but if it does, we can't
-            # create a Patron record.
-            __transaction.commit()
-            return None
-        # Look up the Patron record by the permanent record ID. If
-        # there is no such patron, we've never seen them
-        # before--create a new Patron record for them.
-        #
-        # If there is such a patron, their barcode has changed,
-        # probably because their old barcode was reported lost. We
-        # will update their barcode in the next step.
-        patron, is_new = get_one_or_create(
-            db, Patron, external_identifier=permanent_id)
-
-        # Update the new/out-of-date Patron record with information
-        # from the data dump.
-        self.update_patron(patron, identifier, dump)
-        __transaction.commit()
-        return patron
-
-class DummyMilleniumPatronAPI(MilleniumPatronAPI):
-
+    It is not used in the tests of the MilleniumPatronAPI class.  It
+    is used in the Adobe Vendor ID tests but maybe it shouldn't.
+    """
 
     # This user's card has expired.
-    user1 = { 'PATRN NAME[pn]' : "SHELDON, ALICE",
-              'RECORD #[p81]' : "12345",
-              'P BARCODE[pb]' : ["0"],
-              'ALT ID[pu]' : "alice",
-              'EXP DATE[p43]' : "04-01-05"
-    }
+    user1 = PatronData(
+        permanent_id="12345",
+        authorization_identifier="0",
+        username="alice",
+        authorization_expires = datetime.datetime(2015, 4, 1)
+    )
     
     # This user's card still has ten days on it.
     the_future = datetime.datetime.utcnow() + datetime.timedelta(days=10)
-    user2 = { 'PATRN NAME[pn]' : "HEINLEIN, BOB",
-              'RECORD #[p81]' : "67890",
-              'P BARCODE[pb]' : ["5"],
-              'MONEY OWED[p96]' : "$1.00",
-              'EXP DATE[p43]' : the_future.strftime("%m-%d-%y")
-    }
+    user2 = PatronData(
+        permanent_id="67890",
+        authorization_identifier="5",
+        username="bob",
+        authorization_expires = the_future,
+    )
 
     users = [user1, user2]
 
     def __init__(self):
         pass
 
-    def pintest(self, barcode, pin):
+    def remote_authenticate(self, barcode, pin):
         """A barcode that's 14 digits long is treated as valid,
         no matter which PIN is used.
 
@@ -339,28 +230,12 @@ class DummyMilleniumPatronAPI(MilleniumPatronAPI):
             return False
         return len(barcode) == 14 or pin == barcode[0] * 4
 
-    def dump(self, barcode):
+    def remote_patron_lookup(self, patron_or_patrondata):
         # We have a couple custom barcodes.
+        look_for = patron_or_patrondata.authorization_identifier
         for u in self.users:
-            if barcode in u['P BARCODE[pb]']:
+            if u.authorization_identifier == look_for:
                 return u
-            if 'ALT ID[pu]' in u and u['ALT ID[pu]'] == barcode:
-                return u
-                
-        # A barcode that starts with '404' does not exist.
-        if barcode.startswith('404'):
-            return dict(ERRNUM='1', ERRMSG="Requested record not found")
-
-        # A barcode that starts with '410' has expired.
-        if barcode.startswith('404'):
-            u = dict(self.user1)
-            u['RECORD #[p81]'] = "410" + barcode
-            return 
-
-        # Any other barcode is fine.
-        u = dict(self.user2)
-        u['P BARCODE[pb]'] = [barcode]
-        u['RECORD #[p81]'] = "200" + barcode
-        return u
-
-AuthenticationAPI = MilleniumPatronAPI
+        return None
+            
+AuthenticationProvider = MilleniumPatronAPI
