@@ -112,7 +112,7 @@ class PatronData(object):
         # We do not store email address in the database, but we need
         # to have it available for notifications.
         self.email_address = email_address
-
+        
     def apply(self, patron):
         """Take the portion of this data that can be stored in the database
         and write it to the given Patron record.
@@ -154,7 +154,7 @@ class PatronData(object):
         When these race conditions do happen, I think the worst that
         will happen is the second request will fail. But it's very
         important that authorization providers give some unique,
-        unchanging way of identifying patrons.
+        preferably unchanging way of identifying patrons.
         """
         # We must be very careful when checking whether the patron
         # already exists because three different fields might be in use
@@ -171,6 +171,7 @@ class PatronData(object):
             raise ValueError(
                 "Cannot create patron without some way of identifying them uniquely."
             )
+        __transaction = _db.begin_nested()
         patron, is_new = get_one_or_create(_db, Patron, **search_by)
 
         # This makes sure the Patron is brought into sync with the
@@ -178,6 +179,7 @@ class PatronData(object):
         # whether or not it is newly created.
         if patron:
             self.apply(patron)
+        __transaction.commit()
         return patron
 
     @property
@@ -271,7 +273,7 @@ class Authenticator(object):
         object, and register it.
         """
         provider_module = importlib.import_module(provider_string)
-        provider_class = getattr(provider_module, "AuthenticationAPI")
+        provider_class = getattr(provider_module, "AuthenticationProvider")
         if isinstance(provider_class, BasicAuthenticationProvider):
             provider = provider_class.from_config()
             self.register_basic_auth_provider(provider)
@@ -447,7 +449,7 @@ class Authenticator(object):
         # if requested from a web client, don't include WWW-Authenticate header,
         # which forces the default browser authentication prompt
         if self.basic_auth_provider and not flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            headers.add('WWW-Authenticate', self.basic_auth_provider.AUTHENTICATION_HEADER)
+            headers.add('WWW-Authenticate', self.basic_auth_provider.authentication_header)
 
         # TODO: We're leaving out headers for other providers to avoid breaking iOS
         # clients that don't support multiple auth headers. It's not clear what
@@ -461,8 +463,6 @@ class Authenticator(object):
 class AuthenticationProvider(object):
     """Handle a specific patron authentication scheme.
     """
-    
-    NAME = None
 
     # A subclass MUST define a value for URI. This is used in the
     # Authentication for OPDS document to distinguish between
@@ -497,7 +497,7 @@ class AuthenticationProvider(object):
         :param patron: A Patron object.
         """
         remote_patron_info = self.remote_patron_lookup(patron)
-        if remote_patron_info:
+        if isinstance(remote_patron_info, PatronData):
             remote_patron_info.apply(patron)
 
     def authenticate(self, _db, header):
@@ -518,12 +518,25 @@ class AuthenticationProvider(object):
         of learning some personal information (primarily email
         address) that can't be stored in the database.
 
-        :param patron: A Patron object.
+        The default implementation assumes there is no special
+        lookup functionality, and returns exactly the information
+        present in the object that was passed in.
+
+        :param patron_or_patrondata: Either a Patron object, a PatronData
+        object, or None (if no further information could be provided).
 
         :return: An updated PatronData object.
 
         """
-        raise NotImplementedError()
+        if not patron_or_patrondata:
+            return None
+        if (isinstance(patron_or_patrondata, PatronData)
+            or isinstance(patron_or_patrondata, Patron)):
+            return patron_or_patrondata
+        raise ValueError(
+            "Unexpected object %r passed into remote_patron_lookup." %
+            patron_or_patrondata
+        )
 
     def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.
@@ -546,20 +559,36 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
     """
-
-    # NOTE: Each subclass must define an attribute called
+    # NOTE: Each subclass MUST define an attribute called
     # CONFIGURATION_NAME, which is the name used to configure that
     # subclass in the configuration file. Failure to define this
     # attribute will result in an error in .from_config().
-    
-    METHOD = "http://opds-spec.org/auth/basic"
+    #
+    # Each subclass MAY override the default value for DISPLAY_NAME.
+    # This becomes the human-readable name of the authentication
+    # mechanism in the OPDS authentication document.
+    #
+    # Each subclass MAY override the default values for LOGIN_LABEL
+    # and PASSWORD_LABEL. These become the human-readable labels for
+    # username and password in the OPDS authentication document
+    #
+    # Each subclass MAY override the default value for
+    # AUTHENTICATION_REALM. This becomes the name of the HTTP Basic
+    # Auth authentication realm.
+    #
+    # It's generally not necessary for a subclass to override URI, but
+    # you might want to do it if your username/password doesn't fit
+    # into the 'library barcode' paradigm.
+    #
+    # It's probably not necessary for a subclass to override METHOD,
+    # since the default indicates HTTP Basic Auth.
+
     DISPLAY_NAME = _("Library Barcode")
-    URI = "http://librarysimplified.org/terms/auth/library-barcode"
-
-    AUTHENTICATION_HEADER = 'Basic realm="%s"' % _("Library card")
-
     LOGIN_LABEL = _("Barcode")
     PASSWORD_LABEL = _("PIN")
+    AUTHENTICATION_REALM = _("Library card")
+    METHOD = "http://opds-spec.org/auth/basic"
+    URI = "http://librarysimplified.org/terms/auth/library-barcode"
 
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -567,33 +596,46 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = None
+   
+    @classmethod
+    def config_values(cls, configuration_name=None, required=False):
+        """Retrieve constructor values from site configuration.
+
+        Can be overridden from a subclass to pull additional values.
+
+        :param required: Whether or not the absence of any configuration
+        should be considered an error.
+        """
+        configuration_name = configuration_name or cls.CONFIGURATION_NAME
+        config = Configuration.integration(
+            configuration_name, required=required
+        )
+        args = dict()
+        if config:
+            args['identifier_re'] = config.get(
+                Configuration.IDENTIFIER_REGULAR_EXPRESSION,
+                cls.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+            )
+            args['password_re'] = config.get(
+                Configuration.PASSWORD_REGULAR_EXPRESSION,
+                cls.DEFAULT_PASSWORD_REGULAR_EXPRESSION
+            )
+            args['test_username'] = config.get(
+                Configuration.AUTHENTICATION_TEST_USERNAME,
+                None
+            )
+            args['test_password'] = config.get(
+                Configuration.AUTHENTICATION_TEST_PASSWORD,
+                None
+            )
+        return config, args
+        
     
     @classmethod
     def from_config(cls):
         """Load a BasicAuthenticationProvider from site configuration."""
-        config = Configuration.integration(
-            cls.CONFIGURATION_NAME, required=False
-        )
-        identifier_re = password_re = test_username = test_password = None
-        if config:
-            identifier_re = config.get(
-                Configuration.IDENTIFIER_REGULAR_EXPRESSION,
-                cls.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
-            )
-            password_re = config.get(
-                Configuration.PASSWORD_REGULAR_EXPRESSION,
-                cls.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-            )
-            test_username = config.get(
-                Configuration.AUTHENTICATION_TEST_USERNAME,
-                None
-            )
-            test_password = config.get(
-                Configuration.AUTHENTICATION_TEST_PASSWORD,
-                None
-            )
-
-        return cls(identifier_re, password_re, test_username, test_password)
+        config, args = cls.config_values()
+        return cls(**args)
 
     def __init__(self, identifier_re=None, password_re=None,
                  test_username=None, test_password=None):
@@ -673,9 +715,15 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             # why. There is no authenticated patron.
             return patrondata
 
-        # At this point we have an updated PatronData object which we
-        # know represents an existing patron on the remote side.  Try
-        # the local lookup again.
+        if isinstance(patrondata, Patron):
+            # For whatever reason, the remote lookup implementation
+            # returned a Patron object instead of a PatronData. Just
+            # use that Patron object.
+            return patrondata
+
+        # At this point we have an updated PatronData object which
+        # we know represents an existing patron on the remote
+        # side. Try the local lookup again.
         patron = self.local_patron_lookup(_db, username, patrondata)
 
         if not patron:
@@ -782,6 +830,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 break            
         return patron
 
+    @property
+    def authentication_header(self):
+        return 'Basic realm="%s"' % self.AUTHENTICATION_REALM
+    
     @property
     def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.

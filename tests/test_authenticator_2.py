@@ -117,6 +117,7 @@ class MockOAuth(OAuthAuthenticationProvider):
     the workflow around OAuth.
     """
     URI = "http://example.org/"
+    NAME = "Mock provider"
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
@@ -443,11 +444,11 @@ class TestAuthenticator(DatabaseTest):
             # create_authentication_headers.
 
             # So long as the authenticator includes a basic auth
-            # provider, that provider's AUTHENTICATION_HEADER is used
+            # provider, that provider's .authentication_header is used
             # for WWW-Authenticate.
             headers = authenticator.create_authentication_headers()
             eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
-            eq_(basic.AUTHENTICATION_HEADER, headers['WWW-Authenticate'])
+            eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
             # If the authenticator does not include a basic auth provider,
             # no WWW-Authenticate header is provided. 
@@ -547,7 +548,17 @@ class TestAuthenticationProvider(DatabaseTest):
         # We can tell that update_patron_metadata was a no-op because
         # patron.last_external_sync didn't change.
         eq_(None, patron.last_external_sync)
-        
+
+    def test_remote_patron_lookup_is_noop(self):
+        """The default implementation of remote_patron_lookup is a no-op."""
+        provider = BasicAuthenticationProvider()
+        eq_(None, provider.remote_patron_lookup(None))
+        patron = self._patron()
+        eq_(patron, provider.remote_patron_lookup(patron))
+        patrondata = PatronData()
+        eq_(patrondata, provider.remote_patron_lookup(patrondata))
+
+
 class TestBasicAuthenticationProvider(DatabaseTest):
 
     def test_from_config(self):
