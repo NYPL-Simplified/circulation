@@ -3,6 +3,7 @@ from collections import defaultdict
 import json
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     eq_, 
     set_trace,
 )
@@ -442,6 +443,28 @@ class TestOPDSAuthenticationDocument(object):
             "A title", None
         )
 
+    def test_fill_in_adds_providers(self):
+        class MockProvider(object):
+            URI = "http://example.com/"
+            authentication_provider_document = "foo"
+
+        doc1 = {"id": "An ID", "name": "A title"}
+        doc2 = OPDSAuthenticationDocument.fill_in(
+            doc1, [MockProvider], "Bla1", "Bla2")
+        eq_({'http://example.com/': 'foo'}, doc2['providers'])
+
+    def test_fill_in_raises_valueerror_if_uri_not_defined(self):
+        class MockProvider(object):
+            URI = None
+            authentication_provider_document = "foo"
+
+        doc = {"id": "An ID", "name": "A title"}
+        assert_raises_regexp(
+            ValueError, "does not define .URI",
+            OPDSAuthenticationDocument.fill_in,
+            doc, [MockProvider], "Bla1", "Bla2"
+        )
+        
     def test_fill_in_does_not_change_already_set_values(self):
 
         doc1 = {"id": "An ID", "name": "A title"}
