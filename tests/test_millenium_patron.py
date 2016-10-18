@@ -168,22 +168,28 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self.api.authenticated_patron(self._db, dict(username="SECOND_barcode"))
         eq_("SECOND_barcode", p.authorization_identifier)
 
-        # If the patron has an authorization identifier, but it's not
-        # one of the barcodes, we'll replace it the same way we would
-        # determine the authorization identifier for a new patron.
+        # If the patron authorizes with their username, we will leave
+        # their authorization identifier alone.
         p.authorization_identifier = "abcd"
         self.api.enqueue("pintest.good.html")
-        self.api.enqueue("dump.two_barcodes.html")
         self.api.authenticated_patron(self._db, dict(username="alice"))
-        eq_("SECOND_barcode", p.authorization_identifier)
+        eq_("abcd", p.authorization_identifier)
+        eq_("alice", p.username)
 
-        p.authorization_identifier = "abcd"
+        # If the patron authorizes with an unrecognized identifier
+        # that is not their username, we will immediately sync their
+        # metadata with the server. This can correct a case like the
+        # one where the patron's authorization identifier is
+        # incorrectly set to their username.
+        p.authorization_identifier = "alice"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
         self.api.authenticated_patron(self._db, dict(username="FIRST_barcode"))
         eq_("FIRST_barcode", p.authorization_identifier)
 
-        p.authorization_identifier = "abcd"
+        # Or to the case where the patron's authorization identifier is
+        # simply not used anymore.
+        p.authorization_identifier = "OLD_barcode"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
         self.api.authenticated_patron(self._db, dict(username="SECOND_barcode"))
@@ -211,14 +217,6 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
         self.api.authenticated_patron(self._db, dict(username="FIRST_barcode"))
-        eq_("SECOND_barcode", p.authorization_identifier)
-
-        # If somehow the patron ended up with their username as an
-        # authorization identifier, we'll replace it.
-        p.authorization_identifier = "alice"
-        self.api.enqueue("pintest.good.html")
-        self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="alice"))
         eq_("SECOND_barcode", p.authorization_identifier)
 
     def test_authenticated_patron_success(self):
@@ -255,6 +253,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("alice", alice.username)
 
     def test_authenticated_patron_renewed_card(self):
+        """This test can be removed -- authenticated_patron is
+        tested in test_authenticator.py.
+        """
         now = datetime.utcnow()
         one_hour_ago = now - timedelta(seconds=3600)
         one_week_ago = now - timedelta(days=7)
@@ -278,8 +279,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # However, if the card has expired, a sync is performed every
         # time.
         p.authorization_expires = one_week_ago
-        self.api.enqueue("dump.success.html")
         self.api.enqueue("pintest.good.html")
+        self.api.enqueue("dump.success.html")
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
 
@@ -300,9 +301,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(p2, p)
 
     def test_patron_dump_to_patrondata(self):
-        api = MockAPI()
-        content = api.sample_data("dump.success.html")
-        patrondata = api.patron_dump_to_patrondata('alice', content)
+        content = self.api.sample_data("dump.success.html")
+        patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_("alice", patrondata.username)
         
@@ -311,9 +311,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
         one (which would normally be preferred), but it contains a
         blacklisted string, so the first takes precedence.
         """
-        api = MockAPI()
-        content = api.sample_data("dump.two_barcodes.html")
-        patrondata = api.patron_dump_to_patrondata('alice', content)
+        content = self.api.sample_data("dump.two_barcodes.html")
+        patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("SECOND_barcode", patrondata.authorization_identifier)
 
         api = MockAPI(authorization_blacklist=["second"])

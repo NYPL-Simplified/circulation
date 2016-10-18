@@ -153,12 +153,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 try:
                     expires = datetime.datetime.strptime(
                         v, self.EXPIRATION_DATE_FORMAT).date()
+                    authorization_expires = expires
                 except ValueError:
                     self.log.warn(
                         'Malformed expiration date for patron: "%s". Treating as unexpirable.',
-                        expires
+                        v
                     )
-                authorization_expires = expires
             elif k == self.PATRON_TYPE_FIELD:
                 external_type = v
             elif k == self.ERROR_MESSAGE_FIELD:
