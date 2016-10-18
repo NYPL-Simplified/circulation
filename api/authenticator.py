@@ -259,7 +259,7 @@ class PatronData(object):
         if patron:
             self.apply(patron)
         __transaction.commit()
-        return patron
+        return patron, is_new
 
     @property
     def to_response_parameters(self):
@@ -833,7 +833,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         if not patron:
             # We have a PatronData from the ILS that does not
             # correspond to any local Patron. Create the local Patron.
-            patron = patrondata.create(_db)
+            patron, is_new = patrondata.get_or_create_patron(_db)
             
         # The lookup failed in the first place either because the
         # Patron did not exist on the local side, or because one of

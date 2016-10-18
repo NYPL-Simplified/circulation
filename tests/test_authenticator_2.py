@@ -659,7 +659,7 @@ class TestAuthenticationProvider(DatabaseTest):
 
     def test_authenticated_patron_updates_metadata_if_necessary(self):
         patron = self._patron()
-        eq_(True, patron.needs_metadata_update)
+        eq_(True, patron.needs_external_sync)
 
         # If we authenticate this patron by username we find out their
         # permanent ID but not any other information about them.
@@ -704,7 +704,7 @@ class TestAuthenticationProvider(DatabaseTest):
         # metadata refresh, because we just did a refresh and the
         # patron has borrowing privileges.
         last_sync = patron.last_external_sync
-        eq_(False, patron.needs_metadata_update)
+        eq_(False, patron.needs_external_sync)
         patron = provider.authenticated_patron(
             self._db, dict(username=username)
         )
