@@ -56,7 +56,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
             }
             api = MilleniumPatronAPI.from_config()
         eq_("http://example.com/", api.root)
-        eq_(["a", "b"], api.authorization_identifier_blacklist)
+        eq_(["a", "b"], [x.pattern for x in api.blacklist])
             
     def test_remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
@@ -90,11 +90,8 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("abcd", patrondata.authorization_identifier)
 
     def test_incoming_authorization_identifier_retained(self):
-        # TODO: This should test patron_dump_to_patrondata, not
-        # remote_patron_lookup.
-        
         # This patron has two barcodes.
-        dump = self.sample_data("dump.two_barcodes.html")
+        dump = self.api.sample_data("dump.two_barcodes.html")
 
         # Let's say they authenticate with the first one.
         patrondata = self.api.patron_dump_to_patrondata("FIRST_barcode", dump)
@@ -138,8 +135,10 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """Verify that Patron.authorization_identifier is updated when
         necessary and left alone when not necessary.
 
-        This is an end-to-end test. Parts of this are tested in
-        test_authenticator.py and elsewhere in this file.
+        This is an end-to-end test. Its components are tested in
+        test_authenticator.py (especially TestPatronData) and
+        elsewhere in this file. In theory, this test can be removed,
+        but it has exposed bugs before.
         """
         p = self._patron()
         p.external_identifier = "6666666"
@@ -223,10 +222,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("SECOND_barcode", p.authorization_identifier)
 
     def test_authenticated_patron_success(self):
+        """This test can probably be removed -- it mostly tests functionality
+        from BasicAuthAuthenticator.
+        """
         # Patron is valid, but not in our database yet
-        self.api.enqueue("dump.success.html")
         self.api.enqueue("pintest.good.html")
-        alice = self.api.authenticated_patron(self._db, dict(username="alice", password="4444"))
+        self.api.enqueue("dump.success.html")
+        alice = self.api.authenticate(
+            self._db, dict(username="alice", password="4444")
+        )
         eq_("44444444444447", alice.authorization_identifier)
         eq_("alice", alice.username)
 
@@ -295,35 +299,34 @@ class TestMilleniumPatronAPI(DatabaseTest):
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
 
-    def test_patron_info(self):
-        self.api.enqueue("dump.success.html")
-        patron_info = self.api.patron_info("alice")
-        eq_("44444444444447", patron_info.get('barcode'))
-        eq_("alice", patron_info.get('username'))
-
-    def test_first_value_takes_precedence(self):
-        """This patron has two authorization identifiers.
-        The second one takes precedence.
-        """
-        self.api.enqueue("dump.two_barcodes.html")
-        patron_info = self.api.patron_info("alice")
-        eq_("SECOND_barcode", patron_info.get('barcode'))
+    def test_patron_dump_to_patrondata(self):
+        api = MockAPI()
+        content = api.sample_data("dump.success.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("44444444444447", patrondata.authorization_identifier)
+        eq_("alice", patrondata.username)
         
     def test_authorization_identifier_blacklist(self):
-        """This patron has two authorization identifiers, but the second one
-        contains a blacklisted string. The first takes precedence.
+        """A patron has two authorization identifiers. Ordinarily the second
+        one (which would normally be preferred), but it contains a
+        blacklisted string, so the first takes precedence.
         """
-        api = MockAPI(authorization_blacklist=["second"])
-        api.enqueue("dump.two_barcodes.html")
-        patron_info = api.patron_info("alice")
-        eq_("FIRST_barcode", patron_info.get('barcode'))
+        api = MockAPI()
+        content = api.sample_data("dump.two_barcodes.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("SECOND_barcode", patrondata.authorization_identifier)
 
+        api = MockAPI(authorization_blacklist=["second"])
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("FIRST_barcode", patrondata.authorization_identifier)
+        
     def test_blacklist_may_remove_every_authorization_identifier(self):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
         """
         api = MockAPI(authorization_blacklist=["barcode"])
-        api.enqueue("dump.two_barcodes.html")
-        patron_info = api.patron_info("alice")
-        eq_(None, patron_info.get('barcode'))
+        content = api.sample_data("dump.two_barcodes.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)
+        eq_([], patrondata.authorization_identifiers)
 
