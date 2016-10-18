@@ -16,6 +16,8 @@ python-dateutil
 uwsgi
 loggly-python-handler
 cairosvg
+# pycparser is used by cairosvg with no specific version, and version 2.15 doesn't work on travis.
+pycparser==2.14
 mock
 py-bcrypt
 Flask-Babel
