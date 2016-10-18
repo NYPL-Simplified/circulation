@@ -23,7 +23,7 @@ class MockAPI(CleverAuthenticationAPI):
         self.queue = []
 
     def queue_response(self, response):
-        self.queue.append(response)
+        self.queue.insert(0, response)
 
     def _get_token(self, payload, headers):
         return self.queue.pop()
@@ -61,17 +61,17 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         eq_(UNSUPPORTED_CLEVER_USER_TYPE, token)
 
     def test_remote_patron_lookup_ineligible(self):
-        self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234')))
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234')))
+        self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
 
         token = self.api.remote_patron_lookup("")
         eq_(CLEVER_NOT_ELIGIBLE, token)
 
     def test_remote_patron_lookup_title_i(self):
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("token")
         eq_('Abcd', patrondata.personal_name)
@@ -83,18 +83,19 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def test_remote_patron_lookup_external_type(self):
         # Teachers have an external type of 'A' indicating all access.
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
+        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
+        self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
         patrondata = self.api.remote_patron_lookup("teacher token")
         eq_("A", patrondata.external_type)
 
         # Student type is based on grade
         def queue_student(grade):
-            self.api.queue_response(dict(data=dict(nces_id='44270647')))
-            self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade=grade)))
             self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
+            self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade=grade)))
+            self.api.queue_response(dict(data=dict(nces_id='44270647')))
+
 
         queue_student(grade="1")
         patrondata = self.api.remote_patron_lookup("token")
@@ -107,3 +108,4 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         queue_student(grade="9")
         patrondata = self.api.remote_patron_lookup("token")
         eq_("H", patrondata.external_type)
+
