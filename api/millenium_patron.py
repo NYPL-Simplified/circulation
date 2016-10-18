@@ -11,7 +11,10 @@ from authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 import os
 import re
 from core.model import (

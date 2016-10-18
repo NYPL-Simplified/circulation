@@ -116,7 +116,7 @@ class ControllerTest(DatabaseTest):
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.AUTHENTICATION_POLICY : "api.millenium_patron",
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',

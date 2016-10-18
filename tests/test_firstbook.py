@@ -35,7 +35,7 @@ class TestFirstBook(object):
                 FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
             }
             config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.CONFIGURATION_NAME : data
+                FirstBookAuthenticationAPI.NAME : data
             }
             api = FirstBookAuthenticationAPI.from_config()
 
@@ -55,7 +55,7 @@ class TestFirstBook(object):
                 FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
             }
             config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.CONFIGURATION_NAME : data
+                FirstBookAuthenticationAPI.NAME : data
             }
             api = FirstBookAuthenticationAPI.from_config()        
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
@@ -102,4 +102,4 @@ class TestFirstBook(object):
     def test_authentication_provider_document(self):
         doc = self.api.authentication_provider_document
         eq_(self.api.DISPLAY_NAME, doc['name'])
-        assert self.api.method in doc['methods']
+        assert self.api.METHOD in doc['methods']

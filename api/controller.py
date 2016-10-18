@@ -132,7 +132,7 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.initialize(self._db, test=testing)
+        self.auth = Authenticator.from_config(self._db)
         self.setup_circulation()
         self.__external_search = None
         self.lending_policy = load_lending_policy(

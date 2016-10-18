@@ -52,7 +52,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
                 Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"]
             }
             config[Configuration.INTEGRATIONS] = {
-                MilleniumPatronAPI.CONFIGURATION_NAME : data
+                MilleniumPatronAPI.NAME : data
             }
             api = MilleniumPatronAPI.from_config()
         eq_("http://example.com/", api.root)
