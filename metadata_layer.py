@@ -774,7 +774,7 @@ class CirculationData(MetaToModelUtility):
                 # occurence as a separate event.
                 event = get_one_or_create(
                     _db, CirculationEvent,
-                    type=CirculationEvent.TITLE_ADD,
+                    type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                     license_pool=license_pool,
                     create_method_kwargs=dict(
                         start=last_checked,
