@@ -25,6 +25,9 @@ from core.util.opds_authentication_document import (
     OPDSAuthenticationDocument,
 )
 
+from api.millenium_patron import MilleniumPatronAPI
+from api.firstbook import FirstBookAuthenticationAPI
+from api.clever import CleverAuthenticationAPI
 
 from api.authenticator import (
     Authenticator,
@@ -105,7 +108,7 @@ class MockOAuthAuthenticationProvider(
     authentication process.
     """
     def __init__(self, provider_name, patron=None, patrondata=None):
-        self.NAME = provider_name
+        self.CONFIGURATION_NAME = provider_name
         self.patron = patron
         self.patrondata = patrondata
 
@@ -118,7 +121,7 @@ class MockOAuth(OAuthAuthenticationProvider):
     the workflow around OAuth.
     """
     URI = "http://example.org/"
-    NAME = "Mock provider"
+    CONFIGURATION_NAME = "Mock provider"
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
@@ -294,10 +297,55 @@ class TestPatronData(DatabaseTest):
 class TestAuthenticator(DatabaseTest):
 
     def test_from_config(self):
-        """TODO: Since registration happens by loading modules, do this
-        after porting over some authorization providers.
-        """
+        # Only a basic auth provider.
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: 'api.millenium_patron'
+            }
+            config[Configuration.INTEGRATIONS] = {
+                MilleniumPatronAPI.CONFIGURATION_NAME: {
+                    Configuration.URL: "http://url"
+                }
+            }
+            
+            auth = Authenticator.from_config(self._db)
 
+            assert auth.basic_auth_provider != None
+            assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
+
+            eq_({}, auth.oauth_providers_by_name)
+
+        # A basic auth provider and an oauth provider.
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: dict(
+                    providers=['api.firstbook', 'api.clever'],
+                    bearer_token_signing_secret="signing secret"
+                )
+            }
+            config[Configuration.INTEGRATIONS] = {
+                FirstBookAuthenticationAPI.CONFIGURATION_NAME: {
+                    Configuration.URL: "http://url",
+                    FirstBookAuthenticationAPI.SECRET_KEY: "secret",
+                },
+                CleverAuthenticationAPI.CONFIGURATION_NAME: {
+                    Configuration.OAUTH_CLIENT_ID: 'client_id',
+                    Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
+                }
+            }
+
+            auth = Authenticator.from_config(self._db)
+
+            assert auth.basic_auth_provider != None
+            assert isinstance(auth.basic_auth_provider,
+                              FirstBookAuthenticationAPI)
+            
+            eq_(1, len(auth.oauth_providers_by_name))
+            clever = auth.oauth_providers_by_name[
+                CleverAuthenticationAPI.CONFIGURATION_NAME
+            ]
+            assert isinstance(clever, CleverAuthenticationAPI)
+            
     def test_config_fails_when_no_providers_specified(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -307,16 +355,36 @@ class TestAuthenticator(DatabaseTest):
                 CannotLoadConfiguration, "No authentication policy given."
             )
         
-    def test_register_basic_auth_provider(self):
-        """TODO: Since registration happens by loading a module, do this
-        after porting over (say) FirstBook authorization provider.
-        """
-
+    def test_register_provider_basic_auth(self):
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS] = {
+                FirstBookAuthenticationAPI.CONFIGURATION_NAME: {
+                    Configuration.URL: "http://url",
+                    FirstBookAuthenticationAPI.SECRET_KEY: "secret",
+                }
+            }
+            auth = Authenticator()
+            auth.register_provider('api.firstbook')
+            assert isinstance(
+                auth.basic_auth_provider, FirstBookAuthenticationAPI
+            )
+        
     def test_register_oauth_provider(self):
-        """TODO: Since registration happens by loading a module, do this
-        after porting over (say) Clever authorization provider.
-        """
-            
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS] = {
+                CleverAuthenticationAPI.CONFIGURATION_NAME: {
+                    Configuration.OAUTH_CLIENT_ID: 'client_id',
+                    Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
+                }
+            }
+            auth = Authenticator()
+            auth.register_provider('api.clever')
+            eq_(1, len(auth.oauth_providers_by_name))
+            clever = auth.oauth_providers_by_name[
+                CleverAuthenticationAPI.CONFIGURATION_NAME
+            ]
+            assert isinstance(clever, CleverAuthenticationAPI)
+        
     def test_oauth_provider_requires_secret(self):
         basic = MockBasicAuthenticationProvider()
         oauth = MockOAuthAuthenticationProvider("provider1")
@@ -354,7 +422,7 @@ class TestAuthenticator(DatabaseTest):
         """You can register the same provider multiple times,
         but you can't register two different basic auth providers,
         and you can't register two different OAuth providers
-        with the same .NAME.
+        with the same .CONFIGURATION_NAME.
         """
         authenticator = Authenticator(bearer_token_signing_secret='foo')
         basic1 = MockBasicAuthenticationProvider()
@@ -445,7 +513,9 @@ class TestAuthenticator(DatabaseTest):
         )
 
         # Ask oauth1 to create a bearer token.
-        token = authenticator.create_bearer_token(oauth1.NAME, "some token")
+        token = authenticator.create_bearer_token(
+            oauth1.CONFIGURATION_NAME, "some token"
+        )
         
         # The authenticator will decode the bearer token into a
         # provider and a provider token. It will look up the oauth1
@@ -480,27 +550,27 @@ class TestAuthenticator(DatabaseTest):
         )
 
         # A token is created and signed with the bearer token.
-        token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
+        token1 = authenticator.create_bearer_token(oauth1.CONFIGURATION_NAME, "some token")
         eq_("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng",
             token1
         )
 
         # Varying the name of the OAuth provider varies the bearer
         # token.
-        token2 = authenticator.create_bearer_token(oauth2.NAME, "some token")
+        token2 = authenticator.create_bearer_token(oauth2.CONFIGURATION_NAME, "some token")
         assert token1 != token2
 
         # Varying the token sent by the OAuth provider varies the
         # bearer token.
         token3 = authenticator.create_bearer_token(
-            oauth1.NAME, "some other token"
+            oauth1.CONFIGURATION_NAME, "some other token"
         )
         assert token3 != token1
         
         # Varying the secret used to sign the token varies the bearer
         # token.
         authenticator.bearer_token_signing_secret = "a different secret"
-        token4 = authenticator.create_bearer_token(oauth1.NAME, "some token")
+        token4 = authenticator.create_bearer_token(oauth1.CONFIGURATION_NAME, "some token")
         assert token4 != token1
         
     def test_decode_bearer_token(self):
@@ -511,7 +581,7 @@ class TestAuthenticator(DatabaseTest):
         )
 
         # A token is created and signed with the secret.
-        token_value = (oauth.NAME, "some token")
+        token_value = (oauth.CONFIGURATION_NAME, "some token")
         encoded = authenticator.create_bearer_token(*token_value)
         decoded = authenticator.decode_bearer_token(encoded)
         eq_(token_value, decoded)

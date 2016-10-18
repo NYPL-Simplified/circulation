@@ -308,6 +308,9 @@ class Authenticator(object):
             raise CannotLoadConfiguration(
                 "No authentication policy given."
             )
+
+        if isinstance(authentication_policy, basestring):
+            authentication_policy = dict(providers=[authentication_policy])
         bearer_token_signing_secret = authentication_policy.get(
             'bearer_token_signing_secret'
         )
@@ -320,9 +323,9 @@ class Authenticator(object):
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
-        # Load each provider.
+        # Register each provider.
         for provider_string in providers:
-            authenticator.load_provider(provider_string)
+            authenticator.register_provider(provider_string)
 
         if (not authenticator.basic_auth_provider
             and not authenticator.oauth_providers_by_name):
@@ -334,7 +337,7 @@ class Authenticator(object):
             raise CannotLoadConfiguration(
                 "No authentication provider configured"
             )
-        self.assert_ready_for_oauth()
+        authenticator.assert_ready_for_oauth()
         return authenticator
 
     def __init__(self, basic_auth_provider=None, oauth_providers=None,
@@ -355,7 +358,7 @@ class Authenticator(object):
         self.bearer_token_signing_secret = bearer_token_signing_secret
         if oauth_providers:
             for provider in oauth_providers:
-                self.oauth_providers_by_name[provider.NAME] = provider
+                self.oauth_providers_by_name[provider.CONFIGURATION_NAME] = provider
         self.assert_ready_for_oauth()
 
     def assert_ready_for_oauth(self):
@@ -373,10 +376,10 @@ class Authenticator(object):
         """
         provider_module = importlib.import_module(provider_string)
         provider_class = getattr(provider_module, "AuthenticationProvider")
-        if isinstance(provider_class, BasicAuthenticationProvider):
+        if issubclass(provider_class, BasicAuthenticationProvider):
             provider = provider_class.from_config()
             self.register_basic_auth_provider(provider)
-        elif isinstance(provider_class, OAuthProvider):
+        elif issubclass(provider_class, OAuthAuthenticationProvider):
             provider = provider_class.from_config()
             self.register_oauth_provider(provider)
         else:
@@ -394,15 +397,15 @@ class Authenticator(object):
         
     def register_oauth_provider(self, provider):
         already_registered = self.oauth_providers_by_name.get(
-            provider.NAME
+            provider.CONFIGURATION_NAME
         )
         if already_registered and already_registered != provider:
             raise CannotLoadConfiguration(
                 'Two different OAuth providers claim the name "%s"' % (
-                    provider.NAME
+                    provider.CONFIGURATION_NAME
                 )
             )
-        self.oauth_providers_by_name[provider.NAME] = provider
+        self.oauth_providers_by_name[provider.CONFIGURATION_NAME] = provider
         
     @property
     def providers(self):
@@ -581,7 +584,7 @@ class AuthenticationProvider(object):
         patron = self.authenticate(_db, header)
         if not isinstance(patron, Patron):
             return patron
-        if patron.needs_metadata_update:
+        if patron.needs_external_sync:
             self.update_patron_metadata(patron)
         if not patron.has_borrowing_privileges:
             # TODO: This should be checked at the point the patron
@@ -1095,7 +1098,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         manager. They'll be redirected to the OAuth provider, which will 
         take care of it.
         """
-        return url_for('oauth_authenticate', _external=True, provider=self.NAME)
+        return url_for('oauth_authenticate', _external=True,
+                       provider=self.CONFIGURATION_NAME)
 
     @property
     def authentication_provider_document(self):
@@ -1115,7 +1119,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         method_doc = dict(links=dict(authenticate=self._internal_authenticate_url()))
         methods = {}
         methods[self.METHOD] = method_doc
-        return dict(name=self.NAME, methods=methods)
+        return dict(name=self.CONFIGURATION_NAME, methods=methods)
 
     def token_data_source(self, _db):
         # TODO: This is one of those situations where we'd like to
@@ -1147,7 +1151,9 @@ class OAuthController(object):
         provider = self.authenticator.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
-        state = dict(provider=provider.NAME, redirect_uri=redirect_uri)
+        state = dict(
+            provider=provider.CONFIGURATION_NAME, redirect_uri=redirect_uri
+        )
         return redirect(provider.external_authenticate_url(json.dumps(state)))
 
     def oauth_authentication_callback(self, _db, params):
@@ -1199,7 +1205,7 @@ class OAuthController(object):
         # Turn the provider token into a bearer token we can give to
         # the patron.
         simplified_token = self.authenticator.create_bearer_token(
-            provider.NAME, provider_token
+            provider.CONFIGURATION_NAME, provider_token
         )
 
         patron_info = json.dumps(patrondata.to_response_parameters)
