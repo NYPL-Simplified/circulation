@@ -212,7 +212,7 @@ class PatronData(object):
             value = None
         setattr(patron, field_name, value)
         
-    def create(self, _db):
+    def get_or_create_patron(self, _db):
         """Create a Patron with this information.
 
         TODO: I'm concerned in the general case with race
@@ -1016,7 +1016,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
-
+        self.log = logging.getLogger(self.CONFIGURATION_NAME)
+        
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.
 
@@ -1058,20 +1059,24 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         return None
 
-    def external_authenticate_url(self, client_redirect_uri):
+    def external_authenticate_url(self, state):
         """Generate the URL provided by the OAuth provider which will present
         the patron with a login form.
 
-        :param client_redirect_url: Tell the OAuth provider to
-        redirect the authenticated patron to this URL.
+        :param state: A state variable to be propagated through to the OAuth
+        callback.
         """
         raise NotImplementedError()
 
     def oauth_callback(self, _db, params):
-        """Verify the incoming parameters with the OAuth provider.
+        """Verify the incoming parameters with the OAuth provider. Create
+        or look up appropriate database records.
 
-        :return: A 3-tuple (Credential, Patron, PatronData). The
-        Credential contains the access token provided by the OAuth
+        This method should call create_token() at some point.
+
+        :return: A ProblemDetail if there's a problem. Otherwise, a
+        3-tuple (Credential, Patron, PatronData). The Credential
+        contains the access token provided by the OAuth
         provider. (This is not the bearer token the patron will use to
         authenticate -- that is a JWT token _based_ on this token,
         created in
@@ -1081,9 +1086,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         obtained from the OAuth provider which cannot be stored in the
         circulation manager's database but which should be passed on
         to the client.
+
         """
-        # TODO: should probably be some code in here that implements
-        # the token_expiration_days thing.
         raise NotImplementedError()
 
     def _internal_authenticate_url(self):

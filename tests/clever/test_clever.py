@@ -41,109 +41,69 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
-        self.api = MockAPI('fake_client_id', 'fake_client_secret')
+        self.api = MockAPI('fake_client_id', 'fake_client_secret', 2)
 
     def test_authenticated_patron(self):
         eq_(None, self.api.authenticated_patron(self._db, "not a valid token"))
 
         # This patron has a valid clever token.
         patron = self._patron()
-        credential, is_new = get_one_or_create(
-            self._db, Credential, data_source=self.api._data_source(self._db),
-            type=self.api.TOKEN_TYPE, patron=patron,
-        )
-        credential.credential = "test"
-        credential.expires = datetime.datetime.now() + datetime.timedelta(days=1)
-
+        credential, is_new = self.api.create_token(self._db, patron, "test")
         eq_(patron, self.api.authenticated_patron(self._db, "test"))
 
         # If the token is expired, the patron has to log in again.
         credential.expires = datetime.datetime.now() - datetime.timedelta(days=1)
         eq_(None, self.api.authenticated_patron(self._db, "test"))
 
-    def test_oauth_callback_unsupported_user_type(self):
+    def test_remote_patron_lookup_unsupported_user_type(self):
         self.api.queue_response(dict(type='district_admin', data=dict(id='1234')))
-        self.api.queue_response(dict(access_token='token'))
-
-        token, patron_info = self.api.oauth_callback(self._db, {})
+        token = self.api.remote_patron_lookup("token")
         eq_(UNSUPPORTED_CLEVER_USER_TYPE, token)
-        eq_(None, patron_info)
 
-    def test_oauth_callback_ineligible(self):
+    def test_remote_patron_lookup_ineligible(self):
         self.api.queue_response(dict(data=dict(nces_id='I am not Title I')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234')))
         self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='token'))
 
-        token, patron_info = self.api.oauth_callback(self._db, {})
+        token = self.api.remote_patron_lookup("")
         eq_(CLEVER_NOT_ELIGIBLE, token)
-        eq_(None, patron_info)
 
-    def test_oauth_callback_title_i(self):
+    def test_remote_patron_lookup_title_i(self):
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
-        self.api.queue_response(dict(type='student', data=dict(id='1234'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='token'))
+        self.api.queue_response(dict(type='student', data=dict(id='5678'), links=[dict(rel='canonical', uri='test')]))
 
-        token, patron_info = self.api.oauth_callback(self._db, {})
-        eq_('token', token)
-        eq_('Abcd', patron_info.get('name'))
+        patrondata = self.api.remote_patron_lookup("token")
+        eq_('Abcd', patrondata.personal_name)
+        eq_("5678", patrondata.permanent_id)
+        eq_("5678", patrondata.authorization_identifier)
 
-        # A patron was created
-        patron = get_one(self._db, Patron, authorization_identifier='1234')
-        assert patron != None
-
-        # A credential was also created
-        credential = get_one(self._db, Credential, patron=patron)
-        eq_(self.api._data_source(self._db), credential.data_source)
-        eq_(self.api.TOKEN_TYPE, credential.type)
-        eq_(patron, credential.patron)
-        eq_("token", credential.credential)
-
-    def test_oauth_callback_free_lunch_status(self):
+    def test_remote_patron_lookup_free_lunch_status(self):
         pass
 
-    def test_oauth_callback_external_type(self):
-        # Teacher is all-access
+    def test_remote_patron_lookup_external_type(self):
+        # Teachers have an external type of 'A' indicating all access.
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(type='teacher', data=dict(id='1'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='teacher token'))
 
-        self.api.oauth_callback(self._db, {})
-
-        patron = get_one(self._db, Patron, authorization_identifier='1')
-        eq_('A', patron.external_type)
+        patrondata = self.api.remote_patron_lookup("teacher token")
+        eq_("A", patrondata.external_type)
 
         # Student type is based on grade
+        def queue_student(grade):
+            self.api.queue_response(dict(data=dict(nces_id='44270647')))
+            self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade=grade)))
+            self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
 
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='1')))
-        self.api.queue_response(dict(type='student', data=dict(id='2'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='grade 1 token'))
+        queue_student(grade="1")
+        patrondata = self.api.remote_patron_lookup("token")
+        eq_("E", patrondata.external_type)
 
-        self.api.oauth_callback(self._db, {})
+        queue_student(grade="6")
+        patrondata = self.api.remote_patron_lookup("token")
+        eq_("M", patrondata.external_type)
 
-        patron = get_one(self._db, Patron, authorization_identifier='2')
-        eq_('E', patron.external_type)
-
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='6')))
-        self.api.queue_response(dict(type='student', data=dict(id='3'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='grade 6 token'))
-
-        self.api.oauth_callback(self._db, {})
-
-        patron = get_one(self._db, Patron, authorization_identifier='3')
-        eq_('M', patron.external_type)
-
-        self.api.queue_response(dict(data=dict(nces_id='44270647')))
-        self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd', grade='9')))
-        self.api.queue_response(dict(type='student', data=dict(id='4'), links=[dict(rel='canonical', uri='test')]))
-        self.api.queue_response(dict(access_token='grade 9 token'))
-
-        self.api.oauth_callback(self._db, {})
-
-        patron = get_one(self._db, Patron, authorization_identifier='4')
-        eq_('H', patron.external_type)
-
+        queue_student(grade="9")
+        patrondata = self.api.remote_patron_lookup("token")
+        eq_("H", patrondata.external_type)

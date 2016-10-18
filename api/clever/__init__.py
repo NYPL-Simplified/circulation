@@ -7,7 +7,10 @@ import datetime
 from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
-from api.authenticator import OAuthAuthenticator
+from api.authenticator import (
+    OAuthAuthenticationProvider,
+    PatronData,
+)
 from api.config import Configuration
 from core.model import (
     get_one,
@@ -44,11 +47,17 @@ with open('%s/title_i.json' % clever_dir) as f:
     TITLE_I_NCES_IDS = json.loads(json_data)
 
 
-class CleverAuthenticationAPI(OAuthAuthenticator):
+class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
-    NAME = 'Clever'
     URI = "http://librarysimplified.org/terms/auth/clever"
-    METHOD = "http://librarysimplified.org/authtype/Clever"
+
+    # TODO: I think this can be removed because
+    # "http://librarysimplified.org/authtype/OAuth-with-intermediary"
+    # should be good enough.
+    # METHOD = "http://librarysimplified.org/authtype/Clever"
+    CONFIGURATION_NAME = 'Clever'
+    TOKEN_TYPE = "Clever token"
+    TOKEN_DATA_SOURCE_NAME = 'Clever'
 
     CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s"
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
@@ -59,49 +68,97 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
     # need to get a code from First Book instead.
     SUPPORTED_USER_TYPES = ['student', 'teacher']
 
-    TOKEN_TYPE = "Clever token"
-
-    log = logging.getLogger('Clever authentication API')
-
-    def _data_source(self, _db):
-        data_source, is_new = get_one_or_create(
-            _db, DataSource, name="Clever",
-            offers_licenses=False,
-            primary_identifier_type=None
-        )
-        return data_source
-
-    def _server_redirect_uri(self):
-        return url_for('oauth_callback', _external=True)
-
+    # Begin implementations of OAuthAuthenticationProvider abstract
+    # methods.
+    
     def external_authenticate_url(self, state):
-        """URL to direct patrons to for authentication with the provider."""
-        return self.CLEVER_OAUTH_URL % (self.client_id, self._server_redirect_uri(), state)
+        """Generate the URL provided by the OAuth provider which will present
+        the patron with a login form.
 
-    def _get_token(self, payload, headers):
-        return HTTP.post_with_timeout(self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers).json()
-
-    def _get(self, url, headers):
-        return HTTP.get_with_timeout(url, headers=headers).json()
+        :param state: A state variable to be propagated through to the OAuth
+        callback.
+        """
+        return self.CLEVER_OAUTH_URL % (
+            self.client_id, self._server_redirect_uri(), state
+        )
 
     def oauth_callback(self, _db, params):
+        """Verify the incoming parameters with the OAuth provider. Create
+        or look up appropriate database records.
+
+        :return: A ProblemDetail if there's a problem. Otherwise, a
+        3-tuple (Credential, Patron, PatronData). The Credential
+        contains the access token provided by the OAuth provider. The
+        Patron object represents the authenticated Patron, and the
+        PatronData object includes information about the patron
+        obtained from the OAuth provider which cannot be stored in the
+        circulation manager's database, but which should be passed on
+        to the client.
+        """
+        # Ask the OAuth provider to verify the code that was passed
+        # in.  This will give us a bearer token we can use to look up
+        # detailed patron information.
         code = params.get('code')
+        token = self.remote_exchange_code_for_bearer_token(code)
+        if not token:
+            # The wrong code was provided.
+            return INVALID_CREDENTIALS.detailed(
+                _("A valid Clever login is required.")
+            )
+
+        # Now that we have a bearer token, use it to look up patron
+        # information.
+        patrondata = self.remote_patron_lookup(token)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+        
+        # Convert the PatronData into a Patron object.
+        patron = patrondata.get_or_create_patron(_db, patrondata)
+
+        # Create a credential for the Patron.
+        credential, is_new = self.create_token(_db, patron, token)
+        return credential, patron, patrondata
+
+    # End implementations of OAuthAuthenticationProvider abstract
+    # methods.
+    
+    def remote_exchange_code_for_bearer_token(self, code):
+        """Ask the OAuth provider to convert a code (passed in to the OAuth
+        callback) into a bearer token.
+
+        We can use the bearer token to act on behalf of a specific
+        patron. It also gives us confidence that the patron
+        authenticated correctly with Clever.
+
+        :return: A ProblemDetail if there's a problem; otherwise, the
+        bearer token.
+        """
         payload = dict(
             code=code,
             grant_type='authorization_code',
             redirect_uri=self._server_redirect_uri(),
         )
+        authorization = base64.b64encode(
+            self.client_id + ":" + self.client_secret
+        )
         headers = {
-            'Authorization': 'Basic %s' % base64.b64encode(self.client_id + ":" + self.client_secret),
+            'Authorization': 'Basic %s' % authorization,
             'Content-Type': 'application/json',
         }
-
         response = self._get_token(payload, headers)
         token = response.get('access_token', None)
-
         if not token:
-            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required.")), None
+            return INVALID_CREDENTIALS.detailed(
+                _("A valid Clever login is required.")
+            )
+        return token
+        
+    def remote_patron_lookup(self, token):
+        """Use a bearer token to look up detailed patron information.
 
+        :return: A ProblemDetail if there's a problem. Otherwise, a
+        PatronData.
+        """
         bearer_headers = {
             'Authorization': 'Bearer %s' % token
         }
@@ -111,7 +168,9 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         identifier = data.get('id', None)
 
         if not identifier:
-            return INVALID_CREDENTIALS.detailed(_("A valid Clever login is required."))
+            return INVALID_CREDENTIALS.detailed(
+                _("A valid Clever login is required.")
+            )
 
         if result.get('type') not in self.SUPPORTED_USER_TYPES:
             return UNSUPPORTED_CLEVER_USER_TYPE
@@ -123,7 +182,10 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         
         user_data = user['data']
         school_id = user_data['school']
-        school = self._get(self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id, bearer_headers)
+        school = self._get(
+            self.CLEVER_API_BASE_URL + '/v1.1/schools/%s' % school_id,
+            bearer_headers
+        )
 
         school_nces_id = school['data'].get('nces_id')
 
@@ -145,21 +207,25 @@ class CleverAuthenticationAPI(OAuthAuthenticator):
         else:
             external_type = "A"
 
-        # TODO: we used to do something with user_data.get('name')
-        # and now we don't.
-        patron, is_new = get_one_or_create(
-            _db, Patron, external_identifier=identifier,
+        patrondata = PatronData(
+            permanent_id=identifier,
             authorization_identifier=identifier,
+            external_type=external_type,
+            personal_name = user_data.get('name'),
+            complete=True
         )
-        patron._external_type = external_type
+        return patrondata
+   
+    def _server_redirect_uri(self):
+        return url_for('oauth_callback', _external=True)
 
-        credential, is_new = get_one_or_create(
-            _db, Credential, data_source=self._data_source(_db),
-            type=self.TOKEN_TYPE, patron=patron,
+    def _get_token(self, payload, headers):
+        response = HTTP.post_with_timeout(
+            self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers
         )
-        credential.credential = token
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.token_expiration_days)
+        return response.json()
 
-        return token, patron
+    def _get(self, url, headers):
+        return HTTP.get_with_timeout(url, headers=headers).json()
 
-AuthenticationAPI = CleverAuthenticationAPI
+AuthenticationProvider = CleverAuthenticationAPI
