@@ -565,12 +565,12 @@ class EventParser(ThreeMParser):
 
     # Map 3M's event names to our names.
     EVENT_NAMES = {
-        "CHECKOUT" : CirculationEvent.CHECKOUT,
-        "CHECKIN" : CirculationEvent.CHECKIN,
-        "HOLD" : CirculationEvent.HOLD_PLACE,
-        "RESERVED" : CirculationEvent.AVAILABILITY_NOTIFY,
-        "PURCHASE" : CirculationEvent.LICENSE_ADD,
-        "REMOVED" : CirculationEvent.LICENSE_REMOVE,
+        "CHECKOUT" : CirculationEvent.DISTRIBUTOR_CHECKOUT,
+        "CHECKIN" : CirculationEvent.DISTRIBUTOR_CHECKIN,
+        "HOLD" : CirculationEvent.DISTRIBUTOR_HOLD_PLACE,
+        "RESERVED" : CirculationEvent.DISTRIBUTOR_AVAILABILITY_NOTIFY,
+        "PURCHASE" : CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+        "REMOVED" : CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
     }
 
     def process_all(self, string):

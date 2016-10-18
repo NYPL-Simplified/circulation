@@ -1096,7 +1096,7 @@ class WorkController(CirculationManagerController):
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, data_source, identifier_type, identifier, event_type):
-        if event_type in [CirculationEvent.OPEN_BOOK]:
+        if event_type in CirculationEvent.CLIENT_EVENTS:
             pool = self.load_licensepool(data_source, identifier_type, identifier)
             Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)

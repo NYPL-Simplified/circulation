@@ -64,7 +64,7 @@ class Test3MEventParser(object):
         eq_("theitem1", threem_id)
         eq_("900isbn1", isbn)
         eq_("patronid1", patron_id)
-        eq_(CirculationEvent.CHECKIN, internal_event_type)
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, internal_event_type)
         eq_(start_time, end_time)
 
         (threem_id, isbn, patron_id, start_time, end_time,
@@ -72,7 +72,7 @@ class Test3MEventParser(object):
         eq_("theitem2", threem_id)
         eq_("900isbn2", isbn)
         eq_("patronid2", patron_id)
-        eq_(CirculationEvent.CHECKOUT, internal_event_type)
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKOUT, internal_event_type)
 
         # Verify that start and end time were parsed correctly.
         correct_start = datetime.datetime(2014, 4, 3, 0, 0, 34)
