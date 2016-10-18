@@ -1170,17 +1170,30 @@ class TestOAuthController(DatabaseTest):
     def setup(self):
         super(TestOAuthController, self).setup()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, external_authenticate_url):
+            def __init__(self, _db, external_authenticate_url, patron):
                 super(MockOAuthWithExternalAuthenticateURL, self).__init__()
                 self.url = external_authenticate_url
+                self.patron = patron
+                self.token, ignore = self.create_token(
+                    _db, self.patron, "a token"
+                )
+                self.patrondata = PatronData(personal_name="Abcd")
                 
             def external_authenticate_url(self, state):
                 return self.url + "?state=" + state
 
+            def oauth_callback(self, _db, params):
+                return self.token, self.patron, self.patrondata
+            
+        patron = self._patron()
         self.basic = MockBasic()           
-        self.oauth1 = MockOAuthWithExternalAuthenticateURL("http://oauth1.com/")
+        self.oauth1 = MockOAuthWithExternalAuthenticateURL(
+            self._db, "http://oauth1.com/", patron
+        )
         self.oauth1.NAME = "Mock OAuth 1"
-        self.oauth2 = MockOAuthWithExternalAuthenticateURL("http://oauth2.org/")
+        self.oauth2 = MockOAuthWithExternalAuthenticateURL(
+            self._db, "http://oauth2.org/", patron
+        )
         self.oauth2.NAME = "Mock OAuth 2"
         # Check that the correct auth provider is called.           
         self.auth = Authenticator(
@@ -1221,52 +1234,45 @@ class TestOAuthController(DatabaseTest):
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
 
-    def test_oauth_callback(self):
+    def test_oauth_authentication_callback(self):
         """Test the controller method that the OAuth provider is supposed
         to send patrons to once they log in on the remote side.
         """
         
-        # Oauth 1
-        params = dict(code="foo", state=json.dumps(dict(provider="oauth1")))
-        response = auth.oauth_callback(self._db, params)
-        eq_(0, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(0, oauth2.count)
+        # Successful callback through OAuth provider 1.
+        params = dict(code="foo", state=json.dumps(dict(provider=self.oauth1.NAME)))
+        response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
         fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
-        provider_name, provider_token = auth.decode_token(token)
-        eq_("oauth1", provider_name)
-        eq_("token", provider_token)
+        provider_name, provider_token = self.auth.decode_bearer_token(token)
+        eq_(self.oauth1.NAME, provider_name)
+        eq_(self.oauth1.token.credential, provider_token)
         
-        # Oauth 2
-        params = dict(code="foo", state=json.dumps(dict(provider="oauth2")))
-        response = auth.oauth_callback(self._db, params)
-        eq_(0, basic_auth.count)
-        eq_(1, oauth1.count)
-        eq_(1, oauth2.count)
+        # Successful callback through OAuth provider 1.
+        params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
+        response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
         fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         token = fragments.get("access_token")[0]
-        provider_name, provider_token = auth.decode_token(token)
-        eq_("oauth2", provider_name)
-        eq_("token", provider_token)
-        patron_info = json.loads(fragments.get('patron_info')[0])
-        eq_("Patron", patron_info['name'])
+        provider_name, provider_token = self.auth.decode_bearer_token(token)
+        eq_(self.oauth2.NAME, provider_name)
+        eq_(self.oauth2.token.credential, provider_token)
             
-        # Missing state
+        # State is missing so we never get to check the code.
         params = dict(code="foo")
-        response = auth.oauth_callback(self._db, params)
+        response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
 
-        # Missing code
-        params = dict(state="oauth2")
-        response = auth.oauth_callback(self._db, params)
+        # Code is missing so we never check the state.
+        params = dict(state=json.dumps(dict(provider=self.oauth1.NAME)))
+        response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
 
-        # State with invalid provider
+        # In this example we're pretending to be coming in after
+        # authenticating with an OAuth provider that doesn't exist.
         params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
-        response = auth.oauth_callback(self._db, params)
+        response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)
         fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
         eq_(None, fragments.get('access_token'))

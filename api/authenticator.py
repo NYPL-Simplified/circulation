@@ -1181,12 +1181,14 @@ class OAuthController(object):
         """
         code = params.get('code')
         state = params.get('state')
+        redirect_uri = params.get('redirect_uri', '')
         if not code or not state:
             return INVALID_OAUTH_CALLBACK_PARAMETERS
 
+        state = json.loads(state)
         client_redirect_uri = state.get('redirect_uri') or ""
         provider_name = state.get('provider')
-        provider = self.oauth_provider_lookup(provider_name)
+        provider = self.authenticator.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
 
@@ -1208,7 +1210,7 @@ class OAuthController(object):
         # Turn the provider token into a bearer token we can give to
         # the patron.
         simplified_token = self.authenticator.create_bearer_token(
-            provider.NAME, provider_token
+            provider.NAME, provider_token.credential
         )
 
         patron_info = json.dumps(patrondata.to_response_parameters)
