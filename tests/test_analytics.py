@@ -31,7 +31,7 @@ class TestAnalytics(DatabaseTest):
         with temp_config(config) as config:
             work = self._work(title="title", with_license_pool=True)
             [lp] = work.license_pools
-            Analytics.collect_event(self._db, lp, CirculationEvent.CHECKIN, None)
+            Analytics.collect_event(self._db, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, None)
             mock = Analytics.instance().providers[0]
             eq_(1, mock.count)
             
