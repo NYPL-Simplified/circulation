@@ -6421,18 +6421,15 @@ class CirculationEvent(Base):
     CM_FULFILL = u"circulation_manager_fulfill"
 
     # Events that we hear about from a distributor.
-    CHECKOUT = u"check_out"
-    CHECKIN = u"check_in"
-    HOLD_PLACE = u"hold_place"
-    HOLD_RELEASE = u"hold_release"
-    LICENSE_ADD = u"license_add"
-    LICENSE_REMOVE = u"license_remove"
-    AVAILABILITY_NOTIFY = u"availability_notify"
-    CIRCULATION_CHECK = u"circulation_check"
-    SERVER_NOTIFICATION = u"server_notification"
-    TITLE_ADD = u"title_add"
-    TITLE_REMOVE = u"title_remove"
-    UNKNOWN = u"unknown"
+    CHECKOUT = u"distributor_check_out"
+    CHECKIN = u"distributor_check_in"
+    HOLD_PLACE = u"distributor_hold_place"
+    HOLD_RELEASE = u"distributor_hold_release"
+    LICENSE_ADD = u"distributor_license_add"
+    LICENSE_REMOVE = u"distributor_license_remove"
+    AVAILABILITY_NOTIFY = u"distributor_availability_notify"
+    TITLE_ADD = u"distributor_title_add"
+    TITLE_REMOVE = u"distributor_title_remove"
 
     # Events that we hear about from a client app.
     OPEN_BOOK = u"open_book"
