@@ -30,7 +30,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     BARCODE_FIELD = 'P BARCODE[pb]'
     USERNAME_FIELD = 'ALT ID[pu]'
     FINES_FIELD = 'MONEY OWED[p96]'
+    BLOCK_FIELD = 'MBLOCK[p56]'
     ERROR_MESSAGE_FIELD = 'ERRMSG'
+    PERSONAL_NAME_FIELD = 'PATRN NAME[pn]'
+    EMAIL_ADDRESS_FIELD = 'EMAIL ADDR[pz]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
     
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
@@ -77,7 +80,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         response = self.request(url)
         data = dict(self._extract_text_nodes(response.content))
         if data.get('RETCOD') == '0':
-            return PatronData(authorization_identifier=username)
+            return PatronData(authorization_identifier=username, complete=False)
         return False
 
     def remote_patron_lookup(self, patron_or_patrondata):
@@ -110,17 +113,15 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         identifier out from under them.
 
         :param content: The HTML document containing the patron dump.
-        """
-        data = PatronData()
-        
+        """       
         # If we don't see these fields, erase any previous value
         # rather than leaving the old value in place. This shouldn't
         # happen (unless the expiration date changes to an invalid
         # date), but just to be safe.
-        data.username = data.NO_VALUE
-        data.authorization_expires = data.NO_VALUE
-        data.fines = data.NO_VALUE
-        data.external_type = data.NO_VALUE
+        permanent_id = PatronData.NO_VALUE
+        username = authorization_expires = personal_name = PatronData.NO_VALUE
+        email_address = fines = external_type = PatronData.NO_VALUE
+        blocked = False
         
         potential_identifiers = []
         for k, v in self._extract_text_nodes(content):
@@ -134,11 +135,20 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # later.
                 potential_identifiers.append(v)
             elif k == self.RECORD_NUMBER_FIELD:
-                data.permanent_id = v
+                permanent_id = v
             elif k == self.USERNAME_FIELD:
-                data.username = v
+                username = v
+            elif k == self.PERSONAL_NAME_FIELD:
+                personal_name = v
+            elif k == self.EMAIL_ADDRESS_FIELD:
+                email_address = v
             elif k == self.FINES_FIELD:
-                data.fines = v
+                fines = v
+            elif k == self.BLOCK_FIELD:
+                # TODO: Unclear if 'c' is the magic value here or if
+                # any value other than '-' means a block.
+                if v == 'c':
+                    blocked = True
             elif k == self.EXPIRATION_FIELD:
                 try:
                     expires = datetime.datetime.strptime(
@@ -148,25 +158,45 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                         'Malformed expiration date for patron: "%s". Treating as unexpirable.',
                         expires
                     )
-                data.authorization_expires = expires
+                authorization_expires = expires
             elif k == self.PATRON_TYPE_FIELD:
-                data.external_type = v
+                external_type = v
             elif k == self.ERROR_MESSAGE_FIELD:
                 # An error has occured. Most likely the patron lookup
                 # failed.
                 return None
-        # Now we need to figure out which of the potential_identifiers
-        # is the one to use.
-        if current_identifier in potential_identifiers:
+
+        # We may now have multiple authorization
+        # identifiers. PatronData expects the best authorization
+        # identifier to show up first in the list.
+        #
+        # The last identifier in the list is probably the most recently
+        # added one. In the absence of any other information, it's the
+        # one we should choose.
+        potential_identifiers.reverse()
+        
+        authorization_identifiers = potential_identifiers
+        if not authorization_identifiers:
+            authorization_identifiers = PatronData.NO_VALUE
+        elif current_identifier in authorization_identifiers:
             # Don't rock the boat. The patron is used to using this
-            # identifier and there's no need to change it.
-            data.authorization_identifier=current_identifier
-        elif potential_identifiers:
-            # The identifier the patron is used to using has
-            # disappeared. We need to choose a new one for them.
-            data.authorization_identifier = potential_identifiers[-1]
-        else:
-            data.authorization_identifier = data.NO_VALUE
+            # identifier and there's no need to change it. Move the
+            # currently used identifier to the front of the list.
+            authorization_identifiers.remove(current_identifier)
+            authorization_identifiers.insert(0, current_identifier)
+
+        data = PatronData(
+            permanent_id=permanent_id,
+            authorization_identifier=authorization_identifiers,
+            username=username,
+            personal_name=personal_name,
+            email_address=email_address,
+            authorization_expires=authorization_expires,
+            external_type=external_type,
+            fines=fines,
+            blocked=blocked,
+            complete=True
+        )
         return data
         
     def _extract_text_nodes(self, content):

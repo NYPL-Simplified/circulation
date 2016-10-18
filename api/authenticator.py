@@ -71,13 +71,26 @@ class PatronData(object):
         it is very useful to have because other identifiers tend to
         change.
 
-        :param authorization_identifier: An assigned identifier
-        (usually numeric) the patron uses to identify
-        themselves. Whenever possible this should be the authorization
-        identifier *actually used by the patron*. Patrons sometimes
-        have multiple authorization identifiers, but generally choose
-        one and consistently log in with it. We should keep track of
-        the one they use.
+        :param authorization_identifier: One or more assigned
+        identifiers (usually numeric) the patron may use to identify
+        themselves. This may be a list, because patrons may have
+        multiple authorization identifiers. For example, an NYPL
+        patron may have an NYPL library card, a Brooklyn Public
+        Library card, and an IDNYC card: three different barcodes that
+        all authenticate the same patron.
+
+        The circulation manager does the best it can to maintain
+        continuity of the patron's identity in the face of changes to
+        this list. The two assumptions made are: 
+
+        1) A patron tends to pick one of their authorization
+        identifiers and stick with it until it stops working, rather
+        than switching back and forth. This identifier is the one
+        stored in Patron.authorization_identifier.
+
+        2) In the absence of any other information, the authorization
+        identifier at the _beginning_ of this list is the one that
+        should be stored in Patron.authorization_identifier.
 
         :param username: An identifier (usually alphanumeric) chosen
         by the patron and used to identify themselves.
@@ -108,7 +121,8 @@ class PatronData(object):
 
         """
         self.permanent_id = permanent_id
-        self.authorization_identifier = authorization_identifier
+
+        self.set_authorization_identifier(authorization_identifier)
         self.username = username
         self.authorization_expires = authorization_expires
         self.external_type = external_type
@@ -134,21 +148,62 @@ class PatronData(object):
         """Take the portion of this data that can be stored in the database
         and write it to the given Patron record.
         """
+
+        # First, handle the easy stuff -- everything except authorization
+        # identifier.
         self.set_value(patron, 'external_identifier', self.permanent_id)
         self.set_value(patron, 'username', self.username)
-        self.set_value(patron, 'authorization_identifier',
-                       self.authorization_identifier)
         self.set_value(patron, '_external_type', self.external_type)
         self.set_value(patron, 'authorization_expires',
                        self.authorization_expires)
         self.set_value(patron, 'fines', self.fines)
-        if self.complete:
-            patron.last_external_sync = datetime.datetime.utcnow()
 
+        # Now handle authorization identifier.
+        if self.complete:
+            # We have a complete picture of data from the ILS,
+            # so we can be comfortable setting the authorization
+            # identifier if necessary.
+            if (patron.authorization_identifier is None or
+                patron.authorization_identifier not in
+                self.authorization_identifiers):
+                # The patron's authorization_identifier is not set, or is
+                # set to a value that is no longer valid. Set it again.
+                self.set_value(patron, 'authorization_identifier',
+                               self.authorization_identifier)
+        elif patron.authorization_identifier != self.authorization_identifier:
+            # It looks like we need to change
+            # Patron.authorization_identifier.  However, we do not
+            # have a complete picture of the patron's record. We don't
+            # know if the current identifier is better than the one
+            # the patron provided.
+
+            # However, we can provisionally
+            # Patron.authorization_identifier if it's not already set.
+            if not patron.authorization_identifier:
+                self.set_value(patron, 'authorization_identifier',
+                               self.authorization_identifier)
+
+            if patron.username and self.authorization_identifier == patron.username:
+                # This should be fine. It looks like the patron's
+                # .authorization_identifier is set to their barcode,
+                # and they authenticated with their username. In this
+                # case we can be confident there is no need to change
+                # Patron.authorization_identifier.
+                pass
+            else:
+                # We don't know what's going on and we need to sync
+                # with the remote ASAP.
+                patron.last_external_sync = None
+           
         # Note that we do not store personal_name or email_address in the
         # database model.
+        if self.complete:
+            # We got a complete dataset from the ILS, which is what an
+            # external sync does, so we can reset the timer on
+            # external sync.
+            patron.last_external_sync = datetime.datetime.utcnow()
 
-    def set_value(patron, field_name, value):
+    def set_value(self, patron, field_name, value):
         if value is None:
             # Do nothing
             return
@@ -218,7 +273,27 @@ class PatronData(object):
             return dict(name=self.personal_name)
         return None
 
-
+    def set_authorization_identifier(self, authorization_identifier):
+        """Helper method to set both .authorization_identifier
+        and .authorization_identifiers appropriately.
+        """
+        # The first authorization identifier in the list is the one
+        # we should use for Patron.authorization_identifier, assuming
+        # Patron.authorization_identifier needs to be updated.
+        if isinstance(authorization_identifier, list):
+            authorization_identifiers = authorization_identifier
+            authorization_identifier = authorization_identifiers[0]
+        elif authorization_identifier is None:
+            authorization_identifiers = []
+            authorization_identifier = None
+        elif authorization_identifier is self.NO_VALUE:
+            authorization_identifiers = []
+            authorization_identifier = self.NO_VALUE
+        else:
+            authorization_identifiers = [authorization_identifier]
+        self.authorization_identifier = authorization_identifier
+        self.authorization_identifiers = authorization_identifiers
+        
 class Authenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
     credentials into Patron objects.
@@ -612,7 +687,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     AUTHENTICATION_REALM = _("Library card")
     METHOD = "http://opds-spec.org/auth/basic"
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
-
+    CONFIGURATION_NAME = 'Generic Basic Authentication provider'
+    
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
     # passwords.

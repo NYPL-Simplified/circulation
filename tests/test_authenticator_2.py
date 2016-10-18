@@ -83,6 +83,7 @@ class MockBasic(BasicAuthenticationProvider):
     """A second mock basic authentication provider for use in testing
     the workflow around Basic Auth.
     """
+    CONFIGURATION_NAME = 'Mock Basic Auth provider'
     def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
         super(MockBasic, self).__init__(*args, **kwargs)
@@ -159,6 +160,37 @@ class TestPatronData(DatabaseTest):
         eq_("5", self.data.email_address)
         eq_(False, hasattr(patron, 'email_address'))
 
+    def test_apply_multiple_authorization_identifiers(self):
+        """If there are multiple authorization identifiers, the first
+        one is chosen.
+        """
+        patron = self._patron()
+        patron.authorization_identifier = None
+        data = PatronData(
+            authorization_identifier=["2", "3"],
+            complete=True
+        )
+        data.apply(patron)
+        eq_("2", patron.authorization_identifier)
+
+        # If Patron.authorization_identifier is already set, it will
+        # not be changed, so long as its current value is acceptable.
+        data = PatronData(
+            authorization_identifier=["3", "2"],
+            complete=True
+        )
+        data.apply(patron)
+        eq_("2", patron.authorization_identifier)
+
+        # If Patron.authorization_identifier ever turns out not to be
+        # an acceptable value, it will be changed.
+        data = PatronData(
+            authorization_identifier=["3", "4"],
+            complete=True
+        )
+        data.apply(patron)
+        eq_("3", patron.authorization_identifier)
+        
     def test_apply_sets_last_external_sync_if_data_is_complete(self):
         """Patron.last_external_sync is only updated when apply() is called on
         a PatronData object that represents a full set of metadata.
@@ -173,6 +205,86 @@ class TestPatronData(DatabaseTest):
         self.data.apply(patron)
         assert None != patron.last_external_sync
         
+    def test_apply_sets_first_valid_authorization_identifier(self):
+        """If the ILS has multiple authorization identifiers for a patron, the
+        first one is used.
+        """
+        patron = self._patron()
+        patron.authorization_identifier = None
+        self.data.set_authorization_identifier(["identifier 1", "identifier 2"])
+        self.data.apply(patron)
+        eq_("identifier 1", patron.authorization_identifier)
+                
+    def test_apply_leaves_valid_authorization_identifier_alone(self):
+        """If the ILS says a patron has a new preferred authorization
+        identifier, but our Patron record shows them using an
+        authorization identifier that still works, we don't change it.
+        """
+        patron = self._patron()
+        patron.authorization_identifier = "old identifier"
+        self.data.set_authorization_identifier([
+            "new identifier", patron.authorization_identifier
+        ])
+        self.data.apply(patron)
+        eq_("old identifier", patron.authorization_identifier)
+
+    def test_apply_overwrites_invalid_authorization_identifier(self):
+        """If the ILS says a patron has a new preferred authorization
+        identifier, and our Patron record shows them using an
+        authorization identifier that no longer works, we change it.
+        """
+        patron = self._patron()
+        self.data.set_authorization_identifier([
+            "identifier 1", "identifier 2"
+        ])
+        self.data.apply(patron)
+        eq_("identifier 1", patron.authorization_identifier)
+
+    def test_apply_on_incomplete_information(self):
+        """When we call apply() based on incomplete information (most
+        commonly, the fact that a given string was successfully used
+        to authenticate a patron), we are very careful about modifying
+        data already in the database.
+        """
+        now = datetime.datetime.now()
+        
+        # If the only thing we know about a patron is that a certain
+        # string authenticated them, we set
+        # Patron.authorization_identifier to that string but we also
+        # indicate that we need to perform an external sync on them
+        # ASAP.
+        authenticated = PatronData(
+            authorization_identifier="1234", complete=False
+        )
+        patron = self._patron()
+        patron.authorization_identifier = None
+        patron.last_external_sync = now
+        authenticated.apply(patron)
+        eq_(None, patron.last_external_sync)
+
+        # If a patron authenticates by username, we leave their Patron
+        # record alone.
+        patron = self._patron()
+        patron.authorization_identifier = "1234"
+        patron.username = "user"
+        patron.last_external_sync = now
+        authenticated_by_username = PatronData(
+            authorization_identifier="user", complete=False
+        )
+        authenticated_by_username.apply(patron)
+        eq_(now, patron.last_external_sync)
+
+        # If a patron authenticates with a string that is neither
+        # their authorization identifier nor their username, we leave
+        # their Patron record alone, except that we indicate that we
+        # need to perform an external sync on them ASAP.
+        patron.last_external_sync = now
+        authenticated_by_weird_identifier = PatronData(
+            authorization_identifier="5678", complete=False
+        )
+        authenticated_by_weird_identifier.apply(patron)
+        eq_("1234", patron.authorization_identifier)
+        eq_(None, patron.last_external_sync)
         
     def test_to_response_parameters(self):
 
@@ -479,13 +591,14 @@ class TestAuthenticationProvider(DatabaseTest):
         patron = self._patron()
         eq_(True, patron.needs_metadata_update)
 
-        # If we authenticate this patron we find out their username
-        # but not any other information about them.
+        # If we authenticate this patron by username we find out their
+        # permanent ID but not any other information about them.
         username = "user"
         barcode = "1234"
         incomplete_data = PatronData(
             permanent_id=patron.external_identifier,
-            username=username, complete=False
+            authorization_identifier=username,
+            complete=False
         )
 
         # If we do a lookup for this patron we will get more complete
@@ -509,20 +622,45 @@ class TestAuthenticationProvider(DatabaseTest):
 
         # We updated their metadata.
         eq_("user", patron.username)
-
+        eq_(barcode, patron.authorization_identifier)
+        
         # We did a patron lookup, which means we updated
         # .last_external_sync.
         assert patron.last_external_sync != None
-
+        eq_(barcode, patron.authorization_identifier)
+        eq_(username, patron.username)
+        
         # Looking up the patron a second time does not cause another
         # metadata refresh, because we just did a refresh and the
         # patron has borrowing privileges.
         last_sync = patron.last_external_sync
         eq_(False, patron.needs_metadata_update)
         patron = provider.authenticated_patron(
-            self._db, dict(username='', password='')
+            self._db, dict(username=username)
         )
         eq_(last_sync, patron.last_external_sync)
+        eq_(barcode, patron.authorization_identifier)
+        eq_(username, patron.username)
+        
+        # If we somehow authenticate with an identifier other than
+        # the ones in the Patron record, we trigger another metadata
+        # refresh to see if anything has changed.
+        incomplete_data = PatronData(
+            permanent_id=patron.external_identifier,
+            authorization_identifier="some other identifier",
+            complete=False
+        )
+        provider.patrondata = incomplete_data
+        patron = provider.authenticated_patron(
+            self._db, dict(username="some other identifier")
+        )
+        assert patron.last_external_sync > last_sync
+
+        # But Patron.authorization_identifier doesn't actually change
+        # to "some other identifier", because when we do the metadata
+        # refresh we get the same data as before.
+        eq_(barcode, patron.authorization_identifier)
+        eq_(username, patron.username)
         
     def test_update_patron_metadata(self):
         patron = self._patron()
