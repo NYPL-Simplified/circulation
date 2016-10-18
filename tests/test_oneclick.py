@@ -73,6 +73,7 @@ class TestOneClickAPI(OneClickTest):
             api.get_all_available_through_search
         )
 
+
     def test_search(self):
         api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_search_one_item_1.json")
@@ -82,6 +83,7 @@ class TestOneClickAPI(OneClickTest):
         response_dictionary = response.json()
         eq_(1, response_dictionary['pageCount'])
         eq_(u'Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
+
 
     def test_get_all_available_through_search(self):
         api = MockOneClickAPI(self._db)
@@ -94,6 +96,17 @@ class TestOneClickAPI(OneClickTest):
         eq_(5, len(response_dictionary['items']))
         returned_titles = [iteminterest['item']['title'] for iteminterest in response_dictionary['items']]
         assert (u'Unusual Uses for Olive Oil' in returned_titles)
+
+
+    def test_get_all_catalog(self):
+        api = MockOneClickAPI(self._db)
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        api.queue_response(status_code=200, content=datastr)
+
+        catalog = api.get_all_catalog()
+        eq_(97, len(catalog))
+        eq_("Hamster Princess: Harriet the Invincible", catalog[96]['title'])
+
 
     def test_get_ebook_availability_info(self):
         api = MockOneClickAPI(self._db)

@@ -172,10 +172,6 @@ class OneClickAPI(object):
     library delta:
     http://api.oneclickdigital.us/v1/libraries/1998/media/delta?begin=2016-07-26&end=2016-09-26
     get
-
-    get whole catalog
-    https://api.oneclickdigital.us/v1/libraries/1931/media/all
-    get
     '''
 
     def get_all_available_through_search(self):
@@ -201,6 +197,7 @@ class OneClickAPI(object):
 
         if not ('pageIndex' in respdict and 'pageCount' in respdict):
             raise IOError("OneClick availability response not parseable - has no page counts.")
+
         page_index = respdict['pageIndex']
         page_count = respdict['pageCount']
 
@@ -211,9 +208,27 @@ class OneClickAPI(object):
             if not ('items' in tempdict):
                 raise IOError("OneClick availability response not parseable - has no next dict.")
             item_interest_pairs = tempdict['items']
-            respdict['items'].append(item_interest_pairs)
+            respdict['items'].extend(item_interest_pairs)
 
         return respdict
+
+
+    def get_all_catalog(self): 
+        """
+        Gets the entire OneClick catalog for a particular library.
+
+        Note:  This call taxes OneClick's servers, and is to be performed sparingly.
+        The results are returned unpaged.
+
+        Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.  
+        If want more metadata, perform a per-item search.
+
+        :return A list of dictionaries representation of the response.
+        """
+        url = "%s/libraries/%s/media/all" % (self.base_url, str(self.library_id))
+
+        response = self.request(url)
+        return response.json()
 
 
     def get_ebook_availability_info(self):
@@ -247,6 +262,8 @@ class OneClickAPI(object):
         ebook or eaudio item passed, using isbn to search on. 
         If isbn is not found, the response we get from OneClick is an error message, 
         and we throw an error.
+
+        :return the json dictionary of the response object
         """
         if not identifier:
             raise ValueError("Need valid identifier to get metadata.")
@@ -282,6 +299,8 @@ class OneClickAPI(object):
         :param author Book title to search on.
         :param page_index Used for paginated result sets.  Zero-based.
         :param verbosity "basic" returns smaller number of response json lines than "complete", etc..
+
+        :return the response object
         """
         url = "%s/libraries/%s/search" % (self.base_url, str(self.library_id))
 
@@ -356,16 +375,12 @@ class OneClickRepresentationExtractor(object):
 
     log = logging.getLogger("OneClick representation extractor")
 
-    # TODO: the formats/encoding/drm information needs confirmation from OneClick
     oneclick_formats = {
         "ebook-epub-oneclick" : (
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ONECLICK_DRM
         ),
-        "ebook-epub-open" : (
-            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM
-        ),
         "audiobook-mp3-oneclick" : (
-            "application/x-od-media", DeliveryMechanism.ONECLICK_DRM
+            "vnd.librarysimplified/obfuscated-one-click", DeliveryMechanism.ONECLICK_DRM
         ),
     }
 
@@ -392,6 +407,9 @@ class OneClickRepresentationExtractor(object):
         """Turn OneClick's JSON representation of a book into a Metadata object.
         Assumes the JSON is in the format that comes from the media/{isbn} endpoint.
 
+        TODO:  Use the seriesPosition and seriesTotal fields, and use the narrators field 
+        for audiobook items.
+
         :param book a json response-derived dictionary of book attributes
         """
         if not 'isbn' in book:
@@ -408,6 +426,11 @@ class OneClickRepresentationExtractor(object):
 
         if include_bibliographic:
             title = book.get('title', None)
+            # Note: An item that's part of a series, will have the seriesName field, and 
+            # will have its seriesPosition and seriesTotal fields set to >0.
+            # An item not part of a series will have the seriesPosition and seriesTotal fields 
+            # set to 0, and will not have a seriesName at all.
+            # Sometimes, series position and total == 0, for many series items (ex: "seriesName": "EngLits").
             series_name = book.get('seriesName', None)
             # ignored for now
             series_position = book.get('seriesPosition', None)
