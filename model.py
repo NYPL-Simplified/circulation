@@ -6409,6 +6409,18 @@ class CirculationEvent(Base):
     TYPE = u"event"
 
     # The names of the circulation events we recognize.
+    # They may be sent to third-party analytics services
+    # as well as used locally.
+
+    # Events that happen in a circulation manager.
+    NEW_PATRON = u"circulation_manager_new_patron"
+    CM_CHECKOUT = u"circulation_manager_check_out"
+    CM_CHECKIN = u"circulation_manager_check_in"
+    CM_HOLD_PLACE = u"circulation_manager_hold_place"
+    CM_HOLD_RELEASE = u"circulation_manager_hold_release"
+    CM_FULFILL = u"circulation_manager_fulfill"
+
+    # Events that we hear about from a distributor.
     CHECKOUT = u"check_out"
     CHECKIN = u"check_in"
     HOLD_PLACE = u"hold_place"
@@ -6420,8 +6432,15 @@ class CirculationEvent(Base):
     SERVER_NOTIFICATION = u"server_notification"
     TITLE_ADD = u"title_add"
     TITLE_REMOVE = u"title_remove"
-    OPEN_BOOK = u"open_book"
     UNKNOWN = u"unknown"
+
+    # Events that we hear about from a client app.
+    OPEN_BOOK = u"open_book"
+    
+    CLIENT_EVENTS = [
+        OPEN_BOOK,
+    ]
+
 
     # The time format used when exporting to JSON.
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%S+00:00"
