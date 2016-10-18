@@ -57,7 +57,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     # "http://librarysimplified.org/authtype/OAuth-with-intermediary"
     # should be good enough.
     # METHOD = "http://librarysimplified.org/authtype/Clever"
-    CONFIGURATION_NAME = 'Clever'
+    NAME = 'Clever'
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 

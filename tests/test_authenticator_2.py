@@ -86,7 +86,7 @@ class MockBasic(BasicAuthenticationProvider):
     """A second mock basic authentication provider for use in testing
     the workflow around Basic Auth.
     """
-    CONFIGURATION_NAME = 'Mock Basic Auth provider'
+    NAME = 'Mock Basic Auth provider'
     def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
         super(MockBasic, self).__init__(*args, **kwargs)
@@ -108,7 +108,7 @@ class MockOAuthAuthenticationProvider(
     authentication process.
     """
     def __init__(self, provider_name, patron=None, patrondata=None):
-        self.CONFIGURATION_NAME = provider_name
+        self.NAME = provider_name
         self.patron = patron
         self.patrondata = patrondata
 
@@ -121,7 +121,7 @@ class MockOAuth(OAuthAuthenticationProvider):
     the workflow around OAuth.
     """
     URI = "http://example.org/"
-    CONFIGURATION_NAME = "Mock provider"
+    NAME = "Mock provider"
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
@@ -303,7 +303,7 @@ class TestAuthenticator(DatabaseTest):
                 Configuration.AUTHENTICATION_POLICY: 'api.millenium_patron'
             }
             config[Configuration.INTEGRATIONS] = {
-                MilleniumPatronAPI.CONFIGURATION_NAME: {
+                MilleniumPatronAPI.NAME: {
                     Configuration.URL: "http://url"
                 }
             }
@@ -324,11 +324,11 @@ class TestAuthenticator(DatabaseTest):
                 )
             }
             config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.CONFIGURATION_NAME: {
+                FirstBookAuthenticationAPI.NAME: {
                     Configuration.URL: "http://url",
                     FirstBookAuthenticationAPI.SECRET_KEY: "secret",
                 },
-                CleverAuthenticationAPI.CONFIGURATION_NAME: {
+                CleverAuthenticationAPI.NAME: {
                     Configuration.OAUTH_CLIENT_ID: 'client_id',
                     Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
                 }
@@ -342,7 +342,7 @@ class TestAuthenticator(DatabaseTest):
             
             eq_(1, len(auth.oauth_providers_by_name))
             clever = auth.oauth_providers_by_name[
-                CleverAuthenticationAPI.CONFIGURATION_NAME
+                CleverAuthenticationAPI.NAME
             ]
             assert isinstance(clever, CleverAuthenticationAPI)
             
@@ -358,7 +358,7 @@ class TestAuthenticator(DatabaseTest):
     def test_register_provider_basic_auth(self):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.CONFIGURATION_NAME: {
+                FirstBookAuthenticationAPI.NAME: {
                     Configuration.URL: "http://url",
                     FirstBookAuthenticationAPI.SECRET_KEY: "secret",
                 }
@@ -372,7 +372,7 @@ class TestAuthenticator(DatabaseTest):
     def test_register_oauth_provider(self):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS] = {
-                CleverAuthenticationAPI.CONFIGURATION_NAME: {
+                CleverAuthenticationAPI.NAME: {
                     Configuration.OAUTH_CLIENT_ID: 'client_id',
                     Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
                 }
@@ -381,7 +381,7 @@ class TestAuthenticator(DatabaseTest):
             auth.register_provider('api.clever')
             eq_(1, len(auth.oauth_providers_by_name))
             clever = auth.oauth_providers_by_name[
-                CleverAuthenticationAPI.CONFIGURATION_NAME
+                CleverAuthenticationAPI.NAME
             ]
             assert isinstance(clever, CleverAuthenticationAPI)
         
@@ -422,7 +422,7 @@ class TestAuthenticator(DatabaseTest):
         """You can register the same provider multiple times,
         but you can't register two different basic auth providers,
         and you can't register two different OAuth providers
-        with the same .CONFIGURATION_NAME.
+        with the same .NAME.
         """
         authenticator = Authenticator(bearer_token_signing_secret='foo')
         basic1 = MockBasicAuthenticationProvider()
@@ -514,7 +514,7 @@ class TestAuthenticator(DatabaseTest):
 
         # Ask oauth1 to create a bearer token.
         token = authenticator.create_bearer_token(
-            oauth1.CONFIGURATION_NAME, "some token"
+            oauth1.NAME, "some token"
         )
         
         # The authenticator will decode the bearer token into a
@@ -550,27 +550,27 @@ class TestAuthenticator(DatabaseTest):
         )
 
         # A token is created and signed with the bearer token.
-        token1 = authenticator.create_bearer_token(oauth1.CONFIGURATION_NAME, "some token")
+        token1 = authenticator.create_bearer_token(oauth1.NAME, "some token")
         eq_("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJvYXV0aDEiLCJ0b2tlbiI6InNvbWUgdG9rZW4ifQ.Ve-bbEN4mdWQdR-VA6gbrK2xOz2KRbmPhttmTTCA0ng",
             token1
         )
 
         # Varying the name of the OAuth provider varies the bearer
         # token.
-        token2 = authenticator.create_bearer_token(oauth2.CONFIGURATION_NAME, "some token")
+        token2 = authenticator.create_bearer_token(oauth2.NAME, "some token")
         assert token1 != token2
 
         # Varying the token sent by the OAuth provider varies the
         # bearer token.
         token3 = authenticator.create_bearer_token(
-            oauth1.CONFIGURATION_NAME, "some other token"
+            oauth1.NAME, "some other token"
         )
         assert token3 != token1
         
         # Varying the secret used to sign the token varies the bearer
         # token.
         authenticator.bearer_token_signing_secret = "a different secret"
-        token4 = authenticator.create_bearer_token(oauth1.CONFIGURATION_NAME, "some token")
+        token4 = authenticator.create_bearer_token(oauth1.NAME, "some token")
         assert token4 != token1
         
     def test_decode_bearer_token(self):
@@ -581,7 +581,7 @@ class TestAuthenticator(DatabaseTest):
         )
 
         # A token is created and signed with the secret.
-        token_value = (oauth.CONFIGURATION_NAME, "some token")
+        token_value = (oauth.NAME, "some token")
         encoded = authenticator.create_bearer_token(*token_value)
         decoded = authenticator.decode_bearer_token(encoded)
         eq_(token_value, decoded)
@@ -772,7 +772,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
     def test_from_config(self):
 
         class ConfigAuthenticationProvider(BasicAuthenticationProvider):
-            CONFIGURATION_NAME = "Config loading test"
+            NAME = "Config loading test"
         
         with temp_config() as config:
             data = {
@@ -782,7 +782,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
                 Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
             }
             config[Configuration.INTEGRATIONS] = {
-                ConfigAuthenticationProvider.CONFIGURATION_NAME : data
+                ConfigAuthenticationProvider.NAME : data
             }
             provider = ConfigAuthenticationProvider.from_config()
             eq_("idre", provider.identifier_re.pattern)
@@ -1079,7 +1079,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
 
     def test_from_config(self):
         class ConfigAuthenticationProvider(OAuthAuthenticationProvider):
-            CONFIGURATION_NAME = "Config loading test"
+            NAME = "Config loading test"
         
         with temp_config() as config:
             data = {
@@ -1088,7 +1088,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
                 Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
             }
             config[Configuration.INTEGRATIONS] = {
-                ConfigAuthenticationProvider.CONFIGURATION_NAME : data
+                ConfigAuthenticationProvider.NAME : data
             }
             provider = ConfigAuthenticationProvider.from_config()
             eq_("client_id", provider.client_id)

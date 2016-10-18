@@ -22,7 +22,7 @@ from core.model import (
 
 class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
-    CONFIGURATION_NAME = "Millenium"
+    NAME = "Millenium"
 
     RECORD_NUMBER_FIELD = 'RECORD #[p81]'
     PATRON_TYPE_FIELD = 'P TYPE[p47]'

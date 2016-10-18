@@ -358,7 +358,7 @@ class Authenticator(object):
         self.bearer_token_signing_secret = bearer_token_signing_secret
         if oauth_providers:
             for provider in oauth_providers:
-                self.oauth_providers_by_name[provider.CONFIGURATION_NAME] = provider
+                self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
 
     def assert_ready_for_oauth(self):
@@ -397,15 +397,15 @@ class Authenticator(object):
         
     def register_oauth_provider(self, provider):
         already_registered = self.oauth_providers_by_name.get(
-            provider.CONFIGURATION_NAME
+            provider.NAME
         )
         if already_registered and already_registered != provider:
             raise CannotLoadConfiguration(
                 'Two different OAuth providers claim the name "%s"' % (
-                    provider.CONFIGURATION_NAME
+                    provider.NAME
                 )
             )
-        self.oauth_providers_by_name[provider.CONFIGURATION_NAME] = provider
+        self.oauth_providers_by_name[provider.NAME] = provider
         
     @property
     def providers(self):
@@ -660,10 +660,11 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
     """
-    # NOTE: Each subclass MUST define an attribute called
-    # CONFIGURATION_NAME, which is the name used to configure that
-    # subclass in the configuration file. Failure to define this
-    # attribute will result in an error in .from_config().
+    # NOTE: Each subclass MUST define an attribute called NAME, which
+    # is used to configure that subclass in the configuration file,
+    # used to create the name of the log channel used by this
+    # subclass, used to distinguish between tokens from different
+    # OAuth providers, etc.
     #
     # Each subclass MAY override the default value for DISPLAY_NAME.
     # This becomes the human-readable name of the authentication
@@ -690,7 +691,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     AUTHENTICATION_REALM = _("Library card")
     METHOD = "http://opds-spec.org/auth/basic"
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
-    CONFIGURATION_NAME = 'Generic Basic Authentication provider'
+    NAME = 'Generic Basic Authentication provider'
     
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
@@ -708,7 +709,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         :param required: Whether or not the absence of any configuration
         should be considered an error.
         """
-        configuration_name = configuration_name or cls.CONFIGURATION_NAME
+        configuration_name = configuration_name or cls.NAME
         config = Configuration.integration(
             configuration_name, required=required
         )
@@ -752,7 +753,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.password_re = password_re
         self.test_username = test_username
         self.test_password = test_password
-        self.log = logging.getLogger(self.CONFIGURATION_NAME)
+        self.log = logging.getLogger(self.NAME)
         
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
@@ -971,7 +972,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # used to indicate the Library Simplified variant of OAuth.
     #
     # Each subclass MUST define an attribute called
-    # CONFIGURATION_NAME, which is the name used to configure that
+    # NAME, which is the name used to configure that
     # subclass in the configuration file. Failure to define this
     # attribute will result in an error in .from_config().
     #
@@ -995,7 +996,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """Load this OAuthAuthenticationProvider from the site configuration.
         """
         config = Configuration.integration(
-            cls.CONFIGURATION_NAME, required=True
+            cls.NAME, required=True
         )
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
@@ -1019,7 +1020,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
-        self.log = logging.getLogger(self.CONFIGURATION_NAME)
+        self.log = logging.getLogger(self.NAME)
         
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.
@@ -1099,7 +1100,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         take care of it.
         """
         return url_for('oauth_authenticate', _external=True,
-                       provider=self.CONFIGURATION_NAME)
+                       provider=self.NAME)
 
     @property
     def authentication_provider_document(self):
@@ -1119,7 +1120,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         method_doc = dict(links=dict(authenticate=self._internal_authenticate_url()))
         methods = {}
         methods[self.METHOD] = method_doc
-        return dict(name=self.CONFIGURATION_NAME, methods=methods)
+        return dict(name=self.NAME, methods=methods)
 
     def token_data_source(self, _db):
         # TODO: This is one of those situations where we'd like to
@@ -1152,7 +1153,7 @@ class OAuthController(object):
         if isinstance(provider, ProblemDetail):
             return self._redirect_with_error(redirect_uri, provider)
         state = dict(
-            provider=provider.CONFIGURATION_NAME, redirect_uri=redirect_uri
+            provider=provider.NAME, redirect_uri=redirect_uri
         )
         return redirect(provider.external_authenticate_url(json.dumps(state)))
 
@@ -1205,7 +1206,7 @@ class OAuthController(object):
         # Turn the provider token into a bearer token we can give to
         # the patron.
         simplified_token = self.authenticator.create_bearer_token(
-            provider.CONFIGURATION_NAME, provider_token
+            provider.NAME, provider_token
         )
 
         patron_info = json.dumps(patrondata.to_response_parameters)

@@ -21,7 +21,7 @@ from core.model import (
 
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    CONFIGURATION_NAME = 'First Book'
+    NAME = 'First Book'
 
     LOGIN_LABEL = _("Access Code")
 
@@ -88,13 +88,13 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         except requests.exceptions.ConnectionError, e:
             raise RemoteInitiatedServerError(
                 str(e.message),
-                self.CONFIGURATION_NAME
+                self.NAME
             )
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
                 response.status_code, response.content
             )
-            raise RemoteInitiatedServerError(msg, self.CONFIGURATION_NAME)
+            raise RemoteInitiatedServerError(msg, self.NAME)
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
