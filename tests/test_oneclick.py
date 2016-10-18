@@ -7,6 +7,7 @@ from nose.tools import (
 )
 
 import datetime
+from dateutil.relativedelta import relativedelta
 import json
 import os
 
@@ -20,7 +21,6 @@ from model import (
     Edition,
     Identifier,
     Hyperlink,
-    #LicensePool,
     Representation,
     Subject,
 )
@@ -106,6 +106,39 @@ class TestOneClickAPI(OneClickTest):
         catalog = api.get_all_catalog()
         eq_(97, len(catalog))
         eq_("Hamster Princess: Harriet the Invincible", catalog[96]['title'])
+
+
+    def test_get_delta(self):
+        # TODO: Waiting on OneClick for delta confirmation.
+        api = MockOneClickAPI(self._db)
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        api.queue_response(status_code=200, content=datastr)
+
+        assert_raises_regexp(
+            ValueError, 'from_date 2000-01-01 00:00:00 must be real, in the past, and less than 6 months ago.', 
+            api.get_delta, from_date="2000-01-01", to_date="2000-02-01"
+        )
+
+        today = datetime.datetime.now()
+        three_months = relativedelta(months=3)
+        assert_raises_regexp(
+            ValueError, "from_date .* - to_date .* asks for too-wide date range.", 
+            api.get_delta, from_date=(today - three_months), to_date=today
+        )
+
+        delta = api.get_delta()
+        eq_(1931, delta[0]["libraryId"])
+        eq_("Wethersfield Public Library", delta[0]["libraryName"])
+        eq_("2016-09-17", delta[0]["beginDate"])
+        eq_("2016-10-18", delta[0]["endDate"])
+        eq_(0, delta[0]["eBookAddedCount"])
+        eq_(0, delta[0]["eBookRemovedCount"])
+        eq_(0, delta[0]["eAudioAddedCount"])
+        eq_(0, delta[0]["eAudioRemovedCount"])
+        eq_(0, delta[0]["titleAddedCount"])
+        eq_(0, delta[0]["titleRemovedCount"])
+        eq_([], delta[0]["addedTitles"])
+        eq_([], delta[0]["removedTitles"])
 
 
     def test_get_ebook_availability_info(self):

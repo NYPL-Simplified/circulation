@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from collections import defaultdict
 import datetime
+from dateutil.relativedelta import relativedelta
 import base64
 import os
 import json
@@ -48,7 +49,7 @@ from coverage import BibliographicCoverageProvider
 class OneClickAPI(object):
 
     API_VERSION = "v1"
-    #DATE_FORMAT = "%m-%d-%Y"
+    DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
@@ -167,13 +168,6 @@ class OneClickAPI(object):
 
     ''' --------------------- Getters and Setters -------------------------- '''
 
-    '''
-    TODO:
-    library delta:
-    http://api.oneclickdigital.us/v1/libraries/1998/media/delta?begin=2016-07-26&end=2016-09-26
-    get
-    '''
-
     def get_all_available_through_search(self):
         """
         Gets a list of ebook and eaudio items this library has access to, that are currently
@@ -228,6 +222,64 @@ class OneClickAPI(object):
         url = "%s/libraries/%s/media/all" % (self.base_url, str(self.library_id))
 
         response = self.request(url)
+        return response.json()
+
+
+    def get_delta(self, from_date=None, to_date=None, verbosity=None): 
+        """
+        Gets the changes to the library's catalog.
+
+        Note:  As of now, OneClick saves deltas for past 6 months, and can display them  
+        in max 2-month increments. 
+
+        :return A dictionary listing items added/removed/modified in the collection.
+        """
+        url = "%s/libraries/%s/media/delta" % (self.base_url, str(self.library_id))
+
+        today = datetime.datetime.now()
+        two_months = relativedelta(months=2)
+        six_months = relativedelta(months=6)
+
+        # from_date must be real, and less than 6 months ago 
+        if from_date and isinstance(from_date, basestring):
+            from_date = datetime.datetime.strptime(from_date[:10], self.DATE_FORMAT)
+            if (from_date > today) or (relativedelta(today, from_date) > six_months):
+                raise ValueError("from_date %s must be real, in the past, and less than 6 months ago." % from_date)
+
+        # to_date must be real, and not in the future or too far in the past
+        if to_date and isinstance(to_date, basestring):
+            to_date = datetime.datetime.strptime(to_date[:10], self.DATE_FORMAT)
+            if (to_date > today) or (relativedelta(today, to_date) > six_months):
+                raise ValueError("to_date %s must be real, and neither in the future nor too far in the past." % to_date)
+
+        # can't reverse time direction
+        if from_date and to_date and (from_date > to_date):
+            raise ValueError("from_date %s cannot be after to_date %s." % (from_date, to_date))
+
+        # can request no more that two month date range for catalog delta
+        if from_date and to_date and (relativedelta(to_date, from_date) > two_months):
+            raise ValueError("from_date %s - to_date %s asks for too-wide date range." % (from_date, to_date))
+
+        if from_date and not to_date:
+            to_date = from_date + two_months
+            if to_date > today:
+                to_date = today
+
+        if to_date and not from_date:
+            from_date = to_date - two_months
+            if from_date < today - six_months:
+                from_date = today - six_months
+
+        if not from_date and not to_date:
+            from_date = today - two_months
+            to_date = today
+
+
+        args = dict()
+        args['begin'] = from_date
+        args['end'] = to_date
+
+        response = self.request(url, params=args, verbosity=verbosity)
         return response.json()
 
 
@@ -371,7 +423,7 @@ class MockOneClickAPI(OneClickAPI):
 class OneClickRepresentationExtractor(object):
     """ Extract useful information from OneClick's JSON representations. """
     DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ" #ex: 2013-12-27T00:00:00Z
-    DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27T00:00:00Z
+    DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
     log = logging.getLogger("OneClick representation extractor")
 
