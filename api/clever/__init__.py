@@ -7,6 +7,8 @@ import datetime
 from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
+from core.util.problem_detail import ProblemDetail
+
 from api.authenticator import (
     OAuthAuthenticationProvider,
     PatronData,
@@ -100,12 +102,9 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         # detailed patron information.
         code = params.get('code')
         token = self.remote_exchange_code_for_bearer_token(code)
-        if not token:
-            # The wrong code was provided.
-            return INVALID_CREDENTIALS.detailed(
-                _("A valid Clever login is required.")
-            )
-
+        if isinstance(token, ProblemDetail):
+            return token
+        
         # Now that we have a bearer token, use it to look up patron
         # information.
         patrondata = self.remote_patron_lookup(token)
@@ -113,7 +112,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             return patrondata
         
         # Convert the PatronData into a Patron object.
-        patron = patrondata.get_or_create_patron(_db, patrondata)
+        patron = patrondata.get_or_create_patron(_db)
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)
@@ -146,11 +145,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             'Content-Type': 'application/json',
         }
         response = self._get_token(payload, headers)
+        invalid = INVALID_CREDENTIALS.detailed(
+            _("A valid Clever login is required.")
+        )
+        if not response:
+            return invalid
         token = response.get('access_token', None)
         if not token:
-            return INVALID_CREDENTIALS.detailed(
-                _("A valid Clever login is required.")
-            )
+            return invalid
         return token
         
     def remote_patron_lookup(self, token):
