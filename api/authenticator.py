@@ -1155,7 +1155,9 @@ class OAuthController(object):
         state = dict(
             provider=provider.NAME, redirect_uri=redirect_uri
         )
-        return redirect(provider.external_authenticate_url(json.dumps(state)))
+        state = json.dumps(state)
+        state = urllib.quote(state)
+        return redirect(provider.external_authenticate_url(state))
 
     def oauth_authentication_callback(self, _db, params):
         """Create a Patron object and a bearer token for a patron who has just
@@ -1220,7 +1222,7 @@ class OAuthController(object):
         """Redirect the patron to the given URL, with the given ProblemDetail
         encoded into the fragment identifier.
         """
-        return redirect(self._error_uri, redirect_uri, pd)
+        return redirect(self._error_uri(redirect_uri, pd))
     
     def _error_uri(self, redirect_uri, pd):
         """Encode the given ProblemDetail into the fragment identifier

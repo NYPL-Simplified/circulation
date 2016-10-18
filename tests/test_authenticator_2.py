@@ -12,6 +12,8 @@ from nose.tools import (
 import datetime
 import json
 import os
+import urllib
+import urlparse
 
 from core.model import (
     DataSource,
@@ -1163,5 +1165,118 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             link = method['links']['authenticate']
             eq_(link, provider._internal_authenticate_url())
         
-class TestOAuthController:
-    pass
+class TestOAuthController(DatabaseTest):
+
+    def test_oauth_authentication_redirect(self):
+
+        class MockOAuthWithExternalAuthenticateURL(MockOAuth):
+            def __init__(self, external_authenticate_url):
+                super(MockOAuthWithExternalAuthenticateURL, self).__init__()
+                self.url = external_authenticate_url
+                
+            def external_authenticate_url(self, state):
+                return self.url + "?state=" + state
+
+        oauth1 = MockOAuthWithExternalAuthenticateURL("http://oauth1.com/")
+        oauth1.NAME = "Mock OAuth 1"
+        oauth2 = MockOAuthWithExternalAuthenticateURL("http://oauth2.org/")
+        oauth2.NAME = "Mock OAuth 2"
+        # Check that the correct auth provider is called.
+        basic = MockBasic()           
+            
+        auth = Authenticator(
+            basic_auth_provider=basic,
+            oauth_providers=[oauth1, oauth2],
+            bearer_token_signing_secret="a secret"
+        )
+        controller = OAuthController(auth)
+      
+        params = dict(provider=oauth1.NAME)
+        response = controller.oauth_authentication_redirect(params)
+        eq_(302, response.status_code)
+        expected_state = dict(redirect_uri="", provider=oauth1.NAME)
+        expected_state = urllib.quote(json.dumps(expected_state))
+        eq_("http://oauth1.com/?state=" + expected_state, response.location)
+
+        params = dict(provider=oauth2.NAME, redirect_uri="http://foo.com/")
+        response = controller.oauth_authentication_redirect(params)
+        eq_(302, response.status_code)
+        expected_state = urllib.quote(json.dumps(params))
+        eq_("http://oauth2.org/?state=" + expected_state, response.location)
+
+        # If we don't recognize the OAuth provider you get sent to
+        # the redirect URI with a fragment containing an encoded
+        # problem detail document.
+        params = dict(redirect_uri="http://foo.com/",
+                      provider="not an oauth provider")
+        response = controller.oauth_authentication_redirect(params)
+        eq_(302, response.status_code)
+        assert response.location.startswith("http://foo.com/#")
+        fragments = urlparse.parse_qs(
+            urlparse.urlparse(response.location).fragment
+        )
+        error = json.loads(fragments.get('error')[0])
+        eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
+
+    def test_oauth_callback(self):
+        with temp_config() as config:
+            config[Configuration.SECRET_KEY] = 'secret'
+
+            # Check that the correct auth provider is called.
+            basic_auth = DummyBasicAuthAPI()
+            oauth1 = DummyOAuthAPI()
+            oauth1.NAME = "oauth1"
+            oauth2 = DummyOAuthAPI()
+            oauth2.NAME = "oauth2"
+
+            auth = Authenticator.initialize(self._db, test=True)
+            auth.basic_auth_provider = basic_auth
+            auth.oauth_providers = [oauth1, oauth2]
+        
+            # Oauth 1
+            params = dict(code="foo", state=json.dumps(dict(provider="oauth1")))
+            response = auth.oauth_callback(self._db, params)
+            eq_(0, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(0, oauth2.count)
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            token = fragments.get("access_token")[0]
+            provider_name, provider_token = auth.decode_token(token)
+            eq_("oauth1", provider_name)
+            eq_("token", provider_token)
+        
+            # Oauth 2
+            params = dict(code="foo", state=json.dumps(dict(provider="oauth2")))
+            response = auth.oauth_callback(self._db, params)
+            eq_(0, basic_auth.count)
+            eq_(1, oauth1.count)
+            eq_(1, oauth2.count)
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            token = fragments.get("access_token")[0]
+            provider_name, provider_token = auth.decode_token(token)
+            eq_("oauth2", provider_name)
+            eq_("token", provider_token)
+            patron_info = json.loads(fragments.get('patron_info')[0])
+            eq_("Patron", patron_info['name'])
+            
+            # Missing state
+            params = dict(code="foo")
+            response = auth.oauth_callback(self._db, params)
+            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
+
+            # Missing code
+            params = dict(state="oauth2")
+            response = auth.oauth_callback(self._db, params)
+            eq_(INVALID_OAUTH_CALLBACK_PARAMETERS, response)
+
+            # State with invalid provider
+            params = dict(code="foo", state=json.dumps(dict(provider=("not_an_oauth_provider"))))
+            response = auth.oauth_callback(self._db, params)
+            eq_(302, response.status_code)
+            fragments = urlparse.parse_qs(urlparse.urlparse(response.location).fragment)
+            eq_(None, fragments.get('access_token'))
+            error = json.loads(fragments.get('error')[0])
+            eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
+
