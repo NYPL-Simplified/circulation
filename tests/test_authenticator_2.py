@@ -607,39 +607,54 @@ class TestAuthenticator(DatabaseTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
 
-        with self.app.test_request_context("/"):        
-            doc = json.loads(authenticator.create_authentication_document())
-            # TODO: It would be good to verify other stuff such as the
-            # links, but the main thing we need to test is that the
-            # sub-documents are assembled properly and placed in the
-            # right position.
-            providers = doc['providers']
-            basic_doc = providers[basic.URI]
-            expect_basic = basic.authentication_provider_document
-            eq_(expect_basic, basic_doc)
+        with temp_config() as config:
+            config[Configuration.LINKS] = {
+                Configuration.TERMS_OF_SERVICE: "http://terms",
+                Configuration.PRIVACY_POLICY: "http://privacy",
+                Configuration.COPYRIGHT: "http://copyright",
+                Configuration.ABOUT: "http://about",
+            }
+
+            with self.app.test_request_context("/"):        
+                doc = json.loads(authenticator.create_authentication_document())
+                # The main thing we need to test is that the
+                # sub-documents are assembled properly and placed in the
+                # right position.
+                providers = doc['providers']
+                basic_doc = providers[basic.URI]
+                expect_basic = basic.authentication_provider_document
+                eq_(expect_basic, basic_doc)
             
-            oauth_doc = providers[oauth.URI]
-            expect_oauth = oauth.authentication_provider_document
-            eq_(expect_oauth, oauth_doc)
+                oauth_doc = providers[oauth.URI]
+                expect_oauth = oauth.authentication_provider_document
+                eq_(expect_oauth, oauth_doc)
 
-            # While we're in this context, let's also test
-            # create_authentication_headers.
+                # The other thing we need to test is that the links
+                # got pulled in from the configuration.
+                links = doc['links']
+                eq_("http://terms", links['terms-of-service']['href'])
+                eq_("http://privacy", links['privacy-policy']['href'])
+                eq_("http://copyright", links['copyright']['href'])
+                eq_("http://about", links['about']['href'])
+                
+                # While we're in this context, let's also test
+                # create_authentication_headers.
 
-            # So long as the authenticator includes a basic auth
-            # provider, that provider's .authentication_header is used
-            # for WWW-Authenticate.
-            headers = authenticator.create_authentication_headers()
-            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
-            eq_(basic.authentication_header, headers['WWW-Authenticate'])
+                # So long as the authenticator includes a basic auth
+                # provider, that provider's .authentication_header is used
+                # for WWW-Authenticate.
+                headers = authenticator.create_authentication_headers()
+                eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+                eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
-            # If the authenticator does not include a basic auth provider,
-            # no WWW-Authenticate header is provided. 
-            authenticator = Authenticator(
-                oauth_providers=[oauth],
-                bearer_token_signing_secret='secret'
-            )
-            headers = authenticator.create_authentication_headers()
-            assert 'WWW-Authenticate' not in headers
+                # If the authenticator does not include a basic auth provider,
+                # no WWW-Authenticate header is provided. 
+                authenticator = Authenticator(
+                    oauth_providers=[oauth],
+                    bearer_token_signing_secret='secret'
+                )
+                headers = authenticator.create_authentication_headers()
+                assert 'WWW-Authenticate' not in headers
 
 class TestAuthenticationProvider(DatabaseTest):
 
