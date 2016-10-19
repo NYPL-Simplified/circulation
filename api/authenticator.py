@@ -613,7 +613,19 @@ class AuthenticationProvider(object):
         wrong.
         """
         raise NotImplementedError()
-        
+
+    def get_credential_from_header(self, header):
+        """Extract a password credential from a WWW-Authenticate header
+        (or equivalent).
+
+        This is used to pass on a patron's credential to a content provider,
+        such as Overdrive, which performs independent validation of
+        a patron's credentials.
+
+        :return: The patron's password, or None if not available.
+        """
+        return None
+    
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
 
@@ -640,8 +652,8 @@ class AuthenticationProvider(object):
         raise ValueError(
             "Unexpected object %r passed into remote_patron_lookup." %
             patron_or_patrondata
-        )
-
+        )       
+    
     def authentication_provider_document(self):
         """Create a stanza for use in an Authentication for OPDS document.
 
@@ -844,6 +856,18 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # just got from the source of truth.
         patrondata.apply(patron)
         return patron
+
+    def get_credential_from_header(self, header):
+        """Extract a password credential from a WWW-Authenticate header
+        (or equivalent).
+
+        This is used to pass on a patron's credential to a content provider,
+        such as Overdrive, which performs independent validation of
+        a patron's credentials.
+
+        :param header: A dictionary with keys `username` and `password`.
+        """
+        return header.get('password', None)
     
     def server_side_validation(self, username, password):
         """Do these credentials even look right?

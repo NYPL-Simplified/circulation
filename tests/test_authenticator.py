@@ -906,6 +906,11 @@ class TestBasicAuthenticationProvider(DatabaseTest):
                 self._db, patron2.external_identifier, None
             )
         )        
+
+    def test_get_credential_from_header(self):
+        provider = BasicAuthenticationProvider()
+        eq_(None, provider.get_credential_from_header(dict()))
+        eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
         provider = BasicAuthenticationProvider()
@@ -1126,6 +1131,13 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             eq_("client_secret", provider.client_secret)
             eq_(20, provider.token_expiration_days)
 
+    def test_get_credential_from_header(self):
+        """There is no way to get a credential from a bearer token that can 
+        be passed on to a content provider like Overdrive.
+        """
+        provider = MockOAuth()
+        eq_(None, provider.get_credential_from_header("Bearer abcd")
+            
     def test_create_token(self):
         patron = self._patron()
         provider = MockOAuth()
