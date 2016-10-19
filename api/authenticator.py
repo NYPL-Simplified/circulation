@@ -326,7 +326,7 @@ class Authenticator(object):
         # Register each provider.
         for provider_string in providers:
             authenticator.register_provider(provider_string)
-
+                
         if (not authenticator.basic_auth_provider
             and not authenticator.oauth_providers_by_name):
             # TODO: This isn't unacceptable: a fully open-access

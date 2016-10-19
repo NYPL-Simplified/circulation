@@ -216,7 +216,6 @@ class CirculationManager(object):
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
-        self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)

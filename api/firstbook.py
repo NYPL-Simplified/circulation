@@ -1,4 +1,3 @@
-
 from nose.tools import set_trace
 from flask.ext.babel import lazy_gettext as _
 import requests
@@ -79,6 +78,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             authorization_identifier=username,
         )
    
+    # End implementation of BasicAuthenticationProvider abstract methods.
+
     def remote_pin_test(self, barcode, pin):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
             urllib.quote, (barcode, pin)
@@ -98,8 +99,6 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
-
-    # End implementation of BasicAuthenticationProvider abstract methods.
     
     def request(self, url):
         """Make an HTTP request.

@@ -24,6 +24,9 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from api.mock_authentication import (
+    MockAuthenticationProvider
+)
 from core.app_server import (
     load_lending_policy
 )
@@ -94,8 +97,10 @@ class TestCirculationManager(CirculationManager):
 class ControllerTest(DatabaseTest):
     """A test that requires a functional app server."""
 
-    valid_auth = 'Basic ' + base64.b64encode('200:2222')
-    invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+    # Authorization headers that will succeed (or fail) against the
+    # MockAuthenticationProvider set up in ControllerTest.setup().
+    valid_auth = 'Basic ' + base64.b64encode('user1:password1')
+    invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
 
     def setup(self, _db=None):
         super(ControllerTest, self).setup()
@@ -116,7 +121,7 @@ class ControllerTest(DatabaseTest):
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "api.millenium_patron",
+                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -125,6 +130,10 @@ class ControllerTest(DatabaseTest):
             config[Configuration.INTEGRATIONS] = {
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
+                },
+                MockAuthenticationProvider.NAME : {
+                    "patrons": { "user1" : "password1",
+                                 "user2" : "password2" }
                 }
             }
             lanes = make_lanes_default(_db)
@@ -385,24 +394,6 @@ class TestIndexController(CirculationControllerTest):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
-
-
-class TestAccountController(CirculationControllerTest):
-
-    def test_patron_info_no_username(self):
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=self.valid_auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_(None, account_info.get('username'))
-            eq_("200", account_info.get('barcode'))
-            
-    def test_patron_info_with_username(self):
-        auth = 'Basic ' + base64.b64encode('0:2222')
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_("alice", account_info.get('username'))
-            eq_("0", account_info.get('barcode'))
 
 
 class TestLoanController(CirculationControllerTest):
@@ -1610,7 +1601,8 @@ class TestAnalyticsController(CirculationControllerTest):
         with temp_config() as config:
             config = {
                 Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"]
+                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
+                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 }
             }
 

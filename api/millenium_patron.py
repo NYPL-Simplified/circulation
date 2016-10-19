@@ -22,6 +22,7 @@ from core.model import (
     get_one_or_create,
     Patron,
 )
+from core.util.http import HTTP
 
 class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
