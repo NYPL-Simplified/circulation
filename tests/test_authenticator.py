@@ -674,6 +674,20 @@ class TestAuthenticationProvider(DatabaseTest):
         )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, patron)
 
+    def test_authenticated_patron_denies_access_to_expired_credentials(self):
+        # TODO: Denial should happen at the point that the patron
+        # tries to exercise their borrowing privileges.
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+
+        expired = PatronData(permanent_id="1", authorization_identifier="1",
+                             authorization_expires=yesterday)
+        provider = MockBasic(patrondata=expired,
+                             remote_patron_lookup_patrondata=expired)
+        patron = provider.authenticated_patron(
+            self._db, dict(username='', password='')
+        )
+        eq_(EXPIRED_CREDENTIALS, patron)
+        
     def test_authenticated_patron_updates_metadata_if_necessary(self):
         patron = self._patron()
         eq_(True, patron.needs_external_sync)

@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import datetime
 
 from authenticator import (
     BasicAuthenticationProvider,
@@ -19,6 +20,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
     """
 
     PATRONS = 'patrons'
+    EXPIRED_PATRONS = 'expired_patrons'
     
     @classmethod
     def config_values(cls):
@@ -29,32 +31,44 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
             )
 
         values['patrons'] = config.get(cls.PATRONS)
+        values['expired_patrons'] = config.get(cls.EXPIRED_PATRONS)
         return config, values
         
-    def __init__(self, patrons=None, *args, **kwargs):
+    def __init__(self, patrons=None, expired_patrons=None, *args, **kwargs):
         self.patrons = patrons
+        self.expired_patrons = expired_patrons
         super(MockAuthenticationProvider, self).__init__(*args, **kwargs)
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
+
     def remote_authenticate(self, username, password):
         if not username or not password:
             return None
-        # This is what success would look like.
-        success = PatronData(authorization_identifier=username)
-        if self.patrons:
-            # We are authenticating patrons from a specific list.
-            # This is the best solution when setting up a collection
-            # without connecting it to an ILS.
-            if username in self.patrons and self.patrons[username]==password:
-                return success
-            return None
-        else:
-            # We will authenticate any patron if their password is the
-            # first four characters of their username. This is the
-            # solution we use in tests.
-            if len(password) == 4 and username.startswith(password):
-                return success
-            return None
 
+        now = datetime.datetime.utcnow()
+        one_day = datetime.timedelta(days=1)
+        
+        patrondata = PatronData(authorization_identifier=username,
+                                permanent_id=username)
+        set_trace()
+        if self.valid_patron(username, password, self.patrons):
+            # The patron's authorization expires tomorrow.
+            patrondata.authorization_expires = now + one_day
+        elif self.valid_patron(username, password, self.expired_patrons):
+            # The patron's authorization expired yesterday.
+            patrondata.authorization_expires = now - one_day
+        else:
+            return None
+        return patrondata
+
+    # End implementation of BasicAuthenticationProvider abstract
+    # methods.
+
+    def valid_patron(self, username, password, patrons):
+        """Is this patron associated with the given password in 
+        the given dictionary?
+        """
+        return username in patrons and patrons[username]==password
+        
 AuthenticationProvider = MockAuthenticationProvider

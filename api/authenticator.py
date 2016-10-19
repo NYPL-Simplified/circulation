@@ -586,11 +586,13 @@ class AuthenticationProvider(object):
             return patron
         if patron.needs_external_sync:
             self.update_patron_metadata(patron)
+        # TODO: These should be checked at the point the patron
+        # actually does something that requires borrowing
+        # privileges.
+        if not patron.authorization_is_active:
+            return EXPIRED_CREDENTIALS
         if not patron.has_borrowing_privileges:
-            # TODO: This should be checked at the point the patron
-            # actually does something that requires borrowing
-            # privileges.
-            return None
+            return INVALID_CREDENTIALS
         return patron
 
     def update_patron_metadata(self, patron):

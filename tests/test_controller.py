@@ -133,7 +133,8 @@ class ControllerTest(DatabaseTest):
                 },
                 MockAuthenticationProvider.NAME : {
                     "patrons": { "user1" : "password1",
-                                 "user2" : "password2" }
+                                 "user2" : "password2" },
+                    "expired_patrons": { "expired" : "password" },
                 }
             }
             lanes = make_lanes_default(_db)
@@ -180,15 +181,21 @@ class TestBaseController(CirculationControllerTest):
             eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="1234"))
+        value = self.controller.authenticated_patron(
+            dict(username="user1", password="password2")
+        )
         eq_(value, INVALID_CREDENTIALS)
 
     def test_authenticated_patron_expired_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="0", password="0000"))
+        value = self.controller.authenticated_patron(
+            dict(username="expired", password="password")
+        )
         eq_(value, EXPIRED_CREDENTIALS)
 
     def test_authenticated_patron_correct_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        value = self.controller.authenticated_patron(
+            dict(username="user1", password="password2")
+        )
         assert isinstance(value, Patron)
 
 

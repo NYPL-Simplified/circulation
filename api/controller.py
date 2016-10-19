@@ -297,8 +297,7 @@ class CirculationManagerController(object):
         The header could contain a barcode and pin or a token for an
         external service.
 
-        If there's a problem, return a 2-tuple (URI, title) for use in a
-        Problem Detail Document.
+        If there's a problem, return a Problem Detail Document.
 
         If there's no problem, return a Patron object.
         """
@@ -308,12 +307,9 @@ class CirculationManagerController(object):
         if not patron:
             return INVALID_CREDENTIALS
 
-        # Okay, we know who they are and their PIN is valid. But maybe the
-        # account has expired?
-        if not patron.authorization_is_active:
-            return EXPIRED_CREDENTIALS
+        if isinstance(patron, ProblemDetail):
+            return patron
 
-        # No, apparently we're fine.
         return patron
 
     def authenticate(self):
