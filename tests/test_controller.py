@@ -149,6 +149,7 @@ class ControllerTest(DatabaseTest):
                                  "unittestuser2" : "unittestpassword2",
                     },
                     "expired_patrons": { "expired" : "password" },
+                    "patrons_with_fines": { "ihavefines" : "password" },
                 }
             }
             lanes = make_lanes_default(_db)
@@ -831,8 +832,7 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        # Patron with $1.00 fine
-        auth = 'Basic ' + base64.b64encode('5:5555')
+        auth = 'Basic ' + base64.b64encode('ihavefines:password')
         
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -848,11 +848,11 @@ class TestLoanController(CirculationControllerTest):
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "outstanding fines" in response.detail
-                assert "$1.00" in response.detail
+                assert "$12345678.90" in response.detail
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$20.00"
+                Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
 
             with self.app.test_request_context(
@@ -965,10 +965,6 @@ class TestLoanController(CirculationControllerTest):
             assert urllib.quote("%s/%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
             eq_(0, len(threem_revoke_links))
 
-            links = feed['feed']['links']
-            account_links = [link for link in links if link['rel'] == 'http://librarysimplified.org/terms/rel/account']
-            eq_(1, len(account_links))
-            assert 'me' in account_links[0]['href']
 
 class TestAnnotationController(CirculationControllerTest):
     def setup(self):

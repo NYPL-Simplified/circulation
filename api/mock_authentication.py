@@ -21,6 +21,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
 
     PATRONS = 'patrons'
     EXPIRED_PATRONS = 'expired_patrons'
+    PATRONS_WITH_FINES = 'patrons_with_fines'
     
     @classmethod
     def config_values(cls):
@@ -32,11 +33,14 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
 
         values['patrons'] = config.get(cls.PATRONS)
         values['expired_patrons'] = config.get(cls.EXPIRED_PATRONS)
+        values['patrons_with_fines'] = config.get(cls.PATRONS_WITH_FINES)
         return config, values
         
-    def __init__(self, patrons=None, expired_patrons=None, *args, **kwargs):
+    def __init__(self, patrons=None, expired_patrons=None,
+                 patrons_with_fines=None, *args, **kwargs):
         self.patrons = patrons
         self.expired_patrons = expired_patrons
+        self.patrons_with_fines = patrons_with_fines
         super(MockAuthenticationProvider, self).__init__(*args, **kwargs)
 
     # Begin implementation of BasicAuthenticationProvider abstract
@@ -57,6 +61,9 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
         elif self.valid_patron(username, password, self.expired_patrons):
             # The patron's authorization expired yesterday.
             patrondata.authorization_expires = now - one_day
+        elif self.valid_patron(username, password, self.patrons_with_fines):
+            # The patron has racked up huge fines.
+            patrondata.fines = "$12345678.90"
         else:
             return None
         return patrondata

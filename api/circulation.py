@@ -203,7 +203,7 @@ class CirculationAPI(object):
         if patron.fines:
             def parse_fines(fines):
                 dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
-                return (dollars * 100) + cents
+                return (int(dollars) * 100) + int(cents)
 
             max_fines = Configuration.policy(Configuration.MAX_OUTSTANDING_FINES)
             if max_fines:
