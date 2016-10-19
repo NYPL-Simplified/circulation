@@ -138,7 +138,8 @@ class TestCirculationData(DatabaseTest):
             RightsStatus.IN_COPYRIGHT, None)
 
         # And it has been loaned.
-        loan, ignore = pool.loan_to(self.default_patron, fulfillment=old_lpdm)
+        patron = self._patron()
+        loan, ignore = pool.loan_to(patron, fulfillment=old_lpdm)
         eq_(old_lpdm, loan.fulfillment)
 
         # We have new circulation data that has a different format.

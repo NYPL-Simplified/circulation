@@ -513,7 +513,7 @@ class Patron(Base):
         # less likely that a patron's authorization will expire before
         # they think it should.
         if (self.authorization_expires
-            and self.authorization_expires 
+            and self._to_date(self.authorization_expires)
             < datetime.datetime.now().date()):
             return False
         return True

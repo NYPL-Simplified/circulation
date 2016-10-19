@@ -3263,7 +3263,7 @@ class TestAnnotation(DatabaseTest):
         pool = self._licensepool(None)
         annotation, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=self._patron(),
             identifier=pool.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3280,9 +3280,10 @@ class TestAnnotation(DatabaseTest):
     def test_patron_annotations_are_descending(self):
         pool1 = self._licensepool(None)
         pool2 = self._licensepool(None)
+        patron = self._patron()
         annotation1, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=patron,
             identifier=pool2.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3290,7 +3291,7 @@ class TestAnnotation(DatabaseTest):
         )
         annotation2, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=patron,
             identifier=pool2.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3302,9 +3303,9 @@ class TestAnnotation(DatabaseTest):
         annotation1.timestamp = yesterday
         annotation2.timestamp = today
 
-        eq_(2, len(self.default_patron.annotations))
-        eq_(annotation2, self.default_patron.annotations[0])
-        eq_(annotation1, self.default_patron.annotations[1])
+        eq_(2, len(patron.annotations))
+        eq_(annotation2, patron.annotations[0])
+        eq_(annotation1, patron.annotations[1])
     
 
 class TestHyperlink(DatabaseTest):
