@@ -455,6 +455,24 @@ class Authenticator(object):
         # Authenticate header.
         return UNSUPPORTED_AUTHENTICATION_MECHANISM
 
+    def get_credential_from_header(self, header):
+        """Extract a password credential from a WWW-Authenticate header
+        (or equivalent).
+
+        This is used to pass on a patron's credential to a content provider,
+        such as Overdrive, which performs independent validation of
+        a patron's credentials.
+
+        :return: The patron's password, or None if not available.
+        """
+        credential = None
+        for provider in self.providers:
+            credential = provider.get_credential_from_header(header)
+            if credential is not None:
+                break
+            
+        return credential
+    
     def oauth_provider_lookup(self, provider_name):
         """Look up the OAuthAuthenticationProvider with the given name. If that
         doesn't work, return an appropriate ProblemDetail.

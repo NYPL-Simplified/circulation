@@ -542,6 +542,26 @@ class TestAuthenticator(DatabaseTest):
             self._db, object()
         )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
+
+    def test_get_credential_from_header(self):
+        basic = MockBasicAuthenticationProvider()
+        oauth = MockOAuthAuthenticationProvider("oauth1")
+
+        # We can pull the password out of a Basic Auth credential
+        # if a Basic Auth authentication provider is configured.
+        authenticator = Authenticator(basic, [oauth], "secret")
+        credential = dict(password="foo")
+        eq_("foo",
+            authenticator.get_credential_from_header(credential)
+        )
+
+        # We can't pull the password out if only OAuth authentication
+        # providers are configured.
+        authenticator = Authenticator(None, [oauth], "secret")
+        eq_(None,
+            authenticator.get_credential_from_header(credential)
+        )
+
         
     def test_create_bearer_token(self):
         oauth1 = MockOAuthAuthenticationProvider("oauth1")
@@ -1136,7 +1156,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         be passed on to a content provider like Overdrive.
         """
         provider = MockOAuth()
-        eq_(None, provider.get_credential_from_header("Bearer abcd")
+        eq_(None, provider.get_credential_from_header("Bearer abcd"))
             
     def test_create_token(self):
         patron = self._patron()
