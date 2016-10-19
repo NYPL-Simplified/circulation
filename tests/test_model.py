@@ -1119,10 +1119,10 @@ class TestLicensePool(DatabaseTest):
             count = provider.count
             pool.update_availability(30, 21, 2, 0)
             eq_(count + 1, provider.count)
-            eq_(CirculationEvent.CHECKIN, provider.event_type)
+            eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
             pool.update_availability(30, 21, 2, 1)
             eq_(count + 2, provider.count)
-            eq_(CirculationEvent.HOLD_PLACE, provider.event_type)
+            eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
 
     def test_update_availability_does_nothing_if_given_no_data(self):
         """Passing an empty set of data into update_availability is
@@ -2172,7 +2172,7 @@ class TestCirculationEvent(DatabaseTest):
                 ("source", DataSource.OVERDRIVE),
                 ("id_type", Identifier.OVERDRIVE_ID),
                 ("start", datetime.datetime.utcnow()),
-                ("type", CirculationEvent.LICENSE_ADD),
+                ("type", CirculationEvent.DISTRIBUTOR_LICENSE_ADD),
         ):
             kwargs.setdefault(k, default)
         if 'old_value' in kwargs and 'new_value' in kwargs:
@@ -2234,7 +2234,7 @@ class TestCirculationEvent(DatabaseTest):
         data = self._event_data(
             source=DataSource.OVERDRIVE,
             id="{1-2-3}",
-            type=CirculationEvent.LICENSE_ADD,
+            type=CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
             old_value=0,
             delta=2,
             new_value=2,
