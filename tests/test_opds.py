@@ -340,7 +340,7 @@ class TestOPDS(DatabaseTest):
         assert identifier.identifier in annotations_link['href']
 
     def test_active_loan_feed(self):
-        patron = self.default_patron
+        patron = self._patron()
         raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
         # Nothing in the feed.
@@ -435,7 +435,7 @@ class TestOPDS(DatabaseTest):
         assert '/annotations' in annotations_link['href']
 
     def test_active_loan_feed_ignores_inconsistent_local_data(self):
-        patron = self.default_patron
+        patron = self._patron()
 
         work1 = self._work(language="eng", with_license_pool=True)
         loan, ignore = work1.license_pools[0].loan_to(patron)

@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 import datetime
+import logging
 
 from authenticator import (
     BasicAuthenticationProvider,
@@ -19,6 +20,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
     a working circulation manager before connecting it to an ILS.
     """
 
+    NAME = "Mock Authentication Provider"
     PATRONS = 'patrons'
     EXPIRED_PATRONS = 'expired_patrons'
     PATRONS_WITH_FINES = 'patrons_with_fines'
@@ -27,7 +29,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
     def config_values(cls):
         config, values = super(MockAuthenticationProvider, cls).config_values()
         if cls.PATRONS not in config:
-            raise CannotLoadConfiguration(
+            logging.getLogger(cls.NAME).warn(
                 "No patrons configured for mock authentication provider."
             )
 

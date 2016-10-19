@@ -268,12 +268,12 @@ class UpdateStaffPicksScript(Script):
 class LaneSweeperScript(Script):
     """Do something to each lane in the application."""
 
-    def __init__(self, _db=None):
+    def __init__(self, _db=None, testing=False):
         super(LaneSweeperScript, self).__init__(_db)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
-        app.manager = CirculationManager(self._db)
+        app.manager = CirculationManager(self._db, testing=testing)
         self.app = app
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
@@ -332,8 +332,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None):
-        super(CacheRepresentationPerLane, self).__init__(_db)
+    def __init__(self, _db=None, cmd_args=None, *args, **kwargs):
+        super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
         
     def parse_args(self, cmd_args=None):
