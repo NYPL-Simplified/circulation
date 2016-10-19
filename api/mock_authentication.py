@@ -53,8 +53,11 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
         now = datetime.datetime.utcnow()
         one_day = datetime.timedelta(days=1)
         
-        patrondata = PatronData(authorization_identifier=username,
-                                permanent_id=username)
+        patrondata = PatronData(
+            authorization_identifier=username,
+            permanent_id=username + "_id",
+            username=username + "_username"
+        )
         if self.valid_patron(username, password, self.patrons):
             # The patron's authorization expires tomorrow.
             patrondata.authorization_expires = now + one_day

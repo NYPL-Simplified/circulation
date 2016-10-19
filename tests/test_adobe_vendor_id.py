@@ -19,24 +19,26 @@ from core.model import (
     DataSource,
 )
 
-from api.millenium_patron import MockMilleniumPatronAPI       
+from api.mock_authentication import MockAuthenticationProvider       
 
 class TestVendorIDModel(DatabaseTest):
 
     TEST_NODE_VALUE = 114740953091845
 
+    credentials = dict(username="validpatron", password="password")
+    
     def setup(self):
         super(TestVendorIDModel, self).setup()
-        self.authenticator = MockMilleniumPatronAPI()
+        self.authenticator = MockAuthenticationProvider(
+            patrons={"validpatron" : "password" }
+        )
         self.model = AdobeVendorIDModel(self._db, self.authenticator,
                                         self.TEST_NODE_VALUE)
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
-        # Normally this test patron doesn't have an authorization identifier.
-        # Let's make sure there is one so it'll show up as the label.
-        self.bob_patron = self.authenticator.authenticated_patron(
-            self._db, dict(username="5", password="5555"))
-        self.bob_patron.authorization_identifier = "5"
 
+        self.bob_patron = self.authenticator.authenticated_patron(
+            self._db, dict(username="validpatron", password="password"))
+        
     def test_uuid(self):
         u = self.model.uuid()
         # All UUIDs need to start with a 0 and end with the same node
@@ -61,14 +63,14 @@ class TestVendorIDModel(DatabaseTest):
         eq_(credential.credential, bob_authdata.credential)
 
     def test_standard_lookup_success(self):
-        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
+        urn, label = self.model.standard_lookup(self.credentials)
 
         # There is now a UUID associated with Bob's patron account,
         # and that's the UUID returned by standard_lookup().
         bob_uuid = Credential.lookup(
             self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
             self.bob_patron, None)
-        eq_("Card number 5", label)
+        eq_("Card number validpatron", label)
         eq_(urn, bob_uuid.credential)
         assert urn.startswith("urn:uuid:0")
         assert urn.endswith('685b35c00f05')
@@ -95,7 +97,7 @@ class TestVendorIDModel(DatabaseTest):
             self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
             self.bob_patron, None)
         eq_(urn, bob_uuid.credential)
-        eq_("Card number 5", label)
+        eq_("Card number validpatron", label)
 
         # The token is persistent and does not expire.
         eq_(None, token.expires)
@@ -150,17 +152,17 @@ class TestVendorIDModel(DatabaseTest):
         eq_(None, label)
 
     def test_urn_to_label_success(self):
-        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
+        urn, label = self.model.standard_lookup(self.credentials)
         label2 = self.model.urn_to_label(urn)
         eq_(label, label2)
-        eq_("Card number 5", label)
+        eq_("Card number validpatron", label)
 
     def test_urn_to_label_failure_no_active_credential(self):
         label = self.model.urn_to_label("bad urn")
         eq_(None, label)
 
     def test_urn_to_label_failure_incorrect_urn(self):
-        urn, label = self.model.standard_lookup(dict(username="5", password="5555"))
+        urn, label = self.model.standard_lookup(self.credentials)
         label = self.model.urn_to_label("bad urn")
         eq_(None, label)
 
