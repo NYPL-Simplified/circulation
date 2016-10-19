@@ -302,7 +302,8 @@ class TestAnnotationParser(DatabaseTest):
         super(TestAnnotationParser, self).setup()
         self.pool = self._licensepool(None)
         self.identifier = self.pool.identifier
-
+        self.patron = self._patron()
+        
     def _sample_jsonld(self):
         data = dict()
         data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
@@ -324,11 +325,11 @@ class TestAnnotationParser(DatabaseTest):
         return data
 
     def test_parse_invalid_json(self):
-        annotation = AnnotationParser.parse(self._db, "not json", self.default_patron)
+        annotation = AnnotationParser.parse(self._db, "not json", self.patron)
         eq_(INVALID_ANNOTATION_FORMAT, annotation)
 
     def test_parse_expanded_jsonld(self):
-        self.pool.loan_to(self.default_patron)
+        self.pool.loan_to(self.patron)
 
         data = dict()
         data['@type'] = ["http://www.w3.org/ns/oa#Annotation"]
@@ -358,14 +359,14 @@ class TestAnnotationParser(DatabaseTest):
 
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
-        eq_(self.default_patron.id, annotation.patron_id)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
 
     def test_parse_compacted_jsonld(self):
-        self.pool.loan_to(self.default_patron)
+        self.pool.loan_to(self.patron)
 
         data = dict()
         data["@type"] = "http://www.w3.org/ns/oa#Annotation"
@@ -391,33 +392,33 @@ class TestAnnotationParser(DatabaseTest):
 
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
-        eq_(self.default_patron.id, annotation.patron_id)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
 
     def test_parse_jsonld_with_context(self):
-        self.pool.loan_to(self.default_patron)
+        self.pool.loan_to(self.patron)
 
         data = self._sample_jsonld()
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
 
-        eq_(self.default_patron.id, annotation.patron_id)
+        eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
 
     def test_parse_jsonld_with_invalid_motivation(self):
-        self.pool.loan_to(self.default_patron)
+        self.pool.loan_to(self.patron)
 
         data = self._sample_jsonld()
         data["motivation"] = "bookmarking"
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
 
         eq_(INVALID_ANNOTATION_MOTIVATION, annotation)
 
@@ -425,7 +426,7 @@ class TestAnnotationParser(DatabaseTest):
         data = self._sample_jsonld()
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
 
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 
@@ -434,16 +435,16 @@ class TestAnnotationParser(DatabaseTest):
         del data['target']
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
 
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 
     def test_parse_updates_existing_annotation(self):
-        self.pool.loan_to(self.default_patron)
+        self.pool.loan_to(self.patron)
 
         original_annotation, ignore = create(
             self._db, Annotation,
-            patron_id=self.default_patron.id,
+            patron_id=self.patron.id,
             identifier_id=self.identifier.id,
             motivation=Annotation.IDLING,
         )
@@ -454,7 +455,7 @@ class TestAnnotationParser(DatabaseTest):
         data = self._sample_jsonld()
         data = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.default_patron)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
 
         eq_(original_annotation, annotation)
         eq_(True, annotation.active)
