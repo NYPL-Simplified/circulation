@@ -394,9 +394,11 @@ class TestIndexController(CirculationControllerTest):
 
     def test_authenticated_patron_root_lane(self):
         with temp_config() as config:
+            # Patrons whose authorization identifiers start with 'unittest'
+            # get sent to the Adult Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "2": ["eng", "Adult Fiction"]},
-                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(.)",
+                Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
+                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
             }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -409,7 +411,8 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/eng/Adult%20Fiction", response.headers['location'])
 
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": None }
+            # Now those patrons get sent to the top-level lane.
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
