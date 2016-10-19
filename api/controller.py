@@ -378,6 +378,8 @@ class CirculationManagerController(object):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
+        if isinstance(patron, ProblemDetail):
+            return patron
         if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits us from lending you this book."),

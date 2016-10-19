@@ -51,7 +51,6 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
         
         patrondata = PatronData(authorization_identifier=username,
                                 permanent_id=username)
-        set_trace()
         if self.valid_patron(username, password, self.patrons):
             # The patron's authorization expires tomorrow.
             patrondata.authorization_expires = now + one_day

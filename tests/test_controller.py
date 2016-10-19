@@ -49,6 +49,7 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     RightsStatus,
     get_one,
+    get_one_or_create,
     create,
 )
 from core.lane import (
@@ -99,9 +100,15 @@ class ControllerTest(DatabaseTest):
 
     # Authorization headers that will succeed (or fail) against the
     # MockAuthenticationProvider set up in ControllerTest.setup().
-    valid_auth = 'Basic ' + base64.b64encode('user1:password1')
+    valid_auth = 'Basic ' + base64.b64encode(
+        'unittestuser:unittestpassword'
+    )
     invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
 
+    valid_credentials = dict(
+        username="unittestuser", password="unittestpassword"
+    )
+    
     def setup(self, _db=None):
         super(ControllerTest, self).setup()
 
@@ -119,6 +126,12 @@ class ControllerTest(DatabaseTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        # Create the patron used by the dummy authentication mechanism.
+        self.default_patron, ignore = get_one_or_create(
+            _db, Patron, authorization_identifier="unittestuser",
+            create_method_kwargs=dict(external_identifier="unittestpassword")
+        )
+        
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
@@ -132,8 +145,9 @@ class ControllerTest(DatabaseTest):
                     "url": 'http://test-circulation-manager/'
                 },
                 MockAuthenticationProvider.NAME : {
-                    "patrons": { "user1" : "password1",
-                                 "user2" : "password2" },
+                    "patrons": { "unittestuser": "unittestpassword",
+                                 "unittestuser2" : "unittestpassword2",
+                    },
                     "expired_patrons": { "expired" : "password" },
                 }
             }
@@ -144,6 +158,7 @@ class ControllerTest(DatabaseTest):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
+    
 class CirculationControllerTest(ControllerTest):
 
     def setup(self):
@@ -193,9 +208,7 @@ class TestBaseController(CirculationControllerTest):
         eq_(value, EXPIRED_CREDENTIALS)
 
     def test_authenticated_patron_correct_credentials(self):
-        value = self.controller.authenticated_patron(
-            dict(username="user1", password="password2")
-        )
+        value = self.controller.authenticated_patron(self.valid_credentials)
         assert isinstance(value, Patron)
 
 
@@ -316,7 +329,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
@@ -345,7 +358,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
 
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
 
