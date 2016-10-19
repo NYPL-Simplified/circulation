@@ -149,9 +149,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             elif k == self.FINES_FIELD:
                 fines = v
             elif k == self.BLOCK_FIELD:
-                # TODO: Unclear if 'c' is the magic value here or if
-                # any value other than '-' means a block.
-                if v == 'c':
+                # TODO: There are different types of blocks and we can
+                # give more helpful error messages by distinguishing
+                # between them. OTOH the abbreviations for different
+                # types of blocks are not standard among libraries.
+                if v != '-':
                     blocked = True
             elif k == self.EXPIRATION_FIELD:
                 try:
