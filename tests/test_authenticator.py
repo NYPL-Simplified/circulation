@@ -630,6 +630,9 @@ class TestAuthenticator(DatabaseTest):
         del os.environ['AUTOINITIALIZE']
 
         with temp_config() as config:
+            config[Configuration.INTEGRATIONS][
+                Configuration.CIRCULATION_MANAGER_INTEGRATION
+            ] = dict(url="http://circulation-manager/")
             config[Configuration.LINKS] = {
                 Configuration.TERMS_OF_SERVICE: "http://terms",
                 Configuration.PRIVACY_POLICY: "http://privacy",
