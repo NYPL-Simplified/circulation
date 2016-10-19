@@ -4,6 +4,7 @@ admin = """
 <head>
 <title>Circulation Manager</title>
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<link href=\"/admin/static/circulation-web.css\" rel="stylesheet" />
 </head>
 <body>
   <script src=\"/admin/static/circulation-web.js\"></script>

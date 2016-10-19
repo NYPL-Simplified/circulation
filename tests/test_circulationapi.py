@@ -24,6 +24,7 @@ from api.circulation import (
 
 from core.analytics import Analytics
 from core.model import (
+    CirculationEvent,
     DataSource,
     Identifier,
     Loan,
@@ -91,7 +92,7 @@ class TestCirculationAPI(DatabaseTest):
             # An analytics event was created.
             mock = Analytics.instance().providers[0]
             eq_(1, mock.count)
-            eq_(MockCirculationAPI.CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE,
+            eq_(CirculationEvent.CM_CHECKOUT,
                 mock.event_type)
             
             # Try to 'borrow' the same book again.
@@ -231,6 +232,45 @@ class TestCirculationAPI(DatabaseTest):
         eq_(self.pool, hold.license_pool)
         eq_(self.patron, hold.patron)
 
+    def test_hold_sends_analytics_event(self):
+        self.remote.queue_checkout(NoAvailableCopies())
+        holdinfo = HoldInfo(self.identifier.type, self.identifier.identifier,
+                            None, None, 10)
+        self.remote.queue_hold(holdinfo)
+
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            loan, hold, is_new = self.borrow()
+
+            # The Hold looks good.
+            eq_(holdinfo.identifier, hold.license_pool.identifier.identifier)
+            eq_(self.patron, hold.patron)
+            eq_(None, loan)
+            eq_(True, is_new)
+
+            # An analytics event was created.
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            eq_(CirculationEvent.CM_HOLD_PLACE,
+                mock.event_type)
+            
+            # Try to 'borrow' the same book again.
+            self.remote.queue_checkout(AlreadyOnHold())
+            loan, hold, is_new = self.borrow()
+            eq_(False, is_new)
+
+            # Since the hold already existed, no new analytics event was
+            # sent.
+            eq_(1, mock.count)
+            
     def test_loan_becomes_hold_if_no_available_copies_and_preexisting_loan(self):
         # Once upon a time, we had a loan for this book.
         loan, ignore = self.pool.loan_to(self.patron)        
@@ -273,6 +313,84 @@ class TestCirculationAPI(DatabaseTest):
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
 
+    def test_fulfill_sends_analytics_event(self):
+        self.pool.loan_to(self.patron)
+
+        fulfillment = self.pool.delivery_mechanisms[0]
+        fulfillment.content = "Fulfilled."
+        fulfillment.content_link = None
+        self.remote.queue_fulfill(fulfillment)
+
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            result = self.circulation.fulfill(self.patron, '1234', self.pool,
+                                              self.pool.delivery_mechanisms[0])
+
+            # The fulfillment looks good.
+            eq_(fulfillment, result)
+
+            # An analytics event was created.
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            eq_(CirculationEvent.CM_FULFILL,
+                mock.event_type)
+            
+    def test_revoke_loan_sends_analytics_event(self):
+        self.pool.loan_to(self.patron)
+        self.remote.queue_checkin(True)
+
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            result = self.circulation.revoke_loan(self.patron, '1234', self.pool)
+
+            eq_(True, result)
+
+            # An analytics event was created.
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            eq_(CirculationEvent.CM_CHECKIN,
+                mock.event_type)
+
+    def test_release_hold_sends_analytics_event(self):
+        self.pool.on_hold_to(self.patron)
+        self.remote.queue_release_hold(True)
+
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            result = self.circulation.release_hold(self.patron, '1234', self.pool)
+
+            eq_(True, result)
+
+            # An analytics event was created.
+            mock = Analytics.instance().providers[0]
+            eq_(1, mock.count)
+            eq_(CirculationEvent.CM_HOLD_RELEASE,
+                mock.event_type)
+            
     def test_sync_bookshelf_ignores_local_loan_with_no_identifier(self):
         loan, ignore = self.pool.loan_to(self.patron)
         loan.start = self.YESTERDAY

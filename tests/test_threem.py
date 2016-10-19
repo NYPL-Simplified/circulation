@@ -208,7 +208,7 @@ class TestEventParser(ThreeMAPITest):
         eq_(None, patron_id)
         eq_(datetime.datetime(2016, 4, 28, 11, 4, 6), start_time)
         eq_(None, end_time)
-        eq_('license_add', internal_event_type)
+        eq_('distributor_license_add', internal_event_type)
 
 
 class TestPatronCirculationParser(ThreeMAPITest):

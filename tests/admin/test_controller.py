@@ -712,11 +712,11 @@ class TestFeedController(AdminControllerTest):
         [lp] = self.english_1.license_pools
         patron_id = "patronid"
         types = [
-            CirculationEvent.CHECKIN,
-            CirculationEvent.CHECKOUT,
-            CirculationEvent.HOLD_PLACE,
-            CirculationEvent.HOLD_RELEASE,
-            CirculationEvent.TITLE_ADD
+            CirculationEvent.DISTRIBUTOR_CHECKIN,
+            CirculationEvent.DISTRIBUTOR_CHECKOUT,
+            CirculationEvent.DISTRIBUTOR_HOLD_PLACE,
+            CirculationEvent.DISTRIBUTOR_HOLD_RELEASE,
+            CirculationEvent.DISTRIBUTOR_TITLE_ADD
         ]
         time = datetime.now() - timedelta(minutes=len(types))
         for type in types:
@@ -753,11 +753,11 @@ class TestFeedController(AdminControllerTest):
         get_one_or_create(self._db, WorkGenre, work=self.english_1, genre=genres[2], affinity=0.5)
         ordered_genre_string = ",".join([genres[2].name, genres[1].name, genres[0].name])
         types = [
-            CirculationEvent.CHECKIN,
-            CirculationEvent.CHECKOUT,
-            CirculationEvent.HOLD_PLACE,
-            CirculationEvent.HOLD_RELEASE,
-            CirculationEvent.TITLE_ADD
+            CirculationEvent.DISTRIBUTOR_CHECKIN,
+            CirculationEvent.DISTRIBUTOR_CHECKOUT,
+            CirculationEvent.DISTRIBUTOR_HOLD_PLACE,
+            CirculationEvent.DISTRIBUTOR_HOLD_RELEASE,
+            CirculationEvent.DISTRIBUTOR_TITLE_ADD
         ]
         num = len(types)
         time = datetime.now() - timedelta(minutes=len(types))

@@ -1,3 +1,5 @@
+import urllib
+
 from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
@@ -390,14 +392,40 @@ class QueryGeneratedLane(Lane):
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
 
-    def apply_filters(self, qu, facets=None, pagination=None,
-            work_model=Work, edition_model=Edition):
-        """Incorporates additional filters to be run on a query of all Works
-        in the db or materialized view
+    @property
+    def audience_key(self):
+        """Translates audiences list into url-safe string"""
+        key = ''
+        if (self.audiences and
+            Classifier.AUDIENCES.difference(self.audiences)):
+            # There are audiences and they're not the default
+            # "any audience", so add them to the URL.
+            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            key += ','.join(audiences)
+        return key
 
-        :return: query
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+                      edition_model=Edition):
+        """Incorporates general filters that help determine which works can be
+        usefully presented to users with lane-specific queries that select
+        the works specific to the QueryGeneratedLane
+
+        :return: query or None
         """
-        raise NotImplementedError()
+        # Only show works that can be borrowed or reserved.
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # Only show works for the proper audiences.
+        if self.audiences:
+            qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Only show works in the source language.
+        if self.languages:
+            qu = qu.filter(edition_model.language.in_(self.languages))
+
+        # Add lane-specific details to query and return the result.
+        qu = self.lane_query_hook(qu, work_model=work_model)
+        return qu
 
     def featured_works(self, use_materialized_works=True):
         """Find a random sample of books for the feed"""
@@ -417,6 +445,13 @@ class QueryGeneratedLane(Lane):
 
         return self.randomized_sample_works(query, use_min_size=True)
 
+    def lane_query_hook(self, qu, work_model=Work):
+        """Create the query specific to a subclass of  QueryGeneratedLane
+
+        :return: query or None
+        """
+        raise NotImplementedError()
+
 
 class LicensePoolBasedLane(QueryGeneratedLane):
     """A query-based lane connected on a particular LicensePool"""
@@ -425,12 +460,17 @@ class LicensePoolBasedLane(QueryGeneratedLane):
     ROUTE = None
 
     def __init__(self, _db, license_pool, full_name,
-                 display_name=None, sublanes=[], invisible=False):
+                 display_name=None, sublanes=[], invisible=False, **kwargs):
         self.license_pool = license_pool
+        languages = [license_pool.presentation_edition.language]
+
+        self.source_audience = self.license_pool.work.audience
+        audiences = self.audiences_list_from_source()
         display_name = display_name or self.DISPLAY_NAME
+
         super(LicensePoolBasedLane, self).__init__(
-            _db, full_name, display_name=display_name,
-            sublanes=sublanes
+            _db, full_name, display_name=display_name, sublanes=sublanes,
+            languages=languages, audiences=audiences, **kwargs
         )
 
     @property
@@ -444,28 +484,38 @@ class LicensePoolBasedLane(QueryGeneratedLane):
         )
         return self.ROUTE, kwargs
 
+    def audiences_list_from_source(self):
+        if (not self.source_audience or
+            self.source_audience in Classifier.AUDIENCES_ADULT):
+            return Classifier.AUDIENCES
+        if self.source_audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            return Classifier.AUDIENCES_JUVENILE
+        else:
+            return Classifier.AUDIENCE_CHILDREN
+
 
 class RelatedBooksLane(LicensePoolBasedLane):
-    """A lane of Works all related to the Work of a particular LicensePool
+    """A lane of Works all related to the Work of a particular LicensePool.
 
-    Sublanes currently include a SeriesLane and a RecommendationLane"""
-
+    Sublanes currently include a ContributorLane, a SeriesLane and a
+    RecommendationLane
+    """
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
                  novelist_api=None):
+        super(RelatedBooksLane, self).__init__(
+            _db, license_pool, full_name,
+            display_name=display_name, invisible=True
+        )
         sublanes = self._get_sublanes(_db, license_pool, novelist_api=novelist_api)
         if not sublanes:
             edition = license_pool.presentation_edition
             raise ValueError(
                 "No related books for %s by %s" % (edition.title, edition.author)
             )
-        super(RelatedBooksLane, self).__init__(
-            _db, license_pool, full_name,
-            display_name=display_name, sublanes=sublanes,
-            invisible=True
-        )
+        self.set_sublanes(self._db, sublanes, [])
 
     def _get_sublanes(self, _db, license_pool, novelist_api=None):
         sublanes = list()
@@ -490,7 +540,8 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 contributor_name = contributor.sort_name
 
             contributor_lane = ContributorLane(
-                _db, contributor_name, contributor_id=contributor.id
+                _db, contributor_name, contributor_id=contributor.id,
+                parent=self
             )
             sublanes.append(contributor_lane)
 
@@ -500,7 +551,8 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 license_pool.work.title, license_pool.work.author
             )
             recommendation_lane = RecommendationLane(
-                _db, license_pool, lane_name, novelist_api=novelist_api
+                _db, license_pool, lane_name, novelist_api=novelist_api,
+                parent=self
             )
             if recommendation_lane.recommendations:
                 sublanes.append(recommendation_lane)
@@ -511,11 +563,11 @@ class RelatedBooksLane(LicensePoolBasedLane):
         # Create a series sublane.
         series_name = edition.series
         if series_name:
-            sublanes.append(SeriesLane(_db, series_name))
+            sublanes.append(SeriesLane(_db, series_name, parent=self))
 
         return sublanes
 
-    def apply_filters(self, qu, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         # This lane is composed entirely of sublanes and
         # should only be used to create groups feeds.
         return None
@@ -529,10 +581,11 @@ class RecommendationLane(LicensePoolBasedLane):
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
     def __init__(self, _db, license_pool, full_name, display_name=None,
-            novelist_api=None):
+                 novelist_api=None, parent=None):
         self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
-            _db, license_pool, full_name, display_name=display_name
+            _db, license_pool, full_name, display_name=display_name,
+            parent=parent
         )
         self.recommendations = self.fetch_recommendations()
 
@@ -545,12 +598,10 @@ class RecommendationLane(LicensePoolBasedLane):
             return metadata.recommendations
         return []
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
-
+    def lane_query_hook(self, qu, work_model=Work):
         if not self.recommendations:
             return None
 
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
         if work_model != Work:
             qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
@@ -565,24 +616,35 @@ class SeriesLane(QueryGeneratedLane):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, series_name):
+    def __init__(self, _db, series_name, parent=None, languages=None,
+                 audiences=None):
         if not series_name:
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
         full_name = display_name = self.series
+
+        if parent:
+            # In an attempt to secure the accurate series, limit the
+            # listing to the source's audience sourced from parent data.
+            audiences = [parent.source_audience]
+
         super(SeriesLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, full_name, parent=parent, display_name=display_name,
+            audiences=audiences, languages=languages
         )
 
     @property
     def url_arguments(self):
-        kwargs = dict(series_name=self.series)
+        kwargs = dict(
+            series_name=self.series,
+            languages=self.language_key,
+            audiences=self.audience_key
+        )
         return self.ROUTE, kwargs
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         if not self.series:
             return None
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
 
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
@@ -598,7 +660,8 @@ class ContributorLane(QueryGeneratedLane):
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, contributor_name, contributor_id=None):
+    def __init__(self, _db, contributor_name, contributor_id=None,
+                 parent=None, languages=None, audiences=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
@@ -615,18 +678,22 @@ class ContributorLane(QueryGeneratedLane):
 
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
-            _db, full_name, display_name=display_name
+            _db, full_name, display_name=display_name, parent=parent,
+            audiences=audiences, languages=languages
         )
 
     @property
     def url_arguments(self):
-        kwargs = dict(contributor_name=self.contributor_name)
+        kwargs = dict(
+            contributor_name=self.contributor_name,
+            languages=self.language_key,
+            audiences=self.audience_key
+        )
         return self.ROUTE, kwargs
 
-    def apply_filters(self, qu, work_model=Work, *args, **kwargs):
+    def lane_query_hook(self, qu, **kwargs):
         if not self.contributor_name:
             return None
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
 
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).join(work_edition.contributions)
