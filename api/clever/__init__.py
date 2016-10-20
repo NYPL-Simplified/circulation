@@ -57,7 +57,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
-    CLEVER_OAUTH_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%s&redirect_uri=%s&state=%s"
+    EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_uri)s&state=%(state)s"
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
     CLEVER_API_BASE_URL = "https://api.clever.com"
 
@@ -69,17 +69,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     # Begin implementations of OAuthAuthenticationProvider abstract
     # methods.
     
-    def external_authenticate_url(self, state):
-        """Generate the URL provided by the OAuth provider which will present
-        the patron with a login form.
-
-        :param state: A state variable to be propagated through to the OAuth
-        callback.
-        """
-        return self.CLEVER_OAUTH_URL % (
-            self.client_id, self._server_redirect_uri(), state
-        )
-
     def oauth_callback(self, _db, params):
         """Verify the incoming parameters with the OAuth provider. Create
         or look up appropriate database records.
@@ -116,7 +105,14 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     # End implementations of OAuthAuthenticationProvider abstract
     # methods.
-    
+
+    def external_authenticate_url_parameters(self, state):
+        """Arguments used to fill in the template EXTERNAL_AUTHENTICATE_URL.
+        """
+        params = super(CleverAuthenticationAPI, self).external_authenticate_url_parameters(state)
+        params['client_id'] = self.client_id
+        return params
+
     def remote_exchange_code_for_bearer_token(self, code):
         """Ask the OAuth provider to convert a code (passed in to the OAuth
         callback) into a bearer token.
@@ -214,9 +210,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         )
         return patrondata
    
-    def _server_redirect_uri(self):
-        return url_for('oauth_callback', _external=True)
-
     def _get_token(self, payload, headers):
         response = HTTP.post_with_timeout(
             self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers

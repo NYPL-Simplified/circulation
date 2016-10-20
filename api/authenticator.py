@@ -242,7 +242,7 @@ class PatronData(object):
             search_by = dict(external_identifier=self.permanent_id)
         elif self.username:
             search_by = dict(username=self.username)
-        if self.authorization_identifier:
+        elif self.authorization_identifier:
             search_by = dict(
                 authorization_identifier=self.authorization_identifier
             )
@@ -350,8 +350,8 @@ class Authenticator(object):
         :param oauth_providers: A list of AuthenticationProviders that handle
         OAuth requests.
 
-        :param jwt_secret: The secret to use when signing JWTs for use
-        as bearer tokens.
+        :param bearer_token_signing_secret: The secret to use when
+        signing JWTs for use as bearer tokens.
         """
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
@@ -584,7 +584,13 @@ class AuthenticationProvider(object):
     """Handle a specific patron authentication scheme.
     """
 
-    # A subclass MUST define a value for URI. This is used in the
+    # NOTE: Each subclass MUST define an attribute called NAME, which
+    # is used to configure that subclass in the configuration file,
+    # used to create the name of the log channel used by this
+    # subclass, used to distinguish between tokens from different
+    # OAuth providers, etc.
+    
+    # Each subclass MUST define a value for URI. This is used in the
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     URI = None
@@ -1021,12 +1027,33 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # attribute will result in an error in .from_config().
     #
     # Each subclass MUST define an attribute called TOKEN_TYPE, which
-    # is the name of the JWT given to patrons for use as a bearer
-    # token.
+    # is the name used in the database to distinguish this provider's
+    # tokens from other provider's tokens.
     #
     # Each subclass MUST define an attribute called
     # TOKEN_DATA_SOURCE_NAME, which is the name of the DataSource
     # under which bearer tokens for patrons will be registered.
+
+    # Finally, each subclass MUST define an attribute called
+    # EXTERNAL_AUTHENTICATE_URL. When the patron hits the
+    # oauth_authentication_redirect controller, they will be
+    # redirected to this URL on the OAuth provider's site.
+    #
+    # This URL template MUST contain Python variable interpolations
+    # for 'oauth_callback_uri' and 'state'. This way the OAuth
+    # provider knows to send the client back to our
+    # oauth_authentication_callback controller, and the oauth_callback
+    # controller maintains any state from the initial request to
+    # oauth_authentication_redirect.
+    #
+    # As an example, here's the EXTERNAL_AUTHENTICATE_URL for the
+    # Clever OAuth provider:
+    #
+    # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_uri)s&state=%(state)s"
+    #
+    # %(client_id)s is a clever-specific interpolation which is filled
+    # in by the Clever authentication provider's implementation of
+    # external_authenticate_url_parameters().
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
     
@@ -1115,7 +1142,20 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         :param state: A state variable to be propagated through to the OAuth
         callback.
         """
-        raise NotImplementedError()
+        template = self.EXTERNAL_AUTHENTICATE_URL
+        arguments = self.external_authenticate_url_parameters(state)
+        return template % arguments
+
+    def external_authenticate_url_parameters(self, state):
+        """Arguments used to fill in the template EXTERNAL_AUTHENTICATE_URL.
+        """
+        return dict(
+            state=state,
+            # When the patron finishes logging in to the OAuth provider,
+            # we want them to send the patron to this URL.
+            oauth_callback_uri=url_for('oauth_callback', _external=True)
+        )
+
 
     def oauth_callback(self, _db, params):
         """Verify the incoming parameters with the OAuth provider. Create
@@ -1187,8 +1227,7 @@ class OAuthController(object):
         appropriate OAuth provider.
 
         Over on that other site, the patron will authenticate and be
-        redirected back to the circulation manager (the URL is stored
-        in params['redirect_uri']), ending up in
+        redirected back to the circulation manager, ending up in
         oauth_authentication_callback.
         """
         redirect_uri = params.get('redirect_uri') or ""

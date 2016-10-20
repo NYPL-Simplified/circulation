@@ -136,7 +136,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
 
         response = self.api.oauth_callback(self._db, dict(code="teacher code"))
         credential, patron, patrondata = response
-
+        
         # The bearer token was turned into a Credential.
         expect_credential, ignore = self.api.create_token(
             self._db, patron, "bearer token"
@@ -164,9 +164,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
          assert isinstance(response, ProblemDetail)
          eq_(INVALID_CREDENTIALS.uri, response.uri)
     
-    def test_server_redirect_uri(self):
-        """Verify that _server_redirect_uri can generate a real
-        URL when run against a real application.
+    def test_external_authenticate_url(self):
+        """Verify that external_authenticate_url is generated properly.
         """
         # We're about to call url_for, so we must create an
         # application context.
@@ -176,5 +175,6 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         del os.environ['AUTOINITIALIZE']
 
         with app.test_request_context("/"):        
-            uri = my_api._server_redirect_uri()
-            eq_("http://localhost/oauth_callback", uri)
+            params = my_api.external_authenticate_url("state")
+            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=http://localhost/oauth_callback&state=state', params)
+

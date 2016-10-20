@@ -1226,6 +1226,22 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         eq_(False, is_new)
         eq_(oauth.TOKEN_DATA_SOURCE_NAME, source.name)
 
+    def test_external_authenticate_url_parameters(self):
+        """Verify that external_authenticate_url_parameters generates
+        realistic results when run in a real application.
+        """
+        # We're about to call url_for, so we must create an
+        # application context.
+        my_api = MockOAuth()
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        del os.environ['AUTOINITIALIZE']
+
+        with app.test_request_context("/"):        
+            params = my_api.external_authenticate_url_parameters("state")
+            eq_("state", params['state'])
+            eq_("http://localhost/oauth_callback",
+                params['oauth_callback_uri'])
         
 class TestOAuthController(DatabaseTest):
 
