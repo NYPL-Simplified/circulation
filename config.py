@@ -133,9 +133,10 @@ class Configuration(object):
     NOVELIST_PROFILE = "profile"
     NOVELIST_PASSWORD = "password"
 
+    AXIS_INTEGRATION = "Axis 360"
+    ONECLICK_INTEGRATION = "OneClick"
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
-    AXIS_INTEGRATION = "Axis 360"
 
     MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
     FEATURED_LANE_SIZE = "featured_lane_size"

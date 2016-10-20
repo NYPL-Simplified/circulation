@@ -1,7 +1,6 @@
 from nose.tools import set_trace
 from collections import defaultdict
 import datetime
-from dateutil.relativedelta import relativedelta
 import base64
 import os
 import json
@@ -60,7 +59,7 @@ class OneClickAPI(object):
         remote_stage=None, base_url=None, basic_token=None):
         self._db = _db
         (env_library_id, env_username, env_password, 
-         env_remote_stage, env_base_url, env_basic_token) = self.environment_values()
+         env_remote_stage, env_base_url, env_basic_token) = self.from_config()
             
         self.library_id = library_id or env_library_id
         self.username = username or env_username
@@ -85,8 +84,8 @@ class OneClickAPI(object):
 
 
     @classmethod
-    def environment_values(cls):
-        config = Configuration.integration('OneClick')
+    def from_config(cls):
+        config = Configuration.integration(Configuration.ONECLICK_INTEGRATION, required=True)
         values = []
         for name in [
                 'library_id',
@@ -100,6 +99,11 @@ class OneClickAPI(object):
             if value:
                 value = value.encode("utf8")
             values.append(value)
+
+        if len(values) == 0:
+            cls.log.info("No OneClick client configured.")
+            return None
+
         return values
 
 
@@ -123,17 +127,12 @@ class OneClickAPI(object):
 
     @property
     def authorization_headers(self):
+        # the token given us by OneClick is already utf/base64-encoded
         authorization = self.token
-        authorization = authorization.encode("utf_16_le")
-        authorization = base64.b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
 
     def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
-        print "url= %s" % url
-        print "params= %s" % params
-        print "kwargs= %s" % kwargs
-
         """Actually make an HTTP request."""
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
@@ -150,9 +149,9 @@ class OneClickAPI(object):
             verbosity = self.RESPONSE_VERBOSITY[2]
 
         headers = dict(extra_headers)
-        headers['Authorization'] = "Basic " + self.token
         headers['Content-Type'] = 'application/json'
         headers['Accept-Media'] = verbosity
+        headers.update(self.authorization_headers)
 
         # for now, do nothing with error codes, but in the future might have some that 
         # will warrant repeating the request.
@@ -237,19 +236,19 @@ class OneClickAPI(object):
         url = "%s/libraries/%s/media/delta" % (self.base_url, str(self.library_id))
 
         today = datetime.datetime.now()
-        two_months = relativedelta(months=2)
-        six_months = relativedelta(months=6)
+        two_months = datetime.timedelta(days=60)
+        six_months = datetime.timedelta(days=180)
 
-        # from_date must be real, and less than 6 months ago 
+        # from_date must be real, and less than 6 months ago
         if from_date and isinstance(from_date, basestring):
             from_date = datetime.datetime.strptime(from_date[:10], self.DATE_FORMAT)
-            if (from_date > today) or (relativedelta(today, from_date) > six_months):
+            if (from_date > today) or ((today-from_date) > six_months):
                 raise ValueError("from_date %s must be real, in the past, and less than 6 months ago." % from_date)
 
         # to_date must be real, and not in the future or too far in the past
         if to_date and isinstance(to_date, basestring):
             to_date = datetime.datetime.strptime(to_date[:10], self.DATE_FORMAT)
-            if (to_date > today) or (relativedelta(today, to_date) > six_months):
+            if (to_date > today) or ((today - to_date) > six_months):
                 raise ValueError("to_date %s must be real, and neither in the future nor too far in the past." % to_date)
 
         # can't reverse time direction
@@ -257,7 +256,7 @@ class OneClickAPI(object):
             raise ValueError("from_date %s cannot be after to_date %s." % (from_date, to_date))
 
         # can request no more that two month date range for catalog delta
-        if from_date and to_date and (relativedelta(to_date, from_date) > two_months):
+        if from_date and to_date and ((to_date - from_date) > two_months):
             raise ValueError("from_date %s - to_date %s asks for too-wide date range." % (from_date, to_date))
 
         if from_date and not to_date:
@@ -273,7 +272,6 @@ class OneClickAPI(object):
         if not from_date and not to_date:
             from_date = today - two_months
             to_date = today
-
 
         args = dict()
         args['begin'] = from_date
@@ -332,7 +330,8 @@ class OneClickAPI(object):
 
         if "message" in respdict:
             # can happen if searched for item that's not in library's catalog
-            raise ValueError("ISBN [%s] is not in library [%s]'s catalog." % (identifier_string, str(self.library_id)))
+            raise ValueError("get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % 
+                (identifier_string, str(self.library_id), respdict['message']))
 
         return respdict
 
@@ -429,10 +428,13 @@ class OneClickRepresentationExtractor(object):
 
     oneclick_formats = {
         "ebook-epub-oneclick" : (
-            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ONECLICK_DRM
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
         "audiobook-mp3-oneclick" : (
             "vnd.librarysimplified/obfuscated-one-click", DeliveryMechanism.ONECLICK_DRM
+        ),
+        "audiobook-mp3-open" : (
+            "audio/mpeg3", DeliveryMechanism.NO_DRM
         ),
     }
 
@@ -459,8 +461,7 @@ class OneClickRepresentationExtractor(object):
         """Turn OneClick's JSON representation of a book into a Metadata object.
         Assumes the JSON is in the format that comes from the media/{isbn} endpoint.
 
-        TODO:  Use the seriesPosition and seriesTotal fields, and use the narrators field 
-        for audiobook items.
+        TODO:  Use the seriesTotal field.
 
         :param book a json response-derived dictionary of book attributes
         """
@@ -484,8 +485,15 @@ class OneClickRepresentationExtractor(object):
             # set to 0, and will not have a seriesName at all.
             # Sometimes, series position and total == 0, for many series items (ex: "seriesName": "EngLits").
             series_name = book.get('seriesName', None)
-            # ignored for now
+
             series_position = book.get('seriesPosition', None)
+            if series_position:
+                try:
+                    series_position = int(series_position)
+                except ValueError:
+                    # not big enough deal to stop the whole process
+                    series_position = None
+
             # ignored for now
             series_total = book.get('seriesTotal', None)
             # ignored for now
@@ -512,13 +520,20 @@ class OneClickRepresentationExtractor(object):
                     contributor = ContributorData(sort_name=sort_name, roles=roles)
                     contributors.append(contributor)
 
+            if 'narrators' in book:
+                narrators = book['narrators']
+                for narrator in narrators.split(";"):
+                    sort_name = narrator.strip()
+                    roles = [Contributor.NARRATOR_ROLE]
+                    contributor = ContributorData(sort_name=sort_name, roles=roles)
+                    contributors.append(contributor)
+
             subjects = []
             if 'genres' in book:
                 # example: "FICTION / Humorous / General"
                 genres = book['genres']
-            for genre in genres.split("/"):
                 subject = SubjectData(
-                    type=Subject.ONECLICK, identifier=genre.strip(),
+                    type=Subject.BISAC, identifier=genres,
                     weight=100
                 )
                 subjects.append(subject)
@@ -526,12 +541,12 @@ class OneClickRepresentationExtractor(object):
             if 'primaryGenre' in book:
                 # example: "humorous-fiction,mystery,womens-fiction"
                 genres = book['primaryGenre']
-            for genre in genres.split(","):
-                subject = SubjectData(
-                    type=Subject.ONECLICK, identifier=genre.strip(),
-                    weight=100
-                )
-                subjects.append(subject)
+                for genre in genres.split(","):
+                    subject = SubjectData(
+                        type=Subject.ONECLICK, identifier=genre.strip(),
+                        weight=100
+                    )
+                    subjects.append(subject)
 
             # audience options are: adult, beginning-reader, childrens, young-adult
             audience = book.get('audience', None)
@@ -566,6 +581,11 @@ class OneClickRepresentationExtractor(object):
                         image_data = cls.image_link_to_linkdata(image['url'], Hyperlink.IMAGE)
                     if image['name'] == "medium":
                         thumbnail_data = cls.image_link_to_linkdata(image['url'], Hyperlink.THUMBNAIL_IMAGE)
+                    if image['name'] == "small":
+                        thumbnail_data_backup = cls.image_link_to_linkdata(image['url'], Hyperlink.THUMBNAIL_IMAGE)
+
+                if not thumbnail_data and thumbnail_data_backup:
+                    thumbnail_data = thumbnail_data_backup
 
                 if image_data:
                     if thumbnail_data:
@@ -589,6 +609,7 @@ class OneClickRepresentationExtractor(object):
             metadata.language = language
             metadata.medium = medium
             metadata.series = series_name
+            metadata.series_position = series_position
             metadata.publisher = publisher
             metadata.published = published
             metadata.identifiers = identifiers
@@ -651,7 +672,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except ValueError as error:
-            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=False)
+            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
         except IOError as error:
             return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
 

@@ -66,31 +66,28 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_availability_exception(self):
-        api = MockOneClickAPI(self._db)
-        api.queue_response(500)
+        self.api.queue_response(500)
         assert_raises_regexp(
             RemoteIntegrationException, "Bad response from www.oneclickapi.testv1/libraries/library_id_123/search: Got status code 500 from external server, cannot continue.", 
-            api.get_all_available_through_search
+            self.api.get_all_available_through_search
         )
 
 
     def test_search(self):
-        api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_search_one_item_1.json")
-        api.queue_response(status_code=200, content=datastr)
+        self.api.queue_response(status_code=200, content=datastr)
 
-        response = api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
+        response = self.api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
         response_dictionary = response.json()
         eq_(1, response_dictionary['pageCount'])
         eq_(u'Tea Time for the Traditionally Built', response_dictionary['items'][0]['item']['title'])
 
 
     def test_get_all_available_through_search(self):
-        api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_search_five_items_1.json")
-        api.queue_response(status_code=200, content=datastr)
+        self.api.queue_response(status_code=200, content=datastr)
 
-        response_dictionary = api.get_all_available_through_search()
+        response_dictionary = self.api.get_all_available_through_search()
         eq_(1, response_dictionary['pageCount'])
         eq_(5, response_dictionary['resultSetCount'])
         eq_(5, len(response_dictionary['items']))
@@ -99,34 +96,31 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_all_catalog(self):
-        api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_catalog_all_sample.json")
-        api.queue_response(status_code=200, content=datastr)
+        self.api.queue_response(status_code=200, content=datastr)
 
-        catalog = api.get_all_catalog()
+        catalog = self.api.get_all_catalog()
         eq_(97, len(catalog))
         eq_("Hamster Princess: Harriet the Invincible", catalog[96]['title'])
 
 
     def test_get_delta(self):
-        # TODO: Waiting on OneClick for delta confirmation.
-        api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_catalog_delta.json")
-        api.queue_response(status_code=200, content=datastr)
+        self.api.queue_response(status_code=200, content=datastr)
 
         assert_raises_regexp(
             ValueError, 'from_date 2000-01-01 00:00:00 must be real, in the past, and less than 6 months ago.', 
-            api.get_delta, from_date="2000-01-01", to_date="2000-02-01"
+            self.api.get_delta, from_date="2000-01-01", to_date="2000-02-01"
         )
 
         today = datetime.datetime.now()
         three_months = relativedelta(months=3)
         assert_raises_regexp(
             ValueError, "from_date .* - to_date .* asks for too-wide date range.", 
-            api.get_delta, from_date=(today - three_months), to_date=today
+            self.api.get_delta, from_date=(today - three_months), to_date=today
         )
 
-        delta = api.get_delta()
+        delta = self.api.get_delta()
         eq_(1931, delta[0]["libraryId"])
         eq_("Wethersfield Public Library", delta[0]["libraryName"])
         eq_("2016-09-17", delta[0]["beginDate"])
@@ -142,22 +136,34 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_ebook_availability_info(self):
-        api = MockOneClickAPI(self._db)
         datastr, datadict = self.get_data("response_availability_ebook_1.json")
-        api.queue_response(status_code=200, content=datastr)
-        response_list = api.get_ebook_availability_info()
+        self.api.queue_response(status_code=200, content=datastr)
+        
+        response_list = self.api.get_ebook_availability_info()
         eq_(u'9781420128567', response_list[0]['isbn'])
         eq_(False, response_list[0]['availability'])
 
 
+    def test_get_metadata_by_isbn(self):
+        datastr, datadict = self.get_data("response_isbn_notfound_1.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        
+        assert_raises_regexp(
+            ValueError, 
+            "get_metadata_by_isbn\(97BADISBNFAKE\) in library .*", 
+            self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
+        )
+
+        datastr, datadict = self.get_data("response_isbn_found_1.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
+        eq_(u'9780307378101', response_dictionary['isbn'])
+        eq_(u'Anchor', response_dictionary['publisher'])
+
+        
+
 
 class TestOneClickRepresentationExtractor(OneClickTest):
-    def test_availability_info(self):
-        # TODO: the download links for items become available on checkout request
-        # See if need to go around this.
-        data = self.get_data("response_availability_ebook_1.json")
-        pass
-
 
     def test_book_info_with_metadata(self):
         # Tests that can convert a oneclick json block into a Metadata object.
@@ -187,9 +193,7 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
-        eq_([(u"FICTION", Subject.ONECLICK, 100),
-            (u"General", Subject.ONECLICK, 100),
-            (u"Humorous", Subject.ONECLICK, 100),
+        eq_([(u"FICTION / Humorous / General", Subject.BISAC, 100),
 
             (u'adult', Classifier.ONECLICK_AUDIENCE, 10), 
 
@@ -218,7 +222,7 @@ class TestOneClickRepresentationExtractor(OneClickTest):
         # Available formats.      
         [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
         eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)       
-        eq_(DeliveryMechanism.ONECLICK_DRM, epub.drm_scheme)      
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)      
 
         # Links to various resources.
         shortd, image = sorted(
@@ -248,7 +252,7 @@ class TestOneClickRepresentationExtractor(OneClickTest):
         eq_(None, metadata.title)
         [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
         eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)       
-        eq_(DeliveryMechanism.ONECLICK_DRM, epub.drm_scheme)      
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)      
 
 
 
@@ -280,25 +284,15 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         # A bad or malformed GUID can't get coverage.
 
         identifier = self._identifier()
-        identifier.identifier = 'bad guid'
+        identifier.identifier = 'bad_guid'
         
-        error = '{"errorCode": "InvalidGuid", "message": "An invalid guid was given.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
-        self.api.queue_response(200, content=error)
+        datastr, datadict = self.get_data("response_isbn_notfound_1.json")
+        self.api.queue_response(status_code=200, content=datastr)
 
         failure = self.provider.process_item(identifier)
         assert isinstance(failure, CoverageFailure)
-        eq_(False, failure.transient)
-        eq_("ISBN [bad guid] is not in library [library_id_123]'s catalog.", failure.exception)
-
-        # This is for when the GUID is well-formed but doesn't
-        # correspond to any real Overdrive book.
-        error = '{"errorCode": "NotFound", "message": "Not found in Overdrive collection.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
-        self.api.queue_response(200, content=error)
-
-        failure = self.provider.process_item(identifier)
-        assert isinstance(failure, CoverageFailure)
-        eq_(False, failure.transient)
-        eq_("ISBN [bad guid] is not in library [library_id_123]'s catalog.", failure.exception)
+        eq_(True, failure.transient)
+        assert failure.exception.startswith('get_metadata_by_isbn(bad_guid) in library ')
 
 
     def test_process_item_creates_presentation_ready_work(self):
@@ -327,7 +321,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         pool = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (OneClick DRM)', lpdm.delivery_mechanism.name)
+        eq_('application/epub+zip (vnd.adobe/adept+xml)', lpdm.delivery_mechanism.name)
 
         # A Work was created and made presentation ready.
         eq_('Tea Time for the Traditionally Built', pool.work.title)
