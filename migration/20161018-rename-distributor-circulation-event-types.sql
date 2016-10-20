@@ -1,0 +1,9 @@
+update circulationevents set type='distributor_check_out' where type='check_out';
+update circulationevents set type='distributor_check_in' where type='check_in';
+update circulationevents set type='distributor_hold_place' where type='hold_place';
+update circulationevents set type='distributor_hold_release' where type='hold_release';
+update circulationevents set type='distributor_license_add' where type='license_add';
+update circulationevents set type='distributor_license_remove' where type='license_remove';
+update circulationevents set type='distributor_availability_notify' where type='availability_notify';
+update circulationevents set type='distributor_title_add' where type='title_add';
+update circulationevents set type='distributor_title_remove' where type='title_remove';

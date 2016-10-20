@@ -5817,14 +5817,14 @@ class LicensePool(Base):
 
         for old_value, new_value, more_event, fewer_event in (
                 [self.patrons_in_hold_queue,  new_patrons_in_hold_queue,
-                 CirculationEvent.HOLD_PLACE, CirculationEvent.HOLD_RELEASE], 
+                 CirculationEvent.DISTRIBUTOR_HOLD_PLACE, CirculationEvent.DISTRIBUTOR_HOLD_RELEASE],
                 [self.licenses_available, new_licenses_available,
-                 CirculationEvent.CHECKIN, CirculationEvent.CHECKOUT], 
+                 CirculationEvent.DISTRIBUTOR_CHECKIN, CirculationEvent.DISTRIBUTOR_CHECKOUT],
                 [self.licenses_reserved, new_licenses_reserved,
-                 CirculationEvent.AVAILABILITY_NOTIFY, None], 
+                 CirculationEvent.DISTRIBUTOR_AVAILABILITY_NOTIFY, None],
                 [self.licenses_owned, new_licenses_owned,
-                 CirculationEvent.LICENSE_ADD,
-                 CirculationEvent.LICENSE_REMOVE]):
+                 CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+                 CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE]):
             if new_value is None:
                 continue
             if old_value == new_value:
@@ -6414,19 +6414,35 @@ class CirculationEvent(Base):
     TYPE = u"event"
 
     # The names of the circulation events we recognize.
-    CHECKOUT = u"check_out"
-    CHECKIN = u"check_in"
-    HOLD_PLACE = u"hold_place"
-    HOLD_RELEASE = u"hold_release"
-    LICENSE_ADD = u"license_add"
-    LICENSE_REMOVE = u"license_remove"
-    AVAILABILITY_NOTIFY = u"availability_notify"
-    CIRCULATION_CHECK = u"circulation_check"
-    SERVER_NOTIFICATION = u"server_notification"
-    TITLE_ADD = u"title_add"
-    TITLE_REMOVE = u"title_remove"
+    # They may be sent to third-party analytics services
+    # as well as used locally.
+
+    # Events that happen in a circulation manager.
+    NEW_PATRON = u"circulation_manager_new_patron"
+    CM_CHECKOUT = u"circulation_manager_check_out"
+    CM_CHECKIN = u"circulation_manager_check_in"
+    CM_HOLD_PLACE = u"circulation_manager_hold_place"
+    CM_HOLD_RELEASE = u"circulation_manager_hold_release"
+    CM_FULFILL = u"circulation_manager_fulfill"
+
+    # Events that we hear about from a distributor.
+    DISTRIBUTOR_CHECKOUT = u"distributor_check_out"
+    DISTRIBUTOR_CHECKIN = u"distributor_check_in"
+    DISTRIBUTOR_HOLD_PLACE = u"distributor_hold_place"
+    DISTRIBUTOR_HOLD_RELEASE = u"distributor_hold_release"
+    DISTRIBUTOR_LICENSE_ADD = u"distributor_license_add"
+    DISTRIBUTOR_LICENSE_REMOVE = u"distributor_license_remove"
+    DISTRIBUTOR_AVAILABILITY_NOTIFY = u"distributor_availability_notify"
+    DISTRIBUTOR_TITLE_ADD = u"distributor_title_add"
+    DISTRIBUTOR_TITLE_REMOVE = u"distributor_title_remove"
+
+    # Events that we hear about from a client app.
     OPEN_BOOK = u"open_book"
-    UNKNOWN = u"unknown"
+    
+    CLIENT_EVENTS = [
+        OPEN_BOOK,
+    ]
+
 
     # The time format used when exporting to JSON.
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%S+00:00"
