@@ -1213,6 +1213,19 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             # And it involves following the 'authenticate' link.
             link = method['links']['authenticate']
             eq_(link, provider._internal_authenticate_url())
+
+    def test_token_data_source_can_create_new_data_source(self):
+        class OAuthWithUnusualDataSource(MockOAuth):
+            TOKEN_DATA_SOURCE_NAME = "Unusual data source"
+        oauth = OAuthWithUnusualDataSource()
+        source, is_new = oauth.token_data_source(self._db)
+        eq_(True, is_new)
+        eq_(oauth.TOKEN_DATA_SOURCE_NAME, source.name)
+
+        source, is_new = oauth.token_data_source(self._db)
+        eq_(False, is_new)
+        eq_(oauth.TOKEN_DATA_SOURCE_NAME, source.name)
+
         
 class TestOAuthController(DatabaseTest):
 

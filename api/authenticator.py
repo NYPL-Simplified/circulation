@@ -1078,8 +1078,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         credentials do not authenticate any particular patron. A
         ProblemDetail if an error occurs.
         """
+        data_source, ignore = self.token_data_source(_db)
         credential = Credential.lookup_by_token(
-            _db, self.token_data_source(_db), self.TOKEN_TYPE, token
+            _db, data_source, self.TOKEN_TYPE, token
         )
         if credential:
             return credential.patron
@@ -1093,7 +1094,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """Create a Credential object that ties the given patron to the
         given provider token.
         """
-        data_source = self.token_data_source(_db)
+        data_source, ignore = self.token_data_source(_db)
         duration = datetime.timedelta(days=self.token_expiration_days)
         return Credential.temporary_token_create(
             _db, data_source, self.TOKEN_TYPE, patron, duration, token
@@ -1167,9 +1168,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         return dict(name=self.NAME, methods=methods)
 
     def token_data_source(self, _db):
-        # TODO: This is one of those situations where we'd like to
-        # create the data source if it doesn't already exist.
-        return DataSource.lookup(_db, self.TOKEN_DATA_SOURCE_NAME)
+        return get_one_or_create(
+            _db, DataSource, name=self.TOKEN_DATA_SOURCE_NAME
+        )
 
 
 class OAuthController(object):
