@@ -53,10 +53,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     URI = "http://librarysimplified.org/terms/auth/clever"
 
-    # TODO: I think this can be removed because
-    # "http://librarysimplified.org/authtype/OAuth-with-intermediary"
-    # should be good enough.
-    # METHOD = "http://librarysimplified.org/authtype/Clever"
     NAME = 'Clever'
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
