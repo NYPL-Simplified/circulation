@@ -16,6 +16,7 @@ import urllib
 import urlparse
 
 from core.model import (
+    Credential,
     DataSource,
     Patron
 )
@@ -1194,6 +1195,45 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
 
         # Now it works.
         eq_(patron, provider.authenticated_patron(self._db, "some token"))
+
+    def test_oauth_callback(self):
+
+        mock_patrondata = PatronData(
+            authorization_identifier="1234",
+            username="user",
+            personal_name="The User"
+        )
+
+        class CallbackImplementation(MockOAuth):
+            def remote_exchange_code_for_access_token(self, access_code):
+                self.used_code = access_code
+                return "a token"
+
+            def remote_patron_lookup(self, bearer_token):
+                return mock_patrondata
+            
+        oauth = CallbackImplementation()
+        credential, patron, patrondata = oauth.oauth_callback(
+            self._db, "a code"
+        )
+
+        # remote_exchange_code_for_access_token was called with the
+        # access code.
+        eq_("a code", oauth.used_code)
+
+        # The bearer token became a Credential object.
+        assert isinstance(credential, Credential)
+        eq_("a token", credential.credential)
+
+        # Information that could go into the Patron record did.
+        assert isinstance(patron, Patron)
+        eq_("1234", patron.authorization_identifier)
+        eq_("user", patron.username)
+
+        # The PatronData returned from remote_patron_lookup
+        # has been passed along.
+        eq_(mock_patrondata, patrondata)
+        eq_("The User", patrondata.personal_name)
         
     def test_authentication_provider_document(self):
         # We're about to call url_for, so we must create an
