@@ -156,7 +156,7 @@ def genres():
 def bulk_circulation_events():
     """Returns a CSV representation of all circulation events with optional
     start and end times."""
-    data, date = app.manager.admin_feed_controller.bulk_circulation_events()
+    data, date = app.manager.admin_dashboard_controller.bulk_circulation_events()
     if isinstance(data, ProblemDetail):
         return data
 
@@ -203,7 +203,16 @@ def bulk_circulation_events():
 @requires_admin
 def circulation_events():
     """Returns a JSON representation of the most recent circulation events."""
-    data = app.manager.admin_feed_controller.circulation_events()
+    data = app.manager.admin_dashboard_controller.circulation_events()
+    if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
+
+@app.route('/admin/stats')
+@returns_problem_detail
+@requires_admin
+def stats():
+    data = app.manager.admin_dashboard_controller.stats()
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)

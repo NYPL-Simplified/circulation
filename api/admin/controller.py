@@ -20,9 +20,12 @@ from core.model import (
     DataSource,
     Edition,
     Genre,
+    Hold,
     Hyperlink,
     Identifier,
     LicensePool,
+    Loan,
+    Patron,
     PresentationCalculationPolicy,
     Subject,
     Work,
@@ -57,7 +60,7 @@ from core.classifier import (
 )
 from datetime import datetime, timedelta
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import desc, nullslast
+from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
 
@@ -73,6 +76,7 @@ def setup_admin_controllers(manager):
     manager.admin_work_controller = WorkController(manager)
     manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_feed_controller = FeedController(manager)
+    manager.admin_dashboard_controller = DashboardController(manager)
 
 
 class AdminController(object):
@@ -609,6 +613,135 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+class DashboardController(CirculationManagerController):
+
+    def stats(self):
+        patron_count = self._db.query(Patron).count()
+
+        active_loans_patron_count = self._db.query(
+            distinct(Patron.id)
+        ).join(
+            Patron.loans
+        ).filter(
+            Loan.end >= datetime.now(),
+        ).count()
+
+        active_patrons = select(
+            [Patron.id]
+        ).select_from(
+            join(
+                Loan,
+                Patron,
+                and_(
+                    Patron.id == Loan.patron_id,
+                    Loan.id != None,
+                    Loan.end >= datetime.now()
+                )
+            )
+        ).union(
+            select(
+                [Patron.id]
+            ).select_from(
+                join(
+                    Hold,
+                    Patron,
+                    Patron.id == Hold.patron_id
+                )
+            )
+        ).alias()
+        
+
+        active_loans_or_holds_patron_count_query = select(
+            [func.count(distinct(active_patrons.c.id))]
+        ).select_from(
+            active_patrons
+        )
+
+        result = self._db.execute(active_loans_or_holds_patron_count_query)
+        active_loans_or_holds_patron_count = [r[0] for r in result][0]
+
+        loan_count = self._db.query(
+            Loan
+        ).filter(
+            Loan.end >= datetime.now()
+        ).count()
+
+        hold_count = self._db.query(Hold).count()
+
+        overdrive_count = self._db.query(
+            LicensePool
+        ).join(
+            DataSource
+        ).filter(
+            LicensePool.licenses_owned > 0,
+        ).filter(
+            DataSource.name == DataSource.OVERDRIVE,
+        ).count()
+
+        bibliotheca_count = self._db.query(
+            LicensePool
+        ).join(
+            DataSource
+        ).filter(
+            LicensePool.licenses_owned > 0,
+        ).filter(
+            DataSource.name == DataSource.BIBLIOTHECA,
+        ).count()
+
+        axis360_count = self._db.query(
+            LicensePool
+        ).join(
+            DataSource
+        ).filter(
+            LicensePool.licenses_owned > 0,
+        ).filter(
+            DataSource.name == DataSource.AXIS_360,
+        ).count()
+
+        open_access_count = self._db.query(
+            LicensePool
+         ).filter(
+            LicensePool.open_access == True
+         ).count()
+
+        title_count = self._db.query(LicensePool).count()
+
+        # The sum queries return None instead of 0 if there are
+        # no license pools in the db.
+
+        license_count = self._db.query(
+            func.sum(LicensePool.licenses_owned)
+        ).filter(
+            LicensePool.open_access == False,
+        ).all()[0][0] or 0
+
+        available_license_count = self._db.query(
+            func.sum(LicensePool.licenses_available)
+        ).filter(
+            LicensePool.open_access == False,
+        ).all()[0][0] or 0
+
+        return dict(
+            patrons=dict(
+                total=patron_count,
+                with_active_loans=active_loans_patron_count,
+                with_active_loans_or_holds=active_loans_or_holds_patron_count,
+                loans=loan_count,
+                holds=hold_count,
+            ),
+            inventory=dict(
+                titles=title_count,
+                licenses=license_count,
+                available_licenses=available_license_count,
+            ),
+            vendors=dict(
+                overdrive=overdrive_count,
+                bibliotheca=bibliotheca_count,
+                axis360=axis360_count,
+                open_access=open_access_count,
+            ),
+        )
 
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation)
