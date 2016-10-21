@@ -1040,7 +1040,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # redirected to this URL on the OAuth provider's site.
     #
     # This URL template MUST contain Python variable interpolations
-    # for 'client_id', 'oauth_callback_uri', 'state'. This way the
+    # for 'client_id', 'oauth_callback_url', 'state'. This way the
     # OAuth provider knows which client is asking to authenticate a
     # user, and it knows to send the client back to our
     # oauth_authentication_callback controller. Finally, the
@@ -1050,7 +1050,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # As an example, here's the EXTERNAL_AUTHENTICATE_URL for the
     # Clever OAuth provider:
     #
-    # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_uri)s&state=%(state)s"
+    # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
     
@@ -1151,7 +1151,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             state=state,
             # When the patron finishes logging in to the OAuth provider,
             # we want them to send the patron to this URL.
-            oauth_callback_uri=url_for('oauth_callback', _external=True)
+            oauth_callback_url=OAuthController.oauth_authentication_callback_url()
         )
 
 
@@ -1260,6 +1260,17 @@ class OAuthController(object):
     def __init__(self, authenticator):
         self.authenticator = authenticator
 
+    @classmethod
+    def oauth_authentication_callback_url(cls):
+        """The URL to the oauth_authentication_callback controller.
+
+        This is its own method because sometimes an
+        OAuthAuthenticationProvider needs to send it to the OAuth
+        provider to demonstrate that it knows which URL a patron was
+        redirected to.
+        """
+        return url_for('oauth_callback', _external=True)
+        
     def oauth_authentication_redirect(self, params):
         """Redirect an unauthenticated patron to the authentication URL of the
         appropriate OAuth provider.

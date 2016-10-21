@@ -11,6 +11,7 @@ from core.util.problem_detail import ProblemDetail
 
 from api.authenticator import (
     OAuthAuthenticationProvider,
+    OAuthController,
     PatronData,
 )
 from api.config import Configuration
@@ -57,7 +58,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
-    EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_uri)s&state=%(state)s"
+    EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     CLEVER_TOKEN_URL = "https://clever.com/oauth/tokens"
     CLEVER_API_BASE_URL = "https://api.clever.com"
 
@@ -126,7 +127,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         payload = dict(
             code=code,
             grant_type='authorization_code',
-            redirect_uri=self._server_redirect_uri(),
+            redirect_uri=OAuthController.oauth_authentication_callback_url()
         )
         authorization = base64.b64encode(
             self.client_id + ":" + self.client_secret
