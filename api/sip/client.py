@@ -240,7 +240,8 @@ class SIPClient(Constants):
         """
         if not self.logged_in and message_creator != self.login_message:
             # The first thing we need to do is log in.
-            response = self.login(self.login_user_id, self.login_password)
+            response = self.login(self.login_user_id, self.login_password,
+                                  self.location_code)
             if response['login_ok'] != '1':
                 raise IOError("Error logging in: %r" % response)
             self.logged_in = True
@@ -263,12 +264,16 @@ class SIPClient(Constants):
         return parsed
         
 
-    def login_message(self, login_user_id, login_password, uid_algorithm="0",
+    def login_message(self, login_user_id, login_password, location_code="",
+                      uid_algorithm="0",
                       pwd_algorithm="0"):
         """Generate a message for logging in to a SIP server."""
         message = ("93" + uid_algorithm + pwd_algorithm
                    + "CN" + login_user_id + self.separator
-                   + "CO" + login_password)
+                   + "CO" + login_password
+        )
+        if location_code:
+            message = message + self.separator + "CP" + location_code
         return message      
 
     def login_response_parser(self, message):
