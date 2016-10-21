@@ -1262,7 +1262,6 @@ class OAuthController(object):
         """
         code = params.get('code')
         state = params.get('state')
-        redirect_uri = params.get('redirect_uri', '')
         if not code or not state:
             return INVALID_OAUTH_CALLBACK_PARAMETERS
 
@@ -1271,7 +1270,7 @@ class OAuthController(object):
         provider_name = state.get('provider')
         provider = self.authenticator.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
-            return self._redirect_with_error(redirect_uri, provider)
+            return self._redirect_with_error(client_redirect_uri, provider)
 
         # Send the incoming parameters to the OAuth provider and get
         # back a provider token (a Credential object), the
