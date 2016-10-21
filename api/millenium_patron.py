@@ -94,7 +94,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         path = "%(barcode)s/dump" % dict(barcode=current_identifier)
         url = self.root + path
         response = self.request(url)
-        set_trace()
         return self.patron_dump_to_patrondata(
             current_identifier, response.content
         )
