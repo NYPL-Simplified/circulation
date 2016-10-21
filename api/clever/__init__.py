@@ -106,13 +106,6 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     # End implementations of OAuthAuthenticationProvider abstract
     # methods.
 
-    def external_authenticate_url_parameters(self, state):
-        """Arguments used to fill in the template EXTERNAL_AUTHENTICATE_URL.
-        """
-        params = super(CleverAuthenticationAPI, self).external_authenticate_url_parameters(state)
-        params['client_id'] = self.client_id
-        return params
-
     def remote_exchange_code_for_bearer_token(self, code):
         """Ask the OAuth provider to convert a code (passed in to the OAuth
         callback) into a bearer token.

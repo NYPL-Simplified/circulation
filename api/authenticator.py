@@ -1040,20 +1040,17 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # redirected to this URL on the OAuth provider's site.
     #
     # This URL template MUST contain Python variable interpolations
-    # for 'oauth_callback_uri' and 'state'. This way the OAuth
-    # provider knows to send the client back to our
-    # oauth_authentication_callback controller, and the oauth_callback
-    # controller maintains any state from the initial request to
-    # oauth_authentication_redirect.
+    # for 'client_id', 'oauth_callback_uri', 'state'. This way the
+    # OAuth provider knows which client is asking to authenticate a
+    # user, and it knows to send the client back to our
+    # oauth_authentication_callback controller. Finally, the
+    # oauth_callback controller can maintain any state from the
+    # initial request to oauth_authentication_redirect.
     #
     # As an example, here's the EXTERNAL_AUTHENTICATE_URL for the
     # Clever OAuth provider:
     #
     # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_uri)s&state=%(state)s"
-    #
-    # %(client_id)s is a clever-specific interpolation which is filled
-    # in by the Clever authentication provider's implementation of
-    # external_authenticate_url_parameters().
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
     
@@ -1150,6 +1147,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """Arguments used to fill in the template EXTERNAL_AUTHENTICATE_URL.
         """
         return dict(
+            client_id=self.client_id,
             state=state,
             # When the patron finishes logging in to the OAuth provider,
             # we want them to send the patron to this URL.
@@ -1230,6 +1228,7 @@ class OAuthController(object):
         redirected back to the circulation manager, ending up in
         oauth_authentication_callback.
         """
+        redirect_uri = params.get('redirect_uri', '')
         provider_name = params.get('provider')
         provider = self.authenticator.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):

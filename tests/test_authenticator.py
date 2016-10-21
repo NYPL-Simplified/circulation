@@ -265,6 +265,7 @@ class TestPatronData(DatabaseTest):
         patron.authorization_identifier = None
         patron.last_external_sync = now
         authenticated.apply(patron)
+        eq_("1234", patron.authorization_identifier)
         eq_(None, patron.last_external_sync)
 
         # If a patron authenticates by username, we leave their Patron
@@ -915,18 +916,18 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         # by authorization identifier or username, but not by
         # permanent identifier.
         eq_(
-            patron2, provider.local_patron_lookup(
-                self._db, patron2.authorization_identifier, None
+            patron1, provider.local_patron_lookup(
+                self._db, patron1.authorization_identifier, None
             )
         )
         eq_(
-            patron2, provider.local_patron_lookup(
-                self._db, patron2.username, None
+            patron1, provider.local_patron_lookup(
+                self._db, patron1.username, None
             )
         )
         eq_(
             None, provider.local_patron_lookup(
-                self._db, patron2.external_identifier, None
+                self._db, patron1.external_identifier, None
             )
         )        
 
@@ -1099,7 +1100,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         # new identifiers.
         eq_(new_identifier, patron.authorization_identifier)
 
-    def test_authentication_updates_outdated_patron_on_username_match(self):
+    def test_authentication_updates_outdated_patron_on_authorization_identifier_match(self):
         # This patron has no permanent ID. Their username has
         # changed but their library card number has not.
         identifier = "1234"
@@ -1233,6 +1234,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         # We're about to call url_for, so we must create an
         # application context.
         my_api = MockOAuth()
+        my_api.client_id = "clientid"
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
@@ -1240,6 +1242,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         with app.test_request_context("/"):        
             params = my_api.external_authenticate_url_parameters("state")
             eq_("state", params['state'])
+            eq_("clientid", params['client_id'])
             eq_("http://localhost/oauth_callback",
                 params['oauth_callback_uri'])
         
@@ -1273,7 +1276,6 @@ class TestOAuthController(DatabaseTest):
             self._db, "http://oauth2.org/", patron
         )
         self.oauth2.NAME = "Mock OAuth 2"
-        # Check that the correct auth provider is called.           
         self.auth = Authenticator(
             basic_auth_provider=self.basic,
             oauth_providers=[self.oauth1, self.oauth2],
@@ -1327,7 +1329,7 @@ class TestOAuthController(DatabaseTest):
         eq_(self.oauth1.NAME, provider_name)
         eq_(self.oauth1.token.credential, provider_token)
         
-        # Successful callback through OAuth provider 1.
+        # Successful callback through OAuth provider 2.
         params = dict(code="foo", state=json.dumps(dict(provider=self.oauth2.NAME)))
         response = self.controller.oauth_authentication_callback(self._db, params)
         eq_(302, response.status_code)

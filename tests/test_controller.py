@@ -129,7 +129,7 @@ class ControllerTest(DatabaseTest):
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
             _db, Patron, authorization_identifier="unittestuser",
-            create_method_kwargs=dict(external_identifier="unittestpassword")
+            create_method_kwargs=dict(external_identifier="unittestuser")
         )
         
         with temp_config() as config:
