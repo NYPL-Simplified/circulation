@@ -312,13 +312,13 @@ def adobe_vendor_id_status():
 @app.route('/oauth_authenticate')
 @returns_problem_detail
 def oauth_authenticate():
-    return app.manager.auth.oauth_authenticate(flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args)
 
 # Redirect URI for OAuth providers, eg. Clever
 @app.route('/oauth_callback')
 @returns_problem_detail
 def oauth_callback():
-    return app.manager.auth.oauth_callback(app.manager._db, flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
 
 
 # Controllers used for operations purposes

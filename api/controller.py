@@ -84,7 +84,10 @@ from annotations import (
 )
 from problem_details import *
 
-from authenticator import Authenticator
+from authenticator import (
+    Authenticator,
+    OAuthController,
+)
 from config import (
     Configuration, 
     CannotLoadConfiguration
@@ -219,7 +222,8 @@ class CirculationManager(object):
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
-
+        self.oauth_controller = OAuthController(self.auth)
+        
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
