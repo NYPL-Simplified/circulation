@@ -4218,6 +4218,8 @@ class TestPatron(DatabaseTest):
             """
             now = datetime.datetime.utcnow()
             one_hour_ago = now - datetime.timedelta(hours=1)
+            six_seconds_ago = now - datetime.timedelta(seconds=6)
+            three_seconds_ago = now - datetime.timedelta(seconds=3)
             yesterday = now - datetime.timedelta(days=1)
             
             patron = self._patron()
@@ -4235,9 +4237,12 @@ class TestPatron(DatabaseTest):
             eq_(True, patron.needs_external_sync)            
 
             # Patron was synced recently but has no borrowing
-            # privileges.
+            # privileges. Timeout is five seconds instead of 12 hours.
             patron.authorization_expires = yesterday
-            patron.last_external_sync = one_hour_ago
+            patron.last_external_sync = three_seconds_ago
+            eq_(False, patron.needs_external_sync)
+
+            patron.last_external_sync = six_seconds_ago
             eq_(True, patron.needs_external_sync)
 
 

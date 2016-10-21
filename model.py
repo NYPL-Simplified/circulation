@@ -473,11 +473,18 @@ class Patron(Base):
             return True
         
         now = datetime.datetime.now()
-        expired_at = self.last_external_sync + datetime.timedelta(hours=12)
+        if self.has_borrowing_privileges:
+            # A patron who has borrowing privileges gets synced every twelve
+            # hours. Their account is unlikely to change rapidly.
+            check_every = datetime.timedelta(hours=12)
+        else:
+            # A patron without borrowing privileges might get synced
+            # every time they make a request. It's likely they are
+            # taking action to get their account reinstated and we
+            # don't want to make them wait twelve hours to get access.
+            check_every = datetime.timedelta(seconds=5)
+        expired_at = self.last_external_sync + check_every
         if now > expired_at:
-            return True
-
-        if not self.has_borrowing_privileges:
             return True
         return False
 
