@@ -1230,8 +1230,6 @@ class OAuthController(object):
         redirected back to the circulation manager, ending up in
         oauth_authentication_callback.
         """
-        redirect_uri = params.get('redirect_uri') or ""
-
         provider_name = params.get('provider')
         provider = self.authenticator.oauth_provider_lookup(provider_name)
         if isinstance(provider, ProblemDetail):
