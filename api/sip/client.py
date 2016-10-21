@@ -174,14 +174,16 @@ class SIPClient(Constants):
     log = logging.getLogger("SIPClient")
    
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, separator='|'):
+                 login_password=None, location_code=None, separator=None):
         self.target_server = target_server
         if target_port:
             self.target_port = int(target_port)
+        self.location_code = location_code
+        self.separator = separator or '|'
+
         # keeps count of messages sent to ACS
         self.sequence_number = 1
         self.socket = self.connect()
-        self.separator = separator
 
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
