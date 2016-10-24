@@ -151,7 +151,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             elif k == self.EMAIL_ADDRESS_FIELD:
                 email_address = v
             elif k == self.FINES_FIELD:
-                fines = MoneyUtility.parse(v)
+                try:
+                    fines = MoneyUtility.parse(v)
+                except ValueError:
+                    self.log.warn(
+                        'Malformed fine amount for patron: "%s". Treating as no fines.'
+                    )
+                    fines = Money("0", "USD")
             elif k == self.BLOCK_FIELD:
                 # TODO: There are different types of blocks and we can
                 # give more helpful error messages by distinguishing

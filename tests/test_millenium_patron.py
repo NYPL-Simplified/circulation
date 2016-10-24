@@ -284,7 +284,6 @@ class TestMilleniumPatronAPI(DatabaseTest):
         p.last_external_sync = ten_seconds_ago
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.success.html")
-        set_trace()
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
 
@@ -303,7 +302,18 @@ class TestMilleniumPatronAPI(DatabaseTest):
         auth = dict(username="44444444444447", password="4444")
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
-
+        eq_(None, p.authorization_expires)
+        
+    def test_authentication_patron_invalid_fine_amount(self):
+        p = self._patron()
+        p.authorization_identifier = "44444444444447"
+        self.api.enqueue("pintest.good.html")
+        self.api.enqueue("dump.invalid_fines.html")
+        auth = dict(username="44444444444447", password="4444")
+        p2 = self.api.authenticated_patron(self._db, auth)
+        eq_(p2, p)
+        eq_(0, p.fines)
+        
     def test_patron_dump_to_patrondata(self):
         content = self.api.sample_data("dump.success.html")
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
