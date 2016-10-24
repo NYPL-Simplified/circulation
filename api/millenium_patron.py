@@ -5,6 +5,7 @@ from urlparse import urljoin
 from urllib import urlencode
 import datetime
 import requests
+from money import Money
 
 from core.util.xmlparser import XMLParser
 from authenticator import (
@@ -44,6 +45,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
+    DEFAULT_CURRENCY = "USD"
+    
     @classmethod
     def config_values(cls):
         config, values = super(MilleniumPatronAPI, cls).config_values()
@@ -147,7 +150,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             elif k == self.EMAIL_ADDRESS_FIELD:
                 email_address = v
             elif k == self.FINES_FIELD:
-                fines = v
+                fines = self.parse_fines(v)
             elif k == self.BLOCK_FIELD:
                 # TODO: There are different types of blocks and we can
                 # give more helpful error messages by distinguishing
@@ -204,7 +207,15 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             complete=True
         )
         return data
-        
+
+    def parse_fines(self, amount):
+        """Turn a string into a Money object."""
+        currency = self.DEFAULT_CURRENCY
+        if amount[0] == '$':
+            currency = 'USD'
+            amount = amount[1:]
+        return Money(amount, currency)
+    
     def _extract_text_nodes(self, content):
         """Parse the HTML representations sent by the Millenium Patron API."""
         for line in content.split("\n"):

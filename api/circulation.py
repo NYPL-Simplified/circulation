@@ -200,13 +200,20 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            def parse_fines(fines):
-                dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
-                return (int(dollars) * 100) + int(cents)
-
-            max_fines = Configuration.policy(Configuration.MAX_OUTSTANDING_FINES)
+            max_fines = Configuration.policy(
+                Configuration.MAX_OUTSTANDING_FINES
+            )
+            # The currency doesn't really matter because we're just
+            # comparing two numbers.
+            default_currency = 'USD'
             if max_fines:
-                if parse_fines(patron.fines) >= parse_fines(max_fines):
+                if max_fines.startswith('$'):
+                    currency = 'USD'
+                    max_fines = max_fines[1:]
+                else:
+                    currency = default_currency
+                max_fines = Money(max_fines, currency)
+                if max_fines.amount >= patron.fines
                     raise OutstandingFines()
 
         # Do we (think we) already have this book out on loan?

@@ -1,5 +1,6 @@
 import pkgutil
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from nose.tools import (
     eq_,
     set_trace,
@@ -75,7 +76,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("6666666", patrondata.permanent_id)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_("alice", patrondata.username)
-        eq_("$0.00", patrondata.fines)
+        eq_(Decimal(0), patrondata.fines)
         eq_(date(2059, 4, 1), patrondata.authorization_expires)
         eq_("SHELDON, ALICE", patrondata.personal_name)
         eq_("alice@sheldon.com", patrondata.email_address)
@@ -277,10 +278,13 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(p2.last_external_sync, one_hour_ago)
 
         # However, if the card has expired, a sync is performed every
-        # time.
+        # few seconds.
+        ten_seconds_ago = now - timedelta(seconds=10)
         p.authorization_expires = one_week_ago
+        p.last_external_sync = ten_seconds_ago
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.success.html")
+        set_trace()
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
 
