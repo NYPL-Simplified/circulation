@@ -541,6 +541,7 @@ class TestMoneyUtility(object):
 
     def test_parse(self):
         p = MoneyUtility.parse
+        eq_(Money("0", "USD"), p(None))
         eq_(Money("4.00", "USD"), p("4"))
         eq_(Money("-4.00", "USD"), p("-4"))
         eq_(Money("4.40", "USD"), p("4.40"))
