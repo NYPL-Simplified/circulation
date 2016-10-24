@@ -6580,7 +6580,7 @@ class Credential(Base):
             return None
 
     @classmethod
-    def lookup_by_temporary_token(cls, _db, data_source, type, token):
+    def lookup_and_expire_temporary_token(cls, _db, data_source, type, token):
         """Look up a temporary token and expire it immediately."""
         credential = cls.lookup_by_token(_db, data_source, type, token)
         if not credential:
