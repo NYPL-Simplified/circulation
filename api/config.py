@@ -114,6 +114,13 @@ class Configuration(CoreConfiguration):
         return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
 
     @classmethod
+    def max_outstanding_fines(cls):
+        max_fines = Configuration.policy(
+            Configuration.MAX_OUTSTANDING_FINES
+        )
+        return MoneyUtility.parse(max_fines)
+    
+    @classmethod
     def load(cls):
         CoreConfiguration.load()
         cls.instance = CoreConfiguration.instance
