@@ -1284,7 +1284,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             eq_("state", params['state'])
             eq_("clientid", params['client_id'])
             eq_("http://localhost/oauth_callback",
-                params['oauth_callback_uri'])
+                params['oauth_callback_url'])
         
 class TestOAuthController(DatabaseTest):
 
