@@ -472,7 +472,7 @@ class Patron(Base):
             # This patron has never been synced.
             return True
         
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         if self.has_borrowing_privileges:
             # A patron who has borrowing privileges gets synced every twelve
             # hours. Their account is unlikely to change rapidly.
