@@ -619,7 +619,7 @@ class LoanController(CirculationManagerController):
             )
         except OutstandingFines, e:
             problem_doc = OUTSTANDING_FINES.detailed(
-                _("You must pay your %(fine_amount)s outstanding fines before you can borrow more books.", fine_amount=patron.fines)
+                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
             )
         except CannotLoan, e:
             problem_doc = CHECKOUT_FAILED.with_debug(str(e))

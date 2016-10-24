@@ -7,6 +7,7 @@ from core.config import (
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
+from core.util import MoneyUtility
 
 class Configuration(CoreConfiguration):
 
