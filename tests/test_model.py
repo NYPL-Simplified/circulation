@@ -3263,7 +3263,7 @@ class TestAnnotation(DatabaseTest):
         pool = self._licensepool(None)
         annotation, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=self._patron(),
             identifier=pool.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3280,9 +3280,10 @@ class TestAnnotation(DatabaseTest):
     def test_patron_annotations_are_descending(self):
         pool1 = self._licensepool(None)
         pool2 = self._licensepool(None)
+        patron = self._patron()
         annotation1, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=patron,
             identifier=pool2.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3290,7 +3291,7 @@ class TestAnnotation(DatabaseTest):
         )
         annotation2, ignore = create(
             self._db, Annotation,
-            patron=self.default_patron,
+            patron=patron,
             identifier=pool2.identifier,
             motivation=Annotation.IDLING,
             content="The content",
@@ -3302,9 +3303,9 @@ class TestAnnotation(DatabaseTest):
         annotation1.timestamp = yesterday
         annotation2.timestamp = today
 
-        eq_(2, len(self.default_patron.annotations))
-        eq_(annotation2, self.default_patron.annotations[0])
-        eq_(annotation1, self.default_patron.annotations[1])
+        eq_(2, len(patron.annotations))
+        eq_(annotation2, patron.annotations[0])
+        eq_(annotation1, patron.annotations[1])
     
 
 class TestHyperlink(DatabaseTest):
@@ -4103,6 +4104,20 @@ class TestCredentials(DatabaseTest):
         )
         eq_(token, no_expiration_token)
 
+    def test_specify_value_of_temporary_token(self):
+        """By default, a temporary token has a randomly generated value, but
+        you can give a specific value to represent a temporary token you got
+        from somewhere else.
+        """
+        patron = self._patron()
+        duration = datetime.timedelta(hours=1)
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        token, is_new = Credential.temporary_token_create(
+            self._db, data_source, "some random type", patron, duration,
+            "Some random value"
+        )
+        eq_("Some random value", token.credential)
+        
     def test_temporary_token_overwrites_old_token(self):
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
@@ -4183,6 +4198,52 @@ class TestPatron(DatabaseTest):
             config[Configuration.POLICIES][key] = "(not a valid regexp"
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
+
+        def test_has_borrowing_privileges(self):
+            """Test the method that encapsulates the determination
+            of whether or not a patron can borrow books.
+            """
+            one_hour_ago = now - datetime.timedelta(hours=1)
+
+            patron = self._patron()
+            eq_(True, patron.has_borrowing_privileges)
+
+            patron.authorization_expires = one_hour_ago
+            eq_(False, patron.has_borrowing_privileges)
+            
+        def test_needs_external_sync(self):
+            """Test the method that encapsulates the determination
+            of whether or not a patron needs to have their account
+            synced with the remote.
+            """
+            now = datetime.datetime.utcnow()
+            one_hour_ago = now - datetime.timedelta(hours=1)
+            six_seconds_ago = now - datetime.timedelta(seconds=6)
+            three_seconds_ago = now - datetime.timedelta(seconds=3)
+            yesterday = now - datetime.timedelta(days=1)
+            
+            patron = self._patron()
+
+            # Patron has never been synced.
+            patron.last_external_sync = None
+            eq_(True, patron.needs_metadata_update)
+
+            # Patron was synced recently.
+            patron.last_external_sync = one_hour_ago
+            eq_(False, patron.needs_external_sync)
+
+            # Patron was synced more than 12 hours ago.
+            patron.last_external_sync = yesterday
+            eq_(True, patron.needs_external_sync)            
+
+            # Patron was synced recently but has no borrowing
+            # privileges. Timeout is five seconds instead of 12 hours.
+            patron.authorization_expires = yesterday
+            patron.last_external_sync = three_seconds_ago
+            eq_(False, patron.needs_external_sync)
+
+            patron.last_external_sync = six_seconds_ago
+            eq_(True, patron.needs_external_sync)
 
 
 class TestBaseCoverageRecord(DatabaseTest):

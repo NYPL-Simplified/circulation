@@ -458,7 +458,61 @@ class Patron(Base):
             return True
         return False
 
+    @property
+    def needs_external_sync(self):
+        """Could this patron stand to have their metadata synced with the
+        remote?
 
+        By default, all patrons get synced once every twelve
+        hours. Patrons who lack borrowing privileges can always stand
+        to be synced, since their privileges may have just been
+        restored.
+        """
+        if not self.last_external_sync:
+            # This patron has never been synced.
+            return True
+        
+        now = datetime.datetime.utcnow()
+        if self.has_borrowing_privileges:
+            # A patron who has borrowing privileges gets synced every twelve
+            # hours. Their account is unlikely to change rapidly.
+            check_every = datetime.timedelta(hours=12)
+        else:
+            # A patron without borrowing privileges might get synced
+            # every time they make a request. It's likely they are
+            # taking action to get their account reinstated and we
+            # don't want to make them wait twelve hours to get access.
+            check_every = datetime.timedelta(seconds=5)
+        expired_at = self.last_external_sync + check_every
+        if now > expired_at:
+            return True
+        return False
+
+    @property
+    def has_borrowing_privileges(self):
+        """Is the given patron allowed to check out books?
+        """
+        now = datetime.datetime.utcnow()
+        if (self.authorization_expires and
+            self._to_date(self.authorization_expires)
+            < self._to_date(now)
+        ):
+            # The patron's card has expired.
+            return False
+
+        # TODO: Check patron's fines and return false if they are
+        # excessive (this depends on site policy).
+
+        # TODO: The patron may be blocked for some other reason; we
+        # should track it and check it.
+        return True
+
+    def _to_date(self, x):
+        """Convert a datetime into a date. Leave a date alone."""
+        if isinstance(x, datetime.datetime):
+            return x.date()
+        return x
+    
     @property
     def authorization_is_active(self):
         # Unlike pretty much every other place in this app, I use
@@ -466,7 +520,7 @@ class Patron(Base):
         # less likely that a patron's authorization will expire before
         # they think it should.
         if (self.authorization_expires
-            and self.authorization_expires 
+            and self._to_date(self.authorization_expires)
             < datetime.datetime.now().date()):
             return False
         return True
@@ -6536,13 +6590,15 @@ class Credential(Base):
         return credential
 
     @classmethod
-    def temporary_token_create(self, _db, data_source, type, patron, duration):
+    def temporary_token_create(
+            self, _db, data_source, type, patron, duration, value=None
+    ):
         """Create a temporary token for the given data_source/type/patron.
 
         The token will be good for the specified `duration`.
         """
         expires = datetime.datetime.utcnow() + duration
-        token_string = str(uuid.uuid1())
+        token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
         # If there was already a token of this type for this patron,
