@@ -850,8 +850,7 @@ class TestLoanController(CirculationControllerTest):
                 
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
-                assert "outstanding fines" in response.detail
-                assert "$12345678.90" in response.detail
+                assert "$12345678.90 outstanding" in response.detail
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {

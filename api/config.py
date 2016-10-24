@@ -7,6 +7,7 @@ from core.config import (
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
+from core.util import MoneyUtility
 
 class Configuration(CoreConfiguration):
 
@@ -113,6 +114,13 @@ class Configuration(CoreConfiguration):
     def default_notification_email_address(cls):
         return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
 
+    @classmethod
+    def max_outstanding_fines(cls):
+        max_fines = Configuration.policy(
+            Configuration.MAX_OUTSTANDING_FINES
+        )
+        return MoneyUtility.parse(max_fines)
+    
     @classmethod
     def load(cls):
         CoreConfiguration.load()

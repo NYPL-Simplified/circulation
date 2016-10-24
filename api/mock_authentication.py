@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import logging
+from decimal import Decimal
 
 from authenticator import (
     BasicAuthenticationProvider,
@@ -68,7 +69,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
             patrondata.authorization_expires = now - one_day
         elif self.valid_patron(username, password, self.patrons_with_fines):
             # The patron has racked up huge fines.
-            patrondata.fines = "$12345678.90"
+            patrondata.fines = Decimal(12345678.90)
         else:
             return None
         return patrondata

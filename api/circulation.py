@@ -200,14 +200,9 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            def parse_fines(fines):
-                dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
-                return (int(dollars) * 100) + int(cents)
-
-            max_fines = Configuration.policy(Configuration.MAX_OUTSTANDING_FINES)
-            if max_fines:
-                if parse_fines(patron.fines) >= parse_fines(max_fines):
-                    raise OutstandingFines()
+            max_fines = Configuration.max_outstanding_fines()
+            if patron.fines >= max_fines.amount:
+                raise OutstandingFines()
 
         # Do we (think we) already have this book out on loan?
         existing_loan = get_one(

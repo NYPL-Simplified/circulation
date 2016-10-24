@@ -12,6 +12,7 @@ from nose.tools import (
 import datetime
 import json
 import os
+from money import Money
 import urllib
 import urlparse
 
@@ -142,7 +143,7 @@ class TestPatronData(DatabaseTest):
             personal_name="4",
             email_address="5",
             authorization_expires=datetime.datetime.utcnow(),
-            fines="6",
+            fines=Money(6, "USD"),
             blocked=False,
         )
         
@@ -1024,7 +1025,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         patrondata = PatronData(
             permanent_id=self._str,
             authorization_identifier=self._str,
-            fines="$1.00",
+            fines=Money(1, "USD"),
         )
         provider = MockBasic(patrondata, patrondata)
         patron = provider.authenticate(self._db, self.credentials)
@@ -1037,7 +1038,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
 
         # Information not relevant to the patron's identity was stored
         # in the Patron object after it was created.
-        eq_("$1.00", patron.fines)
+        eq_(1, patron.fines)
     
     def test_authentication_updates_outdated_patron_on_permanent_id_match(self):
         # A patron's permanent ID won't change.

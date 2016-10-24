@@ -19,6 +19,7 @@ from problem_details import *
 
 import datetime
 import logging
+from money import Money
 import re
 import urlparse
 import urllib
@@ -105,8 +106,10 @@ class PatronData(object):
         :param external_type: A string classifying the patron
         according to some library-specific scheme.
 
-        :param fines: An amount of money representing the amount the
-        patron owes in fines.
+        :param fines: A Money object representing the amount the
+        patron owes in fines. Note that only the value portion of the
+        Money object will be stored in the database; the currency portion
+        will be ignored. (e.g. "20 USD" will become 20)
 
         :param blocked: A boolean indicating whether or not the patron
         is blocked from borrowing items for any reason. (Even if this
@@ -126,6 +129,8 @@ class PatronData(object):
         self.username = username
         self.authorization_expires = authorization_expires
         self.external_type = external_type
+        if isinstance(fines, Money):
+            fines = fines.amount
         self.fines = fines
         self.blocked = blocked
         self.complete = complete
