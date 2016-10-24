@@ -1101,6 +1101,8 @@ class MoneyUtility(object):
     def parse(cls, amount):
         """Attempt to turn a string into a Money object."""
         currency = cls.DEFAULT_CURRENCY
+        if not amount:
+            amount = '0'
         if amount[0] == '$':
             currency = 'USD'
             amount = amount[1:]
