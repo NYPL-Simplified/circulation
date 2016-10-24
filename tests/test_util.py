@@ -1,6 +1,7 @@
 # encoding: utf-8
 from collections import defaultdict
 import json
+from money import Money
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -20,6 +21,7 @@ from util import (
     english_bigrams,
     LanguageCodes,
     MetadataSimilarity,
+    MoneyUtility,
     TitleProcessor,
     fast_query_count,
 )
@@ -533,3 +535,14 @@ class TestFastQueryCount(DatabaseTest):
         # the query will return three editions.
         qu3 = qu.distinct(Edition.title, Edition.author)
         eq_(qu3.count(), fast_query_count(qu3))
+
+
+class TestMoneyUtility(object):
+
+    def test_parse(self):
+        p = MoneyUtility.parse
+        eq_(Money("0", "USD"), p(None))
+        eq_(Money("4.00", "USD"), p("4"))
+        eq_(Money("-4.00", "USD"), p("-4"))
+        eq_(Money("4.40", "USD"), p("4.40"))
+        eq_(Money("4.40", "USD"), p("$4.40"))

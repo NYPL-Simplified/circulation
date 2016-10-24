@@ -4075,9 +4075,9 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential)
         eq_(new_token, token)
 
-        # When we call lookup_by_temporary_token, the token is automatically
+        # When we call lookup_and_expire_temporary_token, the token is automatically
         # expired and we cannot use it anymore.
-        new_token = Credential.lookup_by_temporary_token(
+        new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
         eq_(new_token, token)        
         assert new_token.expires < now
@@ -4086,7 +4086,7 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
 
-        new_token = Credential.lookup_by_temporary_token(
+        new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
  

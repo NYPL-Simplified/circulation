@@ -1,5 +1,6 @@
 # encoding: utf-8
 "Miscellaneous utilities"
+from money import Money
 from nose.tools import set_trace
 from collections import (
     Counter,
@@ -1091,3 +1092,19 @@ english_bigram_frequencies = {
 english_bigrams = Bigrams(Counter())
 english_bigrams.proportional = Counter(english_bigram_frequencies)
 
+
+class MoneyUtility(object):
+
+    DEFAULT_CURRENCY = 'USD'
+
+    @classmethod
+    def parse(cls, amount):
+        """Attempt to turn a string into a Money object."""
+        currency = cls.DEFAULT_CURRENCY
+        if not amount:
+            amount = '0'
+        if amount[0] == '$':
+            currency = 'USD'
+            amount = amount[1:]
+        return Money(amount, currency)
+        
