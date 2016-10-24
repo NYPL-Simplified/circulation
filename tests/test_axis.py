@@ -114,7 +114,7 @@ class TestAxis360API(DatabaseTest):
         )
         data = self.sample_data("place_hold_success.xml")
         self.api.queue_response(200, content=data)
-        patron = self.default_patron
+        patron = self._patron()
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
             response = self.api.place_hold(patron, 'pin', pool, None)

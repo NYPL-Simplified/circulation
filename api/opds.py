@@ -293,15 +293,6 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_feed(self, feed, lane):
         if self.patron:
             self.add_patron(feed)
-
-        # Add an account info link
-        account_url = self.url_for('account', _external=True)
-        account_link = dict(
-            rel="http://librarysimplified.org/terms/rel/account",
-            type='application/json',
-            href=account_url,
-        )
-        feed.add_link_to_feed(feed.feed, **account_link)
         
         # Add a 'search' link.
         lane_name, languages = self._lane_name_and_languages(lane)

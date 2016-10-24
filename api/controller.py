@@ -84,7 +84,10 @@ from annotations import (
 )
 from problem_details import *
 
-from authenticator import Authenticator
+from authenticator import (
+    Authenticator,
+    OAuthController,
+)
 from config import (
     Configuration, 
     CannotLoadConfiguration
@@ -132,7 +135,7 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.initialize(self._db, test=testing)
+        self.auth = Authenticator.from_config(self._db)
         self.setup_circulation()
         self.__external_search = None
         self.lending_policy = load_lending_policy(
@@ -216,11 +219,11 @@ class CirculationManager(object):
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
-        self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
-
+        self.oauth_controller = OAuthController(self.auth)
+        
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
@@ -298,8 +301,7 @@ class CirculationManagerController(object):
         The header could contain a barcode and pin or a token for an
         external service.
 
-        If there's a problem, return a 2-tuple (URI, title) for use in a
-        Problem Detail Document.
+        If there's a problem, return a Problem Detail Document.
 
         If there's no problem, return a Patron object.
         """
@@ -309,12 +311,9 @@ class CirculationManagerController(object):
         if not patron:
             return INVALID_CREDENTIALS
 
-        # Okay, we know who they are and their PIN is valid. But maybe the
-        # account has expired?
-        if not patron.authorization_is_active:
-            return EXPIRED_CREDENTIALS
+        if isinstance(patron, ProblemDetail):
+            return patron
 
-        # No, apparently we're fine.
         return patron
 
     def authenticate(self):
@@ -383,6 +382,8 @@ class CirculationManagerController(object):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
+        if isinstance(patron, ProblemDetail):
+            return patron
         if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits us from lending you this book."),
@@ -532,18 +533,6 @@ class OPDSFeedController(CirculationManagerController):
             annotator=annotator,
         )
         return feed_response(opds_feed)
-
-
-class AccountController(CirculationManagerController):
-
-    def account(self):
-        header = self.authorization_header()
-
-        patron_info = self.manager.auth.patron_info(header)
-        return json.dumps(dict(
-            username=patron_info.get('username', None),
-            barcode=patron_info.get('barcode'),
-        ))
 
 
 class LoanController(CirculationManagerController):

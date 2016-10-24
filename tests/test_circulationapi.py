@@ -47,7 +47,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.open_access = False
         self.identifier = self.pool.identifier
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
-        self.patron = self.default_patron
+        self.patron = self._patron()
         self.circulation = MockCirculationAPI(self._db)
         self.remote = self.circulation.api_for_license_pool(self.pool)
 

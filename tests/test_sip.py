@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
     assert_raises,
 )
-from api.sip import (
+from api.sipclient import (
     MockSIPClient,
 )
 

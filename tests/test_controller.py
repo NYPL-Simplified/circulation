@@ -24,6 +24,9 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from api.mock_authentication import (
+    MockAuthenticationProvider
+)
 from core.app_server import (
     load_lending_policy
 )
@@ -46,6 +49,7 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     RightsStatus,
     get_one,
+    get_one_or_create,
     create,
 )
 from core.lane import (
@@ -94,9 +98,17 @@ class TestCirculationManager(CirculationManager):
 class ControllerTest(DatabaseTest):
     """A test that requires a functional app server."""
 
-    valid_auth = 'Basic ' + base64.b64encode('200:2222')
-    invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+    # Authorization headers that will succeed (or fail) against the
+    # MockAuthenticationProvider set up in ControllerTest.setup().
+    valid_auth = 'Basic ' + base64.b64encode(
+        'unittestuser:unittestpassword'
+    )
+    invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
 
+    valid_credentials = dict(
+        username="unittestuser", password="unittestpassword"
+    )
+    
     def setup(self, _db=None):
         super(ControllerTest, self).setup()
 
@@ -114,9 +126,15 @@ class ControllerTest(DatabaseTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        # Create the patron used by the dummy authentication mechanism.
+        self.default_patron, ignore = get_one_or_create(
+            _db, Patron, authorization_identifier="unittestuser",
+            create_method_kwargs=dict(external_identifier="unittestuser")
+        )
+        
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -125,6 +143,13 @@ class ControllerTest(DatabaseTest):
             config[Configuration.INTEGRATIONS] = {
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
+                },
+                MockAuthenticationProvider.NAME : {
+                    "patrons": { "unittestuser": "unittestpassword",
+                                 "unittestuser2" : "unittestpassword2",
+                    },
+                    "expired_patrons": { "expired" : "password" },
+                    "patrons_with_fines": { "ihavefines" : "password" },
                 }
             }
             lanes = make_lanes_default(_db)
@@ -134,6 +159,7 @@ class ControllerTest(DatabaseTest):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
+    
 class CirculationControllerTest(ControllerTest):
 
     def setup(self):
@@ -171,15 +197,19 @@ class TestBaseController(CirculationControllerTest):
             eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="1234"))
+        value = self.controller.authenticated_patron(
+            dict(username="user1", password="password2")
+        )
         eq_(value, INVALID_CREDENTIALS)
 
     def test_authenticated_patron_expired_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="0", password="0000"))
+        value = self.controller.authenticated_patron(
+            dict(username="expired", password="password")
+        )
         eq_(value, EXPIRED_CREDENTIALS)
 
     def test_authenticated_patron_correct_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        value = self.controller.authenticated_patron(self.valid_credentials)
         assert isinstance(value, Patron)
 
 
@@ -300,7 +330,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
@@ -329,7 +359,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
 
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
 
@@ -364,9 +394,11 @@ class TestIndexController(CirculationControllerTest):
 
     def test_authenticated_patron_root_lane(self):
         with temp_config() as config:
+            # Patrons whose authorization identifiers start with 'unittest'
+            # get sent to the Adult Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "2": ["eng", "Adult Fiction"]},
-                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(.)",
+                Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
+                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
             }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -379,30 +411,13 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/eng/Adult%20Fiction", response.headers['location'])
 
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": None }
+            # Now those patrons get sent to the top-level lane.
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
-
-
-class TestAccountController(CirculationControllerTest):
-
-    def test_patron_info_no_username(self):
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=self.valid_auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_(None, account_info.get('username'))
-            eq_("200", account_info.get('barcode'))
-            
-    def test_patron_info_with_username(self):
-        auth = 'Basic ' + base64.b64encode('0:2222')
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_("alice", account_info.get('username'))
-            eq_("0", account_info.get('barcode'))
 
 
 class TestLoanController(CirculationControllerTest):
@@ -820,8 +835,7 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        # Patron with $1.00 fine
-        auth = 'Basic ' + base64.b64encode('5:5555')
+        auth = 'Basic ' + base64.b64encode('ihavefines:password')
         
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -837,11 +851,11 @@ class TestLoanController(CirculationControllerTest):
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "outstanding fines" in response.detail
-                assert "$1.00" in response.detail
+                assert "$12345678.90" in response.detail
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$20.00"
+                Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
 
             with self.app.test_request_context(
@@ -954,10 +968,6 @@ class TestLoanController(CirculationControllerTest):
             assert urllib.quote("%s/%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
             eq_(0, len(threem_revoke_links))
 
-            links = feed['feed']['links']
-            account_links = [link for link in links if link['rel'] == 'http://librarysimplified.org/terms/rel/account']
-            eq_(1, len(account_links))
-            assert 'me' in account_links[0]['href']
 
 class TestAnnotationController(CirculationControllerTest):
     def setup(self):
@@ -1611,7 +1621,8 @@ class TestAnalyticsController(CirculationControllerTest):
         with temp_config() as config:
             config = {
                 Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"]
+                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
+                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 }
             }
 

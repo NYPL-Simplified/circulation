@@ -66,7 +66,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         api = DummyOverdriveAPI(self._db)
         api.queue_response(content=patron_with_email)
-        patron = self.default_patron
+        patron = self._patron()
         # If the patron has used a particular email address to put
         # books on hold, use that email address, not the site default.
         with temp_config() as config:
@@ -106,7 +106,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         api.queue_response(400, content=over_hold_limit)
         assert_raises(
             PatronHoldLimitReached,
-            api.place_hold, self.default_patron, 'pin', pool, 
+            api.place_hold, self._patron(), 'pin', pool, 
             notification_email_address='foo@bar.com'
         )
 
@@ -136,7 +136,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         api.queue_response(content=patron_with_email)
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
-            hold = api.place_hold(self.default_patron, 'pin', pool, 
+            hold = api.place_hold(self._patron(), 'pin', pool, 
                                   notification_email_address=None)
 
         # The book was placed on hold.
@@ -176,7 +176,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         assert_raises(
             FormatNotAvailable,
             api.get_fulfillment_link,
-            self.default_patron, 'pin', pool.identifier.identifier,
+            self._patron(), 'pin', pool.identifier.identifier,
             'ebook-epub-adobe'
         )
 
@@ -192,7 +192,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         assert_raises(
             FormatNotAvailable,
             api.fulfill,
-            self.default_patron, 'pin', pool,
+            self._patron(), 'pin', pool,
             'ebook-epub-adobe'
         )
 
@@ -532,7 +532,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         overdrive.queue_response(content=holds_data)
         overdrive.queue_response(content=loans_data)
 
-        patron = self.default_patron
+        patron = self._patron()
         circulation = CirculationAPI(self._db, overdrive=overdrive)
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
 
@@ -558,7 +558,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         overdrive.queue_response(content=loans_data)
 
         # Create a loan not present in the sample data.
-        patron = self.default_patron
+        patron = self._patron()
         overdrive_edition, new = self._edition(
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True
@@ -577,7 +577,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         assert overdrive_loan not in patron.loans
 
     def test_sync_bookshelf_ignores_loans_from_other_sources(self):
-        patron = self.default_patron
+        patron = self._patron()
         gutenberg, new = self._edition(data_source_name=DataSource.GUTENBERG,
                                        with_license_pool=True)
         gutenberg_loan, new = gutenberg.license_pool.loan_to(patron)
@@ -590,8 +590,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         overdrive.queue_response(content=holds_data)
         overdrive.queue_response(content=loans_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
-        patron = self.default_patron
-        
+
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans
@@ -605,7 +604,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         overdrive.queue_response(content=holds_data)
         overdrive.queue_response(content=loans_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
-        patron = self.default_patron
+        patron = self._patron()
 
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         # All four loans in the sample data were created.
@@ -624,7 +623,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
         
-        patron = self.default_patron
+        patron = self._patron()
         overdrive_edition, new = self._edition(data_source_name=DataSource.OVERDRIVE,
                                        with_license_pool=True)
         overdrive_hold, new = overdrive_edition.license_pool.on_hold_to(patron)
@@ -645,7 +644,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
 
-        patron = self.default_patron
+        patron = self._patron()
         threem, new = self._edition(data_source_name=DataSource.THREEM,
                                     with_license_pool=True)
         threem_hold, new = threem.license_pool.on_hold_to(patron)
