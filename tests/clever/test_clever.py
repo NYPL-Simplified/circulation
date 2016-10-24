@@ -45,7 +45,11 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
         self.api = MockAPI('fake_client_id', 'fake_client_secret', 2)
-
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        del os.environ['AUTOINITIALIZE']
+        self.app = app
+        
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
         eq_(None, self.api.authenticated_patron(self._db, "not a valid token"))
@@ -62,15 +66,20 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def test_remote_exchange_code_for_bearer_token(self):
         # Test success.
         self.api.queue_response(dict(access_token="a token"))
-        eq_("a token", self.api.remote_exchange_code_for_bearer_token("code"))
+        with self.app.test_request_context("/"):
+            eq_("a token",
+                self.api.remote_exchange_code_for_bearer_token("code")
+            )
 
         # Test failure.
         self.api.queue_response(None)
-        problem = self.api.remote_exchange_code_for_bearer_token("code")
+        with self.app.test_request_context("/"):
+            problem = self.api.remote_exchange_code_for_bearer_token("code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
 
         self.api.queue_response(dict(something_else="not a token"))
-        problem = self.api.remote_exchange_code_for_bearer_token("code")
+        with self.app.test_request_context("/"):
+            problem = self.api.remote_exchange_code_for_bearer_token("code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
         
     def test_remote_patron_lookup_unsupported_user_type(self):
@@ -134,8 +143,9 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         self.api.queue_response(dict(data=dict(school='1234', district='1234', name='Abcd')))
         self.api.queue_response(dict(data=dict(nces_id='44270647')))
 
-        response = self.api.oauth_callback(self._db, dict(code="teacher code"))
-        credential, patron, patrondata = response
+        with self.app.test_request_context("/"):
+            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+            credential, patron, patrondata = response
         
         # The bearer token was turned into a Credential.
         expect_credential, ignore = self.api.create_token(
@@ -152,17 +162,19 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         eq_("Abcd", patrondata.personal_name)
         
     def test_oauth_callback_problem_detail_if_bad_token(self):
-         self.api.queue_response(dict(something_else="not a token"))
-         response = self.api.oauth_callback(self._db, dict(code="teacher code"))
-         assert isinstance(response, ProblemDetail)
-         eq_(INVALID_CREDENTIALS.uri, response.uri)
+        self.api.queue_response(dict(something_else="not a token"))
+        with self.app.test_request_context("/"):
+            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+        assert isinstance(response, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, response.uri)
 
     def test_oauth_callback_problem_detail_if_remote_patron_lookup_fails(self):
-         self.api.queue_response(dict(access_token="token"))
-         self.api.queue_response(dict())
-         response = self.api.oauth_callback(self._db, dict(code="teacher code"))
-         assert isinstance(response, ProblemDetail)
-         eq_(INVALID_CREDENTIALS.uri, response.uri)
+        self.api.queue_response(dict(access_token="token"))
+        self.api.queue_response(dict())
+        with self.app.test_request_context("/"):
+            response = self.api.oauth_callback(self._db, dict(code="teacher code"))
+        assert isinstance(response, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, response.uri)
     
     def test_external_authenticate_url(self):
         """Verify that external_authenticate_url is generated properly.
@@ -170,11 +182,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # We're about to call url_for, so we must create an
         # application context.
         my_api = CleverAuthenticationAPI("key", "secret", 2)
-        os.environ['AUTOINITIALIZE'] = "False"
-        from api.app import app
-        del os.environ['AUTOINITIALIZE']
-
-        with app.test_request_context("/"):        
+        with self.app.test_request_context("/"):
             params = my_api.external_authenticate_url("state")
             eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=http://localhost/oauth_callback&state=state', params)
 

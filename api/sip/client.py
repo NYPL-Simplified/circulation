@@ -313,9 +313,10 @@ class SIPClient(Constants):
         message = (code + language + timestamp + summary
                    + "AO" + institution_id + self.separator +
                    "AA" + patron_identifier + self.separator +
-                   "AC" + terminal_password + self.separator +
-                   "AD" + patron_password
+                   "AC" + terminal_password 
         )
+        if patron_password:
+            message += self.separator + "AD" + patron_password
         return message
 
     def patron_information_parser(self, data):
