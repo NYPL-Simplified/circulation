@@ -724,6 +724,7 @@ class DataSource(Base):
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
+    ELIB = "eLiburutegia"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
@@ -743,6 +744,7 @@ class DataSource(Base):
         GUTENBERG,
         GUTENBERG_EPUB_GENERATOR,
         PROJECT_GITENBERG,
+        ELIB,
         PLYMPTON,
         STANDARD_EBOOKS,
     ]
@@ -934,6 +936,7 @@ class DataSource(Base):
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
+                (cls.ELIB, True, False, Identifier.ELIB_ID, None),
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
@@ -1243,6 +1246,7 @@ class Identifier(Base):
     BIBLIOTHECA_ID = "Bibliotheca ID"
     GUTENBERG_ID = "Gutenberg ID"
     AXIS_360_ID = "Axis 360 ID"
+    ELIB_ID = "eLiburutegia ID"
     ASIN = "ASIN"
     ISBN = "ISBN"
     NOVELIST_ID = "NoveList ID"
@@ -1261,7 +1265,7 @@ class Identifier(Base):
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         THREEM_ID, OVERDRIVE_ID, AXIS_360_ID,
-        GUTENBERG_ID
+        GUTENBERG_ID, ELIB_ID
     ]
 
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
@@ -3211,9 +3215,9 @@ class Work(Base):
         upper = self.target_age.upper
         if not upper and not lower:
             return ""
-        if lower and not upper:
+        if lower and upper is None:
             return str(lower)
-        if upper and not lower:
+        if upper and lower is None:
             return str(upper)
         return "%s-%s" % (lower,upper)
 
@@ -4918,9 +4922,10 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    THREEM = Classifier.THREEM  # 3M's classification system
+    THREEM = Classifier.THREEM        # 3M's classification system
     BISAC = Classifier.BISAC
-    TAG = Classifier.TAG   # Folksonomic tags.
+    BIC = Classifier.BIC              # BIC Subject Categories
+    TAG = Classifier.TAG              # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
     NYPL_APPEAL = Classifier.NYPL_APPEAL
 
@@ -5041,10 +5046,10 @@ class Subject(Base):
     @property
     def target_age_string(self):
         lower = self.target_age.lower
-        upper = self.target_age.upper           
-        if lower and not upper:
+        upper = self.target_age.upper
+        if lower and upper is None:
             return str(lower)
-        if upper and not lower:
+        if upper and lower is None:
             return str(upper)
         if not self.target_age.upper_inc:
             upper -= 1

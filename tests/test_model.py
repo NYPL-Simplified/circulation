@@ -2164,6 +2164,20 @@ class TestWork(DatabaseTest):
         eq_(work.target_age.lower, target_age_doc['lower'])
         eq_(work.target_age.upper, target_age_doc['upper'])
 
+    def test_target_age_string(self):
+        work = self._work()
+        work.target_age = NumericRange(7, 8, '[]')
+        eq_("7-8", work.target_age_string)
+
+        work.target_age = NumericRange(0, 8, '[]')
+        eq_("0-8", work.target_age_string)
+
+        work.target_age = NumericRange(8, None, '[]')
+        eq_("8", work.target_age_string)
+
+        work.target_age = NumericRange(None, 8, '[]')
+        eq_("8", work.target_age_string)
+
 
 class TestCirculationEvent(DatabaseTest):
 
