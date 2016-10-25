@@ -568,7 +568,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         url = self.app.manager.cdn_url_for(
             "acquisition_groups", languages=languages, lane_name=lane_name
         )
-        return AcquisitionFeed.groups(
+        yield AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
             force_refresh=True
         )
