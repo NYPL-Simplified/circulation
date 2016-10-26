@@ -317,7 +317,7 @@ class Authenticator(object):
         if (not isinstance(authentication_policy, dict)
             or not 'providers' in authentication_policy):
             raise CannotLoadConfiguration(
-                "Authentication policy must be a dictionary with key 'providers'"
+                "Authentication policy must be a dictionary with key 'providers'."
             )
         bearer_token_signing_secret = authentication_policy.get(
             'bearer_token_signing_secret'

@@ -358,12 +358,49 @@ class TestAuthenticator(DatabaseTest):
     def test_config_fails_when_no_providers_specified(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: []
+                Configuration.AUTHENTICATION_POLICY: {}
             }
             assert_raises_regexp(
-                CannotLoadConfiguration, "No authentication policy given."
+                CannotLoadConfiguration, "No authentication policy given.",
+                Authenticator.from_config, self._db
             )
-        
+
+    def test_config_fails_when_providers_is_not_a_dictionary(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: "api.millenium_patron"
+            }
+            assert_raises_regexp(
+                CannotLoadConfiguration, "Authentication policy must be a dictionary with key 'providers'.",
+                Authenticator.from_config, self._db                
+            )        
+
+    def test_config_fails_when_provider_is_not_a_dictionary(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": ["api.millenium_patron"]
+                }
+            }
+            assert_raises_regexp(
+                CannotLoadConfiguration, "Provider 'api.millenium_patron' is invalid; must be a dictionary.",
+                Authenticator.from_config, self._db                
+            )        
+
+    def test_config_fails_when_provider_dictionary_does_not_define_module(self):
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": [
+                        {"config": "value"}
+                    ]
+                }
+            }
+            assert_raises_regexp(
+                CannotLoadConfiguration, "Provider configuration does not define 'module':",
+                Authenticator.from_config, self._db                
+            )        
+            
     def test_register_provider_basic_auth(self):
         config = {
             "module": "api.firstbook",
