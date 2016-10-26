@@ -768,16 +768,26 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """Load a BasicAuthenticationProvider from site configuration."""
         return cls(**config)
 
+    # Used in the constructor to signify that the default argument
+    # value for the class should be used (as distinct from None, which
+    # indicates that no value should be used.)
+    class_default = object()
+    
     def __init__(self,
-                 identifier_regular_expression=DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
-                 password_regular_expression=DEFAULT_PASSWORD_REGULAR_EXPRESSION,
+                 identifier_regular_expression=class_default,
+                 password_regular_expression=class_default,
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
         """
+        if identifier_regular_expression is self.class_default:
+            identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
         if identifier_regular_expression:
             identifier_regular_expression = re.compile(
                 identifier_regular_expression
             )
+        if password_regular_expression is self.class_default:
+            password_regular_expression = self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
+
         if password_regular_expression:
             password_regular_expression = re.compile(
                 password_regular_expression

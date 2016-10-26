@@ -43,13 +43,13 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = MockAPI()
+        self.api = MockAPI(identifier_regular_expression=None)
 
     def test_from_config(self):
         api = None
         config = {
             Configuration.URL : "http://example.com",
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"]
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
         }
         api = MilleniumPatronAPI.from_config(config)
         eq_("http://example.com/", api.root)

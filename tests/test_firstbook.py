@@ -37,7 +37,7 @@ class TestFirstBook(object):
 
         # Verify that the configuration details were stored properly.
         eq_('http://example.com/?key=the_key', api.root)
-            
+
         # Test the default server-side authentication regular expressions.
         eq_(False, api.server_side_validation("foo' or 1=1 --;", "1234"))
         eq_(False, api.server_side_validation("foo", "12 34"))
