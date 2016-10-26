@@ -397,6 +397,7 @@ class Authenticator(object):
                 config
             )
         module_name = config['module']
+        config = dict(config)
         del config['module']
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")

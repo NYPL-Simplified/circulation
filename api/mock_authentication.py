@@ -22,29 +22,18 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
     """
 
     NAME = "Mock Authentication Provider"
-    PATRONS = 'patrons'
-    EXPIRED_PATRONS = 'expired_patrons'
-    PATRONS_WITH_FINES = 'patrons_with_fines'
-    
-    @classmethod
-    def config_values(cls):
-        config, values = super(MockAuthenticationProvider, cls).config_values()
-        if cls.PATRONS not in config:
-            logging.getLogger(cls.NAME).warn(
-                "No patrons configured for mock authentication provider."
-            )
-
-        values['patrons'] = config.get(cls.PATRONS)
-        values['expired_patrons'] = config.get(cls.EXPIRED_PATRONS)
-        values['patrons_with_fines'] = config.get(cls.PATRONS_WITH_FINES)
-        return config, values
-        
+           
     def __init__(self, patrons=None, expired_patrons=None,
                  patrons_with_fines=None, *args, **kwargs):
+        super(MockAuthenticationProvider, self).__init__(*args, **kwargs)
+        if not patrons:
+            self.log.warn(
+                "No patrons configured for mock authentication provider."
+            )
+            patrons = {}
         self.patrons = patrons
         self.expired_patrons = expired_patrons
         self.patrons_with_fines = patrons_with_fines
-        super(MockAuthenticationProvider, self).__init__(*args, **kwargs)
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.

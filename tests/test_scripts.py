@@ -33,7 +33,11 @@ class TestLaneScript(DatabaseTest):
         """
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
+                Configuration.AUTHENTICATION_POLICY : {
+                    "providers": [
+                        { "module" : "api.mock_authentication" }
+                    ]
+                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'fre',
@@ -115,7 +119,6 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 testing=True
             )
             eq_(['title', 'added'], script.orders)
-
             script = CacheFacetListsPerLane(
                 self._db, ["--availability=all", "--availability=always"],
                 testing=True
