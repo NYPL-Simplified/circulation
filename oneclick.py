@@ -142,8 +142,7 @@ class OneClickAPI(object):
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, verbosity='complete'):
-        """Make an HTTP request, acquiring/refreshing a bearer token
-        if necessary.
+        """Make an HTTP request.
         """
         if verbosity not in self.RESPONSE_VERBOSITY.values():
             verbosity = self.RESPONSE_VERBOSITY[2]
@@ -686,6 +685,10 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             identifier, metadata, 
             metadata_replacement_policy=self.metadata_replacement_policy
         )
+
+        if not isinstance(result, CoverageFailure):
+            self.handle_success(identifier)
+
         return result
 
 
