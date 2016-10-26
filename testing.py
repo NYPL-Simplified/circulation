@@ -70,13 +70,6 @@ def package_setup():
     # Initialize basic database data needed by the application.
     _db = Session(connection)
     SessionManager.initialize_data(_db)
-
-    # Create the patron used by the dummy authentication mechanism.
-    # TODO: This can be probably be moved to circulation.
-    get_one_or_create(
-        _db, Patron, authorization_identifier="200",
-        create_method_kwargs=dict(external_identifier="200200200")
-    )
     _db.commit()
     connection.close()
     engine.dispose()
@@ -176,14 +169,6 @@ class DatabaseTest(object):
     @property
     def _url(self):
         return "http://foo.com/" + self._str
-
-    @property
-    def default_patron(self):
-        """The patron automatically created for the test dataset and 
-        used by default when authenticating.
-        """
-        return self._db.query(Patron).filter(
-            Patron.authorization_identifier=="200").one()
 
     def _patron(self, external_identifier=None):
         external_identifier = external_identifier or self._str

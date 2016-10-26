@@ -1,8 +1,10 @@
 # encoding: utf-8
 from collections import defaultdict
 import json
+from money import Money
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     eq_, 
     set_trace,
 )
@@ -19,6 +21,7 @@ from util import (
     english_bigrams,
     LanguageCodes,
     MetadataSimilarity,
+    MoneyUtility,
     TitleProcessor,
     fast_query_count,
 )
@@ -442,6 +445,28 @@ class TestOPDSAuthenticationDocument(object):
             "A title", None
         )
 
+    def test_fill_in_adds_providers(self):
+        class MockProvider(object):
+            URI = "http://example.com/"
+            authentication_provider_document = "foo"
+
+        doc1 = {"id": "An ID", "name": "A title"}
+        doc2 = OPDSAuthenticationDocument.fill_in(
+            doc1, [MockProvider], "Bla1", "Bla2")
+        eq_({'http://example.com/': 'foo'}, doc2['providers'])
+
+    def test_fill_in_raises_valueerror_if_uri_not_defined(self):
+        class MockProvider(object):
+            URI = None
+            authentication_provider_document = "foo"
+
+        doc = {"id": "An ID", "name": "A title"}
+        assert_raises_regexp(
+            ValueError, "does not define .URI",
+            OPDSAuthenticationDocument.fill_in,
+            doc, [MockProvider], "Bla1", "Bla2"
+        )
+        
     def test_fill_in_does_not_change_already_set_values(self):
 
         doc1 = {"id": "An ID", "name": "A title"}
@@ -510,3 +535,14 @@ class TestFastQueryCount(DatabaseTest):
         # the query will return three editions.
         qu3 = qu.distinct(Edition.title, Edition.author)
         eq_(qu3.count(), fast_query_count(qu3))
+
+
+class TestMoneyUtility(object):
+
+    def test_parse(self):
+        p = MoneyUtility.parse
+        eq_(Money("0", "USD"), p(None))
+        eq_(Money("4.00", "USD"), p("4"))
+        eq_(Money("-4.00", "USD"), p("-4"))
+        eq_(Money("4.40", "USD"), p("4.40"))
+        eq_(Money("4.40", "USD"), p("$4.40"))

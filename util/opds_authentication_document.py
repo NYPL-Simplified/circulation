@@ -26,7 +26,9 @@ class OPDSAuthenticationDocument(object):
             raise ValueError('`providers` must be a list.')
         provider_docs = {}
         for provider in providers:
-            provider_docs[provider.URI] = provider.create_authentication_provider_document()
+            if not getattr(provider, 'URI', None):
+                raise ValueError("%r does not define .URI" % provider)
+            provider_docs[provider.URI] = provider.authentication_provider_document
         data['providers'] = provider_docs
 
         if links:
