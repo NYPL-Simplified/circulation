@@ -723,17 +723,19 @@ class TestAuthenticator(DatabaseTest):
 
 class TestAuthenticationProvider(DatabaseTest):
 
+    credentials = dict(username='user', password='')
+    
     def test_authenticated_patron_passes_on_none(self):
         provider = MockBasic(patrondata=None)
         patron = provider.authenticated_patron(
-            self._db, dict(username='', password='')
+            self._db, self.credentials
         )
         eq_(None, patron)
     
     def test_authenticated_patron_passes_on_problem_detail(self):
         provider = MockBasic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
         patron = provider.authenticated_patron(
-            self._db, dict(username='', password='')
+            self._db, self.credentials
         )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, patron)
 
@@ -747,7 +749,7 @@ class TestAuthenticationProvider(DatabaseTest):
         provider = MockBasic(patrondata=expired,
                              remote_patron_lookup_patrondata=expired)
         patron = provider.authenticated_patron(
-            self._db, dict(username='', password='')
+            self._db, self.credentials
         )
         eq_(EXPIRED_CREDENTIALS, patron)
         
@@ -778,7 +780,7 @@ class TestAuthenticationProvider(DatabaseTest):
             remote_patron_lookup_patrondata=complete_data
         )
         patron2 = provider.authenticated_patron(
-            self._db, dict(username='', password='')
+            self._db, self.credentials
         )
 
         # We found the right patron.
@@ -816,7 +818,7 @@ class TestAuthenticationProvider(DatabaseTest):
         )
         provider.patrondata = incomplete_data
         patron = provider.authenticated_patron(
-            self._db, dict(username="some other identifier")
+            self._db, dict(username="someotheridentifier")
         )
         assert patron.last_external_sync > last_sync
 
@@ -880,6 +882,13 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         eq_("username", provider.test_username)
         eq_("pw", provider.test_password)
 
+        # Test the defaults.
+        provider = ConfigAuthenticationProvider.from_config({})
+        eq_(BasicAuthenticationProvider.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
+            provider.identifier_re)
+        eq_(None, provider.password_re)
+        
+    
     def test_testing_patron(self):
         # You don't have to have a testing patron.
         no_testing_patron = BasicAuthenticationProvider()
@@ -992,7 +1001,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
 
     # A dummy set of credentials, for use when the exact details of
     # the credentials passed in are not important.
-    credentials = dict(username="", password="")
+    credentials = dict(username="user", password="pass")
     
     def test_success(self):
         patron = self._patron()
@@ -1002,9 +1011,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
         # looked up in the database.
-        eq_(patron, provider.authenticate(
-            self._db, dict(username="", password=""))
-        )
+        eq_(patron, provider.authenticate(self._db, self.credentials))
 
         # All the different ways the database lookup might go are covered in 
         # test_local_patron_lookup. This test only covers the case where
