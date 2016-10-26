@@ -798,17 +798,22 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """Load a BasicAuthenticationProvider from site configuration."""
         return cls(**config)
 
-    def __init__(self, identifier_re=None, password_re=None,
+    def __init__(self, identifier_regular_expression=None,
+                 password_regular_expression=None,
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
         """
-        if identifier_re:
-            identifier_re = re.compile(identifier_re)
-        if password_re:
-            password_re = re.compile(password_re)
+        if identifier_regular_expression:
+            identifier_regular_expression = re.compile(
+                identifier_regular_expression
+            )
+        if password_regular_expression:
+            password_regular_expression = re.compile(
+                password_regular_expression
+            )
 
-        self.identifier_re = identifier_re
-        self.password_re = password_re
+        self.identifier_re = identifier_regular_expression
+        self.password_re = password_regular_expression
         self.test_username = test_username
         self.test_password = test_password
         self.log = logging.getLogger(self.NAME)

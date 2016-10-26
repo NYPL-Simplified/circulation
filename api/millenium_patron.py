@@ -47,29 +47,21 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
     DEFAULT_CURRENCY = "USD"
-    
-    @classmethod
-    def config_values(cls):
-        config, values = super(MilleniumPatronAPI, cls).config_values()
-        host = config.get(Configuration.URL)
-        if not host:
+       
+    def __init__(self, url=None, authorization_identifier_blacklist=[],
+                 **kwargs):
+        if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
-        values['host'] = host
-        blacklist_strings = config.get(
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST, []
-        )
-        values['authorization_blacklist'] = blacklist_strings
-        return config, values
-    
-    def __init__(self, host, authorization_blacklist=[], **kwargs):
+
         super(MilleniumPatronAPI, self).__init__(**kwargs)
-        if not host.endswith('/'):
-            host = host + "/"
-        self.root = host
+        if not url.endswith('/'):
+            url = url + "/"
+        self.root = url
         self.parser = etree.HTMLParser()
-        self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
+        self.blacklist = [re.compile(x, re.I)
+                          for x in authorization_identifier_blacklist]
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.

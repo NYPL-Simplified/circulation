@@ -305,14 +305,13 @@ class TestAuthenticator(DatabaseTest):
         # Only a basic auth provider.
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: 'api.millenium_patron'
-            }
-            config[Configuration.INTEGRATIONS] = {
-                MilleniumPatronAPI.NAME: {
-                    Configuration.URL: "http://url"
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": [
+                        {"module": 'api.millenium_patron',
+                         Configuration.URL: "http://url"}
+                    ]
                 }
             }
-            
             auth = Authenticator.from_config(self._db)
 
             assert auth.basic_auth_provider != None
@@ -324,18 +323,23 @@ class TestAuthenticator(DatabaseTest):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY: dict(
-                    providers=['api.firstbook', 'api.clever'],
+                    providers=[
+                        { "module": 'api.firstbook',
+                          Configuration.URL: "http://url",
+                          FirstBookAuthenticationAPI.SECRET_KEY: "secret",
+                        },
+                        {"module": 'api.clever',
+                         Configuration.OAUTH_CLIENT_ID: 'client_id',
+                         Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
+                        },
+                    ],
                     bearer_token_signing_secret="signing secret"
                 )
             }
             config[Configuration.INTEGRATIONS] = {
                 FirstBookAuthenticationAPI.NAME: {
-                    Configuration.URL: "http://url",
-                    FirstBookAuthenticationAPI.SECRET_KEY: "secret",
                 },
                 CleverAuthenticationAPI.NAME: {
-                    Configuration.OAUTH_CLIENT_ID: 'client_id',
-                    Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
                 }
             }
 
@@ -361,35 +365,31 @@ class TestAuthenticator(DatabaseTest):
             )
         
     def test_register_provider_basic_auth(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.NAME: {
-                    Configuration.URL: "http://url",
-                    FirstBookAuthenticationAPI.SECRET_KEY: "secret",
-                }
-            }
-            auth = Authenticator()
-            auth.register_provider('api.firstbook')
-            assert isinstance(
-                auth.basic_auth_provider, FirstBookAuthenticationAPI
-            )
+        config = {
+            "module": "api.firstbook",
+            Configuration.URL: "http://url",
+            FirstBookAuthenticationAPI.SECRET_KEY: "secret",
+        }
+        auth = Authenticator()
+        auth.register_provider(config)
+        assert isinstance(
+            auth.basic_auth_provider, FirstBookAuthenticationAPI
+        )
         
     def test_register_oauth_provider(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS] = {
-                CleverAuthenticationAPI.NAME: {
-                    Configuration.OAUTH_CLIENT_ID: 'client_id',
-                    Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
-                }
-            }
-            auth = Authenticator()
-            auth.register_provider('api.clever')
-            eq_(1, len(auth.oauth_providers_by_name))
-            clever = auth.oauth_providers_by_name[
-                CleverAuthenticationAPI.NAME
-            ]
-            assert isinstance(clever, CleverAuthenticationAPI)
-        
+        config = {
+            "module": "api.clever",
+            Configuration.OAUTH_CLIENT_ID: 'client_id',
+            Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
+        }
+        auth = Authenticator()
+        auth.register_provider(config)
+        eq_(1, len(auth.oauth_providers_by_name))
+        clever = auth.oauth_providers_by_name[
+            CleverAuthenticationAPI.NAME
+        ]
+        assert isinstance(clever, CleverAuthenticationAPI)
+            
     def test_oauth_provider_requires_secret(self):
         basic = MockBasicAuthenticationProvider()
         oauth = MockOAuthAuthenticationProvider("provider1")
@@ -831,21 +831,17 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         class ConfigAuthenticationProvider(BasicAuthenticationProvider):
             NAME = "Config loading test"
         
-        with temp_config() as config:
-            data = {
-                Configuration.IDENTIFIER_REGULAR_EXPRESSION : "idre",
-                Configuration.PASSWORD_REGULAR_EXPRESSION : "pwre",
-                Configuration.AUTHENTICATION_TEST_USERNAME : "username",
-                Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
-            }
-            config[Configuration.INTEGRATIONS] = {
-                ConfigAuthenticationProvider.NAME : data
-            }
-            provider = ConfigAuthenticationProvider.from_config()
-            eq_("idre", provider.identifier_re.pattern)
-            eq_("pwre", provider.password_re.pattern)
-            eq_("username", provider.test_username)
-            eq_("pw", provider.test_password)
+        config = {
+            Configuration.IDENTIFIER_REGULAR_EXPRESSION : "idre",
+            Configuration.PASSWORD_REGULAR_EXPRESSION : "pwre",
+            Configuration.AUTHENTICATION_TEST_USERNAME : "username",
+            Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
+        }
+        provider = ConfigAuthenticationProvider.from_config(config)
+        eq_("idre", provider.identifier_re.pattern)
+        eq_("pwre", provider.password_re.pattern)
+        eq_("username", provider.test_username)
+        eq_("pw", provider.test_password)
 
     def test_testing_patron(self):
         # You don't have to have a testing patron.
@@ -872,7 +868,8 @@ class TestBasicAuthenticationProvider(DatabaseTest):
 
     def test_server_side_validation(self):
         provider = BasicAuthenticationProvider(
-            identifier_re="foo", password_re="bar"
+            identifier_regular_expression="foo",
+            password_regular_expression="bar"
         )
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(False, provider.server_side_validation("food", "arbecue"))
@@ -882,7 +879,8 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         # It's okay not to provide anything for server side validation.
         # Everything will be considered valid.
         provider = BasicAuthenticationProvider(
-            identifier_re=None, password_re=None
+            identifier_regular_expression=None,
+            password_regular_expression=None
         )
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(True, provider.server_side_validation(None, None))
@@ -993,7 +991,8 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
         provider = MockBasic(
-            patrondata, identifier_re="foo", password_re="bar"
+            patrondata, identifier_regular_expression="foo",
+            password_regular_expression="bar"
         )
 
         # This would succeed, but we don't get to remote_authenticate()
@@ -1142,20 +1141,16 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
     def test_from_config(self):
         class ConfigAuthenticationProvider(OAuthAuthenticationProvider):
             NAME = "Config loading test"
-        
-        with temp_config() as config:
-            data = {
-                Configuration.OAUTH_CLIENT_ID : "client_id",
-                Configuration.OAUTH_CLIENT_SECRET : "client_secret",
-                Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
-            }
-            config[Configuration.INTEGRATIONS] = {
-                ConfigAuthenticationProvider.NAME : data
-            }
-            provider = ConfigAuthenticationProvider.from_config()
-            eq_("client_id", provider.client_id)
-            eq_("client_secret", provider.client_secret)
-            eq_(20, provider.token_expiration_days)
+
+        config = {
+            Configuration.OAUTH_CLIENT_ID : "client_id",
+            Configuration.OAUTH_CLIENT_SECRET : "client_secret",
+            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
+        }
+        provider = ConfigAuthenticationProvider.from_config(config)
+        eq_("client_id", provider.client_id)
+        eq_("client_secret", provider.client_secret)
+        eq_(20, provider.token_expiration_days)
 
     def test_get_credential_from_header(self):
         """There is no way to get a credential from a bearer token that can 
