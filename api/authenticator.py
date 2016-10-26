@@ -314,13 +314,17 @@ class Authenticator(object):
                 "No authentication policy given."
             )
 
-        if isinstance(authentication_policy, basestring):
-            authentication_policy = dict(providers=[authentication_policy])
+        if (not isinstance(authentication_policy, dict)
+            or not 'providers' in authentication_policy):
+            raise CannotLoadConfiguration(
+                "Authentication policy must be a dictionary with key 'providers'."
+            )
         bearer_token_signing_secret = authentication_policy.get(
             'bearer_token_signing_secret'
         )
-        providers = authentication_policy.get('providers')
-        if isinstance(providers, basestring):
+        providers = authentication_policy['providers']        
+        if isinstance(providers, dict):
+            # There's only one provider.
             providers = [providers]
 
         # Start with an empty list of authenticators.
@@ -329,8 +333,13 @@ class Authenticator(object):
         )
 
         # Register each provider.
-        for provider_string in providers:
-            authenticator.register_provider(provider_string)
+        for provider_dict in providers:
+            if not isinstance(provider_dict, dict):
+                raise CannotLoadConfiguration(
+                    "Provider %r is invalid; must be a dictionary." %
+                    provider_dict
+                )
+            authenticator.register_provider(provider_dict)
                 
         if (not authenticator.basic_auth_provider
             and not authenticator.oauth_providers_by_name):
@@ -375,17 +384,28 @@ class Authenticator(object):
                 "OAuth providers are configured, but secret for signing bearer tokens is not."
             )
                 
-    def register_provider(self, provider_string):
+    def register_provider(self, config):
         """Turn a description of a provider into an AuthenticationProvider
         object, and register it.
+
+        :param config: A dictionary of parameters that configure
+        the provider.
         """
-        provider_module = importlib.import_module(provider_string)
+        if not 'module' in config:
+            raise CannotLoadConfiguration(
+                "Provider configuration does not define 'module': %r" %
+                config
+            )
+        module_name = config['module']
+        config = dict(config)
+        del config['module']
+        provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config()
+            provider = provider_class.from_config(config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config()
+            provider = provider_class.from_config(config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
@@ -741,59 +761,40 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # passwords.
     alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
-    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None
-   
-    @classmethod
-    def config_values(cls, configuration_name=None, required=False):
-        """Retrieve constructor values from site configuration.
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
 
-        Can be overridden from a subclass to pull additional values.
-
-        :param required: Whether or not the absence of any configuration
-        should be considered an error.
-        """
-        configuration_name = configuration_name or cls.NAME
-        config = Configuration.integration(
-            configuration_name, required=required
-        )
-        args = dict()
-        if config:
-            args['identifier_re'] = config.get(
-                Configuration.IDENTIFIER_REGULAR_EXPRESSION,
-                cls.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
-            )
-            args['password_re'] = config.get(
-                Configuration.PASSWORD_REGULAR_EXPRESSION,
-                cls.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-            )
-            args['test_username'] = config.get(
-                Configuration.AUTHENTICATION_TEST_USERNAME,
-                None
-            )
-            args['test_password'] = config.get(
-                Configuration.AUTHENTICATION_TEST_PASSWORD,
-                None
-            )
-        return config, args
-        
-    
     @classmethod
-    def from_config(cls):
+    def from_config(cls, config):
         """Load a BasicAuthenticationProvider from site configuration."""
-        config, args = cls.config_values()
-        return cls(**args)
+        return cls(**config)
 
-    def __init__(self, identifier_re=None, password_re=None,
+    # Used in the constructor to signify that the default argument
+    # value for the class should be used (as distinct from None, which
+    # indicates that no value should be used.)
+    class_default = object()
+    
+    def __init__(self,
+                 identifier_regular_expression=class_default,
+                 password_regular_expression=class_default,
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
         """
-        if identifier_re:
-            identifier_re = re.compile(identifier_re)
-        if password_re:
-            password_re = re.compile(password_re)
+        if identifier_regular_expression is self.class_default:
+            identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+        if identifier_regular_expression:
+            identifier_regular_expression = re.compile(
+                identifier_regular_expression
+            )
+        if password_regular_expression is self.class_default:
+            password_regular_expression = self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
 
-        self.identifier_re = identifier_re
-        self.password_re = password_re
+        if password_regular_expression:
+            password_regular_expression = re.compile(
+                password_regular_expression
+            )
+
+        self.identifier_re = identifier_regular_expression
+        self.password_re = password_regular_expression
         self.test_username = test_username
         self.test_password = test_password
         self.log = logging.getLogger(self.NAME)
@@ -1065,12 +1066,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
     
     @classmethod
-    def from_config(cls):
+    def from_config(cls, config):
         """Load this OAuthAuthenticationProvider from the site configuration.
         """
-        config = Configuration.integration(
-            cls.NAME, required=True
-        )
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
         token_expiration_days = config.get(

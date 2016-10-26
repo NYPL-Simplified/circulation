@@ -134,7 +134,18 @@ class ControllerTest(DatabaseTest):
         
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
+                Configuration.AUTHENTICATION_POLICY : {
+                    "providers": [
+                        {
+                            "module": "api.mock_authentication",
+                            "patrons": { "unittestuser": "unittestpassword",
+                                         "unittestuser2" : "unittestpassword2",
+                            },
+                            "expired_patrons": { "expired" : "password" },
+                            "patrons_with_fines": { "ihavefines" : "password" },
+                        }
+                    ],
+                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -144,13 +155,6 @@ class ControllerTest(DatabaseTest):
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
                 },
-                MockAuthenticationProvider.NAME : {
-                    "patrons": { "unittestuser": "unittestpassword",
-                                 "unittestuser2" : "unittestpassword2",
-                    },
-                    "expired_patrons": { "expired" : "password" },
-                    "patrons_with_fines": { "ihavefines" : "password" },
-                }
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(

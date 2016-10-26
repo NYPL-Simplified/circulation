@@ -22,8 +22,8 @@ class MockResponse(object):
 
 class MockAPI(MilleniumPatronAPI):
 
-    def __init__(self, root="", *args, **kwargs):
-        super(MockAPI, self).__init__(root, *args, **kwargs)
+    def __init__(self, url="http://test-url/", *args, **kwargs):
+        super(MockAPI, self).__init__(url, *args, **kwargs)
         self.queue = []
 
     def sample_data(self, filename):
@@ -43,19 +43,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = MockAPI()
+        self.api = MockAPI(identifier_regular_expression=None)
 
     def test_from_config(self):
         api = None
-        with temp_config() as config:
-            data = {
-                Configuration.URL : "http://example.com",
-                Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"]
-            }
-            config[Configuration.INTEGRATIONS] = {
-                MilleniumPatronAPI.NAME : data
-            }
-            api = MilleniumPatronAPI.from_config()
+        config = {
+            Configuration.URL : "http://example.com",
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
+        }
+        api = MilleniumPatronAPI.from_config(config)
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
             
@@ -329,7 +325,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("SECOND_barcode", patrondata.authorization_identifier)
 
-        api = MockAPI(authorization_blacklist=["second"])
+        api = MockAPI(authorization_identifier_blacklist=["second"])
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("FIRST_barcode", patrondata.authorization_identifier)
         
@@ -337,7 +333,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
         """
-        api = MockAPI(authorization_blacklist=["barcode"])
+        api = MockAPI(authorization_identifier_blacklist=["barcode"])
         content = api.sample_data("dump.two_barcodes.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)

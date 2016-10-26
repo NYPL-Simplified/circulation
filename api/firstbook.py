@@ -38,26 +38,17 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     
     log = logging.getLogger("First Book authentication API")
 
-    @classmethod
-    def config_values(cls):
-        config, values = super(FirstBookAuthenticationAPI, cls).config_values()
-        host = config.get(Configuration.URL)
-        key = config.get(cls.SECRET_KEY)
-        if not (host and key):
+    def __init__(self, url=None, key=None, **kwargs):
+        if not (url and key):
             raise CannotLoadConfiguration(
                 "First Book server not configured."
             )
-        values['host'] = host
-        values['key'] = key
-        return config, values
-
-    def __init__(self, host, key, **kwargs):
         super(FirstBookAuthenticationAPI, self).__init__(**kwargs)
-        if '?' in host:
-            host += '&'
+        if '?' in url:
+            url += '&'
         else:
-            host += '?'
-        self.root = host + 'key=' + key
+            url += '?'
+        self.root = url + 'key=' + key
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.

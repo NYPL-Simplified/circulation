@@ -52,8 +52,8 @@ class Configuration(CoreConfiguration):
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 
-    IDENTIFIER_REGULAR_EXPRESSION = "barcode_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "pin_regular_expression"
+    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
+    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
 
     @classmethod
     def lending_policy(cls):
