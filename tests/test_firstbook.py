@@ -29,15 +29,11 @@ class TestFirstBook(object):
 
     def test_from_config(self):
         api = None
-        with temp_config() as config:
-            data = {
-                Configuration.URL : "http://example.com/",
-                FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-            }
-            config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.NAME : data
-            }
-            api = FirstBookAuthenticationAPI.from_config()
+        config = {
+            Configuration.URL : "http://example.com/",
+            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
+        }
+        api = FirstBookAuthenticationAPI.from_config(config)
 
         # Verify that the configuration details were stored properly.
         eq_('http://example.com/?key=the_key', api.root)
@@ -49,15 +45,11 @@ class TestFirstBook(object):
         eq_(True, api.server_side_validation("foo@bar", "1234"))
 
         # Try another case where the root URL has multiple arguments.
-        with temp_config() as config:
-            data = {
-                Configuration.URL : "http://example.com/?foo=bar",
-                FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-            }
-            config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.NAME : data
-            }
-            api = FirstBookAuthenticationAPI.from_config()        
+        config = {
+            Configuration.URL : "http://example.com/?foo=bar",
+            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
+        }
+        api = FirstBookAuthenticationAPI.from_config(config)
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
         
     def test_authentication_success(self):

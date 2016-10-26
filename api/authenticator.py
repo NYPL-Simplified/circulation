@@ -761,49 +761,26 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # passwords.
     alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
-    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None
-   
-    @classmethod
-    def config_values(cls, configuration_section):
-        """Retrieve constructor values from site configuration.
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
 
-        Can be overridden from a subclass to pull additional values.
-
-        :param required: Whether or not the absence of any configuration
-        should be considered an error.
-        """
-        config = configuration_section
-        args = dict()
-        if config:
-            args['identifier_re'] = config.get(
-                Configuration.IDENTIFIER_REGULAR_EXPRESSION,
-                cls.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
-            )
-            args['password_re'] = config.get(
-                Configuration.PASSWORD_REGULAR_EXPRESSION,
-                cls.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-            )
-            args['test_username'] = config.get(
-                Configuration.AUTHENTICATION_TEST_USERNAME,
-                None
-            )
-            args['test_password'] = config.get(
-                Configuration.AUTHENTICATION_TEST_PASSWORD,
-                None
-            )
-        return config, args
-        
-    
     @classmethod
     def from_config(cls, config):
         """Load a BasicAuthenticationProvider from site configuration."""
         return cls(**config)
-
+    
     def __init__(self, identifier_regular_expression=None,
                  password_regular_expression=None,
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
         """
+        identifier_regular_expression = (
+            identifier_regular_expression or
+            self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+        )
+        password_regular_expression = (
+            password_regular_expression or
+            self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
+        )
         if identifier_regular_expression:
             identifier_regular_expression = re.compile(
                 identifier_regular_expression
