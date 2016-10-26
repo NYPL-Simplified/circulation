@@ -142,8 +142,7 @@ class OneClickAPI(object):
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, verbosity='complete'):
-        """Make an HTTP request, acquiring/refreshing a bearer token
-        if necessary.
+        """Make an HTTP request.
         """
         if verbosity not in self.RESPONSE_VERBOSITY.values():
             verbosity = self.RESPONSE_VERBOSITY[2]
@@ -155,7 +154,7 @@ class OneClickAPI(object):
 
         # for now, do nothing with error codes, but in the future might have some that 
         # will warrant repeating the request.
-        disallowed_response_codes = ["409"]
+        disallowed_response_codes = []
         response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params, 
@@ -329,9 +328,14 @@ class OneClickAPI(object):
             raise IOError("OneClick isbn search response not parseable - has no respdict.")
 
         if "message" in respdict:
-            # can happen if searched for item that's not in library's catalog
-            raise ValueError("get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % 
-                (identifier_string, str(self.library_id), respdict['message']))
+            message = respdict['message']
+            if message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: "):
+                # we searched for item that's not in library's catalog -- a mistake, but not an exception
+                return None
+            else:
+                # something more serious went wrong
+                raise ValueError("get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % 
+                    (identifier_string, str(self.library_id), message))
 
         return respdict
 
