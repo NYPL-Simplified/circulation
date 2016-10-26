@@ -305,3 +305,17 @@ class AdobeVendorIDModel(object):
         # it doesn't do much damage.
         value = "urn:uuid:0" + u[1:]
         return value
+
+
+class DelegatedVendorIDService(object):
+
+    def __init__(self, vendor_id, library_uri, secret, other_libraries):
+        self.vendor_id = vendor_id
+        self.library_uri = library_uri
+        self.libraries_by_uri = dict(other_libraries)
+        self.libraries_by_uri[library_uri] = secret
+
+    def authdata_for(self, patron_identifier):
+        payload = dict(iss=self.library_uri,
+                       sub=patron_identifier)
+        
