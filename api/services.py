@@ -24,7 +24,7 @@ class ServiceStatus(object):
 
     def __init__(self, _db):
         self._db = _db
-        self.auth = Authenticator.initialize(self._db, test=False)
+        self.auth = Authenticator.from_config(self._db)
         self.overdrive = OverdriveAPI.from_environment(self._db)
         self.threem = ThreeMAPI.from_environment(self._db)
         self.axis = Axis360API.from_environment(self._db)
