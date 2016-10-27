@@ -143,14 +143,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
 
-        :param patron_obj: a Patron object for the patron who wants
+        :param patron: a Patron object for the patron who wants
         to check out the book.
 
-        :param patron_password: The patron's alleged password.
+        :param pin: The patron's alleged password.
 
-        :param identifier: Identifier of the book to be checked out.
+        :param licensepool: Identifier of the book to be checked out is 
+        attached to this licensepool.
 
-        :param format_type: The patron's desired book format.
+        :param internal_format: Represents the patron's desired book format.
 
         :return: a LoanInfo object.
         """

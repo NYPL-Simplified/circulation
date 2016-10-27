@@ -717,3 +717,64 @@ class BaseCirculationAPI(object):
         of changes?
         """
         return Configuration.default_notification_email_address()
+
+
+    def checkin(self, patron, pin, licensepool):
+        """  Return a book early.  
+
+        :param patron: a Patron object for the patron who wants
+        to check out the book.
+        :param pin: The patron's alleged password.
+        :param licensepool: Identifier of the book to be checked out is 
+        attached to this licensepool.
+        """
+        raise NotImplementedException
+
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+        """Check out a book on behalf of a patron.
+
+        :param patron: a Patron object for the patron who wants
+        to check out the book.
+        :param pin: The patron's alleged password.
+        :param licensepool: The Identifier of the book to be checked out is 
+        attached to this licensepool.
+        :param internal_format: Represents the patron's desired book format.
+
+        :return: a LoanInfo object.
+        """
+        raise NotImplementedException
+
+
+    def fulfill(self, patron, pin, licensepool, internal_format):
+        """ Get the actual resource file to the patron.
+        TODO:  to the patron?  or to some intermediary stage?
+        """
+        raise NotImplementedException
+
+
+    def patron_activity(self, patron, pin):
+        """ Return a patron's current checkouts and holds.
+        TODO: current?  or also past history?
+        """
+        raise NotImplementedException
+
+
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        """Place a book on hold.
+
+        :return: A HoldInfo object
+        """
+        raise NotImplementedException
+
+
+    def release_hold(self, patron, pin, licensepool):
+        """Release a patron's hold on a book.
+
+        :raises CannotReleaseHold: If there is an error communicating
+        with Overdrive, or Overdrive refuses to release the hold for
+        any reason.
+        """
+        raise NotImplementedException
+
+
