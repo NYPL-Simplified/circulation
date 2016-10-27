@@ -724,6 +724,7 @@ class DataSource(Base):
     LIBRARY_STAFF = "Library staff"
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
+    ONECLICK = "OneClick"
     ELIB = "eLiburutegia"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
@@ -915,6 +916,7 @@ class DataSource(Base):
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
+                (cls.ONECLICK, True, True, Identifier.ONECLICK_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
@@ -1252,6 +1254,7 @@ class Identifier(Base):
     NOVELIST_ID = "NoveList ID"
     OCLC_WORK = "OCLC Work ID"
     OCLC_NUMBER = "OCLC Number"
+    ONECLICK_ID = "OneClick ID"
     OPEN_LIBRARY_ID = "OLID"
     BIBLIOCOMMONS_ID = "Bibliocommons ID"
     URI = "URI"
@@ -4922,6 +4925,7 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
+    ONECLICK = Classifier.ONECLICK    # OneClick's genre system
     THREEM = Classifier.THREEM        # 3M's classification system
     BISAC = Classifier.BISAC
     BIC = Classifier.BIC              # BIC Subject Categories
@@ -4935,6 +4939,7 @@ class Subject(Base):
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
+    ONECLICK_AUDIENCE = Classifier.ONECLICK_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
@@ -7540,6 +7545,7 @@ class DeliveryMechanism(Base):
     KINDLE_DRM = "Kindle DRM"
     NOOK_DRM = "Nook DRM"
     STREAMING_DRM = "Streaming"
+    ONECLICK_DRM = "OneClick DRM"
     OVERDRIVE_DRM = "Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"

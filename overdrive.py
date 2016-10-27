@@ -854,17 +854,6 @@ class OverdriveRepresentationExtractor(object):
                         format_id, overdrive_id
                     )
 
-                if format_id.startswith('audiobook-'):
-                    medium = Edition.AUDIO_MEDIUM
-                elif format_id.startswith('video-'):
-                    medium = Edition.VIDEO_MEDIUM
-                elif format_id.startswith('ebook-'):
-                    medium = Edition.BOOK_MEDIUM
-                elif format_id.startswith('music-'):
-                    medium = Edition.MUSIC_MEDIUM
-                else:
-                    cls.log.warn("Unfamiliar format: %s", format_id)
-
 
             # Also make a CirculationData so we can write the formats, 
             circulationdata = CirculationData(

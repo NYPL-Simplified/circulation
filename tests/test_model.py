@@ -16,6 +16,7 @@ from nose.tools import (
 )
 
 from psycopg2.extras import NumericRange
+
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
