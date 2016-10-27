@@ -1319,7 +1319,7 @@ class OAuthController(object):
         if not code or not state:
             return INVALID_OAUTH_CALLBACK_PARAMETERS
 
-        state = json.loads(state)
+        state = json.loads(urllib.unquote(state))
         client_redirect_uri = state.get('redirect_uri') or ""
         provider_name = state.get('provider')
         provider = self.authenticator.oauth_provider_lookup(provider_name)
