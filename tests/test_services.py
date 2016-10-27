@@ -26,3 +26,8 @@ class TestServiceStatusMonitor(DatabaseTest):
         # Request times below 3 secs are set as info
         status_message = SUCCESS%2.32
         eq_('info', level_name(status_message))
+
+    def test_init(self):
+        # Test that ServiceStatus can create an Authenticator.
+        service_status = ServiceStatus(self._db)
+        assert service_status.auth != None
