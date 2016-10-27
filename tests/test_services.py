@@ -1,6 +1,10 @@
 from . import DatabaseTest
 from nose.tools import set_trace, eq_
 from api.services import ServiceStatus
+from api.config import (
+    Configuration,
+    temp_config,
+)
 
 class TestServiceStatusMonitor(DatabaseTest):
 
@@ -26,3 +30,17 @@ class TestServiceStatusMonitor(DatabaseTest):
         # Request times below 3 secs are set as info
         status_message = SUCCESS%2.32
         eq_('info', level_name(status_message))
+
+    def test_init(self):
+        # Test that ServiceStatus can create an Authenticator.
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": [
+                        {"module": 'api.mock_authentication'}
+                    ]
+                }
+            }
+            service_status = ServiceStatus(self._db)
+            assert service_status.auth != None
+            assert service_status.auth.basic_auth_provider != None
