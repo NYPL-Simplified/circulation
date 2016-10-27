@@ -50,7 +50,11 @@ class PatronData(object):
 
     # Used to distinguish between "value has been unset" and "value
     # has not changed".
-    NO_VALUE = object()
+    class NoValue(object):
+        def __nonzero__(self):
+            """We want this object to act like None or False."""
+            return False
+    NO_VALUE = NoValue()
     
     def __init__(self,
                  permanent_id=None,
@@ -946,7 +950,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # We're going to try a number of different strategies to look up
         # the appropriate patron.
         lookups = []
-        
+       
         if patrondata:
             if patrondata.permanent_id:
                 # Permanent ID is the most reliable way of identifying
