@@ -1,6 +1,10 @@
 from . import DatabaseTest
 from nose.tools import set_trace, eq_
 from api.services import ServiceStatus
+from api.config import (
+    Configuration,
+    temp_config,
+)
 
 class TestServiceStatusMonitor(DatabaseTest):
 
@@ -29,5 +33,15 @@ class TestServiceStatusMonitor(DatabaseTest):
 
     def test_init(self):
         # Test that ServiceStatus can create an Authenticator.
-        service_status = ServiceStatus(self._db)
-        assert service_status.auth != None
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": [
+                        {"module": 'api.millenium_patron',
+                         Configuration.URL: "http://url"}
+                    ]
+                }
+            }
+            service_status = ServiceStatus(self._db)
+            assert service_status.auth != None
+            assert service_status.auth.basic_auth_provider != None
