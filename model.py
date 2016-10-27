@@ -458,7 +458,61 @@ class Patron(Base):
             return True
         return False
 
+    @property
+    def needs_external_sync(self):
+        """Could this patron stand to have their metadata synced with the
+        remote?
 
+        By default, all patrons get synced once every twelve
+        hours. Patrons who lack borrowing privileges can always stand
+        to be synced, since their privileges may have just been
+        restored.
+        """
+        if not self.last_external_sync:
+            # This patron has never been synced.
+            return True
+        
+        now = datetime.datetime.utcnow()
+        if self.has_borrowing_privileges:
+            # A patron who has borrowing privileges gets synced every twelve
+            # hours. Their account is unlikely to change rapidly.
+            check_every = datetime.timedelta(hours=12)
+        else:
+            # A patron without borrowing privileges might get synced
+            # every time they make a request. It's likely they are
+            # taking action to get their account reinstated and we
+            # don't want to make them wait twelve hours to get access.
+            check_every = datetime.timedelta(seconds=5)
+        expired_at = self.last_external_sync + check_every
+        if now > expired_at:
+            return True
+        return False
+
+    @property
+    def has_borrowing_privileges(self):
+        """Is the given patron allowed to check out books?
+        """
+        now = datetime.datetime.utcnow()
+        if (self.authorization_expires and
+            self._to_date(self.authorization_expires)
+            < self._to_date(now)
+        ):
+            # The patron's card has expired.
+            return False
+
+        # TODO: Check patron's fines and return false if they are
+        # excessive (this depends on site policy).
+
+        # TODO: The patron may be blocked for some other reason; we
+        # should track it and check it.
+        return True
+
+    def _to_date(self, x):
+        """Convert a datetime into a date. Leave a date alone."""
+        if isinstance(x, datetime.datetime):
+            return x.date()
+        return x
+    
     @property
     def authorization_is_active(self):
         # Unlike pretty much every other place in this app, I use
@@ -466,7 +520,7 @@ class Patron(Base):
         # less likely that a patron's authorization will expire before
         # they think it should.
         if (self.authorization_expires
-            and self.authorization_expires 
+            and self._to_date(self.authorization_expires)
             < datetime.datetime.now().date()):
             return False
         return True
@@ -671,6 +725,7 @@ class DataSource(Base):
     ADOBE = "Adobe DRM"
     PLYMPTON = "Plympton"
     ONECLICK = "OneClick"
+    ELIB = "eLiburutegia"
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
@@ -690,6 +745,7 @@ class DataSource(Base):
         GUTENBERG,
         GUTENBERG_EPUB_GENERATOR,
         PROJECT_GITENBERG,
+        ELIB,
         PLYMPTON,
         STANDARD_EBOOKS,
     ]
@@ -882,6 +938,7 @@ class DataSource(Base):
                 (cls.UNGLUE_IT, True, False, Identifier.URI, None),
                 (cls.ADOBE, False, False, None, None),
                 (cls.PLYMPTON, True, False, Identifier.ISBN, None),
+                (cls.ELIB, True, False, Identifier.ELIB_ID, None),
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
@@ -1191,6 +1248,7 @@ class Identifier(Base):
     BIBLIOTHECA_ID = "Bibliotheca ID"
     GUTENBERG_ID = "Gutenberg ID"
     AXIS_360_ID = "Axis 360 ID"
+    ELIB_ID = "eLiburutegia ID"
     ASIN = "ASIN"
     ISBN = "ISBN"
     NOVELIST_ID = "NoveList ID"
@@ -1210,7 +1268,7 @@ class Identifier(Base):
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         THREEM_ID, OVERDRIVE_ID, AXIS_360_ID,
-        GUTENBERG_ID
+        GUTENBERG_ID, ELIB_ID
     ]
 
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
@@ -3160,9 +3218,9 @@ class Work(Base):
         upper = self.target_age.upper
         if not upper and not lower:
             return ""
-        if lower and not upper:
+        if lower and upper is None:
             return str(lower)
-        if upper and not lower:
+        if upper and lower is None:
             return str(upper)
         return "%s-%s" % (lower,upper)
 
@@ -4867,10 +4925,11 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    ONECLICK = Classifier.ONECLICK  # OneClick's genre system
-    THREEM = Classifier.THREEM  # 3M's classification system
+    ONECLICK = Classifier.ONECLICK    # OneClick's genre system
+    THREEM = Classifier.THREEM        # 3M's classification system
     BISAC = Classifier.BISAC
-    TAG = Classifier.TAG   # Folksonomic tags.
+    BIC = Classifier.BIC              # BIC Subject Categories
+    TAG = Classifier.TAG              # Folksonomic tags.
     FREEFORM_AUDIENCE = Classifier.FREEFORM_AUDIENCE
     NYPL_APPEAL = Classifier.NYPL_APPEAL
 
@@ -4992,10 +5051,10 @@ class Subject(Base):
     @property
     def target_age_string(self):
         lower = self.target_age.lower
-        upper = self.target_age.upper           
-        if lower and not upper:
+        upper = self.target_age.upper
+        if lower and upper is None:
             return str(lower)
-        if upper and not lower:
+        if upper and lower is None:
             return str(upper)
         if not self.target_age.upper_inc:
             upper -= 1
@@ -6531,7 +6590,7 @@ class Credential(Base):
             return None
 
     @classmethod
-    def lookup_by_temporary_token(cls, _db, data_source, type, token):
+    def lookup_and_expire_temporary_token(cls, _db, data_source, type, token):
         """Look up a temporary token and expire it immediately."""
         credential = cls.lookup_by_token(_db, data_source, type, token)
         if not credential:
@@ -6541,13 +6600,15 @@ class Credential(Base):
         return credential
 
     @classmethod
-    def temporary_token_create(self, _db, data_source, type, patron, duration):
+    def temporary_token_create(
+            self, _db, data_source, type, patron, duration, value=None
+    ):
         """Create a temporary token for the given data_source/type/patron.
 
         The token will be good for the specified `duration`.
         """
         expires = datetime.datetime.utcnow() + duration
-        token_string = str(uuid.uuid1())
+        token_string = value or str(uuid.uuid1())
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
         # If there was already a token of this type for this patron,

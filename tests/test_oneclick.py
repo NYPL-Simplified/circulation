@@ -281,10 +281,10 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
 
 
     def test_invalid_or_unrecognized_guid(self):
-        # A bad or malformed GUID can't get coverage.
+        # A bad or malformed ISBN can't get coverage.
 
         identifier = self._identifier()
-        identifier.identifier = 'bad_guid'
+        identifier.identifier = 'ISBNbadbad'
         
         datastr, datadict = self.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
@@ -292,12 +292,12 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         failure = self.provider.process_item(identifier)
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
-        assert failure.exception.startswith('get_metadata_by_isbn(bad_guid) in library ')
+        assert failure.exception.startswith('get_metadata_by_isbn(ISBNbadbad) in library ')
 
 
     def test_process_item_creates_presentation_ready_work(self):
-        # Test the normal workflow where we ask Axis for data,
-        # Axis provides it, and we create a presentation-ready work.
+        # Test the normal workflow where we ask OneClick for data,
+        # OneClick provides it, and we create a presentation-ready work.
         
         datastr, datadict = self.get_data("response_isbn_found_1.json")
         self.api.queue_response(200, content=datastr)
@@ -309,7 +309,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         # This book has no LicensePool.
         eq_(None, identifier.licensed_through)
 
-        # Run it through the Axis360BibliographicCoverageProvider
+        # Run it through the OneClickBibliographicCoverageProvider
         provider = OneClickBibliographicCoverageProvider(
             self._db, oneclick_api=self.api
         )
@@ -317,7 +317,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         eq_(identifier, result)
 
         # A LicensePool was created. But we do NOT know how many copies of this
-        # book are available, and what formats it's available in.
+        # book are available, only what formats it's available in.
         pool = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
@@ -325,10 +325,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
 
         # A Work was created and made presentation ready.
         eq_('Tea Time for the Traditionally Built', pool.work.title)
-
-        # TODO: determine what endpoints we want to call to get the licensing info 
-        # and make the work presentation-ready.
-        #eq_(True, pool.work.presentation_ready)
+        eq_(True, pool.work.presentation_ready)
        
 
 

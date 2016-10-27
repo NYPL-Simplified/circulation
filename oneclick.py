@@ -690,6 +690,10 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             identifier, metadata, 
             metadata_replacement_policy=self.metadata_replacement_policy
         )
+
+        if not isinstance(result, CoverageFailure):
+            self.handle_success(identifier)
+
         return result
 
 

@@ -19,3 +19,4 @@ cairosvg
 mock
 py-bcrypt
 Flask-Babel
+money
