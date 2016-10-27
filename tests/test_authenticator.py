@@ -950,7 +950,8 @@ class TestBasicAuthenticationProvider(DatabaseTest):
                 dict(permanent_id=patron1.external_identifier),
                 dict(authorization_identifier=patron1.authorization_identifier),
                 dict(username=patron1.username),
-                dict(username=PatronData.NO_VALUE,
+                dict(permanent_id=PatronData.NO_VALUE,
+                     username=PatronData.NO_VALUE,
                      authorization_identifier=patron1.authorization_identifier)
         ]:
             patrondata = PatronData(**patrondata_args)
