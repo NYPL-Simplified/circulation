@@ -37,8 +37,7 @@ class TestServiceStatusMonitor(DatabaseTest):
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY: {
                     "providers": [
-                        {"module": 'api.millenium_patron',
-                         Configuration.URL: "http://url"}
+                        {"module": 'api.mock_authentication'}
                     ]
                 }
             }
