@@ -982,6 +982,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
 
     def test_get_credential_from_header(self):
         provider = BasicAuthenticationProvider()
+        eq_(None, provider.get_credential_from_header("Bearer [some token]"))
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
