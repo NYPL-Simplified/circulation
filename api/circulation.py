@@ -725,10 +725,9 @@ class BaseCirculationAPI(object):
         :param patron: a Patron object for the patron who wants
         to check out the book.
         :param pin: The patron's alleged password.
-        :param licensepool: Identifier of the book to be checked out is 
-        attached to this licensepool.
+        :param licensepool: Contains lending info as well as link to parent Identifier.
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 
     def checkout(self, patron, pin, licensepool, internal_format):
@@ -737,27 +736,25 @@ class BaseCirculationAPI(object):
         :param patron: a Patron object for the patron who wants
         to check out the book.
         :param pin: The patron's alleged password.
-        :param licensepool: The Identifier of the book to be checked out is 
-        attached to this licensepool.
+        :param licensepool: Contains lending info as well as link to parent Identifier.
         :param internal_format: Represents the patron's desired book format.
 
         :return: a LoanInfo object.
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 
     def fulfill(self, patron, pin, licensepool, internal_format):
         """ Get the actual resource file to the patron.
-        TODO:  to the patron?  or to some intermediary stage?
+        :return a FulfillmentInfo object.
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 
     def patron_activity(self, patron, pin):
         """ Return a patron's current checkouts and holds.
-        TODO: current?  or also past history?
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
@@ -765,16 +762,16 @@ class BaseCirculationAPI(object):
 
         :return: A HoldInfo object
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 
     def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.
 
         :raises CannotReleaseHold: If there is an error communicating
-        with Overdrive, or Overdrive refuses to release the hold for
+        with the provider, or the provider refuses to release the hold for
         any reason.
         """
-        raise NotImplementedException
+        raise NotImplementedException()
 
 

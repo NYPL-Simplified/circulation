@@ -57,8 +57,8 @@ class OneClickAPITest(DatabaseTest):
 
     def setup(self, _db=None):
         super(OneClickAPITest, self).setup()
-        self.api = MockOneClickAPI(self._db)
-        #self.api = OneClickAPI(self._db)
+        #self.api = MockOneClickAPI(self._db)
+        self.api = OneClickAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
@@ -74,10 +74,10 @@ class OneClickAPITest(DatabaseTest):
 class TestOneClickAPI(OneClickAPITest):
 
     def test_get_patron_internal_id(self):
-        datastr, datadict = self.get_data("response_patron_internal_id_not_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
-        oneclick_patron_id = self.api.get_patron_internal_id(patron_cardno='9305722621')
-        eq_(None, oneclick_patron_id)
+        #datastr, datadict = self.get_data("response_patron_internal_id_not_found.json")
+        #self.api.queue_response(status_code=200, content=datastr)
+        #oneclick_patron_id = self.api.get_patron_internal_id(patron_cardno='9305722621')
+        #eq_(None, oneclick_patron_id)
 
         datastr, datadict = self.get_data("response_patron_internal_id_error.json")
         self.api.queue_response(status_code=500, content=datastr)

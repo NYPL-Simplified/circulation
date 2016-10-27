@@ -228,6 +228,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         url = "%s/rpc/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_identifier)
 
         try:
+            set_trace()
             response = self.request(url)
         except Exception, e:
             self.log.error("Patron id call failed: %r", e, exc_info=e)
@@ -269,14 +270,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     def fulfill(self, patron, pin, licensepool, internal_format):
         """ Get the actual resource file to the patron.
-        TODO:  to the patron?  or to some intermediary stage?
+        :return a FulfillmentInfo object.
         """
         raise NotImplementedException
 
 
     def patron_activity(self, patron, pin):
         """ Return a patron's current checkouts and holds.
-        TODO: current?  or also past history?
 
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
