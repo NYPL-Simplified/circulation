@@ -901,6 +901,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         :param header: A dictionary with keys `username` and `password`.
         """
+        if not isinstance(header, dict):
+            return None
         return header.get('password', None)
     
     def server_side_validation(self, username, password):
