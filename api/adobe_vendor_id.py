@@ -3,7 +3,6 @@ import uuid
 import base64
 import os
 import datetime
-import jwt
 
 import flask
 from flask import Response
@@ -306,36 +305,3 @@ class AdobeVendorIDModel(object):
         # it doesn't do much damage.
         value = "urn:uuid:0" + u[1:]
         return value
-
-
-class DelegatedVendorIDService(object):
-
-    def __init__(self, vendor_id, library_uri, secret, other_libraries={}):
-        self.vendor_id = vendor_id
-
-        # This is used to _encode_ JWTs and send them to the
-        # delegation authority.
-        self.library_uri = library_uri
-        self.secret = secret
-
-        # This is used by the delegation authority to _decode_ JWTs.
-        self.libraries_by_uri = dict(other_libraries)
-        self.libraries_by_uri[library_uri] = secret
-
-    def authdata_for(self, patron_identifier):
-        """Generate authdata suitable for putting in an OPDS feed where it can
-        be picked up by a client and sent to the delegation authority.
-
-        :return: A 2-tuple (vendor ID, authdata)
-        """
-        now = datetime.datetime.utcnow()
-        expires = now + datetime.timedelta(minutes=60)
-        def f(d):
-            return d.strftime("%Y-%m-%d %H:%M:%S")
-        payload = dict(iss=self.library_uri,
-                       sub=patron_identifier,
-                       iat=f(now),
-                       exp=f(expires),                       
-        )
-        authdata = jwt.encode(payload, secret=self.secret, algorithm='HS256')
-        return self.vendor_id, authdata
