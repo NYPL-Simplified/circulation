@@ -60,7 +60,6 @@ class ServiceStatus(object):
             if patron:
                 success = True                
         if not success:
-            print "ERROR"
             error = "Could not create patron with configured credentials."
             self.log.error(error)
             status[service] = error
