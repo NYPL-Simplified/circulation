@@ -31,6 +31,12 @@ from core.model import (
     DataSource,
 )
 
+from api.config import (
+    CannotLoadConfiguration,
+    Configuration,
+    temp_config,
+)
+
 from api.mock_authentication import MockAuthenticationProvider       
 
 class TestVendorIDModel(DatabaseTest):
@@ -340,7 +346,64 @@ class TestAuthdataUtility(object):
                 "http://your-library.org/": "Your library secret"
             }
         )
-           
+
+    def test_from_config(self):
+        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
+
+        # If there is no Adobe Vendor ID integration set up,
+        # from_config() returns None.
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS] = {}
+            eq_(None, AuthdataUtility.from_config())
+            
+        vendor_id = "vendor id"
+        uri = "http://me/"
+        secret = "some secret"
+        others = {"http://you/": "secret2"}
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][name] = {
+                Configuration.ADOBE_VENDOR_ID: vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY: uri,
+                AuthdataUtility.AUTHDATA_SECRET_KEY: secret,
+                AuthdataUtility.OTHER_LIBRARIES_KEY: others
+            }
+
+            # Test success
+            utility = AuthdataUtility.from_config()
+            eq_(vendor_id, utility.vendor_id)
+            eq_(uri, utility.library_uri)
+            eq_(secret, utility.secret)
+            expect = dict(others)
+            expect[uri] = secret
+            eq_(expect, utility.secrets_by_library)
+
+            # If an integration is set up but incomplete, from_config
+            # raises CannotLoadConfiguration.
+            integration = config[Configuration.INTEGRATIONS][name]
+            del integration[Configuration.ADOBE_VENDOR_ID]
+            assert_raises(
+                CannotLoadConfiguration, AuthdataUtility.from_config
+            )
+            integration[Configuration.ADOBE_VENDOR_ID] = vendor_id
+
+            del integration[AuthdataUtility.LIBRARY_URI_KEY]
+            assert_raises(
+                CannotLoadConfiguration, AuthdataUtility.from_config
+            )
+            integration[AuthdataUtility.LIBRARY_URI_KEY] = uri
+
+            del integration[AuthdataUtility.AUTHDATA_SECRET_KEY]
+            assert_raises(
+                CannotLoadConfiguration, AuthdataUtility.from_config
+            )
+            integration[AuthdataUtility.AUTHDATA_SECRET_KEY] = secret
+
+            # If other libraries are not configured, that's fine.
+            del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
+            authdata = AuthdataUtility.from_config()
+            eq_({uri : secret}, authdata.secrets_by_library)
+
+            
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"
         vendor_id, authdata = self.authdata.encode(patron_identifier)

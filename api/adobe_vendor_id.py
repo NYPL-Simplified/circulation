@@ -7,6 +7,10 @@ import jwt
 
 import flask
 from flask import Response
+from config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from core.util.xmlparser import XMLParser
 from core.model import (
     Credential,
@@ -347,7 +351,39 @@ class AuthdataUtility(object):
         # This is used by the delegation authority to _decode_ JWTs.
         self.secrets_by_library = dict(other_libraries)
         self.secrets_by_library[library_uri] = secret
-       
+
+    LIBRARY_URI_KEY = 'library_uri'
+    AUTHDATA_SECRET_KEY = 'authdata_secret'
+    OTHER_LIBRARIES_KEY = 'other_libraries'
+
+    @classmethod
+    def from_config(cls):
+        """Initialize an AuthdataUtility from site configuration.
+
+        :return: An AuthdataUtility if one is configured; otherwise
+        None.
+
+        :raise CannotLoadConfiguration: If an AuthdataUtility is
+        incompletely configured.
+        """
+        integration = Configuration.integration(
+            Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        )
+        if not integration:
+            return None
+        vendor_id = integration.get(Configuration.ADOBE_VENDOR_ID)
+        library_uri = integration.get(cls.LIBRARY_URI_KEY)
+        secret = integration.get(cls.AUTHDATA_SECRET_KEY)
+        other_libraries = integration.get(cls.OTHER_LIBRARIES_KEY, {})
+        if not vendor_id or not library_uri or not secret:
+            raise CannotLoadConfiguration(
+                "Adobe Vendor ID configuration is incomplete. %s, %s and %s must all be defined." % (
+                    cls.LIBRARY_URI_KEY, cls.AUTHDATA_SECRET_KEY,
+                    Configuration.ADOBE_VENDOR_ID
+                )
+            )
+        return cls(vendor_id, library_uri, secret, other_libraries)
+        
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where
         it can be picked up by a client and sent to the delegation
