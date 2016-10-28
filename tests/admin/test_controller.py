@@ -796,8 +796,6 @@ class TestDashboardController(AdminControllerTest):
         with self.app.test_request_context("/"):
 
             # At first, there's one patron in the database.
-            # TODO: when the authentication refactoring is done,
-            # we'll start with 0.
             response = self.manager.admin_dashboard_controller.stats()
             patron_data = response.get('patrons')
             eq_(1, patron_data.get('total'))
