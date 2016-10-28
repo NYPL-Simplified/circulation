@@ -22,12 +22,12 @@ class ServiceStatus(object):
 
     SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
-    def __init__(self, _db):
+    def __init__(self, _db, auth=None, overdrive=None, threem=None, axis=None):
         self._db = _db
-        self.auth = Authenticator.initialize(self._db, test=False)
-        self.overdrive = OverdriveAPI.from_environment(self._db)
-        self.threem = ThreeMAPI.from_environment(self._db)
-        self.axis = Axis360API.from_environment(self._db)
+        self.auth = auth or Authenticator.from_config(self._db)
+        self.overdrive = overdrive or OverdriveAPI.from_environment(self._db)
+        self.threem = threem or ThreeMAPI.from_environment(self._db)
+        self.axis = axis or Axis360API.from_environment(self._db)
 
     def loans_status(self, response=False):
         """Checks the length of request times for patron activity.
@@ -49,15 +49,21 @@ class ServiceStatus(object):
             # Stick it in a list so we can use it once we leave the function.
             patron_info.append((patron, password))
 
+        # Look up the test patron and verify their credentials. If
+        # this doesn't work, nothing else will work, either.
         service = 'Patron authentication'
         self._add_timing(status, service, do_patron)
-        if not patron_info or patron_info == [(None, None)]:
+        success = False
+        patron = password = None
+        if patron_info:
+            [(patron, password)] = patron_info
+            if patron:
+                success = True                
+        if not success:
             error = "Could not create patron with configured credentials."
             self.log.error(error)
             status[service] = error
             return status
-        [(patron, password)] = patron_info
-
         for api in [self.overdrive, self.threem, self.axis]:
             if not api:
                 continue

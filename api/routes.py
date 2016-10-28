@@ -174,13 +174,6 @@ def lane_search(languages, lane_name):
 def preload():
     return app.manager.opds_feeds.preload()
 
-@app.route('/me', methods=['GET'])
-@allows_patron_web()
-@requires_auth
-@returns_problem_detail
-def account():
-    return app.manager.accounts.account()
-
 @dir_route('/loans', methods=['GET', 'HEAD'])
 @allows_patron_web()
 @requires_auth
@@ -319,13 +312,13 @@ def adobe_vendor_id_status():
 @app.route('/oauth_authenticate')
 @returns_problem_detail
 def oauth_authenticate():
-    return app.manager.auth.oauth_authenticate(flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args)
 
 # Redirect URI for OAuth providers, eg. Clever
 @app.route('/oauth_callback')
 @returns_problem_detail
 def oauth_callback():
-    return app.manager.auth.oauth_callback(app.manager._db, flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
 
 
 # Controllers used for operations purposes

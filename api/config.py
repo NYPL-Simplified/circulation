@@ -7,6 +7,7 @@ from core.config import (
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
+from core.util import MoneyUtility
 
 class Configuration(CoreConfiguration):
 
@@ -51,12 +52,8 @@ class Configuration(CoreConfiguration):
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 
-    IDENTIFIER_REGULAR_EXPRESSION = "barcode_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "pin_regular_expression"
-
-    alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
-    DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
-    DEFAULT_PASSWORD_REGULAR_EXPRESSION = alphanumerics_plus
+    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
+    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
 
     @classmethod
     def lending_policy(cls):
@@ -117,6 +114,13 @@ class Configuration(CoreConfiguration):
     def default_notification_email_address(cls):
         return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
 
+    @classmethod
+    def max_outstanding_fines(cls):
+        max_fines = Configuration.policy(
+            Configuration.MAX_OUTSTANDING_FINES
+        )
+        return MoneyUtility.parse(max_fines)
+    
     @classmethod
     def load(cls):
         CoreConfiguration.load()
