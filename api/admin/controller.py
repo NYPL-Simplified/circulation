@@ -669,41 +669,35 @@ class DashboardController(CirculationManagerController):
 
         hold_count = self._db.query(Hold).count()
 
-        overdrive_count = self._db.query(
-            LicensePool
-        ).join(
-            DataSource
-        ).filter(
-            LicensePool.licenses_owned > 0,
-        ).filter(
-            DataSource.name == DataSource.OVERDRIVE,
-        ).count()
+        data_sources = dict(
+            overdrive=DataSource.OVERDRIVE,
+            bibliotheca=DataSource.BIBLIOTHECA,
+            axis360=DataSource.AXIS_360,
+        )
+        vendor_counts = dict()
 
-        bibliotheca_count = self._db.query(
-            LicensePool
-        ).join(
-            DataSource
-        ).filter(
-            LicensePool.licenses_owned > 0,
-        ).filter(
-            DataSource.name == DataSource.BIBLIOTHECA,
-        ).count()
+        for key, data_source in data_sources.iteritems():
+            data_source_count = self._db.query(
+                LicensePool
+            ).join(
+                DataSource
+            ).filter(
+                LicensePool.licenses_owned > 0
+            ).filter(
+                DataSource.name == data_source
+            ).count()
 
-        axis360_count = self._db.query(
-            LicensePool
-        ).join(
-            DataSource
-        ).filter(
-            LicensePool.licenses_owned > 0,
-        ).filter(
-            DataSource.name == DataSource.AXIS_360,
-        ).count()
+            if data_source_count > 0:
+                vendor_counts[key] = data_source_count
 
         open_access_count = self._db.query(
             LicensePool
          ).filter(
             LicensePool.open_access == True
          ).count()
+
+        if open_access_count > 0:
+            vendor_counts['open_access'] = open_access_count
 
         title_count = self._db.query(LicensePool).count()
 
@@ -735,12 +729,7 @@ class DashboardController(CirculationManagerController):
                 licenses=license_count,
                 available_licenses=available_license_count,
             ),
-            vendors=dict(
-                overdrive=overdrive_count,
-                bibliotheca=bibliotheca_count,
-                axis360=axis360_count,
-                open_access=open_access_count,
-            ),
+            vendors=vendor_counts,
         )
 
     def circulation_events(self):

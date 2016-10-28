@@ -868,9 +868,9 @@ class TestDashboardController(AdminControllerTest):
             response = self.manager.admin_dashboard_controller.stats()
             vendor_data = response.get('vendors')
             eq_(3, vendor_data.get('open_access'))
-            eq_(0, vendor_data.get('overdrive'))
-            eq_(0, vendor_data.get('bibliotheca'))
-            eq_(0, vendor_data.get('axis360'))
+            eq_(None, vendor_data.get('overdrive'))
+            eq_(None, vendor_data.get('bibliotheca'))
+            eq_(None, vendor_data.get('axis360'))
 
             edition1, pool1 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
