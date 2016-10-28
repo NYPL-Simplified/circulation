@@ -708,6 +708,8 @@ class TestFeedController(AdminControllerTest):
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
                 }))        
 
+class TestDashboardController(AdminControllerTest):
+
     def test_circulation_events(self):
         [lp] = self.english_1.license_pools
         patron_id = "patronid"
@@ -727,7 +729,7 @@ class TestFeedController(AdminControllerTest):
             time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_feed_controller.circulation_events()
+            response = self.manager.admin_dashboard_controller.circulation_events()
             url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
 
         events = response['circulation_events']
@@ -738,7 +740,7 @@ class TestFeedController(AdminControllerTest):
 
         # request fewer events
         with self.app.test_request_context("/?num=2"):
-            response = self.manager.admin_feed_controller.circulation_events()
+            response = self.manager.admin_dashboard_controller.circulation_events()
             url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
 
         eq_(2, len(response['circulation_events']))
@@ -768,7 +770,7 @@ class TestFeedController(AdminControllerTest):
             time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
-            response, requested_date = self.manager.admin_feed_controller.bulk_circulation_events()
+            response, requested_date = self.manager.admin_dashboard_controller.bulk_circulation_events()
         rows = response[1::] # skip header row
         eq_(num, len(rows))
         eq_(types, [row[1] for row in rows])
@@ -786,6 +788,117 @@ class TestFeedController(AdminControllerTest):
         # use date
         today = date.strftime(date.today() - timedelta(days=1), "%Y-%m-%d")
         with self.app.test_request_context("/?date=%s" % today):
-            response, requested_date = self.manager.admin_feed_controller.bulk_circulation_events()
+            response, requested_date = self.manager.admin_dashboard_controller.bulk_circulation_events()
         rows = response[1::] # skip header row
         eq_(0, len(rows))
+
+    def test_stats_patrons(self):
+        with self.app.test_request_context("/"):
+
+            # At first, there's one patron in the database.
+            response = self.manager.admin_dashboard_controller.stats()
+            patron_data = response.get('patrons')
+            eq_(1, patron_data.get('total'))
+            eq_(0, patron_data.get('with_active_loans'))
+            eq_(0, patron_data.get('with_active_loans_or_holds'))
+            eq_(0, patron_data.get('loans'))
+            eq_(0, patron_data.get('holds'))
+
+            edition, pool = self._edition(with_license_pool=True, with_open_access_download=False)
+            edition2, open_access_pool = self._edition(with_open_access_download=True)
+
+            # patron1 has a loan.
+            patron1 = self._patron()
+            pool.loan_to(patron1, end=datetime.now() + timedelta(days=5))
+
+            # patron2 has a hold.
+            patron2 = self._patron()
+            pool.on_hold_to(patron2)
+
+            # patron3 has an open access loan with no end date, but it doesn't count
+            # because we don't know if it is still active.
+            patron3 = self._patron()
+            open_access_pool.loan_to(patron3)
+
+            response = self.manager.admin_dashboard_controller.stats()
+            patron_data = response.get('patrons')
+            eq_(4, patron_data.get('total'))
+            eq_(1, patron_data.get('with_active_loans'))
+            eq_(2, patron_data.get('with_active_loans_or_holds'))
+            eq_(1, patron_data.get('loans'))
+            eq_(1, patron_data.get('holds'))
+            
+    def test_stats_inventory(self):
+        with self.app.test_request_context("/"):
+
+            # At first, there are 3 open access titles in the database,
+            # created in CirculationControllerTest.setup.
+            response = self.manager.admin_dashboard_controller.stats()
+            inventory_data = response.get('inventory')
+            eq_(3, inventory_data.get('titles'))
+            eq_(0, inventory_data.get('licenses'))
+            eq_(0, inventory_data.get('available_licenses'))
+
+            edition1, pool1 = self._edition(with_license_pool=True, with_open_access_download=False)
+            pool1.open_access = False
+            pool1.licenses_owned = 0
+            pool1.licenses_available = 0
+
+            edition2, pool2 = self._edition(with_license_pool=True, with_open_access_download=False)
+            pool2.open_access = False
+            pool2.licenses_owned = 10
+            pool2.licenses_available = 0
+            
+            edition3, pool3 = self._edition(with_license_pool=True, with_open_access_download=False)
+            pool3.open_access = False
+            pool3.licenses_owned = 5
+            pool3.licenses_available = 4
+
+            response = self.manager.admin_dashboard_controller.stats()
+            inventory_data = response.get('inventory')
+            eq_(6, inventory_data.get('titles'))
+            eq_(15, inventory_data.get('licenses'))
+            eq_(4, inventory_data.get('available_licenses'))
+
+    def test_stats_vendors(self):
+        with self.app.test_request_context("/"):
+
+            # At first, there are 3 open access titles in the database,
+            # created in CirculationControllerTest.setup.
+            response = self.manager.admin_dashboard_controller.stats()
+            vendor_data = response.get('vendors')
+            eq_(3, vendor_data.get('open_access'))
+            eq_(None, vendor_data.get('overdrive'))
+            eq_(None, vendor_data.get('bibliotheca'))
+            eq_(None, vendor_data.get('axis360'))
+
+            edition1, pool1 = self._edition(with_license_pool=True,
+                                            with_open_access_download=False,
+                                            data_source_name=DataSource.OVERDRIVE)
+            pool1.open_access = False
+            pool1.licenses_owned = 10
+
+            edition2, pool2 = self._edition(with_license_pool=True,
+                                            with_open_access_download=False,
+                                            data_source_name=DataSource.OVERDRIVE)
+            pool2.open_access = False
+            pool2.licenses_owned = 0
+
+            edition3, pool3 = self._edition(with_license_pool=True,
+                                            with_open_access_download=False,
+                                            data_source_name=DataSource.BIBLIOTHECA)
+            pool3.open_access = False
+            pool3.licenses_owned = 3
+
+            edition4, pool4 = self._edition(with_license_pool=True,
+                                            with_open_access_download=False,
+                                            data_source_name=DataSource.AXIS_360)
+            pool4.open_access = False
+            pool4.licenses_owned = 5
+
+            response = self.manager.admin_dashboard_controller.stats()
+            vendor_data = response.get('vendors')
+            eq_(3, vendor_data.get('open_access'))
+            eq_(1, vendor_data.get('overdrive'))
+            eq_(1, vendor_data.get('bibliotheca'))
+            eq_(1, vendor_data.get('axis360'))
