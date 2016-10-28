@@ -1,5 +1,16 @@
 import base64
-from nose.tools import set_trace, eq_
+from nose.tools import (
+    set_trace,
+    eq_,
+    assert_raises,
+    assert_raises_regexp
+)
+import jwt
+from jwt.exceptions import (
+    DecodeError,
+    ExpiredSignatureError,
+    InvalidIssuedAtError
+)
 import re
 import datetime
 
@@ -8,6 +19,7 @@ from api.adobe_vendor_id import (
     AdobeAccountInfoRequestParser,
     AdobeVendorIDRequestHandler,
     AdobeVendorIDModel,
+    AuthdataUtility,
 )
 
 from . import (
@@ -315,3 +327,112 @@ class TestVendorIDRequestHandler(object):
         result = self._handler.handle_accountinfo_request(
             doc, self._userinfo)
         eq_('<error xmlns="http://ns.adobe.com/adept" data="E_1045_ACCOUNT_INFO Could not identify patron from \'not the uuid\'."/>', result)
+
+
+class TestAuthdataUtility(object):
+
+    def setup(self):
+        self.authdata = AuthdataUtility(
+            vendor_id = "The Vendor ID",
+            library_uri = "http://my-library.org/",
+            secret = "My library secret",
+            other_libraries = {
+                "http://your-library.org/": "Your library secret"
+            }
+        )
+           
+    def test_decode_round_trip(self):        
+        patron_identifier = "Patron identifier"
+        vendor_id, authdata = self.authdata.encode(patron_identifier)
+        eq_("The Vendor ID", vendor_id)
+        
+        # We can decode the authdata with our secret.
+        decoded = self.authdata.decode(authdata)
+        eq_(("http://my-library.org/", "Patron identifier"), decoded)
+
+    def test_encode(self):
+        """Test that _encode gives a known value with known input."""
+        patron_identifier = "Patron identifier"
+        now = datetime.datetime(2016, 1, 1, 12, 0, 0)
+        expires = datetime.datetime(2018, 1, 1, 12, 0, 0)
+        authdata = self.authdata._encode(
+            self.authdata.library_uri, patron_identifier, now, expires
+        )
+        eq_('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw', authdata)
+
+    def test_decode_from_another_library(self):        
+
+        # Here's the AuthdataUtility used by another library.
+        foreign_authdata = AuthdataUtility(
+            vendor_id = "The Vendor ID",
+            library_uri = "http://your-library.org/",
+            secret = "Your library secret",
+        )
+        
+        patron_identifier = "Patron identifier"
+        vendor_id, authdata = foreign_authdata.encode(patron_identifier)
+
+        # Because we know the other library's secret, we're able to
+        # decode the authdata.
+        decoded = self.authdata.decode(authdata)
+        eq_(("http://your-library.org/", "Patron identifier"), decoded)
+
+        # If our secret doesn't match the other library's secret,
+        # we can't decode the authdata
+        foreign_authdata.secret = 'A new secret'
+        vendor_id, authdata = foreign_authdata.encode(patron_identifier)
+        assert_raises_regexp(
+            DecodeError, "Signature verification failed",
+            self.authdata.decode, authdata
+        )
+        
+    def test_decode_from_unknown_library_fails(self):
+
+        # Here's the AuthdataUtility used by a library we don't know
+        # about.
+        foreign_authdata = AuthdataUtility(
+            vendor_id = "The Vendor ID",
+            library_uri = "http://some-other-library.org/",
+            secret = "Some other library secret",
+        )
+        vendor_id, authdata = foreign_authdata.encode("A patron")
+
+        # They can encode, but we cna't decode.
+        assert_raises_regexp(
+            DecodeError, "Unknown library: http://some-other-library.org/",
+            self.authdata.decode, authdata
+        )
+
+    def test_cannot_decode_token_from_future(self):
+        future = datetime.datetime.utcnow() + datetime.timedelta(days=365)
+        authdata = self.authdata._encode(
+            "Patron identifier", iat=future
+        )        
+        assert_raises(
+            InvalidIssuedAtError, self.authdata.decode, authdata
+        )
+        
+    def test_cannot_decode_expired_token(self):
+        expires = datetime.datetime(2016, 1, 1, 12, 0, 0)
+        authdata = self.authdata._encode(
+            "Patron identifier", exp=expires
+        )
+        assert_raises(
+            ExpiredSignatureError, self.authdata.decode, authdata
+        )
+        
+    def test_cannot_encode_null_patron_identifier(self):
+        assert_raises_regexp(
+            ValueError, "No patron identifier specified",
+            self.authdata.encode, None
+        )
+        
+    def test_cannot_decode_null_patron_identifier(self):
+
+        authdata = self.authdata._encode(
+            self.authdata.library_uri, None, 
+        )
+        assert_raises_regexp(
+            DecodeError, "No subject specified",
+            self.authdata.decode, authdata
+        )
