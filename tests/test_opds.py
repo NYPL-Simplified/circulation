@@ -160,20 +160,72 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # Both entries are identical.
         eq_(etree.tostring(feed1), etree.tostring(feed2))
 
-    def test_adobe_id_tags(self):
+    def test_fulfill_link_includes_device_registration_tags(self):
+        """Verify that when Adobe Vendor ID delegation is included, the
+        fulfill link for an Adobe delivery mechanism includes instructions
+        on how to get a Vendor ID.
+        """
+        [pool] = self.work.license_pools
+        identifier = pool.identifier
+        patron = self._patron()
+        loan, ignore = pool.loan_to(patron, start=datetime.datetime.utcnow())
+        adobe_delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, "text/html", DeliveryMechanism.ADOBE_DRM
+        )
+        other_delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, "text/html", DeliveryMechanism.OVERDRIVE_DRM
+        )
 
         with temp_config() as config:
-            # When vendor ID delegation is not configured,
-            # adobe_id_tags() returns
-            # an empty list.
+            library_uri = "http://a-library/"
+            secret = "a-secret"
+            vendor_id = "Some Vendor"
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
+                Configuration.ADOBE_VENDOR_ID : vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
+                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
+            }
+        
+            # The fulfill link for Adobe DRM includes information
+            # on how to get an Adobe ID in the drm:licensor tag.
+            link = self.annotator.fulfill_link(
+                pool.data_source.name, pool.identifier, pool, loan,
+                adobe_delivery_mechanism
+            )
+            licensor = link.getchildren()[-1]
+            eq_("{http://librarysimplified.org/terms/drm}licensor",
+                licensor.tag)
+
+            # The tag is the same one we get by calling adobe_id_tags().
+            [expect] = self.annotator.adobe_id_tags(patron.external_identifier)
+            eq_(licensor, expect)
+            
+            # The fulfill link for some other kind of DRM does not
+            # include the drm:licensor tag.
+            link = self.annotator.fulfill_link(
+                pool.data_source.name, pool.identifier, pool, loan,
+                other_delivery_mechanism
+            )
+            for child in link.getchildren():
+                assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
+        
+    def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
+
+        with temp_config() as config:
+            """When vendor ID delegation is not configured, adobe_id_tags()
+            returns an empty list.
+            """
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {}
-            eq_([], CirculationManagerAnnotator.adobe_id_tags(
+            eq_([], self.annotator.adobe_id_tags(
                 "patron identifier")
             )
 
-            # When it is configured, adobe_id_tags() returns a list
-            # containing a single tag. The tag contains the
-            # information necessary to get an Adobe ID.
+    def test_adobe_id_tags_when_vendor_id_configured(self):
+        """When vendor ID delegation is configured, adobe_id_tags()
+        returns a list containing a single tag. The tag contains
+        the information necessary to get an Adobe ID.
+        """
+        with temp_config() as config:
             library_uri = "http://a-library/"
             secret = "a-secret"
             vendor_id = "Some Vendor"
@@ -184,23 +236,34 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             }
 
             patron_identifier = "patron identifier"
-            [element] = CirculationManagerAnnotator.adobe_id_tags(
+            [element] = self.annotator.adobe_id_tags(
                 patron_identifier
             )
             eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
 
             vendor, token = element.getchildren()
             eq_('{http://librarysimplified.org/terms/drm}vendor', vendor.tag)
-            eq_("Some Vendor", vendor.text)
+            eq_(vendor_id, vendor.text)
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
-            # token.text is a JWT.
+            # token.text is a JWT which we can decode, since we know the
+            # secret.
             token = token.text
             decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
             eq_(library_uri, decoded['iss'])
             eq_(patron_identifier, decoded['sub'])
-            
 
+            # If we call adobe_id_tags again we'll get the exact same
+            # tag object -- it's cached.
+            eq_([element], self.annotator.adobe_id_tags(patron_identifier))
+
+            # If we call adobe_id_tags again but pass in a different
+            # identifier, we'll get a different value. (But this
+            # shouldn't happen because any given request is for one
+            # specific patron.)
+            assert self.annotator.adobe_id_tags("another one") != [element]
+
+            
 class TestOPDS(DatabaseTest):
 
     def setup(self):

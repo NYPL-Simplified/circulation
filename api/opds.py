@@ -16,6 +16,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    DeliveryMechanism,
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
@@ -51,6 +52,7 @@ class CirculationManagerAnnotator(Annotator):
         self.lanes_by_work = defaultdict(list)
         self.facet_view = facet_view
         self.test_mode = test_mode
+        self._adobe_id_tags = {}
         self._top_level_title = top_level_title
 
     def top_level_title(self):
@@ -601,7 +603,6 @@ class CirculationManagerAnnotator(Annotator):
             return self.adobe_id_tags(patron_identifier)
         return []
 
-    @classmethod
     def adobe_id_tags(self, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
         explain how to get an Adobe ID for this patron.
@@ -612,22 +613,29 @@ class CirculationManagerAnnotator(Annotator):
         containing a <drm:licensor> tag. If not, an empty list.
 
         """
-        authdata = AuthdataUtility.from_config()
-        if not authdata:
-            # Adobe Vendor ID delegation is not configured on this
-            # site. Do nothing.
-            return []
+        # CirculationManagerAnnotators are created per request.
+        # Within the context of a single request, we can cache the
+        # tags that explain how the patron can get an Adobe ID, and
+        # reuse them across <entry> tags. This saves a little time,
+        # makes tests more reliable, and stops us from providing a
+        # different authdata value for every <entry> tag.
+        cached = self._adobe_id_tags.get(patron_identifier)
+        if cached is None:
+            cached = []
+            authdata = AuthdataUtility.from_config()
+            if authdata:
+                vendor_id, jwt = authdata.encode(patron_identifier)
 
-        vendor_id, jwt = authdata.encode(patron_identifier)
-
-        drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
-        server_id = OPDSFeed.makeelement("{%s}vendor" % OPDSFeed.DRM_NS)
-        server_id.text = vendor_id
-        patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
-        patron_key.text = jwt
-        drm_link.append(server_id)
-        drm_link.append(patron_key)
-        return [drm_link]
+                drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+                server_id = OPDSFeed.makeelement("{%s}vendor" % OPDSFeed.DRM_NS)
+                server_id.text = vendor_id
+                patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
+                patron_key.text = jwt
+                drm_link.append(server_id)
+                drm_link.append(patron_key)
+                cached = [drm_link]
+            self._adobe_id_tags[patron_identifier] = cached
+        return cached
         
     def open_access_link(self, lpdm):
         url = cdnify(lpdm.resource.url, Configuration.cdns())
