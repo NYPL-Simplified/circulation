@@ -3,6 +3,7 @@ from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
 from collections import defaultdict
+import uuid
 
 from sqlalchemy.orm import lazyload
 
@@ -16,6 +17,8 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    Credential,
+    DataSource,
     DeliveryMechanism,
     Identifier,
     LicensePool,
@@ -36,6 +39,15 @@ from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
 
+    # The name of the Credential created to identify a patron to the
+    # Vendor ID Service. Using this as an alias keeps the Vendor ID
+    # Service from knowing anything about the patron's true
+    # identity. This Credential is permanent (unlike a patron's
+    # username or authorization identifier), but can be revoked (if
+    # the patron needs to reset their Adobe ID) with no consequences
+    # other than losing their currently checked-in books.
+    ADOBE_ID_PATRON_IDENTIFIER = "Identifier for Adobe ID purposes"
+    
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -580,7 +592,7 @@ class CirculationManagerAnnotator(Annotator):
         )
         link_tag.extend(children)
         return link_tag
-
+   
     def drm_device_registration_tags(self, license_pool, active_loan,
                                      delivery_mechanism):
         """Construct OPDS Extensions for DRM tags that explain how to 
@@ -588,16 +600,21 @@ class CirculationManagerAnnotator(Annotator):
 
         :param delivery_mechanism: A DeliveryMechanism
         """        
-
+        if not active_loan or not delivery_mechanism:
+            return []
+        
         # Get an identifier for the patron that will be registered
         # with the DRM server.
         patron = active_loan.patron
-        # TODO: This is just to get the basic system working. Before
-        # this goes into use, it needs to be replaced with a custom
-        # permanent Credential.
-        patron_identifier = (patron.external_identifier
-                             or patron.username
-                             or patron.authorization_identifier)
+        _db = Session.object_session(active_loan)
+        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        patron_identifier = Credential.lookup(
+            _db, internal, self.ADOBE_ID_PATRON_IDENTIFIER, patron,
+            refresher_method=refresh, allow_persistent_token=True
+        )
+        patron_identifier = patron_identifier.credential
         
         if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
             return self.adobe_id_tags(patron_identifier)

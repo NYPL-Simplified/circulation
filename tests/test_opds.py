@@ -15,6 +15,7 @@ from core.lane import (
     Lane,
 )
 from core.model import (
+    DataSource,
     Work,
     Representation,
     DeliveryMechanism,
@@ -196,8 +197,19 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             eq_("{http://librarysimplified.org/terms/drm}licensor",
                 licensor.tag)
 
-            # The tag is the same one we get by calling adobe_id_tags().
-            [expect] = self.annotator.adobe_id_tags(patron.external_identifier)
+            # An Adobe ID-specific identifier has been created for the patron.
+            [adobe_id_identifier] = patron.credentials
+            eq_(self.annotator.ADOBE_ID_PATRON_IDENTIFIER,
+                adobe_id_identifier.type)
+            eq_(DataSource.INTERNAL_PROCESSING,
+                adobe_id_identifier.data_source.name)
+            eq_(None, adobe_id_identifier.expires)
+            
+            # The drm:licensor tag is the one we get by calling
+            # adobe_id_tags() on that identifier.
+            [expect] = self.annotator.adobe_id_tags(
+                adobe_id_identifier.credential
+            )
             eq_(licensor, expect)
             
             # The fulfill link for some other kind of DRM does not
