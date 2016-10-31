@@ -31,6 +31,7 @@ from core.util.cdn import cdnify
 from novelist import NoveListAPI
 from lanes import QueryGeneratedLane
 from annotations import AnnotationWriter
+from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -597,29 +598,32 @@ class CirculationManagerAnnotator(Annotator):
                              or patron.authorization_identifier)
         
         if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
-            return self.adobe_id_tags(license_pool, active_loan,
-                                      patron_identifier)
+            return self.adobe_id_tags(patron_identifier)
         return []
 
-    def adobe_id_tags(self, license_pool, active_loan, patron_identifier):
-        """Construct OPDS Extensions for DRM tags that explain how to get an
-        Adobe ID for this patron.
+    @classmethod
+    def adobe_id_tags(self, patron_identifier):
+        """Construct tags using the DRM Extensions for OPDS standard that
+        explain how to get an Adobe ID for this patron.
 
         :param delivery_mechanism: A DeliveryMechanism
+
+        :return: If Adobe Vendor ID delegation is configured, a list
+        containing a <drm:licensor> tag. If not, an empty list.
+
         """
-        tags = []
         authdata = AuthdataUtility.from_config()
         if not authdata:
             # Adobe Vendor ID delegation is not configured on this
             # site. Do nothing.
-            return tags
+            return []
 
         vendor_id, jwt = authdata.encode(patron_identifier)
 
-        drm_link = AtomFeed.makeelement("{%s}server" % AtomFeed.DRM_NS)
-        server_id = AtomFeed.make_element("{%s}serverKey" % AtomFeed.DRM_NS)
+        drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+        server_id = OPDSFeed.makeelement("{%s}vendor" % OPDSFeed.DRM_NS)
         server_id.text = vendor_id
-        patron_key = AtomFeed.make_element("{%s}patronKey" % AtomFEed.DRM_NS)
+        patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
         patron_key.text = jwt
         drm_link.append(server_id)
         drm_link.append(patron_key)

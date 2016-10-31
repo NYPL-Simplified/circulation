@@ -53,10 +53,11 @@ from core.opds import (
     AcquisitionFeed,
     UnfulfillableWork,
 )
+from api.adobe_vendor_id import AuthdataUtility
 
 from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
-
+import jwt
 
 _strftime = AtomFeed._strftime
 
@@ -159,6 +160,46 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # Both entries are identical.
         eq_(etree.tostring(feed1), etree.tostring(feed2))
 
+    def test_adobe_id_tags(self):
+
+        with temp_config() as config:
+            # When vendor ID delegation is not configured,
+            # adobe_id_tags() returns
+            # an empty list.
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {}
+            eq_([], CirculationManagerAnnotator.adobe_id_tags(
+                "patron identifier")
+            )
+
+            # When it is configured, adobe_id_tags() returns a list
+            # containing a single tag. The tag contains the
+            # information necessary to get an Adobe ID.
+            library_uri = "http://a-library/"
+            secret = "a-secret"
+            vendor_id = "Some Vendor"
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
+                Configuration.ADOBE_VENDOR_ID : vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
+                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
+            }
+
+            patron_identifier = "patron identifier"
+            [element] = CirculationManagerAnnotator.adobe_id_tags(
+                patron_identifier
+            )
+            eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
+
+            vendor, token = element.getchildren()
+            eq_('{http://librarysimplified.org/terms/drm}vendor', vendor.tag)
+            eq_("Some Vendor", vendor.text)
+            
+            eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
+            # token.text is a JWT.
+            token = token.text
+            decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
+            eq_(library_uri, decoded['iss'])
+            eq_(patron_identifier, decoded['sub'])
+            
 
 class TestOPDS(DatabaseTest):
 
