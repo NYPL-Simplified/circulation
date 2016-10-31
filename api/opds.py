@@ -545,7 +545,10 @@ class CirculationManagerAnnotator(Annotator):
 
     def fulfill_link(self, data_source_name, identifier,
                      license_pool, active_loan, delivery_mechanism):
-        """Create a new fulfillment link."""
+        """Create a new fulfillment link.
+
+        This link may include tags from the OPDS Extensions for DRM.
+        """
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
@@ -568,8 +571,60 @@ class CirculationManagerAnnotator(Annotator):
 
         children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
         link_tag.extend(children)
+        
+        children = self.drm_device_registration_tags(
+            license_pool, active_loan, delivery_mechanism
+        )
+        link_tag.extend(children)
         return link_tag
 
+    def drm_device_registration_tags(self, license_pool, active_loan,
+                                     delivery_mechanism):
+        """Construct OPDS Extensions for DRM tags that explain how to 
+        register a device with the DRM server that manages this loan.
+
+        :param delivery_mechanism: A DeliveryMechanism
+        """        
+
+        # Get an identifier for the patron that will be registered
+        # with the DRM server.
+        patron = active_loan.patron
+        # TODO: This is just to get the basic system working. Before
+        # this goes into use, it needs to be replaced with a custom
+        # permanent Credential.
+        patron_identifier = (patron.external_identifier
+                             or patron.username
+                             or patron.authorization_identifier)
+        
+        if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
+            return self.adobe_id_tags(license_pool, active_loan,
+                                      patron_identifier)
+        return []
+
+    def adobe_id_tags(self, license_pool, active_loan, patron_identifier):
+        """Construct OPDS Extensions for DRM tags that explain how to get an
+        Adobe ID for this patron.
+
+        :param delivery_mechanism: A DeliveryMechanism
+        """
+        tags = []
+        authdata = AuthdataUtility.from_config()
+        if not authdata:
+            # Adobe Vendor ID delegation is not configured on this
+            # site. Do nothing.
+            return tags
+
+        vendor_id, jwt = authdata.encode(patron_identifier)
+
+        drm_link = AtomFeed.makeelement("{%s}server" % AtomFeed.DRM_NS)
+        server_id = AtomFeed.make_element("{%s}serverKey" % AtomFeed.DRM_NS)
+        server_id.text = vendor_id
+        patron_key = AtomFeed.make_element("{%s}patronKey" % AtomFEed.DRM_NS)
+        patron_key.text = jwt
+        drm_link.append(server_id)
+        drm_link.append(patron_key)
+        return [drm_link]
+        
     def open_access_link(self, lpdm):
         url = cdnify(lpdm.resource.url, Configuration.cdns())
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
