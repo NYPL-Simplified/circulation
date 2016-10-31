@@ -58,8 +58,19 @@ class BadResponseException(RemoteIntegrationException):
     title = _("Bad response")
     detail = _("The server made a request to %(service)s, and got an unexpected or invalid response.")
     internal_message = "Bad response from %s: %s"
+    # to be set to 500, etc.
+    status_code = None
 
     BAD_STATUS_CODE_MESSAGE = "Got status code %s from external server, cannot continue."
+
+    def __init__(self, url_or_service, message, debug_message=None, status_code=None):
+        """Indicate that a remote integration has failed.
+        
+        `param url_or_service` The name of the service that failed
+           (e.g. "Overdrive"), or the specific URL that had the problem.
+        """
+        super(BadResponseException, self).__init__(url_or_service, message, debug_message)
+        self.status_code = status_code
 
     def document_debug_message(self, debug=True):
         if debug:
@@ -83,6 +94,7 @@ class BadResponseException(RemoteIntegrationException):
             content = response.content
         return BadResponseException(
             url, message, 
+            status_code=status_code, 
             debug_message="Status code: %s\nContent: %s" % (
                 status_code,
                 content,
@@ -92,6 +104,7 @@ class BadResponseException(RemoteIntegrationException):
     @classmethod
     def bad_status_code(cls, url, response):
         """The response is bad because the status code is wrong."""
+        cls.status_code = response.status_code
         message = cls.BAD_STATUS_CODE_MESSAGE % response.status_code
         return cls.from_response(
             url,
@@ -196,6 +209,12 @@ class HTTP(object):
         """Raise a RequestNetworkException if the response code indicates a
         server-side failure, or behavior so unpredictable that we can't
         continue.
+
+        :param allowed_response_codes If passed, then only the responses with 
+            http status codes in this list are processed.  The rest generate  
+            BadResponseExceptions.
+        :param disallowed_response_codes The values passed are added to 5xx, as 
+            http status codes that would generate BadResponseExceptions.
         """
         if allowed_response_codes:
             allowed_response_codes = map(str, allowed_response_codes)
@@ -234,6 +253,7 @@ class HTTP(object):
             raise BadResponseException(
                 url,
                 error_message % code, 
+                status_code=code,
                 debug_message="Response content: %s" % response.content
             )
         return response

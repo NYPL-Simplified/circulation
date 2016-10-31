@@ -13,11 +13,9 @@ from config import (
 )
 
 from util import LanguageCodes
-#from util.xmlparser import XMLParser
-#from util.jsonparser import JsonParser
+
 from util.http import (
     HTTP,
-    #RemoteIntegrationException,
 )
 from coverage import CoverageFailure
 
@@ -152,12 +150,18 @@ class OneClickAPI(object):
         headers['Accept-Media'] = verbosity
         headers.update(self.authorization_headers)
 
-        # for now, do nothing with error codes, but in the future might have some that 
-        # will warrant repeating the request.
+        # prevent the code throwing a BadResponseException when OneClick 
+        # responds with a 500, because OneClick uses 500s to indicate bad input, 
+        # rather than server error.
+        # must list all 9 possibilities to use
+        allowed_response_codes = ['1xx', '2xx', '3xx', '4xx', '5xx', '6xx', '7xx', '8xx', '9xx']
+        # for now, do nothing with disallowed error codes, but in the future might have 
+        # some that will warrant repeating the request.
         disallowed_response_codes = []
         response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params, 
+            allowed_response_codes=allowed_response_codes, 
             disallowed_response_codes=disallowed_response_codes
         )
         
