@@ -422,7 +422,8 @@ class AuthdataUtility(object):
         """
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
-            authdata, algorithm='HS256', options=dict(verify_signature=False)
+            authdata, algorithm=self.ALGORITHM,
+            options=dict(verify_signature=False)
         )
 
         # This lets us get the library URI, which lets us get the secret.
