@@ -111,6 +111,16 @@ class S3Uploader(MirrorUploader):
         return root + "%s/%s/%s" % tuple(args)
 
     @classmethod
+    def feed_url(cls, filename, extension='.opds', open_access=True):
+        """The path to the hosted OPDS file for the given CustomList"""
+        root = cls.content_root(open_access)
+        if not extension.startswith('.'):
+            extension = '.' + extension
+        if not filename.endswith(extension):
+            filename += extension
+        return root + filename
+
+    @classmethod
     def bucket_and_filename(cls, url):
         scheme, netloc, path, query, fragment = urlsplit(url)
         if netloc == 's3.amazonaws.com':
