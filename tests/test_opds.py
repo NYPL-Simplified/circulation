@@ -253,9 +253,10 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             )
             eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
 
-            vendor, token = element.getchildren()
-            eq_('{http://librarysimplified.org/terms/drm}vendor', vendor.tag)
-            eq_(vendor_id, vendor.text)
+            key = '{http://librarysimplified.org/terms/drm}vendor'
+            eq_(vendor_id, element.attrib[key])
+            
+            [token] = element.getchildren()
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
             # token.text is a JWT which we can decode, since we know the

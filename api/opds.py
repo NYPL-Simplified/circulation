@@ -644,11 +644,10 @@ class CirculationManagerAnnotator(Annotator):
                 vendor_id, jwt = authdata.encode(patron_identifier)
 
                 drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
-                server_id = OPDSFeed.makeelement("{%s}vendor" % OPDSFeed.DRM_NS)
-                server_id.text = vendor_id
+                vendor_attr = "{%s}vendor" % OPDSFeed.DRM_NS
+                drm_link.attrib[vendor_attr] = vendor_id
                 patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
                 patron_key.text = jwt
-                drm_link.append(server_id)
                 drm_link.append(patron_key)
                 cached = [drm_link]
             self._adobe_id_tags[patron_identifier] = cached
