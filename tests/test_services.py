@@ -11,15 +11,6 @@ from api.config import (
     temp_config,
 )
 
-from api.axis import (
-    MockAxis360API,
-)
-from api.overdrive import (
-    DummyOverdriveAPI,
-)
-from api.threem import (
-    MockThreeMAPI,
-)
 from api.authenticator import (
     Authenticator
 )

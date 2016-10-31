@@ -168,7 +168,15 @@ class TestCirculationMonitor(DatabaseTest):
     )
 
     def test_process_book(self):
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.local_analytics_provider"]
+            }
+        }
         with temp_config() as config:
+            Analytics.initialize(
+                ['core.local_analytics_provider'], config
+            )
             monitor = Axis360CirculationMonitor(self._db)
             monitor.api = None
             edition, license_pool = monitor.process_book(

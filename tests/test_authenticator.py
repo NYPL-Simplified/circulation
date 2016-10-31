@@ -17,6 +17,7 @@ import urllib
 import urlparse
 
 from core.model import (
+    CirculationEvent,
     Credential,
     DataSource,
     Patron
@@ -28,6 +29,8 @@ from core.util.problem_detail import (
 from core.util.opds_authentication_document import (
     OPDSAuthenticationDocument,
 )
+from core.analytics import Analytics
+from core.mock_analytics_provider import MockAnalyticsProvider
 
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
@@ -294,6 +297,34 @@ class TestPatronData(DatabaseTest):
         eq_("1234", patron.authorization_identifier)
         eq_(None, patron.last_external_sync)
         
+    def test_get_or_create_patron(self):
+        config = {
+            Configuration.POLICIES: {
+                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
+            }
+        }
+        with temp_config(config) as config:
+            provider = MockAnalyticsProvider()
+            analytics = Analytics.initialize(
+                ['core.mock_analytics_provider'], config
+            )
+            mock = Analytics.instance().providers[0]
+
+            # The patron didn't exist yet, so it was created
+            # and an analytics event was sent.
+            patron, is_new = self.data.get_or_create_patron(self._db)
+            eq_('2', patron.authorization_identifier)
+            eq_(True, is_new)
+            eq_(CirculationEvent.NEW_PATRON, mock.event_type)
+            eq_(1, mock.count)
+
+            # The same patron is returned, and no analytics
+            # event was sent.
+            patron, is_new = self.data.get_or_create_patron(self._db)
+            eq_('2', patron.authorization_identifier)
+            eq_(False, is_new)
+            eq_(1, mock.count)
+
     def test_to_response_parameters(self):
 
         params = self.data.to_response_parameters
