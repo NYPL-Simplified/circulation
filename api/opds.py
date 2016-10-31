@@ -267,6 +267,19 @@ class CirculationManagerAnnotator(Annotator):
                     identifier=identifier.identifier, _external=True
                 )
             )
+        
+        # Add a link to get a patron's annotations for this book.
+        feed.add_link_to_entry(
+            entry,
+            rel="http://www.w3.org/ns/oa#annotationService",
+            type=AnnotationWriter.CONTENT_TYPE,
+            href=self.url_for(
+                'annotations_for_work',
+                identifier_type=identifier.type,
+                identifier=identifier.identifier,
+                _external=True
+            )
+        )
 
     @classmethod
     def related_books_available(cls, license_pool):
@@ -280,15 +293,6 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_feed(self, feed, lane):
         if self.patron:
             self.add_patron(feed)
-
-        # Add an account info link
-        account_url = self.url_for('account', _external=True)
-        account_link = dict(
-            rel="http://librarysimplified.org/terms/rel/account",
-            type='application/json',
-            href=account_url,
-        )
-        feed.add_link_to_feed(feed.feed, **account_link)
         
         # Add a 'search' link.
         lane_name, languages = self._lane_name_and_languages(lane)

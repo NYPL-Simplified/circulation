@@ -49,7 +49,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work.target_age = NumericRange(10, 15)
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._db, lp, CirculationEvent.CHECKIN, now)
+        ga.collect_event(self._db, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
@@ -57,7 +57,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("faketrackingid", params['tid'][0])
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])
-        eq_(CirculationEvent.CHECKIN, params['ea'][0])
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, params['ea'][0])
         eq_(str(now), params['cd1'][0])
         eq_(lp.identifier.identifier, params['cd2'][0])
         eq_(lp.identifier.type, params['cd3'][0])
@@ -80,7 +80,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             identifier=identifier, data_source=source)
 
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._db, pool, CirculationEvent.CHECKIN, now)
+        ga.collect_event(self._db, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
@@ -88,7 +88,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("faketrackingid", params['tid'][0])
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])
-        eq_(CirculationEvent.CHECKIN, params['ea'][0])
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, params['ea'][0])
         eq_(str(now), params['cd1'][0])
         eq_(pool.identifier.identifier, params['cd2'][0])
         eq_(pool.identifier.type, params['cd3'][0])

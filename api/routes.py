@@ -174,13 +174,6 @@ def lane_search(languages, lane_name):
 def preload():
     return app.manager.opds_feeds.preload()
 
-@app.route('/me', methods=['GET'])
-@allows_patron_web()
-@requires_auth
-@returns_problem_detail
-def account():
-    return app.manager.accounts.account()
-
 @dir_route('/loans', methods=['GET', 'HEAD'])
 @allows_patron_web()
 @requires_auth
@@ -201,6 +194,13 @@ def annotations():
 @returns_problem_detail
 def annotation_detail(annotation_id):
     return app.manager.annotations.detail(annotation_id)
+
+@app.route('/annotations/<identifier_type>/<path:identifier>/', methods=['GET'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotations_for_work(identifier_type, identifier):
+    return app.manager.annotations.container_for_work(identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
@@ -240,13 +240,17 @@ def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
-@app.route('/works/contributor/<contributor_name>')
+@app.route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
+@app.route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/contributor/<contributor_name>/<languages>/<audiences>')
 @allows_patron_web()
 @returns_problem_detail
 def contributor(contributor_name):
     return app.manager.work_controller.contributor(contributor_name)
 
-@app.route('/works/series/<series_name>')
+@app.route('/works/series/<series_name>', defaults=dict(languages=None, audiences=None))
+@app.route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/series/<series_name>/<languages>/<audiences>')
 @allows_patron_web()
 @returns_problem_detail
 def series(series_name):
@@ -308,13 +312,13 @@ def adobe_vendor_id_status():
 @app.route('/oauth_authenticate')
 @returns_problem_detail
 def oauth_authenticate():
-    return app.manager.auth.oauth_authenticate(flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args)
 
 # Redirect URI for OAuth providers, eg. Clever
 @app.route('/oauth_callback')
 @returns_problem_detail
 def oauth_callback():
-    return app.manager.auth.oauth_callback(app.manager._db, flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
 
 
 # Controllers used for operations purposes

@@ -23,9 +23,22 @@ class AnnotationWriter(object):
     LDP_CONTEXT = "http://www.w3.org/ns/ldp.jsonld"
 
     @classmethod
-    def annotation_container_for(cls, patron):
-        url = url_for("annotations", _external=True)
+    def annotations_for(cls, patron, identifier=None):
         annotations = [annotation for annotation in patron.annotations if annotation.active]
+        if identifier:
+            annotations = [annotation for annotation in annotations if annotation.identifier == identifier]
+        return annotations
+
+    @classmethod
+    def annotation_container_for(cls, patron, identifier=None):
+        if identifier:
+            url = url_for('annotations_for_work',
+                          identifier_type=identifier.type,
+                          identifier=identifier.identifier,
+                          _external=True)
+        else:
+            url = url_for("annotations", _external=True)
+        annotations = cls.annotations_for(patron, identifier=identifier)
 
         latest_timestamp = None
         if len(annotations) > 0:
@@ -38,21 +51,28 @@ class AnnotationWriter(object):
         container["id"] = url
         container["type"] = ["BasicContainer", "AnnotationCollection"]
         container["total"] = len(annotations)
-        container["first"] = cls.annotation_page_for(patron, with_context=False)
+        container["first"] = cls.annotation_page_for(patron, identifier=identifier, with_context=False)
         return container, latest_timestamp
         
 
     @classmethod
-    def annotation_page_for(cls, patron, with_context=True):
-        url = url_for("annotations", _external=True)
-        annotations = [cls.detail(annotation, with_context=with_context) for annotation in patron.annotations if annotation.active]
+    def annotation_page_for(cls, patron, identifier=None, with_context=True):
+        if identifier:
+            url = url_for('annotations_for_work',
+                          identifier_type=identifier.type,
+                          identifier=identifier.identifier,
+                          _external=True)
+        else:
+            url = url_for("annotations", _external=True)
+        annotations = cls.annotations_for(patron, identifier=identifier)
+        details = [cls.detail(annotation, with_context=with_context) for annotation in annotations]
 
         page = dict()
         if with_context:
             page["@context"] = cls.JSONLD_CONTEXT
         page["id"] = url
         page["type"] = "AnnotationPage"
-        page["items"] = annotations
+        page["items"] = details
         return page
 
     @classmethod
@@ -65,7 +85,10 @@ class AnnotationWriter(object):
         item["motivation"] = annotation.motivation
         item["body"] = annotation.content
         if annotation.target:
-            item["target"] = json.loads(annotation.target)
+            target = json.loads(annotation.target)
+            compacted = jsonld.compact(target, cls.JSONLD_CONTEXT)
+            del compacted["@context"]
+            item["target"] = compacted
 
         return item
 

@@ -114,7 +114,7 @@ class TestAxis360API(DatabaseTest):
         )
         data = self.sample_data("place_hold_success.xml")
         self.api.queue_response(200, content=data)
-        patron = self.default_patron
+        patron = self._patron()
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
             response = self.api.place_hold(patron, 'pin', pool, None)
@@ -205,7 +205,7 @@ class TestCirculationMonitor(DatabaseTest):
             # Three circulation events were created, backdated to the
             # last_checked date of the license pool.
             events = license_pool.circulation_events
-            eq_([u'title_add', u'check_in', u'license_add'], 
+            eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'], 
                 [x.type for x in events])
             for e in events:
                 eq_(e.start, license_pool.last_checked)

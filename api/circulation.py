@@ -94,6 +94,21 @@ class HoldInfo(CirculationInfo):
         )
 
 
+
+class PatronInfo(CirculationInfo):
+    """ Hold patron account data coming back from OneClick before we 
+    merge it into our database. """
+    def __init__(self, oneclick_id=None, username=None, card_number=None, card_pin=None, 
+        email=None, first_name=None, last_name=None):
+        self.oneclick_id = oneclick_id
+        self.username = username
+        self.card_number = card_number
+        self.card_pin = card_pin
+        self.email = email
+        self.first_name = first_name
+        self.last_name = last_name
+
+
 class CirculationAPI(object):
     """Implement basic circulation logic and abstract away the details
     between different circulation APIs.
@@ -727,7 +742,7 @@ class BaseCirculationAPI(object):
         :param pin: The patron's alleged password.
         :param licensepool: Contains lending info as well as link to parent Identifier.
         """
-        raise NotImplementedException()
+        pass
 
 
     def checkout(self, patron, pin, licensepool, internal_format):

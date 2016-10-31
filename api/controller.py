@@ -84,7 +84,10 @@ from annotations import (
 )
 from problem_details import *
 
-from authenticator import Authenticator
+from authenticator import (
+    Authenticator,
+    OAuthController,
+)
 from config import (
     Configuration, 
     CannotLoadConfiguration
@@ -132,7 +135,7 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.initialize(self._db, test=testing)
+        self.auth = Authenticator.from_config(self._db)
         self.setup_circulation()
         self.__external_search = None
         self.lending_policy = load_lending_policy(
@@ -216,11 +219,11 @@ class CirculationManager(object):
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
-        self.accounts = AccountController(self)
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
-
+        self.oauth_controller = OAuthController(self.auth)
+        
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
@@ -298,8 +301,7 @@ class CirculationManagerController(object):
         The header could contain a barcode and pin or a token for an
         external service.
 
-        If there's a problem, return a 2-tuple (URI, title) for use in a
-        Problem Detail Document.
+        If there's a problem, return a Problem Detail Document.
 
         If there's no problem, return a Patron object.
         """
@@ -309,12 +311,9 @@ class CirculationManagerController(object):
         if not patron:
             return INVALID_CREDENTIALS
 
-        # Okay, we know who they are and their PIN is valid. But maybe the
-        # account has expired?
-        if not patron.authorization_is_active:
-            return EXPIRED_CREDENTIALS
+        if isinstance(patron, ProblemDetail):
+            return patron
 
-        # No, apparently we're fine.
         return patron
 
     def authenticate(self):
@@ -383,6 +382,8 @@ class CirculationManagerController(object):
         return mechanism or BAD_DELIVERY_MECHANISM
 
     def apply_borrowing_policy(self, patron, license_pool):
+        if isinstance(patron, ProblemDetail):
+            return patron
         if not patron.can_borrow(license_pool.work, self.manager.lending_policy):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits us from lending you this book."),
@@ -534,18 +535,6 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(opds_feed)
 
 
-class AccountController(CirculationManagerController):
-
-    def account(self):
-        header = self.authorization_header()
-
-        patron_info = self.manager.auth.patron_info(header)
-        return json.dumps(dict(
-            username=patron_info.get('username', None),
-            barcode=patron_info.get('barcode'),
-        ))
-
-
 class LoanController(CirculationManagerController):
 
     def sync(self):
@@ -630,7 +619,7 @@ class LoanController(CirculationManagerController):
             )
         except OutstandingFines, e:
             problem_doc = OUTSTANDING_FINES.detailed(
-                _("You must pay your %(fine_amount)s outstanding fines before you can borrow more books.", fine_amount=patron.fines)
+                _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
             )
         except CannotLoan, e:
             problem_doc = CHECKOUT_FAILED.with_debug(str(e))
@@ -841,10 +830,13 @@ class LoanController(CirculationManagerController):
 
 class AnnotationController(CirculationManagerController):
 
-    def container(self):
+    def container(self, identifier=None, accept_post=True):
         headers = dict()
-        headers['Allow'] = 'GET,HEAD,OPTIONS,POST'
-        headers['Accept-Post'] = AnnotationWriter.CONTENT_TYPE
+        if accept_post:
+            headers['Allow'] = 'GET,HEAD,OPTIONS,POST'
+            headers['Accept-Post'] = AnnotationWriter.CONTENT_TYPE
+        else:
+            headers['Allow'] = 'GET,HEAD,OPTIONS'
 
         if flask.request.method=='HEAD':
             return Response(status=200, headers=headers)
@@ -856,7 +848,7 @@ class AnnotationController(CirculationManagerController):
                                '<http://www.w3.org/TR/annotation-protocol/>; rel="http://www.w3.org/ns/ldp#constrainedBy"']
             headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
 
-            container, timestamp = AnnotationWriter.annotation_container_for(patron)
+            container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier=identifier)
             etag = 'W/""'
             if timestamp:
                 etag = 'W/"%s"' % timestamp
@@ -874,6 +866,11 @@ class AnnotationController(CirculationManagerController):
 
         return Response(status=200, headers=headers)
 
+    def container_for_work(self, identifier_type, identifier):
+        id_obj, ignore = Identifier.for_foreign_id(
+            self._db, identifier_type, identifier)
+        return self.container(identifier=id_obj, accept_post=False)
+ 
     def detail(self, annotation_id):
         headers = dict()
         headers['Allow'] = 'GET,HEAD,OPTIONS,DELETE'
@@ -905,13 +902,25 @@ class AnnotationController(CirculationManagerController):
 
 class WorkController(CirculationManagerController):
 
-    def contributor(self, contributor_name):
+    def _lane_details(self, languages, audiences):
+        if languages:
+            languages = languages.split(',')
+        if audiences:
+            audiences = [urllib.unquote_plus(a) for a in audiences.split(',')]
+
+        return languages, audiences
+
+    def contributor(self, contributor_name, languages, audiences):
         """Serve a feed of books written by a particular author"""
 
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
-        lane = ContributorLane(self._db, contributor_name)
+        languages, audiences = self._lane_details(languages, audiences)
+
+        lane = ContributorLane(
+            self._db, contributor_name, languages=languages, audiences=audiences
+        )
 
         annotator = self.manager.annotator(lane)
         facets = load_facets_from_request()
@@ -1044,13 +1053,15 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pool, data)
 
-    def series(self, series_name):
+    def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""
 
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
-        lane = SeriesLane(self._db, series_name)
+        languages, audiences = self._lane_details(languages, audiences)
+
+        lane = SeriesLane(self._db, series_name, languages, audiences)
         annotator = self.manager.annotator(lane)
         facets = load_facets_from_request()
         if isinstance(facets, ProblemDetail):
@@ -1074,7 +1085,7 @@ class WorkController(CirculationManagerController):
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, data_source, identifier_type, identifier, event_type):
-        if event_type in [CirculationEvent.OPEN_BOOK]:
+        if event_type in CirculationEvent.CLIENT_EVENTS:
             pool = self.load_licensepool(data_source, identifier_type, identifier)
             Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)

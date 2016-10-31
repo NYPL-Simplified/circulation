@@ -24,6 +24,9 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from api.mock_authentication import (
+    MockAuthenticationProvider
+)
 from core.app_server import (
     load_lending_policy
 )
@@ -46,6 +49,7 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     RightsStatus,
     get_one,
+    get_one_or_create,
     create,
 )
 from core.lane import (
@@ -94,9 +98,17 @@ class TestCirculationManager(CirculationManager):
 class ControllerTest(DatabaseTest):
     """A test that requires a functional app server."""
 
-    valid_auth = 'Basic ' + base64.b64encode('200:2222')
-    invalid_auth = 'Basic ' + base64.b64encode('200:2221')
+    # Authorization headers that will succeed (or fail) against the
+    # MockAuthenticationProvider set up in ControllerTest.setup().
+    valid_auth = 'Basic ' + base64.b64encode(
+        'unittestuser:unittestpassword'
+    )
+    invalid_auth = 'Basic ' + base64.b64encode('user1:password2')
 
+    valid_credentials = dict(
+        username="unittestuser", password="unittestpassword"
+    )
+    
     def setup(self, _db=None):
         super(ControllerTest, self).setup()
 
@@ -114,9 +126,26 @@ class ControllerTest(DatabaseTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        # Create the patron used by the dummy authentication mechanism.
+        self.default_patron, ignore = get_one_or_create(
+            _db, Patron, authorization_identifier="unittestuser",
+            create_method_kwargs=dict(external_identifier="unittestuser")
+        )
+        
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
+                Configuration.AUTHENTICATION_POLICY : {
+                    "providers": [
+                        {
+                            "module": "api.mock_authentication",
+                            "patrons": { "unittestuser": "unittestpassword",
+                                         "unittestuser2" : "unittestpassword2",
+                            },
+                            "expired_patrons": { "expired" : "password" },
+                            "patrons_with_fines": { "ihavefines" : "password" },
+                        }
+                    ],
+                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -125,7 +154,7 @@ class ControllerTest(DatabaseTest):
             config[Configuration.INTEGRATIONS] = {
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
-                }
+                },
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
@@ -134,6 +163,7 @@ class ControllerTest(DatabaseTest):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
+    
 class CirculationControllerTest(ControllerTest):
 
     def setup(self):
@@ -171,15 +201,19 @@ class TestBaseController(CirculationControllerTest):
             eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="1234"))
+        value = self.controller.authenticated_patron(
+            dict(username="user1", password="password2")
+        )
         eq_(value, INVALID_CREDENTIALS)
 
     def test_authenticated_patron_expired_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="0", password="0000"))
+        value = self.controller.authenticated_patron(
+            dict(username="expired", password="password")
+        )
         eq_(value, EXPIRED_CREDENTIALS)
 
     def test_authenticated_patron_correct_credentials(self):
-        value = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        value = self.controller.authenticated_patron(self.valid_credentials)
         assert isinstance(value, Patron)
 
 
@@ -300,7 +334,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
@@ -329,7 +363,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
 
-        patron = self.controller.authenticated_patron(dict(username="5", password="5555"))
+        patron = self.controller.authenticated_patron(self.valid_credentials)
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
 
@@ -364,9 +398,11 @@ class TestIndexController(CirculationControllerTest):
 
     def test_authenticated_patron_root_lane(self):
         with temp_config() as config:
+            # Patrons whose authorization identifiers start with 'unittest'
+            # get sent to the Adult Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "2": ["eng", "Adult Fiction"]},
-                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(.)",
+                Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
+                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
             }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -379,30 +415,13 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/eng/Adult%20Fiction", response.headers['location'])
 
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "2": None }
+            # Now those patrons get sent to the top-level lane.
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
             with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/groups/", response.headers['location'])
-
-
-class TestAccountController(CirculationControllerTest):
-
-    def test_patron_info_no_username(self):
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=self.valid_auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_(None, account_info.get('username'))
-            eq_("200", account_info.get('barcode'))
-            
-    def test_patron_info_with_username(self):
-        auth = 'Basic ' + base64.b64encode('0:2222')
-        with self.app.test_request_context(
-            "/", headers=dict(Authorization=auth)):
-            account_info = json.loads(self.manager.accounts.account())
-            eq_("alice", account_info.get('username'))
-            eq_("0", account_info.get('barcode'))
 
 
 class TestLoanController(CirculationControllerTest):
@@ -820,8 +839,7 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        # Patron with $1.00 fine
-        auth = 'Basic ' + base64.b64encode('5:5555')
+        auth = 'Basic ' + base64.b64encode('ihavefines:password')
         
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -836,12 +854,11 @@ class TestLoanController(CirculationControllerTest):
                 
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
-                assert "outstanding fines" in response.detail
-                assert "$1.00" in response.detail
+                assert "$12345678.90 outstanding" in response.detail
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$20.00"
+                Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
 
             with self.app.test_request_context(
@@ -954,10 +971,6 @@ class TestLoanController(CirculationControllerTest):
             assert urllib.quote("%s/%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
             eq_(0, len(threem_revoke_links))
 
-            links = feed['feed']['links']
-            account_links = [link for link in links if link['rel'] == 'http://librarysimplified.org/terms/rel/account']
-            eq_(1, len(account_links))
-            assert 'me' in account_links[0]['href']
 
 class TestAnnotationController(CirculationControllerTest):
     def setup(self):
@@ -1018,6 +1031,49 @@ class TestAnnotationController(CirculationControllerTest):
                 assert method in allow_header
 
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Accept-Post'])
+            eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
+            expected_etag = 'W/"%s"' % annotation.timestamp
+            eq_(expected_etag, response.headers['ETag'])
+            expected_time = format_date_time(mktime(annotation.timestamp.timetuple()))
+            eq_(expected_time, response.headers['Last-Modified'])
+
+    def test_get_container_for_work(self):
+        self.pool.loan_to(self.default_patron)
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self.identifier,
+            motivation=Annotation.IDLING,
+        )
+        annotation.active = True
+        annotation.timestamp = datetime.datetime.now()
+
+        other_annotation, ignore = create(
+            self._db, Annotation,
+            patron=self.default_patron,
+            identifier=self._identifier(),
+            motivation=Annotation.IDLING,
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.annotations.authenticated_patron_from_request()
+            response = self.manager.annotations.container_for_work(self.identifier.type, self.identifier.identifier)
+            eq_(200, response.status_code)
+
+            # We've been given an annotation container with one item.
+            container = json.loads(response.data)
+            eq_(1, container['total'])
+            item = container['first']['items'][0]
+            eq_(annotation.motivation, item['motivation'])
+
+            # The response has the appropriate headers - POST is not allowed.
+            allow_header = response.headers['Allow']
+            for method in ['GET', 'HEAD', 'OPTIONS']:
+                assert method in allow_header
+
+            assert 'Accept-Post' not in response.headers.keys()
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
             expected_etag = 'W/"%s"' % annotation.timestamp
             eq_(expected_etag, response.headers['ETag'])
@@ -1162,7 +1218,7 @@ class TestWorkController(CirculationControllerTest):
     def test_contributor(self):
         # For works without a contributor name, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.contributor('')
+            response = self.manager.work_controller.contributor('', None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
@@ -1170,18 +1226,18 @@ class TestWorkController(CirculationControllerTest):
         
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad.
         with self.app.test_request_context('/?order=nosuchorder'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
         
         # If the work has a contributor, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.contributor(name)
+            response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -1299,7 +1355,8 @@ class TestWorkController(CirculationControllerTest):
         )
 
         self.lp.presentation_edition.series = "Around the World"
-        self.french_1.presentation_edition.series = "Around the World"
+        same_series = self._work(with_license_pool=True)
+        same_series.presentation_edition.series = "Around the World"
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
@@ -1332,17 +1389,17 @@ class TestWorkController(CirculationControllerTest):
         eq_(True, href.endswith(expected))
 
         # The other book in the series is in the series feed.
-        [e2] = [e for e in feed['entries'] if e['title'] == self.french_1.title]
+        [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
         title, href = collection_link(e2)
         eq_("Around the World", title)
-        expected_series_link = urllib.quote('series/Around the World')
+        expected_series_link = urllib.quote('series/Around the World/eng/Adult')
         eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.
         [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
         title, href = collection_link(e3)
         eq_("John Bull", title)
-        expected_contributor_link = urllib.quote('contributor/John Bull')
+        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
         eq_(True, href.endswith(expected_contributor_link))
 
         # The original book is listed in both the series and contributor feeds.
@@ -1382,7 +1439,7 @@ class TestWorkController(CirculationControllerTest):
     def test_series(self):
         # If the work doesn't have a series, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series("")
+            response = self.manager.work_controller.series("", None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
@@ -1390,18 +1447,18 @@ class TestWorkController(CirculationControllerTest):
         self.lp.presentation_edition.series = series_name
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad
         with self.app.test_request_context('/?order=nosuchorder'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
             
         # If the work is in a series, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
-            response = self.manager.work_controller.series(series_name)
+            response = self.manager.work_controller.series(series_name, None, None)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(series_name, feed['feed']['title'])
@@ -1567,7 +1624,8 @@ class TestAnalyticsController(CirculationControllerTest):
         with temp_config() as config:
             config = {
                 Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"]
+                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
+                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 }
             }
 

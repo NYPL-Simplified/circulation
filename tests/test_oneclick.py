@@ -12,19 +12,21 @@ from StringIO import StringIO
 
 
 from core.model import (
+    get_one_or_create,
+    #Contributor,
     DataSource,
     Edition,
     Identifier,
+    #LicensePool,
+    Patron,
     Subject,
-    Contributor,
-    LicensePool,
 )
 
 from core.metadata_layer import (
     Metadata,
     CirculationData,
     IdentifierData,
-    ContributorData,
+    #ContributorData,
     SubjectData,
 )
 
@@ -40,7 +42,6 @@ from . import (
     #sample_data
 )
 
-'''
 from api.circulation import (
     LoanInfo,
     HoldInfo,
@@ -49,18 +50,24 @@ from api.circulation import (
 
 from api.circulation_exceptions import *
 
-from core.analytics import Analytics
-'''
+#from core.analytics import Analytics
 
 
 class OneClickAPITest(DatabaseTest):
 
     def setup(self, _db=None):
         super(OneClickAPITest, self).setup()
-        #self.api = MockOneClickAPI(self._db)
-        self.api = OneClickAPI(self._db)
+        _db = _db or self._db
+
+        self.api = MockOneClickAPI(self._db)
+        #self.api = OneClickAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
+
+        self.default_patron, ignore = get_one_or_create(
+            _db, Patron, authorization_identifier="13057226",
+            create_method_kwargs=dict(external_identifier="unittestuser")
+        )
 
 
     def get_data(self, filename):
@@ -82,7 +89,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.get_data("response_patron_internal_id_error.json")
         self.api.queue_response(status_code=500, content=datastr)
         assert_raises_regexp(
-            ValueError, "Got status code 500 from external server, cannot continue.", 
+            InvalidInputException, "patron_id:", 
             self.api.get_patron_internal_id, patron_cardno='130572262x'
         )
 
@@ -95,25 +102,32 @@ class TestOneClickAPI(OneClickAPITest):
     def test_get_patron_information(self):
         datastr, datadict = self.get_data("response_patron_info_not_found.json")
         self.api.queue_response(status_code=404, content=datastr)
-        response_dictionary = self.api.get_patron_information(patron_id='939987')
-        eq_(404, response_dictionary['error_code'])
-        eq_(u'Patron does not exist.', response_dictionary['message'])
-        
+        #response_dictionary = self.api.get_patron_information(patron_id='939987')
+        #eq_(404, response_dictionary['error_code'])
+        #eq_(u'Patron does not exist.', response_dictionary['message'])
+        assert_raises_regexp(
+            NotFoundOnRemote, "patron_info:", 
+            self.api.get_patron_information, patron_id='939987'
+        )
+
         datastr, datadict = self.get_data("response_patron_info_error.json")
         self.api.queue_response(status_code=400, content=datastr)
-        response_dictionary = self.api.get_patron_information(patron_id='939982fdsfdsf')
-        eq_(400, response_dictionary['error_code'])
-        eq_(u'The request is invalid.', response_dictionary['message'])
+        #response_dictionary = self.api.get_patron_information(patron_id='939982fdsfdsf')
+        #eq_(400, response_dictionary['error_code'])
+        #eq_(u'The request is invalid.', response_dictionary['message'])
+        assert_raises_regexp(
+            InvalidInputException, "patron_info:", 
+            self.api.get_patron_information, patron_id='939982fdsfdsf'
+        )
 
         datastr, datadict = self.get_data("response_patron_info_found.json")
         self.api.queue_response(status_code=200, content=datastr)
-        response_dictionary = self.api.get_patron_information(patron_id='939982')
-        eq_(u'1305722621', response_dictionary['libraryCardNumber'])
-        eq_(u'****', response_dictionary['libraryPin'])
-        eq_(u'Mic', response_dictionary['firstName'])
-        eq_(u'Mouse', response_dictionary['lastName'])
-        eq_(u'mickeymouse1', response_dictionary['userName'])
-        eq_(u'mickey1@mouse.com', response_dictionary['email'])
+        patron = self.api.get_patron_information(patron_id='939982')
+        eq_(u'1305722621', patron.card_number)
+        eq_(u'Mic', patron.first_name)
+        eq_(u'Mouse', patron.last_name)
+        eq_(u'mickeymouse1', patron.username)
+        eq_(u'mickey1@mouse.com', patron.email)
 
 
     def test_circulate_item(self):
@@ -127,6 +141,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         patron = self.default_patron
+        # TODO: decide if actually want to add oneclick_id property to Patron db object
         patron.oneclick_id = 939981
 
         # borrow functionality checks
@@ -141,41 +156,97 @@ class TestOneClickAPI(OneClickAPITest):
 
         datastr, datadict = self.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier)
-        eq_(409, response_dictionary['error_code'])
-        assert(response_dictionary['message'] in [u'Checkout item already exists', u'Title is not available for checkout'])
+        #response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier)
+        #eq_(409, response_dictionary['error_code'])
+        #assert(response_dictionary['message'] in [u'Checkout item already exists', u'Title is not available for checkout'])
+        assert_raises_regexp(
+            AlreadyCheckedOut, "checkout:", 
+            self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
+        )
 
-        # return functionality checks
-        datastr, datadict = self.get_data("response_return_unavailable.json")
+        # book return functionality checks
         self.api.queue_response(status_code=200, content="")
 
-        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier)
+        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier, 
+            return_item=True)
         eq_({}, response_dictionary)
 
         datastr, datadict = self.get_data("response_return_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
-        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier)
-        eq_(409, response_dictionary['error_code'])
-        eq_(u'Checkout does not exists or it is already terminated or expired.', response_dictionary['message'])
+        #response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier, 
+        #    return_item=True)
+        #eq_(409, response_dictionary['error_code'])
+        #eq_(u'Checkout does not exists or it is already terminated or expired.', response_dictionary['message'])
+        assert_raises_regexp(
+            NotCheckedOut, "checkin:", 
+            self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier, 
+            return_item=True
+        )
         
 
 
     def test_checkin(self):
+        # Returning a book is, for now, more of a "notify OneClick that we've 
+        # returned through Adobe" formality than critical functionality.
+        # There's no information returned from the server on success, so we use a 
+        # boolean success flag.
+
+        patron = self.default_patron
+        patron.oneclick_id = 939981
+
         edition, pool = self._edition(
             identifier_type=Identifier.ONECLICK_ID,
             data_source_name=DataSource.ONECLICK,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
+
+        self.api.queue_response(status_code=200, content="")
+
+        success = self.api.checkin(patron, None, pool)
+        eq_(True, success)
 
 
     def test_checkout(self):
+        patron = self.default_patron
+        patron.oneclick_id = 939981
+
         edition, pool = self._edition(
             identifier_type=Identifier.ONECLICK_ID,
             data_source_name=DataSource.ONECLICK,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
+
+        datastr, datadict = self.get_data("response_checkout_success.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        loan_info = self.api.checkout(patron, None, pool, None)
+        eq_('OneClick ID', loan_info.identifier_type)
+        eq_(pool.identifier.identifier, loan_info.identifier)
+        today = datetime.datetime.now()
+        assert (loan_info.start_date - today).total_seconds() < 20
+        assert (loan_info.end_date - today).days < 60
+        eq_(None, loan_info.fulfillment_info)
+
+
+    def test_fulfill(self):
+        # TODO
+        pass
+
+
+    def test_patron_activity(self):
+        # TODO
+        pass
+
+
+    def test_place_hold(self):
+        # TODO
+        pass
+
+
+    def test_release_hold(self):
+        # TODO
+        pass
 
 
 

@@ -48,7 +48,7 @@ class MockRemoteAPI(BaseCirculationAPI):
 
     def release_hold(self, patron, pin, licensepool):
         # Return value is not checked.
-        return self.return_or_raise('release_hold')
+        return self._return_or_raise('release_hold')
 
     def internal_format(self, delivery_mechanism):
         return delivery_mechanism
