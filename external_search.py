@@ -25,17 +25,21 @@ class ExternalSearchIndex(object):
         self.works_index = None
 
         if not ExternalSearchIndex.__client:
-            integration = Configuration.integration(
-                Configuration.ELASTICSEARCH_INTEGRATION, 
-            )
-            works_index = works_index or integration.get(
-                Configuration.ELASTICSEARCH_INDEX_KEY
-            ) or None
+            if not url or not works_index:
+                integration = Configuration.integration(
+                    Configuration.ELASTICSEARCH_INTEGRATION, 
+                )
 
-            if not integration:
-                return
+                if not works_index:
+                    works_index = integration.get(
+                        Configuration.ELASTICSEARCH_INDEX_KEY
+                    ) or None
 
-            url = integration[Configuration.URL]
+                if not url:
+                    if not integration:
+                        return
+                    url = integration[Configuration.URL]
+
             use_ssl = url and url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
