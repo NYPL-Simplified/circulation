@@ -328,6 +328,7 @@ def get_one(db, model, on_multiple='error', **kwargs):
 
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
+                      create_method_kwargs_methods=None,
                       **kwargs):
     one = get_one(db, model, **kwargs)
     if one:
@@ -6632,6 +6633,63 @@ class Credential(Base):
 
 # Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
+
+
+class DelegatedPatronIdentifier(Base):
+    """This library is in charge of coming up with, and storing,
+    identifiers associated with the patrons of some other library.
+
+    e.g. NYPL provides Adobe IDs for patrons of all libraries that use
+    the SimplyE app.
+
+    Those identifiers are stored here.
+    """
+    ADOBE_ID = 'Adobe ID'
+    
+    __tablename__ = 'delegatedpatronidentifiers'
+    id = Column(Integer, primary_key=True)
+    type = Column(String(255), index=True)
+    library_uri = Column(String(255), index=True)
+    patron_identifier = Column(String(255), index=True)
+    identifier = Column(String)
+
+    __table_args__ = (
+        UniqueConstraint('type', 'library_uri', 'patron_identifier'),
+    )
+
+    @classmethod
+    def get_one_or_create(
+            cls, _db, library_uri, patron_identifier, identifier_type,
+            create_function
+    ):
+        """Look up the delegated identifier for the given patron. If there is
+        none, create one.
+
+        :param library_uri: A URI identifying the patron's library.
+
+        :param patron_identifier: An identifier used by that library to
+         distinguish between this patron and others. This should be
+         an identifier created solely for the purpose of identifying the
+         patron with _this_ library, and not (e.g.) the patron's barcode.
+
+        :param identifier_type: The type of the delegated identifier
+         to look up. (probably ADOBE_ID)
+
+        :param create_function: If this patron does not have a
+         DelegatedPatronIdentifier, one will be created, and this
+         function will be called to determine the value of
+         DelegatedPatronIdentifier.identifier. 
+
+        :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
+        """
+        identifier, is_new = get_one_or_create(
+            _db, DelegatedPatronIdentifier, library_uri=library_uri,
+            patron_identifier=patron_identifier, type=identifier_type
+        )
+        if is_new:
+            identifier.identifier = create_function()
+        return identifier, is_new
+        
 
 class Timestamp(Base):
     """A general-purpose timestamp for external services."""

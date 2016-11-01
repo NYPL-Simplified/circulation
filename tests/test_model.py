@@ -38,6 +38,7 @@ from model import (
     Credential,
     CustomListEntry,
     DataSource,
+    DelegatedPatronIdentifier,
     DeliveryMechanism,
     Genre,
     Hold,
@@ -4185,6 +4186,39 @@ class TestCredentials(DatabaseTest):
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
 
+
+class TestDelegatedPatronIdentifier(DatabaseTest):
+
+    def test_get_one_or_create(self):
+        library_uri = self._url
+        patron_identifier = self._str
+        identifier_type = DelegatedPatronIdentifier.ADOBE_ID
+        def make_id():
+            return "id1"
+        identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, patron_identifier, identifier_type,
+            make_id
+        )
+        eq_(True, is_new)
+        eq_(library_uri, identifier.library_uri)
+        eq_(patron_identifier, identifier.patron_identifier)
+        # id_1() was called.
+        eq_("id1", identifier.identifier)
+
+        # Try the same thing again but provide a different create_function
+        # that raises an exception if called.
+        def explode():
+            raise Exception("I should never be called.")
+        identifier2, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, patron_identifier, identifier_type, explode
+        )
+        # The existing identifier was looked up.
+        eq_(False, is_new)
+        eq_(identifier2.id, identifier.id)
+        # id_2() was not called.
+        eq_("id1", identifier2.identifier)
+        
+        
 class TestPatron(DatabaseTest):
 
     def test_external_type_regular_expression(self):
