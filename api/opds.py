@@ -603,20 +603,23 @@ class CirculationManagerAnnotator(Annotator):
         if not active_loan or not delivery_mechanism:
             return []
         
-        # Get an identifier for the patron that will be registered
-        # with the DRM server.
-        patron = active_loan.patron
-        _db = Session.object_session(active_loan)
-        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-        def refresh(credential):
-            credential.credential = str(uuid.uuid1())
-        patron_identifier = Credential.lookup(
-            _db, internal, self.ADOBE_ID_PATRON_IDENTIFIER, patron,
-            refresher_method=refresh, allow_persistent_token=True
-        )
-        patron_identifier = patron_identifier.credential
-        
         if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
+            # Get an identifier for the patron that will be registered
+            # with the DRM server.
+            _db = Session.object_session(active_loan)
+            patron = active_loan.patron
+            internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+            def refresh(credential):
+                credential.credential = str(uuid.uuid1())
+            patron_identifier = Credential.lookup(
+                _db, internal, self.ADOBE_ID_PATRON_IDENTIFIER, patron,
+                refresher_method=refresh, allow_persistent_token=True
+            )
+            patron_identifier = patron_identifier.credential
+
+            # Generate a <drm:licensor> tag that can feed into the
+            # Vendor ID service.
             return self.adobe_id_tags(patron_identifier)
         return []
 

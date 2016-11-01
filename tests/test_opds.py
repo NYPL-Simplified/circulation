@@ -169,6 +169,8 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         [pool] = self.work.license_pools
         identifier = pool.identifier
         patron = self._patron()
+        old_credentials = list(patron.credentials)
+        
         loan, ignore = pool.loan_to(patron, start=datetime.datetime.utcnow())
         adobe_delivery_mechanism, ignore = DeliveryMechanism.lookup(
             self._db, "text/html", DeliveryMechanism.ADOBE_DRM
@@ -186,7 +188,19 @@ class TestCirculationManagerAnnotator(DatabaseTest):
                 AuthdataUtility.LIBRARY_URI_KEY : library_uri,
                 AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
             }
-        
+
+            # The fulfill link for non-Adobe DRM does not
+            # include the drm:licensor tag.
+            link = self.annotator.fulfill_link(
+                pool.data_source.name, pool.identifier, pool, loan,
+                other_delivery_mechanism 
+           )
+            for child in link.getchildren():
+                assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
+
+            # No new Credential has been associated with the patron.
+            eq_(old_credentials, patron.credentials)
+                
             # The fulfill link for Adobe DRM includes information
             # on how to get an Adobe ID in the drm:licensor tag.
             link = self.annotator.fulfill_link(
@@ -198,7 +212,8 @@ class TestCirculationManagerAnnotator(DatabaseTest):
                 licensor.tag)
 
             # An Adobe ID-specific identifier has been created for the patron.
-            [adobe_id_identifier] = patron.credentials
+            [adobe_id_identifier] = [x for x in patron.credentials
+                                     if x not in old_credentials]
             eq_(self.annotator.ADOBE_ID_PATRON_IDENTIFIER,
                 adobe_id_identifier.type)
             eq_(DataSource.INTERNAL_PROCESSING,
@@ -212,15 +227,6 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             )
             eq_(licensor, expect)
             
-            # The fulfill link for some other kind of DRM does not
-            # include the drm:licensor tag.
-            link = self.annotator.fulfill_link(
-                pool.data_source.name, pool.identifier, pool, loan,
-                other_delivery_mechanism
-            )
-            for child in link.getchildren():
-                assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
-        
     def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
 
         with temp_config() as config:
