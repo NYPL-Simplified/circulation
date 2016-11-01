@@ -33,6 +33,7 @@ from oneclick import (
 )
 
 from util.http import (
+    BadResponseException, 
     RemoteIntegrationException,
     HTTP,
 )
@@ -68,7 +69,7 @@ class TestOneClickAPI(OneClickTest):
     def test_availability_exception(self):
         self.api.queue_response(500)
         assert_raises_regexp(
-            RemoteIntegrationException, "Bad response from www.oneclickapi.testv1/libraries/library_id_123/search: Got status code 500 from external server, cannot continue.", 
+            BadResponseException, "Bad response from availability_search", 
             self.api.get_all_available_through_search
         )
 
@@ -148,9 +149,14 @@ class TestOneClickAPI(OneClickTest):
         datastr, datadict = self.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         
+        response_dictionary = self.api.get_metadata_by_isbn('97BADISBNFAKE')
+        eq_(None, response_dictionary)
+
+
+        self.api.queue_response(status_code=404, content="{}")
         assert_raises_regexp(
-            ValueError, 
-            "get_metadata_by_isbn\(97BADISBNFAKE\) in library .*", 
+            BadResponseException, 
+            "Bad response from .*", 
             self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
         )
 
@@ -292,7 +298,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         failure = self.provider.process_item(identifier)
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
-        assert failure.exception.startswith('get_metadata_by_isbn(ISBNbadbad) in library ')
+        assert failure.exception.startswith('Cannot find OneClick metadata')
 
 
     def test_process_item_creates_presentation_ready_work(self):

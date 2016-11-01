@@ -15,6 +15,7 @@ from config import (
 from util import LanguageCodes
 
 from util.http import (
+    BadResponseException, 
     HTTP,
 )
 from coverage import CoverageFailure
@@ -187,12 +188,16 @@ class OneClickAPI(object):
         page = 0;
         response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0])
 
-        respdict = response.json()
+        try: 
+            respdict = response.json()
+        except Exception, e:
+            raise BadResponseException("availability_search", "OneClick availability response not parseable.")
+
         if not respdict:
-            raise IOError("OneClick availability response not parseable - has no respdict.")
+            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no structure.")
 
         if not ('pageIndex' in respdict and 'pageCount' in respdict):
-            raise IOError("OneClick availability response not parseable - has no page counts.")
+            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no page counts.")
 
         page_index = respdict['pageIndex']
         page_count = respdict['pageCount']
@@ -202,7 +207,7 @@ class OneClickAPI(object):
             response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], page_index=page_index)
             tempdict = response.json()
             if not ('items' in tempdict):
-                raise IOError("OneClick availability response not parseable - has no next dict.")
+                raise BadResponseException("availability_search", "OneClick availability response not parseable - has no next dict.")
             item_interest_pairs = tempdict['items']
             respdict['items'].extend(item_interest_pairs)
 
@@ -224,6 +229,12 @@ class OneClickAPI(object):
         url = "%s/libraries/%s/media/all" % (self.base_url, str(self.library_id))
 
         response = self.request(url)
+
+        try:
+            resplist = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick all catalog response not parseable.")
+
         return response.json()
 
 
@@ -302,7 +313,11 @@ class OneClickAPI(object):
 
         response = self.request(url)
 
-        resplist = response.json()
+        try:
+            resplist = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick availability response not parseable.")
+
         if not resplist:
             raise IOError("OneClick availability response not parseable - has no resplist.")
 
@@ -326,20 +341,25 @@ class OneClickAPI(object):
 
         response = self.request(url)
 
-        respdict = response.json()
+        try:
+            respdict = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick isbn search response not parseable.")
+
         if not respdict:
             # should never happen
-            raise IOError("OneClick isbn search response not parseable - has no respdict.")
+            raise BadResponseException(url, "OneClick isbn search response not parseable - has no respdict.")
 
         if "message" in respdict:
             message = respdict['message']
-            if message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: "):
+            if (message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: ") or 
+                message.startswith("eXtensible Framework was unable to locate the resource")):
                 # we searched for item that's not in library's catalog -- a mistake, but not an exception
                 return None
             else:
                 # something more serious went wrong
-                raise ValueError("get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % 
-                    (identifier_string, str(self.library_id), message))
+                error_message = "get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % (identifier_string, str(self.library_id), error_message)
+                raise BadResponseException(url, message)
 
         return respdict
 
@@ -679,10 +699,14 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         """
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
-        except ValueError as error:
+        except BadResponseException as error:
             return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
         except IOError as error:
             return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+
+        if not response_dictionary:
+            message = "Cannot find OneClick metadata for %r" % identifier
+            return CoverageFailure(identifier, message, data_source=self.output_source, transient=True)
 
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(response_dictionary)
 
