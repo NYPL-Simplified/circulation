@@ -17,8 +17,6 @@ class GoogleAnalyticsProvider(object):
 
     def collect_event(self, _db, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
-        work = license_pool.work
-        edition = license_pool.presentation_edition
         fields = {
             'v': 1,
             'tid': self.tracking_id,
@@ -29,20 +27,27 @@ class GoogleAnalyticsProvider(object):
             'ec': 'circulation',
             'ea': event_type,
             'cd1': time,
-            'cd2': license_pool.identifier.identifier,
-            'cd3': license_pool.identifier.type
         }
-        if work and edition:
+
+        if license_pool:
             fields.update({
-                'cd4': edition.title,
-                'cd5': edition.author,
-                'cd6': "fiction" if work.fiction else "nonfiction",
-                'cd7': work.audience,
-                'cd8': work.target_age_string,
-                'cd9': edition.publisher,
-                'cd10': edition.language,
-                'cd11': work.top_genre()
+                'cd2': license_pool.identifier.identifier,
+                'cd3': license_pool.identifier.type
             })
+
+            work = license_pool.work
+            edition = license_pool.presentation_edition
+            if work and edition:
+                fields.update({
+                    'cd4': edition.title,
+                    'cd5': edition.author,
+                    'cd6': "fiction" if work.fiction else "nonfiction",
+                    'cd7': work.audience,
+                    'cd8': work.target_age_string,
+                    'cd9': edition.publisher,
+                    'cd10': edition.language,
+                    'cd11': work.top_genre()
+                })
         # urlencode doesn't like unicode strings so we convert them to utf8
         fields = {k: unicode(v).encode('utf8') for k, v in fields.iteritems()}
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))

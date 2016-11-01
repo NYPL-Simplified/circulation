@@ -100,3 +100,28 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd9'))
         eq_(None, params.get('cd10'))
         eq_(None, params.get('cd11'))
+
+    def test_collect_event_without_license_pool(self):
+        ga = MockGoogleAnalyticsProvider('faketrackingid')
+
+        now = datetime.datetime.utcnow()
+        ga.collect_event(self._db, None, CirculationEvent.NEW_PATRON, now)
+        params = urlparse.parse_qs(ga.params)
+
+        eq_(1, ga.count)
+        eq_("http://www.google-analytics.com/collect", ga.url)
+        eq_("faketrackingid", params['tid'][0])
+        eq_("event", params['t'][0])
+        eq_("circulation", params['ec'][0])
+        eq_(CirculationEvent.NEW_PATRON, params['ea'][0])
+        eq_(str(now), params['cd1'][0])
+        eq_(None, params.get('cd2'))
+        eq_(None, params.get('cd3'))
+        eq_(None, params.get('cd4'))
+        eq_(None, params.get('cd5'))
+        eq_(None, params.get('cd6'))
+        eq_(None, params.get('cd7'))
+        eq_(None, params.get('cd8'))
+        eq_(None, params.get('cd9'))
+        eq_(None, params.get('cd10'))
+        eq_(None, params.get('cd11'))

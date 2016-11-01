@@ -6,6 +6,7 @@ from config import (
 from core.model import (
     get_one,
     get_one_or_create,
+    CirculationEvent,
     Credential,
     DataSource,
     Patron,
@@ -15,6 +16,7 @@ from core.util.problem_detail import (
     json as pd_json,
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
+from core.analytics import Analytics
 from problem_details import *
 
 import datetime
@@ -261,6 +263,12 @@ class PatronData(object):
             )
         __transaction = _db.begin_nested()
         patron, is_new = get_one_or_create(_db, Patron, **search_by)
+
+        if is_new:
+            # Send out an analytics event to record the fact
+            # that a new patron was created.
+            Analytics.collect_event(_db, None,
+                                    CirculationEvent.NEW_PATRON)
 
         # This makes sure the Patron is brought into sync with the
         # other fields of this PatronData object, regardless of
