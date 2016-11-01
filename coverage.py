@@ -268,6 +268,7 @@ class BaseCoverageProvider(object):
                 successes += 1
                 record, ignore = self.add_coverage_record_for(item)
                 record.status = BaseCoverageRecord.SUCCESS
+                record.exception = None
             records.append(record)
 
         # Perhaps some records were ignored--they neither succeeded nor
