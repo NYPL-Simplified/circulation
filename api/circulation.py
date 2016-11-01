@@ -11,6 +11,7 @@ from flask.ext.babel import lazy_gettext as _
 from core.analytics import Analytics
 from core.model import (
     get_one,
+    CirculationEvent,
     Identifier,
     DataSource,
     LicensePool,
@@ -114,8 +115,6 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
-    CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE = "circulation_manager_check_out"
-    
     def __init__(self, _db, overdrive=None, threem=None, axis=None):
         self._db = _db
         self.overdrive = overdrive
@@ -216,14 +215,9 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            def parse_fines(fines):
-                dollars, cents = re.match("\$([\d]+)\.(\d\d)", fines).groups()
-                return (dollars * 100) + cents
-
-            max_fines = Configuration.policy(Configuration.MAX_OUTSTANDING_FINES)
-            if max_fines:
-                if parse_fines(patron.fines) >= parse_fines(max_fines):
-                    raise OutstandingFines()
+            max_fines = Configuration.max_outstanding_fines()
+            if patron.fines >= max_fines.amount:
+                raise OutstandingFines()
 
         # Do we (think we) already have this book out on loan?
         existing_loan = get_one(
@@ -325,7 +319,7 @@ class CirculationAPI(object):
                 # manager.
                 Analytics.collect_event(
                     self._db, licensepool,
-                    self.CIRCULATION_MANAGER_INITIATED_LOAN_EVENT_TYPE
+                    CirculationEvent.CM_CHECKOUT,
                 )
             return loan, None, new_loan_record
 
@@ -355,6 +349,16 @@ class CirculationAPI(object):
             hold_info.end_date, 
             hold_info.hold_position
         )
+
+        if hold and is_new:
+            # Send out an analytics event to record the fact that
+            # a hold was initiated through the circulation
+            # manager.
+            Analytics.collect_event(
+                self._db, licensepool,
+                CirculationEvent.CM_HOLD_PLACE,
+            )
+
         if existing_loan:
             self._db.delete(existing_loan)
         __transaction.commit()
@@ -407,6 +411,15 @@ class CirculationAPI(object):
                     fulfillment.content_link or fulfillment.content
             ):
                 raise NoAcceptableFormat()
+
+        # Send out an analytics event to record the fact that
+        # a fulfillment was initiated through the circulation
+        # manager.
+        Analytics.collect_event(
+            self._db, licensepool,
+            CirculationEvent.CM_FULFILL,
+        )
+
         # Make sure the delivery mechanism we just used is associated
         # with the loan.
         if loan.fulfillment is None and not delivery_mechanism.delivery_mechanism.is_streaming:
@@ -460,6 +473,15 @@ class CirculationAPI(object):
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
             __transaction.commit()
+
+            # Send out an analytics event to record the fact that
+            # a loan was revoked through the circulation
+            # manager.
+            Analytics.collect_event(
+                self._db, licensepool,
+                CirculationEvent.CM_CHECKIN,
+            )
+
         if not licensepool.open_access:
             api = self.api_for_license_pool(licensepool)
             try:
@@ -492,6 +514,15 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             self._db.delete(hold)
             __transaction.commit()
+
+            # Send out an analytics event to record the fact that
+            # a hold was revoked through the circulation
+            # manager.
+            Analytics.collect_event(
+                self._db, licensepool,
+                CirculationEvent.CM_HOLD_RELEASE,
+            )
+
         return True
 
     def patron_activity(self, patron, pin):
