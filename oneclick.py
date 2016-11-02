@@ -159,6 +159,7 @@ class OneClickAPI(object):
         # for now, do nothing with disallowed error codes, but in the future might have 
         # some that will warrant repeating the request.
         disallowed_response_codes = []
+
         response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params, 
