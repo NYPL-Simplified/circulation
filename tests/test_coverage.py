@@ -198,8 +198,6 @@ class TestCoverageProvider(DatabaseTest):
         record.timestamp = cutoff
         eq_(False, provider.should_update(record))
 
-
-
     def test_ensure_coverage_transient_coverage_failure(self):
 
         provider = TransientFailureCoverageProvider(
@@ -569,6 +567,12 @@ class TestCoverageProvider(DatabaseTest):
         eq_([CoverageRecord.TRANSIENT_FAILURE] * 2,
             [x.status for x in records])
         eq_(["i ignore"] * 2, [x.operation for x in records])
+
+        # If a transient failure becomes a success, the it won't have
+        # an exception anymore.
+        eq_(['Was ignored by CoverageProvider.'] * 2, [x.exception for x in records])
+        records = success_provider.process_batch_and_handle_results(batch)[1]
+        eq_([None, None], [x.exception for x in records])
 
         # Or you can go really bad and have persistent failures.
         persistent_failure_provider = NeverSuccessfulCoverageProvider(

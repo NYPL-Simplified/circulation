@@ -16,7 +16,8 @@ class AtomFeed(object):
     DCTERMS_NS = 'http://purl.org/dc/terms/'
     OPDS_NS = 'http://opds-spec.org/2010/catalog'
     SCHEMA_NS = 'http://schema.org/'
-
+    DRM_NS = 'http://librarysimplified.org/terms/drm'
+    
     SIMPLIFIED_NS = "http://librarysimplified.org/terms/"
     BIBFRAME_NS = "http://bibframe.org/vocab/"
 
@@ -25,6 +26,7 @@ class AtomFeed(object):
         'app': APP_NS,
         'dcterms' : DCTERMS_NS,
         'opds' : OPDS_NS,
+        'drm' : DRM_NS,
         'schema' : SCHEMA_NS,
         'simplified' : SIMPLIFIED_NS,
         'bibframe' : BIBFRAME_NS,
