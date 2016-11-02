@@ -55,19 +55,17 @@ from api.circulation_exceptions import *
 
 class OneClickAPITest(DatabaseTest):
 
-    def setup(self, _db=None):
+    #def setup(self, _db=None):
+    def setup(self):
         super(OneClickAPITest, self).setup()
-        _db = _db or self._db
 
         self.api = MockOneClickAPI(self._db)
         #self.api = OneClickAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
-        self.default_patron, ignore = get_one_or_create(
-            _db, Patron, authorization_identifier="13057226",
-            create_method_kwargs=dict(external_identifier="unittestuser")
-        )
+        self.default_patron = self._patron(external_identifier="unittestuser")
+        self.default_patron.authorization_identifier="13057226"
 
 
     def get_data(self, filename):
