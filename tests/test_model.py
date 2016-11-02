@@ -4203,7 +4203,7 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
         eq_(library_uri, identifier.library_uri)
         eq_(patron_identifier, identifier.patron_identifier)
         # id_1() was called.
-        eq_("id1", identifier.identifier)
+        eq_("id1", identifier.delegated_identifier)
 
         # Try the same thing again but provide a different create_function
         # that raises an exception if called.
@@ -4216,7 +4216,7 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
         eq_(False, is_new)
         eq_(identifier2.id, identifier.id)
         # id_2() was not called.
-        eq_("id1", identifier2.identifier)
+        eq_("id1", identifier2.delegated_identifier)
         
         
 class TestPatron(DatabaseTest):

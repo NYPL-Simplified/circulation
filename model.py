@@ -4,6 +4,7 @@ from collections import (
     Counter,
     defaultdict,
 )
+import contextlib
 from lxml import etree
 from nose.tools import set_trace
 import cairosvg
@@ -6650,8 +6651,14 @@ class DelegatedPatronIdentifier(Base):
     id = Column(Integer, primary_key=True)
     type = Column(String(255), index=True)
     library_uri = Column(String(255), index=True)
+
+    # This is the ID the foreign library gives us when referring to
+    # this patron.
     patron_identifier = Column(String(255), index=True)
-    identifier = Column(String)
+
+    # This is the identifier we made up for the patron. This is what the
+    # foreign library is trying to look up.
+    delegated_identifier = Column(String)
 
     __table_args__ = (
         UniqueConstraint('type', 'library_uri', 'patron_identifier'),
@@ -6678,7 +6685,7 @@ class DelegatedPatronIdentifier(Base):
         :param create_function: If this patron does not have a
          DelegatedPatronIdentifier, one will be created, and this
          function will be called to determine the value of
-         DelegatedPatronIdentifier.identifier. 
+         DelegatedPatronIdentifier.delegated_identifier. 
 
         :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
         """
@@ -6687,7 +6694,7 @@ class DelegatedPatronIdentifier(Base):
             patron_identifier=patron_identifier, type=identifier_type
         )
         if is_new:
-            identifier.identifier = create_function()
+            identifier.delegated_identifier = create_function()
         return identifier, is_new
         
 
