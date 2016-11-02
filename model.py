@@ -6643,7 +6643,7 @@ class DelegatedPatronIdentifier(Base):
 
     Those identifiers are stored here.
     """
-    ADOBE_ID = 'Adobe ID'
+    ADOBE_ACCOUNT_ID = 'Adobe Account ID'
     
     __tablename__ = 'delegatedpatronidentifiers'
     id = Column(Integer, primary_key=True)
@@ -6678,7 +6678,7 @@ class DelegatedPatronIdentifier(Base):
          patron with _this_ library, and not (e.g.) the patron's barcode.
 
         :param identifier_type: The type of the delegated identifier
-         to look up. (probably ADOBE_ID)
+         to look up. (probably ADOBE_ACCOUNT_ID)
 
         :param create_function: If this patron does not have a
          DelegatedPatronIdentifier, one will be created, and this

@@ -4192,7 +4192,7 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
     def test_get_one_or_create(self):
         library_uri = self._url
         patron_identifier = self._str
-        identifier_type = DelegatedPatronIdentifier.ADOBE_ID
+        identifier_type = DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID
         def make_id():
             return "id1"
         identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
