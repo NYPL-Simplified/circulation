@@ -147,7 +147,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             response = self.request(url=url, method=method)
         except Exception, e:
             self.log.error("Item checkout/return failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message)
+            raise RemoteInitiatedServerError(e.message, action)
 
         resp_dict = {}
         message = None
@@ -201,16 +201,17 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             raise InvalidInputException("Need patron OneClick id.")
 
         url = "%s/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_id)
+        action="patron_info"
 
         try:
             response = self.request(url)
         except Exception, e:
             self.log.error("Patron info call failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message)
+            raise RemoteInitiatedServerError(e.message, action)
 
         resp_dict = response.json()
         message = resp_dict.get('message', None)
-        error_response = self.validate_response(response, message, action="patron_info")
+        error_response = self.validate_response(response, message, action=action)
 
         patron = PatronInfo(username=resp_dict['userName'], card_number=resp_dict['libraryCardNumber'],  
             email=resp_dict['email'], first_name=resp_dict['firstName'], last_name=resp_dict['lastName'])
@@ -234,12 +235,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         (patron_oneclick_id, item_oneclick_id) = self.validate_input(patron, licensepool=None, patron_only=True)
 
         url = "%s/libraries/%s/patrons/%s/checkouts/" % (self.base_url, str(self.library_id), patron_id)
-
+        action="patron_activity"
+        
         try:
             response = self.request(url=url)
         except Exception, e:
             self.log.error("Patron info failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message)
+            raise RemoteInitiatedServerError(e.message, action)
 
         resp_dict = {}
         message = None
@@ -247,7 +249,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             resp_dict = response.json()
             message = resp_dict.get('message', None)
 
-        error_response = self.validate_response(response=response, message=message, action="patron_activity")
+        error_response = self.validate_response(response=response, message=message, action=action)
 
         # TODO: go through patron's checkouts and holds and 
         # generate LoanInfo and HoldInfo objects.
@@ -330,7 +332,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 if message.startswith("eXtensible Framework encountered a SqlException"):
                     raise InvalidInputException(action + ": " + message)
                 else:
-                    raise RemoteInitiatedServerError(action + ": " + message)
+                    raise RemoteInitiatedServerError(message, action)
 
             # a 409 conflict code can mean many things
             if response.status_code == 409 and action == 'checkout':

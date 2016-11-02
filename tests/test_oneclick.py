@@ -160,7 +160,7 @@ class TestOneClickAPI(OneClickAPITest):
         #eq_(409, response_dictionary['error_code'])
         #assert(response_dictionary['message'] in [u'Checkout item already exists', u'Title is not available for checkout'])
         assert_raises_regexp(
-            AlreadyCheckedOut, "checkout:", 
+            CannotLoan, "checkout:", 
             self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
         )
 
@@ -201,6 +201,10 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781441260468'
         )
 
+        # queue patron id 
+        datastr, datadict = self.get_data("response_patron_internal_id_found.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        # queue checkin success
         self.api.queue_response(status_code=200, content="")
 
         success = self.api.checkin(patron, None, pool)
@@ -218,8 +222,13 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781441260468'
         )
 
+        # queue patron id 
+        datastr, datadict = self.get_data("response_patron_internal_id_found.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        # queue checkout success
         datastr, datadict = self.get_data("response_checkout_success.json")
         self.api.queue_response(status_code=200, content=datastr)
+
         loan_info = self.api.checkout(patron, None, pool, None)
         eq_('OneClick ID', loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
