@@ -127,7 +127,8 @@ class TestVendorIDModel(VendorIDTest):
         eq_("Delegated account ID " + uuid, label)
 
         # And we can verify that a DelegatedPatronIdentifier was
-        # created and contains the URI.
+        # created for the URI+identifier, and that it contains the
+        # UUID.
         [dpi] = self._db.query(DelegatedPatronIdentifier).filter(
             DelegatedPatronIdentifier.library_uri==foreign_uri).filter(
             DelegatedPatronIdentifier.patron_identifier==foreign_identifier
@@ -150,7 +151,7 @@ class TestVendorIDModel(VendorIDTest):
             utility = AuthdataUtility.from_config()
             vendor_id, jwt = utility.encode("Foreign patron")
 
-        # Here's another library that handles Vendor ID for that
+        # Here's another library that issues Adobe IDs for that
         # first library.
         with self.temp_config():
             utility = AuthdataUtility.from_config()
