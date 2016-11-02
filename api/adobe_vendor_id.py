@@ -319,7 +319,7 @@ class AdobeVendorIDModel(object):
             # We successfully decoded the authdata as a JWT. We know
             # which library the patron is from and which (hopefully
             # anonymized) ID identifies this patron within that
-            # library. Keep their Adobe ID in a
+            # library. Keep their Adobe account ID in a
             # DelegatedPatronIdentifier.
             uuid_and_label = self.to_delegated_patron_identifier_uuid(
                 library_uri, foreign_patron_identifier
@@ -333,15 +333,15 @@ class AdobeVendorIDModel(object):
                 uuid_and_label = self.uuid_and_label(patron)
             else:
                 # This alleged authdata doesn't fit into either
-                # category. Stop trying to turn it into an Adobe ID.
+                # category. Stop trying to turn it into an Adobe account ID.
                 uuid_and_label = (None, None)
         return uuid_and_label
 
     def to_delegated_patron_identifier_uuid(
             self, library_uri, foreign_patron_identifier
     ):
-        """Create or lookup an Adobe ID DelegatedPatronIdentifier for the
-        given library and foreign patron ID.
+        """Create or lookup a DelegatedPatronIdentifier containing an Adobe
+        account ID for the given library and foreign patron ID.
 
         :return: A 2-tuple (UUID, label)
         """
@@ -349,7 +349,7 @@ class AdobeVendorIDModel(object):
             return None, None
         identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
             self._db, library_uri, foreign_patron_identifier,
-            DelegatedPatronIdentifier.ADOBE_ID, self.uuid
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, self.uuid
         )
         return (identifier.delegated_identifier,
                 "Delegated account ID %s" % identifier.delegated_identifier)
@@ -541,7 +541,7 @@ class AuthdataUtility(object):
             credential.credential = str(uuid.uuid1())
         data_source = DataSource.lookup(_db, DataSource.ADOBE)
         patron_identifier_credential = Credential.lookup(
-            _db, data_source, CirculationManagerAnnotator.ADOBE_ID_PATRON_IDENTIFIER, patron,
+            _db, data_source, CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
             refresher_method=refresh, allow_persistent_token=True
         )
         patron_identifier = patron_identifier_credential.credential
@@ -556,6 +556,6 @@ class AuthdataUtility(object):
             return adobe_id
         delegated_identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
             _db, self.library_uri, patron_identifier,
-            DelegatedPatronIdentifier.ADOBE_ID, create_function
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, create_function
         )
         return patron_identifier_credential, delegated_identifier
