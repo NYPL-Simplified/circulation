@@ -4,7 +4,6 @@ from collections import (
     Counter,
     defaultdict,
 )
-import contextlib
 from lxml import etree
 from nose.tools import set_trace
 import cairosvg
@@ -329,7 +328,6 @@ def get_one(db, model, on_multiple='error', **kwargs):
 
 def get_one_or_create(db, model, create_method='',
                       create_method_kwargs=None,
-                      create_method_kwargs_methods=None,
                       **kwargs):
     one = get_one(db, model, **kwargs)
     if one:
