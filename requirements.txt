@@ -11,7 +11,7 @@ isbnlib
 tinys3
 textblob
 rdflib
-elasticsearch
+elasticsearch==2.1.0
 python-dateutil
 uwsgi
 loggly-python-handler
