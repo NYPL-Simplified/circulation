@@ -342,9 +342,10 @@ class TestVendorIDModel(VendorIDTest):
         eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
         # A future attempt to authenticate with the token will succeed.
-        urn, label = self.model.standard_lookup(
-            dict(username=token.credential)
-        )
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(
+                dict(username=token.credential)
+            )
         eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
     def test_authdata_lookup_failure_no_token(self):
