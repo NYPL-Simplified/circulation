@@ -91,6 +91,24 @@ class TestFacets(object):
             expect = [['order', 'title', True], ['order', 'work_id', False]]
             eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_facets_can_be_enabled_at_initialization(self):
+        enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [
+                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
+            ],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
+        }
+
+        # Create a new Facets object with these facets enabled,
+        # no matter the Configuration.
+        facets = Facets(
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.ORDER_TITLE, enabled_facets=enabled_facets
+        )
+        all_groups = list(facets.facet_groups)
+        expect = [['order', 'author', False], ['order', 'title', True]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
     def test_order_facet_to_database_field(self):
         from model import (
