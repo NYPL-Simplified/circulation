@@ -539,10 +539,11 @@ class AuthdataUtility(object):
         # Create a new Credential containing an anonymized patron ID.
         def refresh(credential):
             credential.credential = str(uuid.uuid1())
-        data_source = DataSource.lookup(_db, DataSource.ADOBE)
+        data_source = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
         patron_identifier_credential = Credential.lookup(
-            _db, data_source, CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
-            refresher_method=refresh, allow_persistent_token=True
+            _db, data_source,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            patron, refresher_method=refresh, allow_persistent_token=True
         )
         patron_identifier = patron_identifier_credential.credential
 
