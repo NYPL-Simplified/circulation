@@ -90,7 +90,8 @@ class Facets(FacetConstants):
         """Create a slightly different Facets object from this one."""
         return Facets(collection or self.collection, 
                       availability or self.availability, 
-                      order or self.order) 
+                      order or self.order,
+                      enabled_facets=self.facets_enabled_at_init)
 
     def items(self):
         if self.order:

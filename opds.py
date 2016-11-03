@@ -633,7 +633,6 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
 
-
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
