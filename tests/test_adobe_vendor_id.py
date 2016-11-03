@@ -89,8 +89,9 @@ class TestVendorIDModel(VendorIDTest):
         assert u.endswith('685b35c00f05')
 
     def test_uuid_and_label_respects_existing_id(self):
-        uuid, label = self.model.uuid_and_label(self.bob_patron)
-        uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
+            uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
         eq_(uuid, uuid2)
         eq_(label, label2)
 
@@ -109,7 +110,8 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # Now uuid_and_label works.
-        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
         eq_("Delegated account ID A dummy value", label)
 
@@ -136,7 +138,8 @@ class TestVendorIDModel(VendorIDTest):
         # If the DelegatedPatronIdentifier and the Credential
         # have different values, the DelegatedPatronIdentifier wins.
         old_style_credential.credential = "A different value."
-        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
         
         # We can even delete the old-style Credential, and
@@ -144,7 +147,8 @@ class TestVendorIDModel(VendorIDTest):
         # it.
         self._db.delete(old_style_credential)
         self._db.commit()
-        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
 
         
@@ -235,7 +239,8 @@ class TestVendorIDModel(VendorIDTest):
         eq_("Delegated account ID %s" % uuid, label)
         
     def test_username_password_lookup_success(self):
-        urn, label = self.model.standard_lookup(self.credentials)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(self.credentials)
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -310,9 +315,10 @@ class TestVendorIDModel(VendorIDTest):
         # Adobe to authenticate him via that token, so it passes in
         # the token credential as the 'username' and leaves the
         # password blank.
-        urn, label = self.model.standard_lookup(
-            dict(username=token.credential)
-        )
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(
+                dict(username=token.credential)
+            )
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -361,7 +367,8 @@ class TestVendorIDModel(VendorIDTest):
         eq_(None, label)
 
     def test_urn_to_label_success(self):
-        urn, label = self.model.standard_lookup(self.credentials)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(self.credentials)
         label2 = self.model.urn_to_label(urn)
         eq_(label, label2)
         eq_("Delegated account ID %s" % urn, label)
