@@ -269,7 +269,6 @@ class AdobeVendorIDModel(object):
             # 'username' as a token.
             possible_authdata_token = authorization_data['username']
             return self.authdata_lookup(possible_authdata_token)
-            patron = self.patron_from_authdata_lookup(possible_authdata_token)
         if not patron:
             # Either a password was provided or the authdata token
             # lookup failed. Try a normal username/password lookup.

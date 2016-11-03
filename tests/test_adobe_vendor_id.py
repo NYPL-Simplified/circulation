@@ -162,6 +162,12 @@ class TestVendorIDModel(VendorIDTest):
             # issue an Adobe ID (UUID).
             uuid, label = self.model.authdata_lookup(jwt)
 
+            # We get the same result if we smuggle the JWT into
+            # a username/password lookup as the username.
+            uuid2, label2 = self.model.standard_lookup(dict(username=jwt))
+            eq_(uuid2, uuid)
+            eq_(label2, label)
+            
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
         # identifier that library encoded in its JWT.
@@ -185,9 +191,9 @@ class TestVendorIDModel(VendorIDTest):
         assert urn.startswith("urn:uuid:0")
         assert urn.endswith('685b35c00f05')
 
-    def test_authdata_lookup_token_lookup_success(self):
+    def test_authdata_token_credential_lookup_success(self):
         
-        # Create an authdata token for Bob.
+        # Create an authdata token Credential for Bob.
         now = datetime.datetime.utcnow()
         token, ignore = Credential.persistent_token_create(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
@@ -213,7 +219,7 @@ class TestVendorIDModel(VendorIDTest):
         # The token is persistent and does not expire.
         eq_(None, token.expires)
 
-    def test_smuggled_authdata_success(self):
+    def test_smuggled_authdata_credential_success(self):
         # Bob's client has created a persistent token to authenticate him.
         now = datetime.datetime.utcnow()
         token, ignore = Credential.persistent_token_create(
@@ -244,7 +250,7 @@ class TestVendorIDModel(VendorIDTest):
             dict(username=token.credential)
         )
         eq_(urn, bob_uuid.credential)
-        
+
     def test_authdata_lookup_failure_no_token(self):
         with self.temp_config():
             urn, label = self.model.authdata_lookup("nosuchauthdata")
@@ -618,7 +624,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The new credential contains an anonymized patron identifier
         # used solely to connect the patron to their Adobe ID.
-        eq_(CirculationManagerAnnotator.ADOBE_ID_PATRON_IDENTIFIER,
+        eq_(CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             new_credential.type)
 
         # We can use that identifier to look up a DelegatedPatronIdentifier
@@ -629,7 +635,7 @@ class TestAuthdataUtility(VendorIDTest):
             raise Exception()
         identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
             self._db, self.authdata.library_uri, new_credential.credential,
-            DelegatedPatronIdentifier.ADOBE_ID, explode
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, explode
         )
         eq_(delegated_identifier, identifier)
         eq_(False, is_new)
