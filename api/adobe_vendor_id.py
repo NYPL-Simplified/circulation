@@ -11,8 +11,10 @@ from config import (
     CannotLoadConfiguration,
     Configuration,
 )
+from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.model import (
+    get_one,
     Credential,
     DataSource,
     DelegatedPatronIdentifier,
@@ -225,28 +227,55 @@ class AdobeVendorIDModel(object):
     def uuid_and_label(self, patron):
         """Create or retrieve a Vendor ID UUID and human-readable Vendor ID
         label for the given patron.
+
+        This code is semi-deprecated, which accounts for the varying
+        paths and the code that tries to migrate patrons to the new
+        system. In the future everyone will send JWTs as authdata and
+        we will always go from the JWT to a DelegatedPatronIdentifier.
+        This code always ends up at a DelegatedPatronIdentifier, but
+        it might pick up the final value from somewhere else along the way.
+
+        The _reason_ this code is semi-deprecated is that it only
+        works for a library that has its own Adobe Vendor ID.
         """
         if not patron:
             return None, None
 
-        def generate_uuid(credential):
-            # This is the first time a credential has ever been
-            # created for this patron. Set the value of the 
-            # credential to a new UUID.
-            credential.credential = self.uuid()
+        # First, find or create a Credential containing the patron's
+        # anonymized key into the DelegatedPatronIdentifier database.
+        adobe_account_id_patron_identifier_credential = self.get_or_create_patron_identifier_credential(
+            patron
+        )
 
-        credential = Credential.lookup(
-            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE,
-            patron, generate_uuid, True)
+        # Look up a Credential containing the patron's Adobe account
+        # ID created under the old system. We don't use
+        # Credential.lookup because we don't want to create a
+        # Credential if it doesn't exist.
+        adobe = DataSource.lookup(self._db, DataSource.ADOBE)
+        old_style_adobe_account_id_credential = get_one(
+            self._db, Credential, patron=patron, data_source=adobe,
+            type=self.VENDOR_ID_UUID_TOKEN_TYPE
+        )
+        
+        if old_style_adobe_account_id_credential:
+            # The value of the old-style credential will become the
+            # default value of the DelegatedPatronIdentifier, assuming
+            # we have to create one.
+            def new_value():
+                return old_style_adobe_account_id_credential.credential
+        else:
+            # There is no old-style credential. If we have to create a
+            # new DelegatedPatronIdentifier we will give it a value
+            # using the default mechanism.
+            new_value = None
 
-        identifier = patron.authorization_identifier          
-        if not identifier:
-            # Maybe this should be an error, but even though the lack
-            # of an authorization identifier is a problem, the problem
-            # should manifest when the patron tries to actually use
-            # their credential.
-            return "Unknown card number.", "Unknown card number"
-        return credential.credential, "Card number " + identifier
+        # Look up or create a DelegatedPatronIdentifier using the 
+        # anonymized patron identifier we just looked up or created.
+        utility = AuthdataUtility.from_config()
+        return self.to_delegated_patron_identifier_uuid(
+            utility.library_uri, adobe_account_id_patron_identifier_credential.credential,
+            value_generator=new_value
+        )
 
     def create_authdata(self, patron):
         credential, is_new = Credential.persistent_token_create(
@@ -285,9 +314,10 @@ class AdobeVendorIDModel(object):
         looking up or creating an appropriate
         DelegatedPatronIdentifier.
 
-        However, for backwards compatibility purposes, if the authdata cannot
-        be decoded as a JWT, we will try the old method of looking up the
-        authdata as a Credential.
+        However, for backwards compatibility purposes, if the authdata
+        cannot be decoded as a JWT, we will try the old method of
+        treating it as a Credential that identifies a Patron, and
+        finding the DelegatedPatronIdentifier that way.
         """
         if not authdata:
             return None, None
@@ -328,7 +358,7 @@ class AdobeVendorIDModel(object):
         return uuid_and_label
 
     def to_delegated_patron_identifier_uuid(
-            self, library_uri, foreign_patron_identifier
+            self, library_uri, foreign_patron_identifier, value_generator=None
     ):
         """Create or lookup a DelegatedPatronIdentifier containing an Adobe
         account ID for the given library and foreign patron ID.
@@ -337,9 +367,10 @@ class AdobeVendorIDModel(object):
         """
         if not library_uri or not foreign_patron_identifier:
             return None, None
+        value_generator = value_generator or self.uuid
         identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
             self._db, library_uri, foreign_patron_identifier,
-            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, self.uuid
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
         )
         return (identifier.delegated_identifier,
                 "Delegated account ID %s" % identifier.delegated_identifier)
@@ -373,6 +404,21 @@ class AdobeVendorIDModel(object):
         # it doesn't do much damage.
         value = "urn:uuid:0" + u[1:]
         return value
+
+    @classmethod
+    def get_or_create_patron_identifier_credential(cls, patron):
+        from opds import CirculationManagerAnnotator
+        _db = Session.object_session(patron)
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        data_source = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+        patron_identifier_credential = Credential.lookup(
+            _db, data_source,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            patron, refresher_method=refresh, allow_persistent_token=True
+        )
+        return patron_identifier_credential
+
 
 class AuthdataUtility(object):
 
@@ -522,9 +568,6 @@ class AuthdataUtility(object):
         20161102-adobe-id-is-delegated-patron-identifier.py.
         """
         import uuid
-        from opds import CirculationManagerAnnotator
-        from sqlalchemy.orm.session import Session
-        from core.model import get_one
         
         _db = Session.object_session(patron)
         credential = get_one(
@@ -537,15 +580,9 @@ class AuthdataUtility(object):
         adobe_id = credential.credential
 
         # Create a new Credential containing an anonymized patron ID.
-        def refresh(credential):
-            credential.credential = str(uuid.uuid1())
-        data_source = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-        patron_identifier_credential = Credential.lookup(
-            _db, data_source,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
-            patron, refresher_method=refresh, allow_persistent_token=True
+        patron_identifier_credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
+            patron
         )
-        patron_identifier = patron_identifier_credential.credential
 
         # Then create a DelegatedPatronIdentifier mapping that
         # anonymized patron ID to the patron's Adobe ID.
@@ -556,7 +593,8 @@ class AuthdataUtility(object):
             """
             return adobe_id
         delegated_identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
-            _db, self.library_uri, patron_identifier,
+            _db, self.library_uri, patron_identifier_credential.credential,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, create_function
         )
-        return patron_identifier_credential, delegated_identifier
+        return patron_identifier_credential.credential, delegated_identifier
+
