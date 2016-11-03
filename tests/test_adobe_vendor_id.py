@@ -94,6 +94,60 @@ class TestVendorIDModel(VendorIDTest):
         eq_(uuid, uuid2)
         eq_(label, label2)
 
+    def test_uuid_and_label_creates_delegatedpatronid_from_credential(self):
+       
+        # This patron once used the old system to create an Adobe
+        # account ID which was stored in a Credential. For whatever
+        # reason, the migration script did not give them a
+        # DelegatedPatronIdentifier.
+        adobe = self.data_source
+        def set_value(credential):
+            credential.credential = "A dummy value"
+        old_style_credential = Credential.lookup(
+            self._db, adobe, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
+            self.bob_patron, set_value, True
+        )
+
+        # Now uuid_and_label works.
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+        eq_("Delegated account ID A dummy value", label)
+
+        # There is now an anonymized identifier associated with Bob's
+        # patron account.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        bob_anonymized_identifier = Credential.lookup(
+            self._db, internal,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.bob_patron, None
+        )
+
+        # That anonymized identifier is associated with a
+        # DelegatedPatronIdentifier whose delegated_identifier is
+        # taken from the old-style Credential.
+        [bob_delegated_patron_identifier] = self._db.query(
+            DelegatedPatronIdentifier).filter(
+                DelegatedPatronIdentifier.patron_identifier
+                ==bob_anonymized_identifier.credential
+            ).all()
+        eq_("A dummy value",
+            bob_delegated_patron_identifier.delegated_identifier)
+
+        # If the DelegatedPatronIdentifier and the Credential
+        # have different values, the DelegatedPatronIdentifier wins.
+        old_style_credential.credential = "A different value."
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+        
+        # We can even delete the old-style Credential, and
+        # uuid_and_label will still give the value that was stored in
+        # it.
+        self._db.delete(old_style_credential)
+        self._db.commit()
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+
+        
     def test_create_authdata(self):
         credential = self.model.create_authdata(self.bob_patron)
 
