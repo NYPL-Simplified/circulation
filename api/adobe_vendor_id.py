@@ -268,6 +268,7 @@ class AdobeVendorIDModel(object):
             # broken Adobe client-side API. Try treating the
             # 'username' as a token.
             possible_authdata_token = authorization_data['username']
+            return self.authdata_lookup(possible_authdata_token)
             patron = self.patron_from_authdata_lookup(possible_authdata_token)
         if not patron:
             # Either a password was provided or the authdata token
@@ -276,16 +277,6 @@ class AdobeVendorIDModel(object):
                 self._db, authorization_data
             )
         return self.uuid_and_label(patron)
-
-    def patron_from_authdata_lookup(self, authdata):
-        """Look up a patron by their persistent authdata token."""
-        credential = Credential.lookup_by_token(
-            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE, 
-            authdata, allow_persistent_token=True
-        )
-        if not credential:
-            return None
-        return credential.patron
 
     def authdata_lookup(self, authdata):
         """Turn an authdata string into a Vendor ID UUID and a human-readable
@@ -353,6 +344,16 @@ class AdobeVendorIDModel(object):
         )
         return (identifier.delegated_identifier,
                 "Delegated account ID %s" % identifier.delegated_identifier)
+
+    def patron_from_authdata_lookup(self, authdata):
+        """Look up a patron by their persistent authdata token."""
+        credential = Credential.lookup_by_token(
+            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE, 
+            authdata, allow_persistent_token=True
+        )
+        if not credential:
+            return None
+        return credential.patron
 
     def urn_to_label(self, urn):
         credential = Credential.lookup_by_token(
