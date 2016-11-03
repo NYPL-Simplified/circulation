@@ -38,16 +38,7 @@ from annotations import AnnotationWriter
 from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
-
-    # The name of the Credential created to identify a patron to the
-    # Vendor ID Service. Using this as an alias keeps the Vendor ID
-    # Service from knowing anything about the patron's true
-    # identity. This Credential is permanent (unlike a patron's
-    # username or authorization identifier), but can be revoked (if
-    # the patron needs to reset their Adobe ID) with no consequences
-    # other than losing their currently checked-in books.
-    ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
-    
+   
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -613,7 +604,7 @@ class CirculationManagerAnnotator(Annotator):
             def refresh(credential):
                 credential.credential = str(uuid.uuid1())
             patron_identifier = Credential.lookup(
-                _db, internal, self.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+                _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
                 refresher_method=refresh, allow_persistent_token=True
             )
             patron_identifier = patron_identifier.credential

@@ -214,7 +214,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             # An Adobe ID-specific identifier has been created for the patron.
             [adobe_id_identifier] = [x for x in patron.credentials
                                      if x not in old_credentials]
-            eq_(self.annotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
                 adobe_id_identifier.type)
             eq_(DataSource.INTERNAL_PROCESSING,
                 adobe_id_identifier.data_source.name)
