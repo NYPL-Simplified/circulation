@@ -46,7 +46,7 @@ class CirculationManagerAnnotator(Annotator):
     # username or authorization identifier), but can be revoked (if
     # the patron needs to reset their Adobe ID) with no consequences
     # other than losing their currently checked-in books.
-    ADOBE_ID_PATRON_IDENTIFIER = "Identifier for Adobe ID purposes"
+    ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
     
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
@@ -613,7 +613,7 @@ class CirculationManagerAnnotator(Annotator):
             def refresh(credential):
                 credential.credential = str(uuid.uuid1())
             patron_identifier = Credential.lookup(
-                _db, internal, self.ADOBE_ID_PATRON_IDENTIFIER, patron,
+                _db, internal, self.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
                 refresher_method=refresh, allow_persistent_token=True
             )
             patron_identifier = patron_identifier.credential
