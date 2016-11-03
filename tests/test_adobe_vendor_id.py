@@ -23,6 +23,8 @@ from api.adobe_vendor_id import (
     AuthdataUtility,
 )
 
+from api.opds import CirculationManagerAnnotator
+
 from . import (
     DatabaseTest,
 )
@@ -87,11 +89,69 @@ class TestVendorIDModel(VendorIDTest):
         assert u.endswith('685b35c00f05')
 
     def test_uuid_and_label_respects_existing_id(self):
-        uuid, label = self.model.uuid_and_label(self.bob_patron)
-        uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
+            uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
         eq_(uuid, uuid2)
         eq_(label, label2)
 
+    def test_uuid_and_label_creates_delegatedpatronid_from_credential(self):
+       
+        # This patron once used the old system to create an Adobe
+        # account ID which was stored in a Credential. For whatever
+        # reason, the migration script did not give them a
+        # DelegatedPatronIdentifier.
+        adobe = self.data_source
+        def set_value(credential):
+            credential.credential = "A dummy value"
+        old_style_credential = Credential.lookup(
+            self._db, adobe, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
+            self.bob_patron, set_value, True
+        )
+
+        # Now uuid_and_label works.
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+        eq_("Delegated account ID A dummy value", label)
+
+        # There is now an anonymized identifier associated with Bob's
+        # patron account.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        bob_anonymized_identifier = Credential.lookup(
+            self._db, internal,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.bob_patron, None
+        )
+
+        # That anonymized identifier is associated with a
+        # DelegatedPatronIdentifier whose delegated_identifier is
+        # taken from the old-style Credential.
+        [bob_delegated_patron_identifier] = self._db.query(
+            DelegatedPatronIdentifier).filter(
+                DelegatedPatronIdentifier.patron_identifier
+                ==bob_anonymized_identifier.credential
+            ).all()
+        eq_("A dummy value",
+            bob_delegated_patron_identifier.delegated_identifier)
+
+        # If the DelegatedPatronIdentifier and the Credential
+        # have different values, the DelegatedPatronIdentifier wins.
+        old_style_credential.credential = "A different value."
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+        
+        # We can even delete the old-style Credential, and
+        # uuid_and_label will still give the value that was stored in
+        # it.
+        self._db.delete(old_style_credential)
+        self._db.commit()
+        with self.temp_config():
+            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        eq_("A dummy value", uuid)
+
+        
     def test_create_authdata(self):
         credential = self.model.create_authdata(self.bob_patron)
 
@@ -179,15 +239,29 @@ class TestVendorIDModel(VendorIDTest):
         eq_("Delegated account ID %s" % uuid, label)
         
     def test_username_password_lookup_success(self):
-        urn, label = self.model.standard_lookup(self.credentials)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(self.credentials)
 
-        # There is now a UUID associated with Bob's patron account,
-        # and that's the UUID returned by standard_lookup().
-        bob_uuid = Credential.lookup(
-            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
-            self.bob_patron, None)
-        eq_("Card number validpatron", label)
-        eq_(urn, bob_uuid.credential)
+        # There is now an anonymized identifier associated with Bob's
+        # patron account.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        bob_anonymized_identifier = Credential.lookup(
+            self._db, internal,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.bob_patron, None
+        )
+
+        # That anonymized identifier is associated with a
+        # DelegatedPatronIdentifier whose delegated_identifier is a
+        # UUID.
+        [bob_delegated_patron_identifier] = self._db.query(
+            DelegatedPatronIdentifier).filter(
+                DelegatedPatronIdentifier.patron_identifier
+                ==bob_anonymized_identifier.credential
+            ).all()
+
+        eq_("Delegated account ID %s" % urn, label)
+        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
         assert urn.startswith("urn:uuid:0")
         assert urn.endswith('685b35c00f05')
 
@@ -208,16 +282,26 @@ class TestVendorIDModel(VendorIDTest):
         with self.temp_config():
             urn, label = self.model.authdata_lookup(token.credential)
 
-        # There is now a UUID associated with Bob's patron account,
-        # and that's the UUID returned by standard_lookup().
-        bob_uuid = Credential.lookup(
-            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
-            self.bob_patron, None)
-        eq_(urn, bob_uuid.credential)
-        eq_("Card number validpatron", label)
+        # There is now an anonymized identifier associated with Bob's
+        # patron account.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        bob_anonymized_identifier = Credential.lookup(
+            self._db, internal,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.bob_patron, None
+        )
 
-        # The token is persistent and does not expire.
-        eq_(None, token.expires)
+        # That anonymized identifier is associated with a
+        # DelegatedPatronIdentifier whose delegated_identifier is a
+        # UUID.
+        [bob_delegated_patron_identifier] = self._db.query(
+            DelegatedPatronIdentifier).filter(
+                DelegatedPatronIdentifier.patron_identifier
+                ==bob_anonymized_identifier.credential
+            ).all()
+
+        # That UUID is the one returned by authdata_lookup.
+        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
     def test_smuggled_authdata_credential_success(self):
         # Bob's client has created a persistent token to authenticate him.
@@ -231,25 +315,38 @@ class TestVendorIDModel(VendorIDTest):
         # Adobe to authenticate him via that token, so it passes in
         # the token credential as the 'username' and leaves the
         # password blank.
-        urn, label = self.model.standard_lookup(
-            dict(username=token.credential)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(
+                dict(username=token.credential)
+            )
+
+        # There is now an anonymized identifier associated with Bob's
+        # patron account.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        bob_anonymized_identifier = Credential.lookup(
+            self._db, internal,
+            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.bob_patron, None
         )
 
-        # There is now a UUID associated with Bob's patron account,
-        # and that's the UUID returned by standard_lookup().
-        bob_uuid = Credential.lookup(
-            self._db, self.data_source, self.model.VENDOR_ID_UUID_TOKEN_TYPE,
-            self.bob_patron, None)
-        eq_(urn, bob_uuid.credential)
+        # That anonymized identifier is associated with a
+        # DelegatedPatronIdentifier whose delegated_identifier is a
+        # UUID.
+        [bob_delegated_patron_identifier] = self._db.query(
+            DelegatedPatronIdentifier).filter(
+                DelegatedPatronIdentifier.patron_identifier
+                ==bob_anonymized_identifier.credential
+            ).all()
 
-        # The token is persistent and will not expire or be consumed.
-        eq_(None, token.expires)
+        # That UUID is the one returned by standard_lookup.
+        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
         # A future attempt to authenticate with the token will succeed.
-        urn, label = self.model.standard_lookup(
-            dict(username=token.credential)
-        )
-        eq_(urn, bob_uuid.credential)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(
+                dict(username=token.credential)
+            )
+        eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
     def test_authdata_lookup_failure_no_token(self):
         with self.temp_config():
@@ -271,19 +368,11 @@ class TestVendorIDModel(VendorIDTest):
         eq_(None, label)
 
     def test_urn_to_label_success(self):
-        urn, label = self.model.standard_lookup(self.credentials)
+        with self.temp_config():
+            urn, label = self.model.standard_lookup(self.credentials)
         label2 = self.model.urn_to_label(urn)
         eq_(label, label2)
-        eq_("Card number validpatron", label)
-
-    def test_urn_to_label_failure_no_active_credential(self):
-        label = self.model.urn_to_label("bad urn")
-        eq_(None, label)
-
-    def test_urn_to_label_failure_incorrect_urn(self):
-        urn, label = self.model.standard_lookup(self.credentials)
-        label = self.model.urn_to_label("bad urn")
-        eq_(None, label)
+        eq_("Delegated account ID %s" % urn, label)
 
 
 class TestVendorIDRequestParsers(object):
