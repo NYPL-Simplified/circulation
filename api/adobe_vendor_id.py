@@ -373,7 +373,7 @@ class AdobeVendorIDModel(object):
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
         )
         return (identifier.delegated_identifier,
-                "Delegated account ID %s" % identifier.delegated_identifier)
+                self.urn_to_label(identifier.delegated_identifier))
 
     def patron_from_authdata_lookup(self, authdata):
         """Look up a patron by their persistent authdata token."""
@@ -386,15 +386,8 @@ class AdobeVendorIDModel(object):
         return credential.patron
 
     def urn_to_label(self, urn):
-        credential = Credential.lookup_by_token(
-            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
-            urn, allow_persistent_token=True
-        )
-        if not credential:
-            return None
-        patron = credential.patron
-        uuid, label = self.uuid_and_label(credential.patron)
-        return label
+        """We have no information about patrons, so labels are sparse."""
+        return "Delegated account ID %s" % urn
 
     def uuid(self):
         """Create a new UUID URN compatible with the Vendor ID system."""
@@ -596,5 +589,5 @@ class AuthdataUtility(object):
             _db, self.library_uri, patron_identifier_credential.credential,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, create_function
         )
-        return patron_identifier_credential.credential, delegated_identifier
+        return patron_identifier_credential, delegated_identifier
 
