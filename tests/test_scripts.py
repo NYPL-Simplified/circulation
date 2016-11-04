@@ -68,13 +68,13 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
         script = AdobeAccountIDResetScript(self._db)
 
         # A dry run does nothing.
-        script.dry_run = True
+        script.delete = False
         script.process_patron(patron)
         self._db.commit()
         eq_(3, len(patron.credentials))
 
         # Now try it for real.
-        script.dry_run = False
+        script.delete = True
         script.process_patron(patron)
         self._db.commit()
                 
