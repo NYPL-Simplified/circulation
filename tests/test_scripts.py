@@ -153,10 +153,10 @@ class TestPatronInputScript(DatabaseTest):
         p3.processed = False
         p1.authorization_identifier = self._str
         p2.authorization_identifier = self._str
-        cmd_args = [p1.authorization_identifier, p2.authorization_identifier]
+        cmd_args = [p1.authorization_identifier]
         stdin = MockStdin(p2.authorization_identifier)
         script = MockPatronInputScript(self._db)
-        script.do_run(cmd_args=cmd_args)
+        script.do_run(cmd_args=cmd_args, stdin=stdin)
         eq_(True, p1.processed)
         eq_(True, p2.processed)
         eq_(False, p3.processed)

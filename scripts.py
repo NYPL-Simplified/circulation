@@ -347,7 +347,10 @@ class PatronInputScript(InputScript):
 
     def do_run(self, *args, **kwargs):
         parsed = self.parse_command_line(self._db, *args, **kwargs)
-        for patron in parsed.patrons:
+        self.process_patrons(parsed.patrons)
+
+    def process_patrons(self, patrons):
+        for patron in patrons:
             self.process_patron(patron)
 
     def process_patron(self, patron):
