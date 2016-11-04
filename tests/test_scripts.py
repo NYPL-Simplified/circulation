@@ -139,6 +139,26 @@ class TestPatronInputScript(DatabaseTest):
         )
         eq_([], parsed.patrons)
 
+
+    def test_do_run(self):
+        class MockPatronInputScript(PatronInputScript):
+            def process_patron(self, patron):
+                patron.processed = True
+        p1 = self._patron()
+        p2 = self._patron()
+        p3 = self._patron()
+        p3.processed = False
+        p1.authorization_identifier = self._str
+        p2.authorization_identifier = self._str
+        cmd_args = [p1.authorization_identifier, p2.authorization_identifier]
+        stdin = MockStdin(p2.authorization_identifier)
+        script = MockPatronInputScript(self._db)
+        script.do_run(cmd_args=cmd_args)
+        eq_(True, p1.processed)
+        eq_(True, p2.processed)
+        eq_(False, p3.processed)
+        
+        
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
