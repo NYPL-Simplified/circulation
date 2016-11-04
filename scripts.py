@@ -17,6 +17,10 @@ from collections import defaultdict
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
+from sqlalchemy.orm.exc import (
+    NoResultFound,
+    MultipleResultsFound,
+)
 from sqlalchemy.orm.session import Session
 
 from config import Configuration, CannotLoadConfiguration
@@ -30,6 +34,7 @@ from model import (
     Edition,
     Identifier,
     LicensePool,
+    Patron,
     PresentationCalculationPolicy,
     Subject,
     Timestamp,
@@ -171,10 +176,7 @@ class RunCoverageProvidersScript(Script):
                 else:
                     offsets[provider] = offset
 
-
-class IdentifierInputScript(Script):
-    """A script that takes identifiers as command line inputs."""
-
+class InputScript(Script):
     @classmethod
     def read_stdin_lines(self, stdin):
         """Read lines from a (possibly mocked, possibly empty) standard input."""
@@ -185,6 +187,10 @@ class IdentifierInputScript(Script):
         else:
             lines = []
         return lines
+    
+                    
+class IdentifierInputScript(InputScript):
+    """A script that takes identifiers as command line inputs."""
 
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
@@ -264,6 +270,88 @@ class IdentifierInputScript(Script):
             if identifier:
                 identifiers.append(identifier)
         return identifiers
+
+
+class PatronInputScript(InputScript):
+    """A script that operates on one or more Patrons."""
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        if stdin:
+            stdin = cls.read_stdin_lines(stdin)
+        return cls.look_up_patrons(_db, parsed, stdin, *args, **kwargs)
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            'identifiers',
+            help='A specific patron identifier to process.',
+            metavar='IDENTIFIER', nargs='*'
+        )
+        return parser
+
+    @classmethod
+    def look_up_patrons(cls, _db, parsed, stdin_patron_strings, *args, **kwargs):
+        """Turn patron identifiers as specified on the command line into real
+        Patron objects.
+        """
+        if _db:
+            patron_strings = parsed.identifiers
+            if stdin_patron_strings:
+                patron_strings = (
+                    patron_strings + stdin_patron_strings
+                )
+            parsed.patrons = cls.parse_patron_list(
+                _db, patron_strings, *args, **kwargs
+            )
+        else:
+            # Database is not active yet. The script can call
+            # parse_patron_list later if it wants to.
+            parsed.patrons = None
+        return parsed
+
+    @classmethod
+    def parse_patron_list(cls, _db, arguments):
+        """Turn a list of patron identifiers into a list of Patron objects.
+
+        The list of arguments is probably derived from a command-line
+        parser such as the one defined in
+        PatronInputScript.arg_parser().
+        """
+        if len(arguments) == 0:
+            return []
+        patrons = []
+        for arg in arguments:
+            if not arg:
+                continue
+            for field in (Patron.authorization_identifier, Patron.username,
+                          Patron.external_identifier):
+                try:
+                    patron = _db.query(Patron).filter(field==arg).one()
+                except NoResultFound:
+                    continue
+                except MultipleResultsFound:
+                    continue
+                if patron:
+                    patrons.append(patron)
+                    break
+            else:
+                logging.warn(
+                    "Could not find patron %s", arg
+                )
+        return patrons
+
+    def do_run(self):
+        patrons = self.parse_command_line(self._db)
+        for patron in patrons:
+            self.process_patron(patron)
+
+    def process_patron(self, patron):
+        raise NotImplementedError()
 
 
 class SubjectInputScript(Script):
