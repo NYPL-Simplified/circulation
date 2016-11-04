@@ -51,8 +51,7 @@ class Facets(FacetConstants):
         )
 
     def __init__(self, collection, availability, order,
-                 order_ascending=None):
-        
+                 order_ascending=None, enabled_facets=None):
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -85,12 +84,14 @@ class Facets(FacetConstants):
         elif order_ascending == self.ORDER_DESCENDING:
             order_ascending = False
         self.order_ascending = order_ascending
+        self.facets_enabled_at_init = enabled_facets
 
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
         return Facets(collection or self.collection, 
                       availability or self.availability, 
-                      order or self.order) 
+                      order or self.order,
+                      enabled_facets=self.facets_enabled_at_init)
 
     def items(self):
         if self.order:
@@ -105,11 +106,44 @@ class Facets(FacetConstants):
         return "&".join("=".join(x) for x in sorted(self.items()))
 
     @property
+    def enabled_facets(self):
+        """Yield a 3-tuple of lists (order, availability, collection)
+        representing facet values enabled via initialization or Configuration
+        """
+        if self.facets_enabled_at_init:
+            # When this Facets object was initialized, a list of enabled
+            # facets was passed. We'll only work with those facets.
+            facet_types = [
+                self.ORDER_FACET_GROUP_NAME,
+                self.AVAILABILITY_FACET_GROUP_NAME,
+                self.COLLECTION_FACET_GROUP_NAME
+            ]
+            for facet_type in facet_types:
+                yield self.facets_enabled_at_init.get(facet_type, [])
+        else:
+            order_facets = Configuration.enabled_facets(
+                Facets.ORDER_FACET_GROUP_NAME
+            )
+            yield order_facets
+
+            availability_facets = Configuration.enabled_facets(
+                Facets.AVAILABILITY_FACET_GROUP_NAME
+            )
+            yield availability_facets
+
+            collection_facets = Configuration.enabled_facets(
+                Facets.COLLECTION_FACET_GROUP_NAME
+            )
+            yield collection_facets
+
+    @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
         (facet group, facet value, new Facets object, selected)
         for use in building OPDS facets.
         """
+
+        order_facets, availability_facets, collection_facets = self.enabled_facets
 
         def dy(new_value):
             group = self.ORDER_FACET_GROUP_NAME
@@ -118,9 +152,6 @@ class Facets(FacetConstants):
             return (group, new_value, facets, current_value==new_value)
 
         # First, the order facets.
-        order_facets = Configuration.enabled_facets(
-            Facets.ORDER_FACET_GROUP_NAME
-        )
         if len(order_facets) > 1:
             for facet in order_facets:
                 yield dy(facet)
@@ -131,22 +162,18 @@ class Facets(FacetConstants):
             current_value = self.availability
             facets = self.navigate(availability=new_value)
             return (group, new_value, facets, new_value==current_value)
-        availability_facets = Configuration.enabled_facets(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
+
         if len(availability_facets) > 1:
             for facet in availability_facets:
                 yield dy(facet)
 
         # Next, the collection facets.
-        collection_facets = Configuration.enabled_facets(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )        
         def dy(new_value):
             group = self.COLLECTION_FACET_GROUP_NAME
             current_value = self.collection
             facets = self.navigate(collection=new_value)
             return (group, new_value, facets, new_value==current_value)
+
         if len(collection_facets) > 1:
             for facet in collection_facets:
                 yield dy(facet)
