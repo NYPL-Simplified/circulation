@@ -120,7 +120,7 @@ class TestVendorIDModel(VendorIDTest):
         internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
         bob_anonymized_identifier = Credential.lookup(
             self._db, internal,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.bob_patron, None
         )
 
@@ -247,7 +247,7 @@ class TestVendorIDModel(VendorIDTest):
         internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
         bob_anonymized_identifier = Credential.lookup(
             self._db, internal,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.bob_patron, None
         )
 
@@ -287,7 +287,7 @@ class TestVendorIDModel(VendorIDTest):
         internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
         bob_anonymized_identifier = Credential.lookup(
             self._db, internal,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.bob_patron, None
         )
 
@@ -325,7 +325,7 @@ class TestVendorIDModel(VendorIDTest):
         internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
         bob_anonymized_identifier = Credential.lookup(
             self._db, internal,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.bob_patron, None
         )
 
@@ -713,7 +713,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The new credential contains an anonymized patron identifier
         # used solely to connect the patron to their Adobe ID.
-        eq_(CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+        eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             new_credential.type)
 
         # We can use that identifier to look up a DelegatedPatronIdentifier

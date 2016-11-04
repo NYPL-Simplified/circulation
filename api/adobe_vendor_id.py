@@ -400,14 +400,13 @@ class AdobeVendorIDModel(object):
 
     @classmethod
     def get_or_create_patron_identifier_credential(cls, patron):
-        from opds import CirculationManagerAnnotator
         _db = Session.object_session(patron)
         def refresh(credential):
             credential.credential = str(uuid.uuid1())
         data_source = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
         patron_identifier_credential = Credential.lookup(
             _db, data_source,
-            CirculationManagerAnnotator.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             patron, refresher_method=refresh, allow_persistent_token=True
         )
         return patron_identifier_credential
@@ -422,6 +421,15 @@ class AuthdataUtility(object):
     (from this library and potentially others).
     """
 
+    # The type of the Credential created to identify a patron to the
+    # Vendor ID Service. Using this as an alias keeps the Vendor ID
+    # Service from knowing anything about the patron's true
+    # identity. This Credential is permanent (unlike a patron's
+    # username or authorization identifier), but can be revoked (if
+    # the patron needs to reset their Adobe account ID) with no
+    # consequences other than losing their currently checked-in books.
+    ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
+    
     ALGORITHM = 'HS256'
     
     def __init__(self, vendor_id, library_uri, secret, other_libraries={}):
