@@ -20,6 +20,10 @@ from sqlalchemy.orm import (
 )
 from psycopg2.extras import NumericRange
 
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility,
+)
 from api.lanes import make_lanes
 from api.controller import CirculationManager
 from api.monitor import SearchIndexMonitor
@@ -30,6 +34,7 @@ from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
     Contribution,
+    Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
@@ -47,6 +52,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    PatronInputScript,
     RunMonitorScript,
 )
 from core.lane import (
@@ -574,6 +580,68 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         )
 
 
+class AdobeAccountIDResetScript(PatronInputScript):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = PatronInputScript.arg_parser()
+        parser.add_argument(
+            '--dry-run',
+            help="Show which credentials would be deleted, but don't delete them.",
+            action='store_true',
+            default=False
+        )
+        return parser
+    
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        patrons = parsed.patrons
+        self.dry_run = parsed.dry_run
+        if self.dry_run:
+            self.log.info(
+                "This is a dry run. Nothing will actually change in the database."
+            )
+        if patrons and not self.dry_run:
+            self.log.warn(
+                """Running this script will permanently disconnect %d patron(s) from their Adobe account IDs.
+They will be unable to fulfill any existing loans that involve Adobe-encrypted files.
+You can run this script with --dry-run to see what will be deleted.
+Sleeping for five seconds to give you a chance to back out.
+You'll get another chance to back out before the database session is committed.""",
+                len(patrons)
+            )
+            time.sleep(5)
+        self.process_patrons(patrons)
+        if not self.dry_run:
+            self.log.warn("All done. Sleeping for five seconds before committing.")
+            time.sleep(5)
+            self._db.commit()
+        
+    def process_patron(self, patron):
+        """Delete all of a patron's Credentials that contain an Adobe account
+        ID _or_ connect the patron to a DelegatedPatronIdentifier that
+        contains an Adobe account ID.
+        """
+        self.log.info(
+            'Processing patron "%s"',
+            patron.authorization_identifier or patron.username
+            or patron.external_identifier
+        )
+        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        credentials = self._db.query(
+            Credential).filter(Credential.patron==patron).filter(
+                Credential.type.in_(types)
+            )
+        for credential in credentials:
+            self.log.info(
+                ' Deleting "%s" credential "%s"',
+                credential.type, credential.credential
+            )
+            if not self.dry_run:
+                self._db.delete(credential)
+
+
 class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
     """Alternate between running bibliographic coverage providers for
     all registered book sources.
@@ -631,6 +699,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
+    
 class LanguageListScript(Script):
     """List all the languages with at least one non-open access work
     in the collection.
