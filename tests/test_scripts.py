@@ -26,6 +26,7 @@ from scripts import (
     DatabaseMigrationScript,
     IdentifierInputScript,
     AddClassificationScript,
+    PatronInputScript,
     RunCoverageProviderScript,
     WorkProcessingScript,
     MockStdin,
@@ -99,6 +100,68 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
 
 
+class TestPatronInputScript(DatabaseTest):
+
+    def test_parse_patron_list(self):
+        """Test that patrons can be identified with any unique identifier."""
+        p1 = self._patron()
+        p1.authorization_identifier = self._str
+        p2 = self._patron()
+        p2.username = self._str
+        p3 = self._patron()
+        p3.external_identifier = self._str
+        args = [p1.authorization_identifier, 'no-such-patron',
+                '', p2.username, p3.external_identifier]
+        patrons = PatronInputScript.parse_patron_list(
+            self._db, args
+        )
+        eq_([p1, p2, p3], patrons)
+
+        eq_([], PatronInputScript.parse_patron_list(self._db, []))
+
+    def test_parse_command_line(self):
+        p1 = self._patron()
+        p2 = self._patron()
+        p1.authorization_identifier = self._str
+        p2.authorization_identifier = self._str
+        # We pass in one patron identifier on the command line...
+        cmd_args = [p1.authorization_identifier]
+        # ...and another one into standard input.
+        stdin = MockStdin(p2.authorization_identifier)
+        parsed = PatronInputScript.parse_command_line(
+            self._db, cmd_args, stdin
+        )
+        eq_([p1, p2], parsed.patrons)
+
+    def test_parse_command_line_no_identifiers(self):
+        parsed = PatronInputScript.parse_command_line(
+            self._db, [], MockStdin()
+        )
+        eq_([], parsed.patrons)
+
+
+    def test_do_run(self):
+        """Test that PatronInputScript.do_run() calls process_patron()
+        for every patron designated by the command-line arguments.
+        """
+        class MockPatronInputScript(PatronInputScript):
+            def process_patron(self, patron):
+                patron.processed = True
+        p1 = self._patron()
+        p2 = self._patron()
+        p3 = self._patron()
+        p3.processed = False
+        p1.authorization_identifier = self._str
+        p2.authorization_identifier = self._str
+        cmd_args = [p1.authorization_identifier]
+        stdin = MockStdin(p2.authorization_identifier)
+        script = MockPatronInputScript(self._db)
+        script.do_run(cmd_args=cmd_args, stdin=stdin)
+        eq_(True, p1.processed)
+        eq_(True, p2.processed)
+        eq_(False, p3.processed)
+        
+        
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
