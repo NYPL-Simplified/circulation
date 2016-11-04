@@ -141,6 +141,9 @@ class TestPatronInputScript(DatabaseTest):
 
 
     def test_do_run(self):
+        """Test that PatronInputScript.do_run() calls process_patron()
+        for every patron designated by the command-line arguments.
+        """
         class MockPatronInputScript(PatronInputScript):
             def process_patron(self, patron):
                 patron.processed = True
