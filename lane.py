@@ -1,9 +1,10 @@
 from collections import defaultdict
 from nose.tools import set_trace
 import datetime
+import logging
 import random
 import time
-import logging
+import urllib
 
 from psycopg2.extras import NumericRange
 
@@ -1467,11 +1468,12 @@ class QueryGeneratedLane(Lane):
 
         # Add lane-specific details to query and return the result.
         qu = self.lane_query_hook(qu, work_model=work_model)
+        if not qu:
+            # The hook may return None.
+            return None
 
         if facets:
-            qu = facets.apply(
-                self._db, qu, work_model, edition_model, distinct=True
-            )
+            qu = facets.apply(self._db, qu, work_model, edition_model)
 
         if pagination:
             qu = pagination.apply(qu)
