@@ -25,7 +25,6 @@ from collections import (
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
-from psycopg2.extras import NumericRange
 
 base_dir = os.path.split(__file__)[0]
 resource_dir = os.path.join(base_dir, "resources")
@@ -92,13 +91,16 @@ class Classifier(object):
     classifiers = dict()
 
     @classmethod
-    def nr(cls, lower, upper):
-        """Turn a 2-tuple into an inclusive NumericRange."""
+    def range_tuple(cls, lower, upper):
+        """Turn a pair of ages into a tuple that represents an age range.
+        This may be turned into an inclusive postgres NumericRange later,
+        but this code should not depend on postgres.
+        """
         # Just in case the upper and lower ranges are mixed up,
         # and no prior code caught this, un-mix them.
         if lower and upper and lower > upper:
             lower, upper = upper, lower
-        return NumericRange(lower, upper, '[]')
+        return (lower, upper)
 
     @classmethod
     def lookup(cls, scheme):
@@ -124,7 +126,7 @@ class Classifier(object):
         audience = cls.audience(identifier, name)
 
         target_age = cls.target_age(identifier, name) 
-        if target_age == cls.nr(None, None):
+        if target_age == cls.range_tuple(None, None):
             target_age = cls.default_target_age_for_audience(audience)
 
         return (cls.genre(identifier, name, fiction, audience),
@@ -191,7 +193,7 @@ class Classifier(object):
         """For children's books, what does this identifier+name say
         about the target age for this book?
         """
-        return cls.nr(None, None)
+        return cls.range_tuple(None, None)
 
     @classmethod
     def default_target_age_for_audience(cls, audience):
@@ -203,25 +205,21 @@ class Classifier(object):
         it's very clear.
         """
         if audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            return cls.nr(14, 17)
+            return cls.range_tuple(14, 17)
         elif audience in (
                 Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
         ):
-            return cls.nr(18, None)
-        return cls.nr(None, None)
+            return cls.range_tuple(18, None)
+        return cls.range_tuple(None, None)
 
     @classmethod
-    def default_audience_for_target_age(cls, nr):
-        if nr is None:
+    def default_audience_for_target_age(cls, range):
+        if range is None:
             return None
-        lower = nr.lower
-        upper = nr.upper
+        lower = range[0]
+        upper = range[1]
         if not lower and not upper:
             return None
-        if lower and not nr.lower_inc:
-            lower += 1
-        if upper and not nr.upper_inc:
-            upper += 1
         if not lower:
             if upper > 18:
                 # e.g. "up to 20 years", though that doesn't
@@ -352,11 +350,11 @@ class GradeLevelClassifier(Classifier):
 
         if (identifier and "education" in identifier) or (name and 'education' in name):
             # This is a book about teaching, e.g. fifth grade.
-            return cls.nr(None, None)
+            return cls.range_tuple(None, None)
 
         if (identifier and 'grader' in identifier) or (name and 'grader' in name):
             # This is a book about, e.g. fifth graders.
-            return cls.nr(None, None)
+            return cls.range_tuple(None, None)
 
         if require_explicit_grade_marker:
             res = cls.grade_res
@@ -386,7 +384,7 @@ class GradeLevelClassifier(Classifier):
                     old = cls.american_grade_to_age.get(old)
 
                     if not young and not old:
-                        return cls.nr(None, None)
+                        return cls.range_tuple(None, None)
 
                     if young:
                         young = int(young)
@@ -400,8 +398,8 @@ class GradeLevelClassifier(Classifier):
                         young = old
                     if old and young and  old < young:
                         young, old = old, young
-                    return cls.nr(young, old)
-        return cls.nr(None, None)
+                    return cls.range_tuple(young, old)
+        return cls.range_tuple(None, None)
 
     @classmethod
     def target_age_match(cls, query):
@@ -430,11 +428,11 @@ class InterestLevelClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'lg':
-            return cls.nr(5,8)
+            return cls.range_tuple(5,8)
         if identifier in ('mg+', 'mg'):
-            return cls.nr(9,13)
+            return cls.range_tuple(9,13)
         if identifier == 'ug':
-            return cls.nr(14,17)
+            return cls.range_tuple(14,17)
         return None
 
 
@@ -477,7 +475,7 @@ class AgeClassifier(Classifier):
             if match:
                 # This is for babies.
                 upper_bound = int(match.groups()[0])
-                return cls.nr(0, upper_bound)
+                return cls.range_tuple(0, upper_bound)
 
         for r in res:
             for k in identifier, name:
@@ -505,8 +503,8 @@ class AgeClassifier(Classifier):
                         young = None
                     if young > old:
                         young, old = old, young
-                    return cls.nr(young, old)
-        return cls.nr(None, None)
+                    return cls.range_tuple(young, old)
+        return cls.range_tuple(None, None)
 
     @classmethod
     def target_age_match(cls, query):
@@ -545,14 +543,14 @@ class Axis360AudienceClassifier(Classifier):
     def target_age(cls, identifier, name, require_explicit_age_marker=False):
         if (not identifier.startswith(cls.TEEN_PREFIX)
             and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return cls.nr(None, None)
+            return cls.range_tuple(None, None)
         m = cls.age_re.search(identifier)
         if not m:
-            return cls.nr(None, None)
+            return cls.range_tuple(None, None)
         young, old = map(int, m.groups())
         if young > old:
             young, old = old, young
-        return cls.nr(young, old)
+        return cls.range_tuple(young, old)
 
 
 # This is the large-scale structure of our classification system.
@@ -1401,16 +1399,16 @@ class OverdriveClassifier(Classifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier.startswith('Picture Book'):
-            return cls.nr(0, 4)
+            return cls.range_tuple(0, 4)
         elif identifier.startswith('Beginning Reader'):
-            return cls.nr(5,8)
+            return cls.range_tuple(5,8)
         elif 'Young Adult' in identifier:
             # Internally we believe that 'Young Adult' means ages
             # 14-17, but after looking at a large number of Overdrive
             # books classified as 'Young Adult' we think that
             # Overdrive means something closer to 12-17.
-            return cls.nr(12, 17)
-        return cls.nr(None, None)
+            return cls.range_tuple(12, 17)
+        return cls.range_tuple(None, None)
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
@@ -1713,7 +1711,7 @@ class AgeOrGradeClassifier(Classifier):
         age 9-12 or grade 9-12.
         """
         age = AgeClassifier.target_age(identifier, name, True)
-        if age == cls.nr(None, None):
+        if age == cls.range_tuple(None, None):
             age = GradeLevelClassifier.target_age(identifier, name, True)
         return age
 
@@ -3300,16 +3298,16 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
     def target_age(cls, identifier, name):
         if identifier == 'pre-adolescent':
-            return cls.nr(9, 12)
+            return cls.range_tuple(9, 12)
         if identifier == 'early adolescents':
-            return cls.nr(13, 15)
+            return cls.range_tuple(13, 15)
 
         strict_age = AgeClassifier.target_age(identifier, name, True)
-        if strict_age.lower or strict_age.upper:
+        if strict_age[0] or strict_age[1]:
             return strict_age
 
         strict_grade = GradeLevelClassifier.target_age(identifier, name, True)
-        if strict_grade.lower or strict_grade.upper:
+        if strict_grade[0] or strict_grade[1]:
             return strict_grade
 
         # Default to assuming it's an unmarked age.
@@ -3755,7 +3753,7 @@ class WorkClassifier(object):
         # Err on the side of setting the minimum age too high.
         if target_age_min > target_age_max:
             target_age_max = target_age_min
-        return Classifier.nr(target_age_min, target_age_max)
+        return Classifier.range_tuple(target_age_min, target_age_max)
 
     def genres(self, fiction, cutoff=0.15):
         """Consolidate genres and apply a low-pass filter."""
