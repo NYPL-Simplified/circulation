@@ -646,7 +646,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
                 # 3M books are never open-access.
                 pool.open_access = False
                 Analytics.collect_event(
-                    self._db, pool, CirculationEvent.TITLE_ADD, now)
+                    self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
 
             self.api.apply_circulation_information_to_licensepool(circ, pool)
 
@@ -823,7 +823,7 @@ class ThreeMEventMonitor(Monitor):
         if is_new:
             event = get_one_or_create(
                 self._db, CirculationEvent,
-                type=CirculationEvent.TITLE_ADD,
+                type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                 license_pool=license_pool,
                 create_method_kwargs=dict(
                     start=license_pool.last_checked or start_time,
