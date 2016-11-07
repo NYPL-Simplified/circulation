@@ -829,7 +829,7 @@ class OverdriveCirculationMonitor(Monitor):
             # Log a circulation event for this work.
             if is_new:
                 Analytics.collect_event(
-                    _db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
+                    _db, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
 
             _db.commit()
 
