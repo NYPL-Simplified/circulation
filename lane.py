@@ -1467,6 +1467,15 @@ class QueryGeneratedLane(Lane):
 
         # Add lane-specific details to query and return the result.
         qu = self.lane_query_hook(qu, work_model=work_model)
+
+        if facets:
+            qu = facets.apply(
+                self._db, qu, work_model, edition_model, distinct=True
+            )
+
+        if pagination:
+            qu = pagination.apply(qu)
+
         return qu
 
     def featured_works(self, use_materialized_works=True):
