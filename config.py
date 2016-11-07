@@ -50,7 +50,8 @@ class Configuration(object):
     TERMS_OF_SERVICE = "terms_of_service"
     COPYRIGHT = "copyright"
     ABOUT = "about"
-
+    LICENSE = "license"
+    
     # Logging
     LOGGING = "logging"
     LOG_LEVEL = "level"
@@ -248,6 +249,10 @@ class Configuration(object):
     def privacy_policy_url(cls):
         return cls.link(cls.PRIVACY_POLICY)
 
+    @classmethod
+    def license_url(cls):
+        return cls.link(cls.LICENSE)
+    
     @classmethod
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
