@@ -112,7 +112,7 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def feed_url(cls, filename, extension='.opds', open_access=True):
-        """The path to the hosted OPDS file for the given CustomList"""
+        """The path to the hosted file for an OPDS feed with the given filename"""
         root = cls.content_root(open_access)
         if not extension.startswith('.'):
             extension = '.' + extension
