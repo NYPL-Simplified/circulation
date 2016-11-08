@@ -347,7 +347,12 @@ class OPDSImporter(object):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
-        data_source = DataSource.lookup(self._db, self.data_source_name)
+        # This is one of these cases where we want to create a
+        # DataSource if it doesn't already exist. This way you don't have
+        # to predefine a DataSource for every source of OPDS feeds.
+        data_source, ignore = get_one_or_create(
+            self._db, DataSource, name=self.data_source_name
+        )
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
@@ -634,8 +639,7 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
-        rights = entry.get('rights', "")
-        rights_uri = RightsStatus.rights_uri_from_string(rights)
+        rights_uri = self.rights_for_entry(entry)
 
         kwargs_meta = dict(
             title=title,
@@ -659,6 +663,16 @@ class OPDSImporter(object):
                 
             kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
+
+    @classmethod
+    def rights_uri_for_entry(cls, entry):
+        """Determine the URI that best encapsulates the rights status of
+        the downloads associated with this book.
+
+        :return: A URI
+        """
+        rights = entry.get('rights', "")
+        return RightsStatus.rights_uri_from_string(rights)
 
     @classmethod
     def extract_messages(cls, parser, feed_tag):

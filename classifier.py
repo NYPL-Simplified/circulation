@@ -49,7 +49,7 @@ class Classifier(object):
     BISAC = "BISAC"
     BIC = "BIC"
     TAG = "tag"   # Folksonomic tags.
-
+    
     # Appeal controlled vocabulary developed by NYPL 
     NYPL_APPEAL = "NYPL Appeal"
 
