@@ -3951,7 +3951,8 @@ class Work(Base):
             classifier.add(classification)
 
         (genre_weights, self.fiction, self.audience, 
-         self.target_age) = classifier.classify
+         target_age) = classifier.classify
+        self.target_age = tuple_to_numericrange(target_age)
 
         workgenres, workgenres_changed = self.assign_genres_from_weights(
             genre_weights
@@ -3961,7 +3962,7 @@ class Work(Base):
             workgenres_changed or 
             old_fiction != self.fiction or
             old_audience != self.audience or
-            numericrange_to_tuple(old_target_age) != numericrange_to_tuple(self.target_age)
+            numericrange_to_tuple(old_target_age) != target_age
         )
 
         return classification_changed
@@ -5186,12 +5187,12 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if numericrange_to_tuple(self.target_age) != numericrange_to_tuple(target_age):
+        if numericrange_to_tuple(self.target_age) != target_age:
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
-                self.target_age, target_age
+                self.target_age, tuple_to_numericrange(target_age)
             )        
-        self.target_age = target_age
+        self.target_age = tuple_to_numericrange(target_age)
 
 
 class Classification(Base):
@@ -8116,3 +8117,8 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
+
+def tuple_to_numericrange(t):
+    """Helper method to convert a tuple to an inclusive NumericRange."""
+    return NumericRange(t[0], t[1], '[]')
+        
