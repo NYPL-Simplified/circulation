@@ -539,7 +539,7 @@ class AcquisitionFeed(OPDSFeed):
         for args in cls.facet_links(annotator, facets):
             OPDSFeed.add_link_to_feed(feed=feed.feed, **args)
 
-        if len(works) > 0:
+        if len(works) > 0 and pagination.has_next_page:
             # There are works in this list. Add a 'next' link.
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
 
