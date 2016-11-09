@@ -812,11 +812,15 @@ class DataSource(Base):
     )
 
     @classmethod
-    def lookup(cls, _db, name):
+    def lookup(cls, _db, name, autocreate=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
-        return get_one(_db, DataSource, name=name)
+        if autocreate:
+            data_source, is_new = get_one_or_create(_db, DataSource, name=name)
+        else:
+            data_source = get_one(_db, DataSource, name=name)
+        return data_source
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 

@@ -491,6 +491,19 @@ class TestKeyword(object):
             Keyword.genre(None, "Science Fiction - General")
         )
 
+        # Was General Fiction (!)
+        eq_(classifier.Science_Fiction,
+            Keyword.genre(None, "Science Fiction")
+        )
+        
+        eq_(classifier.Science_Fiction,
+            Keyword.genre(None, "Speculative Fiction")
+        )
+
+        eq_(classifier.Social_Sciences,
+            Keyword.genre(None, "Human Science")
+        )
+        
         # was Military History
         eq_(classifier.Military_SF,
             Keyword.genre(None, "Interstellar Warfare")
@@ -506,6 +519,16 @@ class TestKeyword(object):
             Keyword.genre(None, "TV, Movie, Video game adaptations")
         )
 
+        # Previously only 'nonfiction' was recognized.
+        eq_(False, Keyword.is_fiction(None, "Non-Fiction"))
+        eq_(False, Keyword.is_fiction(None, "Non Fiction"))
+
+        # "Historical" on its own means historical fiction, but a
+        # string containing "Historical" does not mean anything in
+        # particular.
+        eq_(classifier.Historical_Fiction, Keyword.genre(None, "Historical"))
+        eq_(None, Keyword.genre(None, "Historicals"))
+        
 class TestBISAC(object):
 
     def test_is_fiction(self):

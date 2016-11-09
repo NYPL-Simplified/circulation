@@ -246,7 +246,9 @@ class OPDSImporter(object):
                 # to this item.
                 self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(self._db, self.data_source_name)
+                data_source = DataSource.lookup(
+                    self._db, self.data_source_name, autocreate=True
+                )
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
                 # clean up any edition might have created
@@ -265,7 +267,9 @@ class OPDSImporter(object):
                     works[key] = work
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(self._db, self.data_source_name)
+                data_source = DataSource.lookup(
+                    self._db, self.data_source_name, autocreate=True
+                )
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
@@ -402,7 +406,6 @@ class OPDSImporter(object):
 
             # form the CirculationData that would correspond to this Metadata
             c_data_dict = m_data_dict.get('circulation')
-
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -594,8 +597,12 @@ class OPDSImporter(object):
             if circulation_data_source_name:
                 _db = Session.object_session(metadata_data_source)
                 circulation_data_source = DataSource.lookup(
-                    _db, circulation_data_source_name
+                    _db, circulation_data_source_name, autocreate=True
                 )
+                # We know this data source offers licenses because
+                # that's what the <bibframe:distribution> is there
+                # to say.
+                circulation_data_source.offers_licenses = True
                 if not circulation_data_source:
                     raise ValueError(
                         "Unrecognized circulation data source: %s" % (
@@ -639,7 +646,7 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
-        rights_uri = self.rights_for_entry(entry)
+        rights_uri = cls.rights_uri_for_entry(entry)
 
         kwargs_meta = dict(
             title=title,
@@ -1073,7 +1080,9 @@ class OPDSImportMonitor(Monitor):
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+            data_source = DataSource.lookup(
+                self._db, self.importer.data_source_name, autocreate=True
+            )
             record = None
 
             if identifier:
@@ -1155,7 +1164,9 @@ class OPDSImportMonitor(Monitor):
             feed_url=feed_url
         )
 
-        data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+        data_source = DataSource.lookup(
+            self._db, self.importer.data_source_name, autocreate=True
+        )
         
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:

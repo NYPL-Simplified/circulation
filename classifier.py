@@ -1757,12 +1757,18 @@ class Eg(object):
 class KeywordBasedClassifier(AgeOrGradeClassifier):
 
     """Classify a book based on keywords."""
+
+    # We have to handle these first because otherwise '\bfiction\b'
+    # will match it.
+    LEVEL_1_NONFICTION_INDICATORS = match_kw(
+        "non-fiction", "non fiction"
+    )
     
-    FICTION_INDICATORS = match_kw(
+    LEVEL_2_FICTION_INDICATORS = match_kw(
         "fiction", Eg("stories"), Eg("tales"), Eg("literature"),
         Eg("bildungsromans"), "fictitious",
     )
-    NONFICTION_INDICATORS = match_kw(
+    LEVEL_2_NONFICTION_INDICATORS = match_kw(
         Eg("history"), Eg("biography"), Eg("histories"), Eg("biographies"), Eg("autobiography"),
         Eg("autobiographies"), "nonfiction", Eg("essays"), Eg("letters"))
     JUVENILE_INDICATORS = match_kw(
@@ -2206,6 +2212,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                Historical_Fiction : match_kw(
                    "historical fiction",
                    "fiction.*historical",
+                   "^historical$",
                ),
                
                Historical_Romance: match_kw(
@@ -2220,11 +2227,14 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                ),
                
                Horror : match_kw(
-                   Eg("ghost stories"),
                    "horror",
+                   Eg("occult"),
+                   Eg("ghost"),
+                   Eg("ghost stories"),
                    Eg("vampires"),
                    Eg("paranormal fiction"),
                    Eg("occult fiction"),
+                   Eg("supernatural"),
                    "scary",
                ),
                
@@ -2648,7 +2658,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                ),
                
                Science_Fiction : match_kw(
-                   "science fiction",
+                   "speculative fiction",
                    Eg("time travel"),
                ),
                
@@ -2672,6 +2682,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                Social_Sciences: match_kw(
                    "social sciences",
                    "social science",
+                   "human science",
                    Eg("anthropology"),
                    Eg("archaology"),
                    Eg("sociology"),
@@ -2898,6 +2909,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         ),
 
         Science_Fiction : match_kw(
+            "science fiction",
             "science fiction.*general",
         ),
 
@@ -2928,9 +2940,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     def is_fiction(cls, identifier, name, exclude_examples=False):
         if not name:
             return None
-        if (cls.FICTION_INDICATORS["search"](name, exclude_examples)):
+        if (cls.LEVEL_1_NONFICTION_INDICATORS["search"](name, exclude_examples)):
+            return False
+        if (cls.LEVEL_2_FICTION_INDICATORS["search"](name, exclude_examples)):
             return True
-        if (cls.NONFICTION_INDICATORS["search"](name, exclude_examples)):
+        if (cls.LEVEL_2_NONFICTION_INDICATORS["search"](name, exclude_examples)):
             return False
         return None
 
@@ -3023,6 +3037,7 @@ class FASTClassifier(KeywordBasedClassifier):
 
 class TAGClassifier(KeywordBasedClassifier):
     pass
+
 
 class GutenbergBookshelfClassifier(Classifier):
 
