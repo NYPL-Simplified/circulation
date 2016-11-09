@@ -492,6 +492,14 @@ class TestKeyword(object):
         )
 
         eq_(classifier.Social_Sciences,
+            Keyword.genre(None, "Social Sciences")
+        )
+
+        eq_(classifier.Social_Sciences,
+            Keyword.genre(None, "Social Science")
+        )
+        
+        eq_(classifier.Social_Sciences,
             Keyword.genre(None, "Human Science")
         )
         

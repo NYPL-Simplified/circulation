@@ -2678,9 +2678,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "legends",
                ),
                Social_Sciences: match_kw(
-                   "social sciences",
-                   "social science",
-                   "human science",
                    Eg("anthropology"),
                    Eg("archaology"),
                    Eg("sociology"),
@@ -2906,6 +2903,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "thriller.*romance",
         ),
 
+        # Stop from showing up as 'science'
+        Social_Sciences : match_kw(
+            "social sciences",
+            "social science",
+            "human science",
+        ),
+        
         Science_Fiction : match_kw(
             "science fiction",
             "science fiction.*general",
