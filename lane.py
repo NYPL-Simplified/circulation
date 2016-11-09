@@ -1,9 +1,10 @@
 from collections import defaultdict
 from nose.tools import set_trace
 import datetime
+import logging
 import random
 import time
-import logging
+import urllib
 
 from psycopg2.extras import NumericRange
 
@@ -1424,3 +1425,82 @@ class LaneList(object):
                 )
             )
         this_language[lane.name] = lane
+
+
+class QueryGeneratedLane(Lane):
+    """A lane dependent on a particular query, instead of a genre or search"""
+
+    MAX_CACHE_AGE = 14*24*60*60      # two weeks
+    # Inside of groups feeds, we want to return a sample
+    # even if there's only a single result.
+    MINIMUM_SAMPLE_SIZE = 1
+
+    @property
+    def audience_key(self):
+        """Translates audiences list into url-safe string"""
+        key = ''
+        if (self.audiences and
+            Classifier.AUDIENCES.difference(self.audiences)):
+            # There are audiences and they're not the default
+            # "any audience", so add them to the URL.
+            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            key += ','.join(audiences)
+        return key
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+                      edition_model=Edition):
+        """Incorporates general filters that help determine which works can be
+        usefully presented to users with lane-specific queries that select
+        the works specific to the QueryGeneratedLane
+
+        :return: query or None
+        """
+        # Only show works that can be borrowed or reserved.
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # Only show works for the proper audiences.
+        if self.audiences:
+            qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Only show works in the source language.
+        if self.languages:
+            qu = qu.filter(edition_model.language.in_(self.languages))
+
+        # Add lane-specific details to query and return the result.
+        qu = self.lane_query_hook(qu, work_model=work_model)
+        if not qu:
+            # The hook may return None.
+            return None
+
+        if facets:
+            qu = facets.apply(self._db, qu, work_model, edition_model)
+
+        if pagination:
+            qu = pagination.apply(qu)
+
+        return qu
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of books for the feed"""
+
+        # Lane.featured_works searches for books along a variety of facets.
+        # Because LicensePoolBasedLanes are created for individual works as
+        # needed (instead of at app start), we need to avoid the relative
+        # slowness of those queries.
+        #
+        # We'll just ignore facets and return whatever we find.
+        if not use_materialized_works:
+            query = self.works()
+        else:
+            query = self.materialized_works()
+        if not query:
+            return []
+
+        return self.randomized_sample_works(query, use_min_size=True)
+
+    def lane_query_hook(self, qu, work_model=Work):
+        """Create the query specific to a subclass of  QueryGeneratedLane
+
+        :return: query or None
+        """
+        raise NotImplementedError()

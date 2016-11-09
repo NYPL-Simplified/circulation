@@ -210,7 +210,7 @@ class ExternalSearchIndex(object):
             return query
 
         def make_target_age_query(target_age):
-            (lower, upper) = target_age.lower, target_age.upper
+            (lower, upper) = target_age[0], target_age[1]
             return { 
                 "bool" : {
                     # There must be some overlap with the range in the query
@@ -313,12 +313,12 @@ class ExternalSearchIndex(object):
 
         # Get the grade level and the words in the query that matched it, if any
         age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
-        if age_from_grade and age_from_grade.lower == None:
+        if age_from_grade and age_from_grade[0] == None:
             age_from_grade = None
 
         # Get the age range and the words in the query that matched it, if any
         age, age_match = AgeClassifier.target_age_match(query_string)
-        if age and age.lower == None:
+        if age and age[0] == None:
             age = None
 
         if fiction or genre or audience or age_from_grade or age:
