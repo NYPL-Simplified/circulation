@@ -92,6 +92,7 @@ class TestDataSource(DatabaseTest):
         eq_(DataSource.GUTENBERG, gutenberg.name)
         eq_(True, gutenberg.offers_licenses)
 
+       
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
         eq_(DataSource.BIBLIOTHECA, threem.name)
@@ -100,6 +101,11 @@ class TestDataSource(DatabaseTest):
     def test_lookup_returns_none_for_nonexistent_source(self):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
+
+    def test_lookup_with_autocreate(self):
+        name = "Brand new data source " + self._str
+        new_source = DataSource.lookup(self._db, name, autocreate=True)
+        eq_(name, new_source.name)
 
     def test_metadata_sources_for(self):
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)

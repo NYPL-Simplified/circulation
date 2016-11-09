@@ -33,7 +33,6 @@ from metadata_layer import (
 )
 from model import (
     get_one,
-    get_one_or_create,
     CoverageRecord,
     DataSource,
     Edition,
@@ -246,7 +245,9 @@ class OPDSImporter(object):
                 # to this item.
                 self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(self._db, self.data_source_name)
+                data_source = DataSource.lookup(
+                    self._db, self.data_source_name, autocreate=True
+                )
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
                 # clean up any edition might have created
@@ -265,7 +266,9 @@ class OPDSImporter(object):
                     works[key] = work
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(self._db, self.data_source_name)
+                data_source = DataSource.lookup(
+                    self._db, self.data_source_name, autocreate=True
+                )
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
@@ -347,7 +350,12 @@ class OPDSImporter(object):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
-        data_source = DataSource.lookup(self._db, self.data_source_name)
+        # This is one of these cases where we want to create a
+        # DataSource if it doesn't already exist. This way you don't have
+        # to predefine a DataSource for every source of OPDS feeds.
+        data_source = DataSource.lookup(
+            self._db, name=self.data_source_name, autocreate=True
+        )
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
@@ -397,7 +405,6 @@ class OPDSImporter(object):
 
             # form the CirculationData that would correspond to this Metadata
             c_data_dict = m_data_dict.get('circulation')
-
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -589,8 +596,12 @@ class OPDSImporter(object):
             if circulation_data_source_name:
                 _db = Session.object_session(metadata_data_source)
                 circulation_data_source = DataSource.lookup(
-                    _db, circulation_data_source_name
+                    _db, circulation_data_source_name, autocreate=True
                 )
+                # We know this data source offers licenses because
+                # that's what the <bibframe:distribution> is there
+                # to say.
+                circulation_data_source.offers_licenses = True
                 if not circulation_data_source:
                     raise ValueError(
                         "Unrecognized circulation data source: %s" % (
@@ -634,8 +645,7 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
-        rights = entry.get('rights', "")
-        rights_uri = RightsStatus.rights_uri_from_string(rights)
+        rights_uri = cls.rights_uri_for_entry(entry)
 
         kwargs_meta = dict(
             title=title,
@@ -659,6 +669,16 @@ class OPDSImporter(object):
                 
             kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
+
+    @classmethod
+    def rights_uri_for_entry(cls, entry):
+        """Determine the URI that best encapsulates the rights status of
+        the downloads associated with this book.
+
+        :return: A URI
+        """
+        rights = entry.get('rights', "")
+        return RightsStatus.rights_uri_from_string(rights)
 
     @classmethod
     def extract_messages(cls, parser, feed_tag):
@@ -1059,7 +1079,9 @@ class OPDSImportMonitor(Monitor):
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+            data_source = DataSource.lookup(
+                self._db, self.importer.data_source_name, autocreate=True
+            )
             record = None
 
             if identifier:
@@ -1141,7 +1163,9 @@ class OPDSImportMonitor(Monitor):
             feed_url=feed_url
         )
 
-        data_source = DataSource.lookup(self._db, self.importer.data_source_name)
+        data_source = DataSource.lookup(
+            self._db, self.importer.data_source_name, autocreate=True
+        )
         
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:

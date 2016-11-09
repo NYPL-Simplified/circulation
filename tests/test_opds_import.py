@@ -154,7 +154,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
 
     def test_extract_metadata(self):
-        importer = OPDSImporter(self._db, DataSource.NYT)
+        data_source_name = "Data source name " + self._str
+        importer = OPDSImporter(self._db, data_source_name)
         metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
@@ -167,10 +168,10 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("The Green Mouse", m1.title)
         eq_("A Tale of Mousy Terror", m1.subtitle)
 
-        eq_(DataSource.NYT, m1._data_source)
-        eq_(DataSource.NYT, m2._data_source)
-        eq_(DataSource.NYT, c1._data_source)
-        eq_(DataSource.NYT, c2._data_source)
+        eq_(data_source_name, m1._data_source)
+        eq_(data_source_name, m2._data_source)
+        eq_(data_source_name, c1._data_source)
+        eq_(data_source_name, c2._data_source)
 
         [failure] = failures.values()
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
@@ -580,10 +581,10 @@ class TestOPDSImporter(OPDSImporterTest):
         for pool in pools_g:
             eq_(pool.data_source.name, DataSource.GUTENBERG)
 
-    def test_import_with_unrecognized_distributor_fails(self):
+    def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from the open-access content server but the license
-        comes from an unrecognized data source. We can't import the book
-        because we can't record its provenance accurately.
+        comes from an unrecognized data source. The book is imported and
+        we create a DataSource to record its provenance accurately.
         """
         feed = open(
             os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
@@ -594,13 +595,21 @@ class TestOPDSImporter(OPDSImporterTest):
         imported_editions, pools, works, failures = (
             importer.import_from_feed(feed)
         )
-        # No editions, licensepools, or works were imported.
-        eq_([], imported_editions)
-        eq_([], pools)
-        eq_([], works)
-        [failure] = failures.values()
-        eq_(True, failure.transient)
-        assert "Unrecognized circulation data source: Unknown Source" in failure.exception
+        eq_({}, failures)
+
+        # We imported an Edition because there was metadata.
+        [edition] = imported_editions
+        new_data_source = edition.data_source
+        eq_(DataSource.OA_CONTENT_SERVER, new_data_source.name)
+
+        # We imported a LicensePool because there was an open-access
+        # link, even though the ultimate source of the link was one
+        # we'd never seen before.
+        [pool] = pools
+        eq_("Unknown Source", pool.data_source.name)
+
+        # From an Edition and a LicensePool we created a Work.
+        eq_(1, len(works))
 
     def test_import_updates_metadata(self):
 
