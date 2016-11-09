@@ -33,7 +33,6 @@ from metadata_layer import (
 )
 from model import (
     get_one,
-    get_one_or_create,
     CoverageRecord,
     DataSource,
     Edition,
@@ -354,8 +353,8 @@ class OPDSImporter(object):
         # This is one of these cases where we want to create a
         # DataSource if it doesn't already exist. This way you don't have
         # to predefine a DataSource for every source of OPDS feeds.
-        data_source, ignore = get_one_or_create(
-            self._db, DataSource, name=self.data_source_name
+        data_source = DataSource.lookup(
+            self._db, name=self.data_source_name, autocreate=True
         )
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
