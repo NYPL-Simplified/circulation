@@ -615,7 +615,7 @@ class AcquisitionFeed(OPDSFeed):
         # document it's essential that it include an up-to-date nsmap,
         # even if it was generated from an old cached <entry> tag that
         # had an older nsmap.
-        if not 'drm' in entry.nsmap:
+        if isinstance(entry, etree._Element) and not 'drm' in entry.nsmap:
             # This workaround (creating a brand new tag) is necessary
             # because the nsmap attribute is immutable. See
             # https://bugs.launchpad.net/lxml/+bug/555602
