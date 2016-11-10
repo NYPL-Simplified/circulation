@@ -14,6 +14,7 @@ from core.model import (
     CirculationEvent,
     Identifier,
     DataSource,
+    LicensePoolDeliveryMechanism,
     LicensePool,
     Loan,
     Hold,
@@ -351,10 +352,11 @@ class CirculationAPI(object):
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
-        :param delivery_mechanism: An explanation of how the patron
-        wants the book to be delivered. If the book has previously been
-        delivered through some other mechanism, this parameter is ignored
-        and the previously used mechanism takes precedence.
+        :param delivery_mechanism: A LicensePoolDeliveryMechanism
+        explaining how the patron wants the book to be delivered. If
+        the book has previously been delivered through some other
+        mechanism, this parameter is ignored and the previously used
+        mechanism takes precedence.
 
         :return: A FulfillmentInfo object.
         """
@@ -413,27 +415,32 @@ class CirculationAPI(object):
         return fulfillment
 
     def fulfill_open_access(self, licensepool, delivery_mechanism):
-        # Keep track of a default way to fulfill this loan in case the
-        # patron's desired delivery mechanism isn't available.
+        """Fulfill an open-access LicensePool through the requested
+        DeliveryMechanism.
+
+        :param licensepool: The title to be fulfilled.
+        :param requested_lpdm: A DeliveryMechanism.
+        """
+        if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
+            self.log.warn("LicensePoolDeliveryMechanism passed into fulfill_open_access, should be DeliveryMechanism.")
+            delivery_mechanism = delivery_mechanism.delivery_mechanism
         fulfillment = None
         for lpdm in licensepool.delivery_mechanisms:
             if not (lpdm.resource and lpdm.resource.representation
                     and lpdm.resource.representation.url):
-                # We don't actually know how to deliver this
-                # allegedly open-access book.
+                # This LicensePoolDeliveryMechanism can't actually
+                # be used for fulfillment.
                 continue
             if lpdm.delivery_mechanism == delivery_mechanism:
                 # We found it! This is how the patron wants
                 # the book to be delivered.
                 fulfillment = lpdm
                 break
-            elif not fulfillment:
-                # This will do in a pinch.
-                fulfillment = lpdm
 
         if not fulfillment:
-            # There is just no way to fulfill this loan.
-            raise NoOpenAccessDownload()
+            # There is just no way to fulfill this loan the way the
+            # patron wants.
+            raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
         cdns = Configuration.cdns()
