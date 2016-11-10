@@ -68,11 +68,6 @@ def get_locale():
     languages = Configuration.localization_languages()
     return request.accept_languages.best_match(languages)
 
-h = ErrorHandler(app, app.config['DEBUG'])
-@app.errorhandler(Exception)
-def exception_handler(exception):
-    return h.handle(exception)
-
 @app.teardown_request
 def shutdown_session(exception):
     if (hasattr(app, 'manager') 
@@ -116,6 +111,12 @@ else:
         def decorated(f):
             return f
         return decorated
+
+h = ErrorHandler(app, app.config['DEBUG'])
+@app.errorhandler(Exception)
+@allows_patron_web()
+def exception_handler(exception):
+    return h.handle(exception)
 
 def dir_route(path, *args, **kwargs):
     """Decorator to create routes that work with or without a trailing slash."""
