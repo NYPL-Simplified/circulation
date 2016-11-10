@@ -1245,6 +1245,52 @@ class TestWorkController(CirculationControllerTest):
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
+        # The feed has facet links.
+        links = feed['feed']['links']
+        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
+        eq_(9, len(facet_links))
+
+        another_work = self._work(
+            "Not open access", name, with_license_pool=True)
+        another_work.license_pools[0].open_access = False
+
+        # Facets work.
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?order=title"):
+            response = self.manager.work_controller.contributor(name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+
+        with self.app.test_request_context("/?available=always"):
+            response = self.manager.work_controller.contributor(name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
+
+        # Pagination works.
+        with self.app.test_request_context("/?size=1"):
+            response = self.manager.work_controller.contributor(name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(another_work.title, entry['title'])
+
+        with self.app.test_request_context("/?after=1"):
+            response = self.manager.work_controller.contributor(name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
+
     def test_permalink(self):
         with self.app.test_request_context("/"):
             response = self.manager.work_controller.permalink(self.datasource, self.identifier.type, self.identifier.identifier)
@@ -1318,6 +1364,12 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.english_2.title, entry['title'])
         eq_(self.english_2.author, entry['author'])
 
+        # The feed has facet links.
+        links = feed['feed']['links']
+        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
+        eq_(9, len(facet_links))
+
+
         with temp_config() as config:
             with self.app.test_request_context('/'):
                 config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
@@ -1326,6 +1378,85 @@ class TestWorkController(CirculationControllerTest):
                 )
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+
+        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
+
+        metadata.recommendations = [
+            self.english_1.license_pools[0].identifier,
+            another_work.license_pools[0].identifier,
+        ]
+        mock_api.setup(metadata)
+
+        # Facets work.
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?order=title"):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api
+            )
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(another_work.title, entry1['title'])
+        eq_(self.english_1.title, entry2['title'])
+
+        metadata.recommendations = [
+            self.english_1.license_pools[0].identifier,
+            another_work.license_pools[0].identifier,
+        ]
+        mock_api.setup(metadata)
+
+        with self.app.test_request_context("/?order=author"):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api
+            )
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(self.english_1.title, entry1['title'])
+        eq_(another_work.title, entry2['title'])
+
+        metadata.recommendations = [
+            self.english_1.license_pools[0].identifier,
+            another_work.license_pools[0].identifier,
+        ]
+        mock_api.setup(metadata)
+
+        # Pagination works.
+        with self.app.test_request_context("/?size=1&order=title"):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api
+            )
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(another_work.title, entry['title'])
+
+        metadata.recommendations = [
+            self.english_1.license_pools[0].identifier,
+            another_work.license_pools[0].identifier,
+        ]
+        mock_api.setup(metadata)
+
+        with self.app.test_request_context("/?after=1&order=title"):
+            response = self.manager.work_controller.recommendations(
+                self.datasource, self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api
+            )
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
 
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
@@ -1392,7 +1523,7 @@ class TestWorkController(CirculationControllerTest):
         [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
         title, href = collection_link(e2)
         eq_("Around the World", title)
-        expected_series_link = urllib.quote('series/Around the World/eng/Adult')
+        expected_series_link = 'series/%s/eng/Adult?order=series' % urllib.quote("Around the World")
         eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.
@@ -1462,6 +1593,69 @@ class TestWorkController(CirculationControllerTest):
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(series_name, feed['feed']['title'])
+        [entry] = feed['entries']
+        eq_(self.english_1.title, entry['title'])
+
+        # The feed has facet links.
+        links = feed['feed']['links']
+        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
+        eq_(12, len(facet_links))
+
+        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
+        another_work.license_pools[0].presentation_edition.series = series_name
+
+        # Facets work.
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?order=title"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(another_work.title, entry1['title'])
+        eq_(self.english_1.title, entry2['title'])
+
+        with self.app.test_request_context("/?order=author"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(self.english_1.title, entry1['title'])
+        eq_(another_work.title, entry2['title'])
+
+        self.english_1.license_pools[0].presentation_edition.series_position = 0
+        another_work.license_pools[0].series_position = 1
+
+        SessionManager.refresh_materialized_views(self._db)
+        with self.app.test_request_context("/?order=series"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(self.english_1.title, entry1['title'])
+        eq_(another_work.title, entry2['title'])
+
+        # Pagination works.
+        with self.app.test_request_context("/?size=1&order=title"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
+        [entry] = feed['entries']
+        eq_(another_work.title, entry['title'])
+
+        with self.app.test_request_context("/?after=1&order=title"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(1, len(feed['entries']))
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 

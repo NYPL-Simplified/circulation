@@ -90,7 +90,8 @@ from authenticator import (
 )
 from config import (
     Configuration, 
-    CannotLoadConfiguration
+    CannotLoadConfiguration,
+    temp_config,
 )
 
 from lanes import (
@@ -937,6 +938,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
         )
         return feed_response(unicode(feed.content))
@@ -993,6 +995,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.DISPLAY_NAME, url, lane,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
         return feed_response(unicode(feed.content))
@@ -1063,22 +1066,42 @@ class WorkController(CirculationManagerController):
 
         lane = SeriesLane(self._db, series_name, languages, audiences)
         annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request()
-        if isinstance(facets, ProblemDetail):
-            return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-        url = annotator.feed_url(
-            lane,
-            facets=facets,
-            pagination=pagination,
-        )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.display_name, url, lane,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
-        )
+        # This has special handling of facets because a series can
+        # be ordered by series position, as well as the regular enabled
+        # facets.
+        with temp_config() as config:
+            p = Configuration.POLICIES
+            f = Configuration.FACET_POLICY
+            e = Configuration.ENABLED_FACETS_KEY
+            g = Facets.ORDER_FACET_GROUP_NAME
+            if not config.get(p):
+                config[p] = dict()
+            if not config[p].get(f):
+                config[p][f] = dict()
+            if not config[p][f].get(e):
+                config[p][f][e] = Configuration.DEFAULT_ENABLED_FACETS
+            if not config[p][f][e].get(g):
+                config[p][f][e][g] = Configuration.enabled_facets(g)
+            config[p][f][e][g] += [Facets.ORDER_SERIES_POSITION]
+
+            facets = load_facets_from_request()
+            if isinstance(facets, ProblemDetail):
+                return facets
+            pagination = load_pagination_from_request()
+            if isinstance(pagination, ProblemDetail):
+                return pagination
+            url = annotator.feed_url(
+                lane,
+                facets=facets,
+                pagination=pagination,
+            )
+
+            feed = AcquisitionFeed.page(
+                self._db, lane.display_name, url, lane,
+                facets=facets, pagination=pagination,
+                annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
+            )
         return feed_response(unicode(feed.content))
 
 
