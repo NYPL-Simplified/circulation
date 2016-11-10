@@ -419,7 +419,7 @@ class CirculationAPI(object):
         DeliveryMechanism.
 
         :param licensepool: The title to be fulfilled.
-        :param requested_lpdm: A DeliveryMechanism.
+        :param delivery_mechanism: A DeliveryMechanism.
         """
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             self.log.warn("LicensePoolDeliveryMechanism passed into fulfill_open_access, should be DeliveryMechanism.")
