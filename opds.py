@@ -604,12 +604,27 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):
-        """Create a single-entry feed for one specific work."""
+        """Create a single-entry OPDS document for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
-        return feed.create_entry(work, None, even_if_no_license_pool=True,
-                                 force_create=force_create)
+        entry = feed.create_entry(work, None, even_if_no_license_pool=True,
+                                  force_create=force_create)
+
+        # Since this <entry> tag is going to be the root of an XML
+        # document it's essential that it include an up-to-date nsmap,
+        # even if it was generated from an old cached <entry> tag that
+        # had an older nsmap.
+        if not 'drm' in entry.nsmap:
+            # This workaround (creating a brand new tag) is necessary
+            # because the nsmap attribute is immutable. See
+            # https://bugs.launchpad.net/lxml/+bug/555602
+            nsmap = entry.nsmap
+            nsmap['drm'] = AtomFeed.DRM_NS
+            new_root = etree.Element(entry.tag, nsmap=nsmap)
+            new_root[:] = entry[:]
+            entry = new_root
+        return entry
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
@@ -757,18 +772,6 @@ class AcquisitionFeed(OPDSFeed):
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
-
-        # Make sure that potentially old XML includes new namespace
-        # declarations.
-        if not 'drm' in xml.nsmap:
-            # This workaround (creating a brand new tag) is necessary
-            # because the nsmap attribute is immutable. See
-            # https://bugs.launchpad.net/lxml/+bug/555602
-            nsmap = xml.nsmap
-            nsmap['drm'] = AtomFeed.DRM_NS
-            new_root = etree.Element(xml.tag, nsmap=nsmap)
-            new_root[:] = xml[:]
-            xml = new_root
             
         group_uri, group_title = self.annotator.group_uri(
             work, license_pool, identifier)
