@@ -831,8 +831,10 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
 
+        entry_rights = parser._xpath(entry_tag, 'rights')
+        
         data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag, feed_url)
+            cls.extract_link(link_tag, feed_url, entry_rights)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
         return data
@@ -927,7 +929,17 @@ class OPDSImporter(object):
         )
 
     @classmethod
-    def extract_link(cls, link_tag, feed_url=None):
+    def extract_link(cls, link_tag, feed_url=None, entry_rights_uri=None):
+        """Convert a <link> tag into a LinkData object.
+
+        :param feed_url: The URL to the enclosing feed, for use in resolving
+        relative links.
+
+        :param entry_rights_uri: A URI describing the rights advertised
+        in the entry. Unless this specific link says otherwise, we
+        will assume that the representation on the other end of the link
+        if made available on these terms.
+        """
         attr = link_tag.attrib
         rel = attr.get('rel')
         media_type = attr.get('type')
@@ -940,7 +952,8 @@ class OPDSImporter(object):
         if rights:
             rights_uri = RightsStatus.rights_uri_from_string(rights)
         else:
-            rights_uri = None
+            rights_uri = entry_rights_uri
+        set_trace()
         if feed_url and not urlparse(href).netloc:
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)

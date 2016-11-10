@@ -758,6 +758,18 @@ class AcquisitionFeed(OPDSFeed):
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
 
+        # Make sure that potentially old XML includes new namespace
+        # declarations.
+        if not 'drm' in xml.nsmap:
+            # This workaround (creating a brand new tag) is necessary
+            # because the nsmap attribute is immutable. See
+            # https://bugs.launchpad.net/lxml/+bug/555602
+            nsmap = xml.nsmap
+            nsmap['drm'] = AtomFeed.DRM_NS
+            new_root = etree.Element(xml.tag, nsmap=nsmap)
+            new_root[:] = xml[:]
+            xml = new_root
+            
         group_uri, group_title = self.annotator.group_uri(
             work, license_pool, identifier)
         if group_uri:

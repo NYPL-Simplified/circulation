@@ -1060,6 +1060,34 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+    def test_entry_cache_adds_missing_drm_namespace(self):
+        
+        work = self._work(with_open_access_download=True)
+
+        # This work's OPDS entry was created with a namespace map
+        # that did not include the drm: namespace.
+        work.simple_opds_entry = "<entry><foo>bar</foo></entry>"
+        pool = work.license_pools[0]
+
+        # But now the annotator is set up to insert a tag with that
+        # namespace.
+        class AddDRMTagAnnotator(TestAnnotator):
+            @classmethod
+            def annotate_work_entry(
+                    cls, work, license_pool, edition, identifier, feed,
+                    entry):
+                drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+                entry.extend([drm_link])
+
+        # The entry is retrieved from cache and the appropriate
+        # namespace inserted.
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, AddDRMTagAnnotator
+        )
+        eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
+            etree.tostring(entry)
+        )
+        
     def test_error_when_work_has_no_identifier(self):
         """We cannot create an OPDS entry for a Work that cannot be associated
         with an Identifier.
