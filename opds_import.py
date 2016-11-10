@@ -199,12 +199,14 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, http_get=None):
+                 identifier_mapping=None, mirror=None, http_get=None,
+                 metadata_client=None
+    ):
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = SimplifiedOPDSLookup.from_config()
+        self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
         self.http_get = http_get
 
@@ -1210,9 +1212,10 @@ class OPDSImportMonitor(Monitor):
 class OPDSImporterWithS3Mirror(OPDSImporter):
     """OPDS Importer that mirrors content to S3."""
 
-    def __init__(self, _db, default_data_source, **kwargs):
+    def __init__(self, _db, default_data_source, *args, **kwargs):
         kwargs = dict(kwargs)
-        kwargs['mirror'] = S3Uploader()
+        if not 'mirror' in kwargs:
+            kwargs['mirror'] = S3Uploader()
         super(OPDSImporterWithS3Mirror, self).__init__(
-            _db, default_data_source, **kwargs
+            _db, default_data_source, *args, **kwargs
         )
