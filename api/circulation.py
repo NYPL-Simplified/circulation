@@ -385,7 +385,7 @@ class CirculationAPI(object):
 
         if licensepool.open_access:
             fulfillment = self.fulfill_open_access(
-                licensepool, delivery_mechanism
+                licensepool, delivery_mechanism.delivery_mechanism
             )
         else:
             api = self.api_for_license_pool(licensepool)
