@@ -55,10 +55,12 @@ class OneClickAPI(object):
     log = logging.getLogger("OneClick API")
 
     def __init__(self, _db, library_id=None, username=None, password=None, 
-        remote_stage=None, base_url=None, basic_token=None):
+        remote_stage=None, base_url=None, basic_token=None, 
+        ebook_loan_length=None, eaudio_loan_length=None):
         self._db = _db
         (env_library_id, env_username, env_password, 
-         env_remote_stage, env_base_url, env_basic_token) = self.from_config()
+         env_remote_stage, env_base_url, env_basic_token, 
+         env_ebook_loan_length, env_eaudio_loan_length) = self.from_config()
             
         self.library_id = library_id or env_library_id
         self.username = username or env_username
@@ -67,6 +69,9 @@ class OneClickAPI(object):
         self.base_url = base_url or env_base_url
         self.base_url = self.base_url + self.API_VERSION
         self.token = basic_token or env_basic_token
+        # expiration defaults are OneClick-general
+        self.ebook_loan_length = ebook_loan_length or env_ebook_loan_length
+        self.eaudio_loan_length = eaudio_loan_length or env_eaudio_loan_length
 
 
     @classmethod
@@ -92,7 +97,9 @@ class OneClickAPI(object):
                 'password',
                 'remote_stage', 
                 'url', 
-                'basic_token'
+                'basic_token', 
+                'ebook_loan_length', 
+                'eaudio_loan_length'
         ]:
             value = config.get(name)
             if value:
@@ -422,7 +429,9 @@ class MockOneClickAPI(OneClickAPI):
                 'server' : 'http://axis.test/',
                 'remote_stage' : 'qa', 
                 'url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm'
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : "21", 
+                "eaudio_loan_length" : "21"
             }
             super(MockOneClickAPI, self).__init__(_db, *args, **kwargs)
         if with_token:
