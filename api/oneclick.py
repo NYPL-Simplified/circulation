@@ -8,7 +8,7 @@ import requests
 
 #from authenticator import BasicAuthAuthenticator
 #from config import Configuration
-#import os
+import os
 #import re
 
 from circulation import (
@@ -16,21 +16,20 @@ from circulation import (
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
-    PatronInfo, 
 )
 from circulation_exceptions import *
 
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
-    #BibliographicParser,
     OneClickBibliographicCoverageProvider
 )
 
 from core.model import (
-#    get_one,
-#    get_one_or_create,
+    Edition,
+    Identifier, 
     Patron,
+    Representation,
 )
 
 from core.monitor import (
@@ -47,12 +46,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     NAME = "OneClick"
     
-    EXPIRATION_DATE_FORMAT = '%m-%d-%y'
-    EXPIRATION_DEFAULT = datetime.timedelta(days=21)
-
-    # How long we should go before syncing our internal Patron record
-    # with Millenium.
-    #MAX_STALE_TIME = datetime.timedelta(hours=12)
+    EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
     log = logging.getLogger("OneClick Patron API")
 
@@ -64,6 +58,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 self._db, oneclick_api=self
             )
         )
+
+        num_days = int(self.ebook_loan_length)
+        self.ebook_expiration_default = datetime.timedelta(days=num_days)
+        num_days = int(self.eaudio_loan_length)
+        self.eaudio_expiration_default = datetime.timedelta(days=num_days)
 
 
     def checkin(self, patron, pin, licensepool):
@@ -77,7 +76,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        (patron_oneclick_id, item_oneclick_id) = self.validate_input(patron, licensepool)
+        patron_oneclick_id = self.validate_patron(patron)
+        (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
 
@@ -103,7 +103,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return LoanInfo on success, None on failure
         """
-        (patron_oneclick_id, item_oneclick_id) = self.validate_input(patron, licensepool)
+        patron_oneclick_id = self.validate_patron(patron)
+        (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False)
 
@@ -114,9 +115,15 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
 
         today = datetime.datetime.now()
-        expires = today + self.EXPIRATION_DEFAULT
+        if item_media == Edition.AUDIO_MEDIUM:
+            expires = today + self.eaudio_expiration_default
+        else:
+            expires = today + self.ebook_expiration_default
 
-        # Create the loan info. We don't know the expiration 
+        # Create the loan info. We don't know the expiration for sure, 
+        # but we know the library default.  We do have the option of 
+        # getting expiration by checking patron's activity, but that 
+        # would mean another http call and is not currently merited.
         loan = LoanInfo(
             identifier_type=licensepool.identifier.type,
             identifier=item_oneclick_id,
@@ -127,7 +134,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         return loan
 
 
-    def circulate_item(self, patron_id, item_id, return_item=False):
+    def circulate_item(self, patron_id, item_id, hold=False, return_item=False):
         """
         Borrow or return a catalog item.
         :param patron_id OneClick internal id
@@ -135,18 +142,26 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :return A dictionary of information on the transaction or error status and message
             Calling methods are expected to use this dictionary to create XxxInfo objects.
         """
-        url = "%s/libraries/%s/patrons/%s/checkouts/%s" % (self.base_url, str(self.library_id), patron_id, item_id)
+        endpoint = "checkouts"
+        if hold:
+            endpoint = "holds"
+        url = "%s/libraries/%s/patrons/%s/%s/%s" % (self.base_url, str(self.library_id), patron_id, endpoint, item_id)
 
         method = "post"
         action = "checkout"
-        if return_item:
+        if not hold and return_item:
             method = "delete"
             action = "checkin"
+        elif hold and not return_item:
+            action = "place_hold"
+        elif hold and return_item:
+            method = "delete"
+            action = "release_hold"
 
         try:
             response = self.request(url=url, method=method)
         except Exception, e:
-            self.log.error("Item checkout/return failed: %r", e, exc_info=e)
+            self.log.error("Item circulation request failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
         resp_dict = {}
@@ -155,16 +170,157 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             resp_dict = response.json()
             message = resp_dict.get('message', None)
 
-        error_response = self.validate_response(response=response, message=message, action=action)
+        self.validate_response(response=response, message=message, action=action)
 
         return resp_dict
 
 
+    def fulfill(self, patron, pin, licensepool, internal_format):
+        """ Get the actual resource file to the patron.
+        :return a FulfillmentInfo object.
+        """
+
+        patron_oneclick_id = self.validate_patron(patron)
+        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+
+        # find patron's checkouts
+        checkouts_list = self.get_patron_checkouts(patron_id=patron_oneclick_id)
+        if not checkouts_list:
+            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no checkouts.", item_oneclick_id, 
+                patron.authorization_identifier, patron_oneclick_id)
+
+        # find this licensepool in patron's checkouts
+        found_checkout = None
+        for checkout in checkouts_list:
+            if checkout.identifier == item_oneclick_id:
+                found_checkout = checkout
+                break
+        if not found_checkout:
+            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no such checkout.", item_oneclick_id, 
+                patron.authorization_identifier, patron_oneclick_id)
+        
+        return found_checkout.fulfillment_info
+
+
+
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        """Place a book on hold.
+
+        :param patron: a Patron object for the patron who wants to check out the book.
+        :param pin: The patron's password (not used).
+        :param licensepool: The Identifier of the book to be checked out is 
+        attached to this licensepool.
+        :param internal_format: Represents the patron's desired book format.  Ignored for now.
+
+        :return: A HoldInfo object on success, None on failure
+        """
+        patron_oneclick_id = self.validate_patron(patron)
+        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+
+        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
+
+        if not resp_dict or ('error_code' in resp_dict):
+            return None
+
+        self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier, 
+            patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
+
+        today = datetime.datetime.now()
+
+        hold = HoldInfo(
+            identifier_type=licensepool.identifier.type,
+            identifier=item_oneclick_id,
+            start_date=today,
+            # OneClick sets hold expirations to 2050-12-31, as a "forever"
+            end_date=None,
+            hold_position=0,
+        )
+
+        return hold
+
+
+    def release_hold(self, patron, pin, licensepool):
+        """Release a patron's hold on a book.
+
+        :param patron: a Patron object for the patron who wants to return the book.
+        :param pin: The patron's password (not used).
+        :param licensepool: The Identifier of the book to be checked out is 
+        attached to this licensepool.
+
+        :return True on success, raises circulation exceptions on failure.
+        """
+        patron_oneclick_id = self.validate_patron(patron)
+        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+
+        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
+
+        if resp_dict == {}:
+            self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier, 
+                patron_oneclick_id, item_oneclick_id)
+            return True
+
+        # should never happen
+        raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
+            patron_oneclick_id, item_oneclick_id)
+
+
+
+    ''' -------------------------- Patron Account Handling -------------------------- '''
+    def create_patron(self, patron):
+        """ Ask OneClick to create a new patron record.
+
+        :param patron: a Patron object which contains the permanent id to give to 
+        OneClick as the patron's library card number.
+        :return OneClick's internal patron id.
+        """
+
+        patron_cardno = patron.authorization_identifier
+        if not patron_cardno:
+            raise InvalidInputException("Patron %r has no card number.", patron)
+
+        url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
+        action="create_patron"
+        
+        args = dict()
+        args['libraryId'] = self.library_id
+        args['libraryCardNumber'] = patron.authorization_identifier
+        # generate indicative values for the account fields the patron has not supplied us with
+        args['userName'] = 'username' + patron.authorization_identifier
+        args['email'] = 'patron' + patron.authorization_identifier + '@librarysimplified.org'
+        args['firstName'] = 'Library'
+        args['lastName'] = 'Patron'
+        # will not be used in our system, so just needs to be set to a securely randomized value
+        args['password'] = os.urandom(8)
+
+
+        resp_dict = {}
+        message = None
+        try:
+            response = self.request(url=url, params=args, method="post")
+            if response.text:
+                resp_dict = response.json()
+                message = resp_dict.get('message', None)
+        except Exception, e:
+            self.log.error("Patron create failed: %r", e, exc_info=e)
+            raise RemoteInitiatedServerError(e.message, action)
+
+        # general validation
+        self.validate_response(response=response, message=message, action=action)
+
+        # double-make sure specifically
+        if response.status_code != 201 or 'patronId' not in resp_dict:
+            raise PatronCreationFailedException(action + ": " + response.text)
+
+        patron_oneclick_id = resp_dict['patronId']
+
+        return patron_oneclick_id
+
+
     def get_patron_internal_id(self, patron_email=None, patron_cardno=None):
         """ Uses either an email address or a library card to identify a patron by.
-
         :param patron_email 
         :param patron_cardno
+        :return OneClick's internal id for the patron
         """
         if patron_cardno: 
             patron_identifier = patron_cardno
@@ -185,10 +341,165 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         resp_dict = response.json()
         message = resp_dict.get('message', None)
-        error_response = self.validate_response(response, message, action=action)
+        try:
+            self.validate_response(response, message, action=action)
+        except PatronNotFoundException, e:
+            # this should not be fatal at this point
+            return None
 
-        internal_patron_id = resp_dict['patronId']
+        internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
+
+
+    def get_patron_checkouts(self, patron_id):
+        """
+        Gets the books and audio the patron currently has checked out.
+        Obtains fulfillment info for each item -- the way to fulfill a book 
+        is to get this list of possibilities first, and then call individual 
+        fulfillment endpoints on the individual items.
+
+        :param patron_id OneClick internal id for the patron.
+        """
+        url = "%s/libraries/%s/patrons/%s/checkouts/" % (self.base_url, str(self.library_id), patron_id)
+        action="patron_checkouts"
+        loans = []
+
+        resp_obj = []
+        message = None
+        try:
+            response = self.request(url=url)
+
+            if response.text:
+                resp_obj = response.json()
+                # if we succeeded, then we got back a list of checkouts
+                # if we failed, then we got back a dictionary with an error message
+                if isinstance(resp_obj, dict):
+                    message = resp_obj.get('message', None)
+        except Exception, e:
+            self.log.error("Patron checkouts failed: %r", e, exc_info=e)
+            raise RemoteInitiatedServerError(e.message, action)
+
+        self.validate_response(response=response, message=message, action=action)
+
+        # by now we can assume response is either empty or a list
+        for item in resp_obj:
+            # go through patron's checkouts and generate LoanInfo objects, 
+            # with FulfillmentInfo objects included
+            media_type = item.get('mediaType', 'eBook')
+            isbn = item.get('isbn', None)
+            can_renew = item.get('canRenew', None)
+            title = item.get('title', None)
+            authors = item.get('authors', None)
+            # refers to checkout expiration date, not the downloadUrl's
+            expires = item.get('expiration', None)
+            if expires:
+                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
+
+            identifier, made_new = Identifier.for_foreign_id(self._db, 
+                    foreign_identifier_type=Identifier.ONECLICK_ID, 
+                    foreign_id=isbn, autocreate=False)
+
+            # Note: if OneClick knows about a patron's checked-out item that wasn't
+            # checked out through us, we ignore it
+            if not identifier:
+                continue
+
+            files = item.get('files', None)
+            for file in files:
+                filename = file.get('filename', None)
+                # assume fileFormat is same for all files associated with this checkout
+                # and use the last one mentioned.  Ex: "fileFormat": "EPUB".
+                # note: audio books don't list fileFormat field, just the filename, and the mediaType.
+                file_format = file.get('fileFormat', None)
+                if file_format == 'EPUB':
+                    file_format = Representation.EPUB_MEDIA_TYPE
+                else:
+                    # slightly risky assumption here
+                    file_format = Representation.MP3_MEDIA_TYPE
+
+                # Note: download urls expire 15 minutes after being handed out
+                # in the checkouts call
+                download_url = file.get('downloadUrl', None)
+                # is included in the downloadUrl, actually
+                acs_resource_id = file.get('acsResourceId', None)
+
+            # TODO: For audio books, the downloads are done by parts, and there are 
+            # multiple download urls.  Need to have a mechanism for putting lists of 
+            # parts into fulfillment objects.
+            fulfillment_info = FulfillmentInfo(Identifier.ONECLICK_ID, 
+                identifier, 
+                content_link = download_url, 
+                content_type = file_format, 
+                content = None, 
+                content_expires = None
+            )
+
+            loan = LoanInfo(
+                Identifier.ONECLICK_ID,
+                isbn,
+                start_date=None,
+                end_date=expires,
+                fulfillment_info=fulfillment_info,
+            )
+
+            loans.append(loan)
+
+        return loans
+
+
+    def get_patron_holds(self, patron_id):
+        """
+        :param patron_id OneClick internal id for the patron.
+        """
+        url = "%s/libraries/%s/patrons/%s/holds/" % (self.base_url, str(self.library_id), patron_id)
+        action="patron_holds"
+        holds = []
+
+        resp_obj = []
+        message = None
+        try:
+            response = self.request(url=url)
+
+            if response.text:
+                resp_obj = response.json()
+                # if we succeeded, then we got back a list of holds
+                # if we failed, then we got back a dictionary with an error message
+                if isinstance(resp_obj, dict):
+                    message = resp_obj.get('message', None)
+        except Exception, e:
+            self.log.error("Patron holds failed: %r", e, exc_info=e)
+            raise RemoteInitiatedServerError(e.message, action)
+
+        self.validate_response(response=response, message=message, action=action)
+
+        # by now we can assume response is either empty or a list
+        for item in resp_obj:
+            # go through patron's holds and HoldInfo objects.
+            media_type = item.get('mediaType', 'eBook')
+            isbn = item.get('isbn', None)
+            title = item.get('title', None)
+            authors = item.get('authors', None)
+            expires = item.get('expiration', None)
+            if expires:
+                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
+
+            identifier = Identifier.from_asin(self._db, isbn, autocreate=False)
+            # Note: if OneClick knows about a patron's checked-out item that wasn't
+            # checked out through us, we ignore it
+            if not identifier:
+                continue
+
+            hold = HoldInfo(
+                Identifier.ONECLICK_ID,
+                isbn,
+                start_date=None,
+                end_date=expires,
+                hold_position=0
+            )
+
+            holds.append(hold)
+
+        return holds
 
 
     def get_patron_information(self, patron_id):
@@ -211,105 +522,68 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         resp_dict = response.json()
         message = resp_dict.get('message', None)
-        error_response = self.validate_response(response, message, action=action)
+        self.validate_response(response, message, action=action)
 
-        patron = PatronInfo(username=resp_dict['userName'], card_number=resp_dict['libraryCardNumber'],  
-            email=resp_dict['email'], first_name=resp_dict['firstName'], last_name=resp_dict['lastName'])
-
-        return patron
-
-
-    def fulfill(self, patron, pin, licensepool, internal_format):
-        """ Get the actual resource file to the patron.
-        :return a FulfillmentInfo object.
-        """
-        raise NotImplementedException
+        # If needed, will put info into PatronData subclass.  For now, OK to return a dictionary.
+        return resp_dict
 
 
     def patron_activity(self, patron, pin):
-        """ Return a patron's current checkouts and holds.
+        """ Get a patron's current checkouts and holds.
 
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         """
-        (patron_oneclick_id, item_oneclick_id) = self.validate_input(patron, licensepool=None, patron_only=True)
+        patron_oneclick_id = self.validate_patron(patron)
 
-        url = "%s/libraries/%s/patrons/%s/checkouts/" % (self.base_url, str(self.library_id), patron_id)
-        action="patron_activity"
-        
-        try:
-            response = self.request(url=url)
-        except Exception, e:
-            self.log.error("Patron info failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+        patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
+        patron_holds = self.get_patron_holds(patron_oneclick_id)
 
-        resp_dict = {}
-        message = None
-        if response.text:
-            resp_dict = response.json()
-            message = resp_dict.get('message', None)
-
-        error_response = self.validate_response(response=response, message=message, action=action)
-
-        # TODO: go through patron's checkouts and holds and 
-        # generate LoanInfo and HoldInfo objects.
-        loan = LoanInfo(
-            identifier.type,
-            item_oneclick_id,
-            today,
-            expires,
-            None,
-        )
-
-        hold = HoldInfo(
-            Identifier.OVERDRIVE_ID,
-            overdrive_identifier,
-            start_date=start,
-            end_date=end,
-            hold_position=position
-        )
+        return (patron_checkouts, patron_holds)
 
 
-    def place_hold(self, patron, pin, licensepool, notification_email_address):
-        """Place a book on hold.
-
-        :return: A HoldInfo object
+    ''' -------------------------- Validation Handling -------------------------- '''
+    def validate_item(self, licensepool):
+        """ Are we performing operations on a book that exists and can be 
+        uniquely identified? 
         """
-        raise NotImplementedException
+        item_oneclick_id = None
+        media = None
+
+        identifier = licensepool.identifier
+        item_oneclick_id=identifier.identifier
+        if not item_oneclick_id:
+            raise InvalidInputException("Licensepool %r doesn't know its ISBN.", licensepool)
+
+        if licensepool.work and licensepool.work.presentation_edition:
+            media = licensepool.work.presentation_edition.media
+
+        return item_oneclick_id, media
 
 
-    def release_hold(self, patron, pin, licensepool):
-        """Release a patron's hold on a book.
+    def validate_patron(self, patron, create=False):
+        """ Does the patron have what we need to identify them to OneClick?
+        Does OneClick have this patron's record?
+        Do we need to tell OneClick to create the patron record? 
 
-        :raises CannotReleaseHold: If there is an error communicating
-        with Overdrive, or Overdrive refuses to release the hold for
-        any reason.
+        :param patron Our db patron-representing object
+        :create if OneClick doesn't know this person, should we create them?
+        :return OneClick's unique patron id for our patron
         """
-        raise NotImplementedException
-
-
-    def validate_input(self, patron, licensepool, patron_only=False):
-        """ TODO: a more imaginative name. """
         patron_cardno = patron.authorization_identifier
         if not patron_cardno:
             raise InvalidInputException("Patron %r has no card number.", patron)
 
         patron_oneclick_id = self.get_patron_internal_id(patron_cardno=patron_cardno)
         if not patron_oneclick_id:
-            # by the time we get to this method, we expect to have a viable patron
-            raise PatronAuthorizationFailedException("OneClick doesn't recognize patron card number %s.", patron_cardno)
+            if not create:
+                # OneClick doesn't recognize this patron's permanent identifier, and we 
+                # were told not to ask OneClick to create a new record
+                raise PatronAuthorizationFailedException("OneClick doesn't recognize patron card number %s.", patron_cardno)
 
-        item_oneclick_id = None
-        if not patron_only:
-            if not licensepool:
-                raise InvalidInputException("Need a licensepool.")
+            patron_oneclick_id = self.create_patron(patron)
 
-            identifier = licensepool.identifier
-            item_oneclick_id=identifier.identifier
-            if not item_oneclick_id:
-                raise InvalidInputException("Licensepool %r doesn't know its ISBN.", licensepool)
-
-        return (patron_oneclick_id, item_oneclick_id)
+        return patron_oneclick_id
 
 
     def validate_response(self, response, message, action=""):
@@ -319,9 +593,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         (like if the item is already checked out, for example) will get a 409, etc..
         Further details are usually elaborated on in the "message" field of the response.
 
-        :return True if non-fatal errors found, false otherwise (throws exceptions on bad errors).
+        :param response http response object
+        :message OneClick puts error explanation into 'message' field in response dictionary
         """
-        if response.status_code != 200:
+        if response.status_code not in [200, 201]:
             if not message:
                 message = response.text
             self.log.warning("%s call failed: %s ", action, message)
@@ -331,6 +606,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 # sometimes those cause nice sql stack traces, which end up in 500s.
                 if message.startswith("eXtensible Framework encountered a SqlException"):
                     raise InvalidInputException(action + ": " + message)
+                elif message == "A patron account with the specified username, email address, or card number already exists for this library.":
+                    raise PatronCreationFailedException(action + ": " + message)
                 else:
                     raise RemoteInitiatedServerError(message, action)
 
@@ -357,16 +634,18 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             if response.status_code == 400:
                 raise InvalidInputException(action + ": " + message)
 
-
         elif message:
             # http code was OK, but info wasn't sucessfully read from db
-            self.log.warning("%s not retrieved: %s ", action, message)
-            raise CirculationException(action + ": " + message)
-
-        return None
+            if message.startswith("eXtensible Framework was unable to locate the resource for RB.API.OneClick.UserPatron.Get"):
+                raise PatronNotFoundException(action + ": " + message)
+            else:
+                self.log.warning("%s not retrieved: %s ", action, message)
+                raise CirculationException(action + ": " + message)
 
 
     def queue_response(self, status_code, headers={}, content=None):
+        """ Allows smoother faster creation of unit tests by letting 
+        us live-test as we write. """
         pass
 
 

@@ -46,6 +46,12 @@ class AuthorizationFailedException(CirculationException):
 class PatronAuthorizationFailedException(AuthorizationFailedException):
     status_code = 400
 
+class PatronCreationFailedException(CirculationException):
+    status_code = 500
+
+class PatronNotFoundException(CirculationException):
+    status_code = 200
+
 class LibraryAuthorizationFailedException(CirculationException):
     status_code = 500
 

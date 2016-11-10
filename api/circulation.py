@@ -31,7 +31,16 @@ class CirculationInfo(object):
 
 class FulfillmentInfo(CirculationInfo):
 
-    """A record of an attempt to fulfil a loan."""
+    """A record of an attempt to fulfill a loan.
+
+    :param identifier_type Corresponds to the third party provider.
+    :param identifier Contains ISBN or third party item id, etc., and links to LicensePool, Work, etc..
+    :param content_link Either URL to download ACSM file from or URL to streaming content.
+    :param content_type Media type of the book version we're getting.  
+        Ex: "text/html" or Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE .
+    :param content Body of acsm file or empty.  Would have either content or content_link filled in.
+    :param content_expires Download link expiration datetime.
+    """
 
     def __init__(self, identifier_type, identifier, content_link, content_type, 
                  content, content_expires):
@@ -53,7 +62,15 @@ class FulfillmentInfo(CirculationInfo):
 
 class LoanInfo(CirculationInfo):
 
-    """A record of a loan."""
+    """A record of a loan.
+
+    :param identifier_type Ex.: Identifier.ONECLICK_ID.
+    :param identifier Expected to be the unicode string of the isbn, etc..
+    :param start_date When the patron checked the book out.
+    :param end_date When checked-out book is due.  Expected to be passed in 
+    date, not unicode format.
+    :param fulfillment_info A FulfillmentInfo object.
+    """
 
     def __init__(self, identifier_type, identifier, start_date, end_date,
                  fulfillment_info=None):
@@ -77,7 +94,16 @@ class LoanInfo(CirculationInfo):
 
 class HoldInfo(CirculationInfo):
 
-    """A record of a hold."""
+    """A record of a hold.
+
+    :param identifier_type Ex.: Identifier.ONECLICK_ID.
+    :param identifier Expected to be the unicode string of the isbn, etc..
+    :param start_date When the patron made the reservation.
+    :param end_date When checked-out book is due.  Expected to be passed in 
+        date, not unicode format.
+    :param hold_position  Patron's place in the hold line.  
+        When not available, default to be passed is 0.
+    """
 
     def __init__(self, identifier_type, identifier, start_date, end_date, 
                  hold_position):
@@ -94,20 +120,6 @@ class HoldInfo(CirculationInfo):
             self.hold_position
         )
 
-
-
-class PatronInfo(CirculationInfo):
-    """ Hold patron account data coming back from OneClick before we 
-    merge it into our database. """
-    def __init__(self, oneclick_id=None, username=None, card_number=None, card_pin=None, 
-        email=None, first_name=None, last_name=None):
-        self.oneclick_id = oneclick_id
-        self.username = username
-        self.card_number = card_number
-        self.card_pin = card_pin
-        self.email = email
-        self.first_name = first_name
-        self.last_name = last_name
 
 
 class CirculationAPI(object):

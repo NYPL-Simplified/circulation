@@ -276,6 +276,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             content_expires=None
         )
 
+
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.
         """
@@ -318,8 +319,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if download_link:
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
-        else:
-            return response
+
+        raise CannotFulfill("Cannot obtain a download link for patron[%r], overdrive_id[%s], format_type[%s].", patron, overdrive_id, format_type)
+
 
     def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
         # If this for Overdrive's streaming reader, and the link expires,
