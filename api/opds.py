@@ -105,10 +105,7 @@ class CirculationManagerAnnotator(Annotator):
         return (lane_name, languages)
 
     def facet_url(self, facets):
-        lane_name, languages = self._lane_name_and_languages(self.lane)
-        kwargs = dict(facets.items())
-        return self.cdn_url_for(
-            self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
+        return self.feed_url(self.lane, facets=facets, default_route=self.facet_view)
 
     def permalink_for(self, work, license_pool, identifier):
         return self.url_for(
@@ -124,12 +121,12 @@ class CirculationManagerAnnotator(Annotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
-    def feed_url(self, lane, facets=None, pagination=None):
+    def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         if (isinstance(lane, QueryGeneratedLane) and
             hasattr(lane, 'url_arguments')):
             route, kwargs = lane.url_arguments
         else:
-            route = 'feed'
+            route = default_route
             lane_name, languages = self._lane_name_and_languages(lane)
             kwargs = dict(lane_name=lane_name, languages=languages)
         if facets != None:

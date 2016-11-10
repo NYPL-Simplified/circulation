@@ -58,6 +58,7 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
+from api.lanes import ContributorLane
 import jwt
 
 _strftime = AtomFeed._strftime
@@ -322,6 +323,9 @@ class TestOPDS(DatabaseTest):
         fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
 
+        # A QueryGeneratedLane to test code that handles it differently.
+        self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
+
     def test_default_lane_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
@@ -343,11 +347,19 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in groups_url_fantasy
 
     def test_feed_url(self):
+        # A regular Lane.
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        feed_url_contributor = annotator.feed_url(self.contributor_lane, dict(), dict())
+        assert self.contributor_lane.ROUTE in feed_url_contributor
+        assert self.contributor_lane.contributor_name in feed_url_contributor
 
     def test_search_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
@@ -358,12 +370,22 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in search_url
 
     def test_facet_url(self):
+        # A regular Lane.
         facets = dict(collection="main")
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         facet_url = annotator.facet_url(facets)
         assert "collection=main" in facet_url
         assert "Fantasy" in facet_url
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        facet_url_contributor = annotator.facet_url(facets)
+        assert "collection=main" in facet_url_contributor
+        assert self.contributor_lane.ROUTE in facet_url_contributor
+        assert self.contributor_lane.contributor_name in facet_url_contributor
+
 
     def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
