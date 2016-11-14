@@ -9,7 +9,7 @@ import requests
 #from authenticator import BasicAuthAuthenticator
 #from config import Configuration
 import os
-#import re
+import uuid
 
 from circulation import (
     BaseCirculationAPI, 
@@ -158,21 +158,25 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             method = "delete"
             action = "release_hold"
 
+        resp_obj = {}
+        message = None
         try:
             response = self.request(url=url, method=method)
+
+            if response.text:
+                resp_obj = response.json()
+
+                # checkout responses are dictionaries, hold responses are strings
+                if isinstance(resp_obj, dict):
+                    message = resp_obj.get('message', None)
+
         except Exception, e:
             self.log.error("Item circulation request failed: %r", e, exc_info=e)
             raise RemoteInitiatedServerError(e.message, action)
 
-        resp_dict = {}
-        message = None
-        if response.text:
-            resp_dict = response.json()
-            message = resp_dict.get('message', None)
-
         self.validate_response(response=response, message=message, action=action)
 
-        return resp_dict
+        return resp_obj
 
 
     def fulfill(self, patron, pin, licensepool, internal_format):
@@ -206,6 +210,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
+        Note: If the requested book is available for checkout, OneClick will respond 
+        with a "success" to the hold request.  Then, at the next database clean-up sweep, 
+        OneClick will automatically convert the hold record to a checkout record. 
+
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
         :param licensepool: The Identifier of the book to be checked out is 
@@ -217,13 +225,17 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_oneclick_id = self.validate_patron(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
+        resp_obj = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
 
-        if not resp_dict or ('error_code' in resp_dict):
-            return None
+        # successful holds return a numeric transaction id
+        try:
+            transaction_id = int(resp_obj)
+        except Exception, e:
+            self.log.error("Item hold request failed: %r", e, exc_info=e)
+            raise CannotHold(e.message)
 
-        self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier, 
-            patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
+        self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier, 
+            patron_oneclick_id, item_oneclick_id, resp_obj)
 
         today = datetime.datetime.now()
 
@@ -264,6 +276,63 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
+    '''
+
+    def update_licensepool(self, book_id):
+        """Update availability information for a single book.
+
+        If the book has never been seen before, a new LicensePool
+        will be created for the book.
+
+        The book's LicensePool will be updated with current
+        circulation information. Bibliographic coverage will be
+        ensured for the Overdrive Identifier, and a Work will be
+        created for the LicensePool and set as presentation-ready.
+        """
+        # Retrieve current circulation information about this book
+        try:
+            book, (status_code, headers, content) = self.circulation_lookup(
+                book_id
+            )
+        except Exception, e:
+            status_code = None
+            self.log.error(
+                "HTTP exception communicating with Overdrive",
+                exc_info=e
+            )
+
+        if status_code != 200:
+            self.log.error(
+                "Could not get availability for %s: status code %s",
+                book_id, status_code
+            )
+            return None, None, False
+
+        book.update(json.loads(content))
+
+        # Update book_id now that we know we have new data.
+        book_id = book['id']
+        license_pool, is_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+        if is_new:
+            # This is the first time we've seen this book. Make sure its
+            # identifier has bibliographic coverage.
+            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier
+            )
+
+        return self.update_licensepool_with_book_info(
+            book, license_pool, is_new
+        )
+
+    # Alias for the CirculationAPI interface
+    def update_availability(self, licensepool):
+        return self.update_licensepool(licensepool.identifier.identifier)
+
+
+    '''
+
+
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
     def create_patron(self, patron):
@@ -274,6 +343,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :return OneClick's internal patron id.
         """
 
+        # TODO: will not work in all libraries, find a better solution
         patron_cardno = patron.authorization_identifier
         if not patron_cardno:
             raise InvalidInputException("Patron %r has no card number.", patron)
@@ -284,9 +354,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         args = dict()
         args['libraryId'] = self.library_id
         args['libraryCardNumber'] = patron.authorization_identifier
-        # generate indicative values for the account fields the patron has not supplied us with
-        args['userName'] = 'username' + patron.authorization_identifier
-        args['email'] = 'patron' + patron.authorization_identifier + '@librarysimplified.org'
+        # generate random values for the account fields the patron has not supplied us with
+        patron_uuid = str(uuid.uuid1())
+        args['userName'] = 'username_' + patron_uuid
+        args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
         args['firstName'] = 'Library'
         args['lastName'] = 'Patron'
         # will not be used in our system, so just needs to be set to a securely randomized value
@@ -309,7 +380,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # double-make sure specifically
         if response.status_code != 201 or 'patronId' not in resp_dict:
-            raise PatronCreationFailedException(action + ": " + response.text)
+            raise RemotePatronCreationFailedException(action + 
+                ": http=" + str(response.status_code) + ", response=" + response.text)
 
         patron_oneclick_id = resp_dict['patronId']
 
@@ -343,7 +415,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except PatronNotFoundException, e:
+        except PatronNotFoundOnRemote, e:
             # this should not be fatal at this point
             return None
 
@@ -607,7 +679,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 if message.startswith("eXtensible Framework encountered a SqlException"):
                     raise InvalidInputException(action + ": " + message)
                 elif message == "A patron account with the specified username, email address, or card number already exists for this library.":
-                    raise PatronCreationFailedException(action + ": " + message)
+                    raise RemotePatronCreationFailedException(action + ": " + message)
                 else:
                     raise RemoteInitiatedServerError(message, action)
 
@@ -637,7 +709,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         elif message:
             # http code was OK, but info wasn't sucessfully read from db
             if message.startswith("eXtensible Framework was unable to locate the resource for RB.API.OneClick.UserPatron.Get"):
-                raise PatronNotFoundException(action + ": " + message)
+                raise PatronNotFoundOnRemote(action + ": " + message)
             else:
                 self.log.warning("%s not retrieved: %s ", action, message)
                 raise CirculationException(action + ": " + message)

@@ -91,7 +91,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
         oneclick_patron_id = self.api.get_patron_internal_id(patron_cardno='1305722621')
-        eq_(939982, oneclick_patron_id)
+        eq_(939981, oneclick_patron_id)
 
 
     def test_get_patron_information(self):
@@ -106,12 +106,12 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=400, content=datastr)
         assert_raises_regexp(
             InvalidInputException, "patron_info:", 
-            self.api.get_patron_information, patron_id='939982fdsfdsf'
+            self.api.get_patron_information, patron_id='939981fdsfdsf'
         )
 
         datastr, datadict = self.get_data("response_patron_info_found.json")
         self.api.queue_response(status_code=200, content=datastr)
-        patron = self.api.get_patron_information(patron_id='939982')
+        patron = self.api.get_patron_information(patron_id='939981')
         eq_(u'1305722621', patron['libraryCardNumber'])
         eq_(u'Mic', patron['firstName'])
         eq_(u'Mouse', patron['lastName'])
@@ -220,6 +220,25 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(None, loan_info.fulfillment_info)
 
 
+    def test_create_patron(self):
+        patron = self.default_patron
+        patron.oneclick_id = 939981
+
+        # queue patron id 
+        datastr, datadict = self.get_data("response_patron_create_fail_already_exists.json")
+        self.api.queue_response(status_code=409, content=datastr)
+        assert_raises_regexp(
+            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}', 
+            self.api.create_patron, patron
+        )
+
+        datastr, datadict = self.get_data("response_patron_create_success.json")
+        self.api.queue_response(status_code=201, content=datastr)
+        patron_oneclick_id = self.api.create_patron(patron)
+
+        eq_(940000, patron_oneclick_id)
+
+
     def test_fulfill(self):
         patron = self.default_patron
         patron.oneclick_id = 939981
@@ -264,9 +283,17 @@ class TestOneClickAPI(OneClickAPITest):
         patron = self.default_patron
         patron.oneclick_id = 939981
 
+        identifier = self._identifier(
+            identifier_type=Identifier.ONECLICK_ID, 
+            foreign_id='9781456103859')
+
+        identifier = self._identifier(
+            identifier_type=Identifier.ONECLICK_ID, 
+            foreign_id='9781426893483')
+
         # queue patron id 
-        datastr, datadict = self.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
+        patron_datastr, datadict = self.get_data("response_patron_internal_id_found.json")
+        self.api.queue_response(status_code=200, content=patron_datastr)
 
         # queue checkouts list
         datastr, datadict = self.get_data("response_patron_checkouts_200_list.json")
@@ -301,7 +328,8 @@ class TestOneClickAPI(OneClickAPITest):
 
 
     def test_place_hold(self):
-        # TODO
+        # Test reserving a book.
+
         patron = self.default_patron
         patron.oneclick_id = 939981
 
@@ -313,27 +341,39 @@ class TestOneClickAPI(OneClickAPITest):
         )
 
         # queue patron id 
-        datastr, datadict = self.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
+        patron_datastr, datadict = self.get_data("response_patron_internal_id_found.json")
 
+        self.api.queue_response(status_code=200, content=patron_datastr)
         datastr, datadict = self.get_data("response_patron_hold_fail_409_already_exists.json")
+        self.api.queue_response(status_code=409, content=datastr)
+        assert_raises_regexp(
+            CannotHold, ".*Hold or Checkout already exists.", 
+            self.api.place_hold, patron, None, pool, None
+        )
+
+        self.api.queue_response(status_code=200, content=patron_datastr)
+        datastr, datadict = self.get_data("response_patron_hold_fail_409_reached_limit.json")
+        self.api.queue_response(status_code=409, content=datastr)
+        assert_raises_regexp(
+            CannotHold, ".*You have reached your checkout limit and therefore are unable to place additional holds.", 
+            self.api.place_hold, patron, None, pool, None
+        )
+
+        self.api.queue_response(status_code=200, content=patron_datastr)
+        datastr, datadict = self.get_data("response_patron_hold_success.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        datastr, datadict = self.get_data("response_patron_hold_fail_409_reached_limit.json")
+        hold_info = self.api.place_hold(patron, None, pool, None)
 
-        datastr, datadict = self.get_data("response_patron_hold_success.json")
-
-        loan_info = self.api.place_hold(patron, None, pool, None)
-        eq_('OneClick ID', loan_info.identifier_type)
-        eq_(pool.identifier.identifier, loan_info.identifier)
+        eq_('OneClick ID', hold_info.identifier_type)
+        eq_(pool.identifier.identifier, hold_info.identifier)
         today = datetime.datetime.now()
-        assert (loan_info.start_date - today).total_seconds() < 20
-        assert (loan_info.end_date - today).days < 60
-        eq_(None, loan_info.fulfillment_info)
+        assert (hold_info.start_date - today).total_seconds() < 20
 
 
     def test_release_hold(self):
-        # TODO
+        # Test releasing a book resevation early.
+
         patron = self.default_patron
         patron.oneclick_id = 939981
 
@@ -347,7 +387,7 @@ class TestOneClickAPI(OneClickAPITest):
         # queue patron id 
         datastr, datadict = self.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
-        # queue checkin success
+        # queue release success
         self.api.queue_response(status_code=200, content="")
 
         success = self.api.release_hold(patron, None, pool)
@@ -356,6 +396,7 @@ class TestOneClickAPI(OneClickAPITest):
 
 
     '''
+
     def test_update_availability(self):
         """Test the OneClick implementation of the update_availability method
         defined by the CirculationAPI interface.

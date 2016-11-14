@@ -33,7 +33,7 @@ class FulfillmentInfo(CirculationInfo):
 
     """A record of an attempt to fulfill a loan.
 
-    :param identifier_type Corresponds to the third party provider.
+    :param identifier_type Ex: Third party provider, ISBN, URI, etc...
     :param identifier Contains ISBN or third party item id, etc., and links to LicensePool, Work, etc..
     :param content_link Either URL to download ACSM file from or URL to streaming content.
     :param content_type Media type of the book version we're getting.  
@@ -99,7 +99,7 @@ class HoldInfo(CirculationInfo):
     :param identifier_type Ex.: Identifier.ONECLICK_ID.
     :param identifier Expected to be the unicode string of the isbn, etc..
     :param start_date When the patron made the reservation.
-    :param end_date When checked-out book is due.  Expected to be passed in 
+    :param end_date When reserved book is expected to become available.  Expected to be passed in 
         date, not unicode format.
     :param hold_position  Patron's place in the hold line.  
         When not available, default to be passed is 0.
