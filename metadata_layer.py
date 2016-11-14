@@ -465,6 +465,14 @@ class MetaToModelUtility(object):
                 self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
+        if (link.rights_uri
+            and link.rights_uri not in RightsStatus.OPEN_ACCESS):
+            self.log.info(
+                "Not mirroring %s: rights status=%s" % (
+                    link.href, link.rights_uri
+                )
+            )
+        
         mirror = policy.mirror
         http_get = policy.http_get
 
