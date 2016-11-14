@@ -1490,8 +1490,12 @@ class TestWorkController(CirculationControllerTest):
         )
 
         self.lp.presentation_edition.series = "Around the World"
-        same_series = self._work(with_license_pool=True)
+        self.lp.presentation_edition.series_position = 1
+
+        same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
         same_series.presentation_edition.series = "Around the World"
+        same_series.presentation_edition.series_position = 0
+
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
@@ -1548,6 +1552,11 @@ class TestWorkController(CirculationControllerTest):
             title, href = collection_link(entry)
             eq_(True, href.endswith(title_to_link_ending[title]))
             del title_to_link_ending[title]
+
+        # The series feed is sorted by series position.
+        [series_e1, series_e2] = [e for e in feed['entries'] if collection_link(e)[0]=="Around the World"]
+        eq_(same_series.title, series_e1['title'])
+        eq_(self.english_1.title, series_e2['title'])
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
