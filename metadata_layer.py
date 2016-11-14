@@ -1307,7 +1307,6 @@ class Metadata(MetaToModelUtility):
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
-
         fields = self.BASIC_EDITION_FIELDS+['permanent_work_id']
         for field in fields:
             old_edition_value = getattr(edition, field)

@@ -362,7 +362,7 @@ class OPDSImporter(object):
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
-            feed, data_source=data_source, feed_url=feed_url
+            feed, data_source=data_source, feed_url=feed_url,
         )
 
         # translate the id in failures to identifier.urn
@@ -514,7 +514,9 @@ class OPDSImporter(object):
 
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
+            identifier, detail, failure = cls.detail_for_elementtree_entry(
+                parser, entry, data_source, feed_url
+            )
             if identifier:
                 if failure:
                     failures[identifier] = failure
@@ -647,7 +649,7 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
-        rights_uri = cls.rights_uri_for_entry(entry)
+        rights_uri = cls.rights_uri_from_feedparser_entry(entry)
 
         kwargs_meta = dict(
             title=title,
@@ -673,15 +675,32 @@ class OPDSImporter(object):
         return kwargs_meta
 
     @classmethod
-    def rights_uri_for_entry(cls, entry):
+    def rights_uri(cls, rights_string):
         """Determine the URI that best encapsulates the rights status of
         the downloads associated with this book.
+        """
+        return RightsStatus.rights_uri_from_string(rights_string)
 
-        :return: A URI
+    @classmethod
+    def rights_uri_from_feedparser_entry(cls, entry):
+        """Extract a rights URI from a parsed feedparser entry.
+
+        :return: A rights URI.
         """
         rights = entry.get('rights', "")
-        return RightsStatus.rights_uri_from_string(rights)
+        return cls.rights_uri(rights)
+        
+    @classmethod
+    def rights_uri_from_entry_tag(cls, entry):
+        """Extract a rights string from an lxml <entry> tag.
 
+        :return: A rights URI.
+        """
+        for name in ('atom:rights', 'rights'):
+            rights = OPDSXMLParser._xpath1(entry, 'rights')
+            if rights:
+                return cls.rights_uri(rights)
+    
     @classmethod
     def extract_messages(cls, parser, feed_tag):
         """Extract <simplified:message> tags from an OPDS feed and convert
@@ -787,7 +806,9 @@ class OPDSImporter(object):
         identifier = identifier.text
 
         try:
-            data = cls._detail_for_elementtree_entry(parser, entry_tag, feed_url)
+            data = cls._detail_for_elementtree_entry(
+                parser, entry_tag, feed_url
+            )
             return identifier, data, None
 
         except Exception, e:
@@ -832,11 +853,10 @@ class OPDSImporter(object):
             if v:
                 ratings.append(v)
         data['measurements'] = ratings
-
-        entry_rights = parser._xpath1(entry_tag, 'rights')
+        rights_uri = cls.rights_uri_from_entry_tag(entry_tag)
         
         data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag, feed_url, entry_rights)
+            cls.extract_link(link_tag, feed_url, rights_uri)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
         return data
@@ -873,7 +893,6 @@ class OPDSImporter(object):
         display_name = subtag(author_tag, 'atom:name')
         family_name = subtag(author_tag, "simplified:family_name")
         wikipedia_name = subtag(author_tag, "simplified:wikipedia_name")
-
         # TODO: we need a way of conveying roles. I believe Bibframe
         # has the answer.
 
@@ -956,7 +975,7 @@ class OPDSImporter(object):
         if rights:
             # Rights associated with the link override rights
             # associated with the entry.
-            rights_uri = RightsStatus.rights_uri_from_string(rights)
+            rights_uri = cls.rights_uri(rights)
         else:
             rights_uri = entry_rights_uri
         if feed_url and not urlparse(href).netloc:
@@ -1243,7 +1262,8 @@ class OPDSImporterWithS3Mirror(OPDSImporter):
 
     def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
-        kwargs['mirror'] = S3Uploader()
+        if 'mirror' not in kwargs:
+            kwargs['mirror'] = S3Uploader()
         super(OPDSImporterWithS3Mirror, self).__init__(
             _db, default_data_source, **kwargs
         )
