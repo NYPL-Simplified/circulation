@@ -1438,7 +1438,7 @@ class QueryGeneratedLane(Lane):
     @property
     def audience_key(self):
         """Translates audiences list into url-safe string"""
-        key = ''
+        key = u''
         if (self.audiences and
             Classifier.AUDIENCES.difference(self.audiences)):
             # There are audiences and they're not the default
