@@ -811,12 +811,15 @@ class DataSource(Base):
     )
 
     @classmethod
-    def lookup(cls, _db, name, autocreate=False):
+    def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
         if autocreate:
-            data_source, is_new = get_one_or_create(_db, DataSource, name=name)
+            data_source, is_new = get_one_or_create(
+                _db, DataSource, name=name,
+                create_method_kwargs=dict(offers_licenses=offers_licenses)
+            )
         else:
             data_source = get_one(_db, DataSource, name=name)
         return data_source
@@ -4590,6 +4593,7 @@ class Hyperlink(Base):
 
     # Some common link relations.
     CANONICAL = u"canonical"
+    GENERIC_OPDS_ACQUISITION = u"http://opds-spec.org/acquisition"
     OPEN_ACCESS_DOWNLOAD = u"http://opds-spec.org/acquisition/open-access"
     IMAGE = u"http://opds-spec.org/image"
     THUMBNAIL_IMAGE = u"http://opds-spec.org/image/thumbnail"

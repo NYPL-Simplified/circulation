@@ -356,7 +356,8 @@ class OPDSImporter(object):
         # DataSource if it doesn't already exist. This way you don't have
         # to predefine a DataSource for every source of OPDS feeds.
         data_source = DataSource.lookup(
-            self._db, name=self.data_source_name, autocreate=True
+            self._db, name=self.data_source_name, autocreate=True,
+            offers_licenses=True
         )
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
@@ -431,9 +432,7 @@ class OPDSImporter(object):
                     # TODO: This will need to be revisited when we add
                     # ODL support.
                     metadata[internal_identifier.urn].circulation = None
-
         return metadata, identified_failures
-
 
     @classmethod
     def combine(self, d1, d2):
@@ -598,7 +597,8 @@ class OPDSImporter(object):
             if circulation_data_source_name:
                 _db = Session.object_session(metadata_data_source)
                 circulation_data_source = DataSource.lookup(
-                    _db, circulation_data_source_name, autocreate=True
+                    _db, circulation_data_source_name, autocreate=True,
+                    offers_licenses=True
                 )
                 # We know this data source offers licenses because
                 # that's what the <bibframe:distribution> is there
@@ -631,7 +631,7 @@ class OPDSImporter(object):
 
             content = detail['value']
             media_type = detail.get('type', 'text/plain')
-            return LinkData(
+            return cls.make_link_data(
                 rel=Hyperlink.DESCRIPTION,
                 media_type=media_type,
                 content=content
@@ -833,8 +833,10 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
 
+        entry_rights = parser._xpath1(entry_tag, 'rights')
+        
         data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag, feed_url)
+            cls.extract_link(link_tag, feed_url, entry_rights)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
         return data
@@ -929,9 +931,21 @@ class OPDSImporter(object):
         )
 
     @classmethod
-    def extract_link(cls, link_tag, feed_url=None):
+    def extract_link(cls, link_tag, feed_url=None, entry_rights_uri=None):
+        """Convert a <link> tag into a LinkData object.
+
+        :param feed_url: The URL to the enclosing feed, for use in resolving
+        relative links.
+
+        :param entry_rights_uri: A URI describing the rights advertised
+        in the entry. Unless this specific link says otherwise, we
+        will assume that the representation on the other end of the link
+        if made available on these terms.
+        """
         attr = link_tag.attrib
         rel = attr.get('rel')
+        print etree.tostring(link_tag)
+        print rel
         media_type = attr.get('type')
         href = attr.get('href')
         if not href or not rel:
@@ -940,13 +954,26 @@ class OPDSImporter(object):
             return None
         rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
         if rights:
+            # Rights associated with the link override rights
+            # associated with the entry.
             rights_uri = RightsStatus.rights_uri_from_string(rights)
         else:
-            rights_uri = None
+            rights_uri = entry_rights_uri
         if feed_url and not urlparse(href).netloc:
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
-        return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
+        return cls.make_link_data(rel, href, media_type, rights_uri)
+
+    @classmethod
+    def make_link_data(cls, rel, href=None, media_type=None, rights_uri=None,
+                       content=None):
+        """Hook method for creating a LinkData object.
+            
+        Intended to be overridden in subclasses.
+        """
+        return LinkData(rel=rel, href=href, media_type=media_type,
+                        rights_uri=rights_uri, content=content
+        )
 
     @classmethod
     def consolidate_links(cls, links):
@@ -1082,7 +1109,8 @@ class OPDSImportMonitor(Monitor):
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
             data_source = DataSource.lookup(
-                self._db, self.importer.data_source_name, autocreate=True
+                self._db, self.importer.data_source_name, autocreate=True,
+                offers_licenses=True
             )
             record = None
 
@@ -1166,7 +1194,8 @@ class OPDSImportMonitor(Monitor):
         )
 
         data_source = DataSource.lookup(
-            self._db, self.importer.data_source_name, autocreate=True
+            self._db, self.importer.data_source_name, autocreate=True,
+            offers_licenses=True
         )
         
         # Create CoverageRecords for the successful imports.
@@ -1212,10 +1241,9 @@ class OPDSImportMonitor(Monitor):
 class OPDSImporterWithS3Mirror(OPDSImporter):
     """OPDS Importer that mirrors content to S3."""
 
-    def __init__(self, _db, default_data_source, *args, **kwargs):
+    def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
-        if not 'mirror' in kwargs:
-            kwargs['mirror'] = S3Uploader()
+        kwargs['mirror'] = S3Uploader()
         super(OPDSImporterWithS3Mirror, self).__init__(
-            _db, default_data_source, *args, **kwargs
+            _db, default_data_source, **kwargs
         )
