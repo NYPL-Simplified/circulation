@@ -407,16 +407,17 @@ class AcquisitionFeed(OPDSFeed):
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator,
+    def groups(cls, _db, title, url, lane, annotator, cache_type=None,
                force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         # Find or create a CachedFeed.
+        cache_type = cache_type or CachedFeed.GROUPS_TYPE
         cached, usable = CachedFeed.fetch(
             _db,
             lane=lane,
-            type=CachedFeed.GROUPS_TYPE,
+            type=cache_type,
             facets=None,
             pagination=None,
             annotator=annotator,
