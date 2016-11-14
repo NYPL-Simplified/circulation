@@ -608,7 +608,7 @@ class AcquisitionFeed(OPDSFeed):
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
-        entry = feed.create_entry(work, None, even_if_no_license_pool=True,
+        entry = feed.create_entry(work, even_if_no_license_pool=True,
                                   force_create=force_create)
 
         # Since this <entry> tag is going to be the root of an XML
@@ -659,9 +659,8 @@ class AcquisitionFeed(OPDSFeed):
 
         super(AcquisitionFeed, self).__init__(title, url)
 
-        lane_link = dict(rel="collection", href=url)
         for work in works:
-            self.add_entry(work, lane_link)
+            self.add_entry(work)
 
         # Add the precomposed entries and the messages.
         for entry in precomposed_entries:
@@ -669,18 +668,19 @@ class AcquisitionFeed(OPDSFeed):
                 entry = entry.tag
             self.feed.append(entry)
 
-    def add_entry(self, work, lane_link):
+    def add_entry(self, work):
         """Attempt to create an OPDS <entry>. If successful, append it to
         the feed.
         """
-        entry = self.create_entry(work, lane_link)
+        entry = self.create_entry(work)
+
         if entry is not None:
             if isinstance(entry, OPDSMessage):
                 entry = entry.tag
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link, even_if_no_license_pool=False,
+    def create_entry(self, work, even_if_no_license_pool=False,
                      force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
         identifier = None
@@ -729,8 +729,7 @@ class AcquisitionFeed(OPDSFeed):
 
         try:
             return self._create_entry(work, active_license_pool, active_edition,
-                                      identifier, lane_link, force_create, 
-                                      use_cache)
+                                      identifier, force_create, use_cache)
         except UnfulfillableWork, e:
             logging.info(
                 "Work %r is not fulfillable, refusing to create an <entry>.",
@@ -748,9 +747,8 @@ class AcquisitionFeed(OPDSFeed):
             )
             return None
 
-    def _create_entry(self, work, license_pool, edition, identifier, lane_link,
+    def _create_entry(self, work, license_pool, edition, identifier,
                       force_create=False, use_cache=True):
-
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
@@ -764,8 +762,7 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(work, BaseMaterializedWork):
                 raise Exception(
                     "Cannot build an OPDS entry for a MaterializedWork.")
-            xml = self._make_entry_xml(
-                work, license_pool, edition, identifier, lane_link)
+            xml = self._make_entry_xml(work, license_pool, edition, identifier)
             data = etree.tostring(xml)
             if field and use_cache:
                 setattr(work, field, data)
@@ -782,8 +779,7 @@ class AcquisitionFeed(OPDSFeed):
 
         return xml
 
-    def _make_entry_xml(self, work, license_pool, edition, identifier,
-                        lane_link):
+    def _make_entry_xml(self, work, license_pool, edition, identifier):
 
         # Find the .epub link
         epub_href = None
@@ -1140,7 +1136,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     default LicensePool.
     """
 
-    def create_entry(self, work, lane_link):
+    def create_entry(self, work):
         """Turn an Identifier and a Work into an entry for an acquisition
         feed.
         """
@@ -1176,7 +1172,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             edition = work.presentation_edition
         try:
             return self._create_entry(
-                work, active_licensepool, edition, identifier, lane_link,
+                work, active_licensepool, edition, identifier,
                 use_cache=use_cache
             )
         except UnfulfillableWork, e:
