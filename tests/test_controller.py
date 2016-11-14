@@ -1381,6 +1381,10 @@ class TestWorkController(CirculationControllerTest):
 
         another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
 
+        # Delete the cache again and prep a recommendation result.
+        [cached_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_feed)
+
         metadata.recommendations = [
             self.english_1.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
@@ -1604,6 +1608,10 @@ class TestWorkController(CirculationControllerTest):
         another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
         another_work.license_pools[0].presentation_edition.series = series_name
 
+        # Delete the cache
+        [cached_feed] = self._db.query(CachedFeed).all()
+        self._db.delete(cached_feed)
+        
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/?order=title"):
