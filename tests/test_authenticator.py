@@ -709,6 +709,7 @@ class TestAuthenticator(DatabaseTest):
                 Configuration.PRIVACY_POLICY: "http://privacy",
                 Configuration.COPYRIGHT: "http://copyright",
                 Configuration.ABOUT: "http://about",
+                Configuration.LICENSE: "http://license/",
             }
 
             with self.app.test_request_context("/"):        
@@ -732,6 +733,7 @@ class TestAuthenticator(DatabaseTest):
                 eq_("http://privacy", links['privacy-policy']['href'])
                 eq_("http://copyright", links['copyright']['href'])
                 eq_("http://about", links['about']['href'])
+                eq_("http://license/", links['license']['href'])
                 
                 # While we're in this context, let's also test
                 # create_authentication_headers.

@@ -72,6 +72,37 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
 
+    def test_add_configuration_links(self):
+        mock_feed = []
+        link_config = {
+            Configuration.TERMS_OF_SERVICE: "http://terms/",
+            Configuration.PRIVACY_POLICY: "http://privacy/",
+            Configuration.COPYRIGHT: "http://copyright/",
+            Configuration.ABOUT: "http://about/",
+            Configuration.LICENSE: "http://license/",
+        }
+        with temp_config() as config:
+            config['links'] = link_config
+            CirculationManagerAnnotator.add_configuration_links(mock_feed)
+
+        # Five links were added to the "feed"
+        eq_(5, len(mock_feed))
+
+        # They are the links we'd expect.
+        links = {}
+        for link in mock_feed:
+            rel = link.attrib['rel']
+            href = link.attrib['href']
+            type = link.attrib['type']
+
+            eq_("text/html", type)
+
+            # Convert the link relation into a key to the configuration.
+            config_value = rel.replace('-', '_')
+
+            # Check that the configuration value made it into the link.
+            eq_(href, link_config[config_value])
+            
     def test_open_access_link(self):
 
         # The resource URL associated with a LicensePoolDeliveryMechanism
@@ -214,7 +245,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             # An Adobe ID-specific identifier has been created for the patron.
             [adobe_id_identifier] = [x for x in patron.credentials
                                      if x not in old_credentials]
-            eq_(self.annotator.ADOBE_ID_PATRON_IDENTIFIER,
+            eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
                 adobe_id_identifier.type)
             eq_(DataSource.INTERNAL_PROCESSING,
                 adobe_id_identifier.data_source.name)
