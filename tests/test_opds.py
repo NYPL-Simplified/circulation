@@ -257,7 +257,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             [expect] = self.annotator.adobe_id_tags(
                 adobe_id_identifier.credential
             )
-            eq_(licensor, expect)
+            eq_(etree.tostring(expect), etree.tostring(licensor))
             
     def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
 
@@ -304,15 +304,11 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             eq_(library_uri, decoded['iss'])
             eq_(patron_identifier, decoded['sub'])
 
-            # If we call adobe_id_tags again we'll get the exact same
-            # tag object -- it's cached.
-            eq_([element], self.annotator.adobe_id_tags(patron_identifier))
-
-            # If we call adobe_id_tags again but pass in a different
-            # identifier, we'll get a different value. (But this
-            # shouldn't happen because any given request is for one
-            # specific patron.)
-            assert self.annotator.adobe_id_tags("another one") != [element]
+            # If we call adobe_id_tags again we'll get a distinct tag
+            # object that renders to the same XML.
+            [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
+            assert same_tag is not element
+            eq_(etree.tostring(element), etree.tostring(same_tag))
 
             
 class TestOPDS(DatabaseTest):

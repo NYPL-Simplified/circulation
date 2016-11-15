@@ -1,4 +1,5 @@
 import urllib
+import copy
 from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
@@ -643,6 +644,8 @@ class CirculationManagerAnnotator(Annotator):
                 drm_link.append(patron_key)
                 cached = [drm_link]
             self._adobe_id_tags[patron_identifier] = cached
+        else:
+            cached = copy.deepcopy(cached)
         return cached
         
     def open_access_link(self, lpdm):
