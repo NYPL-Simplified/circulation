@@ -276,63 +276,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    '''
-
-    def update_licensepool(self, book_id):
-        """Update availability information for a single book.
-
-        If the book has never been seen before, a new LicensePool
-        will be created for the book.
-
-        The book's LicensePool will be updated with current
-        circulation information. Bibliographic coverage will be
-        ensured for the Overdrive Identifier, and a Work will be
-        created for the LicensePool and set as presentation-ready.
-        """
-        # Retrieve current circulation information about this book
-        try:
-            book, (status_code, headers, content) = self.circulation_lookup(
-                book_id
-            )
-        except Exception, e:
-            status_code = None
-            self.log.error(
-                "HTTP exception communicating with Overdrive",
-                exc_info=e
-            )
-
-        if status_code != 200:
-            self.log.error(
-                "Could not get availability for %s: status code %s",
-                book_id, status_code
-            )
-            return None, None, False
-
-        book.update(json.loads(content))
-
-        # Update book_id now that we know we have new data.
-        book_id = book['id']
-        license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
-        if is_new:
-            # This is the first time we've seen this book. Make sure its
-            # identifier has bibliographic coverage.
-            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
-                license_pool.identifier
-            )
-
-        return self.update_licensepool_with_book_info(
-            book, license_pool, is_new
-        )
-
-    # Alias for the CirculationAPI interface
-    def update_availability(self, licensepool):
-        return self.update_licensepool(licensepool.identifier.identifier)
-
-
-    '''
-
-
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
     def create_patron(self, patron):
@@ -351,23 +294,25 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
         
-        args = dict()
-        args['libraryId'] = self.library_id
-        args['libraryCardNumber'] = patron.authorization_identifier
+        post_args = dict()
+        post_args['libraryId'] = self.library_id
+        post_args['libraryCardNumber'] = str(patron.authorization_identifier) + "4"
         # generate random values for the account fields the patron has not supplied us with
         patron_uuid = str(uuid.uuid1())
-        args['userName'] = 'username_' + patron_uuid
-        args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
-        args['firstName'] = 'Library'
-        args['lastName'] = 'Patron'
+        patron_uuid = os.urandom(4).encode('hex')
+        post_args['userName'] = 'username_' + patron_uuid
+        post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
+        post_args['firstName'] = 'Patron'
+        post_args['lastName'] = 'Reader'
         # will not be used in our system, so just needs to be set to a securely randomized value
-        args['password'] = os.urandom(8)
+        post_args['password'] = os.urandom(8).encode('hex')
 
 
         resp_dict = {}
         message = None
         try:
-            response = self.request(url=url, params=args, method="post")
+            set_trace()
+            response = self.request(url=url, params=post_args, method="post")
             if response.text:
                 resp_dict = response.json()
                 message = resp_dict.get('message', None)
@@ -750,46 +695,8 @@ class OneClickCirculationMonitor(Monitor):
         self.api = OneClickAPI(self._db)
         super(OneClickCirculationMonitor, self).run()
 
-    # ------
     def run_once(self, start, cutoff):
-        _db = self._db
-        added_books = 0
-        overdrive_data_source = DataSource.lookup(
-            _db, DataSource.OVERDRIVE)
-
-        total_books = 0
-        consecutive_unchanged_books = 0
-        for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
-            total_books += 1
-            if not total_books % 100:
-                self.log.info("%s books processed", total_books)
-            if not book:
-                continue
-            license_pool, is_new, is_changed = self.api.update_licensepool(book)
-            # Log a circulation event for this work.
-            if is_new:
-                Analytics.collect_event(
-                    _db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
-
-            _db.commit()
-
-            if is_changed:
-                consecutive_unchanged_books = 0
-            else:
-                consecutive_unchanged_books += 1
-                if (self.maximum_consecutive_unchanged_books
-                    and consecutive_unchanged_books >= 
-                    self.maximum_consecutive_unchanged_books):
-                    # We're supposed to stop this run after finding a
-                    # run of books that have not changed, and we have
-                    # in fact seen that many consecutive unchanged
-                    # books.
-                    self.log.info("Stopping at %d unchanged books.",
-                                  consecutive_unchanged_books)
-                    break
-
-        if total_books:
-            self.log.info("Processed %d books total.", total_books)
+        pass
 
 
 
