@@ -706,7 +706,6 @@ class CirculationData(MetaToModelUtility):
                 )
                 
                 if open_access_link or open_access_rights_link:
-                    rights_uri = link.rights_uri or self.default_rights_uri
                     if (open_access_link
                         and rights_uri != RightsStatus.IN_COPYRIGHT
                         and not rights_uri in RightsStatus.OPEN_ACCESS):
@@ -932,7 +931,19 @@ class CirculationData(MetaToModelUtility):
                         as_of=self.last_checked
                     )
 
-        made_changes = made_changes or changed_licenses
+        # Changes to the delivery mechanisms may have changed the work's
+        # open-access status.
+        old_open_access = pool.open_access                    
+        for lpdm in pool.delivery_mechanisms:
+            if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                pool.open_access = True
+                break
+        else:
+            pool.open_access = False
+        open_access_status_changed = (old_open_access != pool.open_access)
+                    
+        made_changes = (made_changes or changed_licenses
+                        or open_access_status_changed)
 
         return pool, made_changes
 

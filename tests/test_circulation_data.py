@@ -305,9 +305,9 @@ class TestCirculationData(DatabaseTest):
         # The rights status is the default for the OA content server.
         eq_(RightsStatus.GENERIC_OPEN_ACCESS, pool.delivery_mechanisms[0].rights_status.uri)
 
-    def test_rights_status_open_access_link_no_rights(self):
+    def test_rights_status_open_access_link_no_rights_uses_data_source_default(self):
         identifier = IdentifierData(
-            Identifier.OVERDRIVE_ID,
+            Identifier.GUTENBERG_ID,
             "abcd",
         )
         link = LinkData(
@@ -317,7 +317,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         circulation_data = CirculationData(
-            data_source=DataSource.OVERDRIVE,
+            data_source=DataSource.GUTENBERG,
             primary_identifier=identifier,
             links=[link],
         )
@@ -329,10 +329,42 @@ class TestCirculationData(DatabaseTest):
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
-        # Rights status is generic open access because there's an open access
-        # link but no other rights info.
-        eq_(RightsStatus.GENERIC_OPEN_ACCESS, pool.delivery_mechanisms[0].rights_status.uri)
 
+        # The delivery mechanism's rights status is the default for
+        # the data source.
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, pool.delivery_mechanisms[0].rights_status.uri)
+
+        # Even if a commercial source like Overdrive should offer a
+        # link with rel="open access", unless we know it's an
+        # open-access link we will give it a RightsStatus of
+        # IN_COPYRIGHT.
+        identifier = IdentifierData(
+            Identifier.OVERDRIVE_ID,
+            "abcd",
+        )
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href=self._url
+        )
+
+        circulation_data = CirculationData(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            links=[link],
+        )
+        
+        pool, ignore = circulation_data.license_pool(self._db)
+        circulation_data.apply(pool, replace)
+        eq_(RightsStatus.IN_COPYRIGHT,
+            pool.delivery_mechanisms[0].rights_status.uri)
+
+        # This will cause the work to be treated as a non-open-access
+        # work.
+        eq_(False, pool.open_access)
+
+        
     def test_rights_status_open_access_link_with_rights(self):
         identifier = IdentifierData(
             Identifier.OVERDRIVE_ID,
