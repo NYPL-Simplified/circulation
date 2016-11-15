@@ -245,7 +245,7 @@ class TestAnnotators(DatabaseTest):
             self._db, self._str, self._url, [work], VerboseAnnotator
         )
         url = self._url
-        tag = feed.create_entry(work, url, None)
+        tag = feed.create_entry(work, None)
 
         nsmap = dict(schema='http://schema.org/')
         ratings = [(rating.get('{http://schema.org/}ratingValue'),
@@ -1105,7 +1105,7 @@ class TestAcquisitionFeed(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, self._str, self._url, [], annotator=Annotator
         )
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         expect = AcquisitionFeed.error_message(
             work.presentation_edition.primary_identifier,
             403,
@@ -1123,7 +1123,7 @@ class TestAcquisitionFeed(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, self._str, self._url, [], annotator=Annotator
         )
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         eq_(None, entry)
         
     def test_cache_usage(self):
@@ -1137,19 +1137,19 @@ class TestAcquisitionFeed(DatabaseTest):
         work.simple_opds_entry = tiny_entry
 
         # If we pass in use_cache=True, the cached value is used.
-        entry = feed.create_entry(work, self._url, use_cache=True)
+        entry = feed.create_entry(work, use_cache=True)
         eq_(tiny_entry, work.simple_opds_entry)
         eq_(tiny_entry, etree.tostring(entry))
 
         # If we pass in use_cache=False, a new OPDS entry is created
         # from scratch, but the cache is not updated.
-        entry = feed.create_entry(work, self._url, use_cache=False)
+        entry = feed.create_entry(work, use_cache=False)
         assert etree.tostring(entry) != tiny_entry
         eq_(tiny_entry, work.simple_opds_entry)
 
         # If we pass in force_create, a new OPDS entry is created
         # and the cache is updated.
-        entry = feed.create_entry(work, self._url, force_create=True)
+        entry = feed.create_entry(work, force_create=True)
         entry_string = etree.tostring(entry) 
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
@@ -1167,7 +1167,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # But calling create_entry() doesn't raise an exception, it
         # just returns None.
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         eq_(entry, None)
 
     def test_unfilfullable_work(self):
@@ -1206,7 +1206,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             self._db, u"Feed Title", "http://whatever.io", [],
             annotator=annotator, **kwargs
         )
-        entry = feed.create_entry((identifier, work), u"http://lane/")
+        entry = feed.create_entry((identifier, work))
         if isinstance(entry, OPDSMessage):
             return feed, entry
         if entry:

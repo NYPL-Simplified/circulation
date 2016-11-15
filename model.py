@@ -5400,17 +5400,17 @@ class CachedFeed(Base):
         if not lane.languages:
             languages_key = None
         else:
-            languages_key = ",".join(lane.languages)
+            languages_key = unicode(",".join(lane.languages))
 
         if facets:
-            facets_key = facets.query_string
+            facets_key = unicode(facets.query_string)
         else:
-            facets_key = ""
+            facets_key = u""
 
         if pagination:
-            pagination_key = pagination.query_string
+            pagination_key = unicode(pagination.query_string)
         else:
-            pagination_key = ""
+            pagination_key = u""
 
         # Get a CachedFeed object. We will either return its .content,
         # or update its .content.
