@@ -27,7 +27,10 @@ from opds_import import (
     OPDSImportMonitor,
     OPDSXMLParser,
 )
-from util.opds_writer import OPDSMessage
+from util.opds_writer import (
+    AtomFeed,
+    OPDSMessage,
+)
 from metadata_layer import (
     LinkData
 )
@@ -177,22 +180,41 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
     def test_extract_link(self):
-        E = builder.ElementMaker()
-        no_rel = E.link(href="http://foo/")
+        no_rel = AtomFeed.E.link(href="http://foo/")
         eq_(None, OPDSImporter.extract_link(no_rel))
 
-        no_href = E.link(href="", rel="foo")
+        no_href = AtomFeed.E.link(href="", rel="foo")
         eq_(None, OPDSImporter.extract_link(no_href))
 
-        good = E.link(href="http://foo", rel="bar")
+        good = AtomFeed.E.link(href="http://foo", rel="bar")
         link = OPDSImporter.extract_link(good)
         eq_("http://foo", link.href)
         eq_("bar", link.rel)
 
-        relative = E.link(href="/foo/bar", rel="self")
+        relative = AtomFeed.E.link(href="/foo/bar", rel="self")
         link = OPDSImporter.extract_link(relative, "http://server")
         eq_("http://server/foo/bar", link.href)
 
+    def test_extract_link_rights_uri(self):
+
+        # Most of the time, a link's rights URI is inherited from the entry.
+        entry_rights = RightsStatus.PUBLIC_DOMAIN_USA
+        
+        link_tag = AtomFeed.E.link(href="http://foo", rel="bar")
+        link = OPDSImporter.extract_link(
+            link_tag, entry_rights_uri=entry_rights
+        )
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, link.rights_uri)
+
+        # But a dcterms:rights tag beneath the link can override this.
+        rights_attr = "{%s}rights" % AtomFeed.DCTERMS_NS
+        link_tag.attrib[rights_attr] = RightsStatus.IN_COPYRIGHT
+        set_trace()
+        link = OPDSImporter.extract_link(
+            link_tag, entry_rights_uri=entry_rights
+        )
+        eq_(RightsStatus.IN_COPYRIGHT, link.rights_uri)
+        
     def test_extract_data_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)

@@ -6445,6 +6445,9 @@ class RightsStatus(Base):
             return RightsStatus.CC_BY_NC_SA
         elif rights == 'cc by-nc-nd':
             return RightsStatus.CC_BY_NC_ND
+        elif (rights in RightsStatus.OPEN_ACCESS
+              or rights == RightsStatus.IN_COPYRIGHT):
+            return rights
         else:
             return RightsStatus.UNKNOWN
 

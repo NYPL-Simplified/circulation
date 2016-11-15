@@ -819,7 +819,6 @@ class OPDSImporter(object):
         if feedparser_data:
             feedparser_detail = feedparser_data.get(identifier)
         else:
-            set_trace()
             feedparser_detail={}
             
         try:
@@ -988,8 +987,6 @@ class OPDSImporter(object):
         """
         attr = link_tag.attrib
         rel = attr.get('rel')
-        print etree.tostring(link_tag)
-        print rel
         media_type = attr.get('type')
         href = attr.get('href')
         if not href or not rel:
