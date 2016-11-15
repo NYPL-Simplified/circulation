@@ -1612,7 +1612,7 @@ class TestWorkController(CirculationControllerTest):
         # The feed has facet links.
         links = feed['feed']['links']
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(12, len(facet_links))
+        eq_(10, len(facet_links))
 
         another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
         another_work.license_pools[0].presentation_edition.series = series_name
@@ -1648,6 +1648,17 @@ class TestWorkController(CirculationControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/?order=series"):
+            response = self.manager.work_controller.series(series_name, None, None)
+
+        eq_(200, response.status_code)
+        feed = feedparser.parse(response.data)
+        eq_(2, len(feed['entries']))
+        [entry1, entry2] = feed['entries']
+        eq_(self.english_1.title, entry1['title'])
+        eq_(another_work.title, entry2['title'])
+
+        # Series is the default facet.
+        with self.app.test_request_context("/"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
