@@ -1531,7 +1531,7 @@ class TestWorkController(CirculationControllerTest):
         [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
         title, href = collection_link(e2)
         eq_("Around the World", title)
-        expected_series_link = 'series/%s/eng/Adult?order=series' % urllib.quote("Around the World")
+        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
         eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.

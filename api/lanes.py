@@ -572,7 +572,6 @@ class SeriesLane(QueryGeneratedLane):
             languages=self.language_key,
             audiences=self.audience_key
         )
-        kwargs[Facets.ORDER_FACET_GROUP_NAME] = Facets.ORDER_SERIES_POSITION
         return self.ROUTE, kwargs
 
     def lane_query_hook(self, qu, **kwargs):
