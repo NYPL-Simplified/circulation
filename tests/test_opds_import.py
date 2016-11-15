@@ -209,7 +209,6 @@ class TestOPDSImporter(OPDSImporterTest):
         # But a dcterms:rights tag beneath the link can override this.
         rights_attr = "{%s}rights" % AtomFeed.DCTERMS_NS
         link_tag.attrib[rights_attr] = RightsStatus.IN_COPYRIGHT
-        set_trace()
         link = OPDSImporter.extract_link(
             link_tag, entry_rights_uri=entry_rights
         )
