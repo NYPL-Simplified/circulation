@@ -106,7 +106,14 @@ class TestDataSource(DatabaseTest):
         name = "Brand new data source " + self._str
         new_source = DataSource.lookup(self._db, name, autocreate=True)
         eq_(name, new_source.name)
-
+        eq_(False, new_source.offers_licenses)
+        
+        name = "New data source with licenses" + self._str
+        new_source = DataSource.lookup(
+            self._db, name, autocreate=True, offers_licenses=True
+        )
+        eq_(True, new_source.offers_licenses)
+        
     def test_metadata_sources_for(self):
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
         isbn_metadata_sources = DataSource.metadata_sources_for(
