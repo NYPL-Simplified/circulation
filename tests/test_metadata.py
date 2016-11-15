@@ -852,3 +852,31 @@ class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
         # with the identifier of the audiobook
         equivalent_identifiers = [x.output for x in identifier.equivalencies]
         eq_([book.primary_identifier], equivalent_identifiers)
+
+
+class TestCirculationData(DatabaseTest):
+    
+    def test_has_open_access_link(self):
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        
+        circulationdata = CirculationData(DataSource.GUTENBERG, identifier)
+
+        # No links
+        eq_(False, circulationdata.has_open_access_link)
+
+        linkdata = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            href=self._url,
+        )
+        circulationdata.links = [linkdata]
+        
+        # Open-access link with no explicit rights URI.
+        eq_(True, circulationdata.has_open_access_link)
+
+        # Open-access link with contradictory rights URI.
+        linkdata.rights_uri = RightsStatus.IN_COPYRIGHT
+        eq_(False, circulationdata.has_open_access_link)
+
+        # Open-access link with consistent rights URI.
+        linkdata.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
+        eq_(True, circulationdata.has_open_access_link)
