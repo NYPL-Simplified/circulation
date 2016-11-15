@@ -698,13 +698,22 @@ class CirculationData(MetaToModelUtility):
                 # An open-access link or open-access rights implies a FormatData object.
                 open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href)
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
-                open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
-                                           and link.href
-                                           and (link.rights_uri or self.default_rights_uri) in RightsStatus.OPEN_ACCESS)
+                rights_uri =  link.rights_uri or self.default_rights_uri
+                open_access_rights_link = (
+                    link.media_type in Representation.BOOK_MEDIA_TYPES 
+                    and link.href
+                    and rights_uri in RightsStatus.OPEN_ACCESS
+                )
                 
                 if open_access_link or open_access_rights_link:
                     rights_uri = link.rights_uri or self.default_rights_uri
-                    if open_access_link and not rights_uri in RightsStatus.OPEN_ACCESS:
+                    if (open_access_link
+                        and rights_uri != RightsStatus.IN_COPYRIGHT
+                        and not rights_uri in RightsStatus.OPEN_ACCESS):
+                        # We don't know exactly what's going on here but
+                        # the link said it was an open-access book
+                        # and the rights URI doesn't contradict it,
+                        # so treat it as a generic open-access book.
                         rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
                     format_found = False
                     for format in self.formats:
@@ -804,7 +813,10 @@ class CirculationData(MetaToModelUtility):
         """Does this Circulation object have an associated open-access link?"""
         return any(
             [x for x in self.links 
-             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
+             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+             and x.href
+             and x.rights_uri != RightsStatus.IN_COPYRIGHT
+            ]
         )
 
 

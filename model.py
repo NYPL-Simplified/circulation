@@ -7215,7 +7215,6 @@ class Representation(Base):
         self.fetch_exception = None
         self.update_image_size()
 
-
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored
         to its .mirror_url.

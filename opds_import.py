@@ -363,6 +363,7 @@ class OPDSImporter(object):
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
             feed, data_source=data_source, feed_url=feed_url,
+            feedparser_data=fp_metadata
         )
 
         # translate the id in failures to identifier.urn
@@ -418,7 +419,6 @@ class OPDSImporter(object):
                     combined_circ['data_source'] = self.data_source_name
             
                 combined_circ['primary_identifier'] = identifier_obj
-                
                 circulation = CirculationData(**combined_circ)
                 if circulation.formats:
                     metadata[internal_identifier.urn].circulation = circulation
@@ -477,15 +477,23 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None):
+    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None,
+                                          feedparser_data=None):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
         All the stuff that Feedparser can't handle so we have to use lxml.
 
+        :param feedparser_data: A dictionary mapping identifiers to
+        dictionaries, as returned by `extract_metadata_from_feedparser`.
+        Access to this allows the modification of information
+        extracted by Feedparser, on the basis of information described
+        through ElementTree.
+
         :return: a dictionary mapping IDs to dictionaries. The inner
         dictionary can be used as keyword arguments to the Metadata
         constructor.
+
         """
         values = {}
         failures = {}
@@ -515,7 +523,7 @@ class OPDSImporter(object):
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(
-                parser, entry, data_source, feed_url
+                parser, entry, data_source, feed_url, feedparser_data
             )
             if identifier:
                 if failure:
@@ -790,7 +798,10 @@ class OPDSImporter(object):
         )
     
     @classmethod
-    def detail_for_elementtree_entry(cls, parser, entry_tag, data_source, feed_url=None):
+    def detail_for_elementtree_entry(
+            cls, parser, entry_tag, data_source, feed_url=None,
+            feedparser_data=None
+    ):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
         used as keyword arguments to the Metadata contructor.
@@ -805,23 +816,34 @@ class OPDSImporter(object):
             return None, None, None
         identifier = identifier.text
 
+        if feedparser_data:
+            feedparser_detail = feedparser_data.get(identifier)
+        
         try:
             data = cls._detail_for_elementtree_entry(
-                parser, entry_tag, feed_url
+                parser, entry_tag, feed_url, feedparser_detail=feedparser_detail
             )
             return identifier, data, None
 
         except Exception, e:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
-            failure = CoverageFailure(identifier_obj, traceback.format_exc(), data_source, transient=True)
+            failure = CoverageFailure(
+                identifier_obj, traceback.format_exc(), data_source,
+                transient=True
+            )
             return identifier, None, failure
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None,
+                                      feedparser_detail=None):
         """Helper method that extracts metadata and circulation data from an elementtree
         entry. This method can be overridden in tests to check that callers handle things
         properly when it throws an exception.
+
+        :param feedparser_detail: A dictionary of information for this
+        entry retrieved by the Feedparser code. This method may modify
+        that information if necessary.
         """
         # We will fill this dictionary with all the information
         # we can find.
