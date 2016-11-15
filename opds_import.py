@@ -363,7 +363,6 @@ class OPDSImporter(object):
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
             feed, data_source=data_source, feed_url=feed_url,
-            feedparser_data=fp_metadata
         )
 
         # translate the id in failures to identifier.urn
@@ -408,7 +407,9 @@ class OPDSImporter(object):
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
             # form the CirculationData that would correspond to this Metadata
-            c_data_dict = m_data_dict.get('circulation')
+            c_circulation_dict = m_data_dict.get('circulation')
+            xml_circulation_dict = xml_data_dict.get('circulation', {})
+            c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -447,8 +448,13 @@ class OPDSImporter(object):
             return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
-            if k in new_dict and isinstance(v, list):
-                new_dict[k].extend(v)
+            if k in new_dict:
+                if isinstance(v, list):
+                    new_dict[k].extend(v)
+                elif isinstance(v, dict):
+                    new_dict[k] = self.combine(new_dict[k], v)
+                elif new_dict[k] is None:
+                    new_dict[k] = v
             elif k not in new_dict or v != None:
                 new_dict[k] = v
         return new_dict
@@ -477,23 +483,15 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None,
-                                          feedparser_data=None):
+    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
         All the stuff that Feedparser can't handle so we have to use lxml.
 
-        :param feedparser_data: A dictionary mapping identifiers to
-        dictionaries, as returned by `extract_metadata_from_feedparser`.
-        Access to this allows the modification of information
-        extracted by Feedparser, on the basis of information described
-        through ElementTree.
-
         :return: a dictionary mapping IDs to dictionaries. The inner
         dictionary can be used as keyword arguments to the Metadata
         constructor.
-
         """
         values = {}
         failures = {}
@@ -523,7 +521,7 @@ class OPDSImporter(object):
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(
-                parser, entry, data_source, feed_url, feedparser_data
+                parser, entry, data_source, feed_url
             )
             if identifier:
                 if failure:
@@ -800,7 +798,6 @@ class OPDSImporter(object):
     @classmethod
     def detail_for_elementtree_entry(
             cls, parser, entry_tag, data_source, feed_url=None,
-            feedparser_data=None
     ):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
@@ -815,15 +812,10 @@ class OPDSImporter(object):
             # can't derive any information from it.
             return None, None, None
         identifier = identifier.text
-
-        if feedparser_data:
-            feedparser_detail = feedparser_data.get(identifier)
-        else:
-            feedparser_detail={}
             
         try:
             data = cls._detail_for_elementtree_entry(
-                parser, entry_tag, feed_url, feedparser_detail=feedparser_detail
+                parser, entry_tag, feed_url
             )
             return identifier, data, None
 
@@ -837,15 +829,10 @@ class OPDSImporter(object):
             return identifier, None, failure
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None,
-                                      feedparser_detail=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
         """Helper method that extracts metadata and circulation data from an elementtree
         entry. This method can be overridden in tests to check that callers handle things
         properly when it throws an exception.
-
-        :param feedparser_detail: A dictionary of information for this
-        entry retrieved by the Feedparser code. This method may modify
-        that information if necessary.
         """
         # We will fill this dictionary with all the information
         # we can find.

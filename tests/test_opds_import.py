@@ -842,7 +842,37 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_pools)
         eq_([], imported_works)
 
+    def test_combine(self):
+        d1 = dict(
+            a_list=[1],
+            a_scalar="old value",
+            a_dict=dict(key1=None, key2=[2], key3="value3")
+        )
 
+        d2 = dict(
+            a_list=[2],
+            a_scalar="new value",
+            a_dict=dict(key1="finally a value", key4="value4", key2=[200])
+        )
+
+        combined = OPDSImporter.combine(d1, d2)
+
+        # Dictionaries get combined recursively.
+        d = combined['a_dict']
+        
+        # Normal scalar values don't get overridden once set.
+        eq_("old value", combined['a_scalar'])
+
+        # Missing values are filled in.
+        eq_('finally a value', d["key1"])
+        eq_('value3', d['key3'])
+        eq_('value4', d['key4'])
+        
+        # Lists get extended.
+        eq_([1, 2], combined['a_list'])
+        eq_([2, 200], d['key2'])
+
+        
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
     def test_resources_are_mirrored_on_import(self):
