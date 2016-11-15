@@ -510,9 +510,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
-        if isinstance(lane, Lane):
+        if isinstance(lane, Lane) and lane.parent:
             languages = lane.language_key
-            lane_name = None
+            lane_name = lane.name
         else:
             languages = None
             lane_name = None
@@ -565,7 +565,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
         title = lane.display_name
-        if isinstance(lane, Lane):
+        if isinstance(lane, Lane) and lane.parent:
             languages = lane.language_key
             lane_name = lane.name
         else:
