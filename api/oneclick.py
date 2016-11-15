@@ -276,18 +276,17 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    '''
-
     def update_licensepool(self, book_id):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
         will be created for the book.
 
-        The book's LicensePool will be updated with current
-        circulation information. Bibliographic coverage will be
-        ensured for the Overdrive Identifier, and a Work will be
-        created for the LicensePool and set as presentation-ready.
+        The book's LicensePool will be updated with current approximate 
+        circulation information (we can tell if it's available, but 
+        not how many copies). 
+        Bibliographic coverage will be ensured for the OneClick Identifier. 
+        Work will be created for the LicensePool and set as presentation-ready.
         """
         # Retrieve current circulation information about this book
         try:
@@ -330,7 +329,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         return self.update_licensepool(licensepool.identifier.identifier)
 
 
-    '''
 
 
 
@@ -734,8 +732,7 @@ class OneClickCirculationMonitor(Monitor):
     we hear from the metadata wrangler.
     """
     def __init__(self, _db, name="OneClick Circulation Monitor",
-                 interval_seconds=500,
-                 maximum_consecutive_unchanged_books=None):
+                 interval_seconds=1200, batch_size=50):
         super(OneClickCirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds)
         self.maximum_consecutive_unchanged_books = (
@@ -750,12 +747,11 @@ class OneClickCirculationMonitor(Monitor):
         self.api = OneClickAPI(self._db)
         super(OneClickCirculationMonitor, self).run()
 
-    # ------
+
     def run_once(self, start, cutoff):
         _db = self._db
         added_books = 0
-        overdrive_data_source = DataSource.lookup(
-            _db, DataSource.OVERDRIVE)
+        oneclick_data_source = DataSource.lookup(_db, DataSource.ONECLICK)
 
         total_books = 0
         consecutive_unchanged_books = 0

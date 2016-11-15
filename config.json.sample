@@ -1,5 +1,4 @@
 {
-    "gutenberg_illustrated_binary_path" : "",
     "data_directory" : "",
     "include_admin_interface": "true",
     "secret_key" : "use this: import os; os.urandom(24).encode('hex')",
@@ -20,12 +19,12 @@
     	"S3" : {
         }, 
 
-        "OneClick" : {
+        "ThirdPartyProvider" : {
             "username" : "app-agent-username",
             "password" : "app-agent-pwd",
             "library_id" : "participating-library-id",
             "remote_stage" : "qa", 
-            "url" : "https://api.oneclickdigital.us/", 
+            "url" : "https://api.provider.com/", 
             "basic_token" : "abc-def-ghi", 
             "ebook_loan_length" : "integer-number-days", 
             "eaudio_loan_length" : "integer-number-days"
