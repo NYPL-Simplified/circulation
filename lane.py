@@ -208,6 +208,7 @@ class Facets(FacetConstants):
             cls.ORDER_TITLE : edition_model.sort_title,
             cls.ORDER_AUTHOR : edition_model.sort_author,
             cls.ORDER_LAST_UPDATE : work_model.last_update_time,
+            cls.ORDER_SERIES_POSITION : edition_model.series_position,
             cls.ORDER_RANDOM : work_model.random,
         }
         return order_facet_to_database_field[order_facet]
@@ -234,6 +235,9 @@ class Facets(FacetConstants):
         if database_field in (Work.last_update_time, mw.last_update_time, 
                               mwg.last_update_time):
             return cls.ORDER_LAST_UPDATE
+
+        if database_field in (Edition.series_position, mw.series_position):
+            return cls.ORDER_SERIES_POSITION
 
         if database_field in (Work.id, mw.works_id, mwg.works_id):
             return cls.ORDER_WORK_ID

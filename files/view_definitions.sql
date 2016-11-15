@@ -10,6 +10,8 @@ as
     editions.cover_full_url,
     editions.cover_thumbnail_url,
     editions.open_access_download_url,
+    editions.series,
+    editions.series_position,
     datasources.name,
     identifiers.type,
     identifiers.identifier,

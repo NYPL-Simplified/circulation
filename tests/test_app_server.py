@@ -216,6 +216,9 @@ class TestLoadMethods(object):
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             facets = load_facets_from_request()
             eq_(Facets.ORDER_TITLE, facets.order)
+            # Enabled facets are passed in to the newly created Facets,
+            # in case the load method received a custom config.
+            assert facets.facets_enabled_at_init != None
 
         with self.app.test_request_context('/?order=bad_facet'):
             problemdetail = load_facets_from_request()

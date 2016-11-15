@@ -139,8 +139,16 @@ def load_facets(order, availability, collection, config=Configuration):
             _("I don't understand which collection '%(collection)s' refers to.", collection=collection),
             400
         )
+    
+    enabled_facets = {
+        Facets.ORDER_FACET_GROUP_NAME : order_facets,
+        Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
+        Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
+    }
+
     return Facets(
-        collection=collection, availability=availability, order=order
+        collection=collection, availability=availability, order=order,
+        enabled_facets=enabled_facets
     )
 
 def load_pagination(size, offset):
