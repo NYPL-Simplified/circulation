@@ -818,7 +818,10 @@ class OPDSImporter(object):
 
         if feedparser_data:
             feedparser_detail = feedparser_data.get(identifier)
-        
+        else:
+            set_trace()
+            feedparser_detail={}
+            
         try:
             data = cls._detail_for_elementtree_entry(
                 parser, entry_tag, feed_url, feedparser_detail=feedparser_detail

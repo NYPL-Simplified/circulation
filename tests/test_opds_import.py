@@ -256,7 +256,7 @@ class TestOPDSImporter(OPDSImporterTest):
         data, failures = OPDSImporter.extract_metadata_from_elementtree(
             self.content_server_feed, data_source
         )
-
+        
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
