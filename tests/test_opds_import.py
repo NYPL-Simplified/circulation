@@ -27,7 +27,10 @@ from opds_import import (
     OPDSImportMonitor,
     OPDSXMLParser,
 )
-from util.opds_writer import OPDSMessage
+from util.opds_writer import (
+    AtomFeed,
+    OPDSMessage,
+)
 from metadata_layer import (
     LinkData
 )
@@ -122,6 +125,24 @@ class OPDSImporterTest(DatabaseTest):
 
 class TestOPDSImporter(OPDSImporterTest):
 
+    def test_data_source_autocreated(self):
+        name = "New data source " + self._str
+        importer = OPDSImporter(self._db, name)
+        source1 = importer.data_source
+        eq_(name, source1.name)
+        
+        # By default, DataSources created through this mechanism do
+        # not offer licenses.
+        eq_(False, source1.offers_licenses)
+
+        # But we can create a DataSource that does offer licenses.
+        name = "New data source " + self._str
+        importer = OPDSImporter(self._db, name,
+                                data_source_offers_licenses=True)
+        source2 = importer.data_source
+        eq_(name, source2.name)
+        eq_(True, source2.offers_licenses)
+        
     def test_extract_next_links(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
         next_links = importer.extract_next_links(
@@ -177,22 +198,40 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(u"202: I'm working to locate a source for this identifier.", failure.exception)
 
     def test_extract_link(self):
-        E = builder.ElementMaker()
-        no_rel = E.link(href="http://foo/")
+        no_rel = AtomFeed.E.link(href="http://foo/")
         eq_(None, OPDSImporter.extract_link(no_rel))
 
-        no_href = E.link(href="", rel="foo")
+        no_href = AtomFeed.E.link(href="", rel="foo")
         eq_(None, OPDSImporter.extract_link(no_href))
 
-        good = E.link(href="http://foo", rel="bar")
+        good = AtomFeed.E.link(href="http://foo", rel="bar")
         link = OPDSImporter.extract_link(good)
         eq_("http://foo", link.href)
         eq_("bar", link.rel)
 
-        relative = E.link(href="/foo/bar", rel="self")
+        relative = AtomFeed.E.link(href="/foo/bar", rel="self")
         link = OPDSImporter.extract_link(relative, "http://server")
         eq_("http://server/foo/bar", link.href)
 
+    def test_extract_link_rights_uri(self):
+
+        # Most of the time, a link's rights URI is inherited from the entry.
+        entry_rights = RightsStatus.PUBLIC_DOMAIN_USA
+        
+        link_tag = AtomFeed.E.link(href="http://foo", rel="bar")
+        link = OPDSImporter.extract_link(
+            link_tag, entry_rights_uri=entry_rights
+        )
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, link.rights_uri)
+
+        # But a dcterms:rights tag beneath the link can override this.
+        rights_attr = "{%s}rights" % AtomFeed.DCTERMS_NS
+        link_tag.attrib[rights_attr] = RightsStatus.IN_COPYRIGHT
+        link = OPDSImporter.extract_link(
+            link_tag, entry_rights_uri=entry_rights
+        )
+        eq_(RightsStatus.IN_COPYRIGHT, link.rights_uri)
+        
     def test_extract_data_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -256,7 +295,7 @@ class TestOPDSImporter(OPDSImporterTest):
         data, failures = OPDSImporter.extract_metadata_from_elementtree(
             self.content_server_feed, data_source
         )
-
+        
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
@@ -822,6 +861,108 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_works)
 
 
+class TestCombine(object):
+    """Test that OPDSImporter.combine combines dictionaries in sensible
+    ways.
+    """
+        
+    def test_combine(self):
+        """An overall test that duplicates a lot of functionality
+        in the more specific tests.
+        """
+        d1 = dict(
+            a_list=[1],
+            a_scalar="old value",
+            a_dict=dict(key1=None, key2=[2], key3="value3")
+        )
+
+        d2 = dict(
+            a_list=[2],
+            a_scalar="new value",
+            a_dict=dict(key1="finally a value", key4="value4", key2=[200])
+        )
+
+        combined = OPDSImporter.combine(d1, d2)
+
+        # Dictionaries get combined recursively.
+        d = combined['a_dict']
+        
+        # Normal scalar values can be overridden once set.
+        eq_("new value", combined['a_scalar'])
+
+        # Missing values are filled in.
+        eq_('finally a value', d["key1"])
+        eq_('value3', d['key3'])
+        eq_('value4', d['key4'])
+        
+        # Lists get extended.
+        eq_([1, 2], combined['a_list'])
+        eq_([2, 200], d['key2'])
+
+    def test_combine_null_cases(self):
+        """Test combine()'s ability to handle empty and null dictionaries."""
+        c = OPDSImporter.combine
+        empty = dict()
+        nonempty = dict(a=1)
+        eq_(nonempty, c(empty, nonempty))
+        eq_(empty, c(None, None))
+        eq_(nonempty, c(nonempty, None))
+        eq_(nonempty, c(None, nonempty))
+
+    def test_combine_missing_value_is_replaced(self):
+        c = OPDSImporter.combine
+        a_is_missing = dict(b=None)
+        a_is_present = dict(a=None, b=None)
+        expect = dict(a=None, b=None)
+        eq_(expect, c(a_is_missing, a_is_present))
+
+        a_is_present['a'] = True
+        expect = dict(a=True, b=None)
+        eq_(expect, c(a_is_missing, a_is_present))
+
+    def test_combine_present_value_replaced(self):
+        """When both dictionaries define a scalar value, the second
+        dictionary's value takes presedence.
+        """
+        c = OPDSImporter.combine
+        a_is_true = dict(a=True)
+        a_is_false = dict(a=False)
+        eq_(a_is_false, c(a_is_true, a_is_false))
+        eq_(a_is_true, c(a_is_false, a_is_true))
+
+        a_is_old = dict(a="old value")
+        a_is_new = dict(a="new value")
+        eq_("new value", c(a_is_old, a_is_new)['a'])
+        
+    def test_combine_present_value_not_replaced_with_none(self):
+
+        """When combining a dictionary where a key is set to None
+        with a dictionary where that key is present, the value
+        is left alone.
+        """
+        a_is_present = dict(a=True)
+        a_is_none = dict(a=None, b=True)
+        expect = dict(a=True, b=True)
+        eq_(expect, OPDSImporter.combine(a_is_present, a_is_none))
+
+    def test_combine_present_value_extends_list(self):
+        """When both dictionaries define a list, the combined value
+        is a combined list.
+        """
+        a_is_true = dict(a=[True])
+        a_is_false = dict(a=[False])
+        eq_(dict(a=[True, False]), OPDSImporter.combine(a_is_true, a_is_false))
+
+    def test_combine_present_value_extends_dictionary(self):
+        """When both dictionaries define a dictionary, the combined value is
+        the result of combining the two dictionaries with a recursive
+        combine() call.
+        """
+        a_is_true = dict(a=dict(b=[True]))
+        a_is_false = dict(a=dict(b=[False]))
+        eq_(dict(a=dict(b=[True, False])),
+            OPDSImporter.combine(a_is_true, a_is_false))
+        
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
     def test_resources_are_mirrored_on_import(self):

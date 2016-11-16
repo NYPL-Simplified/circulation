@@ -811,12 +811,15 @@ class DataSource(Base):
     )
 
     @classmethod
-    def lookup(cls, _db, name, autocreate=False):
+    def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
         if autocreate:
-            data_source, is_new = get_one_or_create(_db, DataSource, name=name)
+            data_source, is_new = get_one_or_create(
+                _db, DataSource, name=name,
+                create_method_kwargs=dict(offers_licenses=offers_licenses)
+            )
         else:
             data_source = get_one(_db, DataSource, name=name)
         return data_source
@@ -4590,6 +4593,7 @@ class Hyperlink(Base):
 
     # Some common link relations.
     CANONICAL = u"canonical"
+    GENERIC_OPDS_ACQUISITION = u"http://opds-spec.org/acquisition"
     OPEN_ACCESS_DOWNLOAD = u"http://opds-spec.org/acquisition/open-access"
     IMAGE = u"http://opds-spec.org/image"
     THUMBNAIL_IMAGE = u"http://opds-spec.org/image/thumbnail"
@@ -6441,6 +6445,9 @@ class RightsStatus(Base):
             return RightsStatus.CC_BY_NC_SA
         elif rights == 'cc by-nc-nd':
             return RightsStatus.CC_BY_NC_ND
+        elif (rights in RightsStatus.OPEN_ACCESS
+              or rights == RightsStatus.IN_COPYRIGHT):
+            return rights
         else:
             return RightsStatus.UNKNOWN
 
@@ -7210,7 +7217,6 @@ class Representation(Base):
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
         self.update_image_size()
-
 
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored

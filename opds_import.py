@@ -199,16 +199,37 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, http_get=None):
+                 identifier_mapping=None, mirror=None, http_get=None,
+                 metadata_client=None, data_source_offers_licenses=False
+    ):
+        """
+        :param data_source_name: Name of the source of this OPDS feed.
+        If there is no DataSource with this name, one will be created.
+
+        :param data_source_offers_licenses: Set to True if you actually
+        expect to get books (as opposed to information about books)
+        from this OPDS feed. This value is only used when it's necessary
+        to create a new DataSource.
+        """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
+        self.data_source_offers_licenses = data_source_offers_licenses
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = SimplifiedOPDSLookup.from_config()
+        self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
         self.http_get = http_get
 
-
+    @property
+    def data_source(self):
+        """Look up or create a DataSource object representing the
+        source of this OPDS feed.
+        """
+        return DataSource.lookup(
+            self._db, self.data_source_name, autocreate=True,
+            offers_licenses=self.data_source_offers_licenses
+        )
+        
     def import_from_feed(self, feed, even_if_no_author=False, 
                          immediately_presentation_ready=False,
                          feed_url=None):
@@ -245,9 +266,7 @@ class OPDSImporter(object):
                 # to this item.
                 self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(
-                    self._db, self.data_source_name, autocreate=True
-                )
+                data_source = self.data_source
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
                 # clean up any edition might have created
@@ -266,9 +285,7 @@ class OPDSImporter(object):
                     works[key] = work
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(
-                    self._db, self.data_source_name, autocreate=True
-                )
+                data_source = self.data_source
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
@@ -353,9 +370,7 @@ class OPDSImporter(object):
         # This is one of these cases where we want to create a
         # DataSource if it doesn't already exist. This way you don't have
         # to predefine a DataSource for every source of OPDS feeds.
-        data_source = DataSource.lookup(
-            self._db, name=self.data_source_name, autocreate=True
-        )
+        data_source = self.data_source
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
@@ -404,7 +419,9 @@ class OPDSImporter(object):
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
             # form the CirculationData that would correspond to this Metadata
-            c_data_dict = m_data_dict.get('circulation')
+            c_circulation_dict = m_data_dict.get('circulation')
+            xml_circulation_dict = xml_data_dict.get('circulation', {})
+            c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -415,7 +432,6 @@ class OPDSImporter(object):
                     combined_circ['data_source'] = self.data_source_name
             
                 combined_circ['primary_identifier'] = identifier_obj
-                
                 circulation = CirculationData(**combined_circ)
                 if circulation.formats:
                     metadata[internal_identifier.urn].circulation = circulation
@@ -429,9 +445,7 @@ class OPDSImporter(object):
                     # TODO: This will need to be revisited when we add
                     # ODL support.
                     metadata[internal_identifier.urn].circulation = None
-
         return metadata, identified_failures
-
 
     @classmethod
     def combine(self, d1, d2):
@@ -446,10 +460,27 @@ class OPDSImporter(object):
             return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
-            if k in new_dict and isinstance(v, list):
-                new_dict[k].extend(v)
-            elif k not in new_dict or v != None:
+            if k not in new_dict:
+                # There is no value from d1. Even if the d2 value
+                # is None, we want to set it.
                 new_dict[k] = v
+            elif v != None:
+                # d1 provided a value, and d2 provided a value other
+                # than None.
+                if isinstance(v, list):
+                    # The values are lists. Merge them.
+                    new_dict[k].extend(v)
+                elif isinstance(v, dict):
+                    # The values are dicts. Merge them by with
+                    # a recursive combine() call.
+                    new_dict[k] = self.combine(new_dict[k], v)
+                else:
+                    # Overwrite d1's value with d2's value.
+                    new_dict[k] = v
+            else:
+                # d1 provided a value and d2 provided None.  Do
+                # nothing.
+                pass
         return new_dict
 
 
@@ -513,7 +544,9 @@ class OPDSImporter(object):
 
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
-            identifier, detail, failure = cls.detail_for_elementtree_entry(parser, entry, data_source, feed_url)
+            identifier, detail, failure = cls.detail_for_elementtree_entry(
+                parser, entry, data_source, feed_url
+            )
             if identifier:
                 if failure:
                     failures[identifier] = failure
@@ -595,13 +628,13 @@ class OPDSImporter(object):
             )
             if circulation_data_source_name:
                 _db = Session.object_session(metadata_data_source)
-                circulation_data_source = DataSource.lookup(
-                    _db, circulation_data_source_name, autocreate=True
-                )
                 # We know this data source offers licenses because
                 # that's what the <bibframe:distribution> is there
                 # to say.
-                circulation_data_source.offers_licenses = True
+                circulation_data_source = DataSource.lookup(
+                    _db, circulation_data_source_name, autocreate=True,
+                    offers_licenses=True
+                )
                 if not circulation_data_source:
                     raise ValueError(
                         "Unrecognized circulation data source: %s" % (
@@ -629,7 +662,7 @@ class OPDSImporter(object):
 
             content = detail['value']
             media_type = detail.get('type', 'text/plain')
-            return LinkData(
+            return cls.make_link_data(
                 rel=Hyperlink.DESCRIPTION,
                 media_type=media_type,
                 content=content
@@ -645,7 +678,7 @@ class OPDSImporter(object):
             if link:
                 links.append(link)
 
-        rights_uri = cls.rights_uri_for_entry(entry)
+        rights_uri = cls.rights_uri_from_feedparser_entry(entry)
 
         kwargs_meta = dict(
             title=title,
@@ -671,15 +704,31 @@ class OPDSImporter(object):
         return kwargs_meta
 
     @classmethod
-    def rights_uri_for_entry(cls, entry):
+    def rights_uri(cls, rights_string):
         """Determine the URI that best encapsulates the rights status of
         the downloads associated with this book.
+        """
+        return RightsStatus.rights_uri_from_string(rights_string)
 
-        :return: A URI
+    @classmethod
+    def rights_uri_from_feedparser_entry(cls, entry):
+        """Extract a rights URI from a parsed feedparser entry.
+
+        :return: A rights URI.
         """
         rights = entry.get('rights', "")
-        return RightsStatus.rights_uri_from_string(rights)
+        return cls.rights_uri(rights)
+        
+    @classmethod
+    def rights_uri_from_entry_tag(cls, entry):
+        """Extract a rights string from an lxml <entry> tag.
 
+        :return: A rights URI.
+        """
+        rights = OPDSXMLParser._xpath1(entry, 'rights')
+        if rights:
+            return cls.rights_uri(rights)
+    
     @classmethod
     def extract_messages(cls, parser, feed_tag):
         """Extract <simplified:message> tags from an OPDS feed and convert
@@ -769,7 +818,9 @@ class OPDSImporter(object):
         )
     
     @classmethod
-    def detail_for_elementtree_entry(cls, parser, entry_tag, data_source, feed_url=None):
+    def detail_for_elementtree_entry(
+            cls, parser, entry_tag, data_source, feed_url=None,
+    ):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
         used as keyword arguments to the Metadata contructor.
@@ -783,15 +834,20 @@ class OPDSImporter(object):
             # can't derive any information from it.
             return None, None, None
         identifier = identifier.text
-
+            
         try:
-            data = cls._detail_for_elementtree_entry(parser, entry_tag, feed_url)
+            data = cls._detail_for_elementtree_entry(
+                parser, entry_tag, feed_url
+            )
             return identifier, data, None
 
         except Exception, e:
             _db = Session.object_session(data_source)
             identifier_obj, ignore = Identifier.parse_urn(_db, identifier)
-            failure = CoverageFailure(identifier_obj, traceback.format_exc(), data_source, transient=True)
+            failure = CoverageFailure(
+                identifier_obj, traceback.format_exc(), data_source,
+                transient=True
+            )
             return identifier, None, failure
 
     @classmethod
@@ -830,9 +886,10 @@ class OPDSImporter(object):
             if v:
                 ratings.append(v)
         data['measurements'] = ratings
-
+        rights_uri = cls.rights_uri_from_entry_tag(entry_tag)
+        
         data['links'] = cls.consolidate_links([
-            cls.extract_link(link_tag, feed_url)
+            cls.extract_link(link_tag, feed_url, rights_uri)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
         return data
@@ -869,7 +926,6 @@ class OPDSImporter(object):
         display_name = subtag(author_tag, 'atom:name')
         family_name = subtag(author_tag, "simplified:family_name")
         wikipedia_name = subtag(author_tag, "simplified:wikipedia_name")
-
         # TODO: we need a way of conveying roles. I believe Bibframe
         # has the answer.
 
@@ -927,7 +983,17 @@ class OPDSImporter(object):
         )
 
     @classmethod
-    def extract_link(cls, link_tag, feed_url=None):
+    def extract_link(cls, link_tag, feed_url=None, entry_rights_uri=None):
+        """Convert a <link> tag into a LinkData object.
+
+        :param feed_url: The URL to the enclosing feed, for use in resolving
+        relative links.
+
+        :param entry_rights_uri: A URI describing the rights advertised
+        in the entry. Unless this specific link says otherwise, we
+        will assume that the representation on the other end of the link
+        if made available on these terms.
+        """
         attr = link_tag.attrib
         rel = attr.get('rel')
         media_type = attr.get('type')
@@ -938,13 +1004,26 @@ class OPDSImporter(object):
             return None
         rights = attr.get('{%s}rights' % OPDSXMLParser.NAMESPACES["dcterms"])
         if rights:
-            rights_uri = RightsStatus.rights_uri_from_string(rights)
+            # Rights associated with the link override rights
+            # associated with the entry.
+            rights_uri = cls.rights_uri(rights)
         else:
-            rights_uri = None
+            rights_uri = entry_rights_uri
         if feed_url and not urlparse(href).netloc:
             # This link is relative, so we need to get the absolute url
             href = urljoin(feed_url, href)
-        return LinkData(rel=rel, href=href, media_type=media_type, rights_uri=rights_uri)
+        return cls.make_link_data(rel, href, media_type, rights_uri)
+
+    @classmethod
+    def make_link_data(cls, rel, href=None, media_type=None, rights_uri=None,
+                       content=None):
+        """Hook method for creating a LinkData object.
+            
+        Intended to be overridden in subclasses.
+        """
+        return LinkData(rel=rel, href=href, media_type=media_type,
+                        rights_uri=rights_uri, content=content
+        )
 
     @classmethod
     def consolidate_links(cls, links):
@@ -1079,9 +1158,7 @@ class OPDSImportMonitor(Monitor):
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = DataSource.lookup(
-                self._db, self.importer.data_source_name, autocreate=True
-            )
+            data_source = self.importer.data_source
             record = None
 
             if identifier:
@@ -1163,9 +1240,7 @@ class OPDSImportMonitor(Monitor):
             feed_url=feed_url
         )
 
-        data_source = DataSource.lookup(
-            self._db, self.importer.data_source_name, autocreate=True
-        )
+        data_source = self.importer.data_source
         
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:
@@ -1212,7 +1287,8 @@ class OPDSImporterWithS3Mirror(OPDSImporter):
 
     def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
-        kwargs['mirror'] = S3Uploader()
+        if 'mirror' not in kwargs:
+            kwargs['mirror'] = S3Uploader()
         super(OPDSImporterWithS3Mirror, self).__init__(
             _db, default_data_source, **kwargs
         )
