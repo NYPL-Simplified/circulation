@@ -90,7 +90,8 @@ from authenticator import (
 )
 from config import (
     Configuration, 
-    CannotLoadConfiguration
+    CannotLoadConfiguration,
+    FacetConfig,
 )
 
 from lanes import (
@@ -937,6 +938,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
         )
         return feed_response(unicode(feed.content))
@@ -993,6 +995,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.DISPLAY_NAME, url, lane,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
         return feed_response(unicode(feed.content))
@@ -1063,7 +1066,15 @@ class WorkController(CirculationManagerController):
 
         lane = SeriesLane(self._db, series_name, languages, audiences)
         annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request()
+
+        # This has special handling of facets because a series can
+        # be ordered by series position, as well as the regular enabled
+        # facets.
+        facet_config = FacetConfig.from_config()
+        facet_config.set_default_facet(Facets.ORDER_FACET_GROUP_NAME,
+                                       Facets.ORDER_SERIES_POSITION)
+
+        facets = load_facets_from_request(config=facet_config)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()
@@ -1077,6 +1088,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
         return feed_response(unicode(feed.content))
