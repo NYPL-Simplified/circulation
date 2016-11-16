@@ -63,7 +63,7 @@ class OneClickAPI(object):
         self.username = username
         self.password = password
         self.remote_stage = remote_stage
-        self.base_url = base_url
+        self.base_url = base_url or ''
         self.base_url = self.base_url + self.API_VERSION
         self.token = basic_token
         # expiration defaults are OneClick-general
@@ -423,10 +423,16 @@ class MockOneClickAPI(OneClickAPI):
                 'remote_stage' : 'qa', 
                 'base_url' : 'www.oneclickapi.test', 
                 'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : "21", 
-                "eaudio_loan_length" : "21"
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
             }
-            super(MockOneClickAPI, self).__init__(_db, *args, **kwargs)
+            super(MockOneClickAPI, self).__init__(_db, 
+                library_id='library_id_123', 
+                username='username_123', password='password_123', 
+                remote_stage='qa', base_url='www.oneclickapi.test', 
+                basic_token='abcdef123hijklm', 
+                ebook_loan_length='21', 
+                eaudio_loan_length='21', *args, **kwargs)
 
         if with_token:
             self.token = "mock token"
