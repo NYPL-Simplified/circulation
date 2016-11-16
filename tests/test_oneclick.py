@@ -59,7 +59,7 @@ class OneClickAPITest(DatabaseTest):
     def setup(self):
         super(OneClickAPITest, self).setup()
 
-        self.api = OneClickAPI.from_config(self._db)
+        self.api = MockOneClickAPI.from_config(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
@@ -669,6 +669,7 @@ class TestCirculationMonitor(DatabaseTest):
                        if x.data_source.name == DataSource.ONECLICK
                        and x.operation is None]
             eq_(1, len(records))
+
 
     def test_process_book_updates_old_licensepool(self):
         """If the LicensePool already exists, the circulation monitor

@@ -1,14 +1,10 @@
 import logging
 from nose.tools import set_trace
 
-#from urlparse import urljoin
-#from urllib import urlencode
 import datetime
-import requests
-
-#from authenticator import BasicAuthAuthenticator
-#from config import Configuration
+import json;
 import os
+import requests
 import uuid
 
 from circulation import (
@@ -359,6 +355,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         '''
 
 
+
     ''' -------------------------- Patron Account Handling -------------------------- '''
     def create_patron(self, patron):
         """ Ask OneClick to create a new patron record.
@@ -376,23 +373,23 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
         
-        args = dict()
-        args['libraryId'] = self.library_id
-        args['libraryCardNumber'] = patron.authorization_identifier
+        post_args = dict()
+        post_args['libraryId'] = self.library_id
+        post_args['libraryCardNumber'] = str(patron.authorization_identifier)
         # generate random values for the account fields the patron has not supplied us with
         patron_uuid = str(uuid.uuid1())
-        args['userName'] = 'username_' + patron_uuid
-        args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
-        args['firstName'] = 'Library'
-        args['lastName'] = 'Patron'
+        post_args['userName'] = 'username_' + patron_uuid
+        post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
+        post_args['firstName'] = 'Patron'
+        post_args['lastName'] = 'Reader'
         # will not be used in our system, so just needs to be set to a securely randomized value
-        args['password'] = os.urandom(8)
+        post_args['password'] = os.urandom(8).encode('hex')
 
 
         resp_dict = {}
         message = None
         try:
-            response = self.request(url=url, params=args, method="post")
+            response = self.request(url=url, data=json.dumps(post_args), method="post")
             if response.text:
                 resp_dict = response.json()
                 message = resp_dict.get('message', None)
