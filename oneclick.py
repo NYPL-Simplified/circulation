@@ -133,7 +133,6 @@ class OneClickAPI(object):
 
     def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
         """Actually make an HTTP request."""
-        set_trace()
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
             params=params, **kwargs
@@ -297,11 +296,13 @@ class OneClickAPI(object):
         return response.json()
 
 
-    def get_ebook_availability_info(self):
+    def get_ebook_availability_info(self, media_type='ebook'):
         """
         Gets a list of ebook items this library has access to, through the "availability" endpoint.
         The response at this endpoint is laconic -- just enough fields per item to 
         identify the item and declare it either available to lend or not.
+
+        :param media_type 'ebook'/'eaudio'
 
         :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
         Example of returned item format:
@@ -311,7 +312,7 @@ class OneClickAPI(object):
             "availability": false
             "titleId": 39764
         """
-        url = "%s/libraries/%s/media/ebook/availability" % (self.base_url, str(self.library_id)) 
+        url = "%s/libraries/%s/media/%s/availability" % (self.base_url, str(self.library_id), media_type) 
 
         response = self.request(url)
 
@@ -432,7 +433,7 @@ class MockOneClickAPI(OneClickAPI):
                 remote_stage='qa', base_url='www.oneclickapi.test', 
                 basic_token='abcdef123hijklm', 
                 ebook_loan_length='21', 
-                eaudio_loan_length='21', *args, **kwargs)
+                eaudio_loan_length='21')
 
         if with_token:
             self.token = "mock token"
