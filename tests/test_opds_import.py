@@ -842,7 +842,16 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_pools)
         eq_([], imported_works)
 
+
+class TestCombine(object):
+    """Test that OPDSImporter.combine combines dictionaries in sensible
+    ways.
+    """
+        
     def test_combine(self):
+        """An overall test that duplicates a lot of functionality
+        in the more specific tests.
+        """
         d1 = dict(
             a_list=[1],
             a_scalar="old value",
@@ -860,8 +869,8 @@ class TestOPDSImporter(OPDSImporterTest):
         # Dictionaries get combined recursively.
         d = combined['a_dict']
         
-        # Normal scalar values don't get overridden once set.
-        eq_("old value", combined['a_scalar'])
+        # Normal scalar values can be overridden once set.
+        eq_("new value", combined['a_scalar'])
 
         # Missing values are filled in.
         eq_('finally a value', d["key1"])
@@ -872,6 +881,69 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([1, 2], combined['a_list'])
         eq_([2, 200], d['key2'])
 
+    def test_combine_null_cases(self):
+        """Test combine()'s ability to handle empty and null dictionaries."""
+        c = OPDSImporter.combine
+        empty = dict()
+        nonempty = dict(a=1)
+        eq_(nonempty, c(empty, nonempty))
+        eq_(empty, c(None, None))
+        eq_(nonempty, c(nonempty, None))
+        eq_(nonempty, c(None, nonempty))
+
+    def test_combine_missing_value_is_replaced(self):
+        c = OPDSImporter.combine
+        a_is_missing = dict(b=None)
+        a_is_present = dict(a=None, b=None)
+        expect = dict(a=None, b=None)
+        eq_(expect, c(a_is_missing, a_is_present))
+
+        a_is_present['a'] = True
+        expect = dict(a=True, b=None)
+        eq_(expect, c(a_is_missing, a_is_present))
+
+    def test_combine_present_value_replaced(self):
+        """When both dictionaries define a scalar value, the second
+        dictionary's value takes presedence.
+        """
+        c = OPDSImporter.combine
+        a_is_true = dict(a=True)
+        a_is_false = dict(a=False)
+        eq_(a_is_false, c(a_is_true, a_is_false))
+        eq_(a_is_true, c(a_is_false, a_is_true))
+
+        a_is_old = dict(a="old value")
+        a_is_new = dict(a="new value")
+        eq_("new value", c(a_is_old, a_is_new)['a'])
+        
+    def test_combine_present_value_not_replaced_with_none(self):
+
+        """When combining a dictionary where a key is set to None
+        with a dictionary where that key is present, the value
+        is left alone.
+        """
+        a_is_present = dict(a=True)
+        a_is_none = dict(a=None, b=True)
+        expect = dict(a=True, b=True)
+        eq_(expect, OPDSImporter.combine(a_is_present, a_is_none))
+
+    def test_combine_present_value_extends_list(self):
+        """When both dictionaries define a list, the combined value
+        is a combined list.
+        """
+        a_is_true = dict(a=[True])
+        a_is_false = dict(a=[False])
+        eq_(dict(a=[True, False]), OPDSImporter.combine(a_is_true, a_is_false))
+
+    def test_combine_present_value_extends_dictionary(self):
+        """When both dictionaries define a dictionary, the combined value is
+        the result of combining the two dictionaries with a recursive
+        combine() call.
+        """
+        a_is_true = dict(a=dict(b=[True]))
+        a_is_false = dict(a=dict(b=[False]))
+        eq_(dict(a=dict(b=[True, False])),
+            OPDSImporter.combine(a_is_true, a_is_false))
         
 class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 

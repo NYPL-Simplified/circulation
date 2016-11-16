@@ -448,15 +448,27 @@ class OPDSImporter(object):
             return dict(d1)
         new_dict = dict(d1)
         for k, v in d2.items():
-            if k in new_dict:
+            if k not in new_dict:
+                # There is no value from d1. Even if the d2 value
+                # is None, we want to set it.
+                new_dict[k] = v
+            elif v != None:
+                # d1 provided a value, and d2 provided a value other
+                # than None.
                 if isinstance(v, list):
+                    # The values are lists. Merge them.
                     new_dict[k].extend(v)
                 elif isinstance(v, dict):
+                    # The values are dicts. Merge them by with
+                    # a recursive combine() call.
                     new_dict[k] = self.combine(new_dict[k], v)
-                elif new_dict[k] is None:
+                else:
+                    # Overwrite d1's value with d2's value.
                     new_dict[k] = v
-            elif k not in new_dict or v != None:
-                new_dict[k] = v
+            else:
+                # d1 provided a value and d2 provided None.  Do
+                # nothing.
+                pass
         return new_dict
 
 
