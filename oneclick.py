@@ -58,20 +58,17 @@ class OneClickAPI(object):
         remote_stage=None, base_url=None, basic_token=None, 
         ebook_loan_length=None, eaudio_loan_length=None):
         self._db = _db
-        (env_library_id, env_username, env_password, 
-         env_remote_stage, env_base_url, env_basic_token, 
-         env_ebook_loan_length, env_eaudio_loan_length) = self.from_config()
             
-        self.library_id = library_id or env_library_id
-        self.username = username or env_username
-        self.password = password or env_password
-        self.remote_stage = remote_stage or env_remote_stage
-        self.base_url = base_url or env_base_url
+        self.library_id = library_id
+        self.username = username
+        self.password = password
+        self.remote_stage = remote_stage
+        self.base_url = base_url
         self.base_url = self.base_url + self.API_VERSION
-        self.token = basic_token or env_basic_token
+        self.token = basic_token
         # expiration defaults are OneClick-general
-        self.ebook_loan_length = ebook_loan_length or env_ebook_loan_length
-        self.eaudio_loan_length = eaudio_loan_length or env_eaudio_loan_length
+        self.ebook_loan_length = ebook_loan_length
+        self.eaudio_loan_length = eaudio_loan_length
 
 
     @classmethod
@@ -88,42 +85,38 @@ class OneClickAPI(object):
 
 
     @classmethod
-    def from_config(cls):
+    def from_config(cls, _db):
         config = Configuration.integration(Configuration.ONECLICK_INTEGRATION, required=True)
-        values = []
-        for name in [
-                'library_id',
-                'username',
-                'password',
-                'remote_stage', 
-                'url', 
-                'basic_token', 
-                'ebook_loan_length', 
-                'eaudio_loan_length'
-        ]:
+        property_names = [
+            'library_id',
+            'username',
+            'password',
+            'remote_stage', 
+            'url', 
+            'basic_token', 
+            'ebook_loan_length', 
+            'eaudio_loan_length'
+        ]
+        property_values = {}
+        for name in property_names:
             value = config.get(name)
             if value:
                 value = value.encode("utf8")
-            values.append(value)
+            property_values[name] = value
 
-        if len(values) == 0:
+        if len(property_values.values()) == 0:
             cls.log.info("No OneClick client configured.")
-            return None
-
-        return values
+            raise ValueError("No OneClick client configured.")
 
 
-    @classmethod
-    def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None
-        values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No OneClick client configured."
-            )
-            return None
-        return cls(_db)
+        api = cls(_db, library_id=property_values['library_id'], 
+            username=property_values['username'], password=property_values['password'], 
+            remote_stage=property_values['remote_stage'], base_url=property_values['url'], 
+            basic_token=property_values['basic_token'], 
+            ebook_loan_length=property_values['ebook_loan_length'], 
+            eaudio_loan_length=property_values['eaudio_loan_length'])
+
+        return api
 
 
     @property
@@ -140,6 +133,7 @@ class OneClickAPI(object):
 
     def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
         """Actually make an HTTP request."""
+        set_trace()
         return HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
             params=params, **kwargs
@@ -230,7 +224,7 @@ class OneClickAPI(object):
         The results are returned unpaged.
 
         Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.  
-        If want more metadata, perform a per-item search.
+        If want more metadata, perform a search.
 
         :return A list of dictionaries representation of the response.
         """
@@ -426,16 +420,17 @@ class MockOneClickAPI(OneClickAPI):
                 'library_id' : 'library_id_123',
                 'username' : 'username_123',
                 'password' : 'password_123',
-                'server' : 'http://axis.test/',
                 'remote_stage' : 'qa', 
-                'url' : 'www.oneclickapi.test', 
+                'base_url' : 'www.oneclickapi.test', 
                 'basic_token' : 'abcdef123hijklm', 
                 "ebook_loan_length" : "21", 
                 "eaudio_loan_length" : "21"
             }
             super(MockOneClickAPI, self).__init__(_db, *args, **kwargs)
+
         if with_token:
             self.token = "mock token"
+
         self.responses = []
         self.requests = []
 

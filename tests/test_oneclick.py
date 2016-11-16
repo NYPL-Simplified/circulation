@@ -166,7 +166,6 @@ class TestOneClickAPI(OneClickTest):
         eq_(u'9780307378101', response_dictionary['isbn'])
         eq_(u'Anchor', response_dictionary['publisher'])
 
-        
 
 
 class TestOneClickRepresentationExtractor(OneClickTest):
