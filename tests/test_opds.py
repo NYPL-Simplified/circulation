@@ -1,3 +1,4 @@
+import base64
 import datetime
 import os
 import re
@@ -58,6 +59,7 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
+from api.lanes import ContributorLane
 import jwt
 
 _strftime = AtomFeed._strftime
@@ -256,7 +258,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             [expect] = self.annotator.adobe_id_tags(
                 adobe_id_identifier.credential
             )
-            eq_(licensor, expect)
+            eq_(etree.tostring(expect), etree.tostring(licensor))
             
     def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
 
@@ -296,22 +298,19 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             [token] = element.getchildren()
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
-            # token.text is a JWT which we can decode, since we know the
-            # secret.
+            # token.text is a base64-encoded JWT which we can decode,
+            # since we know the secret.
             token = token.text
+            token = base64.decodestring(token)
             decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
             eq_(library_uri, decoded['iss'])
             eq_(patron_identifier, decoded['sub'])
 
-            # If we call adobe_id_tags again we'll get the exact same
-            # tag object -- it's cached.
-            eq_([element], self.annotator.adobe_id_tags(patron_identifier))
-
-            # If we call adobe_id_tags again but pass in a different
-            # identifier, we'll get a different value. (But this
-            # shouldn't happen because any given request is for one
-            # specific patron.)
-            assert self.annotator.adobe_id_tags("another one") != [element]
+            # If we call adobe_id_tags again we'll get a distinct tag
+            # object that renders to the same XML.
+            [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
+            assert same_tag is not element
+            eq_(etree.tostring(element), etree.tostring(same_tag))
 
             
 class TestOPDS(DatabaseTest):
@@ -321,6 +320,9 @@ class TestOPDS(DatabaseTest):
         parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
         fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
+
+        # A QueryGeneratedLane to test code that handles it differently.
+        self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
@@ -343,11 +345,19 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in groups_url_fantasy
 
     def test_feed_url(self):
+        # A regular Lane.
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        feed_url_contributor = annotator.feed_url(self.contributor_lane, dict(), dict())
+        assert self.contributor_lane.ROUTE in feed_url_contributor
+        assert self.contributor_lane.contributor_name in feed_url_contributor
 
     def test_search_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
@@ -358,12 +368,22 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in search_url
 
     def test_facet_url(self):
+        # A regular Lane.
         facets = dict(collection="main")
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         facet_url = annotator.facet_url(facets)
         assert "collection=main" in facet_url
         assert "Fantasy" in facet_url
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        facet_url_contributor = annotator.facet_url(facets)
+        assert "collection=main" in facet_url_contributor
+        assert self.contributor_lane.ROUTE in facet_url_contributor
+        assert self.contributor_lane.contributor_name in facet_url_contributor
+
 
     def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)
