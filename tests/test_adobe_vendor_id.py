@@ -601,7 +601,10 @@ class TestAuthdataUtility(VendorIDTest):
         authdata = self.authdata._encode(
             self.authdata.library_uri, patron_identifier, now, expires
         )
-        eq_('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw', authdata)
+        eq_(
+            base64.encodestring('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwOi8vbXktbGlicmFyeS5vcmcvIiwiaWF0IjoxNDUxNjQ5NjAwLjAsInN1YiI6IlBhdHJvbiBpZGVudGlmaWVyIiwiZXhwIjoxNTE0ODA4MDAwLjB9.n7VRVv3gIyLmNxTzNRTEfCdjoky0T0a1Jhehcag1oQw'),
+            authdata
+        )
 
     def test_decode_from_another_library(self):        
 
@@ -639,7 +642,6 @@ class TestAuthdataUtility(VendorIDTest):
             secret = "Some other library secret",
         )
         vendor_id, authdata = foreign_authdata.encode("A patron")
-
         # They can encode, but we cna't decode.
         assert_raises_regexp(
             DecodeError, "Unknown library: http://some-other-library.org/",
