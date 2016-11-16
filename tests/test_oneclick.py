@@ -10,36 +10,34 @@ from nose.tools import (
 import os
 from StringIO import StringIO
 
+from core.config import (
+    #Configuration, 
+    temp_config,
+)
 
 from core.model import (
     get_one_or_create,
-    #Contributor,
+    Contributor,
     DataSource,
     Edition,
     Identifier,
-    #LicensePool,
+    LicensePool,
     Patron,
     Subject,
 )
 
 from core.metadata_layer import (
-    Metadata,
     CirculationData,
+    ContributorData,
     IdentifierData,
-    #ContributorData,
+    Metadata,
     SubjectData,
 )
 
-
 from api.oneclick import (
     OneClickAPI,
+    OneClickCirculationMonitor, 
     MockOneClickAPI,
-)
-
-
-from . import (
-    DatabaseTest,
-    #sample_data
 )
 
 from api.circulation import (
@@ -50,6 +48,10 @@ from api.circulation import (
 
 from api.circulation_exceptions import *
 
+from . import (
+    DatabaseTest,
+)
+
 
 
 class OneClickAPITest(DatabaseTest):
@@ -57,7 +59,7 @@ class OneClickAPITest(DatabaseTest):
     def setup(self):
         super(OneClickAPITest, self).setup()
 
-        self.api = MockOneClickAPI(self._db)
+        self.api = OneClickAPI.from_config(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
@@ -401,8 +403,8 @@ class TestOneClickAPI(OneClickAPITest):
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
-            identifier_type=Identifier.ONE_CLICK_ID,
-            data_source_name=DataSource.ONE_CLICK,
+            identifier_type=Identifier.ONECLICK_ID,
+            data_source_name=DataSource.ONECLICK,
             with_license_pool=True
         )
 
@@ -415,14 +417,14 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(None, pool.last_checked)
 
         # Prepare availability information.
-        data = self.sample_data("availability_with_loans.xml")
+        datastr, datadict = self.get_data("response_availability_single_ebook.json")
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
         new_identifier = pool.identifier.identifier.encode("ascii")
-        data = data.replace("0012533119", new_identifier)
+        datastr = datastr.replace("9781781107041", new_identifier)
 
-        self.api.queue_response(200, content=data)
+        self.api.queue_response(status_code=200, content=datastr)
 
         self.api.update_availability(pool)
 
@@ -432,6 +434,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(1, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
+
 
     def test_update_licensepool_error(self):
         # Create an identifier.
@@ -503,7 +506,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         # Create an identifier
         identifier = self._identifier(
-            identifier_type=Identifier.OVERDRIVE_ID
+            identifier_type=Identifier.ONECLICK_ID
         )
 
         # Make it look like the availability information is for the
@@ -512,7 +515,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         api = DummyOverdriveAPI(self._db)
         pool, was_new = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, 
+            self._db, DataSource.ONECLICK, 
             identifier.type, identifier.identifier
         )
         
@@ -528,6 +531,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
         eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
+
 
     def test_update_existing_licensepool(self):
         data, raw = self.sample_json("overdrive_availability_information.json")
@@ -611,7 +615,7 @@ class TestCirculationMonitor(DatabaseTest):
 
     def test_process_book(self):
         with temp_config() as config:
-            monitor = Axis360CirculationMonitor(self._db)
+            monitor = OneClickCirculationMonitor(self._db)
             monitor.api = None
             edition, license_pool = monitor.process_book(
                 self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
@@ -662,7 +666,7 @@ class TestCirculationMonitor(DatabaseTest):
             # it doesn't have to make a separate API request to ask about
             # this book.
             records = [x for x in license_pool.identifier.coverage_records
-                       if x.data_source.name == DataSource.AXIS_360
+                       if x.data_source.name == DataSource.ONECLICK
                        and x.operation is None]
             eq_(1, len(records))
 
@@ -671,7 +675,7 @@ class TestCirculationMonitor(DatabaseTest):
         updates it.
         """
         edition, licensepool = self._edition(
-            with_license_pool=True, identifier_type=Identifier.AXIS_360_ID,
+            with_license_pool=True, identifier_type=Identifier.ONECLICK_ID,
             identifier_id=u'0003642860'
         )
         # We start off with availability information based on the
@@ -682,8 +686,8 @@ class TestCirculationMonitor(DatabaseTest):
             type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier
         )
-        metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
-        monitor = Axis360CirculationMonitor(self._db)
+        metadata = Metadata(DataSource.ONECLICK, primary_identifier=identifier)
+        monitor = OneClickCirculationMonitor(self._db)
         monitor.api = None
         edition, licensepool = monitor.process_book(
             metadata, self.AVAILABILITY_DATA

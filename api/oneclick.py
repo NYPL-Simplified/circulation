@@ -276,7 +276,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    def update_availability(self, isbn, availability):
+    def update_licensepools_for_identifier(self, isbn, availability):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -329,6 +329,34 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         return license_pool, is_new_pool, circulation_changed
         
+
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+
+        Part of the CirculationAPI interface.
+        """
+
+        for lpdm in licensepool.delivery_mechanisms:
+            if lpdm.resource and lpdm.resource.representation:
+                print lpdm.resource.representation
+
+        '''
+        if licensepool. == Representation.MP3_MEDIA_TYPE
+
+         Representation.SUPPORTED_BOOK_MEDIA_TYPES
+
+        availability_list = self.get_ebook_availability_info(media_type='ebook')
+        item_count = 0
+        for availability in availability_list:
+            isbn = availability['isbn']
+            # boolean True/False value, not number of licenses
+            available = availability_list['availability']
+
+            license_pool, is_new, is_changed = self.api.update_licensepools_for_identifier(isbn, available)
+
+
+        self.update_licensepools_for_identifier(licensepool.identifier)
+        '''
 
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
@@ -738,25 +766,16 @@ class OneClickCirculationMonitor(Monitor):
             maximum_consecutive_unchanged_books)
 
 
-    def recently_changed_ids(self, start, cutoff):
-        return self.api.get_delta(start, cutoff)
-
-
-    def run(self):
-        self.api = OneClickAPI(self._db)
-        super(OneClickCirculationMonitor, self).run()
-
-
-    def run_once(self, start, cutoff):
+    def process_availability(self, media_type='ebook'):
         # get list of all titles, with availability info
-        availability_list = self.get_ebook_availability_info()
+        availability_list = self.get_ebook_availability_info(media_type=media_type)
         item_count = 0
         for availability in availability_list:
             isbn = availability['isbn']
             # boolean True/False value, not number of licenses
             available = availability_list['availability']
 
-            license_pool, is_new, is_changed = self.api.update_licensepool(isbn, available)
+            license_pool, is_new, is_changed = self.api.update_licensepools_for_identifier(isbn, available)
             # Log a circulation event for this work.
             if is_new:
                 Analytics.collect_event(
@@ -766,7 +785,19 @@ class OneClickCirculationMonitor(Monitor):
             if count % self.batch_size == 0:
                 self._db.commit()
 
-        self.log.info("Processed %d books total.", item_count)
+        return item_count
+
+
+    def run(self):
+        self.api = OneClickAPI(self._db)
+        super(OneClickCirculationMonitor, self).run()
+
+
+    def run_once(self, start, cutoff):
+        ebook_count = self.process_availability(media_type='ebook')
+        eaudio_count = self.process_availability(media_type='eaudio')
+
+        self.log.info("Processed %d ebooks and %d audiobooks.", (ebook_count, eaudio_count))
 
 
 
