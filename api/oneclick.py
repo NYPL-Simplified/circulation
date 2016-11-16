@@ -276,7 +276,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    def update_licensepool(self, book_id):
+    def update_availability(self, isbn, availability):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -287,49 +287,48 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         not how many copies). 
         Bibliographic coverage will be ensured for the OneClick Identifier. 
         Work will be created for the LicensePool and set as presentation-ready.
+
+        :param isbn the identifier OneClick uses
+        :param availability boolean denoting if book can be lent to patrons 
         """
-        # Retrieve current circulation information about this book
-        try:
-            book, (status_code, headers, content) = self.circulation_lookup(
-                book_id
-            )
-        except Exception, e:
-            status_code = None
-            self.log.error(
-                "HTTP exception communicating with Overdrive",
-                exc_info=e
-            )
 
-        if status_code != 200:
-            self.log.error(
-                "Could not get availability for %s: status code %s",
-                book_id, status_code
-            )
-            return None, None, False
-
-        book.update(json.loads(content))
-
-        # Update book_id now that we know we have new data.
-        book_id = book['id']
-        license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
-        if is_new:
+        # find a license pool to match the isbn, and see if it'll need a metadata update later
+        license_pool, is_new_pool = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, isbn)
+        if is_new_pool:
             # This is the first time we've seen this book. Make sure its
             # identifier has bibliographic coverage.
-            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
+            self.bibliographic_coverage_provider.ensure_coverage(
                 license_pool.identifier
             )
 
-        return self.update_licensepool_with_book_info(
-            book, license_pool, is_new
+        # now tell the licensepool if it's lendable
+        policy = ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
         )
 
-    # Alias for the CirculationAPI interface
-    def update_availability(self, licensepool):
-        return self.update_licensepool(licensepool.identifier.identifier)
+        # licenses_available can be 0 or 1, depending on whether the book is 
+        # lendable or not.  We'll have to write custom code to not decrement 
+        # license number when a patron checks the book out, only when the checkout 
+        # attempt comes back with a "fresh out" error message. 
+        licenses_available = 1
+        if not availability:
+            licenses_available = 0
 
+        circulation_data = CirculationData(data_source=DataSource.ONECLICK, 
+            primary_identifier=license_pool.identifier, 
+            licenses_available=licenses_available)
 
+        license_pool, circulation_changed = circulation_data.apply(
+            pool=license_pool, 
+            replace=policy,
+        )
 
+        return license_pool, is_new_pool, circulation_changed
+        
 
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
@@ -749,54 +748,28 @@ class OneClickCirculationMonitor(Monitor):
 
 
     def run_once(self, start, cutoff):
-        _db = self._db
-        added_books = 0
-        oneclick_data_source = DataSource.lookup(_db, DataSource.ONECLICK)
+        # get list of all titles, with availability info
+        availability_list = self.get_ebook_availability_info()
+        item_count = 0
+        for availability in availability_list:
+            isbn = availability['isbn']
+            # boolean True/False value, not number of licenses
+            available = availability_list['availability']
 
-        total_books = 0
-        consecutive_unchanged_books = 0
-        for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
-            total_books += 1
-            if not total_books % 100:
-                self.log.info("%s books processed", total_books)
-            if not book:
-                continue
-            license_pool, is_new, is_changed = self.api.update_licensepool(book)
+            license_pool, is_new, is_changed = self.api.update_licensepool(isbn, available)
             # Log a circulation event for this work.
             if is_new:
                 Analytics.collect_event(
-                    _db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
+                    self._db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
 
-            _db.commit()
+            item_count += 1
+            if count % self.batch_size == 0:
+                self._db.commit()
 
-            if is_changed:
-                consecutive_unchanged_books = 0
-            else:
-                consecutive_unchanged_books += 1
-                if (self.maximum_consecutive_unchanged_books
-                    and consecutive_unchanged_books >= 
-                    self.maximum_consecutive_unchanged_books):
-                    # We're supposed to stop this run after finding a
-                    # run of books that have not changed, and we have
-                    # in fact seen that many consecutive unchanged
-                    # books.
-                    self.log.info("Stopping at %d unchanged books.",
-                                  consecutive_unchanged_books)
-                    break
-
-        if total_books:
-            self.log.info("Processed %d books total.", total_books)
+        self.log.info("Processed %d books total.", item_count)
 
 
 
-class OneClickCollectionMonitor(OneClickCirculationMonitor):
-    """Monitor recently changed books in the OneClick collection."""
-
-    def __init__(self, _db, interval_seconds=60,
-                 maximum_consecutive_unchanged_books=100):
-        super(OneClickCollectionMonitor, self).__init__(
-            _db, "Reverse Chronological Overdrive Collection Monitor",
-            interval_seconds, maximum_consecutive_unchanged_books)
 
 
 

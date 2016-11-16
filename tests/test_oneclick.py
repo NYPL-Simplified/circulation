@@ -394,9 +394,6 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(True, success)
 
 
-
-    '''
-
     def test_update_availability(self):
         """Test the OneClick implementation of the update_availability method
         defined by the CirculationAPI interface.
@@ -436,39 +433,150 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(0, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
-    def test_place_hold(self):
-        edition, pool = self._edition(
-            identifier_type=Identifier.AXIS_360_ID,
-            data_source_name=DataSource.AXIS_360,
+    def test_update_licensepool_error(self):
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(response_code=500, content="An error occured.")
+        book = dict(id=identifier.identifier, availability_link=self._url)
+        pool, was_new, changed = api.update_licensepool(book)
+        eq_(None, pool)
+
+
+    def test_update_licensepool_provides_bibliographic_coverage(self):
+        # Create an identifier.
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+
+        # Prepare bibliographic and availability information 
+        # for this identifier.
+        ignore, availability = self.sample_json(
+            "overdrive_availability_information.json"
+        )
+        ignore, bibliographic = self.sample_json(
+            "bibliographic_information.json"
+        )
+
+        # To avoid a mismatch, make it look like the information is
+        # for the newly created Identifier.
+        availability['id'] = identifier.identifier
+        bibliographic['id'] = identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        api.queue_response(content=bibliographic)
+        api.queue_response(content=availability)
+
+        # Now we're ready. When we call update_licensepool, the
+        # OverdriveAPI will retrieve the availability information,
+        # then the bibliographic information. It will then trigger the
+        # OverdriveBibliographicCoverageProvider, which will
+        # create an Edition and a presentation-ready Work.
+        pool, was_new, changed = api.update_licensepool(identifier.identifier)
+        eq_(True, was_new)        
+        eq_(availability['copiesOwned'], pool.licenses_owned)
+
+        edition = pool.presentation_edition
+        eq_("Ancillary Justice", edition.title)
+
+        eq_(True, pool.work.presentation_ready)
+        assert pool.work.cover_thumbnail_url.startswith(
+            'http://images.contentreserve.com/'
+        )
+
+        # The book has been run through the bibliographic coverage
+        # provider.
+        coverage = [
+            x for x in identifier.coverage_records 
+            if x.operation is None
+            and x.data_source.name == DataSource.OVERDRIVE
+        ]
+        eq_(1, len(coverage))
+
+    def test_update_new_licensepool(self):
+        data, raw = self.sample_json("overdrive_availability_information.json")
+
+        # Create an identifier
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+
+        # Make it look like the availability information is for the
+        # newly created Identifier.
+        raw['id'] = identifier.identifier
+
+        api = DummyOverdriveAPI(self._db)
+        pool, was_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE, 
+            identifier.type, identifier.identifier
+        )
+        
+        pool, was_new, changed = api.update_licensepool_with_book_info(
+            raw, pool, was_new
+        )
+        eq_(True, was_new)
+        eq_(True, changed)
+
+        self._db.commit()
+
+        eq_(raw['copiesOwned'], pool.licenses_owned)
+        eq_(raw['copiesAvailable'], pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
+
+    def test_update_existing_licensepool(self):
+        data, raw = self.sample_json("overdrive_availability_information.json")
+
+        # Create a LicensePool.
+        wr, pool = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
-        data = self.sample_data("place_hold_success.xml")
-        self.api.queue_response(200, content=data)
-        patron = self.default_patron
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            response = self.api.place_hold(patron, 'pin', pool, None)
-            eq_(1, response.hold_position)
-            eq_(response.identifier_type, pool.identifier.type)
-            eq_(response.identifier, pool.identifier.identifier)
-            [request] = self.api.requests
-            params = request[-1]['params']
-            eq_('notifications@example.com', params['email'])
-    '''
+
+        # Make it look like the availability information is for the
+        # newly created LicensePool.
+        raw['id'] = pool.identifier.identifier
+
+        wr.title = "The real title."
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+
+        api = DummyOverdriveAPI(self._db)
+        p2, was_new, changed = api.update_licensepool_with_book_info(
+            raw, pool, False
+        )
+        eq_(False, was_new)
+        eq_(True, changed)
+        eq_(p2, pool)
+        # The title didn't change to that title given in the availability
+        # information, because we already set a title for that work.
+        eq_("The real title.", wr.title)
+        eq_(raw['copiesOwned'], pool.licenses_owned)
+        eq_(raw['copiesAvailable'], pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
 
 
-'''
+
 class TestCirculationMonitor(DatabaseTest):
 
     BIBLIOGRAPHIC_DATA = Metadata(
-        DataSource.AXIS_360,
+        DataSource.ONECLICK,
         publisher=u'Random House Inc',
         language='eng', 
         title=u'Faith of My Fathers : A Family Memoir', 
         imprint=u'Random House Inc2',
         published=datetime.datetime(2000, 3, 7, 0, 0),
         primary_identifier=IdentifierData(
-            type=Identifier.AXIS_360_ID,
+            type=Identifier.ONECLICK_ID,
             identifier=u'0003642860'
         ),
         identifiers = [
@@ -491,7 +599,7 @@ class TestCirculationMonitor(DatabaseTest):
     )
 
     AVAILABILITY_DATA = CirculationData(
-        data_source=DataSource.AXIS_360,
+        data_source=DataSource.ONECLICK,
         primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier, 
         licenses_owned=9,
         licenses_available=8,
@@ -499,6 +607,7 @@ class TestCirculationMonitor(DatabaseTest):
         patrons_in_hold_queue=0,
         last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
     )
+
 
     def test_process_book(self):
         with temp_config() as config:
@@ -582,123 +691,6 @@ class TestCirculationMonitor(DatabaseTest):
 
         # Now we have information based on the CirculationData.
         eq_(9, licensepool.licenses_owned)
-'''
-
-'''
-class TestResponseParser(object):
-
-    @classmethod
-    def sample_data(self, filename):
-        return sample_data(filename, 'oneclick')
 
 
-
-class TestRaiseExceptionOnError(TestResponseParser):
-
-    def test_internal_server_error(self):
-        data = self.sample_data("internal_server_error.xml")
-        parser = HoldReleaseResponseParser()
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Internal Server Error", 
-            parser.process_all, data
-        )
-
-    def test_internal_server_error(self):
-        data = self.sample_data("invalid_error_code.xml")
-        parser = HoldReleaseResponseParser()
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd", 
-            parser.process_all, data
-        )
-
-    def test_missing_error_code(self):
-        data = self.sample_data("missing_error_code.xml")
-        parser = HoldReleaseResponseParser()
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "No status code!", 
-            parser.process_all, data
-        )
-'''
-
-'''
-class TestCheckoutResponseParser(TestResponseParser):
-
-    def test_parse_checkout_success(self):
-        data = self.sample_data("checkout_success.xml")
-        parser = CheckoutResponseParser()
-        parsed = parser.process_all(data)
-        assert isinstance(parsed, LoanInfo)
-        eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
-        eq_(datetime.datetime(2015, 8, 11, 18, 57, 42), 
-            parsed.end_date)
-
-        assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
-        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", 
-            parsed.fulfillment_info.content_link)
-
-    def test_parse_already_checked_out(self):
-        data = self.sample_data("already_checked_out.xml")
-        parser = CheckoutResponseParser()
-        assert_raises(AlreadyCheckedOut, parser.process_all, data)
-
-    def test_parse_not_found_on_remote(self):
-        data = self.sample_data("not_found_on_remote.xml")
-        parser = CheckoutResponseParser()
-        assert_raises(NotFoundOnRemote, parser.process_all, data)
-
-class TestHoldResponseParser(TestResponseParser):
-
-    def test_parse_hold_success(self):
-        data = self.sample_data("place_hold_success.xml")
-        parser = HoldResponseParser()
-        parsed = parser.process_all(data)
-        assert isinstance(parsed, HoldInfo)
-        eq_(1, parsed.hold_position)
-
-    def test_parse_already_on_hold(self):
-        data = self.sample_data("already_on_hold.xml")
-        parser = HoldResponseParser()
-        assert_raises(AlreadyOnHold, parser.process_all, data)
-
-class TestHoldReleaseResponseParser(TestResponseParser):
-
-    def test_success(self):
-        data = self.sample_data("release_hold_success.xml")
-        parser = HoldReleaseResponseParser()
-        eq_(True, parser.process_all(data))
-
-    def test_failure(self):
-        data = self.sample_data("release_hold_failure.xml")
-        parser = HoldReleaseResponseParser()
-        assert_raises(NotOnHold, parser.process_all, data)
-
-class TestAvailabilityResponseParser(TestResponseParser):
-
-    def test_parse_loan_and_hold(self):
-        data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser()
-        activity = list(parser.process_all(data))
-        hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
-        eq_(Identifier.AXIS_360_ID, hold.identifier_type)
-        eq_("0012533119", hold.identifier)
-        eq_(1, hold.hold_position)
-        eq_(None, hold.end_date)
-
-        eq_("0015176429", loan.identifier)
-        eq_("http://fulfillment/", loan.fulfillment_info.content_link)
-        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
-
-        eq_("1111111111", reserved.identifier)
-        eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
-        eq_(0, reserved.hold_position)
-
-    def test_parse_loan_no_availability(self):
-        data = self.sample_data("availability_without_fulfillment.xml")
-        parser = AvailabilityResponseParser()
-        [loan] = list(parser.process_all(data))
-
-        eq_("0015176429", loan.identifier)
-        eq_(None, loan.fulfillment_info)
-        eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
-'''
 
