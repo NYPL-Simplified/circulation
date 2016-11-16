@@ -115,6 +115,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
+        print response.content
         return PatronCirculationParser().process_all(response.content)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
