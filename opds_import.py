@@ -200,17 +200,36 @@ class OPDSImporter(object):
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
                  identifier_mapping=None, mirror=None, http_get=None,
-                 metadata_client=None
+                 metadata_client=None, data_source_offers_licenses=False
     ):
+        """
+        :param data_source_name: Name of the source of this OPDS feed.
+        If there is no DataSource with this name, one will be created.
+
+        :param data_source_offers_licenses: Set to True if you actually
+        expect to get books (as opposed to information about books)
+        from this OPDS feed. This value is only used when it's necessary
+        to create a new DataSource.
+        """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.data_source_name = data_source_name
+        self.data_source_offers_licenses = data_source_offers_licenses
         self.identifier_mapping = identifier_mapping
         self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
         self.http_get = http_get
 
-
+    @property
+    def data_source(self):
+        """Look up or create a DataSource object representing the
+        source of this OPDS feed.
+        """
+        return DataSource.lookup(
+            self._db, self.data_source_name, autocreate=True,
+            offers_licenses=self.data_source_offers_licenses
+        )
+        
     def import_from_feed(self, feed, even_if_no_author=False, 
                          immediately_presentation_ready=False,
                          feed_url=None):
@@ -247,9 +266,7 @@ class OPDSImporter(object):
                 # to this item.
                 self.log.error("Error importing an OPDS item", exc_info=e)
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(
-                    self._db, self.data_source_name, autocreate=True
-                )
+                data_source = self.data_source
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
                 # clean up any edition might have created
@@ -268,9 +285,7 @@ class OPDSImporter(object):
                     works[key] = work
             except Exception, e:
                 identifier, ignore = Identifier.parse_urn(self._db, key)
-                data_source = DataSource.lookup(
-                    self._db, self.data_source_name, autocreate=True
-                )
+                data_source = self.data_source
                 failure = CoverageFailure(identifier, traceback.format_exc(), data_source=data_source, transient=False)
                 failures[key] = failure
 
@@ -355,10 +370,7 @@ class OPDSImporter(object):
         # This is one of these cases where we want to create a
         # DataSource if it doesn't already exist. This way you don't have
         # to predefine a DataSource for every source of OPDS feeds.
-        data_source = DataSource.lookup(
-            self._db, name=self.data_source_name, autocreate=True,
-            offers_licenses=True
-        )
+        data_source = self.data_source
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
@@ -616,14 +628,13 @@ class OPDSImporter(object):
             )
             if circulation_data_source_name:
                 _db = Session.object_session(metadata_data_source)
+                # We know this data source offers licenses because
+                # that's what the <bibframe:distribution> is there
+                # to say.
                 circulation_data_source = DataSource.lookup(
                     _db, circulation_data_source_name, autocreate=True,
                     offers_licenses=True
                 )
-                # We know this data source offers licenses because
-                # that's what the <bibframe:distribution> is there
-                # to say.
-                circulation_data_source.offers_licenses = True
                 if not circulation_data_source:
                     raise ValueError(
                         "Unrecognized circulation data source: %s" % (
@@ -1147,10 +1158,7 @@ class OPDSImportMonitor(Monitor):
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = DataSource.lookup(
-                self._db, self.importer.data_source_name, autocreate=True,
-                offers_licenses=True
-            )
+            data_source = self.importer.data_source
             record = None
 
             if identifier:
@@ -1232,10 +1240,7 @@ class OPDSImportMonitor(Monitor):
             feed_url=feed_url
         )
 
-        data_source = DataSource.lookup(
-            self._db, self.importer.data_source_name, autocreate=True,
-            offers_licenses=True
-        )
+        data_source = self.importer.data_source
         
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:

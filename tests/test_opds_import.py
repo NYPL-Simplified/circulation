@@ -125,6 +125,24 @@ class OPDSImporterTest(DatabaseTest):
 
 class TestOPDSImporter(OPDSImporterTest):
 
+    def test_data_source_autocreated(self):
+        name = "New data source " + self._str
+        importer = OPDSImporter(self._db, name)
+        source1 = importer.data_source
+        eq_(name, source1.name)
+        
+        # By default, DataSources created through this mechanism do
+        # not offer licenses.
+        eq_(False, source1.offers_licenses)
+
+        # But we can create a DataSource that does offer licenses.
+        name = "New data source " + self._str
+        importer = OPDSImporter(self._db, name,
+                                data_source_offers_licenses=True)
+        source2 = importer.data_source
+        eq_(name, source2.name)
+        eq_(True, source2.offers_licenses)
+        
     def test_extract_next_links(self):
         importer = OPDSImporter(self._db, DataSource.NYT)
         next_links = importer.extract_next_links(
