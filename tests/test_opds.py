@@ -1,3 +1,4 @@
+import base64
 import datetime
 import os
 import re
@@ -297,9 +298,10 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             [token] = element.getchildren()
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
-            # token.text is a JWT which we can decode, since we know the
-            # secret.
+            # token.text is a base64-encoded JWT which we can decode,
+            # since we know the secret.
             token = token.text
+            token = base64.decodestring(token)
             decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
             eq_(library_uri, decoded['iss'])
             eq_(patron_identifier, decoded['sub'])
