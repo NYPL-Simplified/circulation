@@ -587,8 +587,12 @@ class CirculationAPI(object):
             thread.join()
         loans = []
         holds = []
+        complete = True
         for thread in threads:
             if thread.exception:
+                # Something went wrong, so we don't have a complete
+                # picture of the patron's loans.
+                complete = False
                 self.log.error(
                     "%s errored out: %s", thread.api.__class__.__name__,
                     thread.exception,
@@ -610,7 +614,7 @@ class CirculationAPI(object):
                         l.append(i)
         after = time.time()
         self.log.debug("Full sync took %.2f sec", after-before)
-        return loans, holds
+        return loans, holds, complete
 
     def local_loans(self, patron):
         return self._db.query(Loan).join(Loan.license_pool).filter(
@@ -629,7 +633,7 @@ class CirculationAPI(object):
     def sync_bookshelf(self, patron, pin):
 
         # Get the external view of the patron's current state.
-        remote_loans, remote_holds = self.patron_activity(patron, pin)
+        remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
 
         # Get our internal view of the patron's current state.
         __transaction = self._db.begin_nested()
@@ -711,27 +715,33 @@ class CirculationAPI(object):
             if key in local_holds_by_identifier:
                 del local_holds_by_identifier[key]
 
-        # Every loan remaining in loans_by_identifier is a hold that
-        # the provider doesn't know about. This usually means it's expired
-        # and we should get rid of it, but it's possible the patron is
-        # borrowing a book and syncing their bookshelf at the same time,
-        # and the local loan was created after we got the remote loans.
-        # If the loan's start date is less than a minute ago, we'll keep it.
-        for loan in local_loans_by_identifier.values():
-            if loan.license_pool.data_source.id in self.data_source_ids_for_sync:
-                one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
-                if loan.start < one_minute_ago:
-                    logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
-                    self._db.delete(loan)
-                else:
-                    logging.info("In sync_bookshelf for patron %s, found local loan %d created in the past minute that wasn't in remote loans" % (patron.authorization_identifier, loan.id))
+        # We only want to delete local loans and holds if we were able to
+        # successfully sync with all the providers. If there was an error,
+        # the provider might still know about a loan or hold that we don't
+        # have in the remote lists.
+        if complete:
+            # Every loan remaining in loans_by_identifier is a hold that
+            # the provider doesn't know about. This usually means it's expired
+            # and we should get rid of it, but it's possible the patron is
+            # borrowing a book and syncing their bookshelf at the same time,
+            # and the local loan was created after we got the remote loans.
+            # If the loan's start date is less than a minute ago, we'll keep it.
+            for loan in local_loans_by_identifier.values():
+                if loan.license_pool.data_source.id in self.data_source_ids_for_sync:
+                    one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+                    if loan.start < one_minute_ago:
+                        logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
+                        self._db.delete(loan)
+                    else:
+                        logging.info("In sync_bookshelf for patron %s, found local loan %d created in the past minute that wasn't in remote loans" % (patron.authorization_identifier, loan.id))
 
-        # Every hold remaining in holds_by_identifier is a hold that
-        # the provider doesn't know about, which means it's expired
-        # and we should get rid of it.
-        for hold in local_holds_by_identifier.values():
-            if hold.license_pool.data_source.id in self.data_source_ids_for_sync:
-                self._db.delete(hold)
+            # Every hold remaining in holds_by_identifier is a hold that
+            # the provider doesn't know about, which means it's expired
+            # and we should get rid of it.
+            for hold in local_holds_by_identifier.values():
+                if hold.license_pool.data_source.id in self.data_source_ids_for_sync:
+                    self._db.delete(hold)
+
         __transaction.commit()
         return active_loans, active_holds
 

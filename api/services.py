@@ -7,6 +7,7 @@ from core.scripts import (
     Script,
     IdentifierInputScript,
 )
+from core.util.problem_detail import ProblemDetail
 
 from config import Configuration
 from authenticator import Authenticator
@@ -55,12 +56,17 @@ class ServiceStatus(object):
         self._add_timing(status, service, do_patron)
         success = False
         patron = password = None
+        error = "Could not create patron with configured credentials."
         if patron_info:
             [(patron, password)] = patron_info
             if patron:
-                success = True                
+                if isinstance(patron, ProblemDetail):
+                    response = patron.response
+                    error = response[0] # The JSON representation of the ProblemDetail
+                else:
+                    success = True
+                    error = None
         if not success:
-            error = "Could not create patron with configured credentials."
             self.log.error(error)
             status[service] = error
             return status

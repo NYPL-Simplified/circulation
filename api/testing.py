@@ -112,7 +112,7 @@ class MockCirculationAPI(CirculationAPI):
 
     def patron_activity(self, patron, pin):
         """Return a 2-tuple (loans, holds)."""
-        return self.remote_loans, self.remote_holds
+        return self.remote_loans, self.remote_holds, True
 
     def queue_checkout(self, licensepool, response):
         self._queue('checkout', licensepool, response)

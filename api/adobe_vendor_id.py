@@ -519,7 +519,9 @@ class AuthdataUtility(object):
             payload['iat'] = self.numericdate(iat) # Issued At
         if exp:
             payload['exp'] = self.numericdate(exp) # Expiration Time
-        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+        return base64.encodestring(
+            jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+        )
 
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
@@ -530,6 +532,12 @@ class AuthdataUtility(object):
         :raise jwt.exceptions.DecodeError: When the JWT is not valid
         for any reason.
         """
+        try:
+            authdata = base64.decodestring(authdata)
+        except Exception, e:
+            # Do nothing -- the authdata was not encoded to begin with.
+            pass
+        
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
             authdata, algorithm=self.ALGORITHM,

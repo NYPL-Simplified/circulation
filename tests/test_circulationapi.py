@@ -552,3 +552,35 @@ class TestCirculationAPI(DatabaseTest):
         loans = self._db.query(Loan).all()
         eq_([loan], loans)
 
+    def test_sync_bookshelf_with_incomplete_remotes_keeps_local_loan(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.start = self.YESTERDAY
+
+        class IncompleteCirculationAPI(MockCirculationAPI):
+            def patron_activity(self, patron, pin):
+                # A remote API failed, and we don't know if
+                # the patron has any loans or holds.
+                return [], [], False
+
+        circulation = IncompleteCirculationAPI(self._db)
+        circulation.sync_bookshelf(self.patron, "1234")
+
+        # The loan is still in the db, since there was an
+        # error from one of the remote APIs and we don't have
+        # complete loan data.
+        loans = self._db.query(Loan).all()
+        eq_([loan], loans)
+
+        class CompleteCirculationAPI(MockCirculationAPI):
+            def patron_activity(self, patron, pin):
+                # All the remote API calls succeeded, so
+                # now we know the patron has no loans.
+                return [], [], True
+
+        circulation = CompleteCirculationAPI(self._db)
+        circulation.sync_bookshelf(self.patron, "1234")
+
+        # Now the loan is gone.
+        loans = self._db.query(Loan).all()
+        eq_([], loans)
+

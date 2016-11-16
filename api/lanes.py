@@ -15,6 +15,7 @@ from core.lane import (
     Lane,
     LaneList,
     QueryGeneratedLane,
+    Facets,
 )
 from core.model import (
     get_one,
@@ -573,6 +574,20 @@ class SeriesLane(QueryGeneratedLane):
         )
         return self.ROUTE, kwargs
 
+    def featured_works(self, use_materialized_works=True):
+        if not use_materialized_works:
+            qu = self.works()
+        else:
+            qu = self.materialized_works()
+
+        # Aliasing Edition here allows this query to function
+        # regardless of work_model and existing joins.
+        work_edition = aliased(Edition)
+        qu = qu.join(work_edition).order_by(work_edition.series_position, work_edition.title)
+        target_size = Configuration.featured_lane_size()
+        qu = qu.limit(target_size)
+        return qu.all()
+
     def lane_query_hook(self, qu, **kwargs):
         if not self.series:
             return None
@@ -581,7 +596,6 @@ class SeriesLane(QueryGeneratedLane):
         # regardless of work_model and existing joins.
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).filter(work_edition.series==self.series)
-        qu = qu.order_by(work_edition.series_position, work_edition.title)
         return qu
 
 
@@ -641,6 +655,6 @@ class ContributorLane(QueryGeneratedLane):
             if self.contributor.viaf:
                 clauses.append(Contributor.viaf==self.contributor.viaf)
         or_clause = or_(*clauses)
-        qu = qu.filter(or_clause).order_by(work_edition.title.asc())
+        qu = qu.filter(or_clause)
 
         return qu
