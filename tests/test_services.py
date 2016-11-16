@@ -5,6 +5,7 @@ from . import (
     sample_data
 )
 from nose.tools import set_trace, eq_
+from api.problem_details import EXPIRED_CREDENTIALS
 from api.services import ServiceStatus
 from api.config import (
     Configuration,
@@ -116,3 +117,15 @@ class TestServiceStatusMonitor(DatabaseTest):
 
         # Auth provider is just totally broken.
         test_with_broken_basic_auth_provider(None)
+
+        # If the auth process returns a problem detail, the problem
+        # detail is used as the basis for the error message.
+        class ExpiredPatronProvider(object):
+            def testing_patron(self, _db):
+                return EXPIRED_CREDENTIALS, None
+
+        auth.basic_auth_provider = ExpiredPatronProvider()
+        response = status.loans_status(response=True)
+        eq_({'Patron authentication': EXPIRED_CREDENTIALS.response[0]},
+            response
+        )

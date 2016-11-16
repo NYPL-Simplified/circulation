@@ -56,6 +56,7 @@ class ServiceStatus(object):
         self._add_timing(status, service, do_patron)
         success = False
         patron = password = None
+        error = "Could not create patron with configured credentials."
         if patron_info:
             [(patron, password)] = patron_info
             if patron:
@@ -64,8 +65,7 @@ class ServiceStatus(object):
                     error = response[0] # The JSON representation of the ProblemDetail
                 else:
                     success = True
-            else:
-                error = "Could not create patron with configured credentials."
+                    error = None
         if not success:
             self.log.error(error)
             status[service] = error
