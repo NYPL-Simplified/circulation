@@ -245,7 +245,7 @@ class TestAnnotators(DatabaseTest):
             self._db, self._str, self._url, [work], VerboseAnnotator
         )
         url = self._url
-        tag = feed.create_entry(work, url, None)
+        tag = feed.create_entry(work, None)
 
         nsmap = dict(schema='http://schema.org/')
         ratings = [(rating.get('{http://schema.org/}ratingValue'),
@@ -1060,6 +1060,34 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+    def test_entry_cache_adds_missing_drm_namespace(self):
+        
+        work = self._work(with_open_access_download=True)
+
+        # This work's OPDS entry was created with a namespace map
+        # that did not include the drm: namespace.
+        work.simple_opds_entry = "<entry><foo>bar</foo></entry>"
+        pool = work.license_pools[0]
+
+        # But now the annotator is set up to insert a tag with that
+        # namespace.
+        class AddDRMTagAnnotator(TestAnnotator):
+            @classmethod
+            def annotate_work_entry(
+                    cls, work, license_pool, edition, identifier, feed,
+                    entry):
+                drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+                entry.extend([drm_link])
+
+        # The entry is retrieved from cache and the appropriate
+        # namespace inserted.
+        entry = AcquisitionFeed.single_entry(
+            self._db, work, AddDRMTagAnnotator
+        )
+        eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
+            etree.tostring(entry)
+        )
+        
     def test_error_when_work_has_no_identifier(self):
         """We cannot create an OPDS entry for a Work that cannot be associated
         with an Identifier.
@@ -1077,7 +1105,7 @@ class TestAcquisitionFeed(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, self._str, self._url, [], annotator=Annotator
         )
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         expect = AcquisitionFeed.error_message(
             work.presentation_edition.primary_identifier,
             403,
@@ -1095,7 +1123,7 @@ class TestAcquisitionFeed(DatabaseTest):
         feed = AcquisitionFeed(
             self._db, self._str, self._url, [], annotator=Annotator
         )
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         eq_(None, entry)
         
     def test_cache_usage(self):
@@ -1109,19 +1137,19 @@ class TestAcquisitionFeed(DatabaseTest):
         work.simple_opds_entry = tiny_entry
 
         # If we pass in use_cache=True, the cached value is used.
-        entry = feed.create_entry(work, self._url, use_cache=True)
+        entry = feed.create_entry(work, use_cache=True)
         eq_(tiny_entry, work.simple_opds_entry)
         eq_(tiny_entry, etree.tostring(entry))
 
         # If we pass in use_cache=False, a new OPDS entry is created
         # from scratch, but the cache is not updated.
-        entry = feed.create_entry(work, self._url, use_cache=False)
+        entry = feed.create_entry(work, use_cache=False)
         assert etree.tostring(entry) != tiny_entry
         eq_(tiny_entry, work.simple_opds_entry)
 
         # If we pass in force_create, a new OPDS entry is created
         # and the cache is updated.
-        entry = feed.create_entry(work, self._url, force_create=True)
+        entry = feed.create_entry(work, force_create=True)
         entry_string = etree.tostring(entry) 
         assert entry_string != tiny_entry
         eq_(entry_string, work.simple_opds_entry)
@@ -1139,7 +1167,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # But calling create_entry() doesn't raise an exception, it
         # just returns None.
-        entry = feed.create_entry(work, self._url)
+        entry = feed.create_entry(work)
         eq_(entry, None)
 
     def test_unfilfullable_work(self):
@@ -1178,7 +1206,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             self._db, u"Feed Title", "http://whatever.io", [],
             annotator=annotator, **kwargs
         )
-        entry = feed.create_entry((identifier, work), u"http://lane/")
+        entry = feed.create_entry((identifier, work))
         if isinstance(entry, OPDSMessage):
             return feed, entry
         if entry:
