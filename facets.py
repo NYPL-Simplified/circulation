@@ -18,6 +18,7 @@ class FacetConstants(object):
     ORDER_AUTHOR = 'author'
     ORDER_LAST_UPDATE = 'last_update'
     ORDER_ADDED_TO_COLLECTION = 'added'
+    ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
 
@@ -35,6 +36,7 @@ class FacetConstants(object):
         ORDER_AUTHOR : 'Author',
         ORDER_LAST_UPDATE : 'Last Update',
         ORDER_ADDED_TO_COLLECTION : 'Recently Added',
+        ORDER_SERIES_POSITION: 'Series Position',
         ORDER_WORK_ID : 'Work ID',
         ORDER_RANDOM : 'Random',
 

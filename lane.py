@@ -1,9 +1,10 @@
 from collections import defaultdict
 from nose.tools import set_trace
 import datetime
+import logging
 import random
 import time
-import logging
+import urllib
 
 from psycopg2.extras import NumericRange
 
@@ -51,8 +52,7 @@ class Facets(FacetConstants):
         )
 
     def __init__(self, collection, availability, order,
-                 order_ascending=None):
-        
+                 order_ascending=None, enabled_facets=None):
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -85,12 +85,14 @@ class Facets(FacetConstants):
         elif order_ascending == self.ORDER_DESCENDING:
             order_ascending = False
         self.order_ascending = order_ascending
+        self.facets_enabled_at_init = enabled_facets
 
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
         return Facets(collection or self.collection, 
                       availability or self.availability, 
-                      order or self.order) 
+                      order or self.order,
+                      enabled_facets=self.facets_enabled_at_init)
 
     def items(self):
         if self.order:
@@ -105,11 +107,44 @@ class Facets(FacetConstants):
         return "&".join("=".join(x) for x in sorted(self.items()))
 
     @property
+    def enabled_facets(self):
+        """Yield a 3-tuple of lists (order, availability, collection)
+        representing facet values enabled via initialization or Configuration
+        """
+        if self.facets_enabled_at_init:
+            # When this Facets object was initialized, a list of enabled
+            # facets was passed. We'll only work with those facets.
+            facet_types = [
+                self.ORDER_FACET_GROUP_NAME,
+                self.AVAILABILITY_FACET_GROUP_NAME,
+                self.COLLECTION_FACET_GROUP_NAME
+            ]
+            for facet_type in facet_types:
+                yield self.facets_enabled_at_init.get(facet_type, [])
+        else:
+            order_facets = Configuration.enabled_facets(
+                Facets.ORDER_FACET_GROUP_NAME
+            )
+            yield order_facets
+
+            availability_facets = Configuration.enabled_facets(
+                Facets.AVAILABILITY_FACET_GROUP_NAME
+            )
+            yield availability_facets
+
+            collection_facets = Configuration.enabled_facets(
+                Facets.COLLECTION_FACET_GROUP_NAME
+            )
+            yield collection_facets
+
+    @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
         (facet group, facet value, new Facets object, selected)
         for use in building OPDS facets.
         """
+
+        order_facets, availability_facets, collection_facets = self.enabled_facets
 
         def dy(new_value):
             group = self.ORDER_FACET_GROUP_NAME
@@ -118,9 +153,6 @@ class Facets(FacetConstants):
             return (group, new_value, facets, current_value==new_value)
 
         # First, the order facets.
-        order_facets = Configuration.enabled_facets(
-            Facets.ORDER_FACET_GROUP_NAME
-        )
         if len(order_facets) > 1:
             for facet in order_facets:
                 yield dy(facet)
@@ -131,22 +163,18 @@ class Facets(FacetConstants):
             current_value = self.availability
             facets = self.navigate(availability=new_value)
             return (group, new_value, facets, new_value==current_value)
-        availability_facets = Configuration.enabled_facets(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
+
         if len(availability_facets) > 1:
             for facet in availability_facets:
                 yield dy(facet)
 
         # Next, the collection facets.
-        collection_facets = Configuration.enabled_facets(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )        
         def dy(new_value):
             group = self.COLLECTION_FACET_GROUP_NAME
             current_value = self.collection
             facets = self.navigate(collection=new_value)
             return (group, new_value, facets, new_value==current_value)
+
         if len(collection_facets) > 1:
             for facet in collection_facets:
                 yield dy(facet)
@@ -180,6 +208,7 @@ class Facets(FacetConstants):
             cls.ORDER_TITLE : edition_model.sort_title,
             cls.ORDER_AUTHOR : edition_model.sort_author,
             cls.ORDER_LAST_UPDATE : work_model.last_update_time,
+            cls.ORDER_SERIES_POSITION : edition_model.series_position,
             cls.ORDER_RANDOM : work_model.random,
         }
         return order_facet_to_database_field[order_facet]
@@ -206,6 +235,9 @@ class Facets(FacetConstants):
         if database_field in (Work.last_update_time, mw.last_update_time, 
                               mwg.last_update_time):
             return cls.ORDER_LAST_UPDATE
+
+        if database_field in (Edition.series_position, mw.series_position):
+            return cls.ORDER_SERIES_POSITION
 
         if database_field in (Work.id, mw.works_id, mwg.works_id):
             return cls.ORDER_WORK_ID
@@ -1397,3 +1429,82 @@ class LaneList(object):
                 )
             )
         this_language[lane.name] = lane
+
+
+class QueryGeneratedLane(Lane):
+    """A lane dependent on a particular query, instead of a genre or search"""
+
+    MAX_CACHE_AGE = 14*24*60*60      # two weeks
+    # Inside of groups feeds, we want to return a sample
+    # even if there's only a single result.
+    MINIMUM_SAMPLE_SIZE = 1
+
+    @property
+    def audience_key(self):
+        """Translates audiences list into url-safe string"""
+        key = u''
+        if (self.audiences and
+            Classifier.AUDIENCES.difference(self.audiences)):
+            # There are audiences and they're not the default
+            # "any audience", so add them to the URL.
+            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            key += ','.join(audiences)
+        return key
+
+    def apply_filters(self, qu, facets=None, pagination=None, work_model=Work,
+                      edition_model=Edition):
+        """Incorporates general filters that help determine which works can be
+        usefully presented to users with lane-specific queries that select
+        the works specific to the QueryGeneratedLane
+
+        :return: query or None
+        """
+        # Only show works that can be borrowed or reserved.
+        qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # Only show works for the proper audiences.
+        if self.audiences:
+            qu = qu.filter(work_model.audience.in_(self.audiences))
+
+        # Only show works in the source language.
+        if self.languages:
+            qu = qu.filter(edition_model.language.in_(self.languages))
+
+        # Add lane-specific details to query and return the result.
+        qu = self.lane_query_hook(qu, work_model=work_model)
+        if not qu:
+            # The hook may return None.
+            return None
+
+        if facets:
+            qu = facets.apply(self._db, qu, work_model, edition_model)
+
+        if pagination:
+            qu = pagination.apply(qu)
+
+        return qu
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of books for the feed"""
+
+        # Lane.featured_works searches for books along a variety of facets.
+        # Because LicensePoolBasedLanes are created for individual works as
+        # needed (instead of at app start), we need to avoid the relative
+        # slowness of those queries.
+        #
+        # We'll just ignore facets and return whatever we find.
+        if not use_materialized_works:
+            query = self.works()
+        else:
+            query = self.materialized_works()
+        if not query:
+            return []
+
+        return self.randomized_sample_works(query, use_min_size=True)
+
+    def lane_query_hook(self, qu, work_model=Work):
+        """Create the query specific to a subclass of  QueryGeneratedLane
+
+        :return: query or None
+        """
+        raise NotImplementedError()

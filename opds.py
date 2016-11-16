@@ -407,16 +407,17 @@ class AcquisitionFeed(OPDSFeed):
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator,
+    def groups(cls, _db, title, url, lane, annotator, cache_type=None,
                force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
         # Find or create a CachedFeed.
+        cache_type = cache_type or CachedFeed.GROUPS_TYPE
         cached, usable = CachedFeed.fetch(
             _db,
             lane=lane,
-            type=CachedFeed.GROUPS_TYPE,
+            type=cache_type,
             facets=None,
             pagination=None,
             annotator=annotator,
@@ -539,7 +540,7 @@ class AcquisitionFeed(OPDSFeed):
         for args in cls.facet_links(annotator, facets):
             OPDSFeed.add_link_to_feed(feed=feed.feed, **args)
 
-        if len(works) > 0:
+        if len(works) > 0 and pagination.has_next_page:
             # There are works in this list. Add a 'next' link.
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=annotator.feed_url(lane, facets, pagination.next_page))
 
@@ -604,12 +605,27 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def single_entry(cls, _db, work, annotator, force_create=False):
-        """Create a single-entry feed for one specific work."""
+        """Create a single-entry OPDS document for one specific work."""
         feed = cls(_db, '', '', [], annotator=annotator)
         if not isinstance(work, Edition) and not work.presentation_edition:
             return None
-        return feed.create_entry(work, None, even_if_no_license_pool=True,
-                                 force_create=force_create)
+        entry = feed.create_entry(work, even_if_no_license_pool=True,
+                                  force_create=force_create)
+
+        # Since this <entry> tag is going to be the root of an XML
+        # document it's essential that it include an up-to-date nsmap,
+        # even if it was generated from an old cached <entry> tag that
+        # had an older nsmap.
+        if isinstance(entry, etree._Element) and not 'drm' in entry.nsmap:
+            # This workaround (creating a brand new tag) is necessary
+            # because the nsmap attribute is immutable. See
+            # https://bugs.launchpad.net/lxml/+bug/555602
+            nsmap = entry.nsmap
+            nsmap['drm'] = AtomFeed.DRM_NS
+            new_root = etree.Element(entry.tag, nsmap=nsmap)
+            new_root[:] = entry[:]
+            entry = new_root
+        return entry
 
     @classmethod
     def error_message(cls, identifier, error_status, error_message):
@@ -633,7 +649,6 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
 
-
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
@@ -645,9 +660,8 @@ class AcquisitionFeed(OPDSFeed):
 
         super(AcquisitionFeed, self).__init__(title, url)
 
-        lane_link = dict(rel="collection", href=url)
         for work in works:
-            self.add_entry(work, lane_link)
+            self.add_entry(work)
 
         # Add the precomposed entries and the messages.
         for entry in precomposed_entries:
@@ -655,18 +669,19 @@ class AcquisitionFeed(OPDSFeed):
                 entry = entry.tag
             self.feed.append(entry)
 
-    def add_entry(self, work, lane_link):
+    def add_entry(self, work):
         """Attempt to create an OPDS <entry>. If successful, append it to
         the feed.
         """
-        entry = self.create_entry(work, lane_link)
+        entry = self.create_entry(work)
+
         if entry is not None:
             if isinstance(entry, OPDSMessage):
                 entry = entry.tag
             self.feed.append(entry)
         return entry
 
-    def create_entry(self, work, lane_link, even_if_no_license_pool=False,
+    def create_entry(self, work, even_if_no_license_pool=False,
                      force_create=False, use_cache=True):
         """Turn a work into an entry for an acquisition feed."""
         identifier = None
@@ -715,8 +730,7 @@ class AcquisitionFeed(OPDSFeed):
 
         try:
             return self._create_entry(work, active_license_pool, active_edition,
-                                      identifier, lane_link, force_create, 
-                                      use_cache)
+                                      identifier, force_create, use_cache)
         except UnfulfillableWork, e:
             logging.info(
                 "Work %r is not fulfillable, refusing to create an <entry>.",
@@ -734,9 +748,8 @@ class AcquisitionFeed(OPDSFeed):
             )
             return None
 
-    def _create_entry(self, work, license_pool, edition, identifier, lane_link,
+    def _create_entry(self, work, license_pool, edition, identifier,
                       force_create=False, use_cache=True):
-
         xml = None
         cache_hit = False
         field = self.annotator.opds_cache_field
@@ -750,15 +763,14 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(work, BaseMaterializedWork):
                 raise Exception(
                     "Cannot build an OPDS entry for a MaterializedWork.")
-            xml = self._make_entry_xml(
-                work, license_pool, edition, identifier, lane_link)
+            xml = self._make_entry_xml(work, license_pool, edition, identifier)
             data = etree.tostring(xml)
             if field and use_cache:
                 setattr(work, field, data)
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
-
+            
         group_uri, group_title = self.annotator.group_uri(
             work, license_pool, identifier)
         if group_uri:
@@ -768,8 +780,7 @@ class AcquisitionFeed(OPDSFeed):
 
         return xml
 
-    def _make_entry_xml(self, work, license_pool, edition, identifier,
-                        lane_link):
+    def _make_entry_xml(self, work, license_pool, edition, identifier):
 
         # Find the .epub link
         epub_href = None
@@ -1126,7 +1137,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
     default LicensePool.
     """
 
-    def create_entry(self, work, lane_link):
+    def create_entry(self, work):
         """Turn an Identifier and a Work into an entry for an acquisition
         feed.
         """
@@ -1162,7 +1173,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             edition = work.presentation_edition
         try:
             return self._create_entry(
-                work, active_licensepool, edition, identifier, lane_link,
+                work, active_licensepool, edition, identifier,
                 use_cache=use_cache
             )
         except UnfulfillableWork, e:

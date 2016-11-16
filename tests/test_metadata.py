@@ -34,6 +34,7 @@ from model import (
     DeliveryMechanism,
     Hyperlink, 
     Representation,
+    RightsStatus,
     Subject,
 )
 
@@ -366,6 +367,41 @@ class TestMetadataImporter(DatabaseTest):
         # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
         eq_(None, pool.license_exception)
 
+    def test_non_open_access_book_not_mirrored(self):        
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror = DummyS3Uploader(fail=True)
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        content = "foo"
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href="http://example.com/",
+            content=content,
+            rights_uri=RightsStatus.IN_COPYRIGHT
+        )
+
+        identifier = self._identifier()
+        link_obj, is_new = identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            media_type=link.media_type, content=link.content,
+        )
+
+        # The Hyperlink object makes it look like an open-access book,
+        # but the context we have from the OPDS feed says that it's
+        # not.
+        m.mirror_link(None, data_source, link, link_obj, policy)
+
+        # No HTTP requests were made.
+        eq_([], h.requests)
+        
+        # Nothing was uploaded.
+        eq_([], mirror.uploaded)
+        
     def test_measurements(self):
         edition = self._edition()
         measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
@@ -816,3 +852,4 @@ class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
         # with the identifier of the audiobook
         equivalent_identifiers = [x.output for x in identifier.equivalencies]
         eq_([book.primary_identifier], equivalent_identifiers)
+    

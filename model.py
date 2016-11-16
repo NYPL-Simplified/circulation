@@ -811,11 +811,18 @@ class DataSource(Base):
     )
 
     @classmethod
-    def lookup(cls, _db, name):
+    def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
-        return get_one(_db, DataSource, name=name)
+        if autocreate:
+            data_source, is_new = get_one_or_create(
+                _db, DataSource, name=name,
+                create_method_kwargs=dict(offers_licenses=offers_licenses)
+            )
+        else:
+            data_source = get_one(_db, DataSource, name=name)
+        return data_source
 
     URI_PREFIX = "http://librarysimplified.org/terms/sources/"
 
@@ -3953,7 +3960,8 @@ class Work(Base):
             classifier.add(classification)
 
         (genre_weights, self.fiction, self.audience, 
-         self.target_age) = classifier.classify
+         target_age) = classifier.classify
+        self.target_age = tuple_to_numericrange(target_age)
 
         workgenres, workgenres_changed = self.assign_genres_from_weights(
             genre_weights
@@ -3963,7 +3971,7 @@ class Work(Base):
             workgenres_changed or 
             old_fiction != self.fiction or
             old_audience != self.audience or
-            numericrange_to_tuple(old_target_age) != numericrange_to_tuple(self.target_age)
+            numericrange_to_tuple(old_target_age) != target_age
         )
 
         return classification_changed
@@ -4587,6 +4595,7 @@ class Hyperlink(Base):
 
     # Some common link relations.
     CANONICAL = u"canonical"
+    GENERIC_OPDS_ACQUISITION = u"http://opds-spec.org/acquisition"
     OPEN_ACCESS_DOWNLOAD = u"http://opds-spec.org/acquisition/open-access"
     IMAGE = u"http://opds-spec.org/image"
     THUMBNAIL_IMAGE = u"http://opds-spec.org/image/thumbnail"
@@ -5188,12 +5197,12 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if numericrange_to_tuple(self.target_age) != numericrange_to_tuple(target_age):
+        if numericrange_to_tuple(self.target_age) != target_age:
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
-                self.target_age, target_age
+                self.target_age, tuple_to_numericrange(target_age)
             )        
-        self.target_age = target_age
+        self.target_age = tuple_to_numericrange(target_age)
 
 
 class Classification(Base):
@@ -5397,17 +5406,17 @@ class CachedFeed(Base):
         if not lane.languages:
             languages_key = None
         else:
-            languages_key = ",".join(lane.languages)
+            languages_key = unicode(",".join(lane.languages))
 
         if facets:
-            facets_key = facets.query_string
+            facets_key = unicode(facets.query_string)
         else:
-            facets_key = ""
+            facets_key = u""
 
         if pagination:
-            pagination_key = pagination.query_string
+            pagination_key = unicode(pagination.query_string)
         else:
-            pagination_key = ""
+            pagination_key = u""
 
         # Get a CachedFeed object. We will either return its .content,
         # or update its .content.
@@ -6438,6 +6447,9 @@ class RightsStatus(Base):
             return RightsStatus.CC_BY_NC_SA
         elif rights == 'cc by-nc-nd':
             return RightsStatus.CC_BY_NC_ND
+        elif (rights in RightsStatus.OPEN_ACCESS
+              or rights == RightsStatus.IN_COPYRIGHT):
+            return rights
         else:
             return RightsStatus.UNKNOWN
 
@@ -6634,6 +6646,69 @@ class Credential(Base):
 
 # Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
+
+
+class DelegatedPatronIdentifier(Base):
+    """This library is in charge of coming up with, and storing,
+    identifiers associated with the patrons of some other library.
+
+    e.g. NYPL provides Adobe IDs for patrons of all libraries that use
+    the SimplyE app.
+
+    Those identifiers are stored here.
+    """
+    ADOBE_ACCOUNT_ID = 'Adobe Account ID'
+    
+    __tablename__ = 'delegatedpatronidentifiers'
+    id = Column(Integer, primary_key=True)
+    type = Column(String(255), index=True)
+    library_uri = Column(String(255), index=True)
+
+    # This is the ID the foreign library gives us when referring to
+    # this patron.
+    patron_identifier = Column(String(255), index=True)
+
+    # This is the identifier we made up for the patron. This is what the
+    # foreign library is trying to look up.
+    delegated_identifier = Column(String)
+
+    __table_args__ = (
+        UniqueConstraint('type', 'library_uri', 'patron_identifier'),
+    )
+
+    @classmethod
+    def get_one_or_create(
+            cls, _db, library_uri, patron_identifier, identifier_type,
+            create_function
+    ):
+        """Look up the delegated identifier for the given patron. If there is
+        none, create one.
+
+        :param library_uri: A URI identifying the patron's library.
+
+        :param patron_identifier: An identifier used by that library to
+         distinguish between this patron and others. This should be
+         an identifier created solely for the purpose of identifying the
+         patron with _this_ library, and not (e.g.) the patron's barcode.
+
+        :param identifier_type: The type of the delegated identifier
+         to look up. (probably ADOBE_ACCOUNT_ID)
+
+        :param create_function: If this patron does not have a
+         DelegatedPatronIdentifier, one will be created, and this
+         function will be called to determine the value of
+         DelegatedPatronIdentifier.delegated_identifier. 
+
+        :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
+        """
+        identifier, is_new = get_one_or_create(
+            _db, DelegatedPatronIdentifier, library_uri=library_uri,
+            patron_identifier=patron_identifier, type=identifier_type
+        )
+        if is_new:
+            identifier.delegated_identifier = create_function()
+        return identifier, is_new
+        
 
 class Timestamp(Base):
     """A general-purpose timestamp for external services."""
@@ -7144,7 +7219,6 @@ class Representation(Base):
         self.fetched_at = datetime.datetime.utcnow()
         self.fetch_exception = None
         self.update_image_size()
-
 
     def set_as_mirrored(self):
         """Record the fact that the representation has been mirrored
@@ -8055,3 +8129,8 @@ def numericrange_to_tuple(r):
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper
+
+def tuple_to_numericrange(t):
+    """Helper method to convert a tuple to an inclusive NumericRange."""
+    return NumericRange(t[0], t[1], '[]')
+        

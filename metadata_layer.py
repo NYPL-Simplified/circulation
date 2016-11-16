@@ -465,6 +465,15 @@ class MetaToModelUtility(object):
                 self.log.info("Not mirroring %s: rel=%s", link.href, link_obj.rel)
             return
 
+        if (link.rights_uri
+            and link.rights_uri == RightsStatus.IN_COPYRIGHT):
+            self.log.info(
+                "Not mirroring %s: rights status=%s" % (
+                    link.href, link.rights_uri
+                )
+            )
+            return
+            
         mirror = policy.mirror
         http_get = policy.http_get
 
@@ -690,13 +699,21 @@ class CirculationData(MetaToModelUtility):
                 # An open-access link or open-access rights implies a FormatData object.
                 open_access_link = (link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and link.href)
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
-                open_access_rights_link = (link.media_type in Representation.BOOK_MEDIA_TYPES 
-                                           and link.href
-                                           and (link.rights_uri or self.default_rights_uri) in RightsStatus.OPEN_ACCESS)
+                rights_uri =  link.rights_uri or self.default_rights_uri
+                open_access_rights_link = (
+                    link.media_type in Representation.BOOK_MEDIA_TYPES 
+                    and link.href
+                    and rights_uri in RightsStatus.OPEN_ACCESS
+                )
                 
                 if open_access_link or open_access_rights_link:
-                    rights_uri = link.rights_uri or self.default_rights_uri
-                    if open_access_link and not rights_uri in RightsStatus.OPEN_ACCESS:
+                    if (open_access_link
+                        and rights_uri != RightsStatus.IN_COPYRIGHT
+                        and not rights_uri in RightsStatus.OPEN_ACCESS):
+                        # We don't know exactly what's going on here but
+                        # the link said it was an open-access book
+                        # and the rights URI doesn't contradict it,
+                        # so treat it as a generic open-access book.
                         rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
                     format_found = False
                     for format in self.formats:
@@ -796,7 +813,10 @@ class CirculationData(MetaToModelUtility):
         """Does this Circulation object have an associated open-access link?"""
         return any(
             [x for x in self.links 
-             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD and x.href]
+             if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
+             and x.href
+             and x.rights_uri != RightsStatus.IN_COPYRIGHT
+            ]
         )
 
 
@@ -912,7 +932,19 @@ class CirculationData(MetaToModelUtility):
                         as_of=self.last_checked
                     )
 
-        made_changes = made_changes or changed_licenses
+        # Changes to the delivery mechanisms may have changed the work's
+        # open-access status.
+        old_open_access = pool.open_access                    
+        for lpdm in pool.delivery_mechanisms:
+            if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                pool.open_access = True
+                break
+        else:
+            pool.open_access = False
+        open_access_status_changed = (old_open_access != pool.open_access)
+                    
+        made_changes = (made_changes or changed_licenses
+                        or open_access_status_changed)
 
         return pool, made_changes
 
@@ -1307,7 +1339,6 @@ class Metadata(MetaToModelUtility):
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
-
         fields = self.BASIC_EDITION_FIELDS+['permanent_work_id']
         for field in fields:
             old_edition_value = getattr(edition, field)
