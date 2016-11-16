@@ -362,7 +362,7 @@ class OPDSImporter(object):
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
-            feed, data_source=data_source, feed_url=feed_url,
+            feed, data_source=data_source, feed_url=feed_url
         )
 
         # translate the id in failures to identifier.urn
@@ -702,10 +702,9 @@ class OPDSImporter(object):
 
         :return: A rights URI.
         """
-        for name in ('atom:rights', 'rights'):
-            rights = OPDSXMLParser._xpath1(entry, 'rights')
-            if rights:
-                return cls.rights_uri(rights)
+        rights = OPDSXMLParser._xpath1(entry, 'rights')
+        if rights:
+            return cls.rights_uri(rights)
     
     @classmethod
     def extract_messages(cls, parser, feed_tag):
