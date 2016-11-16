@@ -1,14 +1,10 @@
 import logging
 from nose.tools import set_trace
 
-#from urlparse import urljoin
-#from urllib import urlencode
 import datetime
-import requests
-
-#from authenticator import BasicAuthAuthenticator
-#from config import Configuration
+import json;
 import os
+import requests
 import uuid
 
 from circulation import (
@@ -296,10 +292,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         
         post_args = dict()
         post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = str(patron.authorization_identifier) + "4"
+        post_args['libraryCardNumber'] = str(patron.authorization_identifier)
         # generate random values for the account fields the patron has not supplied us with
         patron_uuid = str(uuid.uuid1())
-        patron_uuid = os.urandom(4).encode('hex')
         post_args['userName'] = 'username_' + patron_uuid
         post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
         post_args['firstName'] = 'Patron'
@@ -311,8 +306,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         resp_dict = {}
         message = None
         try:
-            set_trace()
-            response = self.request(url=url, params=post_args, method="post")
+            response = self.request(url=url, data=json.dumps(post_args), method="post")
             if response.text:
                 resp_dict = response.json()
                 message = resp_dict.get('message', None)
