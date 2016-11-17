@@ -15,15 +15,24 @@ from circulation import (
 )
 from circulation_exceptions import *
 
+from config import Configuration
+
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
     OneClickBibliographicCoverageProvider
 )
 
+from core.metadata_layer import (
+    CirculationData, 
+    ReplacementPolicy,
+)
+
 from core.model import (
+    DataSource,
     Edition,
     Identifier, 
+    LicensePool,
     Patron,
     Representation,
 )
@@ -272,7 +281,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    def update_licensepools_for_identifier(self, isbn, availability):
+    def update_licensepool_for_identifier(self, isbn, availability):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -306,11 +315,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             formats=True,
         )
 
-        # licenses_available can be 0 or 1, depending on whether the book is 
-        # lendable or not.  We'll have to write custom code to not decrement 
-        # license number when a patron checks the book out, only when the checkout 
-        # attempt comes back with a "fresh out" error message. 
-        licenses_available = 1
+        # licenses_available can be 0 or 999, depending on whether the book is 
+        # lendable or not.   
+        licenses_available = 999
         if not availability:
             licenses_available = 0
 
@@ -328,32 +335,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
-
         Part of the CirculationAPI interface.
+        Inactive for now, because we'd have to request and go through all availabilities 
+        from OneClick just to pick the one licensepool we want.
         """
-
-        for lpdm in licensepool.delivery_mechanisms:
-            if lpdm.resource and lpdm.resource.representation:
-                print lpdm.resource.representation
-
-        '''
-        if licensepool. == Representation.MP3_MEDIA_TYPE
-
-         Representation.SUPPORTED_BOOK_MEDIA_TYPES
-
-        availability_list = self.get_ebook_availability_info(media_type='ebook')
-        item_count = 0
-        for availability in availability_list:
-            isbn = availability['isbn']
-            # boolean True/False value, not number of licenses
-            available = availability_list['availability']
-
-            license_pool, is_new, is_changed = self.api.update_licensepools_for_identifier(isbn, available)
-
-
-        self.update_licensepools_for_identifier(licensepool.identifier)
-        '''
-
+        pass
 
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
@@ -755,31 +741,40 @@ class OneClickCirculationMonitor(Monitor):
     Bibliographic data isn't inserted into new LicensePools until
     we hear from the metadata wrangler.
     """
+    VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
+    FIVE_MINUTES = datetime.timedelta(minutes=5)
+
     def __init__(self, _db, name="OneClick Circulation Monitor",
                  interval_seconds=1200, batch_size=50):
         super(OneClickCirculationMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds)
-        self.maximum_consecutive_unchanged_books = (
-            maximum_consecutive_unchanged_books)
+            _db, name, interval_seconds=interval_seconds, 
+            default_start_time = self.VERY_LONG_AGO)
+        self.batch_size = batch_size
+
+        self.bibliographic_coverage_provider = (
+            OneClickBibliographicCoverageProvider(self._db)
+        )
+
+        self.api = None
 
 
     def process_availability(self, media_type='ebook'):
         # get list of all titles, with availability info
-        availability_list = self.get_ebook_availability_info(media_type=media_type)
+        availability_list = self.api.get_ebook_availability_info(media_type=media_type)
         item_count = 0
         for availability in availability_list:
             isbn = availability['isbn']
             # boolean True/False value, not number of licenses
-            available = availability_list['availability']
+            available = availability['availability']
 
-            license_pool, is_new, is_changed = self.api.update_licensepools_for_identifier(isbn, available)
+            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available)
             # Log a circulation event for this work.
             if is_new:
                 Analytics.collect_event(
                     self._db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
 
             item_count += 1
-            if count % self.batch_size == 0:
+            if item_count % self.batch_size == 0:
                 self._db.commit()
 
         return item_count

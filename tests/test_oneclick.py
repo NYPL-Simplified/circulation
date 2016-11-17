@@ -11,7 +11,7 @@ import os
 from StringIO import StringIO
 
 from core.config import (
-    #Configuration, 
+    Configuration, 
     temp_config,
 )
 
@@ -396,7 +396,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(True, success)
 
 
-    def test_update_availability(self):
+    def test_update_licensepool_for_identifier(self):
         """Test the OneClick implementation of the update_availability method
         defined by the CirculationAPI interface.
         """
@@ -416,286 +416,64 @@ class TestOneClickAPI(OneClickAPITest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
+        isbn = pool.identifier.identifier.encode("ascii")
+
+        self.api.update_licensepool_for_identifier(isbn, False)
+
+        # The availability information has been updated, as has the
+        # date the availability information was last checked.
+        eq_(10, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(3, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
+        self.api.update_licensepool_for_identifier(isbn, True)
+        eq_(999, pool.licenses_available)
+
+
+
+class TestCirculationMonitor(OneClickAPITest):
+
+    def test_process_availability(self):
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['OneClick'] = {
+                'library_id' : 'library_id_123',
+                'username' : 'username_123',
+                'password' : 'password_123',
+                'remote_stage' : 'qa', 
+                'base_url' : 'www.oneclickapi.test', 
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
+            }
+            monitor = OneClickCirculationMonitor(self._db)
+            monitor.api = MockOneClickAPI.from_config(self._db)
+
+        # Create a LicensePool that needs updating.
+        edition_ebook, pool_ebook = self._edition(
+            identifier_type=Identifier.ONECLICK_ID,
+            data_source_name=DataSource.ONECLICK,
+            with_license_pool=True
+        )
+        pool_ebook.licenses_owned = 3
+        pool_ebook.licenses_available = 2
+        pool_ebook.patrons_in_hold_queue = 1
+        eq_(None, pool_ebook.last_checked)
+
         # Prepare availability information.
         datastr, datadict = self.get_data("response_availability_single_ebook.json")
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
-        new_identifier = pool.identifier.identifier.encode("ascii")
+        new_identifier = pool_ebook.identifier.identifier.encode("ascii")
         datastr = datastr.replace("9781781107041", new_identifier)
+        monitor.api.queue_response(status_code=200, content=datastr)
 
-        self.api.queue_response(status_code=200, content=datastr)
-
-        self.api.update_availability(pool)
-
-        # The availability information has been udpated, as has the
-        # date the availability information was last checked.
-        eq_(2, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(0, pool.patrons_in_hold_queue)
-        assert pool.last_checked is not None
+        item_count = monitor.process_availability()
+        eq_(1, item_count)
+        pool_ebook.licenses_available = 0
 
 
-    def test_update_licensepool_error(self):
-        # Create an identifier.
-        identifier = self._identifier(
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-        ignore, availability = self.sample_json(
-            "overdrive_availability_information.json"
-        )
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(response_code=500, content="An error occured.")
-        book = dict(id=identifier.identifier, availability_link=self._url)
-        pool, was_new, changed = api.update_licensepool(book)
-        eq_(None, pool)
-
-
-    def test_update_licensepool_provides_bibliographic_coverage(self):
-        # Create an identifier.
-        identifier = self._identifier(
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-
-        # Prepare bibliographic and availability information 
-        # for this identifier.
-        ignore, availability = self.sample_json(
-            "overdrive_availability_information.json"
-        )
-        ignore, bibliographic = self.sample_json(
-            "bibliographic_information.json"
-        )
-
-        # To avoid a mismatch, make it look like the information is
-        # for the newly created Identifier.
-        availability['id'] = identifier.identifier
-        bibliographic['id'] = identifier.identifier
-
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=bibliographic)
-        api.queue_response(content=availability)
-
-        # Now we're ready. When we call update_licensepool, the
-        # OverdriveAPI will retrieve the availability information,
-        # then the bibliographic information. It will then trigger the
-        # OverdriveBibliographicCoverageProvider, which will
-        # create an Edition and a presentation-ready Work.
-        pool, was_new, changed = api.update_licensepool(identifier.identifier)
-        eq_(True, was_new)        
-        eq_(availability['copiesOwned'], pool.licenses_owned)
-
-        edition = pool.presentation_edition
-        eq_("Ancillary Justice", edition.title)
-
-        eq_(True, pool.work.presentation_ready)
-        assert pool.work.cover_thumbnail_url.startswith(
-            'http://images.contentreserve.com/'
-        )
-
-        # The book has been run through the bibliographic coverage
-        # provider.
-        coverage = [
-            x for x in identifier.coverage_records 
-            if x.operation is None
-            and x.data_source.name == DataSource.OVERDRIVE
-        ]
-        eq_(1, len(coverage))
-
-    def test_update_new_licensepool(self):
-        data, raw = self.sample_json("overdrive_availability_information.json")
-
-        # Create an identifier
-        identifier = self._identifier(
-            identifier_type=Identifier.ONECLICK_ID
-        )
-
-        # Make it look like the availability information is for the
-        # newly created Identifier.
-        raw['id'] = identifier.identifier
-
-        api = DummyOverdriveAPI(self._db)
-        pool, was_new = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, 
-            identifier.type, identifier.identifier
-        )
-        
-        pool, was_new, changed = api.update_licensepool_with_book_info(
-            raw, pool, was_new
-        )
-        eq_(True, was_new)
-        eq_(True, changed)
-
-        self._db.commit()
-
-        eq_(raw['copiesOwned'], pool.licenses_owned)
-        eq_(raw['copiesAvailable'], pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
-
-
-    def test_update_existing_licensepool(self):
-        data, raw = self.sample_json("overdrive_availability_information.json")
-
-        # Create a LicensePool.
-        wr, pool = self._edition(
-            data_source_name=DataSource.OVERDRIVE,
-            identifier_type=Identifier.OVERDRIVE_ID,
-            with_license_pool=True
-        )
-
-        # Make it look like the availability information is for the
-        # newly created LicensePool.
-        raw['id'] = pool.identifier.identifier
-
-        wr.title = "The real title."
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
-
-        api = DummyOverdriveAPI(self._db)
-        p2, was_new, changed = api.update_licensepool_with_book_info(
-            raw, pool, False
-        )
-        eq_(False, was_new)
-        eq_(True, changed)
-        eq_(p2, pool)
-        # The title didn't change to that title given in the availability
-        # information, because we already set a title for that work.
-        eq_("The real title.", wr.title)
-        eq_(raw['copiesOwned'], pool.licenses_owned)
-        eq_(raw['copiesAvailable'], pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
-
-
-
-class TestCirculationMonitor(DatabaseTest):
-
-    BIBLIOGRAPHIC_DATA = Metadata(
-        DataSource.ONECLICK,
-        publisher=u'Random House Inc',
-        language='eng', 
-        title=u'Faith of My Fathers : A Family Memoir', 
-        imprint=u'Random House Inc2',
-        published=datetime.datetime(2000, 3, 7, 0, 0),
-        primary_identifier=IdentifierData(
-            type=Identifier.ONECLICK_ID,
-            identifier=u'0003642860'
-        ),
-        identifiers = [
-            IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
-        ],
-        contributors = [
-            ContributorData(sort_name=u"McCain, John", 
-                            roles=[Contributor.PRIMARY_AUTHOR_ROLE]
-                        ),
-            ContributorData(sort_name=u"Salter, Mark", 
-                            roles=[Contributor.AUTHOR_ROLE]
-                        ),
-        ],
-        subjects = [
-            SubjectData(type=Subject.BISAC,
-                        identifier=u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
-            SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Adult'),
-        ],
-    )
-
-    AVAILABILITY_DATA = CirculationData(
-        data_source=DataSource.ONECLICK,
-        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier, 
-        licenses_owned=9,
-        licenses_available=8,
-        licenses_reserved=0,
-        patrons_in_hold_queue=0,
-        last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
-    )
-
-
-    def test_process_book(self):
-        with temp_config() as config:
-            monitor = OneClickCirculationMonitor(self._db)
-            monitor.api = None
-            edition, license_pool = monitor.process_book(
-                self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
-            eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
-            eq_(u'eng', edition.language)
-            eq_(u'Random House Inc', edition.publisher)
-            eq_(u'Random House Inc2', edition.imprint)
-
-            eq_(Identifier.AXIS_360_ID, edition.primary_identifier.type)
-            eq_(u'0003642860', edition.primary_identifier.identifier)
-
-            [isbn] = [x for x in edition.equivalent_identifiers()
-                      if x is not edition.primary_identifier]
-            eq_(Identifier.ISBN, isbn.type)
-            eq_(u'9780375504587', isbn.identifier)
-
-            eq_(["McCain, John", "Salter, Mark"], 
-                sorted([x.sort_name for x in edition.contributors]),
-            )
-
-            subs = sorted(
-                (x.subject.type, x.subject.identifier)
-                for x in edition.primary_identifier.classifications
-            )
-            eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'), 
-                 (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
-
-            eq_(9, license_pool.licenses_owned)
-            eq_(8, license_pool.licenses_available)
-            eq_(0, license_pool.patrons_in_hold_queue)
-            eq_(datetime.datetime(2015, 5, 20, 2, 9, 8), license_pool.last_checked)
-
-            # Three circulation events were created, backdated to the
-            # last_checked date of the license pool.
-            events = license_pool.circulation_events
-            eq_([u'title_add', u'check_in', u'license_add'], 
-                [x.type for x in events])
-            for e in events:
-                eq_(e.start, license_pool.last_checked)
-
-            # A presentation-ready work has been created for the LicensePool.
-            work = license_pool.work
-            eq_(True, work.presentation_ready)
-            eq_("Faith of My Fathers : A Family Memoir", work.title)
-
-            # A CoverageRecord has been provided for this book in the Axis
-            # 360 bibliographic coverage provider, so that in the future
-            # it doesn't have to make a separate API request to ask about
-            # this book.
-            records = [x for x in license_pool.identifier.coverage_records
-                       if x.data_source.name == DataSource.ONECLICK
-                       and x.operation is None]
-            eq_(1, len(records))
-
-
-    def test_process_book_updates_old_licensepool(self):
-        """If the LicensePool already exists, the circulation monitor
-        updates it.
-        """
-        edition, licensepool = self._edition(
-            with_license_pool=True, identifier_type=Identifier.ONECLICK_ID,
-            identifier_id=u'0003642860'
-        )
-        # We start off with availability information based on the
-        # default for test data.
-        eq_(1, licensepool.licenses_owned)
-
-        identifier = IdentifierData(
-            type=licensepool.identifier.type,
-            identifier=licensepool.identifier.identifier
-        )
-        metadata = Metadata(DataSource.ONECLICK, primary_identifier=identifier)
-        monitor = OneClickCirculationMonitor(self._db)
-        monitor.api = None
-        edition, licensepool = monitor.process_book(
-            metadata, self.AVAILABILITY_DATA
-        )
-
-        # Now we have information based on the CirculationData.
-        eq_(9, licensepool.licenses_owned)
 
 
 
