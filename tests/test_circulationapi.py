@@ -18,6 +18,7 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    CirculationAPI,
     FulfillmentInfo,
     LoanInfo,
     HoldInfo,
@@ -36,8 +37,9 @@ from core.model import (
 )
 from core.mock_analytics_provider import MockAnalyticsProvider
 
-from . import DatabaseTest
+from . import DatabaseTest, sample_data
 from api.testing import MockCirculationAPI
+from api.threem import MockThreeMAPI
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -584,3 +586,23 @@ class TestCirculationAPI(DatabaseTest):
         loans = self._db.query(Loan).all()
         eq_([], loans)
 
+    def test_patron_activity(self):
+        threem = MockThreeMAPI(self._db)
+
+        circulation = CirculationAPI(self._db, threem=threem)
+
+        data = sample_data("checkouts.xml", "threem")
+
+        threem.queue_response(200, content=data)
+
+        loans, holds, complete = circulation.patron_activity(self.patron, "1234")
+        eq_(2, len(loans))
+        eq_(2, len(holds))
+        eq_(True, complete)
+
+        threem.queue_response(500, content="Error")
+
+        loans, holds, complete = circulation.patron_activity(self.patron, "1234")
+        eq_(0, len(loans))
+        eq_(0, len(holds))
+        eq_(False, complete)
