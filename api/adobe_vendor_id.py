@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import logging
 import uuid
 import base64
 import os
@@ -462,6 +463,8 @@ class AuthdataUtility(object):
         self.secrets_by_library = dict(other_libraries)
         self.secrets_by_library[library_uri] = secret
 
+        self.log = logging.getLogger("Adobe authdata utility")
+
     LIBRARY_URI_KEY = 'library_uri'
     AUTHDATA_SECRET_KEY = 'authdata_secret'
     OTHER_LIBRARIES_KEY = 'other_libraries'
@@ -532,12 +535,33 @@ class AuthdataUtility(object):
         :raise jwt.exceptions.DecodeError: When the JWT is not valid
         for any reason.
         """
+
+        self.log.info("Authdata.decode() received authdata %s", authdata)
+        # We are going to try to verify the authdata as is (in case
+        # Adobe secretly decoded it en route), but we're also going to
+        # try to decode it ourselves and verify it that way.
+        potential_tokens = [authdata]
         try:
-            authdata = base64.decodestring(authdata)
+            decoded = base64.decodestring(authdata)
+            potential_tokens.append(decoded)
         except Exception, e:
             # Do nothing -- the authdata was not encoded to begin with.
             pass
-        
+
+        exceptions = []
+        library_uri = subject = None
+        for authdata in potential_tokens:
+            try:
+                return self._decode(authdata)
+            except Exception, e:
+                self.log.error("Error decoding %s", authdata, exc_info=e)
+                exceptions.append(e)
+
+        # If we got to this point there is at least one exception
+        # in the list.
+        raise exceptions[-1]
+                
+    def _decode(self, authdata):
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
             authdata, algorithm=self.ALGORITHM,
