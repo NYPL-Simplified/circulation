@@ -32,7 +32,17 @@ class CirculationInfo(object):
 
 class FulfillmentInfo(CirculationInfo):
 
-    """A record of an attempt to fulfil a loan."""
+    """A record of an attempt to fulfill a loan.
+
+    :param identifier_type Ex: Third party provider, ISBN, URI, etc...
+    :param identifier Contains ISBN or third party item id, etc., and links to LicensePool, Work, etc..
+    :param content_link Either URL to download ACSM file from or URL to streaming content.
+    :param content_type Media type of the book version we're getting.  
+        Ex: "text/html" or Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE 
+        or EPUB_MEDIA_TYPE.
+    :param content Body of acsm file or empty.  Would have either content or content_link filled in.
+    :param content_expires Download link expiration datetime.
+    """
 
     def __init__(self, identifier_type, identifier, content_link, content_type, 
                  content, content_expires):
@@ -54,7 +64,15 @@ class FulfillmentInfo(CirculationInfo):
 
 class LoanInfo(CirculationInfo):
 
-    """A record of a loan."""
+    """A record of a loan.
+
+    :param identifier_type Ex.: Identifier.ONECLICK_ID.
+    :param identifier Expected to be the unicode string of the isbn, etc..
+    :param start_date When the patron checked the book out.
+    :param end_date When checked-out book is due.  Expected to be passed in 
+    date, not unicode format.
+    :param fulfillment_info A FulfillmentInfo object.
+    """
 
     def __init__(self, identifier_type, identifier, start_date, end_date,
                  fulfillment_info=None):
@@ -78,7 +96,16 @@ class LoanInfo(CirculationInfo):
 
 class HoldInfo(CirculationInfo):
 
-    """A record of a hold."""
+    """A record of a hold.
+
+    :param identifier_type Ex.: Identifier.ONECLICK_ID.
+    :param identifier Expected to be the unicode string of the isbn, etc..
+    :param start_date When the patron made the reservation.
+    :param end_date When reserved book is expected to become available.  Expected to be passed in 
+        date, not unicode format.
+    :param hold_position  Patron's place in the hold line.  
+        When not available, default to be passed is None, which is equivalent to "first in line".
+    """
 
     def __init__(self, identifier_type, identifier, start_date, end_date, 
                  hold_position):
@@ -94,6 +121,7 @@ class HoldInfo(CirculationInfo):
             self.fd(self.start_date), self.fd(self.end_date), 
             self.hold_position
         )
+
 
 
 class CirculationAPI(object):
@@ -335,6 +363,7 @@ class CirculationAPI(object):
             hold_info.end_date, 
             hold_info.hold_position
         )
+
         if hold and is_new:
             # Send out an analytics event to record the fact that
             # a hold was initiated through the circulation
@@ -464,6 +493,7 @@ class CirculationAPI(object):
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
             __transaction.commit()
+
             # Send out an analytics event to record the fact that
             # a loan was revoked through the circulation
             # manager.
@@ -763,3 +793,61 @@ class BaseCirculationAPI(object):
         of changes?
         """
         return Configuration.default_notification_email_address()
+
+
+    def checkin(self, patron, pin, licensepool):
+        """  Return a book early.  
+
+        :param patron: a Patron object for the patron who wants
+        to check out the book.
+        :param pin: The patron's alleged password.
+        :param licensepool: Contains lending info as well as link to parent Identifier.
+        """
+        pass
+
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+        """Check out a book on behalf of a patron.
+
+        :param patron: a Patron object for the patron who wants
+        to check out the book.
+        :param pin: The patron's alleged password.
+        :param licensepool: Contains lending info as well as link to parent Identifier.
+        :param internal_format: Represents the patron's desired book format.
+
+        :return: a LoanInfo object.
+        """
+        raise NotImplementedException()
+
+
+    def fulfill(self, patron, pin, licensepool, internal_format):
+        """ Get the actual resource file to the patron.
+        :return a FulfillmentInfo object.
+        """
+        raise NotImplementedException()
+
+
+    def patron_activity(self, patron, pin):
+        """ Return a patron's current checkouts and holds.
+        """
+        raise NotImplementedException()
+
+
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        """Place a book on hold.
+
+        :return: A HoldInfo object
+        """
+        raise NotImplementedException()
+
+
+    def release_hold(self, patron, pin, licensepool):
+        """Release a patron's hold on a book.
+
+        :raises CannotReleaseHold: If there is an error communicating
+        with the provider, or the provider refuses to release the hold for
+        any reason.
+        """
+        raise NotImplementedException()
+
+

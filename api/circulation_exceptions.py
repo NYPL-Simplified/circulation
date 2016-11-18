@@ -46,6 +46,9 @@ class AuthorizationFailedException(CirculationException):
 class PatronAuthorizationFailedException(AuthorizationFailedException):
     status_code = 400
 
+class RemotePatronCreationFailedException(CirculationException):
+    status_code = 500
+
 class LibraryAuthorizationFailedException(CirculationException):
     status_code = 500
 
@@ -184,3 +187,8 @@ class NoActiveLoan(CannotFulfill):
     active loan.
     """
     status_code = 400
+
+class PatronNotFoundOnRemote(NotFoundOnRemote):
+    status_code = 404
+
+

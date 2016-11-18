@@ -143,14 +143,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
 
-        :param patron_obj: a Patron object for the patron who wants
+        :param patron: a Patron object for the patron who wants
         to check out the book.
 
-        :param patron_password: The patron's alleged password.
+        :param pin: The patron's alleged password.
 
-        :param identifier: Identifier of the book to be checked out.
+        :param licensepool: Identifier of the book to be checked out is 
+        attached to this licensepool.
 
-        :param format_type: The patron's desired book format.
+        :param internal_format: Represents the patron's desired book format.
 
         :return: a LoanInfo object.
         """
@@ -275,6 +276,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             content_expires=None
         )
 
+
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.
         """
@@ -317,8 +319,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if download_link:
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
-        else:
-            return response
+
+        raise CannotFulfill("Cannot obtain a download link for patron[%r], overdrive_id[%s], format_type[%s].", patron, overdrive_id, format_type)
+
 
     def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
         # If this for Overdrive's streaming reader, and the link expires,
