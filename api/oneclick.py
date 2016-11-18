@@ -97,7 +97,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
-        :return LoanInfo on success, None on failure
+        :return LoanInfo on success, None on failure.
         """
         patron_oneclick_id = self.validate_patron(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
