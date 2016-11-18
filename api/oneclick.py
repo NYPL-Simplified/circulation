@@ -241,7 +241,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             start_date=today,
             # OneClick sets hold expirations to 2050-12-31, as a "forever"
             end_date=None,
-            hold_position=0,
+            hold_position=None,
         )
 
         return hold
@@ -505,7 +505,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 isbn,
                 start_date=None,
                 end_date=expires,
-                hold_position=0
+                hold_position=None
             )
 
             holds.append(hold)

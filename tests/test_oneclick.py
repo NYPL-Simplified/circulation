@@ -323,7 +323,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_('9781426893483', holds_list[0].identifier)
         eq_(None, holds_list[0].start_date)
         eq_(datetime.date(2050, 12, 31), holds_list[0].end_date)
-        eq_(0, holds_list[0].hold_position)
+        eq_(None, holds_list[0].hold_position)
 
 
 
