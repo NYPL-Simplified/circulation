@@ -28,7 +28,7 @@
             "basic_token" : "abc-def-ghi", 
             "ebook_loan_length" : "integer-number-days", 
             "eaudio_loan_length" : "integer-number-days"
-        },
+        }
 
     }
 }

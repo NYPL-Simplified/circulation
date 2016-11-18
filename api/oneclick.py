@@ -106,7 +106,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
-        :return LoanInfo on success, None on failure
+        :return LoanInfo on success, None on failure.
         """
         patron_oneclick_id = self.validate_patron(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
@@ -250,7 +250,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             start_date=today,
             # OneClick sets hold expirations to 2050-12-31, as a "forever"
             end_date=None,
-            hold_position=0,
+            hold_position=None,
         )
 
         return hold
@@ -574,7 +574,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 isbn,
                 start_date=None,
                 end_date=expires,
-                hold_position=0
+                hold_position=None
             )
 
             holds.append(hold)
