@@ -38,7 +38,8 @@ class FulfillmentInfo(CirculationInfo):
     :param identifier Contains ISBN or third party item id, etc., and links to LicensePool, Work, etc..
     :param content_link Either URL to download ACSM file from or URL to streaming content.
     :param content_type Media type of the book version we're getting.  
-        Ex: "text/html" or Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE .
+        Ex: "text/html" or Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE 
+        or EPUB_MEDIA_TYPE.
     :param content Body of acsm file or empty.  Would have either content or content_link filled in.
     :param content_expires Download link expiration datetime.
     """
@@ -103,7 +104,7 @@ class HoldInfo(CirculationInfo):
     :param end_date When reserved book is expected to become available.  Expected to be passed in 
         date, not unicode format.
     :param hold_position  Patron's place in the hold line.  
-        When not available, default to be passed is 0.
+        When not available, default to be passed is None, which is equivalent to "first in line".
     """
 
     def __init__(self, identifier_type, identifier, start_date, end_date, 
