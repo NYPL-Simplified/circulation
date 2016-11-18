@@ -593,6 +593,19 @@ class TestAuthdataUtility(VendorIDTest):
         decoded = self.authdata.decode(authdata)
         eq_(("http://my-library.org/", "Patron identifier"), decoded)
 
+    def test_decode_round_trip_with_intermediate_mischief(self):        
+        patron_identifier = "Patron identifier"
+        vendor_id, authdata = self.authdata.encode(patron_identifier)
+        eq_("The Vendor ID", vendor_id)
+
+        # A mischievious party in the middle decodes our authdata
+        # without telling us.
+        authdata = base64.decodestring(authdata)
+        
+        # But it still works.
+        decoded = self.authdata.decode(authdata)
+        eq_(("http://my-library.org/", "Patron identifier"), decoded)
+        
     def test_encode(self):
         """Test that _encode gives a known value with known input."""
         patron_identifier = "Patron identifier"
