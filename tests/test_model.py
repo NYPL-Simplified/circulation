@@ -1224,6 +1224,16 @@ class TestLicensePool(DatabaseTest):
             with_open_access_download=True
         )
 
+        # Make sure Feedbooks data source exists -- it's not created
+        # by default.
+        feedbooks_data_source = DataSource.lookup(
+            self._db, DataSource.FEEDBOOKS, autocreate=True
+        )
+        feedbooks = self._licensepool(
+            None, open_access=True, data_source_name=DataSource.FEEDBOOKS,
+            with_open_access_download=True
+        )
+        
         overdrive = self._licensepool(
             None, open_access=False, data_source_name=DataSource.OVERDRIVE
         )
@@ -1249,8 +1259,9 @@ class TestLicensePool(DatabaseTest):
         # An open access book from a high-quality source beats one
         # from a low-quality source.
         eq_(True, better(standard_ebooks, gutenberg_1))
+        eq_(True, better(feedbooks, gutenberg_1))
         eq_(False, better(gutenberg_1, standard_ebooks))
-
+        
         # A high Gutenberg number beats a low Gutenberg number.
         eq_(True, better(gutenberg_2, gutenberg_1))
         eq_(False, better(gutenberg_1, gutenberg_2))
