@@ -1263,6 +1263,7 @@ class Identifier(Base):
     NOVELIST_ID = "NoveList ID"
     OCLC_WORK = "OCLC Work ID"
     OCLC_NUMBER = "OCLC Number"
+    # OneClick uses ISBNs for ebooks and eaudio, and its own ids for magazines
     ONECLICK_ID = "OneClick ID"
     OPEN_LIBRARY_ID = "OLID"
     BIBLIOCOMMONS_ID = "Bibliocommons ID"
@@ -1399,6 +1400,7 @@ class Identifier(Base):
 
         result = m(_db, cls, type=foreign_identifier_type,
                    identifier=foreign_id)
+
         if isinstance(result, tuple):
             return result
         else:

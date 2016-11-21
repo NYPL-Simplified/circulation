@@ -179,8 +179,11 @@ class DatabaseTest(object):
         name = sort_name or name or self._str
         return get_one_or_create(self._db, Contributor, sort_name=unicode(name), **kw_args)
 
-    def _identifier(self, identifier_type=Identifier.GUTENBERG_ID):
-        id = self._str
+    def _identifier(self, identifier_type=Identifier.GUTENBERG_ID, foreign_id=None):
+        if foreign_id:
+            id = foreign_id
+        else:
+            id = self._str
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
     def _edition(self, data_source_name=DataSource.GUTENBERG,

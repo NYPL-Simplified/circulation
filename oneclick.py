@@ -13,11 +13,10 @@ from config import (
 )
 
 from util import LanguageCodes
-#from util.xmlparser import XMLParser
-#from util.jsonparser import JsonParser
+
 from util.http import (
+    BadResponseException, 
     HTTP,
-    #RemoteIntegrationException,
 )
 from coverage import CoverageFailure
 
@@ -56,18 +55,20 @@ class OneClickAPI(object):
     log = logging.getLogger("OneClick API")
 
     def __init__(self, _db, library_id=None, username=None, password=None, 
-        remote_stage=None, base_url=None, basic_token=None):
+        remote_stage=None, base_url=None, basic_token=None, 
+        ebook_loan_length=None, eaudio_loan_length=None):
         self._db = _db
-        (env_library_id, env_username, env_password, 
-         env_remote_stage, env_base_url, env_basic_token) = self.from_config()
             
-        self.library_id = library_id or env_library_id
-        self.username = username or env_username
-        self.password = password or env_password
-        self.remote_stage = remote_stage or env_remote_stage
-        self.base_url = base_url or env_base_url
+        self.library_id = library_id
+        self.username = username
+        self.password = password
+        self.remote_stage = remote_stage
+        self.base_url = base_url or ''
         self.base_url = self.base_url + self.API_VERSION
-        self.token = basic_token or env_basic_token
+        self.token = basic_token
+        # expiration defaults are OneClick-general
+        self.ebook_loan_length = ebook_loan_length
+        self.eaudio_loan_length = eaudio_loan_length
 
 
     @classmethod
@@ -84,40 +85,38 @@ class OneClickAPI(object):
 
 
     @classmethod
-    def from_config(cls):
+    def from_config(cls, _db):
         config = Configuration.integration(Configuration.ONECLICK_INTEGRATION, required=True)
-        values = []
-        for name in [
-                'library_id',
-                'username',
-                'password',
-                'remote_stage', 
-                'url', 
-                'basic_token'
-        ]:
+        property_names = [
+            'library_id',
+            'username',
+            'password',
+            'remote_stage', 
+            'url', 
+            'basic_token', 
+            'ebook_loan_length', 
+            'eaudio_loan_length'
+        ]
+        property_values = {}
+        for name in property_names:
             value = config.get(name)
             if value:
                 value = value.encode("utf8")
-            values.append(value)
+            property_values[name] = value
 
-        if len(values) == 0:
+        if len(property_values.values()) == 0:
             cls.log.info("No OneClick client configured.")
-            return None
-
-        return values
+            raise ValueError("No OneClick client configured.")
 
 
-    @classmethod
-    def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None
-        values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No OneClick client configured."
-            )
-            return None
-        return cls(_db)
+        api = cls(_db, library_id=property_values['library_id'], 
+            username=property_values['username'], password=property_values['password'], 
+            remote_stage=property_values['remote_stage'], base_url=property_values['url'], 
+            basic_token=property_values['basic_token'], 
+            ebook_loan_length=property_values['ebook_loan_length'], 
+            eaudio_loan_length=property_values['eaudio_loan_length'])
+
+        return api
 
 
     @property
@@ -152,12 +151,19 @@ class OneClickAPI(object):
         headers['Accept-Media'] = verbosity
         headers.update(self.authorization_headers)
 
-        # for now, do nothing with error codes, but in the future might have some that 
-        # will warrant repeating the request.
-        disallowed_response_codes = ["409"]
+        # prevent the code throwing a BadResponseException when OneClick 
+        # responds with a 500, because OneClick uses 500s to indicate bad input, 
+        # rather than server error.
+        # must list all 9 possibilities to use
+        allowed_response_codes = ['1xx', '2xx', '3xx', '4xx', '5xx', '6xx', '7xx', '8xx', '9xx']
+        # for now, do nothing with disallowed error codes, but in the future might have 
+        # some that will warrant repeating the request.
+        disallowed_response_codes = []
+
         response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params, 
+            allowed_response_codes=allowed_response_codes, 
             disallowed_response_codes=disallowed_response_codes
         )
         
@@ -183,12 +189,16 @@ class OneClickAPI(object):
         page = 0;
         response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0])
 
-        respdict = response.json()
+        try: 
+            respdict = response.json()
+        except Exception, e:
+            raise BadResponseException("availability_search", "OneClick availability response not parseable.")
+
         if not respdict:
-            raise IOError("OneClick availability response not parseable - has no respdict.")
+            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no structure.")
 
         if not ('pageIndex' in respdict and 'pageCount' in respdict):
-            raise IOError("OneClick availability response not parseable - has no page counts.")
+            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no page counts.")
 
         page_index = respdict['pageIndex']
         page_count = respdict['pageCount']
@@ -198,7 +208,7 @@ class OneClickAPI(object):
             response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], page_index=page_index)
             tempdict = response.json()
             if not ('items' in tempdict):
-                raise IOError("OneClick availability response not parseable - has no next dict.")
+                raise BadResponseException("availability_search", "OneClick availability response not parseable - has no next dict.")
             item_interest_pairs = tempdict['items']
             respdict['items'].extend(item_interest_pairs)
 
@@ -213,13 +223,19 @@ class OneClickAPI(object):
         The results are returned unpaged.
 
         Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.  
-        If want more metadata, perform a per-item search.
+        If want more metadata, perform a search.
 
         :return A list of dictionaries representation of the response.
         """
         url = "%s/libraries/%s/media/all" % (self.base_url, str(self.library_id))
 
         response = self.request(url)
+
+        try:
+            resplist = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick all catalog response not parseable.")
+
         return response.json()
 
 
@@ -280,11 +296,13 @@ class OneClickAPI(object):
         return response.json()
 
 
-    def get_ebook_availability_info(self):
+    def get_ebook_availability_info(self, media_type='ebook'):
         """
         Gets a list of ebook items this library has access to, through the "availability" endpoint.
         The response at this endpoint is laconic -- just enough fields per item to 
         identify the item and declare it either available to lend or not.
+
+        :param media_type 'ebook'/'eaudio'
 
         :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
         Example of returned item format:
@@ -294,11 +312,15 @@ class OneClickAPI(object):
             "availability": false
             "titleId": 39764
         """
-        url = "%s/libraries/%s/media/ebook/availability" % (self.base_url, str(self.library_id)) 
+        url = "%s/libraries/%s/media/%s/availability" % (self.base_url, str(self.library_id), media_type) 
 
         response = self.request(url)
 
-        resplist = response.json()
+        try:
+            resplist = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick availability response not parseable.")
+
         if not resplist:
             raise IOError("OneClick availability response not parseable - has no resplist.")
 
@@ -322,15 +344,25 @@ class OneClickAPI(object):
 
         response = self.request(url)
 
-        respdict = response.json()
+        try:
+            respdict = response.json()
+        except Exception, e:
+            raise BadResponseException(url, "OneClick isbn search response not parseable.")
+
         if not respdict:
             # should never happen
-            raise IOError("OneClick isbn search response not parseable - has no respdict.")
+            raise BadResponseException(url, "OneClick isbn search response not parseable - has no respdict.")
 
         if "message" in respdict:
-            # can happen if searched for item that's not in library's catalog
-            raise ValueError("get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % 
-                (identifier_string, str(self.library_id), respdict['message']))
+            message = respdict['message']
+            if (message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: ") or 
+                message.startswith("eXtensible Framework was unable to locate the resource")):
+                # we searched for item that's not in library's catalog -- a mistake, but not an exception
+                return None
+            else:
+                # something more serious went wrong
+                error_message = "get_metadata_by_isbn(%s) in library #%s catalog ran into problems: %s" % (identifier_string, str(self.library_id), error_message)
+                raise BadResponseException(url, message)
 
         return respdict
 
@@ -389,14 +421,23 @@ class MockOneClickAPI(OneClickAPI):
                 'library_id' : 'library_id_123',
                 'username' : 'username_123',
                 'password' : 'password_123',
-                'server' : 'http://axis.test/',
                 'remote_stage' : 'qa', 
-                'url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm'
+                'base_url' : 'www.oneclickapi.test', 
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
             }
-            super(MockOneClickAPI, self).__init__(_db, *args, **kwargs)
+            super(MockOneClickAPI, self).__init__(_db, 
+                library_id='library_id_123', 
+                username='username_123', password='password_123', 
+                remote_stage='qa', base_url='www.oneclickapi.test', 
+                basic_token='abcdef123hijklm', 
+                ebook_loan_length='21', 
+                eaudio_loan_length='21')
+
         if with_token:
             self.token = "mock token"
+
         self.responses = []
         self.requests = []
 
@@ -670,10 +711,14 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         """
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
-        except ValueError as error:
+        except BadResponseException as error:
             return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
         except IOError as error:
             return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+
+        if not response_dictionary:
+            message = "Cannot find OneClick metadata for %r" % identifier
+            return CoverageFailure(identifier, message, data_source=self.output_source, transient=True)
 
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(response_dictionary)
 
