@@ -153,11 +153,20 @@ named._add("sequence_number", "AY")
 named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
-# SIP extensions found in Evergreen installation.
-named._add('patron_expire', 'PA')
-named._add('patron_class', 'PC')
-named._add('internet_privileges', 'PI')
-named._add('internal_id', 'XI')
+# SIP extensions defined by Georgia Public Library Service's SIP
+# server, used by Evergreen and Koha.
+named._add('sipserver_patron_expiration', 'PA')
+named._add('sipserver_patron_class', 'PC')
+named._add('sipserver_internet_privileges', 'PI')
+named._add('sipserver_internal_id', 'XI')
+
+# SIP extensions defined by Polaris.
+named._add('polaris_patron_birthdate', 'BC')
+named._add('polaris_postal_code', 'PZ')
+named._add('polaris_patron_expiration', 'PX')
+named._add('polaris_patron_expired', 'PY')
+
+# A potential problem: Polaris defines PA to refer to something else.
 
 class RequestResend(IOError):
     """There was an error transmitting a message and the server has requested
@@ -400,10 +409,11 @@ class SIPClient(Constants):
             named.print_line,
 
             # Add common extension fields.
-            named.patron_expire,
-            named.patron_class,
-            named.internet_privileges,
-            named.internal_id
+            named.sipserver_patron_expiration,
+            named.polaris_patron_expiration,
+            named.sipserver_patron_class,
+            named.sipserver_internet_privileges,
+            named.sipserver_internal_id
         )
 
     def parse_response(self, data, expect_status_code, *fields):

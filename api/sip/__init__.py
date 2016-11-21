@@ -16,7 +16,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     LOCATION_CODE = "location_code"
     FIELD_SEPARATOR = "field_separator"
 
-    DATE_FORMATS = ["%Y%m%d"]
+    DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
     
     @classmethod
     def config_values(cls, configuration_name=None, required=False):
@@ -70,19 +70,21 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             patrondata.personal_name = info['personal_name']
         if 'fee_amount' in info:
             patrondata.fines = info['fee_amount']
-        if 'patron_class' in info:
-            patrondata.external_type = info['patron_class']
-        if 'patron_expire' in info:
-            expires = info['patron_expire']
-            expires_date = None
-            for format in cls.DATE_FORMATS:
-                try:
-                    expires_date = datetime.strptime(expires, format)
-                except ValueError, e:
-                    continue
-            if expires_date:
-                patrondata.authorization_expires = expires_date
-
+        if 'sipserver_patron_class' in info:
+            patrondata.external_type = info['sipserver_patron_class']
+        for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
+            if expire_field in info:
+                expires = info.get(expire_field)
+                expires_date = None
+                for format in cls.DATE_FORMATS:
+                    try:
+                        expires_date = datetime.strptime(expires, format)
+                    except ValueError, e:
+                        continue
+                if expires_date:
+                    patrondata.authorization_expires = expires_date
+                    break
+                    
         return patrondata 
         
     # It's not necessary to implement remote_patron_lookup because
