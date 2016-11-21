@@ -10,36 +10,34 @@ from nose.tools import (
 import os
 from StringIO import StringIO
 
+from core.config import (
+    Configuration, 
+    temp_config,
+)
 
 from core.model import (
     get_one_or_create,
-    #Contributor,
+    Contributor,
     DataSource,
     Edition,
     Identifier,
-    #LicensePool,
+    LicensePool,
     Patron,
     Subject,
 )
 
 from core.metadata_layer import (
-    Metadata,
     CirculationData,
+    ContributorData,
     IdentifierData,
-    #ContributorData,
+    Metadata,
     SubjectData,
 )
 
-
 from api.oneclick import (
     OneClickAPI,
+    OneClickCirculationMonitor, 
     MockOneClickAPI,
-)
-
-
-from . import (
-    DatabaseTest,
-    #sample_data
 )
 
 from api.circulation import (
@@ -50,6 +48,10 @@ from api.circulation import (
 
 from api.circulation_exceptions import *
 
+from . import (
+    DatabaseTest,
+)
+
 
 
 class OneClickAPITest(DatabaseTest):
@@ -57,7 +59,7 @@ class OneClickAPITest(DatabaseTest):
     def setup(self):
         super(OneClickAPITest, self).setup()
 
-        self.api = MockOneClickAPI.from_config(self._db)
+        self.api = MockOneClickAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
@@ -392,6 +394,86 @@ class TestOneClickAPI(OneClickAPITest):
 
         success = self.api.release_hold(patron, None, pool)
         eq_(True, success)
+
+
+    def test_update_licensepool_for_identifier(self):
+        """Test the OneClick implementation of the update_availability method
+        defined by the CirculationAPI interface.
+        """
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.ONECLICK_ID,
+            data_source_name=DataSource.ONECLICK,
+            with_license_pool=True
+        )
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        eq_(None, pool.last_checked)
+
+        isbn = pool.identifier.identifier.encode("ascii")
+
+        self.api.update_licensepool_for_identifier(isbn, False)
+
+        # The availability information has been updated, as has the
+        # date the availability information was last checked.
+        eq_(10, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(3, pool.patrons_in_hold_queue)
+        assert pool.last_checked is not None
+
+        self.api.update_licensepool_for_identifier(isbn, True)
+        eq_(999, pool.licenses_available)
+
+
+
+class TestCirculationMonitor(OneClickAPITest):
+
+    def test_process_availability(self):
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['OneClick'] = {
+                'library_id' : 'library_id_123',
+                'username' : 'username_123',
+                'password' : 'password_123',
+                'remote_stage' : 'qa', 
+                'base_url' : 'www.oneclickapi.test', 
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
+            }
+            monitor = OneClickCirculationMonitor(self._db)
+            monitor.api = MockOneClickAPI.from_config(self._db)
+
+        # Create a LicensePool that needs updating.
+        edition_ebook, pool_ebook = self._edition(
+            identifier_type=Identifier.ONECLICK_ID,
+            data_source_name=DataSource.ONECLICK,
+            with_license_pool=True
+        )
+        pool_ebook.licenses_owned = 3
+        pool_ebook.licenses_available = 2
+        pool_ebook.patrons_in_hold_queue = 1
+        eq_(None, pool_ebook.last_checked)
+
+        # Prepare availability information.
+        datastr, datadict = self.get_data("response_availability_single_ebook.json")
+
+        # Modify the data so that it appears to be talking about the
+        # book we just created.
+        new_identifier = pool_ebook.identifier.identifier.encode("ascii")
+        datastr = datastr.replace("9781781107041", new_identifier)
+        monitor.api.queue_response(status_code=200, content=datastr)
+
+        item_count = monitor.process_availability()
+        eq_(1, item_count)
+        pool_ebook.licenses_available = 0
+
+
 
 
 
