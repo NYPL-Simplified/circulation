@@ -729,7 +729,8 @@ class DataSource(Base):
     OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = "Presentation edition generator"
     INTERNAL_PROCESSING = "Library Simplified Internal Process"
-
+    FEEDBOOKS = "FeedBooks"
+    
     DEPRECATED_NAMES = {
         "3M" : BIBLIOTHECA
     }
@@ -746,6 +747,7 @@ class DataSource(Base):
         GUTENBERG_EPUB_GENERATOR,
         PROJECT_GITENBERG,
         ELIB,
+        FEEDBOOKS,
         PLYMPTON,
         STANDARD_EBOOKS,
     ]
