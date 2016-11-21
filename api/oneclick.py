@@ -15,15 +15,24 @@ from circulation import (
 )
 from circulation_exceptions import *
 
+from config import Configuration
+
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
     OneClickBibliographicCoverageProvider
 )
 
+from core.metadata_layer import (
+    CirculationData, 
+    ReplacementPolicy,
+)
+
 from core.model import (
+    DataSource,
     Edition,
     Identifier, 
+    LicensePool,
     Patron,
     Representation,
 )
@@ -271,6 +280,66 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
             patron_oneclick_id, item_oneclick_id)
 
+
+    def update_licensepool_for_identifier(self, isbn, availability):
+        """Update availability information for a single book.
+
+        If the book has never been seen before, a new LicensePool
+        will be created for the book.
+
+        The book's LicensePool will be updated with current approximate 
+        circulation information (we can tell if it's available, but 
+        not how many copies). 
+        Bibliographic coverage will be ensured for the OneClick Identifier. 
+        Work will be created for the LicensePool and set as presentation-ready.
+
+        :param isbn the identifier OneClick uses
+        :param availability boolean denoting if book can be lent to patrons 
+        """
+
+        # find a license pool to match the isbn, and see if it'll need a metadata update later
+        license_pool, is_new_pool = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, isbn)
+        if is_new_pool:
+            # This is the first time we've seen this book. Make sure its
+            # identifier has bibliographic coverage.
+            self.bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier
+            )
+
+        # now tell the licensepool if it's lendable
+        policy = ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+        )
+
+        # licenses_available can be 0 or 999, depending on whether the book is 
+        # lendable or not.   
+        licenses_available = 999
+        if not availability:
+            licenses_available = 0
+
+        circulation_data = CirculationData(data_source=DataSource.ONECLICK, 
+            primary_identifier=license_pool.identifier, 
+            licenses_available=licenses_available)
+
+        license_pool, circulation_changed = circulation_data.apply(
+            pool=license_pool, 
+            replace=policy,
+        )
+
+        return license_pool, is_new_pool, circulation_changed
+        
+
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+        Part of the CirculationAPI interface.
+        Inactive for now, because we'd have to request and go through all availabilities 
+        from OneClick just to pick the one licensepool we want.
+        """
+        pass
 
 
     ''' -------------------------- Patron Account Handling -------------------------- '''
@@ -672,36 +741,58 @@ class OneClickCirculationMonitor(Monitor):
     Bibliographic data isn't inserted into new LicensePools until
     we hear from the metadata wrangler.
     """
+    VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
+    FIVE_MINUTES = datetime.timedelta(minutes=5)
+
     def __init__(self, _db, name="OneClick Circulation Monitor",
-                 interval_seconds=500,
-                 maximum_consecutive_unchanged_books=None):
+                 interval_seconds=1200, batch_size=50):
         super(OneClickCirculationMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds)
-        self.maximum_consecutive_unchanged_books = (
-            maximum_consecutive_unchanged_books)
+            _db, name, interval_seconds=interval_seconds, 
+            default_start_time = self.VERY_LONG_AGO)
+        self.batch_size = batch_size
+
+        self.bibliographic_coverage_provider = (
+            OneClickBibliographicCoverageProvider(self._db)
+        )
+
+        self.api = None
 
 
-    def recently_changed_ids(self, start, cutoff):
-        return self.api.get_delta(start, cutoff)
+    def process_availability(self, media_type='ebook'):
+        # get list of all titles, with availability info
+        availability_list = self.api.get_ebook_availability_info(media_type=media_type)
+        item_count = 0
+        for availability in availability_list:
+            isbn = availability['isbn']
+            # boolean True/False value, not number of licenses
+            available = availability['availability']
+
+            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available)
+            # Log a circulation event for this work.
+            if is_new:
+                Analytics.collect_event(
+                    self._db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
+
+            item_count += 1
+            if item_count % self.batch_size == 0:
+                self._db.commit()
+
+        return item_count
 
 
     def run(self):
         self.api = OneClickAPI(self._db)
         super(OneClickCirculationMonitor, self).run()
 
+
     def run_once(self, start, cutoff):
-        pass
+        ebook_count = self.process_availability(media_type='ebook')
+        eaudio_count = self.process_availability(media_type='eaudio')
+
+        self.log.info("Processed %d ebooks and %d audiobooks.", (ebook_count, eaudio_count))
 
 
 
-class OneClickCollectionMonitor(OneClickCirculationMonitor):
-    """Monitor recently changed books in the OneClick collection."""
-
-    def __init__(self, _db, interval_seconds=60,
-                 maximum_consecutive_unchanged_books=100):
-        super(OneClickCollectionMonitor, self).__init__(
-            _db, "Reverse Chronological Overdrive Collection Monitor",
-            interval_seconds, maximum_consecutive_unchanged_books)
 
 
 
