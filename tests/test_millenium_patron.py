@@ -1,5 +1,6 @@
 import pkgutil
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from nose.tools import (
     eq_,
     set_trace,
@@ -21,8 +22,8 @@ class MockResponse(object):
 
 class MockAPI(MilleniumPatronAPI):
 
-    def __init__(self, root="", *args, **kwargs):
-        super(MockAPI, self).__init__(root, *args, **kwargs)
+    def __init__(self, url="http://test-url/", *args, **kwargs):
+        super(MockAPI, self).__init__(url, *args, **kwargs)
         self.queue = []
 
     def sample_data(self, filename):
@@ -42,19 +43,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = MockAPI()
+        self.api = MockAPI(identifier_regular_expression=None)
 
     def test_from_config(self):
         api = None
-        with temp_config() as config:
-            data = {
-                Configuration.URL : "http://example.com",
-                Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"]
-            }
-            config[Configuration.INTEGRATIONS] = {
-                MilleniumPatronAPI.NAME : data
-            }
-            api = MilleniumPatronAPI.from_config()
+        config = {
+            Configuration.URL : "http://example.com",
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
+        }
+        api = MilleniumPatronAPI.from_config(config)
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
             
@@ -75,7 +72,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("6666666", patrondata.permanent_id)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_("alice", patrondata.username)
-        eq_("$0.00", patrondata.fines)
+        eq_(Decimal(0), patrondata.fines)
         eq_(date(2059, 4, 1), patrondata.authorization_expires)
         eq_("SHELDON, ALICE", patrondata.personal_name)
         eq_("alice@sheldon.com", patrondata.email_address)
@@ -277,8 +274,10 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(p2.last_external_sync, one_hour_ago)
 
         # However, if the card has expired, a sync is performed every
-        # time.
+        # few seconds.
+        ten_seconds_ago = now - timedelta(seconds=10)
         p.authorization_expires = one_week_ago
+        p.last_external_sync = ten_seconds_ago
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.success.html")
         p2 = self.api.authenticated_patron(self._db, auth)
@@ -299,7 +298,18 @@ class TestMilleniumPatronAPI(DatabaseTest):
         auth = dict(username="44444444444447", password="4444")
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
-
+        eq_(None, p.authorization_expires)
+        
+    def test_authentication_patron_invalid_fine_amount(self):
+        p = self._patron()
+        p.authorization_identifier = "44444444444447"
+        self.api.enqueue("pintest.good.html")
+        self.api.enqueue("dump.invalid_fines.html")
+        auth = dict(username="44444444444447", password="4444")
+        p2 = self.api.authenticated_patron(self._db, auth)
+        eq_(p2, p)
+        eq_(0, p.fines)
+        
     def test_patron_dump_to_patrondata(self):
         content = self.api.sample_data("dump.success.html")
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
@@ -315,7 +325,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("SECOND_barcode", patrondata.authorization_identifier)
 
-        api = MockAPI(authorization_blacklist=["second"])
+        api = MockAPI(authorization_identifier_blacklist=["second"])
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("FIRST_barcode", patrondata.authorization_identifier)
         
@@ -323,7 +333,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
         """
-        api = MockAPI(authorization_blacklist=["barcode"])
+        api = MockAPI(authorization_identifier_blacklist=["barcode"])
         content = api.sample_data("dump.two_barcodes.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)

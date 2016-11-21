@@ -1,8 +1,10 @@
 import urllib
+import copy
 from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
 from collections import defaultdict
+import uuid
 
 from sqlalchemy.orm import lazyload
 
@@ -16,6 +18,9 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    Credential,
+    DataSource,
+    DeliveryMechanism,
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
@@ -31,9 +36,10 @@ from core.util.cdn import cdnify
 from novelist import NoveListAPI
 from lanes import QueryGeneratedLane
 from annotations import AnnotationWriter
+from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
-
+   
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -50,6 +56,7 @@ class CirculationManagerAnnotator(Annotator):
         self.lanes_by_work = defaultdict(list)
         self.facet_view = facet_view
         self.test_mode = test_mode
+        self._adobe_id_tags = {}
         self._top_level_title = top_level_title
 
     def top_level_title(self):
@@ -99,10 +106,7 @@ class CirculationManagerAnnotator(Annotator):
         return (lane_name, languages)
 
     def facet_url(self, facets):
-        lane_name, languages = self._lane_name_and_languages(self.lane)
-        kwargs = dict(facets.items())
-        return self.cdn_url_for(
-            self.facet_view, lane_name=lane_name, languages=languages, _external=True, **kwargs)
+        return self.feed_url(self.lane, facets=facets, default_route=self.facet_view)
 
     def permalink_for(self, work, license_pool, identifier):
         return self.url_for(
@@ -118,12 +122,12 @@ class CirculationManagerAnnotator(Annotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
-    def feed_url(self, lane, facets=None, pagination=None):
+    def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         if (isinstance(lane, QueryGeneratedLane) and
             hasattr(lane, 'url_arguments')):
             route, kwargs = lane.url_arguments
         else:
-            route = 'feed'
+            route = default_route
             lane_name, languages = self._lane_name_and_languages(lane)
             kwargs = dict(lane_name=lane_name, languages=languages)
         if facets != None:
@@ -336,6 +340,7 @@ class CirculationManagerAnnotator(Annotator):
                 ("privacy-policy", Configuration.privacy_policy_url()),
                 ("copyright", Configuration.acknowledgements_url()),
                 ("about", Configuration.about_url()),
+                ("license", Configuration.license_url()),
         ):
             if value:
                 d = dict(href=value, type="text/html", rel=rel)
@@ -545,7 +550,10 @@ class CirculationManagerAnnotator(Annotator):
 
     def fulfill_link(self, data_source_name, identifier,
                      license_pool, active_loan, delivery_mechanism):
-        """Create a new fulfillment link."""
+        """Create a new fulfillment link.
+
+        This link may include tags from the OPDS Extensions for DRM.
+        """
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
@@ -568,8 +576,78 @@ class CirculationManagerAnnotator(Annotator):
 
         children = AcquisitionFeed.license_tags(license_pool, active_loan, None)
         link_tag.extend(children)
+        
+        children = self.drm_device_registration_tags(
+            license_pool, active_loan, delivery_mechanism
+        )
+        link_tag.extend(children)
         return link_tag
+   
+    def drm_device_registration_tags(self, license_pool, active_loan,
+                                     delivery_mechanism):
+        """Construct OPDS Extensions for DRM tags that explain how to 
+        register a device with the DRM server that manages this loan.
 
+        :param delivery_mechanism: A DeliveryMechanism
+        """        
+        if not active_loan or not delivery_mechanism:
+            return []
+        
+        if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
+            # Get an identifier for the patron that will be registered
+            # with the DRM server.
+            _db = Session.object_session(active_loan)
+            patron = active_loan.patron
+            internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+            def refresh(credential):
+                credential.credential = str(uuid.uuid1())
+            patron_identifier = Credential.lookup(
+                _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+                refresher_method=refresh, allow_persistent_token=True
+            )
+            patron_identifier = patron_identifier.credential
+
+            # Generate a <drm:licensor> tag that can feed into the
+            # Vendor ID service.
+            return self.adobe_id_tags(patron_identifier)
+        return []
+
+    def adobe_id_tags(self, patron_identifier):
+        """Construct tags using the DRM Extensions for OPDS standard that
+        explain how to get an Adobe ID for this patron.
+
+        :param delivery_mechanism: A DeliveryMechanism
+
+        :return: If Adobe Vendor ID delegation is configured, a list
+        containing a <drm:licensor> tag. If not, an empty list.
+
+        """
+        # CirculationManagerAnnotators are created per request.
+        # Within the context of a single request, we can cache the
+        # tags that explain how the patron can get an Adobe ID, and
+        # reuse them across <entry> tags. This saves a little time,
+        # makes tests more reliable, and stops us from providing a
+        # different authdata value for every <entry> tag.
+        cached = self._adobe_id_tags.get(patron_identifier)
+        if cached is None:
+            cached = []
+            authdata = AuthdataUtility.from_config()
+            if authdata:
+                vendor_id, jwt = authdata.encode(patron_identifier)
+
+                drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+                vendor_attr = "{%s}vendor" % OPDSFeed.DRM_NS
+                drm_link.attrib[vendor_attr] = vendor_id
+                patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
+                patron_key.text = jwt
+                drm_link.append(patron_key)
+                cached = [drm_link]
+            self._adobe_id_tags[patron_identifier] = cached
+        else:
+            cached = copy.deepcopy(cached)
+        return cached
+        
     def open_access_link(self, lpdm):
         url = cdnify(lpdm.resource.url, Configuration.cdns())
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)

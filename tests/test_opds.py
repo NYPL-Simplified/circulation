@@ -1,3 +1,4 @@
+import base64
 import datetime
 import os
 import re
@@ -15,6 +16,7 @@ from core.lane import (
     Lane,
 )
 from core.model import (
+    DataSource,
     Work,
     Representation,
     DeliveryMechanism,
@@ -53,10 +55,12 @@ from core.opds import (
     AcquisitionFeed,
     UnfulfillableWork,
 )
+from api.adobe_vendor_id import AuthdataUtility
 
 from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
-
+from api.lanes import ContributorLane
+import jwt
 
 _strftime = AtomFeed._strftime
 
@@ -70,6 +74,37 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
 
+    def test_add_configuration_links(self):
+        mock_feed = []
+        link_config = {
+            Configuration.TERMS_OF_SERVICE: "http://terms/",
+            Configuration.PRIVACY_POLICY: "http://privacy/",
+            Configuration.COPYRIGHT: "http://copyright/",
+            Configuration.ABOUT: "http://about/",
+            Configuration.LICENSE: "http://license/",
+        }
+        with temp_config() as config:
+            config['links'] = link_config
+            CirculationManagerAnnotator.add_configuration_links(mock_feed)
+
+        # Five links were added to the "feed"
+        eq_(5, len(mock_feed))
+
+        # They are the links we'd expect.
+        links = {}
+        for link in mock_feed:
+            rel = link.attrib['rel']
+            href = link.attrib['href']
+            type = link.attrib['type']
+
+            eq_("text/html", type)
+
+            # Convert the link relation into a key to the configuration.
+            config_value = rel.replace('-', '_')
+
+            # Check that the configuration value made it into the link.
+            eq_(href, link_config[config_value])
+            
     def test_open_access_link(self):
 
         # The resource URL associated with a LicensePoolDeliveryMechanism
@@ -159,7 +194,125 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # Both entries are identical.
         eq_(etree.tostring(feed1), etree.tostring(feed2))
 
+    def test_fulfill_link_includes_device_registration_tags(self):
+        """Verify that when Adobe Vendor ID delegation is included, the
+        fulfill link for an Adobe delivery mechanism includes instructions
+        on how to get a Vendor ID.
+        """
+        [pool] = self.work.license_pools
+        identifier = pool.identifier
+        patron = self._patron()
+        old_credentials = list(patron.credentials)
+        
+        loan, ignore = pool.loan_to(patron, start=datetime.datetime.utcnow())
+        adobe_delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, "text/html", DeliveryMechanism.ADOBE_DRM
+        )
+        other_delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, "text/html", DeliveryMechanism.OVERDRIVE_DRM
+        )
 
+        with temp_config() as config:
+            library_uri = "http://a-library/"
+            secret = "a-secret"
+            vendor_id = "Some Vendor"
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
+                Configuration.ADOBE_VENDOR_ID : vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
+                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
+            }
+
+            # The fulfill link for non-Adobe DRM does not
+            # include the drm:licensor tag.
+            link = self.annotator.fulfill_link(
+                pool.data_source.name, pool.identifier, pool, loan,
+                other_delivery_mechanism 
+           )
+            for child in link.getchildren():
+                assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
+
+            # No new Credential has been associated with the patron.
+            eq_(old_credentials, patron.credentials)
+                
+            # The fulfill link for Adobe DRM includes information
+            # on how to get an Adobe ID in the drm:licensor tag.
+            link = self.annotator.fulfill_link(
+                pool.data_source.name, pool.identifier, pool, loan,
+                adobe_delivery_mechanism
+            )
+            licensor = link.getchildren()[-1]
+            eq_("{http://librarysimplified.org/terms/drm}licensor",
+                licensor.tag)
+
+            # An Adobe ID-specific identifier has been created for the patron.
+            [adobe_id_identifier] = [x for x in patron.credentials
+                                     if x not in old_credentials]
+            eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+                adobe_id_identifier.type)
+            eq_(DataSource.INTERNAL_PROCESSING,
+                adobe_id_identifier.data_source.name)
+            eq_(None, adobe_id_identifier.expires)
+            
+            # The drm:licensor tag is the one we get by calling
+            # adobe_id_tags() on that identifier.
+            [expect] = self.annotator.adobe_id_tags(
+                adobe_id_identifier.credential
+            )
+            eq_(etree.tostring(expect), etree.tostring(licensor))
+            
+    def test_no_adobe_id_tags_when_vendor_id_not_configured(self):
+
+        with temp_config() as config:
+            """When vendor ID delegation is not configured, adobe_id_tags()
+            returns an empty list.
+            """
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {}
+            eq_([], self.annotator.adobe_id_tags(
+                "patron identifier")
+            )
+
+    def test_adobe_id_tags_when_vendor_id_configured(self):
+        """When vendor ID delegation is configured, adobe_id_tags()
+        returns a list containing a single tag. The tag contains
+        the information necessary to get an Adobe ID.
+        """
+        with temp_config() as config:
+            library_uri = "http://a-library/"
+            secret = "a-secret"
+            vendor_id = "Some Vendor"
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
+                Configuration.ADOBE_VENDOR_ID : vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
+                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
+            }
+
+            patron_identifier = "patron identifier"
+            [element] = self.annotator.adobe_id_tags(
+                patron_identifier
+            )
+            eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
+
+            key = '{http://librarysimplified.org/terms/drm}vendor'
+            eq_(vendor_id, element.attrib[key])
+            
+            [token] = element.getchildren()
+            
+            eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
+            # token.text is a base64-encoded JWT which we can decode,
+            # since we know the secret.
+            token = token.text
+            token = base64.decodestring(token)
+            decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
+            eq_(library_uri, decoded['iss'])
+            eq_(patron_identifier, decoded['sub'])
+
+            # If we call adobe_id_tags again we'll get a distinct tag
+            # object that renders to the same XML.
+            [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
+            assert same_tag is not element
+            eq_(etree.tostring(element), etree.tostring(same_tag))
+
+            
 class TestOPDS(DatabaseTest):
 
     def setup(self):
@@ -167,6 +320,9 @@ class TestOPDS(DatabaseTest):
         parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
         fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
+
+        # A QueryGeneratedLane to test code that handles it differently.
+        self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
@@ -189,11 +345,19 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in groups_url_fantasy
 
     def test_feed_url(self):
+        # A regular Lane.
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        feed_url_contributor = annotator.feed_url(self.contributor_lane, dict(), dict())
+        assert self.contributor_lane.ROUTE in feed_url_contributor
+        assert self.contributor_lane.contributor_name in feed_url_contributor
 
     def test_search_url(self):
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
@@ -204,12 +368,22 @@ class TestOPDS(DatabaseTest):
         assert "Fantasy" in search_url
 
     def test_facet_url(self):
+        # A regular Lane.
         facets = dict(collection="main")
         annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         facet_url = annotator.facet_url(facets)
         assert "collection=main" in facet_url
         assert "Fantasy" in facet_url
+
+        # A QueryGeneratedLane.
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+
+        facet_url_contributor = annotator.facet_url(facets)
+        assert "collection=main" in facet_url_contributor
+        assert self.contributor_lane.ROUTE in facet_url_contributor
+        assert self.contributor_lane.contributor_name in facet_url_contributor
+
 
     def test_alternate_link_is_permalink(self):
         w1 = self._work(with_open_access_download=True)

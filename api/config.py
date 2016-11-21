@@ -1,12 +1,14 @@
 import re
 from nose.tools import set_trace
 import contextlib
+from copy import deepcopy
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )
+from core.util import MoneyUtility
 
 class Configuration(CoreConfiguration):
 
@@ -51,8 +53,8 @@ class Configuration(CoreConfiguration):
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 
-    IDENTIFIER_REGULAR_EXPRESSION = "barcode_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "pin_regular_expression"
+    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
+    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
 
     @classmethod
     def lending_policy(cls):
@@ -114,6 +116,13 @@ class Configuration(CoreConfiguration):
         return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
 
     @classmethod
+    def max_outstanding_fines(cls):
+        max_fines = Configuration.policy(
+            Configuration.MAX_OUTSTANDING_FINES
+        )
+        return MoneyUtility.parse(max_fines)
+    
+    @classmethod
     def load(cls):
         CoreConfiguration.load()
         cls.instance = CoreConfiguration.instance
@@ -130,3 +139,40 @@ def temp_config(new_config=None, replacement_classes=None):
         all_replacement_classes.extend(replacement_classes)
     with core_temp_config(new_config, all_replacement_classes) as i:
         yield i
+
+class FacetConfig(object):
+    """A class that implements the facet-related methods of
+    Configuration, and allows modifications to the enabled
+    and default facets. For use when a controller needs to
+    use a facet configuration different from the site-wide
+    facets. 
+    """
+    @classmethod
+    def from_config(cls):
+        facet_policy = Configuration.policy(Configuration.FACET_POLICY, default=dict())
+        enabled_facets = deepcopy(facet_policy.get(Configuration.ENABLED_FACETS_KEY,
+                                               Configuration.DEFAULT_ENABLED_FACETS))
+        default_facets = deepcopy(facet_policy.get(Configuration.DEFAULT_FACET_KEY,
+                                               Configuration.DEFAULT_FACET))
+        return FacetConfig(enabled_facets, default_facets)
+
+    def __init__(self, enabled_facets, default_facets):
+        self._enabled_facets = enabled_facets
+        self._default_facets = default_facets
+
+    def enabled_facets(self, group_name):
+        return self._enabled_facets.get(group_name)
+
+    def default_facet(self, group_name):
+        return self._default_facets.get(group_name)
+
+    def enable_facet(self, group_name, facet):
+        self._enabled_facets.setdefault(group_name, [])
+        if facet not in self._enabled_facets[group_name]:
+            self._enabled_facets[group_name] += [facet]
+
+    def set_default_facet(self, group_name, facet):
+        self.enable_facet(group_name, facet)
+        self._default_facets[group_name] = facet
+
+

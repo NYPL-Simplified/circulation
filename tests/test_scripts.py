@@ -5,6 +5,11 @@ from nose.tools import (
 
 import contextlib
 
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility,
+)
+
 from api.config import (
     temp_config,
     Configuration,
@@ -15,14 +20,68 @@ from core.lane import (
     Facets,
 )
 
+from core.model import (
+    DataSource,
+    Credential,
+)
+
 from . import (
     DatabaseTest,
 )
 
 from scripts import (
+    AdobeAccountIDResetScript,
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
 )
+
+class TestAdobeAccountIDResetScript(DatabaseTest):
+
+    def test_process_patron(self):
+        patron = self._patron()
+    
+        # This patron has old-style and new-style Credentials that link
+        # them to Adobe account IDs (hopefully the same ID, though that
+        # doesn't matter here.
+        def set_value(credential):
+            credential.value = "a credential"
+
+        # Data source doesn't matter -- even if it's incorrect, a Credential
+        # of the appropriate type will be deleted.
+        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # Create two Credentials that will be deleted and one that will be
+        # left alone.
+        for type in (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                     AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+                     "Some other type"
+        ):
+
+            credential = Credential.lookup(
+                self._db, data_source, type, patron,
+                set_value, True
+            )
+
+        eq_(3, len(patron.credentials))
+
+        # Run the patron through the script.
+        script = AdobeAccountIDResetScript(self._db)
+
+        # A dry run does nothing.
+        script.delete = False
+        script.process_patron(patron)
+        self._db.commit()
+        eq_(3, len(patron.credentials))
+
+        # Now try it for real.
+        script.delete = True
+        script.process_patron(patron)
+        self._db.commit()
+                
+        # The two Adobe-related credentials are gone. The other one remains.
+        [credential] = patron.credentials
+        eq_("Some other type", credential.type)
+    
 
 class TestLaneScript(DatabaseTest):
 
@@ -33,7 +92,11 @@ class TestLaneScript(DatabaseTest):
         """
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
+                Configuration.AUTHENTICATION_POLICY : {
+                    "providers": [
+                        { "module" : "api.mock_authentication" }
+                    ]
+                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'fre',
@@ -115,7 +178,6 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 testing=True
             )
             eq_(['title', 'added'], script.orders)
-
             script = CacheFacetListsPerLane(
                 self._db, ["--availability=all", "--availability=always"],
                 testing=True

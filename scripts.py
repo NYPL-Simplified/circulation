@@ -20,6 +20,10 @@ from sqlalchemy.orm import (
 )
 from psycopg2.extras import NumericRange
 
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility,
+)
 from api.lanes import make_lanes
 from api.controller import CirculationManager
 from api.monitor import SearchIndexMonitor
@@ -30,6 +34,7 @@ from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
     Contribution,
+    Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
@@ -47,6 +52,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    PatronInputScript,
     RunMonitorScript,
 )
 from core.lane import (
@@ -504,9 +510,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
-        if isinstance(lane, Lane):
+        if isinstance(lane, Lane) and lane.parent:
             languages = lane.language_key
-            lane_name = None
+            lane_name = lane.name
         else:
             languages = None
             lane_name = None
@@ -559,7 +565,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
         title = lane.display_name
-        if isinstance(lane, Lane):
+        if isinstance(lane, Lane) and lane.parent:
             languages = lane.language_key
             lane_name = lane.name
         else:
@@ -568,10 +574,75 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         url = self.app.manager.cdn_url_for(
             "acquisition_groups", languages=languages, lane_name=lane_name
         )
-        return AcquisitionFeed.groups(
+        yield AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
             force_refresh=True
         )
+
+
+class AdobeAccountIDResetScript(PatronInputScript):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = PatronInputScript.arg_parser()
+        parser.add_argument(
+            '--delete',
+            help="Actually delete credentials as opposed to showing what would happen.",
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        patrons = parsed.patrons
+        self.delete = parsed.delete
+        if not self.delete:
+            self.log.info(
+                "This is a dry run. Nothing will actually change in the database."
+            )
+            self.log.info(
+                "Run with --delete to change the database."
+            )
+
+        if patrons and self.delete:
+            self.log.warn(
+                """This is not a drill.
+Running this script will permanently disconnect %d patron(s) from their Adobe account IDs.
+They will be unable to fulfill any existing loans that involve Adobe-encrypted files.
+Sleeping for five seconds to give you a chance to back out.
+You'll get another chance to back out before the database session is committed.""",
+                len(patrons)
+            )
+            time.sleep(5)
+        self.process_patrons(patrons)
+        if self.delete:
+            self.log.warn("All done. Sleeping for five seconds before committing.")
+            time.sleep(5)
+            self._db.commit()
+        
+    def process_patron(self, patron):
+        """Delete all of a patron's Credentials that contain an Adobe account
+        ID _or_ connect the patron to a DelegatedPatronIdentifier that
+        contains an Adobe account ID.
+        """
+        self.log.info(
+            'Processing patron "%s"',
+            patron.authorization_identifier or patron.username
+            or patron.external_identifier
+        )
+        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        credentials = self._db.query(
+            Credential).filter(Credential.patron==patron).filter(
+                Credential.type.in_(types)
+            )
+        for credential in credentials:
+            self.log.info(
+                ' Deleting "%s" credential "%s"',
+                credential.type, credential.credential
+            )
+            if self.delete:
+                self._db.delete(credential)
 
 
 class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
@@ -631,6 +702,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
+    
 class LanguageListScript(Script):
     """List all the languages with at least one non-open access work
     in the collection.

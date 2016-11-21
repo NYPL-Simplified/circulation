@@ -18,6 +18,8 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    CirculationAPI,
+    FulfillmentInfo,
     LoanInfo,
     HoldInfo,
 )
@@ -26,14 +28,18 @@ from core.analytics import Analytics
 from core.model import (
     CirculationEvent,
     DataSource,
+    DeliveryMechanism,
+    Hyperlink,
     Identifier,
     Loan,
     Hold,
+    RightsStatus,
 )
 from core.mock_analytics_provider import MockAnalyticsProvider
 
-from . import DatabaseTest
+from . import DatabaseTest, sample_data
 from api.testing import MockCirculationAPI
+from api.threem import MockThreeMAPI
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -313,6 +319,98 @@ class TestCirculationAPI(DatabaseTest):
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
 
+    def test_fulfill_open_access(self):
+        # Here's an open-access title.
+        self.pool.open_access = True
+
+        # The patron has the title on loan.
+        self.pool.loan_to(self.patron)
+
+        # It has a LicensePoolDeliveryMechanism that is broken (has no
+        # associated Resource).  
+        broken_lpdm = self.delivery_mechanism
+        eq_(None, broken_lpdm.resource)
+        i_want_an_epub = broken_lpdm.delivery_mechanism
+
+        # fulfill_open_access() and fulfill() will both raise
+        # FormatNotAvailable.
+        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+                      self.pool, i_want_an_epub)
+
+        assert_raises(FormatNotAvailable, self.circulation.fulfill,
+                      self.patron, '1234', self.pool,
+                      broken_lpdm,
+                      sync_on_failure=False
+        )
+
+        # Let's add a second LicensePoolDeliveryMechanism of the same
+        # type which has an associated Resource.
+        link, new = self.pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            self.pool.data_source, self.pool
+        )
+        
+        working_lpdm = self.pool.set_delivery_mechanism(
+            i_want_an_epub.content_type,
+            i_want_an_epub.drm_scheme,
+            RightsStatus.GENERIC_OPEN_ACCESS,
+            link.resource,
+        )
+
+        # It's still not going to work because the Resource has no
+        # Representation.
+        eq_(None, link.resource.representation)
+        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+                      self.pool, i_want_an_epub)
+        
+        # Let's add a Representation to the Resource.
+        representation, is_new = self._representation(
+            link.resource.url, i_want_an_epub.content_type,
+            "Dummy content", mirrored=True
+        )
+        link.resource.representation = representation
+        
+        # We can finally fulfill a loan.
+        result = self.circulation.fulfill_open_access(
+            self.pool, broken_lpdm
+        )
+        assert isinstance(result, FulfillmentInfo)
+        eq_(result.content_link, link.resource.url)
+        eq_(result.content_type, i_want_an_epub.content_type)
+
+        # Now, if we try to call fulfill() with the broken
+        # LicensePoolDeliveryMechanism we get a result from the
+        # working DeliveryMechanism with the same format.
+        result = self.circulation.fulfill(
+            self.patron, '1234', self.pool, broken_lpdm
+        )
+        assert isinstance(result, FulfillmentInfo)
+        eq_(result.content_link, link.resource.url)
+        eq_(result.content_type, i_want_an_epub.content_type)
+        
+        # We get the right result even if the code calling
+        # fulfill_open_access() is incorrectly written and passes in
+        # the broken LicensePoolDeliveryMechanism (as opposed to its
+        # generic DeliveryMechanism).
+        result = self.circulation.fulfill_open_access(
+            self.pool, broken_lpdm
+        )
+        assert isinstance(result, FulfillmentInfo)
+        eq_(result.content_link, link.resource.url)
+        eq_(result.content_type, i_want_an_epub.content_type)
+
+        # If we change the working LPDM so that it serves a different
+        # media type than the one we're asking for, we're back to
+        # FormatNotAvailable errors.
+        irrelevant_delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, "application/some-other-type",
+            DeliveryMechanism.NO_DRM
+        )
+        working_lpdm.delivery_mechanism = irrelevant_delivery_mechanism
+        assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
+                      self.pool, i_want_an_epub)
+        
+        
     def test_fulfill_sends_analytics_event(self):
         self.pool.loan_to(self.patron)
 
@@ -456,3 +554,55 @@ class TestCirculationAPI(DatabaseTest):
         loans = self._db.query(Loan).all()
         eq_([loan], loans)
 
+    def test_sync_bookshelf_with_incomplete_remotes_keeps_local_loan(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.start = self.YESTERDAY
+
+        class IncompleteCirculationAPI(MockCirculationAPI):
+            def patron_activity(self, patron, pin):
+                # A remote API failed, and we don't know if
+                # the patron has any loans or holds.
+                return [], [], False
+
+        circulation = IncompleteCirculationAPI(self._db)
+        circulation.sync_bookshelf(self.patron, "1234")
+
+        # The loan is still in the db, since there was an
+        # error from one of the remote APIs and we don't have
+        # complete loan data.
+        loans = self._db.query(Loan).all()
+        eq_([loan], loans)
+
+        class CompleteCirculationAPI(MockCirculationAPI):
+            def patron_activity(self, patron, pin):
+                # All the remote API calls succeeded, so
+                # now we know the patron has no loans.
+                return [], [], True
+
+        circulation = CompleteCirculationAPI(self._db)
+        circulation.sync_bookshelf(self.patron, "1234")
+
+        # Now the loan is gone.
+        loans = self._db.query(Loan).all()
+        eq_([], loans)
+
+    def test_patron_activity(self):
+        threem = MockThreeMAPI(self._db)
+
+        circulation = CirculationAPI(self._db, threem=threem)
+
+        data = sample_data("checkouts.xml", "threem")
+
+        threem.queue_response(200, content=data)
+
+        loans, holds, complete = circulation.patron_activity(self.patron, "1234")
+        eq_(2, len(loans))
+        eq_(2, len(holds))
+        eq_(True, complete)
+
+        threem.queue_response(500, content="Error")
+
+        loans, holds, complete = circulation.patron_activity(self.patron, "1234")
+        eq_(0, len(loans))
+        eq_(0, len(holds))
+        eq_(False, complete)

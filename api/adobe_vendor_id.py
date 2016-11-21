@@ -1,15 +1,24 @@
 from nose.tools import set_trace
+import logging
 import uuid
 import base64
 import os
 import datetime
+import jwt
 
 import flask
 from flask import Response
+from config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
+from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.model import (
+    get_one,
     Credential,
     DataSource,
+    DelegatedPatronIdentifier,
 )
 
 class AdobeVendorIDController(object):
@@ -23,7 +32,12 @@ class AdobeVendorIDController(object):
         self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
 
     def create_authdata_handler(self, patron):
-        """Create an authdata token for the given patron."""
+        """Create an authdata token for the given patron.
+
+        This controller method exists only for backwards compatibility
+        with older client applications. Newer applications are
+        expected to understand the DRM Extensions for OPDS.
+        """
         __transaction = self._db.begin_nested()
         credential = self.model.create_authdata(patron)
         __transaction.commit()
@@ -214,29 +228,55 @@ class AdobeVendorIDModel(object):
     def uuid_and_label(self, patron):
         """Create or retrieve a Vendor ID UUID and human-readable Vendor ID
         label for the given patron.
+
+        This code is semi-deprecated, which accounts for the varying
+        paths and the code that tries to migrate patrons to the new
+        system. In the future everyone will send JWTs as authdata and
+        we will always go from the JWT to a DelegatedPatronIdentifier.
+        This code always ends up at a DelegatedPatronIdentifier, but
+        it might pick up the final value from somewhere else along the way.
+
+        The _reason_ this code is semi-deprecated is that it only
+        works for a library that has its own Adobe Vendor ID.
         """
         if not patron:
             return None, None
 
-        def generate_uuid(credential):
-            # This is the first time a credential has ever been
-            # created for this patron. Set the value of the 
-            # credential to a new UUID.
-            print "GENERATING NEW UUID"
-            credential.credential = self.uuid()
+        # First, find or create a Credential containing the patron's
+        # anonymized key into the DelegatedPatronIdentifier database.
+        adobe_account_id_patron_identifier_credential = self.get_or_create_patron_identifier_credential(
+            patron
+        )
 
-        credential = Credential.lookup(
-            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE,
-            patron, generate_uuid, True)
+        # Look up a Credential containing the patron's Adobe account
+        # ID created under the old system. We don't use
+        # Credential.lookup because we don't want to create a
+        # Credential if it doesn't exist.
+        adobe = DataSource.lookup(self._db, DataSource.ADOBE)
+        old_style_adobe_account_id_credential = get_one(
+            self._db, Credential, patron=patron, data_source=adobe,
+            type=self.VENDOR_ID_UUID_TOKEN_TYPE
+        )
+        
+        if old_style_adobe_account_id_credential:
+            # The value of the old-style credential will become the
+            # default value of the DelegatedPatronIdentifier, assuming
+            # we have to create one.
+            def new_value():
+                return old_style_adobe_account_id_credential.credential
+        else:
+            # There is no old-style credential. If we have to create a
+            # new DelegatedPatronIdentifier we will give it a value
+            # using the default mechanism.
+            new_value = None
 
-        identifier = patron.authorization_identifier          
-        if not identifier:
-            # Maybe this should be an error, but even though the lack
-            # of an authorization identifier is a problem, the problem
-            # should manifest when the patron tries to actually use
-            # their credential.
-            return "Unknown card number.", "Unknown card number"
-        return credential.credential, "Card number " + identifier
+        # Look up or create a DelegatedPatronIdentifier using the 
+        # anonymized patron identifier we just looked up or created.
+        utility = AuthdataUtility.from_config()
+        return self.to_delegated_patron_identifier_uuid(
+            utility.library_uri, adobe_account_id_patron_identifier_credential.credential,
+            value_generator=new_value
+        )
 
     def create_authdata(self, patron):
         credential, is_new = Credential.persistent_token_create(
@@ -258,7 +298,7 @@ class AdobeVendorIDModel(object):
             # broken Adobe client-side API. Try treating the
             # 'username' as a token.
             possible_authdata_token = authorization_data['username']
-            patron = self.patron_from_authdata_lookup(possible_authdata_token)
+            return self.authdata_lookup(possible_authdata_token)
         if not patron:
             # Either a password was provided or the authdata token
             # lookup failed. Try a normal username/password lookup.
@@ -266,6 +306,75 @@ class AdobeVendorIDModel(object):
                 self._db, authorization_data
             )
         return self.uuid_and_label(patron)
+
+    def authdata_lookup(self, authdata):
+        """Turn an authdata string into a Vendor ID UUID and a human-readable
+        label.
+
+        Generally we do this by decoding the authdata as a JWT and
+        looking up or creating an appropriate
+        DelegatedPatronIdentifier.
+
+        However, for backwards compatibility purposes, if the authdata
+        cannot be decoded as a JWT, we will try the old method of
+        treating it as a Credential that identifies a Patron, and
+        finding the DelegatedPatronIdentifier that way.
+        """
+        if not authdata:
+            return None, None
+        
+        library_uri = foreign_patron_identifier = None
+        utility = AuthdataUtility.from_config()
+        if utility:
+            # Hopefully this is an authdata JWT generated by another
+            # library's circulation manager.
+            try:
+                library_uri, foreign_patron_identifier = utility.decode(
+                    authdata
+                )
+            except Exception, e:
+                # Not a problem -- we'll try the old system.
+                pass
+            
+        if library_uri and foreign_patron_identifier:
+            # We successfully decoded the authdata as a JWT. We know
+            # which library the patron is from and which (hopefully
+            # anonymized) ID identifies this patron within that
+            # library. Keep their Adobe account ID in a
+            # DelegatedPatronIdentifier.
+            uuid_and_label = self.to_delegated_patron_identifier_uuid(
+                library_uri, foreign_patron_identifier
+            )
+        else:
+            # Maybe this is an old-style authdata, stored as a
+            # Credential associated with a specific patron.
+            patron = self.patron_from_authdata_lookup(authdata)
+            if patron:
+                # Yes, that's what's going on.
+                uuid_and_label = self.uuid_and_label(patron)
+            else:
+                # This alleged authdata doesn't fit into either
+                # category. Stop trying to turn it into an Adobe account ID.
+                uuid_and_label = (None, None)
+        return uuid_and_label
+
+    def to_delegated_patron_identifier_uuid(
+            self, library_uri, foreign_patron_identifier, value_generator=None
+    ):
+        """Create or lookup a DelegatedPatronIdentifier containing an Adobe
+        account ID for the given library and foreign patron ID.
+
+        :return: A 2-tuple (UUID, label)
+        """
+        if not library_uri or not foreign_patron_identifier:
+            return None, None
+        value_generator = value_generator or self.uuid
+        identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, foreign_patron_identifier,
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
+        )
+        return (identifier.delegated_identifier,
+                self.urn_to_label(identifier.delegated_identifier))
 
     def patron_from_authdata_lookup(self, authdata):
         """Look up a patron by their persistent authdata token."""
@@ -277,25 +386,9 @@ class AdobeVendorIDModel(object):
             return None
         return credential.patron
 
-    def authdata_lookup(self, authdata):
-        """Look up a patron by a persistent authdata token. Return their
-        Vendor ID UUID and their human-readable label.
-        """
-        patron = self.patron_from_authdata_lookup(authdata)
-        if not patron:
-            return None, None
-        return self.uuid_and_label(patron)
-
     def urn_to_label(self, urn):
-        credential = Credential.lookup_by_token(
-            self._db, self.data_source, self.VENDOR_ID_UUID_TOKEN_TYPE, 
-            urn, allow_persistent_token=True
-        )
-        if not credential:
-            return None
-        patron = credential.patron
-        uuid, label = self.uuid_and_label(credential.patron)
-        return label
+        """We have no information about patrons, so labels are sparse."""
+        return "Delegated account ID %s" % urn
 
     def uuid(self):
         """Create a new UUID URN compatible with the Vendor ID system."""
@@ -305,3 +398,236 @@ class AdobeVendorIDModel(object):
         # it doesn't do much damage.
         value = "urn:uuid:0" + u[1:]
         return value
+
+    @classmethod
+    def get_or_create_patron_identifier_credential(cls, patron):
+        _db = Session.object_session(patron)
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        data_source = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+        patron_identifier_credential = Credential.lookup(
+            _db, data_source,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            patron, refresher_method=refresh, allow_persistent_token=True
+        )
+        return patron_identifier_credential
+
+
+class AuthdataUtility(object):
+
+    """Generate authdata JWTs as per the Vendor ID Service spec:
+    https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0    
+
+    Capable of encoding JWTs (for this library), and decoding them
+    (from this library and potentially others).
+    """
+
+    # The type of the Credential created to identify a patron to the
+    # Vendor ID Service. Using this as an alias keeps the Vendor ID
+    # Service from knowing anything about the patron's true
+    # identity. This Credential is permanent (unlike a patron's
+    # username or authorization identifier), but can be revoked (if
+    # the patron needs to reset their Adobe account ID) with no
+    # consequences other than losing their currently checked-in books.
+    ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
+    
+    ALGORITHM = 'HS256'
+    
+    def __init__(self, vendor_id, library_uri, secret, other_libraries={}):
+        """Basic constructor.
+
+        :param vendor_id: The Adobe Vendor ID that should accompany authdata
+        generated by this utility.
+
+        If this library has its own Adobe Vendor ID, it should go
+        here. If this library is delegating authdata control to some
+        other library, that library's Vendor ID should go here.
+
+        :param library_uri: A URI identifying this library.
+
+        :param secret: A secret used to sign this library's authdata.
+
+        :param other_libraries: A dictionary mapping other libraries'
+        URIs to their secrets. An instance of this class will be able
+        to decode an authdata from any library in this dictionary
+        (plus the library it was initialized for).
+        """
+        self.vendor_id = vendor_id
+
+        # This is used to _encode_ JWTs and send them to the
+        # delegation authority.
+        self.library_uri = library_uri
+        self.secret = secret
+
+        # This is used by the delegation authority to _decode_ JWTs.
+        self.secrets_by_library = dict(other_libraries)
+        self.secrets_by_library[library_uri] = secret
+
+        self.log = logging.getLogger("Adobe authdata utility")
+
+    LIBRARY_URI_KEY = 'library_uri'
+    AUTHDATA_SECRET_KEY = 'authdata_secret'
+    OTHER_LIBRARIES_KEY = 'other_libraries'
+
+    @classmethod
+    def from_config(cls):
+        """Initialize an AuthdataUtility from site configuration.
+
+        :return: An AuthdataUtility if one is configured; otherwise
+        None.
+
+        :raise CannotLoadConfiguration: If an AuthdataUtility is
+        incompletely configured.
+        """
+        integration = Configuration.integration(
+            Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        )
+        if not integration:
+            return None
+        vendor_id = integration.get(Configuration.ADOBE_VENDOR_ID)
+        library_uri = integration.get(cls.LIBRARY_URI_KEY)
+        secret = integration.get(cls.AUTHDATA_SECRET_KEY)
+        other_libraries = integration.get(cls.OTHER_LIBRARIES_KEY, {})
+        if not vendor_id or not library_uri or not secret:
+            raise CannotLoadConfiguration(
+                "Adobe Vendor ID configuration is incomplete. %s, %s and %s must all be defined." % (
+                    cls.LIBRARY_URI_KEY, cls.AUTHDATA_SECRET_KEY,
+                    Configuration.ADOBE_VENDOR_ID
+                )
+            )
+        return cls(vendor_id, library_uri, secret, other_libraries)
+        
+    def encode(self, patron_identifier):
+        """Generate an authdata JWT suitable for putting in an OPDS feed, where
+        it can be picked up by a client and sent to the delegation
+        authority to look up an Adobe ID.
+
+        :return: A 2-tuple (vendor ID, authdata)
+        """
+        if not patron_identifier:
+            raise ValueError("No patron identifier specified")
+        now = datetime.datetime.utcnow()
+        expires = now + datetime.timedelta(minutes=60)
+        authdata = self._encode(
+            self.library_uri, patron_identifier, now, expires
+        )
+        return self.vendor_id, authdata
+
+    def _encode(self, iss=None, sub=None, iat=None, exp=None):
+        """Helper method split out separately for use in tests."""
+        payload = dict(iss=iss)                    # Issuer
+        if sub:
+            payload['sub'] = sub                   # Subject
+        if iat:
+            payload['iat'] = self.numericdate(iat) # Issued At
+        if exp:
+            payload['exp'] = self.numericdate(exp) # Expiration Time
+        return base64.encodestring(
+            jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
+        )
+
+    def decode(self, authdata):
+        """Decode and verify an authdata JWT from one of the libraries managed
+        by `secrets_by_library`.
+
+        :return: a 2-tuple (library_uri, patron_identifier)
+
+        :raise jwt.exceptions.DecodeError: When the JWT is not valid
+        for any reason.
+        """
+
+        self.log.info("Authdata.decode() received authdata %s", authdata)
+        # We are going to try to verify the authdata as is (in case
+        # Adobe secretly decoded it en route), but we're also going to
+        # try to decode it ourselves and verify it that way.
+        potential_tokens = [authdata]
+        try:
+            decoded = base64.decodestring(authdata)
+            potential_tokens.append(decoded)
+        except Exception, e:
+            # Do nothing -- the authdata was not encoded to begin with.
+            pass
+
+        exceptions = []
+        library_uri = subject = None
+        for authdata in potential_tokens:
+            try:
+                return self._decode(authdata)
+            except Exception, e:
+                self.log.error("Error decoding %s", authdata, exc_info=e)
+                exceptions.append(e)
+
+        # If we got to this point there is at least one exception
+        # in the list.
+        raise exceptions[-1]
+                
+    def _decode(self, authdata):
+        # First, decode the authdata without checking the signature.
+        decoded = jwt.decode(
+            authdata, algorithm=self.ALGORITHM,
+            options=dict(verify_signature=False)
+        )
+
+        # This lets us get the library URI, which lets us get the secret.
+        library_uri = decoded.get('iss')
+        if not library_uri in self.secrets_by_library:
+            # The request came in without a library specified
+            # or with an unknown library specified.
+            raise jwt.exceptions.DecodeError(
+                "Unknown library: %s" % library_uri
+            )
+
+        # We know the secret for this library, so we can re-decode the
+        # secret and require signature valudation this time.
+        secret = self.secrets_by_library[library_uri]
+        decoded = jwt.decode(authdata, secret, algorithm=self.ALGORITHM)
+        if not 'sub' in decoded:
+            raise jwt.exceptions.DecodeError("No subject specified.")
+        return library_uri, decoded['sub']
+    
+    EPOCH = datetime.datetime(1970, 1, 1)
+
+    @classmethod
+    def numericdate(cls, d):
+        """Turn a datetime object into a NumericDate as per RFC 7519."""
+        return (d-cls.EPOCH).total_seconds()
+
+    def migrate_adobe_id(self, patron):
+        """If the given patron has an Adobe ID stored as a Credential, also
+        store it as a DelegatedPatronIdentifier.
+
+        This method and its test should be removed once all instances have
+        run the migration script
+        20161102-adobe-id-is-delegated-patron-identifier.py.
+        """
+        import uuid
+        
+        _db = Session.object_session(patron)
+        credential = get_one(
+            _db, Credential,
+            patron=patron, type=AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE
+        )
+        if not credential:
+            # This patron has no Adobe ID. Do nothing.
+            return None, None
+        adobe_id = credential.credential
+
+        # Create a new Credential containing an anonymized patron ID.
+        patron_identifier_credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
+            patron
+        )
+
+        # Then create a DelegatedPatronIdentifier mapping that
+        # anonymized patron ID to the patron's Adobe ID.
+        def create_function():
+            """This will be called as the DelegatedPatronIdentifier
+            is created. We already know the patron's Adobe ID and just
+            want to store it in the DPI.
+            """
+            return adobe_id
+        delegated_identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            _db, self.library_uri, patron_identifier_credential.credential,
+            DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, create_function
+        )
+        return patron_identifier_credential, delegated_identifier
+

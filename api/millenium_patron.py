@@ -5,6 +5,7 @@ from urlparse import urljoin
 from urllib import urlencode
 import datetime
 import requests
+from money import Money
 
 from core.util.xmlparser import XMLParser
 from authenticator import (
@@ -23,6 +24,7 @@ from core.model import (
     Patron,
 )
 from core.util.http import HTTP
+from core.util import MoneyUtility
 
 class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
@@ -44,28 +46,22 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
-    @classmethod
-    def config_values(cls):
-        config, values = super(MilleniumPatronAPI, cls).config_values()
-        host = config.get(Configuration.URL)
-        if not host:
+    DEFAULT_CURRENCY = "USD"
+       
+    def __init__(self, url=None, authorization_identifier_blacklist=[],
+                 **kwargs):
+        if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
-        values['host'] = host
-        blacklist_strings = config.get(
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST, []
-        )
-        values['authorization_blacklist'] = blacklist_strings
-        return config, values
-    
-    def __init__(self, host, authorization_blacklist=[], **kwargs):
+
         super(MilleniumPatronAPI, self).__init__(**kwargs)
-        if not host.endswith('/'):
-            host = host + "/"
-        self.root = host
+        if not url.endswith('/'):
+            url = url + "/"
+        self.root = url
         self.parser = etree.HTMLParser()
-        self.blacklist = [re.compile(x, re.I) for x in authorization_blacklist]
+        self.blacklist = [re.compile(x, re.I)
+                          for x in authorization_identifier_blacklist]
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -94,7 +90,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         path = "%(barcode)s/dump" % dict(barcode=current_identifier)
         url = self.root + path
         response = self.request(url)
-        set_trace()
         return self.patron_dump_to_patrondata(
             current_identifier, response.content
         )
@@ -148,7 +143,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             elif k == self.EMAIL_ADDRESS_FIELD:
                 email_address = v
             elif k == self.FINES_FIELD:
-                fines = v
+                try:
+                    fines = MoneyUtility.parse(v)
+                except ValueError:
+                    self.log.warn(
+                        'Malformed fine amount for patron: "%s". Treating as no fines.'
+                    )
+                    fines = Money("0", "USD")
             elif k == self.BLOCK_FIELD:
                 # TODO: There are different types of blocks and we can
                 # give more helpful error messages by distinguishing
@@ -205,7 +206,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             complete=True
         )
         return data
-        
+   
     def _extract_text_nodes(self, content):
         """Parse the HTML representations sent by the Millenium Patron API."""
         for line in content.split("\n"):

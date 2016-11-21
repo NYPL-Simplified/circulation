@@ -1,5 +1,5 @@
 # Core requirements
-elasticsearch
+elasticsearch==2.1.0
 pillow
 psycopg2
 requests
@@ -17,6 +17,7 @@ mock
 cairosvg
 py-bcrypt
 Flask-Babel
+money
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient
