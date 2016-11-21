@@ -59,7 +59,7 @@ class OneClickAPITest(DatabaseTest):
     def setup(self):
         super(OneClickAPITest, self).setup()
 
-        self.api = MockOneClickAPI.from_config(self._db)
+        self.api = MockOneClickAPI(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
