@@ -74,23 +74,24 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             patrondata.external_type = info['sipserver_patron_class']
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
             if expire_field in info:
-                value = self.date_value(expire_field)
+                value = info.get(expire_field)
+                value = cls.parse_date(value)
                 if value:
                     patrondata.authorization_expires = value
                     break
+        return patrondata
 
-    def date_value(self, field_name):
-        """Retrieve the value of `field_name` as a datetime object."""
-        value = info.get(field_name)
+    @classmethod
+    def parse_date(cls, value):
+        """Try to parse `value` using any of several common date formats."""
         date_value = None
         for format in cls.DATE_FORMATS:
             try:
-                value = datetime.strptime(expires, format)
-                set_trace()
-                return value
+                date_value = datetime.strptime(value, format)
+                break
             except ValueError, e:
-                continue                    
-        return None
+                continue
+        return date_value
         
     # NOTE: It's not necessary to implement remote_patron_lookup
     # because authentication gets patron data as a side effect.
