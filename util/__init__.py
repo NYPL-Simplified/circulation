@@ -51,7 +51,7 @@ class LanguageCodes(object):
     english_names_to_three = defaultdict(lambda: None)
     native_names = defaultdict(list)
 
-    RAW_DATA = """aar||aa|Afar|afar
+    RAW_DATA = u"""aar||aa|Afar|afar
 abk||ab|Abkhazian|abkhaze
 ace|||Achinese|aceh
 ach|||Acoli|acoli
