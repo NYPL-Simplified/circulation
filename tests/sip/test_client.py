@@ -162,3 +162,15 @@ class TestPatronResponse(object):
         sip.queue_response("64Y                201610050000114734                        AOnypl ^AA240^AENo Name^BLN^AFYour library card number cannot be located.^AY1AZC9DE")
         response = sip.patron_information('identifier')
         eq_('240', response['patron_identifier'])
+
+    def test_patron_password_is_optional(self):
+        without_password = self.sip.patron_information_request(
+            "patron_identifier"
+        )
+        assert without_password.endswith('AApatron_identifier|AC')
+        with_password = self.sip.patron_information_request(
+            "patron_identifier", "patron_password"
+        )
+        assert with_password.endswith(
+            'AApatron_identifier|AC|ADpatron_password'
+        )
