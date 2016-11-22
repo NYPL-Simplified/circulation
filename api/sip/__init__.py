@@ -85,7 +85,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         date_value = None
         for format in cls.DATE_FORMATS:
             try:
-                return datetime.strptime(expires, format)
+                value = datetime.strptime(expires, format)
+                set_trace()
+                return value
             except ValueError, e:
                 continue                    
         return None
