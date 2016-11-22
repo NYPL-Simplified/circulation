@@ -45,10 +45,11 @@ class TestSIP2AuthenticationProvider(object):
         eq_("SHELDON, ALICE", patrondata.personal_name)
         eq_("0", patrondata.fines)
         eq_(None, patrondata.authorization_expires)
+        eq_(None, patrondata.external_type)
         
         client.queue_response(self.sierra_invalid_login)
         eq_(None, auth.remote_authenticate("user", "pass"))
-
+        
         # Some examples taken from an Evergreen instance that doesn't
         # use passwords.
         client.queue_response(self.evergreen_active_user)
@@ -58,6 +59,7 @@ class TestSIP2AuthenticationProvider(object):
         eq_("Booth Active Test", patrondata.personal_name)
         eq_(None, patrondata.fines)
         eq_(datetime(2019, 10, 4), patrondata.authorization_expires)
+        eq_("Adult", patrondata.external_type)
         
         client.queue_response(self.evergreen_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
@@ -103,7 +105,7 @@ class TestSIP2AuthenticationProvider(object):
         client.queue_response(self.polaris_excess_fines)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("11.50", patrondata.fines)
-
+        
     def test_parse_date(self):
         parse = SIP2AuthenticationProvider.parse_date
         eq_(datetime(2011, 1, 2), parse("20110102"))
