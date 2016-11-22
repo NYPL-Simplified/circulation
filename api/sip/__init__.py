@@ -9,30 +9,12 @@ from api.sip.client import SIPClient
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     NAME = "SIP2"
-    SERVER = "server"
-    PORT = "port"
-    LOGIN_USER_ID = "login_user_id"
-    LOGIN_PASSWORD = "login_password"
-    LOCATION_CODE = "location_code"
-    FIELD_SEPARATOR = "field_separator"
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
-    
-    @classmethod
-    def config_values(cls, configuration_name=None, required=False):
-        """Retrieve constructor values from site configuration."""
-        
-        config, args = super(SIP2AuthenticationProvider, cls).config_values()
-        args['server'] = config[cls.SERVER]
-        args['port'] = config[cls.PORT]
-        args['login_user_id'] = config.get(cls.LOGIN_USER_ID)
-        args['login_password'] = config.get(cls.LOGIN_PASSWORD)
-        args['location_code'] = config.get(cls.LOCATION_CODE)
-        args['separator'] = config.get(cls.FIELD_SEPARATOR)        
-        return config, args
-   
+
     def __init__(self, server, port, login_user_id,
-                 login_password, location_code, separator, client=None,
+                 login_password, location_code, field_separator,
+                 client=None,
                  **kwargs):
         super(SIP2AuthenticationProvider, self).__init__(**kwargs)
         if client:
@@ -41,7 +23,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             self.client = SIPClient(
                 target_server=server, target_port=port,
                 login_user_id=login_user_id, login_password=login_password,
-                location_code=location_code, separator=separator
+                location_code=location_code, separator=field_separator
             )
             
     def remote_authenticate(self, username, password):

@@ -103,3 +103,10 @@ class TestSIP2AuthenticationProvider(object):
         client.queue_response(self.polaris_excess_fines)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("11.50", patrondata.fines)
+
+    def test_parse_date(self):
+        parse = SIP2AuthenticationProvider.parse_date
+        eq_(datetime(2011, 1, 2), parse("20110102"))
+        eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102    102030"))
+        eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102UTC102030"))
+        
