@@ -163,6 +163,17 @@ class TestPatronResponse(object):
         response = sip.patron_information('identifier')
         eq_('240', response['patron_identifier'])
 
+    def test_location_code_is_optional(self):
+        """You can specify a location_code when logging in, or not."""
+        without_code = self.sip.login_message(
+            "login_id", "login_password"
+        )
+        assert without_code.endswith("COlogin_password")
+        with_code = self.sip.login_message(
+            "login_id", "login_password", "location_code"
+        )
+        assert with_code.endswith("COlogin_password|CPlocation_code")
+        
     def test_patron_password_is_optional(self):
         without_password = self.sip.patron_information_request(
             "patron_identifier"
