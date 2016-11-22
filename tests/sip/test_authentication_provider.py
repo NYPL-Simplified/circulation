@@ -62,6 +62,8 @@ class TestSIP2AuthenticationProvider(object):
         client.queue_response(self.evergreen_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("12345", patrondata.authorization_identifier)
+        # SIP extension field XI becomes sipserver_internal_id which
+        # becomes PatronData.permanent_id.
         eq_("863716", patrondata.permanent_id)
         eq_("Booth Expired Test", patrondata.personal_name)
         eq_(None, patrondata.fines)

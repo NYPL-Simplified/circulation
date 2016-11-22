@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
     assert_raises,
 )
-from api.sipclient import (
+from api.sip.client import (
     MockSIPClient,
 )
 
@@ -139,8 +139,8 @@ class TestPatronResponse(object):
         response = self.sip.patron_information('identifier')
 
         # The Evergreen XI field is a known extension and is picked up
-        # as internal_id.
-        eq_("86371", response['internal_id'])
+        # as sipserver_internal_id.
+        eq_("86371", response['sipserver_internal_id'])
 
         # The ZZ field is an unknown extension and is captured under
         # its SIP code.
