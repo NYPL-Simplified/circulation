@@ -60,8 +60,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # authenticated," rather than "you didn't provide a
             # password so we didn't check."
         patrondata = PatronData()
-        if 'internal_id' in info:
-            patrondata.permanent_id = info['internal_id']
+        if 'sipserver_internal_id' in info:
+            patrondata.permanent_id = info['sipserver_internal_id']
         if 'patron_identifier' in info:
             patrondata.authorization_identifier = info['patron_identifier']
         if 'email_address' in info:
@@ -74,19 +74,21 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             patrondata.external_type = info['sipserver_patron_class']
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
             if expire_field in info:
-                expires = info.get(expire_field)
-                expires_date = None
-                for format in cls.DATE_FORMATS:
-                    try:
-                        expires_date = datetime.strptime(expires, format)
-                    except ValueError, e:
-                        continue
-                if expires_date:
-                    patrondata.authorization_expires = expires_date
+                value = self.date_value(expire_field)
+                if value:
+                    patrondata.authorization_expires = value
                     break
-                    
-        return patrondata 
-        
-    # It's not necessary to implement remote_patron_lookup because
-    # authentication gets patron data as a side effect.
 
+    def date_value(self, field_name):
+        """Retrieve the value of `field_name` as a datetime object."""
+        value = info.get(field_name)
+        date_value = None
+        for format in cls.DATE_FORMATS:
+            try:
+                return datetime.strptime(expires, format)
+            except ValueError, e:
+                continue                    
+        return None
+        
+    # NOTE: It's not necessary to implement remote_patron_lookup
+    # because authentication gets patron data as a side effect.
