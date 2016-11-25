@@ -3606,7 +3606,7 @@ class Work(Base):
 
             # make sure the pool has most up-to-date idea of its presentation edition, 
             # and then ask what it is.
-            pool_edition_changed = pool.set_presentation_edition(policy)
+            pool_edition_changed = pool.set_presentation_edition()
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool_edition_changed   
@@ -3627,7 +3627,6 @@ class Work(Base):
                 # edition is still an option, choose it.
                 new_presentation_edition = potential_presentation_edition
 
-        # Note: policy.choose_edition is true in default PresentationCalculationPolicy.
         if ((self.presentation_edition != new_presentation_edition) and new_presentation_edition != None):
             # did we find a pool whose presentation edition was better than the work's?
             self.set_presentation_edition(new_presentation_edition)
@@ -5779,9 +5778,7 @@ class LicensePool(Base):
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
 
-    # TODO:  policy is not used in this method.  Removing argument
-    # breaks many-many tests, and needs own branch.
-    def set_presentation_edition(self, policy=None):
+    def set_presentation_edition(self):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -6062,7 +6059,7 @@ class LicensePool(Base):
         if known_edition:
             presentation_edition = known_edition
         else:
-            self.set_presentation_edition(None)
+            self.set_presentation_edition()
             presentation_edition = self.presentation_edition
 
         logging.info("Calculating work for %r", presentation_edition)

@@ -1419,7 +1419,7 @@ class TestLicensePool(DatabaseTest):
 
         edition_admin.title = u"AdminInterfaceTitle1"
 
-        pool.set_presentation_edition(None)
+        pool.set_presentation_edition()
 
         edition_composite = pool.presentation_edition
 
@@ -1445,7 +1445,7 @@ class TestLicensePool(DatabaseTest):
         [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
         jane.family_name, jane.display_name = jane.default_names()
         edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
-        pool.set_presentation_edition(None)
+        pool.set_presentation_edition()
 
         # The old contributor has been removed from the composite
         # edition, and the new contributor added.
