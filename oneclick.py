@@ -1,10 +1,11 @@
 from nose.tools import set_trace
+import base64
 from collections import defaultdict
 import datetime
-import base64
-import os
+from dateutil.relativedelta import relativedelta
 import json
 import logging
+import os
 import re
 
 from config import (
@@ -29,6 +30,7 @@ from model import (
     Identifier,
     Representation,
     Subject,
+    Work,
 )
 
 from metadata_layer import (
@@ -367,6 +369,96 @@ class OneClickAPI(object):
         return respdict
 
 
+    def populate_all_catalog(self):
+        """ Call get_all_catalog to get all of library's book info from OneClick.
+        Create Work, Edition, LicensePool objects in our database.
+        """
+        catalog_list = self.get_all_catalog()
+        items_transmitted = len(catalog_list)
+        items_created = 0
+        for catalog_item in catalog_list:
+            result = self.update_metadata(catalog_item)
+            if result:
+                items_created += 1
+
+        return items_transmitted, items_created
+
+
+    def populate_delta(self, months=1):
+        """ Call get_delta for the last month to get all of the library's book info changes 
+        from OneClick.  Update Work, Edition, LicensePool objects in our database.
+        """
+        today = datetime.datetime.now()
+        time_ago = relativedelta(months=months)
+
+        delta = self.get_delta(from_date=(today - time_ago), to_date=today)
+        if not delta or len(delta) < 1:
+            return None, None
+
+        items_added = delta[0].get("addedTitles", None)
+        items_removed = delta[0].get("removedTitles", None)
+
+        items_transmitted = len(items_added) + len(items_removed)
+        items_updated = 0
+        for catalog_item in items_added:
+            result = self.update_metadata(catalog_item)
+            if result:
+                items_updated += 1
+
+        for catalog_item in items_removed:
+            metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
+
+            if not metadata:
+                # generate a CoverageFailure to let the system know to revisit this book
+                # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
+                # check that re-processing that coverage would generate the work.
+                e = "Could not extract metadata from OneClick data: %r" % catalog_item
+                make_note = CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+            # convert IdentifierData into Identifier, if can
+            identifier, made_new = metadata.primary_identifier.load(_db=self._db)
+            if identifier and not made_new:
+                [work] = Work.from_identifiers(self._db, [identifier])
+                if work:
+                    for cr in work.coverage_records:
+                        self._db.delete(cr)
+                    for pool in work.license_pools:
+                        if pool.presentation_edition:
+                            for contribution in pool.presentation_edition.contributions:
+                                self._db.delete(contribution)
+                            self._db.delete(pool.presentation_edition.contributions[0])
+                        for mechanism in pool.delivery_mechanisms:
+                            self._db.delete(mechanism)
+                        self._db.delete(pool)
+                    self._db.delete(work)
+                    items_updated += 1
+
+        return items_transmitted, items_updated
+
+
+    def update_metadata(self, catalog_item):
+        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
+
+        if not metadata:
+            # generate a CoverageFailure to let the system know to revisit this book
+            # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
+            # check that re-processing that coverage would generate the work.
+            e = "Could not extract metadata from OneClick data: %r" % catalog_item
+            make_note = CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        # make a database object
+        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+        # convert IdentifierData into Identifier, if can
+        identifier, made_new = metadata.primary_identifier.load(_db=self._db)
+        if identifier:
+            result = coverage_provider.set_metadata(
+                identifier, metadata, metadata_replacement_policy=None
+            )
+            return result
+
+        return None
+
+
     def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
         page_size=100, page_index=None, verbosity=None): 
         """
@@ -519,11 +611,12 @@ class OneClickRepresentationExtractor(object):
 
         if include_bibliographic:
             title = book.get('title', None)
-            # Note: An item that's part of a series, will have the seriesName field, and 
+            # NOTE: An item that's part of a series, will have the seriesName field, and 
             # will have its seriesPosition and seriesTotal fields set to >0.
             # An item not part of a series will have the seriesPosition and seriesTotal fields 
             # set to 0, and will not have a seriesName at all.
             # Sometimes, series position and total == 0, for many series items (ex: "seriesName": "EngLits").
+            # Sometimes, seriesName is set to "Default Blank", meaning "not actually a series".
             series_name = book.get('seriesName', None)
 
             series_position = book.get('seriesPosition', None)
@@ -589,6 +682,7 @@ class OneClickRepresentationExtractor(object):
                     subjects.append(subject)
 
             # audience options are: adult, beginning-reader, childrens, young-adult
+            # NOTE: audience can be set to "Adult" while publisher is "HarperTeen".
             audience = book.get('audience', None)
             if audience:
                 subject = SubjectData(
@@ -608,7 +702,7 @@ class OneClickRepresentationExtractor(object):
                 oneclick_medium, Edition.BOOK_MEDIUM
             )
 
-            identifiers = [IdentifierData(Identifier.ISBN, oneclick_id, 1)]
+            identifiers = [IdentifierData(Identifier.ONECLICK_ID, oneclick_id, 1)]
             
             links = []
             # A cover and its thumbnail become a single LinkData.
@@ -723,7 +817,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(response_dictionary)
 
         if not metadata:
-            e = "Could not extract metadata from OneClick data: %r" % info
+            e = "Could not extract metadata from OneClick data: %r" % response_dictionary
             return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
 
         result = self.set_metadata(

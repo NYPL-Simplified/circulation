@@ -47,6 +47,7 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from oneclick import OneClickAPI, MockOneClickAPI
 from util.opds_writer import OPDSFeed
 
 from monitor import SubjectAssignmentMonitor
@@ -764,6 +765,66 @@ class CustomListManagementScript(Script):
     def run(self):
         self.membership_manager.update()
         self._db.commit()
+
+
+class OneClickImportScript(Script):
+    """Import all books from a OneClick-subscribed library catalog."""
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--library-id', 
+            help='OneClick library id.  Ex: 1931 for Wethersfield Public Library.'
+        )
+        parser.add_argument(
+            '--mock', 
+            help='OneClick library id.  Ex: 1931 for Wethersfield Public Library.'
+        )
+        return parser
+
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(OneClickImportScript, self).__init__(_db=_db)
+
+        # get database connection passed in from test or establish a prod one
+        if _db:
+            db = _db
+        else:
+            db = self._db
+
+        args = self.parse_command_line(cmd_args)
+        self.mock_mode = False
+        if args.mock and args.mock.lower().strip() in ["true", "yes", "t", "y", "1"]:
+            self.mock_mode = True
+
+        if self.mock_mode:
+            self.api = OneClickAPI.from_config(_db=db)
+        else:
+            self.api = MockOneClickAPI(_db=db)
+
+
+    def do_run(self):
+        print "OneClickImportScript.do_run"
+        logging.info("OneClickImportScript.do_run().")
+        items_transmitted, items_created = self.api.populate_all_catalog()
+
+
+
+class OneClickDeltaScript(OneClickImportScript):
+    """Import book deletions, additions, and metadata changes for a 
+    OneClick-subscribed library catalog.
+    """
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(OneClickDeltaScript, self).__init__(_db=_db)
+
+
+    def do_run(self):
+        print "OneClickDeltaScript.do_run"
+        logging.info("OneClickDeltaScript.do_run().")
+        items_transmitted, items_updated = self.api.populate_delta()
+
 
 
 class OPDSImportScript(Script):
