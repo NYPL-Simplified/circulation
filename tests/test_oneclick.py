@@ -447,7 +447,7 @@ class TestCirculationMonitor(OneClickAPITest):
                 "eaudio_loan_length" : '21'
             }
             monitor = OneClickCirculationMonitor(self._db)
-            monitor.api = MockOneClickAPI.from_config(self._db)
+            monitor.api = MockOneClickAPI(self._db)
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(
