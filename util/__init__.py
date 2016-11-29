@@ -22,8 +22,7 @@ def batch(iterable, size=1):
 
 def fast_query_count(query):
     """Counts the results of a query without using super-slow subquery"""
-
-    statement = query.enable_eagerloads(False).statement
+    statement = query.enable_eagerloads(False).with_labels().statement
     distinct_columns = statement._distinct
     new_columns = [func.count()]
     if isinstance(distinct_columns, list):
@@ -52,7 +51,7 @@ class LanguageCodes(object):
     english_names_to_three = defaultdict(lambda: None)
     native_names = defaultdict(list)
 
-    RAW_DATA = """aar||aa|Afar|afar
+    RAW_DATA = u"""aar||aa|Afar|afar
 abk||ab|Abkhazian|abkhaze
 ace|||Achinese|aceh
 ach|||Acoli|acoli
