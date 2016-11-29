@@ -608,6 +608,17 @@ class TestAuthdataUtility(VendorIDTest):
             authdata = AuthdataUtility.from_config()
             eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library_uri)
             eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
+
+        # Short library names are case-insensitive. If the
+        # configuration has the same library twice in different case,
+        # you can't create an AuthdataUtility.
+        with self.temp_config() as config:
+            integration = config[Configuration.INTEGRATIONS][name]
+            integration[AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY] = {
+                "a" : "http://a/",
+                "A" : "http://b/",
+            }
+            assert_raises(ValueError, AuthdataUtility.from_config)
             
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"

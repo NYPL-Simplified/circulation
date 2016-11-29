@@ -486,7 +486,14 @@ class AuthdataUtility(object):
         # client tokens.
         self.library_uris_by_short_name = {}
         for k, v in library_uris_by_short_name.items():
-            self.library_uris_by_short_name[k.upper()] = v
+            k = k.upper()
+            if k in self.library_uris_by_short_name:
+                # This can happen if the same library is in the list
+                # twice, capitalized differently.
+                raise ValueError(
+                    "Duplicate library URIs for short name: %s" % k
+                )
+            self.library_uris_by_short_name[k] = v
         self.library_uris_by_short_name[self.short_name] = self.library_uri
         
         self.log = logging.getLogger("Adobe authdata utility")
