@@ -536,9 +536,8 @@ class TestOPDS(WithVendorIDTest):
         unused = self._work(language="eng", with_open_access_download=True)
 
         # Get the feed.
-        with self.temp_config() as config:
-            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-                None, patron, test_mode=True)
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
         raw = unicode(feed_obj)
         feed = feedparser.parse(raw)
 
@@ -677,9 +676,8 @@ class TestOPDS(WithVendorIDTest):
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
         
-        with self.temp_config():
-            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-                None, patron, test_mode=True)
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
@@ -699,9 +697,8 @@ class TestOPDS(WithVendorIDTest):
         # and the streaming mechanism.
         loan.fulfillment = mech1
 
-        with self.temp_config():
-            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-                None, patron, test_mode=True)
+        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True)
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
