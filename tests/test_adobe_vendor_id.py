@@ -49,8 +49,9 @@ class VendorIDTest(DatabaseTest):
     TEST_LIBRARY_URI = "http://me/"
     TEST_LIBRARY_SHORT_NAME = "Lbry"
     TEST_SECRET = "some secret"
-    TEST_OTHER_URI  = {"http://you/": "secret2"}
-    TEST_OTHER_SHORT_NAME  = {"you" : "http://you/"}
+    TEST_OTHER_LIBRARY_URI = "http://you/"
+    TEST_OTHER_URI  = {TEST_OTHER_LIBRARY_URI: "secret2"}
+    TEST_OTHER_SHORT_NAME  = {"you" : TEST_OTHER_LIBRARY_URI}
         
     @contextlib.contextmanager
     def temp_config(self):
@@ -209,7 +210,7 @@ class TestVendorIDModel(VendorIDTest):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
-                AuthdataUtility.LIBRARY_URI_KEY: "http://you/",
+                AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
                 AuthdataUtility.LIBRARY_SHORT_NAME_KEY: "You",
                 AuthdataUtility.AUTHDATA_SECRET_KEY: "secret2",
             }
@@ -220,7 +221,7 @@ class TestVendorIDModel(VendorIDTest):
         # first library.
         with self.temp_config():
             utility = AuthdataUtility.from_config()
-            eq_("secret2", utility.secrets_by_library_uri["http://you/"])
+            eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
             # Because this library shares the other library's secret,
             # it can decode a JWT issued by the other library, and
@@ -565,6 +566,14 @@ class TestAuthdataUtility(VendorIDTest):
             expect = dict(self.TEST_OTHER_URI)
             expect[self.TEST_LIBRARY_URI] = self.TEST_SECRET
             eq_(expect, utility.secrets_by_library_uri)
+
+            # Library short names get uppercased.
+            eq_("LBRY", utility.short_name)
+            eq_(
+                {"LBRY": self.TEST_LIBRARY_URI,
+                 "YOU" : self.TEST_OTHER_LIBRARY_URI },
+                utility.library_uris_by_short_name
+            )
             
             # If an integration is set up but incomplete, from_config
             # raises CannotLoadConfiguration.
