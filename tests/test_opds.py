@@ -1,4 +1,5 @@
 import base64
+import contextlib
 import datetime
 import os
 import re
@@ -65,7 +66,26 @@ import jwt
 _strftime = AtomFeed._strftime
 
 
-class TestCirculationManagerAnnotator(DatabaseTest):
+class WithVendorIDTest(DatabaseTest):
+
+    @contextlib.contextmanager
+    def temp_config(self):
+        """Configure a basic Vendor ID Service setup."""
+        with temp_config() as config:
+            library_uri = "http://a-library/"
+            secret = "a-secret"
+            vendor_id = "Some Vendor"
+            short_name = "a library"
+            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
+                Configuration.ADOBE_VENDOR_ID : vendor_id,
+                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
+                AuthdataUtility.LIBRARY_SHORT_NAME_KEY : short_name,
+                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
+            }
+            yield config
+
+    
+class TestCirculationManagerAnnotator(WithVendorIDTest):
 
     def setup(self):
         super(TestCirculationManagerAnnotator, self).setup()
@@ -73,7 +93,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         self.annotator = CirculationManagerAnnotator(
             None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
         )
-
+            
     def test_add_configuration_links(self):
         mock_feed = []
         link_config = {
@@ -212,16 +232,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             self._db, "text/html", DeliveryMechanism.OVERDRIVE_DRM
         )
 
-        with temp_config() as config:
-            library_uri = "http://a-library/"
-            secret = "a-secret"
-            vendor_id = "Some Vendor"
-            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
-                Configuration.ADOBE_VENDOR_ID : vendor_id,
-                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
-                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
-            }
-
+        with self.temp_config() as config:
             # The fulfill link for non-Adobe DRM does not
             # include the drm:licensor tag.
             link = self.annotator.fulfill_link(
@@ -276,16 +287,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         returns a list containing a single tag. The tag contains
         the information necessary to get an Adobe ID.
         """
-        with temp_config() as config:
-            library_uri = "http://a-library/"
-            secret = "a-secret"
-            vendor_id = "Some Vendor"
-            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
-                Configuration.ADOBE_VENDOR_ID : vendor_id,
-                AuthdataUtility.LIBRARY_URI_KEY : library_uri,
-                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
-            }
-
+        with self.temp_config() as config:
             patron_identifier = "patron identifier"
             [element] = self.annotator.adobe_id_tags(
                 patron_identifier
@@ -293,18 +295,17 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
 
             key = '{http://librarysimplified.org/terms/drm}vendor'
-            eq_(vendor_id, element.attrib[key])
+            eq_("Some Vendor", element.attrib[key])
             
             [token] = element.getchildren()
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
-            # token.text is a base64-encoded JWT which we can decode,
-            # since we know the secret.
+            # token.text is a token which we can decode, since we know
+            # the secret.
             token = token.text
-            token = base64.decodestring(token)
-            decoded = jwt.decode(token, secret, AuthdataUtility.ALGORITHM)
-            eq_(library_uri, decoded['iss'])
-            eq_(patron_identifier, decoded['sub'])
+            authdata = AuthdataUtility.from_config()
+            decoded = authdata.decode_short_client_token(token)
+            eq_(("http://a-library/", patron_identifier), decoded)
 
             # If we call adobe_id_tags again we'll get a distinct tag
             # object that renders to the same XML.
@@ -313,7 +314,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             eq_(etree.tostring(element), etree.tostring(same_tag))
 
             
-class TestOPDS(DatabaseTest):
+class TestOPDS(WithVendorIDTest):
 
     def setup(self):
         super(TestOPDS, self).setup()
@@ -535,8 +536,9 @@ class TestOPDS(DatabaseTest):
         unused = self._work(language="eng", with_open_access_download=True)
 
         # Get the feed.
-        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron, test_mode=True)
+        with self.temp_config() as config:
+            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+                None, patron, test_mode=True)
         raw = unicode(feed_obj)
         feed = feedparser.parse(raw)
 
@@ -675,8 +677,9 @@ class TestOPDS(DatabaseTest):
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
         
-        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron, test_mode=True)
+        with self.temp_config():
+            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+                None, patron, test_mode=True)
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']
@@ -696,8 +699,9 @@ class TestOPDS(DatabaseTest):
         # and the streaming mechanism.
         loan.fulfillment = mech1
 
-        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron, test_mode=True)
+        with self.temp_config():
+            feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+                None, patron, test_mode=True)
         raw = unicode(feed_obj)
 
         entries = feedparser.parse(raw)['entries']

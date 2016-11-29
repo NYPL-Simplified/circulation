@@ -634,7 +634,13 @@ class CirculationManagerAnnotator(Annotator):
             cached = []
             authdata = AuthdataUtility.from_config()
             if authdata:
-                vendor_id, jwt = authdata.encode(patron_identifier)
+                # TODO: We would like to call encode() here, and have
+                # the client use a JWT as authdata, but we can't,
+                # because there's no way to use authdata to deactivate
+                # a device. So we've used this alternate technique
+                # that's much smaller than a JWT and can be smuggled
+                # into username/password.
+                vendor_id, jwt = authdata.encode_short_client_token(patron_identifier)
 
                 drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
                 vendor_attr = "{%s}vendor" % OPDSFeed.DRM_NS
