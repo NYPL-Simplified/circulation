@@ -645,9 +645,9 @@ class AuthdataUtility(object):
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
         now = datetime.datetime.utcnow()
-        expires = now + datetime.timedelta(minutes=60)
+        expires = self.numericdate(now + datetime.timedelta(minutes=60))
         authdata = self._encode_short_client_token(
-            self.library_short_name, patron_identifier, expires
+            self.short_name, patron_identifier, expires
         )
         return self.vendor_id, authdata
     
@@ -678,7 +678,9 @@ class AuthdataUtility(object):
         :raise ValueError: When the token is not valid for any reason.
         """
         if not ' ' in token:
-            raise ValueError("Supposed client token does not contain a space.")
+            raise ValueError(
+                'Supposed client token "%s" does not contain a space.' % token
+            )
         username, password = token.split(' ', 1)
         username = base64.decodestring(username)
         signature = base64.decodestring(password)
@@ -694,34 +696,9 @@ class AuthdataUtility(object):
 
         library_short_name = library_short_name.upper()
         try:
-            expiration = int(expiration)
+            expiration = float(expiration)
         except ValueError:
-            raise ValueError("Expiration time %s is not numeric." % expiration)
-
-        if not library_short_name in self.library_uris_by_short_name:
-            raise ValueError(
-                "I don't know how to handle tokens from library %s" % library_short_name
-            )
-        library_uri = self.library_uris_by_short_name[library_short_name]
-        if not library_uri in self.secrets_by_library_uri:
-            raise ValueError(
-                "I don't know the secret for library %s" % library_uri
-            )
-        secret = self.secrets_by_library_uri[library_uri]
-        key = self.short_token_signer.prepare_key(self.secret)
-        actual_signature = self.short_token_signer.sign(token, key)
-        if actual_signature != supposed_signature:
-            raise ValueError(
-                "Invalid signature for %s." % token
-            )
-        
-        # The token is valid but perhaps it has expired.
-        now = datetime.datetime.utcnow()
-        expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
-        if expiration > now:
-            raise ValueError(
-                "Token %s has expired." % token
-            )
+            raise ValueError('Expiration time "%s" is not numeric.' % expiration)
 
         # We don't police the content of the patron identifier but there
         # has to be _something_ there.
@@ -729,6 +706,37 @@ class AuthdataUtility(object):
             raise ValueError(
                 "Token %s has empty patron identifier" % token
             )
+       
+        if not library_short_name in self.library_uris_by_short_name:
+            raise ValueError(
+                "I don't know how to handle tokens from library \"%s\"" % library_short_name
+            )
+        library_uri = self.library_uris_by_short_name[library_short_name]
+        if not library_uri in self.secrets_by_library_uri:
+            raise ValueError(
+                "I don't know the secret for library %s" % library_uri
+            )
+        secret = self.secrets_by_library_uri[library_uri]
+
+        # Don't bother checking an expired token.
+        now = datetime.datetime.utcnow()
+        expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
+        if expiration < now:
+            raise ValueError(
+                "Token %s expired at %s (now is %s)." % (
+                    token, expiration, now
+                )
+            )
+
+        # Sign the token and check against the provided signature.
+        key = self.short_token_signer.prepare_key(secret)
+        actual_signature = self.short_token_signer.sign(token, key)
+        
+        if actual_signature != supposed_signature:
+            raise ValueError(
+                "Invalid signature for %s." % token
+            )
+
         return library_uri, patron_identifier
         
     EPOCH = datetime.datetime(1970, 1, 1)

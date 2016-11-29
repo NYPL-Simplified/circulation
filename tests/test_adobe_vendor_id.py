@@ -664,7 +664,7 @@ class TestAuthdataUtility(VendorIDTest):
         foreign_authdata = AuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://your-library.org/",
-            library_short_name = "yourLibrary",
+            library_short_name = "you",
             secret = "Your library secret",
         )
         
@@ -736,6 +736,127 @@ class TestAuthdataUtility(VendorIDTest):
             self.authdata.decode, authdata
         )
 
+    def test_short_client_token_round_trip(self):
+        """Encoding a token and immediately decoding it gives the expected
+        result.
+        """
+        vendor_id, token = self.authdata.encode_short_client_token("a patron")
+        eq_(self.authdata.vendor_id, vendor_id)
+
+        library_uri, patron = self.authdata.decode_short_client_token(token)
+        eq_(self.authdata.library_uri, library_uri)
+        eq_("a patron", patron)
+
+    def test_short_client_token_encode_known_value(self):
+        """Verify that the encoding algorithm gives a known value on known
+        input.
+        """
+        value = self.authdata._encode_short_client_token(
+            "a library", "a patron identifier", 1234.5
+        )
+        eq_('YSBsaWJyYXJ5fDEyMzQuNXxhIHBhdHJvbiBpZGVudGlmaWVy\n YoNGn7f38mF531KSWJ/o1H0Z3chbC+uTE+t7pAwqYxM=\n',
+            value
+        )
+
+        # Dissect the known value to show how it works.
+        token, signature = value.split(" ")
+
+        # Both token and signature are base64-encoded.
+        token = base64.decodestring(token)
+        signature = base64.decodestring(signature)
+
+        # The token comes from the library name, the patron identifier,
+        # and the time of creation.
+        eq_("a library|1234.5|a patron identifier", token)
+
+        # The signature comes from signing the token with the
+        # secret associated with this library.
+        expect_signature = self.authdata.short_token_signer.sign(
+            token, self.authdata.short_token_signing_key
+        )
+        eq_(expect_signature, signature)
+
+    def test_decode_short_client_token_from_another_library(self):
+        # Here's the AuthdataUtility used by another library.
+        foreign_authdata = AuthdataUtility(
+            vendor_id = "The Vendor ID",
+            library_uri = "http://your-library.org/",
+            library_short_name = "you",
+            secret = "Your library secret",
+        )
+        
+        patron_identifier = "Patron identifier"
+        vendor_id, token = foreign_authdata.encode_short_client_token(
+            patron_identifier
+        )
+        
+        # Because we know the other library's secret, we're able to
+        # decode the authdata.
+        decoded = self.authdata.decode_short_client_token(token)
+        eq_(("http://your-library.org/", "Patron identifier"), decoded)
+
+        # If our secret for a library doesn't match the other
+        # library's short token signing key, we can't decode the
+        # authdata.
+        foreign_authdata.short_token_signing_key = 'A new secret'
+        vendor_id, token = foreign_authdata.encode_short_client_token(
+            patron_identifier
+        )
+        assert_raises_regexp(
+            ValueError, "Invalid signature for",
+            self.authdata.decode_short_client_token, token
+        )
+
+    def test_decode_client_token_errors(self):
+        """Test various token errors"""
+        m = self.authdata._decode_short_client_token
+
+        # A token has to contain at least two pipe characters.
+        assert_raises_regexp(
+            ValueError, "Invalid client token",
+            m, "foo|", "signature"
+        )
+        
+        # The expiration time must be numeric.
+        assert_raises_regexp(
+            ValueError, 'Expiration time "a time" is not numeric',
+            m, "library|a time|patron", "signature"
+        )
+
+        # The patron identifier must not be blank.
+        assert_raises_regexp(
+            ValueError, 'Token library|1234| has empty patron identifier',
+            m, "library|1234|", "signature"
+        )
+        
+        # The library must be a known one.
+        assert_raises_regexp(
+            ValueError,
+            'I don\'t know how to handle tokens from library "LIBRARY"',
+            m, "library|1234|patron", "signature"
+        )
+
+        # We must have the shared secret for the given library.
+        self.authdata.library_uris_by_short_name['LIBRARY'] = 'http://a-library.com/'
+        assert_raises_regexp(
+            ValueError,
+            'I don\'t know the secret for library http://a-library.com/',
+            m, "library|1234|patron", "signature"
+        )
+
+        # The token must not have expired.
+        assert_raises_regexp(
+            ValueError,
+            'Token mylibrary|1234|patron expired at 1970-01-01 00:20:34',
+            m, "mylibrary|1234|patron", "signature"
+        )
+
+        # Finally, the signature must be valid.
+        assert_raises_regexp(
+            ValueError, 'Invalid signature for',
+            m, "mylibrary|99999999999|patron", "signature"
+        )
+        
     # Tests of code that is used only in a migration script.  This can
     # be deleted once
     # 20161102-adobe-id-is-delegated-patron-identifier.py is run on
