@@ -592,13 +592,20 @@ class TestAuthdataUtility(VendorIDTest):
                 CannotLoadConfiguration, AuthdataUtility.from_config
             )
             integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = self.TEST_LIBRARY_SHORT_NAME
+
+            # The library short name cannot contain the pipe character.
+            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = "foo|bar"
+            assert_raises(
+                CannotLoadConfiguration, AuthdataUtility.from_config
+            )
+            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = self.TEST_LIBRARY_SHORT_NAME
             
             del integration[AuthdataUtility.AUTHDATA_SECRET_KEY]
             assert_raises(
                 CannotLoadConfiguration, AuthdataUtility.from_config
             )
             integration[AuthdataUtility.AUTHDATA_SECRET_KEY] = self.TEST_SECRET
-
+            
             # If other libraries are not configured, that's fine.
             del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
             authdata = AuthdataUtility.from_config()
