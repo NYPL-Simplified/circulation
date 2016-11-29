@@ -581,6 +581,12 @@ class TestAuthdataUtility(VendorIDTest):
             )
             integration[AuthdataUtility.LIBRARY_URI_KEY] = self.TEST_LIBRARY_URI
 
+            del integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY]
+            assert_raises(
+                CannotLoadConfiguration, AuthdataUtility.from_config
+            )
+            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = self.TEST_LIBRARY_SHORT_NAME
+            
             del integration[AuthdataUtility.AUTHDATA_SECRET_KEY]
             assert_raises(
                 CannotLoadConfiguration, AuthdataUtility.from_config
@@ -589,9 +595,10 @@ class TestAuthdataUtility(VendorIDTest):
 
             # If other libraries are not configured, that's fine.
             del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
+            del integration[AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY]
             authdata = AuthdataUtility.from_config()
             eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library_uri)
-
+            eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
             
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"
