@@ -438,7 +438,7 @@ class AuthdataUtility(object):
     ALGORITHM = 'HS256'
    
     def __init__(self, vendor_id, library_uri, library_short_name, secret,
-                 library_secrets={}, library_uris_by_short_name={}):
+                 other_libraries={}):
         """Basic constructor.
 
         :param vendor_id: The Adobe Vendor ID that should accompany authdata
@@ -457,14 +457,11 @@ class AuthdataUtility(object):
 
         :param secret: A secret used to sign this library's authdata.
 
-        :param library_secrets: A dictionary mapping other libraries'
-        URIs to their secrets. An instance of this class will be able
-        to decode an authdata from any library in this dictionary
-        (plus the library it was initialized for).
-
-        :param libraries_by_short_name: A dictionary mapping other
-        libraries' short names to their URIs.
-
+        :param other_libraries: A dictionary mapping other libraries'
+        canonical URIs to their (short name, secret) 2-tuples. An
+        instance of this class will be able to decode an authdata from
+        any library in this dictionary (plus the library it was
+        initialized for).
         """
         self.vendor_id = vendor_id
 
@@ -479,22 +476,27 @@ class AuthdataUtility(object):
         self.secret = secret
         
         # This is used by the delegation authority to _decode_ JWTs.
-        self.secrets_by_library_uri = dict(library_secrets)
-        self.secrets_by_library_uri[library_uri] = secret
+        self.secrets_by_library_uri = {}
+        self.secrets_by_library_uri[self.library_uri] = secret
 
         # This is used by the delegation authority to _decode_ short
         # client tokens.
         self.library_uris_by_short_name = {}
-        for k, v in library_uris_by_short_name.items():
-            k = k.upper()
-            if k in self.library_uris_by_short_name:
+        self.library_uris_by_short_name[self.short_name] = self.library_uri
+
+        # Fill in secrets_by_library_uri and library_uris_by_short_name
+        # for other libraries.
+        for uri, v in other_libraries.items():
+            short_name, secret = v
+            short_name = short_name.upper()
+            if short_name in self.library_uris_by_short_name:
                 # This can happen if the same library is in the list
                 # twice, capitalized differently.
                 raise ValueError(
-                    "Duplicate library URIs for short name: %s" % k
+                    "Duplicate short name: %s" % short_name
                 )
-            self.library_uris_by_short_name[k] = v
-        self.library_uris_by_short_name[self.short_name] = self.library_uri
+            self.library_uris_by_short_name[short_name] = uri
+            self.secrets_by_library_uri[uri] = secret
         
         self.log = logging.getLogger("Adobe authdata utility")
 
@@ -528,8 +530,7 @@ class AuthdataUtility(object):
         library_uri = integration.get(cls.LIBRARY_URI_KEY)
         library_short_name = integration.get(cls.LIBRARY_SHORT_NAME_KEY)
         secret = integration.get(cls.AUTHDATA_SECRET_KEY)
-        other_library_secrets = integration.get(cls.OTHER_LIBRARIES_KEY, {})
-        other_library_short_names = integration.get(cls.OTHER_LIBRARY_SHORT_NAMES_KEY, {})
+        other_libraries = integration.get(cls.OTHER_LIBRARIES_KEY, {})
         if (not vendor_id or not library_uri
             or not library_short_name or not secret):
             raise CannotLoadConfiguration(
@@ -544,7 +545,7 @@ class AuthdataUtility(object):
                 "Library short name cannot contain the pipe character."
             )
         return cls(vendor_id, library_uri, library_short_name, secret,
-                   other_library_secrets, other_library_short_names)
+                   other_libraries)
         
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where

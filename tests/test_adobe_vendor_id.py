@@ -50,8 +50,7 @@ class VendorIDTest(DatabaseTest):
     TEST_LIBRARY_SHORT_NAME = "Lbry"
     TEST_SECRET = "some secret"
     TEST_OTHER_LIBRARY_URI = "http://you/"
-    TEST_OTHER_URI  = {TEST_OTHER_LIBRARY_URI: "secret2"}
-    TEST_OTHER_SHORT_NAME  = {"you" : TEST_OTHER_LIBRARY_URI}
+    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
         
     @contextlib.contextmanager
     def temp_config(self):
@@ -63,8 +62,7 @@ class VendorIDTest(DatabaseTest):
                 AuthdataUtility.LIBRARY_URI_KEY: self.TEST_LIBRARY_URI,
                 AuthdataUtility.LIBRARY_SHORT_NAME_KEY: self.TEST_LIBRARY_SHORT_NAME,
                 AuthdataUtility.AUTHDATA_SECRET_KEY: self.TEST_SECRET,
-                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHER_URI,
-                AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY: self.TEST_OTHER_SHORT_NAME,
+                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHER_LIBRARIES,
             }
             yield config
 
@@ -540,12 +538,9 @@ class TestAuthdataUtility(VendorIDTest):
             library_uri = "http://my-library.org/",
             library_short_name = "MyLibrary",
             secret = "My library secret",
-            library_secrets = {
-                "http://your-library.org/": "Your library secret"
+            other_libraries = {
+                "http://your-library.org/": ("you", "Your library secret")
             },
-            library_uris_by_short_name = {
-                "you" : "http://your-library.org/"
-            }
         )
 
     def test_from_config(self):
@@ -563,9 +558,11 @@ class TestAuthdataUtility(VendorIDTest):
             eq_(self.TEST_VENDOR_ID, utility.vendor_id)
             eq_(self.TEST_LIBRARY_URI, utility.library_uri)
             eq_(self.TEST_SECRET, utility.secret)
-            expect = dict(self.TEST_OTHER_URI)
-            expect[self.TEST_LIBRARY_URI] = self.TEST_SECRET
-            eq_(expect, utility.secrets_by_library_uri)
+            eq_(
+                {self.TEST_OTHER_LIBRARY_URI : "secret2",
+                 self.TEST_LIBRARY_URI : self.TEST_SECRET},
+                utility.secrets_by_library_uri
+            )
 
             # Library short names get uppercased.
             eq_("LBRY", utility.short_name)
@@ -604,19 +601,18 @@ class TestAuthdataUtility(VendorIDTest):
 
             # If other libraries are not configured, that's fine.
             del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
-            del integration[AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY]
             authdata = AuthdataUtility.from_config()
             eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library_uri)
             eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
 
         # Short library names are case-insensitive. If the
-        # configuration has the same library twice in different case,
-        # you can't create an AuthdataUtility.
+        # configuration has the same library short name twice, you
+        # can't create an AuthdataUtility.
         with self.temp_config() as config:
             integration = config[Configuration.INTEGRATIONS][name]
-            integration[AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY] = {
-                "a" : "http://a/",
-                "A" : "http://b/",
+            integration[AuthdataUtility.OTHER_LIBRARIES_KEY] = {
+                "http://a/" : ("a", "secret1"),
+                "http://b/" : ("A", "secret2"),
             }
             assert_raises(ValueError, AuthdataUtility.from_config)
             
