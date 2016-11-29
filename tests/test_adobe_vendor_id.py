@@ -47,8 +47,10 @@ class VendorIDTest(DatabaseTest):
 
     TEST_VENDOR_ID = "vendor id"
     TEST_LIBRARY_URI = "http://me/"
+    TEST_LIBRARY_SHORT_NAME = "Lbry"
     TEST_SECRET = "some secret"
-    TEST_OTHERS  = {"http://you/": "secret2"}
+    TEST_OTHER_URI  = {"http://you/": "secret2"}
+    TEST_OTHER_SHORT_NAME  = {"you" : "http://you/"}
         
     @contextlib.contextmanager
     def temp_config(self):
@@ -58,8 +60,10 @@ class VendorIDTest(DatabaseTest):
             config[Configuration.INTEGRATIONS][name] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
                 AuthdataUtility.LIBRARY_URI_KEY: self.TEST_LIBRARY_URI,
+                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: self.TEST_LIBRARY_SHORT_NAME,
                 AuthdataUtility.AUTHDATA_SECRET_KEY: self.TEST_SECRET,
-                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHERS
+                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHER_URI,
+                AuthdataUtility.OTHER_LIBRARY_SHORT_NAMES_KEY: self.TEST_OTHER_SHORT_NAME,
             }
             yield config
 
@@ -206,6 +210,7 @@ class TestVendorIDModel(VendorIDTest):
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
                 AuthdataUtility.LIBRARY_URI_KEY: "http://you/",
+                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: "You",
                 AuthdataUtility.AUTHDATA_SECRET_KEY: "secret2",
             }
             utility = AuthdataUtility.from_config()
@@ -215,7 +220,7 @@ class TestVendorIDModel(VendorIDTest):
         # first library.
         with self.temp_config():
             utility = AuthdataUtility.from_config()
-            eq_("secret2", utility.secrets_by_library["http://you/"])
+            eq_("secret2", utility.secrets_by_library_uri["http://you/"])
 
             # Because this library shares the other library's secret,
             # it can decode a JWT issued by the other library, and
@@ -532,9 +537,13 @@ class TestAuthdataUtility(VendorIDTest):
         self.authdata = AuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://my-library.org/",
+            library_short_name = "MyLibrary",
             secret = "My library secret",
-            other_libraries = {
+            library_secrets = {
                 "http://your-library.org/": "Your library secret"
+            },
+            library_uris_by_short_name = {
+                "you" : "http://your-library.org/"
             }
         )
 
@@ -553,10 +562,10 @@ class TestAuthdataUtility(VendorIDTest):
             eq_(self.TEST_VENDOR_ID, utility.vendor_id)
             eq_(self.TEST_LIBRARY_URI, utility.library_uri)
             eq_(self.TEST_SECRET, utility.secret)
-            expect = dict(self.TEST_OTHERS)
+            expect = dict(self.TEST_OTHER_URI)
             expect[self.TEST_LIBRARY_URI] = self.TEST_SECRET
-            eq_(expect, utility.secrets_by_library)
-
+            eq_(expect, utility.secrets_by_library_uri)
+            
             # If an integration is set up but incomplete, from_config
             # raises CannotLoadConfiguration.
             integration = config[Configuration.INTEGRATIONS][name]
@@ -581,7 +590,7 @@ class TestAuthdataUtility(VendorIDTest):
             # If other libraries are not configured, that's fine.
             del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
             authdata = AuthdataUtility.from_config()
-            eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library)
+            eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library_uri)
 
             
     def test_decode_round_trip(self):        
@@ -625,6 +634,7 @@ class TestAuthdataUtility(VendorIDTest):
         foreign_authdata = AuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://your-library.org/",
+            library_short_name = "yourLibrary",
             secret = "Your library secret",
         )
         
@@ -652,6 +662,7 @@ class TestAuthdataUtility(VendorIDTest):
         foreign_authdata = AuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://some-other-library.org/",
+            library_short_name = "SomeOther",
             secret = "Some other library secret",
         )
         vendor_id, authdata = foreign_authdata.encode("A patron")

@@ -5,6 +5,7 @@ import base64
 import os
 import datetime
 import jwt
+from jwt.algorithms import HMACAlgorithm
 
 import flask
 from flask import Response
@@ -420,6 +421,9 @@ class AuthdataUtility(object):
 
     Capable of encoding JWTs (for this library), and decoding them
     (from this library and potentially others).
+
+    Also generates and decodes JWT-like strings used to get around
+    Adobe's lack of support for authdata in deactivation.
     """
 
     # The type of the Credential created to identify a patron to the
@@ -432,8 +436,9 @@ class AuthdataUtility(object):
     ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
     
     ALGORITHM = 'HS256'
-    
-    def __init__(self, vendor_id, library_uri, secret, other_libraries={}):
+   
+    def __init__(self, vendor_id, library_uri, library_short_name, secret,
+                 library_secrets={}, library_uris_by_short_name={}):
         """Basic constructor.
 
         :param vendor_id: The Adobe Vendor ID that should accompany authdata
@@ -443,31 +448,59 @@ class AuthdataUtility(object):
         here. If this library is delegating authdata control to some
         other library, that library's Vendor ID should go here.
 
-        :param library_uri: A URI identifying this library.
+        :param library_uri: A URI identifying this library. This is
+        used when generating JWTs.
+
+        :param short_name: A short string identifying this
+        library. This is used when generating short client tokens,
+        which must be as short as possible (thus the name).
 
         :param secret: A secret used to sign this library's authdata.
 
-        :param other_libraries: A dictionary mapping other libraries'
+        :param library_secrets: A dictionary mapping other libraries'
         URIs to their secrets. An instance of this class will be able
         to decode an authdata from any library in this dictionary
         (plus the library it was initialized for).
+
+        :param libraries_by_short_name: A dictionary mapping other
+        libraries' short names to their URIs.
+
         """
         self.vendor_id = vendor_id
 
         # This is used to _encode_ JWTs and send them to the
         # delegation authority.
         self.library_uri = library_uri
+
+        # This is used to _encode_ short client tokens.
+        self.short_name = library_short_name.upper()
+        
+        # This is used to encode both JWTs and short client tokens.
         self.secret = secret
-
+        
         # This is used by the delegation authority to _decode_ JWTs.
-        self.secrets_by_library = dict(other_libraries)
-        self.secrets_by_library[library_uri] = secret
+        self.secrets_by_library_uri = dict(library_secrets)
+        self.secrets_by_library_uri[library_uri] = secret
 
+        # This is used by the delegation authority to _decode_ short
+        # client tokens.
+        self.library_uris_by_short_name = {}
+        for k, v in library_uris_by_short_name.items():
+            self.library_uris_by_short_name[k.upper()] = v
+        self.library_uris_by_short_name[self.short_name] = self.library_uri
+        
         self.log = logging.getLogger("Adobe authdata utility")
 
+        self.short_token_signer = HMACAlgorithm(HMACAlgorithm.SHA256)
+        self.short_token_signing_key = self.short_token_signer.prepare_key(
+            self.secret
+        )
+        
     LIBRARY_URI_KEY = 'library_uri'
+    LIBRARY_SHORT_NAME_KEY = 'library_short_name'
     AUTHDATA_SECRET_KEY = 'authdata_secret'
     OTHER_LIBRARIES_KEY = 'other_libraries'
+    OTHER_LIBRARY_SHORT_NAMES_KEY = 'other_library_short_names'
 
     @classmethod
     def from_config(cls):
@@ -486,16 +519,25 @@ class AuthdataUtility(object):
             return None
         vendor_id = integration.get(Configuration.ADOBE_VENDOR_ID)
         library_uri = integration.get(cls.LIBRARY_URI_KEY)
+        library_short_name = integration.get(cls.LIBRARY_SHORT_NAME_KEY)
         secret = integration.get(cls.AUTHDATA_SECRET_KEY)
-        other_libraries = integration.get(cls.OTHER_LIBRARIES_KEY, {})
-        if not vendor_id or not library_uri or not secret:
+        other_library_secrets = integration.get(cls.OTHER_LIBRARIES_KEY, {})
+        other_library_short_names = integration.get(cls.OTHER_LIBRARY_SHORT_NAMES_KEY, {})
+        if (not vendor_id or not library_uri
+            or not library_short_name or not secret):
             raise CannotLoadConfiguration(
-                "Adobe Vendor ID configuration is incomplete. %s, %s and %s must all be defined." % (
-                    cls.LIBRARY_URI_KEY, cls.AUTHDATA_SECRET_KEY,
+                "Adobe Vendor ID configuration is incomplete. %s, %s, %s and %s must all be defined." % (
+                    cls.LIBRARY_URI_KEY, cls.LIBRARY_SHORT_NAME_KEY,
+                    cls.AUTHDATA_SECRET_KEY,
                     Configuration.ADOBE_VENDOR_ID
                 )
             )
-        return cls(vendor_id, library_uri, secret, other_libraries)
+        if '|' in library_short_name:
+            raise CannotLoadConfiguration(
+                "Library short name cannot contain the pipe character."
+            )
+        return cls(vendor_id, library_uri, library_short_name, secret,
+                   other_library_secrets, other_library_short_names)
         
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where
@@ -570,7 +612,7 @@ class AuthdataUtility(object):
 
         # This lets us get the library URI, which lets us get the secret.
         library_uri = decoded.get('iss')
-        if not library_uri in self.secrets_by_library:
+        if not library_uri in self.secrets_by_library_uri:
             # The request came in without a library specified
             # or with an unknown library specified.
             raise jwt.exceptions.DecodeError(
@@ -579,12 +621,108 @@ class AuthdataUtility(object):
 
         # We know the secret for this library, so we can re-decode the
         # secret and require signature valudation this time.
-        secret = self.secrets_by_library[library_uri]
+        secret = self.secrets_by_library_uri[library_uri]
         decoded = jwt.decode(authdata, secret, algorithm=self.ALGORITHM)
         if not 'sub' in decoded:
             raise jwt.exceptions.DecodeError("No subject specified.")
         return library_uri, decoded['sub']
+
+    def encode_short_client_token(self, patron_identifier):
+        """Generate a short client token suitable for putting in an OPDS feed,
+        where it can be picked up by a client and sent to the
+        delegation authority to look up an Adobe ID.
+
+        :return: A 2-tuple (vendor ID, token)
+        """
+        if not patron_identifier:
+            raise ValueError("No patron identifier specified")
+        now = datetime.datetime.utcnow()
+        expires = now + datetime.timedelta(minutes=60)
+        authdata = self._encode_short_client_token(
+            self.library_short_name, patron_identifier, expires
+        )
+        return self.vendor_id, authdata
     
+    def _encode_short_client_token(self, library_short_name,
+                                   patron_identifier, expires):
+        base = library_short_name + "|" + str(expires) + "|" + patron_identifier
+        signature = self.short_token_signer.sign(
+            base, self.short_token_signing_key
+        )
+        base = base64.encodestring(base)
+        signature = base64.encodestring(signature)
+        if len(base) > 80:
+            self.log.error(
+                "Username portion of short client token exceeds 80 characters; Adobe will probably truncate it."
+            )
+        if len(signature) > 76:
+            self.log.error(
+                "Password portion of short client token exceeds 76 characters; Adobe will probably truncate it."
+            )
+        return base + " " + signature
+            
+    def decode_short_client_token(self, token):
+        """Attempt to interpret a 'username' and 'password' as a short
+        client token identifying a patron of a specific library.
+
+        :return: a 2-tuple (library_uri, patron_identifier)
+
+        :raise ValueError: When the token is not valid for any reason.
+        """
+        if not ' ' in token:
+            raise ValueError("Supposed client token does not contain a space.")
+        username, password = token.split(' ', 1)
+        username = base64.decodestring(username)
+        signature = base64.decodestring(password)
+        return self._decode_short_client_token(username, signature)
+
+    def _decode_short_client_token(self, token, supposed_signature):
+        """Make sure a client token is properly formatted, correctly signed,
+        and not expired.
+        """
+        if token.count('|') < 2:
+            raise ValueError("Invalid client token: %s" % token)
+        library_short_name, expiration, patron_identifier = token.split("|", 2)
+
+        library_short_name = library_short_name.upper()
+        try:
+            expiration = int(expiration)
+        except ValueError:
+            raise ValueError("Expiration time %s is not numeric." % expiration)
+
+        if not library_short_name in self.library_uris_by_short_name:
+            raise ValueError(
+                "I don't know how to handle tokens from library %s" % library_short_name
+            )
+        library_uri = self.library_uris_by_short_name[library_short_name]
+        if not library_uri in self.secrets_by_library_uri:
+            raise ValueError(
+                "I don't know the secret for library %s" % library_uri
+            )
+        secret = self.secrets_by_library_uri[library_uri]
+        key = self.short_token_signer.prepare_key(self.secret)
+        actual_signature = self.short_token_signer.sign(token, key)
+        if actual_signature != supposed_signature:
+            raise ValueError(
+                "Invalid signature for %s." % token
+            )
+        
+        # The token is valid but perhaps it has expired.
+        now = datetime.datetime.utcnow()
+        expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
+        if expiration > now:
+            raise ValueError(
+                "Token %s has expired." % token
+            )
+
+        # We don't police the content of the patron identifier but there
+        # has to be _something_ there.
+        if not patron_identifier:
+            raise ValueError(
+                "Token %s has empty patron identifier" % token
+            )
+        return library_uri, patron_identifier
+        
     EPOCH = datetime.datetime(1970, 1, 1)
 
     @classmethod
