@@ -307,7 +307,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
     def teardown(self):
         """Delete any files and directories created during testing."""
-
         for fd, fpath in self.migration_files:
             os.close(fd)
             os.remove(fpath)
@@ -320,6 +319,13 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         for directory in self.script.directories_by_priority:
             os.rmdir(directory)
+
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted([f for f in all_files
+                                       if f.startswith(('CORE', 'SERVER'))])
+        for filename in test_generated_files:
+            os.remove(os.path.join(test_dir, filename))
 
         super(TestDatabaseMigrationScript, self).teardown()
 
@@ -525,8 +531,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'CORE' in test_generated_files[0]
         assert 'SERVER' in test_generated_files[1]
 
-        for filename in test_generated_files:
-            os.remove(os.path.join(test_dir, filename))
 
 
 class TestDatabaseMigrationInitializationScript(DatabaseTest):
@@ -623,18 +627,17 @@ class TestOneClickImportScript(DatabaseTest):
 
 
     def test_parse_command_line(self):
-        cmd_args = ["--library-id", "1931", "--mock", "y"]
+        cmd_args = ["--mock"]
         parsed = OneClickImportScript.parse_command_line(
             _db=self._db, cmd_args=cmd_args
         )
-        eq_('1931', parsed.library_id)
-        eq_('y', parsed.mock)
+        eq_(True, parsed.mock)
 
 
     def test_import(self):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : 'library_id_123',
+                'library_id' : '1931',
                 'username' : 'username_123',
                 'password' : 'password_123',
                 'remote_stage' : 'qa', 
@@ -643,7 +646,7 @@ class TestOneClickImportScript(DatabaseTest):
                 "ebook_loan_length" : '21', 
                 "eaudio_loan_length" : '21'
             }
-            cmd_args = ["--library-id", "1931", "--mock", "y"]
+            cmd_args = ["--mock"]
             importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
 
             datastr, datadict = self.get_data("response_catalog_all_sample.json")
@@ -695,7 +698,7 @@ class TestOneClickDeltaScript(DatabaseTest):
     def test_delta(self):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : 'library_id_123',
+                'library_id' : '1931',
                 'username' : 'username_123',
                 'password' : 'password_123',
                 'remote_stage' : 'qa', 
@@ -704,7 +707,7 @@ class TestOneClickDeltaScript(DatabaseTest):
                 "ebook_loan_length" : '21', 
                 "eaudio_loan_length" : '21'
             }
-            cmd_args = ["--library-id", "1931", "--mock", "y"]
+            cmd_args = ["--mock"]
             # first, load a sample library
             importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
 
@@ -712,33 +715,46 @@ class TestOneClickDeltaScript(DatabaseTest):
             importer.api.queue_response(status_code=200, content=datastr)
             importer.run()
 
+            # set license numbers on test pool
+            pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+            eq_(False, made_new)
+            pool.licenses_owned = 10
+            pool.licenses_available = 9
+            pool.licenses_reserved = 2
+            pool.patrons_in_hold_queue = 1
+
             # now update that library with a sample delta            
+            cmd_args = ["--mock"]
             delta_runner = OneClickDeltaScript(_db=self._db, cmd_args=cmd_args)
 
             datastr, datadict = self.get_data("response_catalog_delta.json")
             delta_runner.api.queue_response(status_code=200, content=datastr)
             delta_runner.run()
 
-        # "Tricks" got deleted, "Emperor Mage: The Immortals" got new metadata
+        # "Tricks" did not get deleted, but did get its pools set to "nope".
+        # "Emperor Mage: The Immortals" got new metadata.
         works = self._db.query(Work).all()
         work_titles = [work.title for work in works]
-        expected_titles = ["Emperor Mage: The Immortals", 
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
             "In-Flight Russian", "Road, The", "Private Patient, The", 
             "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 
+        eq_("Tricks", pool.presentation_edition.title)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert (datetime.datetime.utcnow() - pool.last_checked) < datetime.timedelta(seconds=20)
+
         # make sure we updated fields
         edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781934180723", create_if_not_exists=False)
         eq_("Recorded Books, Inc.", edition.publisher)
 
-        # make sure we deleted edition
-        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186", create_if_not_exists=False)
-        assert(None, edition)
-
-        # make sure there are now one less LicensePools
+        # make sure there are still 8 LicensePools
         pools = self._db.query(LicensePool).all()
-        eq_(7, len(pools))
+        eq_(8, len(pools))
 
 
 

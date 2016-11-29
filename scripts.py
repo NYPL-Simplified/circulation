@@ -774,12 +774,9 @@ class OneClickImportScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--library-id', 
-            help='OneClick library id.  Ex: 1931 for Wethersfield Public Library.'
-        )
-        parser.add_argument(
             '--mock', 
-            help='OneClick library id.  Ex: 1931 for Wethersfield Public Library.'
+            help='If turned on, will use the MockOneClickAPI client.', 
+            action='store_true'
         )
         return parser
 
@@ -793,20 +790,22 @@ class OneClickImportScript(Script):
         else:
             db = self._db
 
-        args = self.parse_command_line(cmd_args)
-        self.mock_mode = False
-        if args.mock and args.mock.lower().strip() in ["true", "yes", "t", "y", "1"]:
-            self.mock_mode = True
+        parsed_args = self.parse_command_line(cmd_args=cmd_args)
+        self.mock_mode = parsed_args.mock
 
+        #set_trace()
         if self.mock_mode:
-            self.api = OneClickAPI.from_config(_db=db)
-        else:
+            self.log.debug(
+                "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
+            )
             self.api = MockOneClickAPI(_db=db)
+        else:
+            self.api = OneClickAPI.from_config(_db=db)
 
 
     def do_run(self):
         print "OneClickImportScript.do_run"
-        logging.info("OneClickImportScript.do_run().")
+        self.log.info("OneClickImportScript.do_run().")
         items_transmitted, items_created = self.api.populate_all_catalog()
 
 
@@ -817,12 +816,12 @@ class OneClickDeltaScript(OneClickImportScript):
     """
 
     def __init__(self, _db=None, cmd_args=None):
-        super(OneClickDeltaScript, self).__init__(_db=_db)
+        super(OneClickDeltaScript, self).__init__(_db=_db, cmd_args=cmd_args)
 
 
     def do_run(self):
         print "OneClickDeltaScript.do_run"
-        logging.info("OneClickDeltaScript.do_run().")
+        self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
 
 
@@ -881,7 +880,7 @@ class NYTBestSellerListsScript(Script):
         for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
 
             name = l['list_name_encoded']
-            logging.info("Handling list %s" % name)
+            self.log.info("Handling list %s" % name)
             best = self.api.best_seller_list(l)
 
             if self.include_history:
@@ -891,7 +890,7 @@ class NYTBestSellerListsScript(Script):
 
             # Mirror the list to the database.
             customlist = best.to_customlist(self._db)
-            logging.info(
+            self.log.info(
                 "Now %s entries in the list.", len(customlist.entries))
             self._db.commit()
 

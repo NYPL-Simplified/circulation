@@ -376,9 +376,10 @@ class OneClickAPI(object):
         catalog_list = self.get_all_catalog()
         items_transmitted = len(catalog_list)
         items_created = 0
+        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
         for catalog_item in catalog_list:
-            result = self.update_metadata(catalog_item)
-            if result:
+            result = coverage_provider.update_metadata(catalog_item)
+            if not isinstance(result, CoverageFailure):
                 items_created += 1
 
         return items_transmitted, items_created
@@ -388,7 +389,7 @@ class OneClickAPI(object):
         """ Call get_delta for the last month to get all of the library's book info changes 
         from OneClick.  Update Work, Edition, LicensePool objects in our database.
         """
-        today = datetime.datetime.now()
+        today = datetime.datetime.utcnow()
         time_ago = relativedelta(months=months)
 
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)
@@ -400,9 +401,10 @@ class OneClickAPI(object):
 
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
+        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
         for catalog_item in items_added:
-            result = self.update_metadata(catalog_item)
-            if result:
+            result = coverage_provider.update_metadata(catalog_item)
+            if not isinstance(result, CoverageFailure):
                 items_updated += 1
 
         for catalog_item in items_removed:
@@ -418,45 +420,28 @@ class OneClickAPI(object):
             # convert IdentifierData into Identifier, if can
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)
             if identifier and not made_new:
-                [work] = Work.from_identifiers(self._db, [identifier])
-                if work:
-                    for cr in work.coverage_records:
-                        self._db.delete(cr)
-                    for pool in work.license_pools:
-                        if pool.presentation_edition:
-                            for contribution in pool.presentation_edition.contributions:
-                                self._db.delete(contribution)
-                            self._db.delete(pool.presentation_edition.contributions[0])
-                        for mechanism in pool.delivery_mechanisms:
-                            self._db.delete(mechanism)
-                        self._db.delete(pool)
-                    self._db.delete(work)
-                    items_updated += 1
+                # Don't delete works from the database.  Set them to "not ours anymore".
+                pool = identifier.licensed_through
+                if not pool:
+                    continue
+                if pool.licenses_owned > 0:
+                    if pool.presentation_edition:
+                        self.log.warn("Removing %s (%s) from circulation",
+                                      pool.presentation_edition.title, pool.presentation_edition.author)
+                    else:
+                        self.log.warn(
+                            "Removing unknown work %s from circulation.",
+                            identifier.identifier
+                        )
+                pool.licenses_owned = 0
+                pool.licenses_available = 0
+                pool.licenses_reserved = 0
+                pool.patrons_in_hold_queue = 0
+                pool.last_checked = today
+
+                items_updated += 1
 
         return items_transmitted, items_updated
-
-
-    def update_metadata(self, catalog_item):
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
-
-        if not metadata:
-            # generate a CoverageFailure to let the system know to revisit this book
-            # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
-            # check that re-processing that coverage would generate the work.
-            e = "Could not extract metadata from OneClick data: %r" % catalog_item
-            make_note = CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-
-        # make a database object
-        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
-        # convert IdentifierData into Identifier, if can
-        identifier, made_new = metadata.primary_identifier.load(_db=self._db)
-        if identifier:
-            result = coverage_provider.set_metadata(
-                identifier, metadata, metadata_replacement_policy=None
-            )
-            return result
-
-        return None
 
 
     def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
@@ -682,7 +667,7 @@ class OneClickRepresentationExtractor(object):
                     subjects.append(subject)
 
             # audience options are: adult, beginning-reader, childrens, young-adult
-            # NOTE: audience can be set to "Adult" while publisher is "HarperTeen".
+            # NOTE: In OneClick metadata, audience can be set to "Adult" while publisher is "HarperTeen".
             audience = book.get('audience', None)
             if audience:
                 subject = SubjectData(
@@ -814,20 +799,38 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             message = "Cannot find OneClick metadata for %r" % identifier
             return CoverageFailure(identifier, message, data_source=self.output_source, transient=True)
 
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(response_dictionary)
-
-        if not metadata:
-            e = "Could not extract metadata from OneClick data: %r" % response_dictionary
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-
-        result = self.set_metadata(
-            identifier, metadata, 
-            metadata_replacement_policy=self.metadata_replacement_policy
-        )
+        result = self.update_metadata(response_dictionary, identifier, self.metadata_replacement_policy)
 
         if not isinstance(result, CoverageFailure):
             self.handle_success(identifier)
 
+        return result
+
+
+    def update_metadata(self, catalog_item, identifier=None, metadata_replacement_policy=None):
+        """
+        :return CoverageFailure or a database object (Work, Identifier, etc.)
+        """
+        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
+
+        if not metadata:
+            # generate a CoverageFailure to let the system know to revisit this book
+            # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
+            # check that re-processing that coverage would generate the work.
+            e = "Could not extract metadata from OneClick data: %r" % catalog_item
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        # convert IdentifierData into Identifier, if can
+        if not identifier:
+            identifier, made_new = metadata.primary_identifier.load(_db=self._db)
+
+        if not identifier:
+            e = "Could not create identifier for OneClick data: %r" % catalog_item
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        result = self.set_metadata(
+            identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
+        )
         return result
 
 
