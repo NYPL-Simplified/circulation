@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
     assert_raises,
 )
-from api.sipclient import (
+from api.sip.client import (
     MockSIPClient,
 )
 
@@ -139,8 +139,8 @@ class TestPatronResponse(object):
         response = self.sip.patron_information('identifier')
 
         # The Evergreen XI field is a known extension and is picked up
-        # as internal_id.
-        eq_("86371", response['internal_id'])
+        # as sipserver_internal_id.
+        eq_("86371", response['sipserver_internal_id'])
 
         # The ZZ field is an unknown extension and is captured under
         # its SIP code.
@@ -162,3 +162,26 @@ class TestPatronResponse(object):
         sip.queue_response("64Y                201610050000114734                        AOnypl ^AA240^AENo Name^BLN^AFYour library card number cannot be located.^AY1AZC9DE")
         response = sip.patron_information('identifier')
         eq_('240', response['patron_identifier'])
+
+    def test_location_code_is_optional(self):
+        """You can specify a location_code when logging in, or not."""
+        without_code = self.sip.login_message(
+            "login_id", "login_password"
+        )
+        assert without_code.endswith("COlogin_password")
+        with_code = self.sip.login_message(
+            "login_id", "login_password", "location_code"
+        )
+        assert with_code.endswith("COlogin_password|CPlocation_code")
+        
+    def test_patron_password_is_optional(self):
+        without_password = self.sip.patron_information_request(
+            "patron_identifier"
+        )
+        assert without_password.endswith('AApatron_identifier|AC')
+        with_password = self.sip.patron_information_request(
+            "patron_identifier", "patron_password"
+        )
+        assert with_password.endswith(
+            'AApatron_identifier|AC|ADpatron_password'
+        )

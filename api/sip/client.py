@@ -153,11 +153,20 @@ named._add("sequence_number", "AY")
 named._add("screen_message", "AF", allow_multiple=True)
 named._add("print_line", "AG")
 
-# SIP extensions found in Evergreen installation.
-named._add('patron_expire', 'PA')
-named._add('patron_class', 'PC')
-named._add('internet_privileges', 'PI')
-named._add('internal_id', 'XI')
+# SIP extensions defined by Georgia Public Library Service's SIP
+# server, used by Evergreen and Koha.
+named._add('sipserver_patron_expiration', 'PA')
+named._add('sipserver_patron_class', 'PC')
+named._add('sipserver_internet_privileges', 'PI')
+named._add('sipserver_internal_id', 'XI')
+
+# SIP extensions defined by Polaris.
+named._add('polaris_patron_birthdate', 'BC')
+named._add('polaris_postal_code', 'PZ')
+named._add('polaris_patron_expiration', 'PX')
+named._add('polaris_patron_expired', 'PY')
+
+# A potential problem: Polaris defines PA to refer to something else.
 
 class RequestResend(IOError):
     """There was an error transmitting a message and the server has requested
@@ -174,14 +183,16 @@ class SIPClient(Constants):
     log = logging.getLogger("SIPClient")
    
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, separator='|'):
+                 login_password=None, location_code=None, separator=None):
         self.target_server = target_server
         if target_port:
             self.target_port = int(target_port)
+        self.location_code = location_code
+        self.separator = separator or '|'
+
         # keeps count of messages sent to ACS
         self.sequence_number = 1
         self.socket = self.connect()
-        self.separator = separator
 
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
@@ -238,7 +249,8 @@ class SIPClient(Constants):
         """
         if not self.logged_in and message_creator != self.login_message:
             # The first thing we need to do is log in.
-            response = self.login(self.login_user_id, self.login_password)
+            response = self.login(self.login_user_id, self.login_password,
+                                  self.location_code)
             if response['login_ok'] != '1':
                 raise IOError("Error logging in: %r" % response)
             self.logged_in = True
@@ -261,12 +273,16 @@ class SIPClient(Constants):
         return parsed
         
 
-    def login_message(self, login_user_id, login_password, uid_algorithm="0",
+    def login_message(self, login_user_id, login_password, location_code="",
+                      uid_algorithm="0",
                       pwd_algorithm="0"):
         """Generate a message for logging in to a SIP server."""
         message = ("93" + uid_algorithm + pwd_algorithm
                    + "CN" + login_user_id + self.separator
-                   + "CO" + login_password)
+                   + "CO" + login_password
+        )
+        if location_code:
+            message = message + self.separator + "CP" + location_code
         return message      
 
     def login_response_parser(self, message):
@@ -306,9 +322,10 @@ class SIPClient(Constants):
         message = (code + language + timestamp + summary
                    + "AO" + institution_id + self.separator +
                    "AA" + patron_identifier + self.separator +
-                   "AC" + terminal_password + self.separator +
-                   "AD" + patron_password
+                   "AC" + terminal_password 
         )
+        if patron_password:
+            message += self.separator + "AD" + patron_password
         return message
 
     def patron_information_parser(self, data):
@@ -392,10 +409,11 @@ class SIPClient(Constants):
             named.print_line,
 
             # Add common extension fields.
-            named.patron_expire,
-            named.patron_class,
-            named.internet_privileges,
-            named.internal_id
+            named.sipserver_patron_expiration,
+            named.polaris_patron_expiration,
+            named.sipserver_patron_class,
+            named.sipserver_internet_privileges,
+            named.sipserver_internal_id
         )
 
     def parse_response(self, data, expect_status_code, *fields):
