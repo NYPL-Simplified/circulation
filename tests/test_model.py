@@ -1617,6 +1617,7 @@ class TestWork(DatabaseTest):
         - work's presentation information keeps in sync with work's presentation edition.
         - there can be only one edition that thinks it's the presentation edition for this work.
         - time stamps are stamped.
+        - higher-standard sources (library staff) can replace, but not delete, authors.
         """
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
@@ -1645,6 +1646,14 @@ class TestWork(DatabaseTest):
         edition3.subtitle = u"The 2nd Subtitle"
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
+        staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        staff_edition.title = u"The 2nd Title"
+        staff_edition.subtitle = u"The 2nd Subtitle"
+        # for now  TODO darya
+        #staff_edition.add_contributor(bob, Contributor.AUTHOR_ROLE)
+        #staff_edition.add_contributor(alice, Contributor.AUTHOR_ROLE)
+
 
         work = self._work(presentation_edition=edition2)
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
