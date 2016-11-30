@@ -1,5 +1,5 @@
 import datetime
-from api.configuration import Configuration
+from api.config import Configuration
 from api.circulation_exceptions import *
 
 
@@ -79,7 +79,7 @@ class PatronUtility(object):
         # (server) local time here instead of UTC. This is to make it
         # less likely that a patron's authorization will expire before
         # they think it should.
-        now = datetime.now()
+        now = datetime.datetime.now()
         if (patron.authorization_expires
             and cls._to_date(patron.authorization_expires)
             < cls._to_date(now)):

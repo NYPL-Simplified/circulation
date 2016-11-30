@@ -19,6 +19,7 @@ from core.model import (
     Loan,
     Hold,
 )
+from util.patron import PatronUtility
 from core.util.cdn import cdnify
 from config import Configuration
 

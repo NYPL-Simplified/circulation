@@ -306,6 +306,45 @@ class TestCirculationAPI(DatabaseTest):
         # problem.
         eq_([self.pool], self.remote.availability_updated_for)
 
+    def test_borrow_with_expired_card_fails(self):
+        # This checkout would succeed...
+        now = datetime.now()
+        loaninfo = LoanInfo(
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+
+        # ...except the patron's library card has expired.
+        old_expires = self.patron.authorization_expires
+        yesterday = now - timedelta(days=1)
+        self.patron.authorization_expires = yesterday
+
+        assert_raises(AuthorizationExpired, self.borrow)
+        self.patron.authorization_expires = old_expires
+
+    def test_borrow_with_fines_fails(self):
+        # This checkout would succeed...
+        now = datetime.now()
+        loaninfo = LoanInfo(
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+
+        # ...except the patron has too many fines.
+        old_fines = self.patron.fines
+        self.patron.fines = 1000
+
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
+            }
+            assert_raises(OutstandingFines, self.borrow)
+        self.patron.fines = old_fines
+        
     def test_no_licenses_prompts_availability_update(self):
         # Once the library offered licenses for this book, but
         # the licenses just expired.
