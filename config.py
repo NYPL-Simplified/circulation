@@ -147,6 +147,7 @@ class Configuration(object):
     S3_SECRET_KEY = "secret_key"
     S3_OPEN_ACCESS_CONTENT_BUCKET = "open_access_content_bucket"
     S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
+    S3_STATIC_FEED_BUCKET = "static_feed_bucket"
 
     CDN_INTEGRATION = "CDN"
 
