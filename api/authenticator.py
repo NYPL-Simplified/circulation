@@ -18,6 +18,7 @@ from core.util.problem_detail import (
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from core.analytics import Analytics
 from problem_details import *
+from util.patron import PatronUtility
 
 import datetime
 import logging
@@ -646,7 +647,7 @@ class AuthenticationProvider(object):
         patron = self.authenticate(_db, header)
         if not isinstance(patron, Patron):
             return patron
-        if patron.needs_external_sync:
+        if PatronUtility.needs_external_sync(patron):
             self.update_patron_metadata(patron)
         return patron
 

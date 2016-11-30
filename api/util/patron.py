@@ -36,7 +36,7 @@ class PatronUtility(object):
             return True
         return False
 
-    @property
+    @classmethod
     def has_borrowing_privileges(cls, patron):
         """Is the given patron allowed to check out books?
 
