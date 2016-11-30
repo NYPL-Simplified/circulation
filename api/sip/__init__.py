@@ -31,7 +31,12 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
          initiating a SIP session, if necessary.
 
         :param location_code: SIP field CP; the location code to use
-         when initiating a SIP session
+         when initiating a SIP session. A location code supposedly
+         refers to the physical location of a self-checkout machine
+         within a library system. Some libraries require a special
+         location code to be provided when authenticating patrons;
+         others may require the circulation manager to be treated as
+         its own special 'location'.
 
         :param field_separator: The field delimiter (see
         "Variable-length fields" in the SIP2 spec). If no value is
@@ -39,6 +44,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
         :param client: A drop-in replacement for the SIPClient
         object. Only intended for use during testing.
+
         """
         super(SIP2AuthenticationProvider, self).__init__(**kwargs)
         if client:
