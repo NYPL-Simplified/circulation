@@ -15,7 +15,7 @@ elasticsearch==2.1.0
 python-dateutil
 uwsgi
 loggly-python-handler
-cairosvg
+cairosvg==1.0.22
 mock
 py-bcrypt
 Flask-Babel
