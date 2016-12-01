@@ -58,6 +58,9 @@ class PatronData(object):
             """We want this object to act like None or False."""
             return False
     NO_VALUE = NoValue()
+
+    # Reasons why a patron might be blocked.
+    UNKNOWN_BLOCK = 'unknown'
     
     def __init__(self,
                  permanent_id=None,
@@ -68,7 +71,7 @@ class PatronData(object):
                  authorization_expires=None,
                  external_type=None,
                  fines=None,
-                 blocked=None,
+                 block_reason=None,
                  complete=True,
     ):
         """Store basic information about a patron.
@@ -118,11 +121,10 @@ class PatronData(object):
         Money object will be stored in the database; the currency portion
         will be ignored. (e.g. "20 USD" will become 20)
 
-        :param blocked: A boolean indicating whether or not the patron
-        is blocked from borrowing items for any reason. (Even if this
-        is set to False, it may turn out the patron cannot borrow
-        items because their card has expired or their fines are
-        excessive.)
+        :param block_reason: A string indicating why the patron is
+        blocked from borrowing items. (Even if this is set to None, it
+        may turn out the patron cannot borrow items because their card
+        has expired or their fines are excessive.)
 
         :param complete: Does this PatronData represent the most
         complete data we are likely to get for this patron from this
@@ -139,7 +141,7 @@ class PatronData(object):
         if isinstance(fines, Money):
             fines = fines.amount
         self.fines = fines
-        self.blocked = blocked
+        self.block_reason = block_reason
         self.complete = complete
         
         # We do not store personal_name in the database, but we provide
@@ -169,6 +171,7 @@ class PatronData(object):
         self.set_value(patron, 'authorization_expires',
                        self.authorization_expires)
         self.set_value(patron, 'fines', self.fines)
+        self.set_value(patron, 'block_reason', self.block_reason)
 
         # Now handle authorization identifier.
         if self.complete:

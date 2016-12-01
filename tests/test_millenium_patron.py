@@ -76,7 +76,17 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(date(2059, 4, 1), patrondata.authorization_expires)
         eq_("SHELDON, ALICE", patrondata.personal_name)
         eq_("alice@sheldon.com", patrondata.email_address)
-        
+        eq_(PatronData.NO_VALUE, patrondata.block_reason)
+
+    def test_remote_patron_lookup_blocked(self):
+        """This patron has a block on their record, which shows up in 
+        PatronData.
+        """
+        self.api.enqueue("dump.blocked.html")
+        patrondata = PatronData(authorization_identifier="good barcode")
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
+                                                   
     def test_parse_poorly_behaved_dump(self):
         """The HTML parser is able to handle HTML embedded in
         field values.

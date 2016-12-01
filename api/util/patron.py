@@ -68,9 +68,9 @@ class PatronUtility(object):
             max_fines = Configuration.max_outstanding_fines()
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
-        
-        # TODO: The patron may be blocked for some other reason; we
-        # should check it and raise AuthorizationBlocked() if so.
+
+        if patron.block_reason is not None:
+            raise AuthorizationBlocked()
     
     @classmethod
     def authorization_is_active(cls, patron):

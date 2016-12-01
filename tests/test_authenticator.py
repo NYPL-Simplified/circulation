@@ -148,7 +148,7 @@ class TestPatronData(DatabaseTest):
             email_address="5",
             authorization_expires=datetime.datetime.utcnow(),
             fines=Money(6, "USD"),
-            blocked=False,
+            block_reason=PatronData.NO_VALUE,
         )
         
     
@@ -161,9 +161,7 @@ class TestPatronData(DatabaseTest):
         eq_(self.data.username, patron.username)
         eq_(self.data.authorization_expires, patron.authorization_expires)
         eq_(self.data.fines, patron.fines)
-
-        # TODO: blocked is not stored but should be.
-        eq_(False, self.data.blocked)
+        eq_(None, patron.block_reason)
 
         # This data is stored in PatronData but not applied to Patron.
         eq_("4", self.data.personal_name)
@@ -171,6 +169,16 @@ class TestPatronData(DatabaseTest):
         eq_("5", self.data.email_address)
         eq_(False, hasattr(patron, 'email_address'))
 
+
+    def test_apply_block_reason(self):
+        """If the PatronData has a reason why a patron is blocked,
+        the reason is put into the Patron record.
+        """
+        self.data.block_reason = PatronData.UNKNOWN_BLOCK
+        patron = self._patron()
+        self.data.apply(patron)
+        eq_(PatronData.UNKNOWN_BLOCK, patron.block_reason)
+        
     def test_apply_multiple_authorization_identifiers(self):
         """If there are multiple authorization identifiers, the first
         one is chosen.
