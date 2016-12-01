@@ -91,3 +91,6 @@ class TestPatronUtility(DatabaseTest):
             AuthorizationBlocked,
             PatronUtility.assert_borrowing_privileges, patron
         )
+
+        patron.block_reason = None
+        eq_(False, PatronUtility.has_borrowing_privileges(patron))
