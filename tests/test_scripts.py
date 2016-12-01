@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import tempfile
 
@@ -12,12 +13,21 @@ from . import (
     DatabaseTest,
 )
 from classifier import Classifier
+
+from config import (
+    Configuration, 
+    temp_config,
+)
+
 from model import (
     get_one,
     CustomList,
     DataSource,
+    Edition,
     Identifier,
-    Timestamp
+    LicensePool,
+    Timestamp, 
+    Work,
 )
 from scripts import (
     Script,
@@ -30,6 +40,8 @@ from scripts import (
     RunCoverageProviderScript,
     WorkProcessingScript,
     MockStdin,
+    OneClickDeltaScript,
+    OneClickImportScript, 
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -295,7 +307,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
     def teardown(self):
         """Delete any files and directories created during testing."""
-
         for fd, fpath in self.migration_files:
             os.close(fd)
             os.remove(fpath)
@@ -308,6 +319,13 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         for directory in self.script.directories_by_priority:
             os.rmdir(directory)
+
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted([f for f in all_files
+                                       if f.startswith(('CORE', 'SERVER'))])
+        for filename in test_generated_files:
+            os.remove(os.path.join(test_dir, filename))
 
         super(TestDatabaseMigrationScript, self).teardown()
 
@@ -513,8 +531,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'CORE' in test_generated_files[0]
         assert 'SERVER' in test_generated_files[1]
 
-        for filename in test_generated_files:
-            os.remove(os.path.join(test_dir, filename))
 
 
 class TestDatabaseMigrationInitializationScript(DatabaseTest):
@@ -595,4 +611,155 @@ class TestAddClassificationScript(DatabaseTest):
         [classification] = identifier.classifications
         subject = classification.subject
         eq_("some random tag", subject.identifier)
+
+
+
+class TestOneClickImportScript(DatabaseTest):
+
+    def get_data(self, filename):
+        base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "oneclick")
+
+        # returns contents of sample file as string and as dict
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+
+    def test_parse_command_line(self):
+        cmd_args = ["--mock"]
+        parsed = OneClickImportScript.parse_command_line(
+            _db=self._db, cmd_args=cmd_args
+        )
+        eq_(True, parsed.mock)
+
+
+    def test_import(self):
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['OneClick'] = {
+                'library_id' : '1931',
+                'username' : 'username_123',
+                'password' : 'password_123',
+                'remote_stage' : 'qa', 
+                'base_url' : 'www.oneclickapi.test', 
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
+            }
+            cmd_args = ["--mock"]
+            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
+
+            datastr, datadict = self.get_data("response_catalog_all_sample.json")
+            importer.api.queue_response(status_code=200, content=datastr)
+            importer.run()
+
+        # verify that we created Works, Editions, LicensePools
+        works = self._db.query(Work).all()
+        work_titles = [work.title for work in works]
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
+            "In-Flight Russian", "Road, The", "Private Patient, The", 
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+            "Challenger Deep"]
+        eq_(set(expected_titles), set(work_titles))
+
+
+        # make sure we created some Editions
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
+        assert(edition is not None)
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186", create_if_not_exists=False)
+        assert(edition is not None)
+
+        # make sure we created some LicensePools
+        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727")
+        eq_(False, made_new)
+        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+        eq_(False, made_new)
+
+        # make sure there are 8 LicensePools
+        pools = self._db.query(LicensePool).all()
+        eq_(8, len(pools))
+
+        # make sure we created some Identifiers
+
+
+
+class TestOneClickDeltaScript(DatabaseTest):
+
+    def get_data(self, filename):
+        base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "oneclick")
+
+        # returns contents of sample file as string and as dict
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+
+    def test_delta(self):
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS]['OneClick'] = {
+                'library_id' : '1931',
+                'username' : 'username_123',
+                'password' : 'password_123',
+                'remote_stage' : 'qa', 
+                'base_url' : 'www.oneclickapi.test', 
+                'basic_token' : 'abcdef123hijklm', 
+                "ebook_loan_length" : '21', 
+                "eaudio_loan_length" : '21'
+            }
+            cmd_args = ["--mock"]
+            # first, load a sample library
+            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
+
+            datastr, datadict = self.get_data("response_catalog_all_sample.json")
+            importer.api.queue_response(status_code=200, content=datastr)
+            importer.run()
+
+            # set license numbers on test pool
+            pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+            eq_(False, made_new)
+            pool.licenses_owned = 10
+            pool.licenses_available = 9
+            pool.licenses_reserved = 2
+            pool.patrons_in_hold_queue = 1
+
+            # now update that library with a sample delta            
+            cmd_args = ["--mock"]
+            delta_runner = OneClickDeltaScript(_db=self._db, cmd_args=cmd_args)
+
+            datastr, datadict = self.get_data("response_catalog_delta.json")
+            delta_runner.api.queue_response(status_code=200, content=datastr)
+            delta_runner.run()
+
+        # "Tricks" did not get deleted, but did get its pools set to "nope".
+        # "Emperor Mage: The Immortals" got new metadata.
+        works = self._db.query(Work).all()
+        work_titles = [work.title for work in works]
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
+            "In-Flight Russian", "Road, The", "Private Patient, The", 
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+            "Challenger Deep"]
+        eq_(set(expected_titles), set(work_titles))
+
+        eq_("Tricks", pool.presentation_edition.title)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert (datetime.datetime.utcnow() - pool.last_checked) < datetime.timedelta(seconds=20)
+
+        # make sure we updated fields
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781934180723", create_if_not_exists=False)
+        eq_("Recorded Books, Inc.", edition.publisher)
+
+        # make sure there are still 8 LicensePools
+        pools = self._db.query(LicensePool).all()
+        eq_(8, len(pools))
+
+
+
+
+
+
+
 
