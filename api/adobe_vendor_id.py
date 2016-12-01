@@ -783,7 +783,7 @@ class AuthdataUtility(object):
     EPOCH = datetime.datetime(1970, 1, 1)
 
     @classmethod
-    def numericdate(cls, d, integer_seconds=False):
+    def numericdate(cls, d):
         """Turn a datetime object into a NumericDate as per RFC 7519."""
         return (d-cls.EPOCH).total_seconds()
 
