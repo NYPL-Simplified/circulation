@@ -401,6 +401,21 @@ class Patron(Base):
     # Outstanding fines the user has, if any.
     fines = Column(Unicode)
 
+    # If the patron's borrowing privileges have been blocked, this
+    # field contains the library's reason for the block. If this field
+    # is None, the patron's borrowing privileges have not been
+    # blocked.
+    #
+    # Although we currently don't do anything with specific values for
+    # this field, the expectation is that values will be taken from a
+    # small controlled vocabulary (e.g. "banned", "incorrect personal
+    # information", "unknown"), rather than freeform strings entered
+    # by librarians.
+    #
+    # Common reasons for blocks are kept in circulation's PatronData
+    # class.
+    block_reason = Column(String(255), default=None)
+    
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
@@ -411,7 +426,7 @@ class Patron(Base):
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
-
+    
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
