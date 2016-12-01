@@ -35,6 +35,7 @@ from core.mock_analytics_provider import MockAnalyticsProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
+from api.util.patron import PatronUtility
 
 from api.authenticator import (
     Authenticator,
@@ -772,23 +773,25 @@ class TestAuthenticationProvider(DatabaseTest):
         )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, patron)
 
-    def test_authenticated_patron_denies_access_to_expired_credentials(self):
-        # TODO: Denial should happen at the point that the patron
-        # tries to exercise their borrowing privileges.
+    def test_authenticated_patron_allows_access_to_expired_credentials(self):
+        """Even if your card has expired, you can log in -- you just can't
+        borrow books.
+        """
         yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
 
-        expired = PatronData(permanent_id="1", authorization_identifier="1",
+        expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
         provider = MockBasic(patrondata=expired,
                              remote_patron_lookup_patrondata=expired)
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
-        eq_(EXPIRED_CREDENTIALS, patron)
+        eq_("1", patron.external_identifier)
+        eq_("2", patron.authorization_identifier)
         
     def test_authenticated_patron_updates_metadata_if_necessary(self):
         patron = self._patron()
-        eq_(True, patron.needs_external_sync)
+        eq_(True, PatronUtility.needs_external_sync(patron))
 
         # If we authenticate this patron by username we find out their
         # permanent ID but not any other information about them.
@@ -833,7 +836,7 @@ class TestAuthenticationProvider(DatabaseTest):
         # metadata refresh, because we just did a refresh and the
         # patron has borrowing privileges.
         last_sync = patron.last_external_sync
-        eq_(False, patron.needs_external_sync)
+        eq_(False, PatronUtility.needs_external_sync(patron))
         patron = provider.authenticated_patron(
             self._db, dict(username=username)
         )

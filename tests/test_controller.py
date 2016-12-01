@@ -206,11 +206,14 @@ class TestBaseController(CirculationControllerTest):
         )
         eq_(value, INVALID_CREDENTIALS)
 
-    def test_authenticated_patron_expired_credentials(self):
+    def test_authenticated_patron_can_authenticate_with_expired_credentials(self):
+        """A patron can authenticate even if their credentials have
+        expired -- they just can't create loans or holds.
+        """
         value = self.controller.authenticated_patron(
             dict(username="expired", password="password")
         )
-        eq_(value, EXPIRED_CREDENTIALS)
+        eq_("expired_username", value.username)
 
     def test_authenticated_patron_correct_credentials(self):
         value = self.controller.authenticated_patron(self.valid_credentials)

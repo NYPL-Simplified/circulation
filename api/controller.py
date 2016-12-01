@@ -622,6 +622,10 @@ class LoanController(CirculationManagerController):
             problem_doc = OUTSTANDING_FINES.detailed(
                 _("You must pay your $%(fine_amount).2f outstanding fines before you can borrow more books.", fine_amount=patron.fines)
             )
+        except AuthorizationExpired, e:
+            return e.as_problem_detail_document(debug=False)
+        except AuthorizationBlocked, e:
+            return e.as_problem_detail_document(debug=False)
         except CannotLoan, e:
             problem_doc = CHECKOUT_FAILED.with_debug(str(e))
         except CannotHold, e:

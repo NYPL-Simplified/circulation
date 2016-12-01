@@ -19,6 +19,7 @@ from core.model import (
     Loan,
     Hold,
 )
+from util.patron import PatronUtility
 from core.util.cdn import cdnify
 from config import Configuration
 
@@ -201,6 +202,10 @@ class CirculationAPI(object):
         :return: A 3-tuple (`Loan`, `Hold`, `is_new`). Either `Loan`
         or `Hold` must be None, but not both.
         """
+        # Short-circuit the request if the patron lacks borrowing
+        # privileges.
+        PatronUtility.assert_borrowing_privileges(patron)        
+        
         now = datetime.datetime.utcnow()
         if licensepool.open_access:
             # We can 'loan' open-access content ourselves just by
