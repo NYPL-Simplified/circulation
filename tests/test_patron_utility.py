@@ -93,4 +93,4 @@ class TestPatronUtility(DatabaseTest):
         )
 
         patron.block_reason = None
-        eq_(False, PatronUtility.has_borrowing_privileges(patron))
+        eq_(True, PatronUtility.has_borrowing_privileges(patron))
