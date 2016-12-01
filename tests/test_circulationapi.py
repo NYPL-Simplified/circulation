@@ -344,6 +344,21 @@ class TestCirculationAPI(DatabaseTest):
             }
             assert_raises(OutstandingFines, self.borrow)
         self.patron.fines = old_fines
+
+    def test_borrow_with_block_fails(self):
+        # This checkout would succeed...
+        now = datetime.now()
+        loaninfo = LoanInfo(
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+
+        # ...except the patron is blocked
+        self.patron.block_reason = "some reason"
+        assert_raises(AuthorizationBlocked, self.borrow)
+        self.patron.block_reason = None
         
     def test_no_licenses_prompts_availability_update(self):
         # Once the library offered licenses for this book, but

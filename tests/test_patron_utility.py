@@ -54,11 +54,13 @@ class TestPatronUtility(DatabaseTest):
         """
         now = datetime.datetime.utcnow()
         one_day_ago = now - datetime.timedelta(days=1)
-
         patron = self._patron()
+
+        # Most patrons have borrowing privileges.
         eq_(True, PatronUtility.has_borrowing_privileges(patron))
         PatronUtility.assert_borrowing_privileges(patron)
-        
+
+        # If your card expires you lose borrowing privileges.
         patron.authorization_expires = one_day_ago
         eq_(False, PatronUtility.has_borrowing_privileges(patron))
         assert_raises(
@@ -66,7 +68,8 @@ class TestPatronUtility(DatabaseTest):
             PatronUtility.assert_borrowing_privileges, patron
         )
         patron.authorization_expires = None
-        
+
+        # If you accrue excessive fines you lose borrowing privileges.
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
@@ -79,3 +82,12 @@ class TestPatronUtility(DatabaseTest):
             )
             patron.fines = 0
             eq_(True, PatronUtility.has_borrowing_privileges(patron))
+
+        # If your card is blocked for any reason you lose borrowing
+        # privileges.
+        patron.block_reason = "some reason"
+        eq_(False, PatronUtility.has_borrowing_privileges(patron))
+        assert_raises(
+            AuthorizationBlocked,
+            PatronUtility.assert_borrowing_privileges, patron
+        )
