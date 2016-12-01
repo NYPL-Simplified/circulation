@@ -4272,52 +4272,6 @@ class TestPatron(DatabaseTest):
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
 
-        def test_has_borrowing_privileges(self):
-            """Test the method that encapsulates the determination
-            of whether or not a patron can borrow books.
-            """
-            one_hour_ago = now - datetime.timedelta(hours=1)
-
-            patron = self._patron()
-            eq_(True, patron.has_borrowing_privileges)
-
-            patron.authorization_expires = one_hour_ago
-            eq_(False, patron.has_borrowing_privileges)
-            
-        def test_needs_external_sync(self):
-            """Test the method that encapsulates the determination
-            of whether or not a patron needs to have their account
-            synced with the remote.
-            """
-            now = datetime.datetime.utcnow()
-            one_hour_ago = now - datetime.timedelta(hours=1)
-            six_seconds_ago = now - datetime.timedelta(seconds=6)
-            three_seconds_ago = now - datetime.timedelta(seconds=3)
-            yesterday = now - datetime.timedelta(days=1)
-            
-            patron = self._patron()
-
-            # Patron has never been synced.
-            patron.last_external_sync = None
-            eq_(True, patron.needs_metadata_update)
-
-            # Patron was synced recently.
-            patron.last_external_sync = one_hour_ago
-            eq_(False, patron.needs_external_sync)
-
-            # Patron was synced more than 12 hours ago.
-            patron.last_external_sync = yesterday
-            eq_(True, patron.needs_external_sync)            
-
-            # Patron was synced recently but has no borrowing
-            # privileges. Timeout is five seconds instead of 12 hours.
-            patron.authorization_expires = yesterday
-            patron.last_external_sync = three_seconds_ago
-            eq_(False, patron.needs_external_sync)
-
-            patron.last_external_sync = six_seconds_ago
-            eq_(True, patron.needs_external_sync)
-
 
 class TestBaseCoverageRecord(DatabaseTest):
 
