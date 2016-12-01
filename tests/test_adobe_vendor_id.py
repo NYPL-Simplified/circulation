@@ -270,7 +270,7 @@ class TestVendorIDModel(VendorIDTest):
             # Because this library shares the other library's secret,
             # it can decode a short client token issued by the other library,
             # and issue an Adobe ID (UUID).
-            token, signature = short_client_token.rsplit(" ", 1)
+            token, signature = short_client_token.rsplit("|", 1)
             uuid, label = self.model.short_client_token_lookup(
                 token, signature
             )
@@ -814,12 +814,12 @@ class TestAuthdataUtility(VendorIDTest):
         value = self.authdata._encode_short_client_token(
             "a library", "a patron identifier", 1234.5
         )
-        eq_('a library|1234.5|a patron identifier YoNGn7f38mF531KSWJ/o1H0Z3chbC+uTE+t7pAwqYxM=\n',
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC+uTE+t7pAwqYxM=\n',
             value
         )
 
         # Dissect the known value to show how it works.
-        token, signature = value.rsplit(" ", 1)
+        token, signature = value.rsplit("|", 1)
 
         # Signature are base64-encoded; token is not.
         signature = base64.decodestring(signature)

@@ -682,7 +682,7 @@ class AuthdataUtility(object):
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
         now = datetime.datetime.utcnow()
-        expires = self.numericdate(now + datetime.timedelta(minutes=60))
+        expires = int(self.numericdate(now + datetime.timedelta(minutes=60)))
         authdata = self._encode_short_client_token(
             self.short_name, patron_identifier, expires
         )
@@ -703,7 +703,7 @@ class AuthdataUtility(object):
             self.log.error(
                 "Password portion of short client token exceeds 76 characters; Adobe will probably truncate it."
             )
-        return base + " " + signature
+        return base + "|" + signature
             
     def decode_short_client_token(self, token):
         """Attempt to interpret a 'username' and 'password' as a short
@@ -717,7 +717,7 @@ class AuthdataUtility(object):
             raise ValueError(
                 'Supposed client token "%s" does not contain a space.' % token
             )
-        username, password = token.rsplit(' ', 1)
+        username, password = token.rsplit('|', 1)
         return self.decode_two_part_short_client_token(username, password)
         
     def decode_two_part_short_client_token(self, username, password):
@@ -783,9 +783,9 @@ class AuthdataUtility(object):
     EPOCH = datetime.datetime(1970, 1, 1)
 
     @classmethod
-    def numericdate(cls, d):
+    def numericdate(cls, d, integer_seconds=False):
         """Turn a datetime object into a NumericDate as per RFC 7519."""
-        return int((d-cls.EPOCH).total_seconds())
+        return (d-cls.EPOCH).total_seconds()
 
     def migrate_adobe_id(self, patron):
         """If the given patron has an Adobe ID stored as a Credential, also
