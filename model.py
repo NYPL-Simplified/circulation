@@ -34,12 +34,6 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import (
-    backref,
-    defer,
-    relationship,
-    sessionmaker,
-)
 from sqlalchemy import (
     func,
     or_,
@@ -48,12 +42,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import select
 from sqlalchemy.orm import (
-    aliased,
     backref,
-    defer,
     contains_eager,
     joinedload,
     lazyload,
+    relationship,
+    sessionmaker,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -130,7 +124,6 @@ from sqlalchemy.dialects.postgresql import (
     JSON,
     INT4RANGE,
 )
-from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
 from analytics import Analytics
 
