@@ -121,8 +121,8 @@ class PatronData(object):
         Money object will be stored in the database; the currency portion
         will be ignored. (e.g. "20 USD" will become 20)
 
-        :param block_reason: A string indicating why the patron is blocked
-        from borrowing items items. (Even if this is set to None, it
+        :param block_reason: A string indicating why the patron is
+        blocked from borrowing items. (Even if this is set to None, it
         may turn out the patron cannot borrow items because their card
         has expired or their fines are excessive.)
 
