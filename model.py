@@ -411,6 +411,9 @@ class Patron(Base):
     # small controlled vocabulary (e.g. "banned", "incorrect personal
     # information", "unknown"), rather than freeform strings entered
     # by librarians.
+    #
+    # Common reasons for blocks are kept in circulation's PatronData
+    # class.
     block_reason = Column(String(255), default=None)
     
     loans = relationship('Loan', backref='patron')
@@ -423,9 +426,6 @@ class Patron(Base):
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
-
-    # Reasons why a patron might be blocked.
-    UNKNOWN_BLOCK = 'unknown'
     
     def works_on_loan(self):
         db = Session.object_session(self)
