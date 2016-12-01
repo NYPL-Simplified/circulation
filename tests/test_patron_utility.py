@@ -8,6 +8,7 @@ from . import (
     DatabaseTest,
 )
 
+from api.config import Configuration, temp_config
 from api.util.patron import PatronUtility
 from api.circulation_exceptions import *
 
@@ -60,10 +61,21 @@ class TestPatronUtility(DatabaseTest):
         
         patron.authorization_expires = one_day_ago
         eq_(False, PatronUtility.has_borrowing_privileges(patron))
-
         assert_raises(
             AuthorizationExpired,
             PatronUtility.assert_borrowing_privileges, patron
         )
+        patron.authorization_expires = None
         
-        # TODO: check excess fines.
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
+            }
+            patron.fines = 1
+            eq_(False, PatronUtility.has_borrowing_privileges(patron))
+            assert_raises(
+                OutstandingFines,
+                PatronUtility.assert_borrowing_privileges, patron
+            )
+            patron.fines = 0
+            eq_(True, PatronUtility.has_borrowing_privileges(patron))
