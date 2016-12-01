@@ -127,7 +127,7 @@ class S3Uploader(MirrorUploader):
         return root + "%s/%s/%s" % tuple(args)
 
     @classmethod
-    def feed_url(cls, filename, extension='.opds', open_access=True):
+    def feed_url(cls, filename, extension='.xml', open_access=True):
         """The path to the hosted file for an OPDS feed with the given filename"""
         root = cls.static_feed_root(open_access)
         if not extension.startswith('.'):
