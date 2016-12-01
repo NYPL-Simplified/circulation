@@ -121,7 +121,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         permanent_id = PatronData.NO_VALUE
         username = authorization_expires = personal_name = PatronData.NO_VALUE
         email_address = fines = external_type = PatronData.NO_VALUE
-        blocked = False
+        block_reason = PatronData.NO_VALUE
         
         potential_identifiers = []
         for k, v in self._extract_text_nodes(content):
@@ -151,12 +151,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                     )
                     fines = Money("0", "USD")
             elif k == self.BLOCK_FIELD:
-                # TODO: There are different types of blocks and we can
-                # give more helpful error messages by distinguishing
-                # between them. OTOH the abbreviations for different
-                # types of blocks are not standard among libraries.
                 if v != '-':
-                    blocked = True
+                    # '-' always seems to mean the absence of a block
+                    # on a patron's record. Any other value for this
+                    # field means the patron is blocked for a
+                    # library-specific reason.
+                    block_reason = PatronData.UNKNOWN_BLOCK
             elif k == self.EXPIRATION_FIELD:
                 try:
                     expires = datetime.datetime.strptime(
@@ -202,7 +202,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             authorization_expires=authorization_expires,
             external_type=external_type,
             fines=fines,
-            blocked=blocked,
+            block_reason=block_reason,
             complete=True
         )
         return data
