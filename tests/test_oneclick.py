@@ -101,8 +101,8 @@ class TestOneClickAPI(OneClickTest):
         self.api.queue_response(status_code=200, content=datastr)
 
         catalog = self.api.get_all_catalog()
-        eq_(97, len(catalog))
-        eq_("Hamster Princess: Harriet the Invincible", catalog[96]['title'])
+        eq_(8, len(catalog))
+        eq_("Challenger Deep", catalog[7]['title'])
 
 
     def test_get_delta(self):
@@ -124,16 +124,16 @@ class TestOneClickAPI(OneClickTest):
         delta = self.api.get_delta()
         eq_(1931, delta[0]["libraryId"])
         eq_("Wethersfield Public Library", delta[0]["libraryName"])
-        eq_("2016-09-17", delta[0]["beginDate"])
+        eq_("2016-10-17", delta[0]["beginDate"])
         eq_("2016-10-18", delta[0]["endDate"])
         eq_(0, delta[0]["eBookAddedCount"])
         eq_(0, delta[0]["eBookRemovedCount"])
-        eq_(0, delta[0]["eAudioAddedCount"])
-        eq_(0, delta[0]["eAudioRemovedCount"])
-        eq_(0, delta[0]["titleAddedCount"])
-        eq_(0, delta[0]["titleRemovedCount"])
-        eq_([], delta[0]["addedTitles"])
-        eq_([], delta[0]["removedTitles"])
+        eq_(1, delta[0]["eAudioAddedCount"])
+        eq_(1, delta[0]["eAudioRemovedCount"])
+        eq_(1, delta[0]["titleAddedCount"])
+        eq_(1, delta[0]["titleRemovedCount"])
+        eq_(1, len(delta[0]["addedTitles"]))
+        eq_(1, len(delta[0]["removedTitles"]))
 
 
     def test_get_ebook_availability_info(self):
@@ -215,11 +215,10 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # The original data contains a blank ASIN in addition to the
-        # actual ASIN, but it doesn't show up here.
+        # and that's the only identifier we made
         eq_(
             [
-                (Identifier.ISBN, "9780307378101"),
+                (Identifier.ONECLICK_ID, "9780307378101"),
             ],
             sorted(ids)
         )

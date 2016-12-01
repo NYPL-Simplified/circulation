@@ -394,6 +394,21 @@ class Patron(Base):
     # Outstanding fines the user has, if any.
     fines = Column(Unicode)
 
+    # If the patron's borrowing privileges have been blocked, this
+    # field contains the library's reason for the block. If this field
+    # is None, the patron's borrowing privileges have not been
+    # blocked.
+    #
+    # Although we currently don't do anything with specific values for
+    # this field, the expectation is that values will be taken from a
+    # small controlled vocabulary (e.g. "banned", "incorrect personal
+    # information", "unknown"), rather than freeform strings entered
+    # by librarians.
+    #
+    # Common reasons for blocks are kept in circulation's PatronData
+    # class.
+    block_reason = Column(String(255), default=None)
+    
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
@@ -404,7 +419,7 @@ class Patron(Base):
 
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
-
+    
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
@@ -450,73 +465,6 @@ class Patron(Base):
         if work.audience in allowed:
             return True
         return False
-
-    @property
-    def needs_external_sync(self):
-        """Could this patron stand to have their metadata synced with the
-        remote?
-
-        By default, all patrons get synced once every twelve
-        hours. Patrons who lack borrowing privileges can always stand
-        to be synced, since their privileges may have just been
-        restored.
-        """
-        if not self.last_external_sync:
-            # This patron has never been synced.
-            return True
-        
-        now = datetime.datetime.utcnow()
-        if self.has_borrowing_privileges:
-            # A patron who has borrowing privileges gets synced every twelve
-            # hours. Their account is unlikely to change rapidly.
-            check_every = datetime.timedelta(hours=12)
-        else:
-            # A patron without borrowing privileges might get synced
-            # every time they make a request. It's likely they are
-            # taking action to get their account reinstated and we
-            # don't want to make them wait twelve hours to get access.
-            check_every = datetime.timedelta(seconds=5)
-        expired_at = self.last_external_sync + check_every
-        if now > expired_at:
-            return True
-        return False
-
-    @property
-    def has_borrowing_privileges(self):
-        """Is the given patron allowed to check out books?
-        """
-        now = datetime.datetime.utcnow()
-        if (self.authorization_expires and
-            self._to_date(self.authorization_expires)
-            < self._to_date(now)
-        ):
-            # The patron's card has expired.
-            return False
-
-        # TODO: Check patron's fines and return false if they are
-        # excessive (this depends on site policy).
-
-        # TODO: The patron may be blocked for some other reason; we
-        # should track it and check it.
-        return True
-
-    def _to_date(self, x):
-        """Convert a datetime into a date. Leave a date alone."""
-        if isinstance(x, datetime.datetime):
-            return x.date()
-        return x
-    
-    @property
-    def authorization_is_active(self):
-        # Unlike pretty much every other place in this app, I use
-        # (server) local time here instead of UTC. This is to make it
-        # less likely that a patron's authorization will expire before
-        # they think it should.
-        if (self.authorization_expires
-            and self._to_date(self.authorization_expires)
-            < datetime.datetime.now().date()):
-            return False
-        return True
 
 
 class LoanAndHoldMixin(object):
