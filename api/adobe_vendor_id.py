@@ -694,7 +694,6 @@ class AuthdataUtility(object):
         signature = self.short_token_signer.sign(
             base, self.short_token_signing_key
         )
-        base = base64.encodestring(base)
         signature = base64.encodestring(signature)
         if len(base) > 80:
             self.log.error(
@@ -718,14 +717,13 @@ class AuthdataUtility(object):
             raise ValueError(
                 'Supposed client token "%s" does not contain a space.' % token
             )
-        username, password = token.split(' ', 1)
+        username, password = token.rsplit(' ', 1)
         return self.decode_two_part_short_client_token(username, password)
         
     def decode_two_part_short_client_token(self, username, password):
         """Decode a short client token that has already been split into
         two parts.
         """
-        username = base64.decodestring(username)
         signature = base64.decodestring(password)
         return self._decode_short_client_token(username, signature)
 
@@ -787,7 +785,7 @@ class AuthdataUtility(object):
     @classmethod
     def numericdate(cls, d):
         """Turn a datetime object into a NumericDate as per RFC 7519."""
-        return (d-cls.EPOCH).total_seconds()
+        return int((d-cls.EPOCH).total_seconds())
 
     def migrate_adobe_id(self, patron):
         """If the given patron has an Adobe ID stored as a Credential, also
