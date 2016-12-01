@@ -682,7 +682,7 @@ class AuthdataUtility(object):
         if not patron_identifier:
             raise ValueError("No patron identifier specified")
         now = datetime.datetime.utcnow()
-        expires = self.numericdate(now + datetime.timedelta(minutes=60))
+        expires = int(self.numericdate(now + datetime.timedelta(minutes=60)))
         authdata = self._encode_short_client_token(
             self.short_name, patron_identifier, expires
         )
@@ -694,7 +694,6 @@ class AuthdataUtility(object):
         signature = self.short_token_signer.sign(
             base, self.short_token_signing_key
         )
-        base = base64.encodestring(base)
         signature = base64.encodestring(signature)
         if len(base) > 80:
             self.log.error(
@@ -704,7 +703,7 @@ class AuthdataUtility(object):
             self.log.error(
                 "Password portion of short client token exceeds 76 characters; Adobe will probably truncate it."
             )
-        return base + " " + signature
+        return base + "|" + signature
             
     def decode_short_client_token(self, token):
         """Attempt to interpret a 'username' and 'password' as a short
@@ -718,14 +717,20 @@ class AuthdataUtility(object):
             raise ValueError(
                 'Supposed client token "%s" does not contain a space.' % token
             )
-        username, password = token.split(' ', 1)
+        username, password = token.rsplit('|', 1)
         return self.decode_two_part_short_client_token(username, password)
         
     def decode_two_part_short_client_token(self, username, password):
         """Decode a short client token that has already been split into
         two parts.
         """
-        username = base64.decodestring(username)
+        # NOTE: This is a temporary log statement used to check
+        # whether Adobe mangles username or password in transit. Since
+        # we never use username and password for its intended purpose,
+        # there's no risk of exposing confidential patron information
+        # while this log is in place.
+        self.log.info("Decoding %s/%s as a short client token.",
+                      username, password)
         signature = base64.decodestring(password)
         return self._decode_short_client_token(username, signature)
 
