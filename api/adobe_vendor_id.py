@@ -724,8 +724,11 @@ class AuthdataUtility(object):
         """Decode a short client token that has already been split into
         two parts.
         """
-        # NOTE: This is a temporary log statement used to check whether
-        # Adobe mangles username or password in transit.
+        # NOTE: This is a temporary log statement used to check
+        # whether Adobe mangles username or password in transit. Since
+        # we never use username and password for its intended purpose,
+        # there's no risk of exposing confidential patron information
+        # while this log is in place.
         self.log.info("Decoding %s/%s as a short client token.",
                       username, password)
         signature = base64.decodestring(password)
