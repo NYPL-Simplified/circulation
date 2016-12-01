@@ -821,7 +821,7 @@ class TestAuthdataUtility(VendorIDTest):
         # Dissect the known value to show how it works.
         token, signature = value.rsplit("|", 1)
 
-        # Signature are base64-encoded; token is not.
+        # Signature is base64-encoded; token is not.
         signature = base64.decodestring(signature)
 
         # The token comes from the library name, the patron identifier,
