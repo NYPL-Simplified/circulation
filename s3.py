@@ -82,22 +82,6 @@ class S3Uploader(MirrorUploader):
         return cls.url(bucket, '/')
 
     @classmethod
-    def static_feed_root(cls, open_access=True):
-        """The root URL to the S3 location of hosted content of
-        the given type.
-        """
-        bucket = Configuration.s3_bucket(
-            Configuration.S3_STATIC_FEED_BUCKET
-        )
-        return cls._static_feed_root(bucket, open_access)
-
-    @classmethod
-    def _static_feed_root(cls, bucket, open_access):
-        if not open_access:
-            raise NotImplementedError()
-        return cls.url(bucket, '/')
-
-    @classmethod
     def book_url(cls, identifier, extension='.epub', open_access=True, 
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
@@ -125,16 +109,6 @@ class S3Uploader(MirrorUploader):
         args = [identifier.type, identifier.identifier, filename]
         args = [urllib.quote(x) for x in args]
         return root + "%s/%s/%s" % tuple(args)
-
-    @classmethod
-    def feed_url(cls, filename, extension='.xml', open_access=True):
-        """The path to the hosted file for an OPDS feed with the given filename"""
-        root = cls.static_feed_root(open_access)
-        if not extension.startswith('.'):
-            extension = '.' + extension
-        if not filename.endswith(extension):
-            filename += extension
-        return root + filename
 
     @classmethod
     def bucket_and_filename(cls, url):
@@ -231,10 +205,6 @@ class DummyS3Uploader(S3Uploader):
         the given type.
         """
         return cls._content_root('test.content.bucket', open_access)
-
-    @classmethod
-    def static_feed_root(cls, open_access=True):
-        return cls._static_feed_root('test.static_feed.bucket', open_access)
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)

@@ -25,7 +25,7 @@ from s3 import (
 )
 
 class TestS3URLGeneration(DatabaseTest):
-    
+
     @contextlib.contextmanager
     def temp_config(self):
         with core_temp_config() as tmp:
@@ -33,8 +33,7 @@ class TestS3URLGeneration(DatabaseTest):
             S3 = Configuration.S3_INTEGRATION
             i[S3] = {
                 Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET : 'test-open-access-s3-bucket',
-                Configuration.S3_BOOK_COVERS_BUCKET : 'test-book-covers-s3-bucket',
-                Configuration.S3_STATIC_FEED_BUCKET : 'test-opds-feed-s3-bucket'
+                Configuration.S3_BOOK_COVERS_BUCKET : 'test-book-covers-s3-bucket'
             }
             yield tmp
 
@@ -55,13 +54,6 @@ class TestS3URLGeneration(DatabaseTest):
                 S3Uploader.cover_image_root(overdrive))
             eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/", 
                 S3Uploader.cover_image_root(overdrive, 300))
-
-    def test_feed_root(self):
-        with self.temp_config():
-            eq_(
-                "http://s3.amazonaws.com/test-opds-feed-s3-bucket/",
-                S3Uploader.static_feed_root()
-            )
 
 
 class TestUpload(DatabaseTest):
