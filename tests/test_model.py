@@ -167,7 +167,25 @@ class TestIdentifier(DatabaseTest):
         )
         eq_(Identifier.BIBLIOTHECA_ID, threem_id.type)
         assert Identifier.BIBLIOTHECA_ID != "3M ID"
-        
+
+    def test_for_foreign_id_rejects_invalid_identifiers(self):
+        assert_raises_regexp(
+            ValueError,
+            '"foo/bar" is not a valid Bibliotheca ID.',
+            Identifier.for_foreign_id,
+            self._db, Identifier.BIBLIOTHECA_ID, "foo/bar"
+        )
+
+    def test_valid_as_foreign_identifier(self):
+        m = Identifier.valid_as_foreign_identifier
+
+        eq_(True, m(Identifier.BIBLIOTHECA_ID, "bhhot389"))
+        eq_(False, m(Identifier.BIBLIOTHECA_ID, "bhhot389/open_book"))
+        eq_(False, m(Identifier.BIBLIOTHECA_ID, "bhhot389,bhhot389"))
+
+        eq_(True, m(Identifier.BIBLIOTHECA_ID, "0015142259"))
+        eq_(False, m(Identifier.BIBLIOTHECA_ID, "0015142259,0015187940"))
+            
     def test_for_foreign_id_without_autocreate(self):
         identifier_type = Identifier.ISBN
         isbn = self._str
