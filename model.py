@@ -875,7 +875,7 @@ class DataSource(Base):
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.ONECLICK, True, True, Identifier.ONECLICK_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
-                (cls.THREEM, True, False, Identifier.THREEM_ID, 60*60*6),
+                (cls.THREEM, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
                 (cls.OCLC, False, False, None, None),
                 (cls.OCLC_LINKED_DATA, False, False, None, None),
@@ -1225,7 +1225,7 @@ class Identifier(Base):
     THREEM_ID = BIBLIOTHECA_ID
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
-        THREEM_ID, OVERDRIVE_ID, AXIS_360_ID,
+        BIBLIOTHECA_ID, OVERDRIVE_ID, AXIS_360_ID,
         GUTENBERG_ID, ELIB_ID
     ]
 
@@ -1339,8 +1339,13 @@ class Identifier(Base):
         )
         
         if foreign_identifier_type in (
-                Identifier.OVERDRIVE_ID, Identifier.THREEM_ID):
+                Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
             foreign_id = foreign_id.lower()
+        if (foreign_identifier_type == Identifier.BIBLIOTHECA_ID
+            and '/' in foreign_id):
+            raise ValueError(
+                '"%s" is not a valid Bibliotheca ID.' % (foreign_id)
+            )
         if autocreate:
             m = get_one_or_create
         else:
