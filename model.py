@@ -1341,10 +1341,12 @@ class Identifier(Base):
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
             foreign_id = foreign_id.lower()
-        if (foreign_identifier_type == Identifier.BIBLIOTHECA_ID
-            and '/' in foreign_id):
+        if not cls.valid_as_foreign_identifier(
+                foreign_identifier_type, foreign_id):
             raise ValueError(
-                '"%s" is not a valid Bibliotheca ID.' % (foreign_id)
+                '"%s" is not a valid %s.' % (
+                    foreign_id, foreign_identifier_type
+                )
             )
         if autocreate:
             m = get_one_or_create
@@ -1359,6 +1361,33 @@ class Identifier(Base):
         else:
             return result, False
 
+    @classmethod
+    def valid_as_foreign_identifier(cls, type, id):
+        """Return True if the given `id` can be an Identifier of the given
+        `type`.
+
+        This is not a complete implementation; we will add to it as
+        necessary.
+
+        In general we err on the side of allowing IDs that look
+        invalid (e.g. all Overdrive IDs look like UUIDs, but we
+        currently don't enforce that). We only reject an ID out of
+        hand if it will cause problems with a third-party API.
+        """
+        forbidden_characters = ''
+        if type == Identifier.BIBLIOTHECA_ID:
+            # IDs are joined with commas and provided as a URL path
+            # element.  Embedded commas or slashes will confuse the
+            # Bibliotheca API.
+            forbidden_characters = ',/'
+        elif type == Identifier.AXIS_360_ID:
+            # IDs are joined with commas during a lookup. Embedded
+            # commas will confuse the Axis 360 API.
+            forbidden_characters = ','
+        if any(x in id for x in forbidden_characters):
+            return False
+        return True
+            
     @property
     def urn(self):
         identifier_text = urllib.quote(self.identifier)
