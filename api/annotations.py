@@ -89,6 +89,11 @@ class AnnotationWriter(object):
             compacted = jsonld.compact(target, cls.JSONLD_CONTEXT)
             del compacted["@context"]
             item["target"] = compacted
+        if annotation.content:
+            body = json.loads(annotation.content)
+            compacted = jsonld.compact(body, cls.JSONLD_CONTEXT)
+            del compacted["@context"]
+            item["body"] = compacted
 
         return item
 
@@ -131,6 +136,12 @@ class AnnotationParser(object):
         if identifier not in loan_identifiers:
             return INVALID_ANNOTATION_TARGET
 
+        content = data.get("http://www.w3.org/ns/oa#hasBody")
+        if content and len(content) == 1:
+            content = content[0]
+        else:
+            content = None
+
         annotation, is_new = get_one_or_create(
             _db, Annotation,
             patron=patron,
@@ -139,6 +150,8 @@ class AnnotationParser(object):
         )
 
         annotation.target = json.dumps(target)
+        if content:
+            annotation.content = json.dumps(content)
         annotation.active = True
         annotation.timestamp = datetime.now()
 
