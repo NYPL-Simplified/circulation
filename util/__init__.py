@@ -22,6 +22,7 @@ def batch(iterable, size=1):
 
 def fast_query_count(query):
     """Counts the results of a query without using super-slow subquery"""
+
     statement = query.enable_eagerloads(False).with_labels().statement
     distinct_columns = statement._distinct
     new_columns = [func.count()]
@@ -35,6 +36,10 @@ def fast_query_count(query):
         statement._distinct = False
     count_q = statement.with_only_columns(new_columns).order_by(None)
     count = query.session.execute(count_q).scalar()
+
+    if query._limit and query._limit < count:
+        return query._limit
+
     return count
 
 
