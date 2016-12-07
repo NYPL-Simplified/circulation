@@ -34,12 +34,6 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import (
-    backref,
-    defer,
-    relationship,
-    sessionmaker,
-)
 from sqlalchemy import (
     func,
     or_,
@@ -48,12 +42,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import select
 from sqlalchemy.orm import (
-    aliased,
     backref,
-    defer,
     contains_eager,
     joinedload,
     lazyload,
+    relationship,
+    sessionmaker,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -130,7 +124,6 @@ from sqlalchemy.dialects.postgresql import (
     JSON,
     INT4RANGE,
 )
-from sqlalchemy.orm import sessionmaker
 from s3 import S3Uploader
 from analytics import Analytics
 
@@ -647,40 +640,40 @@ class DataSource(Base):
 
     """A source for information about books, and possibly the books themselves."""
 
-    GUTENBERG = "Gutenberg"
-    OVERDRIVE = "Overdrive"
-    PROJECT_GITENBERG = "Project GITenberg"
-    STANDARD_EBOOKS = "Standard Ebooks"
-    UNGLUE_IT = "unglue.it"
-    BIBLIOTHECA = "Bibliotheca"
-    OCLC = "OCLC Classify"
-    OCLC_LINKED_DATA = "OCLC Linked Data"
-    AMAZON = "Amazon"
-    XID = "WorldCat xID"
-    AXIS_360 = "Axis 360"
-    WEB = "Web"
-    OPEN_LIBRARY = "Open Library"
-    CONTENT_CAFE = "Content Cafe"
-    VIAF = "VIAF"
-    GUTENBERG_COVER_GENERATOR = "Gutenberg Illustrated"
-    GUTENBERG_EPUB_GENERATOR = "Project Gutenberg EPUB Generator"
-    METADATA_WRANGLER = "Library Simplified metadata wrangler"
-    MANUAL = "Manual intervention"
-    NOVELIST = "NoveList Select"
-    NYT = "New York Times"
-    NYPL_SHADOWCAT = "NYPL Shadowcat"
-    LIBRARY_STAFF = "Library staff"
-    ADOBE = "Adobe DRM"
-    PLYMPTON = "Plympton"
-    ONECLICK = "OneClick"
-    ELIB = "eLiburutegia"
-    OA_CONTENT_SERVER = "Library Simplified Open Access Content Server"
-    PRESENTATION_EDITION = "Presentation edition generator"
-    INTERNAL_PROCESSING = "Library Simplified Internal Process"
-    FEEDBOOKS = "FeedBooks"
+    GUTENBERG = u"Gutenberg"
+    OVERDRIVE = u"Overdrive"
+    PROJECT_GITENBERG = u"Project GITenberg"
+    STANDARD_EBOOKS = u"Standard Ebooks"
+    UNGLUE_IT = u"unglue.it"
+    BIBLIOTHECA = u"Bibliotheca"
+    OCLC = u"OCLC Classify"
+    OCLC_LINKED_DATA = u"OCLC Linked Data"
+    AMAZON = u"Amazon"
+    XID = u"WorldCat xID"
+    AXIS_360 = u"Axis 360"
+    WEB = u"Web"
+    OPEN_LIBRARY = u"Open Library"
+    CONTENT_CAFE = u"Content Cafe"
+    VIAF = u"VIAF"
+    GUTENBERG_COVER_GENERATOR = u"Gutenberg Illustrated"
+    GUTENBERG_EPUB_GENERATOR = u"Project Gutenberg EPUB Generator"
+    METADATA_WRANGLER = u"Library Simplified metadata wrangler"
+    MANUAL = u"Manual intervention"
+    NOVELIST = u"NoveList Select"
+    NYT = u"New York Times"
+    NYPL_SHADOWCAT = u"NYPL Shadowcat"
+    LIBRARY_STAFF = u"Library staff"
+    ADOBE = u"Adobe DRM"
+    PLYMPTON = u"Plympton"
+    ONECLICK = u"OneClick"
+    ELIB = u"eLiburutegia"
+    OA_CONTENT_SERVER = u"Library Simplified Open Access Content Server"
+    PRESENTATION_EDITION = u"Presentation edition generator"
+    INTERNAL_PROCESSING = u"Library Simplified Internal Process"
+    FEEDBOOKS = u"FeedBooks"
     
     DEPRECATED_NAMES = {
-        "3M" : BIBLIOTHECA
+        u"3M" : BIBLIOTHECA
     }
     THREEM = BIBLIOTHECA
     
@@ -774,7 +767,7 @@ class DataSource(Base):
             data_source = get_one(_db, DataSource, name=name)
         return data_source
 
-    URI_PREFIX = "http://librarysimplified.org/terms/sources/"
+    URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
 
     @classmethod
     def name_from_uri(cls, uri):
@@ -927,9 +920,9 @@ class BaseCoverageRecord(object):
     WorkCoverageRecord.
     """
     
-    SUCCESS = 'success'
-    TRANSIENT_FAILURE = 'transient failure'
-    PERSISTENT_FAILURE = 'persistent failure'    
+    SUCCESS = u'success'
+    TRANSIENT_FAILURE = u'transient failure'
+    PERSISTENT_FAILURE = u'persistent failure'
 
     ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
@@ -986,12 +979,12 @@ class CoverageRecord(Base, BaseCoverageRecord):
     """A record of a Identifier being used as input into some process."""
     __tablename__ = 'coveragerecords'
 
-    SET_EDITION_METADATA_OPERATION = 'set-edition-metadata'
-    CHOOSE_COVER_OPERATION = 'choose-cover'
-    SYNC_OPERATION = 'sync'
-    REAP_OPERATION = 'reap'
-    IMPORT_OPERATION = 'import'
-    RESOLVE_IDENTIFIER_OPERATION = 'resolve-identifier'
+    SET_EDITION_METADATA_OPERATION = u'set-edition-metadata'
+    CHOOSE_COVER_OPERATION = u'choose-cover'
+    SYNC_OPERATION = u'sync'
+    REAP_OPERATION = u'reap'
+    IMPORT_OPERATION = u'import'
+    RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1085,12 +1078,12 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     """
     __tablename__ = 'workcoveragerecords'
 
-    CHOOSE_EDITION_OPERATION = 'choose-edition'
-    CLASSIFY_OPERATION = 'classify'
-    SUMMARY_OPERATION = 'summary'
-    QUALITY_OPERATION = 'quality'
-    GENERATE_OPDS_OPERATION = 'generate-opds'
-    UPDATE_SEARCH_INDEX_OPERATION = 'update-search-index'
+    CHOOSE_EDITION_OPERATION = u'choose-edition'
+    CLASSIFY_OPERATION = u'classify'
+    SUMMARY_OPERATION = u'summary'
+    QUALITY_OPERATION = u'quality'
+    GENERATE_OPDS_OPERATION = u'generate-opds'
+    UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
 
     id = Column(Integer, primary_key=True)
     work_id = Column(
@@ -1201,26 +1194,26 @@ class Identifier(Base):
     """
     
     # Common types of identifiers.
-    OVERDRIVE_ID = "Overdrive ID"
-    BIBLIOTHECA_ID = "Bibliotheca ID"
-    GUTENBERG_ID = "Gutenberg ID"
-    AXIS_360_ID = "Axis 360 ID"
-    ELIB_ID = "eLiburutegia ID"
-    ASIN = "ASIN"
-    ISBN = "ISBN"
-    NOVELIST_ID = "NoveList ID"
-    OCLC_WORK = "OCLC Work ID"
-    OCLC_NUMBER = "OCLC Number"
+    OVERDRIVE_ID = u"Overdrive ID"
+    BIBLIOTHECA_ID = u"Bibliotheca ID"
+    GUTENBERG_ID = u"Gutenberg ID"
+    AXIS_360_ID = u"Axis 360 ID"
+    ELIB_ID = u"eLiburutegia ID"
+    ASIN = u"ASIN"
+    ISBN = u"ISBN"
+    NOVELIST_ID = u"NoveList ID"
+    OCLC_WORK = u"OCLC Work ID"
+    OCLC_NUMBER = u"OCLC Number"
     # OneClick uses ISBNs for ebooks and eaudio, and its own ids for magazines
-    ONECLICK_ID = "OneClick ID"
-    OPEN_LIBRARY_ID = "OLID"
-    BIBLIOCOMMONS_ID = "Bibliocommons ID"
-    URI = "URI"
-    DOI = "DOI"
-    UPC = "UPC"
+    ONECLICK_ID = u"OneClick ID"
+    OPEN_LIBRARY_ID = u"OLID"
+    BIBLIOCOMMONS_ID = u"Bibliocommons ID"
+    URI = u"URI"
+    DOI = u"DOI"
+    UPC = u"UPC"
 
     DEPRECATED_NAMES = {
-        "3M ID" : BIBLIOTHECA_ID
+        u"3M ID" : BIBLIOTHECA_ID
     }
     THREEM_ID = BIBLIOTHECA_ID
 
@@ -1931,37 +1924,37 @@ class Contributor(Base):
     work_contributions = relationship("WorkContribution", backref="contributor",
                                       )
     # Types of roles
-    AUTHOR_ROLE = "Author"
-    PRIMARY_AUTHOR_ROLE = "Primary Author"
-    PERFORMER_ROLE = "Performer"
-    EDITOR_ROLE = "Editor"
-    ARTIST_ROLE = "Artist"
-    PHOTOGRAPHER_ROLE = "Photographer"
-    TRANSLATOR_ROLE = "Translator"
-    ILLUSTRATOR_ROLE = "Illustrator"
-    INTRODUCTION_ROLE = "Introduction Author"
-    FOREWORD_ROLE = "Foreword Author" 
-    AFTERWORD_ROLE = "Afterword Author" 
-    COLOPHON_ROLE = "Colophon Author"
-    UNKNOWN_ROLE = 'Unknown'
-    DIRECTOR_ROLE = 'Director'
-    PRODUCER_ROLE = 'Producer'
-    EXECUTIVE_PRODUCER_ROLE = 'Executive Producer'
-    ACTOR_ROLE = 'Actor'
-    LYRICIST_ROLE = 'Lyricist'
-    CONTRIBUTOR_ROLE = 'Contributor'
-    COMPOSER_ROLE = 'Composer'
-    NARRATOR_ROLE = 'Narrator'
-    COMPILER_ROLE = 'Compiler'
-    ADAPTER_ROLE = 'Adapter'
-    PERFORMER_ROLE = 'Performer'
-    MUSICIAN_ROLE = 'Musician'
-    ASSOCIATED_ROLE = 'Associated name'
-    COLLABORATOR_ROLE = 'Collaborator'
-    ENGINEER_ROLE = 'Engineer'
-    COPYRIGHT_HOLDER_ROLE = 'Copyright holder'
-    TRANSCRIBER_ROLE = 'Transcriber'
-    DESIGNER_ROLE = 'Designer'
+    AUTHOR_ROLE = u"Author"
+    PRIMARY_AUTHOR_ROLE = u"Primary Author"
+    PERFORMER_ROLE = u"Performer"
+    EDITOR_ROLE = u"Editor"
+    ARTIST_ROLE = u"Artist"
+    PHOTOGRAPHER_ROLE = u"Photographer"
+    TRANSLATOR_ROLE = u"Translator"
+    ILLUSTRATOR_ROLE = u"Illustrator"
+    INTRODUCTION_ROLE = u"Introduction Author"
+    FOREWORD_ROLE = u"Foreword Author"
+    AFTERWORD_ROLE = u"Afterword Author"
+    COLOPHON_ROLE = u"Colophon Author"
+    UNKNOWN_ROLE = u'Unknown'
+    DIRECTOR_ROLE = u'Director'
+    PRODUCER_ROLE = u'Producer'
+    EXECUTIVE_PRODUCER_ROLE = u'Executive Producer'
+    ACTOR_ROLE = u'Actor'
+    LYRICIST_ROLE = u'Lyricist'
+    CONTRIBUTOR_ROLE = u'Contributor'
+    COMPOSER_ROLE = u'Composer'
+    NARRATOR_ROLE = u'Narrator'
+    COMPILER_ROLE = u'Compiler'
+    ADAPTER_ROLE = u'Adapter'
+    PERFORMER_ROLE = u'Performer'
+    MUSICIAN_ROLE = u'Musician'
+    ASSOCIATED_ROLE = u'Associated name'
+    COLLABORATOR_ROLE = u'Collaborator'
+    ENGINEER_ROLE = u'Engineer'
+    COPYRIGHT_HOLDER_ROLE = u'Copyright holder'
+    TRANSCRIBER_ROLE = u'Transcriber'
+    DESIGNER_ROLE = u'Designer'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
     # People from these roles can be put into the 'author' slot if no
@@ -3009,13 +3002,13 @@ class Work(Base):
 
     APPEALS_URI = "http://librarysimplified.org/terms/appeals/"
 
-    CHARACTER_APPEAL = "Character"
-    LANGUAGE_APPEAL = "Language"
-    SETTING_APPEAL = "Setting"
-    STORY_APPEAL = "Story"
-    UNKNOWN_APPEAL = "Unknown"
-    NOT_APPLICABLE_APPEAL = "Not Applicable"
-    NO_APPEAL = "None"
+    CHARACTER_APPEAL = u"Character"
+    LANGUAGE_APPEAL = u"Language"
+    SETTING_APPEAL = u"Setting"
+    STORY_APPEAL = u"Story"
+    UNKNOWN_APPEAL = u"Unknown"
+    NOT_APPLICABLE_APPEAL = u"Not Applicable"
+    NO_APPEAL = u"None"
 
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
@@ -3588,7 +3581,7 @@ class Work(Base):
 
             # make sure the pool has most up-to-date idea of its presentation edition, 
             # and then ask what it is.
-            pool_edition_changed = pool.set_presentation_edition(policy)
+            pool_edition_changed = pool.set_presentation_edition()
             edition_metadata_changed = (
                 edition_metadata_changed or
                 pool_edition_changed   
@@ -3609,7 +3602,6 @@ class Work(Base):
                 # edition is still an option, choose it.
                 new_presentation_edition = potential_presentation_edition
 
-        # Note: policy.choose_edition is true in default PresentationCalculationPolicy.
         if ((self.presentation_edition != new_presentation_edition) and new_presentation_edition != None):
             # did we find a pool whose presentation edition was better than the work's?
             self.set_presentation_edition(new_presentation_edition)
@@ -5358,11 +5350,11 @@ class CachedFeed(Base):
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
         nullable=True, index=True)
 
-    GROUPS_TYPE = 'groups'
-    PAGE_TYPE = 'page'
-    RECOMMENDATIONS_TYPE = 'recommendations'
-    SERIES_TYPE = 'series'
-    CONTRIBUTOR_TYPE = 'contributor'
+    GROUPS_TYPE = u'groups'
+    PAGE_TYPE = u'page'
+    RECOMMENDATIONS_TYPE = u'recommendations'
+    SERIES_TYPE = u'series'
+    CONTRIBUTOR_TYPE = u'contributor'
 
     log = logging.getLogger("CachedFeed")
 
@@ -5761,9 +5753,7 @@ class LicensePool(Base):
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
 
-    # TODO:  policy is not used in this method.  Removing argument
-    # breaks many-many tests, and needs own branch.
-    def set_presentation_edition(self, policy=None):
+    def set_presentation_edition(self):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
@@ -6044,7 +6034,7 @@ class LicensePool(Base):
         if known_edition:
             presentation_edition = known_edition
         else:
-            self.set_presentation_edition(None)
+            self.set_presentation_edition()
             presentation_edition = self.presentation_edition
 
         logging.info("Calculating work for %r", presentation_edition)
@@ -6641,7 +6631,7 @@ class DelegatedPatronIdentifier(Base):
 
     Those identifiers are stored here.
     """
-    ADOBE_ACCOUNT_ID = 'Adobe Account ID'
+    ADOBE_ACCOUNT_ID = u'Adobe Account ID'
     
     __tablename__ = 'delegatedpatronidentifiers'
     id = Column(Integer, primary_key=True)
@@ -7594,19 +7584,19 @@ class DeliveryMechanism(Base):
     (e.g. "vnd.adobe/adept+xml" or "application/epub+zip") or an
     informal name ("Kindle via Amazon").
     """
-    KINDLE_CONTENT_TYPE = "Kindle via Amazon"
-    NOOK_CONTENT_TYPE = "Nook via B&N"
-    STREAMING_TEXT_CONTENT_TYPE = "Streaming Text"
-    STREAMING_AUDIO_CONTENT_TYPE = "Streaming Audio"
-    STREAMING_VIDEO_CONTENT_TYPE = "Streaming Video"
+    KINDLE_CONTENT_TYPE = u"Kindle via Amazon"
+    NOOK_CONTENT_TYPE = u"Nook via B&N"
+    STREAMING_TEXT_CONTENT_TYPE = u"Streaming Text"
+    STREAMING_AUDIO_CONTENT_TYPE = u"Streaming Audio"
+    STREAMING_VIDEO_CONTENT_TYPE = u"Streaming Video"
 
     NO_DRM = None
-    ADOBE_DRM = "vnd.adobe/adept+xml"
-    KINDLE_DRM = "Kindle DRM"
-    NOOK_DRM = "Nook DRM"
-    STREAMING_DRM = "Streaming"
-    ONECLICK_DRM = "OneClick DRM"
-    OVERDRIVE_DRM = "Overdrive DRM"
+    ADOBE_DRM = u"vnd.adobe/adept+xml"
+    KINDLE_DRM = u"Kindle DRM"
+    NOOK_DRM = u"Nook DRM"
+    STREAMING_DRM = u"Streaming"
+    ONECLICK_DRM = u"OneClick DRM"
+    OVERDRIVE_DRM = u"Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
     MEDIA_TYPES_FOR_STREAMING = {
@@ -7860,7 +7850,7 @@ class Complaint(Base):
     __tablename__ = 'complaints'
 
     VALID_TYPES = set([
-        "http://librarysimplified.org/terms/problem/" + x
+        u"http://librarysimplified.org/terms/problem/" + x
         for x in [
                 'wrong-genre',
                 'wrong-audience', 
