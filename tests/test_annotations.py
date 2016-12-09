@@ -4,6 +4,7 @@ from nose.tools import (
 )
 import json
 import datetime
+from pyld import jsonld
 
 from . import DatabaseTest
 from test_controller import ControllerTest
@@ -297,6 +298,38 @@ class TestAnnotationWriter(ControllerTest):
             }
             eq_(compacted_target, detail["target"])
 
+    def test_detail_body(self):
+        patron = self._patron()
+        identifier = self._identifier()
+        body = {
+            "@type": "http://www.w3.org/ns/oa#TextualBody",
+            "http://www.w3.org/ns/oa#bodyValue": "A good description of the topic that bears further investigation",
+            "http://www.w3.org/ns/oa#hasPurpose": {
+                "@id": "http://www.w3.org/ns/oa#describing"
+            }
+        }
+
+        annotation, ignore = create(
+            self._db, Annotation,
+            patron=patron,
+            identifier=identifier,
+            motivation=Annotation.IDLING,
+            content=json.dumps(body),
+        )
+
+        with self.app.test_request_context("/"):
+            detail = AnnotationWriter.detail(annotation)
+
+            assert "annotations/%i" % annotation.id in detail["id"]
+            eq_("Annotation", detail['type'])
+            eq_(Annotation.IDLING, detail['motivation'])
+            compacted_body = {
+                "type": "TextualBody",
+                "bodyValue": "A good description of the topic that bears further investigation",
+                "purpose": "describing"
+            }
+            eq_(compacted_body, detail["body"])
+
 class TestAnnotationParser(DatabaseTest):
     def setup(self):
         super(TestAnnotationParser, self).setup()
@@ -357,13 +390,15 @@ class TestAnnotationParser(DatabaseTest):
             }]
         }]
 
-        data = json.dumps(data)
+        data_json = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
         eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
+        eq_(json.dumps(data["http://www.w3.org/ns/oa#hasTarget"][0]), annotation.target)
+        eq_(json.dumps(data["http://www.w3.org/ns/oa#hasBody"][0]), annotation.content)
 
     def test_parse_compacted_jsonld(self):
         self.pool.loan_to(self.patron)
@@ -390,52 +425,58 @@ class TestAnnotationParser(DatabaseTest):
             }
         }
 
-        data = json.dumps(data)
+        data_json = json.dumps(data)
+        expanded = jsonld.expand(data)[0]
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
         eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
+        eq_(json.dumps(expanded["http://www.w3.org/ns/oa#hasTarget"][0]), annotation.target)
+        eq_(json.dumps(expanded["http://www.w3.org/ns/oa#hasBody"][0]), annotation.content)
 
     def test_parse_jsonld_with_context(self):
         self.pool.loan_to(self.patron)
 
         data = self._sample_jsonld()
-        data = json.dumps(data)
+        data_json = json.dumps(data)
+        expanded = jsonld.expand(data)[0]
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(self.patron.id, annotation.patron_id)
         eq_(self.identifier.id, annotation.identifier_id)
         eq_(Annotation.IDLING, annotation.motivation)
         eq_(True, annotation.active)
+        eq_(json.dumps(expanded["http://www.w3.org/ns/oa#hasTarget"][0]), annotation.target)
+        eq_(json.dumps(expanded["http://www.w3.org/ns/oa#hasBody"][0]), annotation.content)
 
     def test_parse_jsonld_with_invalid_motivation(self):
         self.pool.loan_to(self.patron)
 
         data = self._sample_jsonld()
         data["motivation"] = "bookmarking"
-        data = json.dumps(data)
+        data_json = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(INVALID_ANNOTATION_MOTIVATION, annotation)
 
     def test_parse_jsonld_with_no_loan(self):
         data = self._sample_jsonld()
-        data = json.dumps(data)
+        data_json = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 
     def test_parse_jsonld_with_no_target(self):
         data = self._sample_jsonld()
         del data['target']
-        data = json.dumps(data)
+        data_json = json.dumps(data)
 
-        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 

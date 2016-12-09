@@ -2,6 +2,7 @@ from nose.tools import set_trace
 from pyld import jsonld
 import json
 from datetime import datetime
+import os
 
 from core.model import (
     Annotation,
@@ -14,6 +15,29 @@ from core.app_server import (
 )
 
 from problem_details import *
+
+def load_document(url):
+    """Retrieves JSON-LD for the given URL from a local
+    file if available, and falls back to the network.
+    """
+    files = {
+        AnnotationWriter.JSONLD_CONTEXT: "anno.jsonld",
+        AnnotationWriter.LDP_CONTEXT: "ldp.jsonld"
+    }
+    if url in files:
+        base_path = os.path.join(os.path.split(__file__)[0], 'jsonld')
+        jsonld_file = os.path.join(base_path, files[url])
+        data = open(jsonld_file).read()
+        doc = {
+            "contextUrl": None,
+            "documentUrl": url,
+            "document": data.decode('utf-8')
+        }
+        return doc
+    else:
+        return jsonld.load_document(url)
+
+jsonld.set_document_loader(load_document)
 
 class AnnotationWriter(object):
 
@@ -89,6 +113,11 @@ class AnnotationWriter(object):
             compacted = jsonld.compact(target, cls.JSONLD_CONTEXT)
             del compacted["@context"]
             item["target"] = compacted
+        if annotation.content:
+            body = json.loads(annotation.content)
+            compacted = jsonld.compact(body, cls.JSONLD_CONTEXT)
+            del compacted["@context"]
+            item["body"] = compacted
 
         return item
 
@@ -131,6 +160,12 @@ class AnnotationParser(object):
         if identifier not in loan_identifiers:
             return INVALID_ANNOTATION_TARGET
 
+        content = data.get("http://www.w3.org/ns/oa#hasBody")
+        if content and len(content) == 1:
+            content = content[0]
+        else:
+            content = None
+
         annotation, is_new = get_one_or_create(
             _db, Annotation,
             patron=patron,
@@ -139,6 +174,8 @@ class AnnotationParser(object):
         )
 
         annotation.target = json.dumps(target)
+        if content:
+            annotation.content = json.dumps(content)
         annotation.active = True
         annotation.timestamp = datetime.now()
 
