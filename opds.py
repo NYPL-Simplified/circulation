@@ -302,6 +302,9 @@ class Annotator(object):
                 active_license_pool = p
         return active_license_pool
 
+    def sort_works_for_groups_feed(self, works, **kwargs):
+        return works
+
 
 class VerboseAnnotator(Annotator):
     """The default Annotator for machine-to-machine integration.
@@ -477,6 +480,7 @@ class AcquisitionFeed(OPDSFeed):
             annotator.lanes_by_work[work].append(v)
             all_works.append(work)
 
+        all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(
             _db, title, url, all_works, annotator,
         )
@@ -751,13 +755,11 @@ class AcquisitionFeed(OPDSFeed):
     def _create_entry(self, work, license_pool, edition, identifier,
                       force_create=False, use_cache=True):
         xml = None
-        cache_hit = False
         field = self.annotator.opds_cache_field
         if field and work and not force_create and use_cache:
             xml = getattr(work, field)
 
         if xml:
-            cache_hit = True
             xml = etree.fromstring(xml)
         else:
             if isinstance(work, BaseMaterializedWork):
