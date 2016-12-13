@@ -1065,10 +1065,11 @@ class Metadata(MetaToModelUtility):
         for contribution in edition.contributions:
             contributor = ContributorData.from_contribution(contribution)
             contributors.append(contributor)
+
         if not edition.contributions:
             # This should only happen for low-quality data sources such as
             # the NYT best-seller API.
-            if edition.sort_author:
+            if edition.sort_author and edition.sort_author != Edition.UNKNOWN_AUTHOR:
                 contributors.append(
                     ContributorData(sort_name=edition.sort_author,
                                     display_name=edition.author,
@@ -1116,11 +1117,18 @@ class Metadata(MetaToModelUtility):
         TODO: We might want to take a policy object as an argument.
         """
 
-        fields = self.BASIC_EDITION_FIELDS+['contributors']
+        fields = self.BASIC_EDITION_FIELDS
         for field in fields:
             new_value = getattr(metadata, field)
             if new_value:
                 setattr(self, field, new_value)
+
+        new_value = getattr(metadata, 'contributors')
+        if new_value and isinstance(new_value, list): 
+            old_value = getattr(self, 'contributors')
+            # if we already have a better value, don't override it with a "missing info" placeholder value
+            if not (old_value and new_value[0].sort_name == Edition.UNKNOWN_AUTHOR):
+                setattr(self, 'contributors', new_value)
 
 
     def calculate_permanent_work_id(self, _db, metadata_client):
@@ -1352,8 +1360,10 @@ class Metadata(MetaToModelUtility):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-        self.update_contributions(_db, edition, metadata_client, 
-                                  replace.contributions)
+        contributors_changed = self.update_contributions(_db, edition, 
+                                  metadata_client, replace.contributions)
+        if contributors_changed:
+            made_core_changes = True
 
         # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
@@ -1442,9 +1452,11 @@ class Metadata(MetaToModelUtility):
             )
 
         # Make sure the work we just did shows up.
-        edition.calculate_presentation(
+        made_changes = edition.calculate_presentation(
             policy=replace.presentation_calculation_policy
         )
+        if made_changes:
+            made_core_changes = True
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where
@@ -1459,6 +1471,7 @@ class Metadata(MetaToModelUtility):
                 )
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
+                made_core_changes = True
 
         # we updated the links.  but does the associated pool know?
         pool = None
@@ -1530,14 +1543,22 @@ class Metadata(MetaToModelUtility):
 
     def update_contributions(self, _db, edition, metadata_client=None,
                              replace=True):
+        contributors_changed = False
+        old_contributors = []
+        new_contributors = []
+
+        if not replace and self.contributors:
+            # we've chosen to append new contributors, which exist
+            # this means the edition's contributor list will, indeed, change
+            contributors_changed = True
+
         if replace and self.contributors:
-            dirty = False
             # Remove any old Contributions from this data source --
             # we're about to add a new set
             surviving_contributions = []
             for contribution in edition.contributions:
+                old_contributors.append(contribution.contributor.id)
                 _db.delete(contribution)
-                dirty = True
             edition.contributions = surviving_contributions
 
         for contributor_data in self.contributors:
@@ -1553,6 +1574,7 @@ class Metadata(MetaToModelUtility):
                     lc=contributor_data.lc,
                     viaf=contributor_data.viaf
                 )
+                new_contributors.append(contributor.id)
                 if contributor_data.display_name:
                     contributor.display_name = contributor_data.display_name
                 if contributor_data.biography:
@@ -1570,6 +1592,12 @@ class Metadata(MetaToModelUtility):
                     "Not registering %s because no sort name, LC, or VIAF",
                     contributor_data.display_name
                 )
+
+        if sorted(old_contributors) != sorted(new_contributors):
+            contributors_changed = True
+
+        return contributors_changed
+
 
     def filter_recommendations(self, _db):
         """Filters out recommended identifiers that don't exist in the db.

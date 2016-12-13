@@ -685,6 +685,7 @@ class WorkConsolidationScript(WorkProcessingScript):
 
     def do_run(self):
         super(WorkConsolidationScript, self).do_run()
+        set_trace()
         qu = self._db.query(Work).outerjoin(Work.license_pools).filter(
             LicensePool.id==None
         )

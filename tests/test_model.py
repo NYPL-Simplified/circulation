@@ -1610,15 +1610,15 @@ class TestWork(DatabaseTest):
         eq_([], result)
 
     def test_calculate_presentation(self):
-        """ Test that:
-        - work coverage records are made on work creation and primary edition selection.
-        - work's presentation information (author, title, etc. fields) does a proper job 
-          of combining fields from underlying editions.
-        - work's presentation information keeps in sync with work's presentation edition.
-        - there can be only one edition that thinks it's the presentation edition for this work.
-        - time stamps are stamped.
-        - higher-standard sources (library staff) can replace, but not delete, authors.
-        """
+        # Test that:
+        # - work coverage records are made on work creation and primary edition selection.
+        # - work's presentation information (author, title, etc. fields) does a proper job 
+        #   of combining fields from underlying editions.
+        # - work's presentation information keeps in sync with work's presentation edition.
+        # - there can be only one edition that thinks it's the presentation edition for this work.
+        # - time stamps are stamped.
+        # - higher-standard sources (library staff) can replace, but not delete, authors.
+        
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
 
@@ -1647,19 +1647,14 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
-        staff_edition.title = u"The 2nd Title"
-        staff_edition.subtitle = u"The 2nd Subtitle"
-        # for now  TODO darya
-        #staff_edition.add_contributor(bob, Contributor.AUTHOR_ROLE)
-        #staff_edition.add_contributor(alice, Contributor.AUTHOR_ROLE)
-
-
         work = self._work(presentation_edition=edition2)
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
         for p in pool3, pool1:
             work.license_pools.append(p)
+
+        # The author of the Work is the author of its primary work record.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
 
         # This Work starts out with a single CoverageRecord reflecting the
         # work done to generate its initial OPDS entry, and then it adds choose-edition 
@@ -1678,6 +1673,9 @@ class TestWork(DatabaseTest):
         index = DummyExternalSearchIndex()
 
         work.calculate_presentation(search_index_client=index)
+
+        # The author of the Work has not changed.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
 
         # one and only one license pool should be un-superceded
         eq_(pool1.superceded, True)
@@ -1733,11 +1731,11 @@ class TestWork(DatabaseTest):
         
         work.calculate_presentation(search_index_client=index)
 
-        # The title of the Work is the title of its primary work record.
+        # The title of the Work is the title of its new primary work record.
         eq_("The 1st Title", work.title)
         eq_("The 1st Subtitle", work.subtitle)
 
-        # author of composite edition is still Alice and Bob combined
+        # author of composite edition is now just Bob
         eq_("Bob Bitshifter", work.author)
         eq_("Bitshifter, Bob", work.sort_author)
 
@@ -1753,6 +1751,32 @@ class TestWork(DatabaseTest):
         # The last update time has been set.
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
+        # make a staff (admin interface) edition.  its fields should supercede all others below it
+        # except when it has no contributors, and they do.
+        pool2.suppressed = False
+
+        staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF, 
+            with_license_pool=False, authors=[])
+        staff_edition.title = u"The Staff Title"
+        staff_edition.primary_identifier = pool2.identifier
+        # set edition's authorship to "nope", and make sure the lower-priority 
+        # editions' authors don't get clobbered
+        staff_edition.contributions = []
+        staff_edition.author = Edition.UNKNOWN_AUTHOR
+        staff_edition.sort_author = Edition.UNKNOWN_AUTHOR
+
+        work.calculate_presentation(search_index_client=index)
+
+        # The title of the Work got superceded.
+        eq_("The Staff Title", work.title)
+
+        # The author of the Work is still the author of edition2 and was not clobbered.
+        eq_("Alice Adder, Bob Bitshifter", work.author)
+        eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+
+
 
     def test_set_presentation_ready(self):
 
