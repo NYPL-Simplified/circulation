@@ -613,6 +613,23 @@ class AuthdataUtility(object):
             jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
         )
 
+    @classmethod
+    def adobe_base64_encode(cls, str):
+        """A modified base64 encoding that avoids triggering an Adobe bug.
+
+        The bug seems to happen when the 'password' portion of a
+        username/password pair contains a + character. So we replace +
+        with :.
+        """
+        encoded = base64.encodestring(str)
+        return encoded.replace("+", ":")
+
+    @classmethod
+    def adobe_base64_decode(cls, str):
+        """Undoes adobe_base64_encode."""
+        encoded = str.replace(":", "+")
+        return base64.decodestring(encoded)
+    
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
         by `secrets_by_library`.
@@ -694,7 +711,7 @@ class AuthdataUtility(object):
         signature = self.short_token_signer.sign(
             base, self.short_token_signing_key
         )
-        signature = base64.encodestring(signature)
+        signature = self.adobe_base64_encode(signature)
         if len(base) > 80:
             self.log.error(
                 "Username portion of short client token exceeds 80 characters; Adobe will probably truncate it."
@@ -724,14 +741,7 @@ class AuthdataUtility(object):
         """Decode a short client token that has already been split into
         two parts.
         """
-        # NOTE: This is a temporary log statement used to check
-        # whether Adobe mangles username or password in transit. Since
-        # we never use username and password for its intended purpose,
-        # there's no risk of exposing confidential patron information
-        # while this log is in place.
-        self.log.info("Decoding %s/%s as a short client token.",
-                      username, password)
-        signature = base64.decodestring(password)
+        signature = self.adobe_base64_decode(password)
         return self._decode_short_client_token(username, signature)
 
     def _decode_short_client_token(self, token, supposed_signature):
