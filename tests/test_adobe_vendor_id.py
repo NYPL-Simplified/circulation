@@ -935,6 +935,39 @@ class TestAuthdataUtility(VendorIDTest):
 
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
+
+    def test_decode_two_part_short_client_token(self):
+
+        # The base64 encoding of this signature has a plus sign in it.
+        signature = 'LbU}66%\\-4zt>R>_)\n2Q'
+        encoded_signature = AuthdataUtility.adobe_base64_encode(signature)
+
+        # We replace the plus sign with a colon.
+        assert ':' in encoded_signature
+        assert '+' not in encoded_signature
+        
+        # Make sure that decode_two_part_short_client_token properly
+        # reverses that change when decoding the 'password'.
+        class MockAuthdataUtility(AuthdataUtility):
+            def _decode_short_client_token(self, token, supposed_signature):
+                eq_(supposed_signature, signature)
+                self.test_code_ran = True
+                
+        utility =  MockAuthdataUtility(
+            vendor_id = "The Vendor ID",
+            library_uri = "http://your-library.org/",
+            library_short_name = "you",
+            secret = "Your library secret",
+        )
+        utility.test_code_ran = False
+        utility.decode_two_part_short_client_token(
+            "username", encoded_signature
+        )
+
+        # The code in _decode_short_client_token ran. Since there was no
+        # test failure, it ran successfully.
+        eq_(True, utility.test_code_ran)
+
         
     # Tests of code that is used only in a migration script.  This can
     # be deleted once
