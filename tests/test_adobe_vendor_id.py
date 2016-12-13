@@ -814,15 +814,19 @@ class TestAuthdataUtility(VendorIDTest):
         value = self.authdata._encode_short_client_token(
             "a library", "a patron identifier", 1234.5
         )
-        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC+uTE+t7pAwqYxM=\n',
+
+        # Note the colon characters that replaced the plus signs in
+        # what would otherwise be normal base64 text.
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC:uTE:t7pAwqYxM=\n',
             value
         )
 
         # Dissect the known value to show how it works.
         token, signature = value.rsplit("|", 1)
 
-        # Signature is base64-encoded; token is not.
-        signature = base64.decodestring(signature)
+        # Signature is base64-encoded in a custom way that avoids
+        # triggering an Adobe bug ; token is not.
+        signature = AuthdataUtility.adobe_base64_decode(signature)
 
         # The token comes from the library name, the patron identifier,
         # and the time of creation.
@@ -915,6 +919,22 @@ class TestAuthdataUtility(VendorIDTest):
             ValueError, 'Invalid signature for',
             m, "mylibrary|99999999999|patron", "signature"
         )
+
+    def test_adobe_base64_encode_decode(self):
+        """Test our special variant of base64 encoding designed to avoid
+        triggering an Adobe bug.
+        """
+        value = 'LbU}66%\\-4zt>R>_)\n2Q'
+
+        encoded = AuthdataUtility.adobe_base64_encode(value)
+        eq_('TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', encoded)
+
+        # This is like normal base64 encoding, but with a colon
+        # replacing the plus character.
+        eq_(encoded.replace(":", "+"), base64.encodestring(value))
+
+        # We can reverse the encoding to get the original value.
+        eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
         
     # Tests of code that is used only in a migration script.  This can
     # be deleted once
