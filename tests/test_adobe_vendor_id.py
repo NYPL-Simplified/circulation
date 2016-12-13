@@ -936,7 +936,21 @@ class TestAuthdataUtility(VendorIDTest):
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
 
-    def test_decode_two_part_short_client_token(self):
+    def test__encode_short_client_token_uses_adobe_base64_encoding(self):
+        class MockSigner(object):
+            def sign(self, value, key):
+                """Always return the same signature, crafted to contain 
+                a plus sign when base64-encoded.
+                """
+                return 'LbU}66%\\-4zt>R>_)\n2Q'
+        self.authdata.short_token_signer = MockSigner()
+        token = self.authdata._encode_short_client_token("lib", "1234", 0)
+
+        # The signature part of the token has been encoded with our
+        # custom encoding, not vanilla base64.
+        eq_('lib|0|1234|TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', token)
+        
+    def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
         # The base64 encoding of this signature has a plus sign in it.
         signature = 'LbU}66%\\-4zt>R>_)\n2Q'
@@ -952,7 +966,7 @@ class TestAuthdataUtility(VendorIDTest):
             def _decode_short_client_token(self, token, supposed_signature):
                 eq_(supposed_signature, signature)
                 self.test_code_ran = True
-                
+
         utility =  MockAuthdataUtility(
             vendor_id = "The Vendor ID",
             library_uri = "http://your-library.org/",
