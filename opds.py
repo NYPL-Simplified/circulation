@@ -282,7 +282,7 @@ class Annotator(object):
         if isinstance(work, BaseMaterializedWork):
             # Active license pool is preloaded from database.
             return work.license_pool
-            
+
         # The active license pool is the one that *would* be
         # associated with a loan, were a loan to be issued right
         # now.

@@ -536,6 +536,19 @@ class TestFastQueryCount(DatabaseTest):
         qu3 = qu.distinct(Edition.title, Edition.author)
         eq_(qu3.count(), fast_query_count(qu3))
 
+    def test_limit(self):
+        for x in range(4):
+            self._identifier()
+
+        qu = self._db.query(Identifier)
+        eq_(qu.count(), fast_query_count(qu))
+
+        qu2 = qu.limit(2)
+        eq_(qu2.count(), fast_query_count(qu2))
+
+        qu3 = qu.limit(6)
+        eq_(qu3.count(), fast_query_count(qu3))
+
 
 class TestMoneyUtility(object):
 

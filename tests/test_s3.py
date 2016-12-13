@@ -25,7 +25,7 @@ from s3 import (
 )
 
 class TestS3URLGeneration(DatabaseTest):
-    
+
     @contextlib.contextmanager
     def temp_config(self):
         with core_temp_config() as tmp:

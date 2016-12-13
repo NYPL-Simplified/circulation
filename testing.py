@@ -213,7 +213,7 @@ class DatabaseTest(object):
             pool = self._licensepool(wr, data_source_name=data_source_name,
                                      with_open_access_download=with_open_access_download)  
 
-            pool.set_presentation_edition(None)              
+            pool.set_presentation_edition()
             return wr, pool
         return wr
 
@@ -274,7 +274,7 @@ class DatabaseTest(object):
             if not work.license_pools:
                 work.license_pools.append(pool)
 
-            pool.set_presentation_edition(None)
+            pool.set_presentation_edition()
 
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.

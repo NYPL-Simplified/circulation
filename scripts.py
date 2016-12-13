@@ -47,6 +47,7 @@ from external_search import (
 )
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
+from oneclick import OneClickAPI, MockOneClickAPI
 from util.opds_writer import OPDSFeed
 
 from monitor import SubjectAssignmentMonitor
@@ -767,6 +768,65 @@ class CustomListManagementScript(Script):
         self._db.commit()
 
 
+class OneClickImportScript(Script):
+    """Import all books from a OneClick-subscribed library catalog."""
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--mock', 
+            help='If turned on, will use the MockOneClickAPI client.', 
+            action='store_true'
+        )
+        return parser
+
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(OneClickImportScript, self).__init__(_db=_db)
+
+        # get database connection passed in from test or establish a prod one
+        if _db:
+            db = _db
+        else:
+            db = self._db
+
+        parsed_args = self.parse_command_line(cmd_args=cmd_args)
+        self.mock_mode = parsed_args.mock
+
+        #set_trace()
+        if self.mock_mode:
+            self.log.debug(
+                "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
+            )
+            self.api = MockOneClickAPI(_db=db)
+        else:
+            self.api = OneClickAPI.from_config(_db=db)
+
+
+    def do_run(self):
+        print "OneClickImportScript.do_run"
+        self.log.info("OneClickImportScript.do_run().")
+        items_transmitted, items_created = self.api.populate_all_catalog()
+
+
+
+class OneClickDeltaScript(OneClickImportScript):
+    """Import book deletions, additions, and metadata changes for a 
+    OneClick-subscribed library catalog.
+    """
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(OneClickDeltaScript, self).__init__(_db=_db, cmd_args=cmd_args)
+
+
+    def do_run(self):
+        print "OneClickDeltaScript.do_run"
+        self.log.info("OneClickDeltaScript.do_run().")
+        items_transmitted, items_updated = self.api.populate_delta()
+
+
+
 class OPDSImportScript(Script):
     """Import all books from an OPDS feed."""
 
@@ -821,7 +881,7 @@ class NYTBestSellerListsScript(Script):
         for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
 
             name = l['list_name_encoded']
-            logging.info("Handling list %s" % name)
+            self.log.info("Handling list %s" % name)
             best = self.api.best_seller_list(l)
 
             if self.include_history:
@@ -831,7 +891,7 @@ class NYTBestSellerListsScript(Script):
 
             # Mirror the list to the database.
             customlist = best.to_customlist(self._db)
-            logging.info(
+            self.log.info(
                 "Now %s entries in the list.", len(customlist.entries))
             self._db.commit()
 
