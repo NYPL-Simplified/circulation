@@ -684,9 +684,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # and if this edition is newly made, then associate pool and edition
         # as presentation_edition
         if ((not license_pool.presentation_edition) and is_new_edition): 
-            edition_changed = license_pool.set_presentation_edition(
-                policy=None
-            )
+            edition_changed = license_pool.set_presentation_edition()
 
         if is_new_pool:
             license_pool.open_access = False

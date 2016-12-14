@@ -25,7 +25,8 @@ class MockAPI(MilleniumPatronAPI):
     def __init__(self, url="http://test-url/", *args, **kwargs):
         super(MockAPI, self).__init__(url, *args, **kwargs)
         self.queue = []
-
+        self.requests_made = []
+        
     def sample_data(self, filename):
         return sample_data(filename, 'millenium_patron')
 
@@ -34,6 +35,7 @@ class MockAPI(MilleniumPatronAPI):
         self.queue.append(data)
 
     def request(self, *args, **kwargs):
+        self.requests_made.append((args, kwargs))
         response = self.queue[0]
         self.queue = self.queue[1:]
         return MockResponse(response)
@@ -54,7 +56,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = MilleniumPatronAPI.from_config(config)
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
-            
+        
     def test_remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
         patrondata = PatronData(authorization_identifier="bad barcode")
@@ -349,3 +351,32 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)
         eq_([], patrondata.authorization_identifiers)
 
+    def test_verify_certificate(self):
+        """Test the ability to bypass verification of the Millenium Patron API
+        server's SSL certificate.
+        """
+        # By default, verify_certificate is True.
+        config = {
+            Configuration.URL : "http://example.com",
+        }
+        api = MilleniumPatronAPI.from_config(config)
+        eq_(True, api.verify_certificate)
+        
+        # But we can turn it off.
+        config = {
+            Configuration.URL : "http://example.com",
+            MilleniumPatronAPI.VERIFY_CERTIFICATE : False,
+        }
+        api = MilleniumPatronAPI.from_config(config)
+        eq_(False, api.verify_certificate)
+
+        # Test that the value of verify_certificate becomes the
+        # 'verify' argument when _modify_request_kwargs() is called.
+        kwargs = dict(verify=False)
+        api = MockAPI(verify_certificate = "yes please")
+        api._update_request_kwargs(kwargs)
+        eq_("yes please", kwargs['verify'])
+
+        # NOTE: We can't automatically test that request() actually
+        # calls _modify_request_kwargs() because request() is the
+        # method we override for mock purposes.
