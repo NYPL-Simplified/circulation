@@ -3567,7 +3567,6 @@ class Work(Base):
         # An open access pool may be "superceded", if there's a better-quality 
         # open-access pool available.
         self.mark_licensepools_as_superceded()
-
         edition_metadata_changed = False
         old_presentation_edition = self.presentation_edition
         new_presentation_edition = None
@@ -5799,8 +5798,10 @@ class LicensePool(Base):
             self.presentation_edition, edition_core_changed = metadata.apply(
                 edition, replace=policy
             )
+            changed = changed or edition_core_changed
 
-        changed = changed or self.presentation_edition.calculate_presentation()
+        presentation_changed = self.presentation_edition.calculate_presentation()
+        changed = changed or presentation_changed
 
         # if the license pool is associated with a work, and the work currently has no presentation edition, 
         # then do a courtesy call to the work, and tell it about the presentation edition.
@@ -5811,6 +5812,7 @@ class LicensePool(Base):
             self.presentation_edition != old_presentation_edition 
             or changed
         )
+
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
