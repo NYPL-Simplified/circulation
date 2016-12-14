@@ -367,12 +367,16 @@ class Pagination(object):
 
     @property
     def has_next_page(self):
-        """Returns boolean reporting whether pagination is done for a query"""
+        """Returns boolean reporting whether pagination is done for a query
+
+        This method only returns valid information _after_ self.apply
+        has been run on a query.
+        """
         if self.query_size is None:
             return True
         if self.query_size==0:
             return False
-        return (self.offset+1) * self.size < self.query_size
+        return self.offset + self.size < self.query_size
 
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
