@@ -4791,13 +4791,20 @@ class Resource(Base):
         """Choose the best covers from a list of Resources."""
         champions = []
         champion_score = None
+        champion_media_type_score = None
 
+        def media_type_priority(representation):
+            media_type = representation.media_type
+            if media_type in Representation.IMAGE_MEDIA_TYPES:
+                return Representation.IMAGE_MEDIA_TYPES.index(media_type)
+            return None
+            
         for r in resources:
             rep = r.representation
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
-
+            media_priority = media_type_priority(rep)
             quality = r.quality_as_thumbnail_image
             if not quality >= cls.MINIMUM_IMAGE_QUALITY:
                 # A Resource below the minimum quality threshold is not
@@ -4806,8 +4813,21 @@ class Resource(Base):
             if not champions or quality > champion_score:
                 champions = [r]
                 champion_score = r.quality
+                champion_media_type_priority = media_priority
             elif quality == champion_score:
-                champions.append(r)
+                # We have two images with the same score. One might be
+                # in a format we prefer.
+                if (not champion_media_type_priority
+                    or (media_priority is not None
+                        and media_priority < champion_media_type_priority)):
+                    print "%s beats %s" % (media_priority, champion_media_type_priority)
+                    champions = [r]
+                    champion_score = r.quality
+                    champion_media_type_priority = media_priority
+                elif media_priority == champion_media_type_priority:
+                    # Same score, same format. We have two champions.
+                    champions.append(r)
+        set_trace()
         return champions
 
     @property
@@ -6740,9 +6760,11 @@ class Representation(Base):
         MP3_MEDIA_TYPE,
     ]
 
+    # These media types are in the order we would prefer to use them.
+    # e.g. all else being equal, we would prefer a PNG to a JPEG.
     IMAGE_MEDIA_TYPES = [
-        JPEG_MEDIA_TYPE,
         PNG_MEDIA_TYPE,
+        JPEG_MEDIA_TYPE,
         GIF_MEDIA_TYPE,
         SVG_MEDIA_TYPE,
     ]
