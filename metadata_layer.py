@@ -1298,7 +1298,9 @@ class Metadata(MetaToModelUtility):
         to this MirrorUploader.
         :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes 
         answers the question: were any edition core fields harmed in the making of this update?  
-        So, if title changed, return True.  But if contributor changed, ignore and return False. 
+        So, if title changed, return True.  
+        New: If contributors changed, this is now considered a core change, 
+        so work.simple_opds_feed refresh can be triggered. 
         """
         _db = Session.object_session(edition)
         made_core_changes = False

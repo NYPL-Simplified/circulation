@@ -686,7 +686,6 @@ class WorkConsolidationScript(WorkProcessingScript):
 
     def do_run(self):
         super(WorkConsolidationScript, self).do_run()
-        set_trace()
         qu = self._db.query(Work).outerjoin(Work.license_pools).filter(
             LicensePool.id==None
         )
@@ -794,7 +793,6 @@ class OneClickImportScript(Script):
         parsed_args = self.parse_command_line(cmd_args=cmd_args)
         self.mock_mode = parsed_args.mock
 
-        #set_trace()
         if self.mock_mode:
             self.log.debug(
                 "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
