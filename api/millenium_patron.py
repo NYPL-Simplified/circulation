@@ -47,9 +47,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
 
     DEFAULT_CURRENCY = "USD"
-       
+
+    # A configuration value for whether or not to validate the SSL certificate
+    # of the Millenium Patron API server.
+    VERIFY_CERTIFICATE = "verify_certificate"
+    
     def __init__(self, url=None, authorization_identifier_blacklist=[],
-                 **kwargs):
+                 verify_certificate=True, **kwargs):
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
@@ -59,6 +63,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         if not url.endswith('/'):
             url = url + "/"
         self.root = url
+        self.verify_certificate=verify_certificate
         self.parser = etree.HTMLParser()
         self.blacklist = [re.compile(x, re.I)
                           for x in authorization_identifier_blacklist]
@@ -101,8 +106,15 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         """Actually make an HTTP request. This method exists only so the mock
         can override it.
         """
+        self._update_request_kwargs(kwargs)
         return HTTP.request_with_timeout("GET", url, *args, **kwargs)
 
+    def _update_request_kwargs(self, kwargs):
+        """Modify the kwargs to HTTP.request_with_timeout to reflect the API
+        configuration, in a testable way.
+        """
+        kwargs['verify'] = self.verify_certificate
+    
     def patron_dump_to_patrondata(self, current_identifier, content):
         """Convert an HTML patron dump to a PatronData object.
         
