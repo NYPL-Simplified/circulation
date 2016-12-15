@@ -414,6 +414,8 @@ class AcquisitionFeed(OPDSFeed):
                cache_type=None, force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
+
+        :return: CachedFeed (if use_cache is True) or unicode
         """
         cached = None
         if use_cache:
@@ -514,7 +516,10 @@ class AcquisitionFeed(OPDSFeed):
              cache_type=None, facets=None, pagination=None,
              force_refresh=False, use_materialized_works=True
     ):
-        """Create a feed representing one page of works from a given lane."""
+        """Create a feed representing one page of works from a given lane.
+
+        :return: CachedFeed (if use_cache is True) or unicode
+        """
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
 
