@@ -179,6 +179,7 @@ class OPDSXMLParser(XMLParser):
                    "opds": "http://opds-spec.org/2010/catalog",
                    "schema" : "http://schema.org/",
                    "atom" : "http://www.w3.org/2005/Atom",
+                   "drm": "http://librarysimplified.org/terms/drm",
     }
 
 
