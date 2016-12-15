@@ -787,8 +787,7 @@ class TestOPDS(WithVendorIDTest):
 
         [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
         
-        adobe_identifier = annotator._adobe_patron_identifier(patron)
-        [generic_tag] = annotator.adobe_id_tags(adobe_identifier)
+        [generic_tag] = annotator.adobe_id_tags(patron)
 
         # The feed-level tag has the drm:scheme attribute set.
         key = '{http://librarysimplified.org/terms/drm}scheme'

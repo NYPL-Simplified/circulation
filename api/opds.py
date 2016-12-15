@@ -24,6 +24,7 @@ from core.model import (
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Patron,
     Session,
     BaseMaterializedWork,
     Work,
@@ -611,11 +612,10 @@ class CirculationManagerAnnotator(Annotator):
             # with the DRM server.
             _db = Session.object_session(active_loan)
             patron = active_loan.patron
-            patron_identifier = self._adobe_patron_identifier(patron)
             
             # Generate a <drm:licensor> tag that can feed into the
             # Vendor ID service.
-            return self.adobe_id_tags(patron_identifier)
+            return self.adobe_id_tags(patron)
         return []
    
     def adobe_id_tags(self, patron_identifier):
@@ -634,6 +634,8 @@ class CirculationManagerAnnotator(Annotator):
         # reuse them across <entry> tags. This saves a little time,
         # makes tests more reliable, and stops us from providing a
         # different authdata value for every <entry> tag.
+        if isinstance(patron_identifier, Patron):
+            patron_identifier = self._adobe_patron_identifier(patron_identifier)
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
@@ -762,8 +764,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         This allows us to deregister an Adobe ID, in preparation for
         logout, even if there is no active loan that requires one.
         """
-        patron_identifier = self._adobe_patron_identifier(patron)
-        tags = copy.deepcopy(self.adobe_id_tags(patron_identifier))
+        tags = copy.deepcopy(self.adobe_id_tags(patron))
         attr = '{%s}scheme' % OPDSFeed.DRM_NS
         for tag in tags:
             tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"
