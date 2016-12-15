@@ -6402,7 +6402,7 @@ class RightsStatus(Base):
 
     # A URI unique to the license. This may be a URL (e.g. Creative
     # Commons)
-    uri = Column(String, index=True)
+    uri = Column(String, index=True, unique=True)
 
     # Human-readable name of the license.
     name = Column(String, index=True)

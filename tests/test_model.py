@@ -17,6 +17,10 @@ from nose.tools import (
 
 from psycopg2.extras import NumericRange
 
+from sqlalchemy.exc import (
+    IntegrityError,
+)
+
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
@@ -4165,6 +4169,17 @@ class TestRightsStatus(DatabaseTest):
         status = RightsStatus.lookup(self._db, "not a known rights uri")
         eq_(RightsStatus.UNKNOWN, status.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status.name)
+
+    def test_unique_uri_constraint(self):
+        # We already have this RightsStatus.
+        status = RightsStatus.lookup(self._db, RightsStatus.IN_COPYRIGHT)
+
+        # Let's try to create another one with the same URI.
+        dupe = RightsStatus(uri=RightsStatus.IN_COPYRIGHT)
+        self._db.add(dupe)
+
+        # Nope.
+        assert_raises(IntegrityError, self._db.commit)
 
 
 class TestCredentials(DatabaseTest):
