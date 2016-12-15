@@ -3946,6 +3946,25 @@ class TestCoverResource(DatabaseTest):
         eq_(None, thumbnail.thumbnail_of)
         assert thumbnail.url != url
 
+    def test_image_type_priority(self):
+        """Test the image_type_priority method.
+
+        All else being equal, we prefer some image types over
+        others. Better image types get lower numbers.
+        """
+        m = Resource.image_type_priority
+        eq_(None, m(None))
+        eq_(None, m(Representation.EPUB_MEDIA_TYPE))
+
+        png = m(Representation.PNG_MEDIA_TYPE)
+        jpeg = m(Representation.JPEG_MEDIA_TYPE)
+        gif = m(Representation.GIF_MEDIA_TYPE)
+        svg = m(Representation.SVG_MEDIA_TYPE)
+
+        assert png < jpeg
+        assert jpeg < gif
+        assert gif < svg
+        
     def test_best_covers_among(self):
         # Here's a book with a thumbnail image.
         edition, pool = self._edition(with_license_pool=True)
@@ -3993,16 +4012,22 @@ class TestCoverResource(DatabaseTest):
         link4, ignore = pool.add_link(
             Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
         )
+        decent_cover_2 = self.sample_cover_representation("test-book-cover.png")
         resource_with_decent_cover_2 = link4.resource
-        resource_with_decent_cover_2.representation = decent_cover
+        resource_with_decent_cover_2.representation = decent_cover_2
+
         l = [resource_with_decent_cover, resource_with_decent_cover_2]
 
         # best_covers_among() can't decide between the two -- they have
         # the same score.
         eq_(set(l), set(Resource.best_covers_among(l)))
 
-        # But if we give one of them a bump by saying it's the one the
-        # metadata wrangler said to use...
+        # All else being equal, if one cover is an PNG and the other
+        # is a JPEG, we prefer the PNG.
+        resource_with_decent_cover.representation.media_type = Representation.JPEG_MEDIA_TYPE
+        eq_([resource_with_decent_cover_2], Resource.best_covers_among(l))
+        
+        # But if the metadata wrangler said to use the JPEG, we use the JPEG.
         metadata_wrangler = DataSource.lookup(
             self._db, DataSource.METADATA_WRANGLER
         )
@@ -4010,7 +4035,6 @@ class TestCoverResource(DatabaseTest):
 
         # ...the decision becomes easy.
         eq_([resource_with_decent_cover], Resource.best_covers_among(l))
-
 
     def test_quality_as_thumbnail_image(self):
 
