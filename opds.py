@@ -410,24 +410,25 @@ class AcquisitionFeed(OPDSFeed):
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator, cache_type=None,
-               force_refresh=False, use_materialized_works=True):
+    def groups(cls, _db, title, url, lane, annotator, use_cache=True,
+               cache_type=None, force_refresh=False, use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
         """
-        # Find or create a CachedFeed.
-        cache_type = cache_type or CachedFeed.GROUPS_TYPE
-        cached, usable = CachedFeed.fetch(
-            _db,
-            lane=lane,
-            type=cache_type,
-            facets=None,
-            pagination=None,
-            annotator=annotator,
-            force_refresh=force_refresh
-        )
-        if usable:
-            return cached
+        cached = None
+        if use_cache:
+            cache_type = cache_type or CachedFeed.GROUPS_TYPE
+            cached, usable = CachedFeed.fetch(
+                _db,
+                lane=lane,
+                type=cache_type,
+                facets=None,
+                pagination=None,
+                annotator=annotator,
+                force_refresh=force_refresh
+            )
+            if usable:
+                return cached
 
         works_and_lanes = lane.sublane_samples(
             use_materialized_works=use_materialized_works
@@ -446,9 +447,10 @@ class AcquisitionFeed(OPDSFeed):
             # asks for it.
             cached = cls.page(
                 _db, title, url, lane, annotator,
-                cache_type=CachedFeed.GROUPS_TYPE,
+                cache_type=cache_type,
                 force_refresh=force_refresh,
-                use_materialized_works=use_materialized_works
+                use_materialized_works=use_materialized_works,
+                use_cache=use_cache
             )
             return cached
 
@@ -502,32 +504,34 @@ class AcquisitionFeed(OPDSFeed):
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
-        cached.update(content)
-        return cached
+        if cached and use_cache:
+            cached.update(content)
+            return cached
+        return content
 
     @classmethod
-    def page(cls, _db, title, url, lane, annotator=None,
-             facets=None, pagination=None,
-             cache_type=None, force_refresh=False,
-             use_materialized_works=True
+    def page(cls, _db, title, url, lane, annotator, use_cache=True,
+             cache_type=None, facets=None, pagination=None,
+             force_refresh=False, use_materialized_works=True
     ):
         """Create a feed representing one page of works from a given lane."""
         facets = facets or Facets.default()
         pagination = pagination or Pagination.default()
-        cache_type = cache_type or CachedFeed.PAGE_TYPE
 
-        # Find or create a CachedFeed.
-        cached, usable = CachedFeed.fetch(
-            _db,
-            lane=lane,
-            type=cache_type,
-            facets=facets,
-            pagination=pagination,
-            annotator=annotator,
-            force_refresh=force_refresh
-        )
-        if usable:
-            return cached
+        cached = None
+        if use_cache:
+            cache_type = cache_type or CachedFeed.PAGE_TYPE
+            cached, usable = CachedFeed.fetch(
+                _db,
+                lane=lane,
+                type=cache_type,
+                facets=facets,
+                pagination=pagination,
+                annotator=annotator,
+                force_refresh=force_refresh
+            )
+            if usable:
+                return cached
 
         if use_materialized_works:
             works_q = lane.materialized_works(facets, pagination)
@@ -572,8 +576,10 @@ class AcquisitionFeed(OPDSFeed):
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
-        cached.update(content)
-        return cached
+        if cached and use_cache:
+            cached.update(content)
+            return cached
+        return content
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query, pagination=None,
