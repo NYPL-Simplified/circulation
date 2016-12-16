@@ -817,7 +817,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Note the colon characters that replaced the plus signs in
         # what would otherwise be normal base64 text.
-        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC:uTE:t7pAwqYxM=\n',
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC:uTE:t7pAwqYxM=',
             value
         )
 
@@ -927,11 +927,11 @@ class TestAuthdataUtility(VendorIDTest):
         value = 'LbU}66%\\-4zt>R>_)\n2Q'
 
         encoded = AuthdataUtility.adobe_base64_encode(value)
-        eq_('TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', encoded)
+        eq_('TGJVfTY2JVwtNHp0PlI:XykKMlE=', encoded)
 
         # This is like normal base64 encoding, but with a colon
-        # replacing the plus character.
-        eq_(encoded.replace(":", "+"), base64.encodestring(value))
+        # replacing the plus character and the final newline stripped.
+        eq_(encoded.replace(":", "+") + "\n", base64.encodestring(value))
 
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
@@ -948,7 +948,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The signature part of the token has been encoded with our
         # custom encoding, not vanilla base64.
-        eq_('lib|0|1234|TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', token)
+        eq_('lib|0|1234|TGJVfTY2JVwtNHp0PlI:XykKMlE=', token)
         
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 

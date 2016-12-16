@@ -619,10 +619,10 @@ class AuthdataUtility(object):
 
         The bug seems to happen when the 'password' portion of a
         username/password pair contains a + character. So we replace +
-        with :.
+        with :. We also strip newlines.
         """
         encoded = base64.encodestring(str)
-        return encoded.replace("+", ":")
+        return encoded.replace("+", ":").strip()
 
     @classmethod
     def adobe_base64_decode(cls, str):
