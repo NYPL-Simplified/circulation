@@ -797,7 +797,9 @@ class OneClickImportScript(Script):
             self.log.debug(
                 "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
             )
-            self.api = MockOneClickAPI(_db=db)
+            base_path = os.path.split(__file__)[0]
+            base_path = os.path.join(base_path, "tests")
+            self.api = MockOneClickAPI(_db=db, base_path=base_path)
         else:
             self.api = OneClickAPI.from_config(_db=db)
 

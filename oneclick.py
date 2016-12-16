@@ -492,7 +492,7 @@ class OneClickAPI(object):
 
 class MockOneClickAPI(OneClickAPI):
 
-    def __init__(self, _db, with_token=True, *args, **kwargs):
+    def __init__(self, _db, with_token=True, base_path=None, *args, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['OneClick'] = {
                 'library_id' : 'library_id_123',
@@ -517,9 +517,8 @@ class MockOneClickAPI(OneClickAPI):
 
         self.responses = []
         self.requests = []
-
-        base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "tests/files", "oneclick")
+        base_path = base_path or os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "oneclick")
 
 
     def queue_response(self, status_code, headers={}, content=None):
