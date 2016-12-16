@@ -408,16 +408,19 @@ class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
     FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
+    NO_CACHE = object()
 
     @classmethod
-    def groups(cls, _db, title, url, lane, annotator, use_cache=True,
-               cache_type=None, force_refresh=False, use_materialized_works=True):
+    def groups(cls, _db, title, url, lane, annotator,
+               cache_type=None, force_refresh=False,
+               use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
         cached = None
+        use_cache = not cache_type == cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached, usable = CachedFeed.fetch(
@@ -451,8 +454,7 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                use_materialized_works=use_materialized_works,
-                use_cache=use_cache
+                use_materialized_works=use_materialized_works
             )
             return cached
 
@@ -512,7 +514,7 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
-    def page(cls, _db, title, url, lane, annotator, use_cache=True,
+    def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
              force_refresh=False, use_materialized_works=True
     ):
@@ -524,6 +526,7 @@ class AcquisitionFeed(OPDSFeed):
         pagination = pagination or Pagination.default()
 
         cached = None
+        use_cache = not cache_type == cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.PAGE_TYPE
             cached, usable = CachedFeed.fetch(
