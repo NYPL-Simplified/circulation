@@ -51,11 +51,11 @@ class OneClickTest(DatabaseTest):
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
 
-    def get_data(self, filename):
-        # returns contents of sample file as string and as dict
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data, json.loads(data)
+    #def get_data(self, filename):
+    #    # returns contents of sample file as string and as dict
+    #    path = os.path.join(self.resource_path, filename)
+    #    data = open(path).read()
+    #    return data, json.loads(data)
 
 
 class TestOneClickAPI(OneClickTest):
@@ -75,7 +75,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_search(self):
-        datastr, datadict = self.get_data("response_search_one_item_1.json")
+        datastr, datadict = self.api.get_data("response_search_one_item_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         response = self.api.search(mediatype='ebook', author="Alexander Mccall Smith", title="Tea Time for the Traditionally Built")
@@ -85,7 +85,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_all_available_through_search(self):
-        datastr, datadict = self.get_data("response_search_five_items_1.json")
+        datastr, datadict = self.api.get_data("response_search_five_items_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         response_dictionary = self.api.get_all_available_through_search()
@@ -97,7 +97,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_all_catalog(self):
-        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        datastr, datadict = self.api.get_data("response_catalog_all_sample.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         catalog = self.api.get_all_catalog()
@@ -106,7 +106,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_delta(self):
-        datastr, datadict = self.get_data("response_catalog_delta.json")
+        datastr, datadict = self.api.get_data("response_catalog_delta.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         assert_raises_regexp(
@@ -137,7 +137,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_ebook_availability_info(self):
-        datastr, datadict = self.get_data("response_availability_ebook_1.json")
+        datastr, datadict = self.api.get_data("response_availability_ebook_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         
         response_list = self.api.get_ebook_availability_info()
@@ -146,7 +146,7 @@ class TestOneClickAPI(OneClickTest):
 
 
     def test_get_metadata_by_isbn(self):
-        datastr, datadict = self.get_data("response_isbn_notfound_1.json")
+        datastr, datadict = self.api.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         
         response_dictionary = self.api.get_metadata_by_isbn('97BADISBNFAKE')
@@ -160,7 +160,7 @@ class TestOneClickAPI(OneClickTest):
             self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
         )
 
-        datastr, datadict = self.get_data("response_isbn_found_1.json")
+        datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(status_code=200, content=datastr)
         response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
         eq_(u'9780307378101', response_dictionary['isbn'])
@@ -173,7 +173,7 @@ class TestOneClickRepresentationExtractor(OneClickTest):
     def test_book_info_with_metadata(self):
         # Tests that can convert a oneclick json block into a Metadata object.
 
-        datastr, datadict = self.get_data("response_isbn_found_1.json")
+        datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict)
 
         eq_("Tea Time for the Traditionally Built", metadata.title)
@@ -290,7 +290,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         identifier = self._identifier()
         identifier.identifier = 'ISBNbadbad'
         
-        datastr, datadict = self.get_data("response_isbn_notfound_1.json")
+        datastr, datadict = self.api.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         failure = self.provider.process_item(identifier)
@@ -303,7 +303,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         # Test the normal workflow where we ask OneClick for data,
         # OneClick provides it, and we create a presentation-ready work.
         
-        datastr, datadict = self.get_data("response_isbn_found_1.json")
+        datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(200, content=datastr)
         
         # Here's the book mentioned in response_isbn_found_1.

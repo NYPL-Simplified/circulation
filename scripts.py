@@ -806,6 +806,10 @@ class OneClickImportScript(Script):
         print "OneClickImportScript.do_run"
         self.log.info("OneClickImportScript.do_run().")
         items_transmitted, items_created = self.api.populate_all_catalog()
+        result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
+        print result_string
+        self.log.info(result_string)
+
 
 
 
