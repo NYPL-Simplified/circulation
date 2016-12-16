@@ -515,14 +515,41 @@ class TestOPDS(WithVendorIDTest):
         assert identifier.identifier in annotations_link['href']
 
     def test_active_loan_feed(self):
-        patron = self._patron()
-        raw = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron, test_mode=True)
-        # Nothing in the feed.
-        raw = unicode(raw)
-        feed = feedparser.parse(raw)
-        eq_(0, len(feed['entries']))
+        with self.temp_config() as config:
+            patron = self._patron()
+            cls = CirculationManagerLoanAndHoldAnnotator
+            raw = cls.active_loans_for(None, patron, test_mode=True)
+            # No entries in the feed...
+            raw = unicode(raw)
+            feed = feedparser.parse(raw)
+            eq_(0, len(feed['entries']))
 
+            # ... but we do have DRM licensing information.
+            tree = etree.fromstring(raw)
+            parser = OPDSXMLParser()
+            licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
+
+            adobe_patron_identifier = cls._adobe_patron_identifier(
+                patron
+            )
+
+            # The DRM licensing information includes the Adobe vendor ID
+            # and the patron's patron identifier for Adobe purposes.
+            eq_('Some Vendor',
+                licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
+            [client_token] = licensor.getchildren()
+            assert client_token.text.startswith('A LIBRARY')
+            assert adobe_patron_identifier in client_token.text
+
+            # Unlike other places this tag shows up, we use the
+            # 'scheme' attribute to explicitly state that this
+            # <drm:licensor> tag is talking about an ACS licensing
+            # scheme. Since we're in a <feed> and not a <link> to a
+            # specific book, that context would otherwise be lost.
+            eq_('http://librarysimplified.org/terms/drm/scheme/ACS',
+                licensor.attrib['{http://librarysimplified.org/terms/drm}scheme'])
+
+            
         now = datetime.datetime.utcnow()
         tomorrow = now + datetime.timedelta(days=1)
 
@@ -750,6 +777,27 @@ class TestOPDS(WithVendorIDTest):
         eq_("http://streaming_link", fulfill_links[0]['href'])
 
 
+    def test_drm_device_registration_feed_tags(self):
+        """Check that drm_device_registration_feed_tags returns 
+        a generic drm:licensor tag, except with the drm:scheme attribute 
+        set.
+        """ 
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
+        patron = self._patron()
+        with self.temp_config() as config:
+            [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
+            [generic_tag] = annotator.adobe_id_tags(patron)
+
+        # The feed-level tag has the drm:scheme attribute set.
+        key = '{http://librarysimplified.org/terms/drm}scheme'
+        eq_("http://librarysimplified.org/terms/drm/scheme/ACS",
+            feed_tag.attrib[key])
+
+        # If we remove that attribute, the feed-level tag is the same as the
+        # generic tag.
+        del feed_tag.attrib[key]
+        eq_(etree.tostring(feed_tag), etree.tostring(generic_tag))
+        
     def test_borrow_link_raises_unfulfillable_work(self):
         edition, pool = self._edition(with_license_pool=True)
         kindle_mechanism = pool.set_delivery_mechanism(

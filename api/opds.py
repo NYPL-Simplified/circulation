@@ -24,6 +24,7 @@ from core.model import (
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Patron,
     Session,
     BaseMaterializedWork,
     Work,
@@ -332,7 +333,7 @@ class CirculationManagerAnnotator(Annotator):
         feed.add_link_to_feed(feed.feed, **annotations_link)
 
         self.add_configuration_links(feed)
-
+        
     @classmethod
     def add_configuration_links(cls, feed):
         for rel, value in (
@@ -582,7 +583,20 @@ class CirculationManagerAnnotator(Annotator):
         )
         link_tag.extend(children)
         return link_tag
-   
+
+    @classmethod
+    def _adobe_patron_identifier(self, patron):
+        _db = Session.object_session(patron)
+        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        patron_identifier = Credential.lookup(
+            _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+            refresher_method=refresh, allow_persistent_token=True
+        )
+        return patron_identifier.credential
+    
     def drm_device_registration_tags(self, license_pool, active_loan,
                                      delivery_mechanism):
         """Construct OPDS Extensions for DRM tags that explain how to 
@@ -598,21 +612,12 @@ class CirculationManagerAnnotator(Annotator):
             # with the DRM server.
             _db = Session.object_session(active_loan)
             patron = active_loan.patron
-            internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-
-            def refresh(credential):
-                credential.credential = str(uuid.uuid1())
-            patron_identifier = Credential.lookup(
-                _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
-                refresher_method=refresh, allow_persistent_token=True
-            )
-            patron_identifier = patron_identifier.credential
-
+            
             # Generate a <drm:licensor> tag that can feed into the
             # Vendor ID service.
-            return self.adobe_id_tags(patron_identifier)
+            return self.adobe_id_tags(patron)
         return []
-
+   
     def adobe_id_tags(self, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
         explain how to get an Adobe ID for this patron.
@@ -629,6 +634,8 @@ class CirculationManagerAnnotator(Annotator):
         # reuse them across <entry> tags. This saves a little time,
         # makes tests more reliable, and stops us from providing a
         # different authdata value for every <entry> tag.
+        if isinstance(patron_identifier, Patron):
+            patron_identifier = self._adobe_patron_identifier(patron_identifier)
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
@@ -704,7 +711,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
         annotator.annotate_feed(feed_obj, None)
         return feed_obj
-
+    
     @classmethod
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
@@ -749,6 +756,29 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                 db, "Active loan for unknown work", url, [], annotator)
         return AcquisitionFeed.single_entry(db, work, annotator)
 
+    def drm_device_registration_feed_tags(self, patron):
+        """Return tags that provide information on DRM device deregistration
+        independent of any particular loan. These tags will go under
+        the <feed> tag.
+
+        This allows us to deregister an Adobe ID, in preparation for
+        logout, even if there is no active loan that requires one.
+        """
+        tags = copy.deepcopy(self.adobe_id_tags(patron))
+        attr = '{%s}scheme' % OPDSFeed.DRM_NS
+        for tag in tags:
+            tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"
+        return tags
+
+    def annotate_feed(self, feed, lane):
+        """Add feed-level DRM device registration tags to the feed."""
+        super(CirculationManagerLoanAndHoldAnnotator, self).annotate_feed(
+            feed, lane
+        )
+        if self.patron:
+            tags = self.drm_device_registration_feed_tags(self.patron)
+            for tag in tags:
+                feed.feed.append(tag)
 
 class PreloadFeed(AcquisitionFeed):
 
