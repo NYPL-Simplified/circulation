@@ -816,8 +816,10 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
         # Note the colon characters that replaced the plus signs in
-        # what would otherwise be normal base64 text.
-        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC:uTE:t7pAwqYxM=\n',
+        # what would otherwise be normal base64 text. Similarly for
+        # the semicolon which replaced the slash, and the at sign which
+        # replaced the equals sign.
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ;o1H0Z3chbC:uTE:t7pAwqYxM@',
             value
         )
 
@@ -924,14 +926,19 @@ class TestAuthdataUtility(VendorIDTest):
         """Test our special variant of base64 encoding designed to avoid
         triggering an Adobe bug.
         """
-        value = 'LbU}66%\\-4zt>R>_)\n2Q'
-
+        value = "!\tFN6~'Es52?X!#)Z*_S"
+        
         encoded = AuthdataUtility.adobe_base64_encode(value)
-        eq_('TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', encoded)
+        eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', encoded)
 
         # This is like normal base64 encoding, but with a colon
-        # replacing the plus character.
-        eq_(encoded.replace(":", "+"), base64.encodestring(value))
+        # replacing the plus character, a semicolon replacing the
+        # slash, an at sign replacing the equal sign and the final
+        # newline stripped.
+        eq_(
+            encoded.replace(":", "+").replace(";", "/").replace("@", "=") + "\n",
+            base64.encodestring(value)
+        )
 
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))
@@ -939,16 +946,16 @@ class TestAuthdataUtility(VendorIDTest):
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):
             def sign(self, value, key):
-                """Always return the same signature, crafted to contain 
-                a plus sign when base64-encoded.
+                """Always return the same signature, crafted to contain a 
+                plus sign, a slash and an equal sign when base64-encoded.
                 """
-                return 'LbU}66%\\-4zt>R>_)\n2Q'
+                return "!\tFN6~'Es52?X!#)Z*_S"
         self.authdata.short_token_signer = MockSigner()
         token = self.authdata._encode_short_client_token("lib", "1234", 0)
 
         # The signature part of the token has been encoded with our
         # custom encoding, not vanilla base64.
-        eq_('lib|0|1234|TGJVfTY2JVwtNHp0PlI:XykKMlE=\n', token)
+        eq_('lib|0|1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', token)
         
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
