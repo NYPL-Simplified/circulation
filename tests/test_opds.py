@@ -784,10 +784,9 @@ class TestOPDS(WithVendorIDTest):
         """ 
         annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
         patron = self._patron()
-
-        [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
-        
-        [generic_tag] = annotator.adobe_id_tags(patron)
+        with self.temp_config() as config:
+            [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
+            [generic_tag] = annotator.adobe_id_tags(patron)
 
         # The feed-level tag has the drm:scheme attribute set.
         key = '{http://librarysimplified.org/terms/drm}scheme'
