@@ -49,13 +49,7 @@ class OneClickTest(DatabaseTest):
         super(OneClickTest, self).setup()
         base_path = os.path.split(__file__)[0]
         self.api = MockOneClickAPI(_db=self._db, base_path=base_path)
-        #self.resource_path = os.path.join(base_path, "files", "oneclick")
 
-    #def get_data(self, filename):
-    #    # returns contents of sample file as string and as dict
-    #    path = os.path.join(self.resource_path, filename)
-    #    data = open(path).read()
-    #    return data, json.loads(data)
 
 
 class TestOneClickAPI(OneClickTest):
