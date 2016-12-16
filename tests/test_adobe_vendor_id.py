@@ -816,8 +816,9 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
         # Note the colon characters that replaced the plus signs in
-        # what would otherwise be normal base64 text.
-        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ/o1H0Z3chbC:uTE:t7pAwqYxM=',
+        # what would otherwise be normal base64 text. Similarly for
+        # the semicolon which replaced the slash.
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ;o1H0Z3chbC:uTE:t7pAwqYxM=',
             value
         )
 
@@ -924,14 +925,15 @@ class TestAuthdataUtility(VendorIDTest):
         """Test our special variant of base64 encoding designed to avoid
         triggering an Adobe bug.
         """
-        value = 'LbU}66%\\-4zt>R>_)\n2Q'
-
+        value = "!\tFN6~'Es52?X!#)Z*_S"
+        
         encoded = AuthdataUtility.adobe_base64_encode(value)
-        eq_('TGJVfTY2JVwtNHp0PlI:XykKMlE=', encoded)
+        eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M=', encoded)
 
         # This is like normal base64 encoding, but with a colon
-        # replacing the plus character and the final newline stripped.
-        eq_(encoded.replace(":", "+") + "\n", base64.encodestring(value))
+        # replacing the plus character, a semicolon replacing the
+        # slash and the final newline stripped.
+        eq_(encoded.replace(":", "+").replace(";", "/") + "\n", base64.encodestring(value))
 
         # We can reverse the encoding to get the original value.
         eq_(value, AuthdataUtility.adobe_base64_decode(encoded))

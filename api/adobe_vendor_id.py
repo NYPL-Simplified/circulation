@@ -622,12 +622,12 @@ class AuthdataUtility(object):
         with :. We also strip newlines.
         """
         encoded = base64.encodestring(str)
-        return encoded.replace("+", ":").strip()
+        return encoded.replace("+", ":").replace("/", ";").strip()
 
     @classmethod
     def adobe_base64_decode(cls, str):
         """Undoes adobe_base64_encode."""
-        encoded = str.replace(":", "+")
+        encoded = str.replace(":", "+").replace(";", "/")
         return base64.decodestring(encoded)
     
     def decode(self, authdata):
