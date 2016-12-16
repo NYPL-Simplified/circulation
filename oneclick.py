@@ -382,6 +382,9 @@ class OneClickAPI(object):
             if not isinstance(result, CoverageFailure):
                 items_created += 1
 
+        # stay data, stay!
+        self._db.commit()
+
         return items_transmitted, items_created
 
 
@@ -852,8 +855,6 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         result = self.set_metadata(
             identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
         )
-
-        self._db.commit()
 
         return result
 
