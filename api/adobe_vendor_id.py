@@ -619,7 +619,8 @@ class AuthdataUtility(object):
 
         The bug seems to happen when the 'password' portion of a
         username/password pair contains a + character. So we replace +
-        with :. We also strip newlines.
+        with :. We also replace / (another "suspicious" character)
+        with ;. and strip newlines.
         """
         encoded = base64.encodestring(str)
         return encoded.replace("+", ":").replace("/", ";").strip()
