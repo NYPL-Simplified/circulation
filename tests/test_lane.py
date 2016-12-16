@@ -1099,5 +1099,5 @@ class TestPagination(DatabaseTest):
         eq_(True, pagination.has_next_page)
 
         # Even when the query ends at the same size as a page, all is well.
-        pagination.offset = 2
+        pagination.offset = 4
         eq_(False, pagination.has_next_page)
