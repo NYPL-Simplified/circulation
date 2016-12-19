@@ -382,6 +382,9 @@ class OneClickAPI(object):
             if not isinstance(result, CoverageFailure):
                 items_created += 1
 
+        # stay data, stay!
+        self._db.commit()
+
         return items_transmitted, items_created
 
 
@@ -492,7 +495,7 @@ class OneClickAPI(object):
 
 class MockOneClickAPI(OneClickAPI):
 
-    def __init__(self, _db, with_token=True, *args, **kwargs):
+    def __init__(self, _db, with_token=True, base_path=None, *args, **kwargs):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS]['OneClick'] = {
                 'library_id' : 'library_id_123',
@@ -517,6 +520,8 @@ class MockOneClickAPI(OneClickAPI):
 
         self.responses = []
         self.requests = []
+        base_path = base_path or os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "oneclick")
 
 
     def queue_response(self, status_code, headers={}, content=None):
@@ -533,6 +538,25 @@ class MockOneClickAPI(OneClickAPI):
             url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
         )
+
+
+    def get_data(self, filename):
+        # returns contents of sample file as string and as dict
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+
+    def populate_all_catalog(self):
+        """ 
+        Set up to use the smaller test catalog file, and then call the real 
+        populate_all_catalog.  Used to test import on non-test permanent database.  
+        """
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        self.queue_response(status_code=200, content=datastr)
+        items_transmitted, items_created = super(MockOneClickAPI, self).populate_all_catalog()
+
+        return items_transmitted, items_created
 
 
 
@@ -831,6 +855,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         result = self.set_metadata(
             identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
         )
+
         return result
 
 
