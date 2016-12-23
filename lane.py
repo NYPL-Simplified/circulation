@@ -23,6 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import (
     contains_eager,
     defer,
+    joinedload,
     lazyload,
 )
 
@@ -943,11 +944,11 @@ class Lane(object):
         """
 
         q = self._db.query(Work).join(Work.presentation_edition)
-        q = q.join(Work.license_pools).join(LicensePool.data_source).join(
-            LicensePool.identifier
-        )
+        q = q.join(Work.license_pools).enable_eagerloads(False).\
+            join(LicensePool.data_source).\
+            join(LicensePool.identifier)
         q = q.options(
-            contains_eager(Work.license_pools),
+            joinedload(Work.license_pools),
             contains_eager(Work.presentation_edition),
             contains_eager(Work.license_pools, LicensePool.data_source),
             contains_eager(Work.license_pools, LicensePool.presentation_edition),
