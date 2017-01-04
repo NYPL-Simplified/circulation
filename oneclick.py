@@ -13,13 +13,7 @@ from config import (
     temp_config,
 )
 
-from util import LanguageCodes
-
-from util.http import (
-    BadResponseException, 
-    HTTP,
-)
-from coverage import CoverageFailure
+from coverage import BibliographicCoverageProvider, CoverageFailure
 
 from model import (
     Contributor,
@@ -44,8 +38,16 @@ from metadata_layer import (
     SubjectData,
 )
 
-from config import Configuration
-from coverage import BibliographicCoverageProvider
+from util import LanguageCodes
+
+from util.personal_names import name_tidy, sort_name_to_display_name
+
+from util.http import (
+    BadResponseException, 
+    HTTP,
+)
+
+
 
 class OneClickAPI(object):
 
@@ -671,8 +673,10 @@ class OneClickRepresentationExtractor(object):
                 for author in authors.split(";"):
                     sort_name = author.strip()
                     if sort_name:
+                        sort_name = name_tidy(sort_name)
+                        display_name = sort_name_to_display_name(sort_name)
                         roles = [Contributor.AUTHOR_ROLE]
-                        contributor = ContributorData(sort_name=sort_name, display_name=sort_name, roles=roles)
+                        contributor = ContributorData(sort_name=sort_name, display_name=display_name, roles=roles)
                         contributors.append(contributor)
 
             if 'narrators' in book:
@@ -680,8 +684,10 @@ class OneClickRepresentationExtractor(object):
                 for narrator in narrators.split(";"):
                     sort_name = narrator.strip()
                     if sort_name:
+                        sort_name = name_tidy(sort_name)
+                        display_name = sort_name_to_display_name(sort_name)
                         roles = [Contributor.NARRATOR_ROLE]
-                        contributor = ContributorData(sort_name=sort_name, display_name=sort_name, roles=roles)
+                        contributor = ContributorData(sort_name=sort_name, display_name=display_name, roles=roles)
                         contributors.append(contributor)
 
             subjects = []

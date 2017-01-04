@@ -2,6 +2,7 @@ from fuzzywuzzy import fuzz
 from nameparser import HumanName
 from nose.tools import set_trace
 import re
+import unicodedata
 
 from permanent_work_id import WorkIDCalculator;
 
@@ -45,6 +46,18 @@ def display_name_to_sort_name(display_name):
         return parts[-1] + ", " + " ".join(parts[:-1])
 
 
+def name_tidy(name):
+    """
+    Convert to NFKD unicode.
+    Strip excessive whitespace.display_name.
+    """
+    name = unicodedata.normalize("NFKD", unicode(name))
+    name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
+    name = name.strip()
+
+    return name
+
+
 def normalize_contributor_name_for_matching(name):
     """
     Used to standardize author names before matching them to each other to identify best results 
@@ -74,6 +87,31 @@ def normalize_contributor_name_for_matching(name):
     return name
 
 
+def sort_name_to_display_name(sort_name):
+    """
+    Take the "Last Name, First Name"-formatted sort_name, and convert it 
+    to a "First Name Last Name" format appropriate for displaying to patrons in a catalog listing.
+
+    While the code attempts to do the best it can, name recognition gets complicated 
+    really fast when there's more than one plain-format first name and one plain-format last name. 
+    This code is meant to serve as first line of approximation.  If we later on can find better 
+    human librarian-checked sort and display names in the Metadata Wrangler, we use those.
+    
+    :param sort_name Doe, Jane
+    :return display_name Jane Doe
+    """
+    if not sort_name:
+        return None
+
+    name = HumanName(sort_name)
+    # name has title, first, middle, last, suffix, nickname
+    if name.nickname:
+        name.nickname = '(' + name.nickname + ')'
+    display_name = u' '.join([name.title, name.first, name.nickname, name.middle, name.last, name.suffix])
+
+    display_name = name_tidy(display_name)
+
+    return display_name
 
 
 

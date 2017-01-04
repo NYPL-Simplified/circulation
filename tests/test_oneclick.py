@@ -184,10 +184,10 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         [author1, author2] = metadata.contributors
         eq_(u"Mccall Smith, Alexander", author1.sort_name)
-        eq_(u"Mccall Smith, Alexander", author1.display_name)
+        eq_(u"Alexander Mccall Smith", author1.display_name)
         eq_([Contributor.AUTHOR_ROLE], author1.roles)
         eq_(u"Wilder, Thornton", author2.sort_name)
-        eq_(u"Wilder, Thornton", author2.display_name)
+        eq_(u"Thornton Wilder", author2.display_name)
         eq_([Contributor.AUTHOR_ROLE], author2.roles)
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
