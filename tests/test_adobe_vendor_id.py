@@ -15,12 +15,14 @@ from jwt.exceptions import (
 import re
 import datetime
 
+from api.problem_details import *
 from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDRequestHandler,
     AdobeVendorIDModel,
     AuthdataUtility,
+    DeviceManagementRequestHandler,
 )
 
 from api.opds import CirculationManagerAnnotator
@@ -34,6 +36,7 @@ from core.model import (
     DataSource,
     DelegatedPatronIdentifier,
 )
+from core.util.problem_detail import ProblemDetail
 
 from api.config import (
     CannotLoadConfiguration,
@@ -1060,3 +1063,53 @@ class TestAuthdataUtility(VendorIDTest):
         )
         eq_("My Adobe ID", uuid)
         eq_('Delegated account ID My Adobe ID', label)
+
+
+class MockRequest(object):
+    """Mock just enough of a Flask request to test
+    DeviceManagementRequestHandler.
+    """
+    def __init__(self, headers):
+        self.headers = headers
+        
+class TestDeviceManagementRequestHandler(DatabaseTest):
+    
+    def test_register_device(self):
+        identifier = self._delegated_patron_identifier()
+        handler = DeviceManagementRequestHandler(identifier)
+        handler.register_device("device1")
+        eq_(
+            ['device1'],
+            [x.device_identifier for x in identifier.device_identifiers]
+        )
+
+    def test_register_device_failure(self):
+        """You can only register one device in a single call."""
+        identifier = self._delegated_patron_identifier()
+        handler = DeviceManagementRequestHandler(identifier)
+        result = handler.register_device("device1\ndevice2")
+        assert isinstance(result, ProblemDetail)
+        eq_(REQUEST_ENTITY_TOO_LARGE.uri, result.uri)
+        eq_([], identifier.device_identifiers)
+
+    def test_deregister_device(self):
+        identifier = self._delegated_patron_identifier()
+        identifier.register_device("foo")
+        handler = DeviceManagementRequestHandler(identifier)
+
+        result = handler.deregister_device("foo")
+        eq_(None, result)
+        eq_([], identifier.device_identifiers)
+
+        # Deregistration is idempotent.
+        result = handler.deregister_device("foo")
+        eq_(None, result)
+        eq_([], identifier.device_identifiers)
+
+    def test_device_list(self):
+        identifier = self._delegated_patron_identifier()
+        identifier.register_device("foo")
+        identifier.register_device("bar")
+        handler = DeviceManagementRequestHandler(identifier)
+        # Device IDs are sorted alphabetically.
+        eq_("bar\nfoo", handler.device_list())

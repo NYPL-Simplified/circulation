@@ -9,12 +9,15 @@ from jwt.algorithms import HMACAlgorithm
 
 import flask
 from flask import Response
+from flask.ext.babel import lazy_gettext as _
 from config import (
     CannotLoadConfiguration,
     Configuration,
 )
+from problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
+from core.util.problem_detail import ProblemDetail
 from core.model import (
     get_one,
     Credential,
@@ -211,7 +214,7 @@ class DeviceManagementRequestHandler(object):
         be authenticated; otherwise a DeviceManagementRequestHandler.
         """
         authdata = authdata or AuthdataUtility.from_config()
-        bad_bearer_token = INVALID_CREDENTIALS.detail(
+        bad_bearer_token = INVALID_CREDENTIALS.detailed(
             _("You must authenticate with a valid bearer token.")
         )
         authorization = request.headers.get('Authorization')
@@ -233,20 +236,22 @@ class DeviceManagementRequestHandler(object):
         
     def device_list(self):
         return "\n".join(
-            x.device_identifier
-            for x in self.delegated_patron_identifier.device_identifiers
+            sorted(
+                x.device_identifier
+                for x in self.delegated_patron_identifier.device_identifiers
+            )
         )
 
-    def register_device(data):
+    def register_device(self, data):
         device_ids = data.split("\n")
         if len(device_ids) > 1:
-            return REQUEST_ENTITY_TOO_LARGE.detail(
+            return REQUEST_ENTITY_TOO_LARGE.detailed(
                 _("You may only register one device ID at a time.")
             )
         for device_id in device_ids:
             self.delegated_patron_identifier.register_device(device_id)
 
-    def deregister_device(device_id):
+    def deregister_device(self, device_id):
         self.delegated_patron_identifier.deregister_device(device_id)
     
 class AdobeRequestParser(XMLParser):
