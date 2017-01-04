@@ -2,7 +2,8 @@
 """Update the circulation manager server with new books from the
 OneClick content server.
 
-If you want to test with sample OneClick data on prod database, run like so:
+If you want to test with sample OneClick data on a non-test database, 
+run like so:
 python bin/oneclick_library_import --mock
 """
 import os
