@@ -3029,6 +3029,7 @@ class Work(Base):
     # necessary to show up in featured feeds.
     default_quality_by_data_source = {
         DataSource.GUTENBERG: 0,
+        DataSource.ONECLICK: 0.4,
         DataSource.OVERDRIVE: 0.4,
         DataSource.THREEM : 0.65,
         DataSource.AXIS_360: 0.65,
@@ -3887,6 +3888,7 @@ class Work(Base):
         and a fiction/nonfiction status. We don't need a cover or an
         author -- we can fill in that info later if it exists.
         """
+
         if (not self.presentation_edition
             or not self.license_pools
             or not self.title

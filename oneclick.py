@@ -40,6 +40,7 @@ from metadata_layer import (
     IdentifierData,
     LinkData,
     Metadata,
+    ReplacementPolicy,
     SubjectData,
 )
 
@@ -377,10 +378,21 @@ class OneClickAPI(object):
         items_transmitted = len(catalog_list)
         items_created = 0
         coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+        # the default policy doesn't update delivery mechanisms, which we do want to do
+        metadata_replacement_policy = ReplacementPolicy.from_metadata_source()
+        metadata_replacement_policy.formats = True
+
         for catalog_item in catalog_list:
-            result = coverage_provider.update_metadata(catalog_item)
+            result = coverage_provider.update_metadata(catalog_item=catalog_item, metadata_replacement_policy=metadata_replacement_policy)
             if not isinstance(result, CoverageFailure):
                 items_created += 1
+                # We're populating the catalog, so we can assume the list OneClick
+                # sent us is of books we own licenses to.  
+                # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display 
+                # books they don't own, we'd need to call the search endpoint to get 
+                # the interest field, and then deal with licenses_owned. 
+                if isinstance(result, Identifier) and result.licensed_through:
+                    result.licensed_through.licenses_owned = 1
 
         # stay data, stay!
         self._db.commit()
@@ -658,17 +670,19 @@ class OneClickRepresentationExtractor(object):
                 authors = book['authors']
                 for author in authors.split(";"):
                     sort_name = author.strip()
-                    roles = [Contributor.AUTHOR_ROLE]
-                    contributor = ContributorData(sort_name=sort_name, roles=roles)
-                    contributors.append(contributor)
+                    if sort_name:
+                        roles = [Contributor.AUTHOR_ROLE]
+                        contributor = ContributorData(sort_name=sort_name, display_name=sort_name, roles=roles)
+                        contributors.append(contributor)
 
             if 'narrators' in book:
                 narrators = book['narrators']
                 for narrator in narrators.split(";"):
                     sort_name = narrator.strip()
-                    roles = [Contributor.NARRATOR_ROLE]
-                    contributor = ContributorData(sort_name=sort_name, roles=roles)
-                    contributors.append(contributor)
+                    if sort_name:
+                        roles = [Contributor.NARRATOR_ROLE]
+                        contributor = ContributorData(sort_name=sort_name, display_name=sort_name, roles=roles)
+                        contributors.append(contributor)
 
             subjects = []
             if 'genres' in book:
@@ -794,7 +808,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         # passed in by RunCoverageProviderScript, so we accept it as
         # part of the signature.
         
-        oneclick_api = oneclick_api or OneClickAPI(_db)
+        oneclick_api = oneclick_api or OneClickAPI.from_config(_db)
         super(OneClickBibliographicCoverageProvider, self).__init__(
             _db, oneclick_api, DataSource.ONECLICK,
             batch_size=25, 
@@ -825,9 +839,6 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         result = self.update_metadata(response_dictionary, identifier, self.metadata_replacement_policy)
 
-        if not isinstance(result, CoverageFailure):
-            self.handle_success(identifier)
-
         return result
 
 
@@ -855,6 +866,9 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         result = self.set_metadata(
             identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
         )
+
+        if not isinstance(result, CoverageFailure):
+            self.handle_success(identifier)
 
         return result
 
