@@ -1072,7 +1072,8 @@ class MockRequest(object):
     def __init__(self, headers):
         self.headers = headers
         
-class TestDeviceManagementRequestHandler(DatabaseTest):
+
+class TestDeviceManagementRequestHandler(TestAuthdataUtility):
     
     def test_register_device(self):
         identifier = self._delegated_patron_identifier()
@@ -1113,3 +1114,25 @@ class TestDeviceManagementRequestHandler(DatabaseTest):
         handler = DeviceManagementRequestHandler(identifier)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
+
+    def test_from_request_success(self):
+        patron_identifier = "Patron identifier"
+        vendor_id, short_token = self.authdata.encode_short_client_token(
+            patron_identifier
+        )
+
+        headers = {"Authorization" : "Bearer %s" % base64.encodestring(short_token)}
+        request = MockRequest(headers=headers)
+        authenticator = MockAuthenticationProvider(
+            patrons={"validpatron" : "password" }
+        )
+        model = AdobeVendorIDModel(self._db, authenticator,
+                                   TestVendorIDModel.TEST_NODE_VALUE)
+        result = DeviceManagementRequestHandler.from_request(
+            request, model, self.authdata
+        )
+        assert isinstance(result, DeviceManagementRequestHandler)
+        eq_("Patron identifier",
+            result.delegated_patron_identifier.patron_identifier)
+        eq_(self.authdata.library_uri,
+            result.delegated_patron_identifier.library_uri)

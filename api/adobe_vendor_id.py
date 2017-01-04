@@ -220,11 +220,23 @@ class DeviceManagementRequestHandler(object):
         authorization = request.headers.get('Authorization')
         if not authorization.startswith('Bearer '):
             return bad_bearer_token
-        authdata = authorization[len('Bearer '):]
-        library_uri, foreign_patron_identifier = model.decode(authdata)
+        short_client_token = authorization[len('Bearer '):]
+
+
+        # The OAuth Bearer Token spec requires that tokens be base64-encoded.
+        try:
+            short_client_token = base64.decodestring(short_client_token)
+        except ValueError, e:
+            return bad_bearer_token.detailed(
+                _("OAuth bearer token must be base64-encoded")
+            )
+        
+        library_uri, foreign_patron_identifier = authdata.decode_short_client_token(
+            short_client_token
+        )
         delegated_patron_identifier = None
         if library_uri and foreign_patron_identifier:
-            delegated_patron_identifier = self.to_delegated_patron_identifier(
+            delegated_patron_identifier, is_new = model.to_delegated_patron_identifier(
                 library_uri, foreign_patron_identifier
             )
         else:
