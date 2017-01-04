@@ -44,6 +44,7 @@ from model import (
     DataSource,
     DelegatedPatronIdentifier,
     DeliveryMechanism,
+    DRMDeviceIdentifier,
     Genre,
     Hold,
     Hyperlink,
@@ -4331,7 +4332,43 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
         eq_(identifier2.id, identifier.id)
         # id_2() was not called.
         eq_("id1", identifier2.delegated_identifier)
+
+
+class TestDRMDeviceIdentifier(DatabaseTest):
+
+    def _patron_identifier(self):
+        library_uri = self._url
+        patron_identifier = self._str
+        identifier_type = DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID
+        def make_id():
+            return "id1"
+        patron, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, patron_identifier, identifier_type,
+            make_id
+        )
+        return patron
+    
+    def test_devices_for_patron_identifier(self):
+        patron = self._patron_identifier()
+        device_id_1, new = patron.register_device("foo")
+        eq_("foo", device_id_1.device_identifier)
+        eq_(patron, device_id_1.delegated_patron_identifier)
+        eq_(True, new)
+
+        device_id_2, new = patron.register_device("foo")
+        eq_(device_id_1, device_id_2)
+        eq_(False, new)
         
+        device_id_3, new = patron.register_device("bar")
+
+        eq_(set([device_id_1, device_id_3]), set(patron.device_identifiers))
+
+    def test_deregister(self):
+        patron = self._patron_identifier()
+        device, new = patron.register_device("foo")
+        patron.deregister_device("foo")
+        eq_([], patron.device_identifiers)
+        eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
 

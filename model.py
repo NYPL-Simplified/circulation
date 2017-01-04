@@ -6676,7 +6676,7 @@ class DelegatedPatronIdentifier(Base):
 
     # One DelegatedPatronIdentifier can keep track of many
     # DRMDeviceIdentifiers.
-    relationship(
+    device_identifiers = relationship(
         "DRMDeviceIdentifier", backref=backref("delegated_patron_identifier",
                                                lazy='joined')
     )
@@ -6722,7 +6722,7 @@ class DelegatedPatronIdentifier(Base):
         _db = Session.object_session(self)
         return get_one_or_create(
             _db, DRMDeviceIdentifier,
-            delegated_patron=self,
+            delegated_patron_identifier=self,
             device_identifier=device_identifier
         )
 
@@ -6730,7 +6730,7 @@ class DelegatedPatronIdentifier(Base):
         _db = Session.object_session(self)
         device_id_obj = get_one(
             _db, DRMDeviceIdentifier,
-            delegated_patron=self,
+            delegated_patron_identifier=self,
             device_identifier=device_identifier
         )
         if device_id_obj:
