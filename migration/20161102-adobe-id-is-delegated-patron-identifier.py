@@ -31,6 +31,7 @@ for patron in qu:
     count += 1
     if not (count % 100):
         print count
+        _db.commit()
     if credential is None or delegated_identifier is None:
         # This patron did not have an Adobe ID in the first place.
         # Do nothing.
@@ -41,5 +42,4 @@ for patron in qu:
         delegated_identifier.delegated_identifier
     )
     print output
-    _db.commit()
 _db.commit()
