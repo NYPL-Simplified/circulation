@@ -6674,6 +6674,13 @@ class DelegatedPatronIdentifier(Base):
     # foreign library is trying to look up.
     delegated_identifier = Column(String)
 
+    # One DelegatedPatronIdentifier can keep track of many
+    # DRMDeviceIdentifiers.
+    relationship(
+        "DRMDeviceIdentifier", backref=backref("delegated_patron_identifier",
+                                               lazy='joined')
+    )
+    
     __table_args__ = (
         UniqueConstraint('type', 'library_uri', 'patron_identifier'),
     )
@@ -6710,7 +6717,35 @@ class DelegatedPatronIdentifier(Base):
         if is_new:
             identifier.delegated_identifier = create_function()
         return identifier, is_new
-        
+
+    def register_device(self, device_identifier):
+        _db = Session.object_session(self)
+        return get_one_or_create(
+            _db, DRMDeviceIdentifier,
+            delegated_patron=self,
+            device_identifier=device_identifier
+        )
+
+    def deregister_device(self, device_identifier):
+        _db = Session.object_session(self)
+        device_id_obj = get_one(
+            _db, DRMDeviceIdentifier,
+            delegated_patron=self,
+            device_identifier=device_identifier
+        )
+        if device_id_obj:
+            _db.delete(device_id_obj)
+
+    
+class DRMDeviceIdentifier(Base):
+    """A device identifier for a particular DRM scheme."""
+    __tablename__ = 'drmdeviceidentifiers'
+    id = Column(Integer, primary_key=True)
+    delegated_patron_identifier_id = Column(
+        Integer, ForeignKey('delegatedpatronidentifiers.id'), index=True
+    )
+    device_identifier = Column(String(255), index=True)    
+
 
 class Timestamp(Base):
     """A general-purpose timestamp for external services."""
