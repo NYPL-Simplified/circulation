@@ -21,6 +21,7 @@ from model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    DelegatedPatronIdentifier,
     Edition,
     Genre,
     Hyperlink,
@@ -424,16 +425,19 @@ class DatabaseTest(object):
 
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
-            identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID
-            make_id=None
+            identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,
+            identifier=None
     ):
         """Create a sample DelegatedPatronIdentifier"""
         library_uri = library_uri or self._url
         patron_identifier = patron_identifier or self._str
-        def default_make_id():
-            return "id1"
-        if not make_id:
-            make_id = default_make_id
+        if callable(identifier):
+            make_id = identifier
+        else:
+            if not identifier:
+                identifier = self._str
+            def make_id():
+                return identifier
         patron, is_new = DelegatedPatronIdentifier.get_one_or_create(
             self._db, library_uri, patron_identifier, identifier_type,
             make_id
