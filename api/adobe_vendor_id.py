@@ -236,8 +236,8 @@ class DeviceManagementRequestHandler(object):
             )
         except Exception, e:
             return bad_bearer_token.detailed(
-                _('Invalid OAuth bearer token: "%s"') % (
-                    short_client_token
+                _('Invalid OAuth bearer token "%s": %s') % (
+                    short_client_token, e.message
                 )
             )
             
@@ -871,6 +871,11 @@ class AuthdataUtility(object):
             raise ValueError(
                 'Supposed client token "%s" does not contain a space.' % token
             )
+        if not '|' in token:
+            raise ValueError(
+                'Supposed client token "%s" does not contain a pipe.' % token
+            )
+
         username, password = token.rsplit('|', 1)
         return self.decode_two_part_short_client_token(username, password)
         
