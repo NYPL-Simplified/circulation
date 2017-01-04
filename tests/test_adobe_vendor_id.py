@@ -1173,7 +1173,9 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_('Invalid OAuth bearer token: "invalid token"', result.detail)
+        eq_('Invalid OAuth bearer token "invalid token": Supposed client token "invalid token" does not contain a pipe.',
+            result.detail
+        )
 
         # A correctly encoded, valid, token from a library not
         # recognized by self.authdata.
@@ -1195,3 +1197,4 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_(u'Invalid OAuth bearer token "%s": I don\'t know how to handle tokens from library "ANOTHER"' % token, result.detail)
