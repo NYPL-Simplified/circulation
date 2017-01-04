@@ -309,6 +309,17 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
+# DRM Device Management Protocol implementation for ACS.
+@app.route('/AdobeAuth/devices')
+@returns_problem_detail
+def adobe_drm_devices(self, methods=['GET', 'POST']):
+    return app.manager.adobe_vendor_id.device_id_list_handler()
+
+@app.route('/AdobeAuth/devices/<device_id>')
+@returns_problem_detail
+def adobe_drm_device(self, device_id, methods=['DELETE']):
+    return app.manager.adobe_vendor_id.device_id_handler(device_id)
+    
 # Route that redirects to the authentication URL for an OAuth provider
 @app.route('/oauth_authenticate')
 @returns_problem_detail

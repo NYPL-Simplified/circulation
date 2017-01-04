@@ -22,16 +22,20 @@ from core.model import (
     DelegatedPatronIdentifier,
 )
 
-class AdobeVendorIDController(object):
-
+class AdobeVendorIDController(object):   
     """Flask controllers that implement the Account Service and
-    Authorization Service portions of the Adobe Vendor ID protocol.
+    Authorization Service portions of the Adobe Vendor ID protocol, as
+    well as an ACS implementation of the DRM Device Management
+    Protocol.
     """
-    def __init__(self, _db, vendor_id, node_value, authenticator):
+    DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
+    
+    def __init__(self, _db, vendor_id, node_value, authenticator, authdata=None):
         self._db = _db
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
         self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
-
+        self.authdata = authdata or AuthdataUtility.from_config()
+        
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron.
 
@@ -62,6 +66,54 @@ class AdobeVendorIDController(object):
     def status_handler(self):
         return Response("UP", 200, {"Content-Type": "text/plain"})
 
+    # Implementation of the DRM Device ID Management Protocol.
+    def device_id_list_handler(self):
+        """Manage the list of device IDs associated with an Adobe ID."""
+        handler = DeviceManagementRequestHandler.from_request(
+            flask.request, self.model, self.authdata
+        )
+        if isinstance(handler, ProblemDetail):
+            return handler
+        
+        plain_text = {"Content-Type" : "text/plain"}
+        
+        expected_type = self.DEVICE_ID_LIST_MEDIA_TYPE
+        if flask.request.method=='GET':
+            output = handler.device_list()
+            if isinstance(output, ProblemDetail):
+                return output
+            return Response(
+                output, 200, {"Content-Type": expected_type}
+            )
+        elif flask.request.method=='POST':
+            incoming_media_type = flask.request.headers.get('Content-Type')
+            if incoming_media_type != expected_type_:
+                return Response(
+                    "Expected %s document." % expected_type, 415,
+                    plain_text
+                )
+            output = handler.register_device(flask.request.data)
+            if isinstance(output, ProblemDetail):
+                return output
+            return Response(output, 200, plain_text)
+        return Response("Only GET and POST are supported.", 405, plain_text)
+        
+    def device_id_handler(self, device_id):
+        """Manage one of the device IDs associated with an Adobe ID."""
+        handler = DeviceManagementRequestHandler.from_request(
+            flask.request, self.model, self.authdata
+        )
+        if isinstance(handler, ProblemDetail):
+            return handler
+
+        if flask.request.method != 'DELETE':
+            return Response("Only DELETE is supported.", 405)
+        
+        output = handler.deregister_device(device_id)
+        if isinstance(output, ProblemDetail):
+            return output
+        return Response(output, 200, plain_text)
+    
 
 class AdobeVendorIDRequestHandler(object):
 
@@ -147,6 +199,56 @@ class AdobeVendorIDRequestHandler(object):
             vendor_id=self.vendor_id, type=type, message=message)
 
 
+class DeviceManagementRequestHandler(object):
+    """Handle incoming requests for the DRM Device Management Protocol."""
+
+    @classmethod
+    def from_request(cls, request, model, authdata=None):
+        """If a DelegatedPatronIdentifier can be authenticated from the
+        current request, create a DeviceManagementRequestHandler for that identifier.
+        
+        :return: A ProblemDetail if no DelegatedPatronIdentifier can
+        be authenticated; otherwise a DeviceManagementRequestHandler.
+        """
+        authdata = authdata or AuthdataUtility.from_config()
+        bad_bearer_token = INVALID_CREDENTIALS.detail(
+            _("You must authenticate with a valid bearer token.")
+        )
+        authorization = request.headers.get('Authorization')
+        if not authorization.startswith('Bearer '):
+            return bad_bearer_token
+        authdata = authorization[len('Bearer '):]
+        library_uri, foreign_patron_identifier = model.decode(authdata)
+        delegated_patron_identifier = None
+        if library_uri and foreign_patron_identifier:
+            delegated_patron_identifier = self.to_delegated_patron_identifier(
+                library_uri, foreign_patron_identifier
+            )
+        else:
+            return bad_bearer_token
+        return cls(delegated_patron_identifier)
+        
+    def __init__(self, delegated_patron_identifier):
+        self.delegated_patron_identifier = delegated_patron_identifier
+        
+    def device_list(self):
+        return "\n".join(
+            x.device_identifier
+            for x in self.delegated_patron_identifier.device_identifiers
+        )
+
+    def register_device(data):
+        device_ids = data.split("\n")
+        if len(device_ids) > 1:
+            return REQUEST_ENTITY_TOO_LARGE.detail(
+                _("You may only register one device ID at a time.")
+            )
+        for device_id in device_ids:
+            self.delegated_patron_identifier.register_device(device_id)
+
+    def deregister_device(device_id):
+        self.delegated_patron_identifier.deregister_device(device_id)
+    
 class AdobeRequestParser(XMLParser):
 
     NAMESPACES = { "adept" : "http://ns.adobe.com/adept" }
@@ -395,22 +497,32 @@ class AdobeVendorIDModel(object):
             # token.
             uuid_and_label = (None, None)
         return uuid_and_label
-    
-    def to_delegated_patron_identifier_uuid(
+
+    def to_delegated_patron_identifier(
             self, library_uri, foreign_patron_identifier, value_generator=None
     ):
         """Create or lookup a DelegatedPatronIdentifier containing an Adobe
         account ID for the given library and foreign patron ID.
 
-        :return: A 2-tuple (UUID, label)
+        :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
         """
         if not library_uri or not foreign_patron_identifier:
-            return None, None
+            return None, False
         value_generator = value_generator or self.uuid
-        identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
+        return DelegatedPatronIdentifier.get_one_or_create(
             self._db, library_uri, foreign_patron_identifier,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
         )
+   
+    def to_delegated_patron_identifier_uuid(self, *args, **kwargs):
+        """Create or lookup a DelegatedPatronIdentifier containing an Adobe
+        account ID for the given library and foreign patron ID.
+
+        :return: A 2-tuple (UUID, label)
+        """
+        identifier, is_new = self.to_delegated_patron_identifier(*args, **kwargs)
+        if identifier is None:
+            return None, None
         return (identifier.delegated_identifier,
                 self.urn_to_label(identifier.delegated_identifier))
 
