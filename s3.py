@@ -187,6 +187,7 @@ class S3Uploader(MirrorUploader):
         for fh in filehandles:
             fh.close()
 
+
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
     def __init__(self, fail=False, *args, **kwargs):

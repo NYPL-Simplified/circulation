@@ -825,6 +825,23 @@ class TestOPDS(DatabaseTest):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
 
+        # When a feed is created without a cache_type of NO_CACHE,
+        # CachedFeeds aren't used.
+        old_cache_count = self._db.query(CachedFeed).count()
+        raw_page = AcquisitionFeed.page(
+            self._db, "test", self._url, fantasy_lane, TestAnnotator,
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            use_materialized_works=False
+        )
+
+        # Unicode is returned instead of a CachedFeed object.
+        eq_(True, isinstance(raw_page, unicode))
+        # No new CachedFeeds have been created.
+        eq_(old_cache_count, self._db.query(CachedFeed).count())
+        # The entries in the feed are the same as they were when
+        # they were cached before.
+        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
+
     def test_groups_feed(self):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
@@ -893,6 +910,22 @@ class TestOPDS(DatabaseTest):
             for i, lane in enumerate(reversed(ancestors)):
                 eq_(lane.display_name, links[i+1].get("title"))
                 eq_(annotator.lane_url(lane), links[i+1].get("href"))
+
+            # When a feed is created without a cache_type of NO_CACHE,
+            # CachedFeeds aren't used.
+            old_cache_count = self._db.query(CachedFeed).count()
+            raw_groups = AcquisitionFeed.groups(
+                self._db, "test", self._url, fantasy_lane, annotator,
+                cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
+            )
+
+            # Unicode is returned instead of a CachedFeed object.
+            eq_(True, isinstance(raw_groups, unicode))
+            # No new CachedFeeds have been created.
+            eq_(old_cache_count, self._db.query(CachedFeed).count())
+            # The entries in the feed are the same as they were when
+            # they were cached before.
+            eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         """Test that a page feed is returned when the requested groups
