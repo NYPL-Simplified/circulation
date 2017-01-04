@@ -1075,8 +1075,15 @@ class TestFilters(DatabaseTest):
         """Subclasses of Lane can effectively retrieve all of a Work's
         LicensePools
         """
+        class LaneSubclass(Lane):
+            """A subclass of Lane that filters against a
+            LicensePool-specific criteria
+            """
+            def apply_filters(self, qu, **kwargs):
+                return qu.filter(DataSource.name==DataSource.GUTENBERG)
 
-        # Create a work with two license_pools.
+        # Create a work with two license_pools. One that fits the
+        # LaneSubclass criteria and one that doesn't.
         w1 = self._work(with_open_access_download=True)
         _edition, additional_lp = self._edition(
             data_source_name=DataSource.OVERDRIVE,
@@ -1087,13 +1094,8 @@ class TestFilters(DatabaseTest):
         additional_lp.work = w1
         self._db.commit()
 
-        class LaneSubclass(Lane):
-            """A subclass of Lane that filters against a
-            LicensePool-specific criteria
-            """
-            def apply_filters(self, qu, **kwargs):
-                return qu.filter(DataSource.name==DataSource.GUTENBERG)
-
+        # When the work is queried, both of the LicensePools are
+        # available in the database session, despite the filtering.
         subclass = LaneSubclass(self._db, "Lane Subclass")
         [subclass_work] = subclass.works().all()
         eq_(2, len(subclass_work.license_pools))
