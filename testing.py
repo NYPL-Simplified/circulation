@@ -422,6 +422,24 @@ class DatabaseTest(object):
         )
         return complaint
 
+    def _delegated_patron_identifier(
+            self, library_uri=None, patron_identifier=None,
+            identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID
+            make_id=None
+    ):
+        """Create a sample DelegatedPatronIdentifier"""
+        library_uri = library_uri or self._url
+        patron_identifier = patron_identifier or self._str
+        def default_make_id():
+            return "id1"
+        if not make_id:
+            make_id = default_make_id
+        patron, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, patron_identifier, identifier_type,
+            make_id
+        )
+        return patron
+
 
     def _sample_ecosystem(self):
         """ Creates an ecosystem of some sample work, pool, edition, and author 
