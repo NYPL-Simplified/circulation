@@ -1151,3 +1151,47 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_("You must authenticate with a valid OAuth bearer token.",
+            result.detail)
+
+        
+        headers = {"Authorization" : "Bearer Not\nbase64\nencoded\nf"}
+        request = MockRequest(headers=headers)
+        result = DeviceManagementRequestHandler.from_request(
+            request, model, self.authdata
+        )
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_("OAuth bearer token must be base64-encoded.", result.detail)
+
+        # Correctly encoded but invalid
+        token = base64.encodestring("invalid token")
+        headers = {"Authorization" : "Bearer %s" % token}
+        request = MockRequest(headers=headers)
+        result = DeviceManagementRequestHandler.from_request(
+            request, model, self.authdata
+        )
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_('Invalid OAuth bearer token: "invalid token"', result.detail)
+
+        # A correctly encoded, valid, token from a library not
+        # recognized by self.authdata.
+        unrecognized_authdata = AuthdataUtility(
+            vendor_id = "Another Vendor ID",
+            library_uri = "http://another-library.org/",
+            library_short_name = "another",
+            secret = "Another library secret",
+        )
+        
+        patron_identifier = "Patron identifier"
+        vendor_id, token = unrecognized_authdata.encode_short_client_token(
+            patron_identifier
+        )
+        headers = {"Authorization" : "Bearer %s" % base64.encodestring(token)}
+        request = MockRequest(headers=headers)
+        result = DeviceManagementRequestHandler.from_request(
+            request, model, self.authdata
+        )
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
