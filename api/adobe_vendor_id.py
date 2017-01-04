@@ -218,7 +218,7 @@ class DeviceManagementRequestHandler(object):
             _("You must authenticate with a valid OAuth bearer token.")
         )
         authorization = request.headers.get('Authorization')
-        if not authorization.startswith('Bearer '):
+        if not authorization or not authorization.startswith('Bearer '):
             return bad_bearer_token
         short_client_token = authorization[len('Bearer '):]
 

@@ -1138,12 +1138,25 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
             result.delegated_patron_identifier.library_uri)
 
     def test_from_request_failure(self):
+        """There are a lot of ways to fail to create a
+        DeviceManagementRequestHandler for a given request.
+        """
         authenticator = MockAuthenticationProvider(
             patrons={"validpatron" : "password" }
         )
         model = AdobeVendorIDModel(self._db, authenticator,
                                    TestVendorIDModel.TEST_NODE_VALUE)
 
+        # No Authorization header
+        request = MockRequest(headers={})
+        result = DeviceManagementRequestHandler.from_request(
+            request, model, self.authdata
+        )
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_("You must authenticate with a valid OAuth bearer token.",
+            result.detail)
+        
         headers = {"Authorization" : "Not a bearer token"}
         request = MockRequest(headers=headers)
         result = DeviceManagementRequestHandler.from_request(
