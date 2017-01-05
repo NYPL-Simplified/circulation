@@ -1057,143 +1057,78 @@ class MockRequest(object):
     """Mock just enough of a Flask request to test
     DeviceManagementRequestHandler.
     """
-    def __init__(self, headers):
-        self.headers = headers
+    def __init__(self, patron):
+        self.patron = patron
         
 
 class TestDeviceManagementRequestHandler(TestAuthdataUtility):
     
-    def test_register_device(self):
-        identifier = self._delegated_patron_identifier()
-        handler = DeviceManagementRequestHandler(identifier)
+    def test_register_drm_device_identifier(self):
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
         handler.register_device("device1")
         eq_(
             ['device1'],
-            [x.device_identifier for x in identifier.device_identifiers]
+            [x.device_identifier for x in credential.drm_device_identifiers]
         )
 
-    def test_register_device_failure(self):
+    def test_register_drm_device_identifier_failure(self):
         """You can only register one device in a single call."""
-        identifier = self._delegated_patron_identifier()
-        handler = DeviceManagementRequestHandler(identifier)
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
         result = handler.register_device("device1\ndevice2")
         assert isinstance(result, ProblemDetail)
         eq_(PAYLOAD_TOO_LARGE.uri, result.uri)
-        eq_([], identifier.device_identifiers)
+        eq_([], credential.drm_device_identifiers)
 
-    def test_deregister_device(self):
-        identifier = self._delegated_patron_identifier()
-        identifier.register_device("foo")
-        handler = DeviceManagementRequestHandler(identifier)
+    def test_deregister_drm_device_identifier(self):
+        credential = self._credential()
+        credential.register_drm_device_identifier("foo")
+        handler = DeviceManagementRequestHandler(credential)
 
         result = handler.deregister_device("foo")
         eq_("Success", result)
-        eq_([], identifier.device_identifiers)
+        eq_([], credential.drm_device_identifiers)
 
         # Deregistration is idempotent.
         result = handler.deregister_device("foo")
         eq_("Success", result)
-        eq_([], identifier.device_identifiers)
+        eq_([], credential.drm_device_identifiers)
 
     def test_device_list(self):
-        identifier = self._delegated_patron_identifier()
-        identifier.register_device("foo")
-        identifier.register_device("bar")
-        handler = DeviceManagementRequestHandler(identifier)
+        credential = self._credential()
+        credential.register_drm_device_identifier("foo")
+        credential.register_drm_device_identifier("bar")
+        handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
 
     def test_from_request_success(self):
-        patron_identifier = "Patron identifier"
-        vendor_id, short_token = self.authdata.encode_short_client_token(
-            patron_identifier
-        )
-
-        headers = {"Authorization" : "Bearer %s" % base64.b64encode(short_token)}
-        request = MockRequest(headers=headers)
-        authenticator = MockAuthenticationProvider(
-            patrons={"validpatron" : "password" }
-        )
-        model = AdobeVendorIDModel(self._db, authenticator,
-                                   TestVendorIDModel.TEST_NODE_VALUE)
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
+        patron = self._patron()
+        request = MockRequest(patron=patron)
+        result = DeviceManagementRequestHandler.from_request(request)
         assert isinstance(result, DeviceManagementRequestHandler)
-        eq_("Patron identifier",
-            result.delegated_patron_identifier.patron_identifier)
-        eq_(self.authdata.library_uri,
-            result.delegated_patron_identifier.library_uri)
+
+        # We are about to register devices against the Credential
+        # representing this patron's identifier for Adobe account ID
+        # purposes.
+        #
+        # This Credential didn't exist before we called from_request(),
+        # but that's fine--it does now.
+        credential = result.credential
+        eq_(patron, result.credential.patron)
+        eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            credential.type)
 
     def test_from_request_failure(self):
-        """There are a lot of ways to fail to create a
-        DeviceManagementRequestHandler for a given request.
+        """You cannot create a DeviceManagementRequestHandler
+        from a request that does not have an authenticated patron.
         """
-        authenticator = MockAuthenticationProvider(
-            patrons={"validpatron" : "password" }
-        )
-        model = AdobeVendorIDModel(self._db, authenticator,
-                                   TestVendorIDModel.TEST_NODE_VALUE)
+        # No valid patron
+        request = MockRequest(patron=None)
+        result = DeviceManagementRequestHandler.from_request(request)
 
-        # No Authorization header
-        request = MockRequest(headers={})
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("You must authenticate with a valid OAuth bearer token.",
-            result.detail)
+        eq_("No authenticated patron.", result.detail)
         
-        headers = {"Authorization" : "Not a bearer token"}
-        request = MockRequest(headers=headers)
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
-        assert isinstance(result, ProblemDetail)
-        eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("You must authenticate with a valid OAuth bearer token.",
-            result.detail)
-
-        
-        headers = {"Authorization" : "Bearer Not\nbase64\nencoded\nf"}
-        request = MockRequest(headers=headers)
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
-        assert isinstance(result, ProblemDetail)
-        eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("DRM Device Management API requires that bearer tokens be base64-encoded.", result.detail)
-
-        # Correctly encoded but invalid
-        token = base64.encodestring("invalid token")
-        headers = {"Authorization" : "Bearer %s" % token}
-        request = MockRequest(headers=headers)
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
-        assert isinstance(result, ProblemDetail)
-        eq_(INVALID_CREDENTIALS.uri, result.uri)
-        assert result.detail.startswith("Invalid bearer token 'invalid token':")
-
-        # A correctly encoded, valid, token from a library not
-        # recognized by self.authdata.
-        unrecognized_authdata = AuthdataUtility(
-            vendor_id = "Another Vendor ID",
-            library_uri = "http://another-library.org/",
-            library_short_name = "another",
-            secret = "Another library secret",
-        )
-        
-        patron_identifier = "Patron identifier"
-        vendor_id, token = unrecognized_authdata.encode_short_client_token(
-            patron_identifier
-        )
-        headers = {"Authorization" : "Bearer %s" % base64.encodestring(token)}
-        request = MockRequest(headers=headers)
-        result = DeviceManagementRequestHandler.from_request(
-            request, model, self.authdata
-        )
-        assert isinstance(result, ProblemDetail)
-        eq_(INVALID_CREDENTIALS.uri, result.uri)
-        assert 'I don\\\'t know how to handle tokens from library "ANOTHER"' in result.detail

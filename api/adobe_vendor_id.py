@@ -73,8 +73,13 @@ class AdobeVendorIDController(object):
     def status_handler(self):
         return Response("UP", 200, self.PLAIN_TEXT_HEADERS)
 
-    # Implementation of the DRM Device ID Management Protocol.
-    #
+
+class DeviceManagementProtocolController(object):    
+    """Implementation of the DRM Device ID Management Protocol.
+
+    The code that does the actual work is in DeviceManagementRequestHandler.
+    """
+
     @property
     def link_template_header(self):
         url = url_for("adobe_drm_device", device_id="{id}", _external=True)
@@ -216,60 +221,30 @@ class DeviceManagementRequestHandler(object):
     """Handle incoming requests for the DRM Device Management Protocol."""
 
     @classmethod
-    def from_request(cls, request, model, authdata=None):
-        """If a DelegatedPatronIdentifier can be authenticated from the
-        current request, create a DeviceManagementRequestHandler for that identifier.
+    def from_request(cls, request):
+        """If an appropriate Credential can be authenticated from the current
+        request, create a DeviceManagementRequestHandler for that
+        Credential.
         
-        :return: A ProblemDetail if no DelegatedPatronIdentifier can
-        be authenticated; otherwise a DeviceManagementRequestHandler.
+        :return: A ProblemDetail, if the given request has no
+        authenticated patorn. Otherwise, a DeviceManagementRequestHandler.
         """
-        authdata = authdata or AuthdataUtility.from_config()
-        bad_bearer_token = INVALID_CREDENTIALS.detailed(
-            _("You must authenticate with a valid OAuth bearer token.")
-        )
-        authorization = request.headers.get('Authorization')
-        if not authorization or not authorization.startswith('Bearer '):
-            return bad_bearer_token
-        short_client_token = authorization[len('Bearer '):]
+        if not request.patron:
+            return INVALID_CREDENTIALS.detailed("No authenticated patron")
 
-        try:
-            short_client_token = base64.b64decode(short_client_token)
-        except Exception, e:
-            return bad_bearer_token.detailed(
-                _(u'DRM Device Management API requires that bearer tokens be base64-encoded.')
-            )
+        credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
+            request.patron
+        )
+        return cls(credential)
         
-        try:
-            library_uri, foreign_patron_identifier = authdata.decode_short_client_token(
-                short_client_token
-            )
-        except Exception, e:
-            # We use %r here, even though it makes some messages look bad,
-            # because there's a good probability that the token or the message
-            # contains binary data.
-            return bad_bearer_token.detailed(
-                _(u'Invalid bearer token %r: %r') % (
-                    short_client_token, e.message
-                )
-            )
-            
-        delegated_patron_identifier = None
-        if library_uri and foreign_patron_identifier:
-            delegated_patron_identifier, is_new = model.to_delegated_patron_identifier(
-                library_uri, foreign_patron_identifier
-            )
-        else:
-            return bad_bearer_token
-        return cls(delegated_patron_identifier)
-        
-    def __init__(self, delegated_patron_identifier):
-        self.delegated_patron_identifier = delegated_patron_identifier
+    def __init__(self, credential):
+        self.credential = credential
         
     def device_list(self):
         return "\n".join(
             sorted(
                 x.device_identifier
-                for x in self.delegated_patron_identifier.device_identifiers
+                for x in self.credential.drm_device_identifiers
             )
         )
 
@@ -280,11 +255,11 @@ class DeviceManagementRequestHandler(object):
                 _("You may only register one device ID at a time.")
             )
         for device_id in device_ids:
-            self.delegated_patron_identifier.register_device(device_id)
+            self.credential.register_drm_device_identifier(device_id)
         return 'Success'
             
     def deregister_device(self, device_id):
-        self.delegated_patron_identifier.deregister_device(device_id)
+        self.credential.deregister_drm_device_identifier(device_id)
         return 'Success'
 
 

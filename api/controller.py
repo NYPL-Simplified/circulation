@@ -229,10 +229,14 @@ class CirculationManager(object):
         self.service_status = ServiceStatusController(self)
 
     def setup_adobe_vendor_id(self):
-        """Set up the controller for Adobe Vendor ID."""
+        """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
+        for the DRM Device Management Protocol.
+        """
         adobe = Configuration.integration(
             Configuration.ADOBE_VENDOR_ID_INTEGRATION
         )
+
+        # Relatively few libraries will have this setup.
         vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
         node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
         if vendor_id and node_value:
@@ -243,9 +247,18 @@ class CirculationManager(object):
                 self.auth
             )
         else:
-            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
+            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
             self.adobe_vendor_id = None
 
+        # But almost all libraries will have this setup.
+        if adobe.get(AuthdataUtility.AUTHDATA_SECRET_KEY):
+            try:
+                authdata = AuthdataUtility.from_config()
+                self.adobe_device_management = DeviceManagementProtocolController()
+            except CannotLoadConfiguration, e:
+                self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
+
+            
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
