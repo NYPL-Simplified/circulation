@@ -33,11 +33,12 @@ from config import (
 from model import (
     get_one_or_create,
     DataSource,
-    Genre,
-    Work,
-    LicensePool,
     Edition,
+    Genre,
+    Identifier,
+    LicensePool,
     SessionManager,
+    Work,
     WorkGenre,
 )
 
@@ -1069,6 +1070,35 @@ class TestFilters(DatabaseTest):
             # w7 shows up because we own licenses and copies are available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
             eq_(set([w6, w7]), set(q.all()))
+
+    def test_lane_subclass_queries(self):
+        """Subclasses of Lane can effectively retrieve all of a Work's
+        LicensePools
+        """
+        class LaneSubclass(Lane):
+            """A subclass of Lane that filters against a
+            LicensePool-specific criteria
+            """
+            def apply_filters(self, qu, **kwargs):
+                return qu.filter(DataSource.name==DataSource.GUTENBERG)
+
+        # Create a work with two license_pools. One that fits the
+        # LaneSubclass criteria and one that doesn't.
+        w1 = self._work(with_open_access_download=True)
+        _edition, additional_lp = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID,
+            with_license_pool=True,
+            with_open_access_download=True
+        )
+        additional_lp.work = w1
+        self._db.commit()
+
+        # When the work is queried, both of the LicensePools are
+        # available in the database session, despite the filtering.
+        subclass = LaneSubclass(self._db, "Lane Subclass")
+        [subclass_work] = subclass.works().all()
+        eq_(2, len(subclass_work.license_pools))
 
 
 class TestPagination(DatabaseTest):
