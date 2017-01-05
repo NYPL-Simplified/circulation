@@ -18,6 +18,7 @@ from model import (
     Complaint,
     Contributor,
     CoverageRecord,
+    Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
@@ -423,6 +424,16 @@ class DatabaseTest(object):
         )
         return complaint
 
+    def _credential(self, data_source_name=DataSource.GUTENBERG,
+                    type=None, patron=None):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        type = type or self._str
+        patron = patron or self._patron()
+        credential, is_new = Credential.persistent_token_create(
+            self._db, data_source, type, patron
+        )
+        return credential
+    
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
             identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,
