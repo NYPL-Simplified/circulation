@@ -416,7 +416,7 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
-
+   
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
@@ -6558,6 +6558,11 @@ class Credential(Base):
     credential = Column(String)
     expires = Column(DateTime)
 
+    # One Credential can have many associated DRMDeviceIdentifiers.
+    drm_device_identifiers = relationship(
+        "DRMDeviceIdentifier", backref=backref("credential", lazy='joined')
+    )
+    
     __table_args__ = (
         UniqueConstraint('data_source_id', 'patron_id', 'type'),
     )
@@ -6646,6 +6651,26 @@ class Credential(Base):
         credential.expires=None
         return credential, is_new
 
+    # A Credential may have many associated DRMDeviceIdentifiers.
+    def register_drm_device_identifier(self, device_identifier):
+        _db = Session.object_session(self)
+        return get_one_or_create(
+            _db, DRMDeviceIdentifier,
+            credential=self,
+            device_identifier=device_identifier
+        )
+
+    def deregister_drm_device_identifier(self, device_identifier):
+        _db = Session.object_session(self)
+        device_id_obj = get_one(
+            _db, DRMDeviceIdentifier,
+            credential=self,
+            device_identifier=device_identifier
+        )
+        if device_id_obj:
+            _db.delete(device_id_obj)
+
+    
 # Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
@@ -6673,13 +6698,6 @@ class DelegatedPatronIdentifier(Base):
     # This is the identifier we made up for the patron. This is what the
     # foreign library is trying to look up.
     delegated_identifier = Column(String)
-
-    # One DelegatedPatronIdentifier can keep track of many
-    # DRMDeviceIdentifiers.
-    device_identifiers = relationship(
-        "DRMDeviceIdentifier", backref=backref("delegated_patron_identifier",
-                                               lazy='joined')
-    )
     
     __table_args__ = (
         UniqueConstraint('type', 'library_uri', 'patron_identifier'),
@@ -6718,35 +6736,19 @@ class DelegatedPatronIdentifier(Base):
             identifier.delegated_identifier = create_function()
         return identifier, is_new
 
-    def register_device(self, device_identifier):
-        _db = Session.object_session(self)
-        return get_one_or_create(
-            _db, DRMDeviceIdentifier,
-            delegated_patron_identifier=self,
-            device_identifier=device_identifier
-        )
-
-    def deregister_device(self, device_identifier):
-        _db = Session.object_session(self)
-        device_id_obj = get_one(
-            _db, DRMDeviceIdentifier,
-            delegated_patron_identifier=self,
-            device_identifier=device_identifier
-        )
-        if device_id_obj:
-            _db.delete(device_id_obj)
-
     
 class DRMDeviceIdentifier(Base):
-    """A device identifier for a particular DRM scheme."""
+    """A device identifier for a particular DRM scheme.
+
+    Associated with a Credential, most commonly a patron's "Identifier
+    for Adobe account ID purposes" Credential.
+    """
     __tablename__ = 'drmdeviceidentifiers'
     id = Column(Integer, primary_key=True)
-    delegated_patron_identifier_id = Column(
-        Integer, ForeignKey('delegatedpatronidentifiers.id'), index=True
-    )
+    credential_id = Column(Integer, ForeignKey('credentials.id'), index=True)
     device_identifier = Column(String(255), index=True)    
 
-
+    
 class Timestamp(Base):
     """A general-purpose timestamp for external services."""
 
