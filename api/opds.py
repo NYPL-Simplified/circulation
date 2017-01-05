@@ -31,14 +31,13 @@ from core.model import (
     Edition,
 )
 from core.lane import Lane
-from adobe_vendor_id import AuthdataUtility
 from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
 from novelist import NoveListAPI
 from lanes import QueryGeneratedLane
 from annotations import AnnotationWriter
-
+from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
    
