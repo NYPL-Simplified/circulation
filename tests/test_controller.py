@@ -1151,7 +1151,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
 
     def test_detail_for_other_patrons_annotation_returns_404(self):
-        patron = self._patron()
+        patron = self.default_patron
         self.pool.loan_to(patron)
 
         annotation, ignore = create(
@@ -1879,23 +1879,77 @@ class TestAnalyticsController(CirculationControllerTest):
                 )
                 assert circulation_event != None
 
-class TestAdobeVendorIDController(ControllerTest):
+class TestDeviceManagementProtocolController(ControllerTest):
 
-    def setup(self):
-        super(TestAdobeVendorIDController, self).setup()
-        self.patron_identifier = self._delegated_patron_identifier(
-            self.authdata.library_uri
-        )
-        vendor_id, short_token = self.authdata.encode_short_client_token(
-            self.patron_identifier.patron_identifier
-        )
+    def test_link_template_header(self):
+        """Test the value of the Link-Template header used in 
+        device_id_list_handler.
+        """
+        with self.app.test_request_context("/"):
+            headers = self.manager.adobe_device_management.link_template_header
+            eq_(1, len(headers))
+            template = headers['Link-Template']
+            eq_(u'<http://localhost/AdobeAuth/devices/{id}>; rel="item"',
+                template)
 
-        self.auth = {
-            "Authorization" : "Bearer %s" % base64.b64encode(short_token)
+    def test_device_id_list_handler_post_success(self):
+        # The patron has no credentials, and thus no registered devices.
+        eq_([], self.default_patron.credentials)
+        headers = {
+            'Authorization': self.valid_auth,                   
+            'Content-Type': self.manager.adobe_device_management.DEVICE_ID_LIST_MEDIA_TYPE
         }
+        with self.app.test_request_context(
+            "/", method='POST', headers=headers, data="device"
+        ):
+            response = self.manager.adobe_device_management.device_id_list_handler()
+            eq_(200, response.status_code)
 
+            # We just registered a new device with the patron. This
+            # automatically created an appropriate Credential for
+            # them.
+            [credential] = self.default_patron.credentials
+            eq_(DataSource.INTERNAL_PROCESSING, credential.data_source.name)
+            eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+                credential.type)
+
+            eq_(['device'],
+                [x.device_identifier for x in credential.drm_device_identifiers]
+            )
+
+    def _create_credential(self):
+        return self._credential(
+            DataSource.INTERNAL_PROCESSING,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.default_patron
+        )
+
+    def test_device_id_list_handler_get_success(self):
+        credential = self._create_credential()
+        controller = self.manager.adobe_device_management
+        credential.register_drm_device_identifier("device1")
+        credential.register_drm_device_identifier("device2")
+        headers = {
+            'Authorization': self.valid_auth,                   
+        }
+        with self.app.test_request_context("/", headers=headers):
+            response = controller.device_id_list_handler()
+            eq_(200, response.status_code)
+            
+            # We got a list of device IDs.
+            eq_(controller.DEVICE_ID_LIST_MEDIA_TYPE,
+                response.headers['Content-Type'])
+            eq_("device1\ndevice2", response.data)
+
+            # We got a URL Template (see test_link_template_header())
+            # that explains how to address any particular device ID.
+            expect = controller.link_template_header
+            for k, v in expect.items():
+                assert response.headers[k] == v
+            
+                                           
     def test_device_id_handler_success(self):
-        self.patron_identifier.register_device("device")
+        self.credential.register_drm_device_identifier("device")
         with self.app.test_request_context(
                 "/", method='DELETE', headers=self.auth
         ):
@@ -1915,53 +1969,6 @@ class TestAdobeVendorIDController(ControllerTest):
             eq_(405, response.status_code)
             eq_("Only DELETE is supported.", response.detail)
 
-    def test_link_template_header(self):
-        """Test the value of the Link-Template header used in 
-        device_id_list_handler.
-        """
-        with self.app.test_request_context("/"):
-            headers = self.manager.adobe_vendor_id.link_template_header
-            eq_(1, len(headers))
-            template = headers['Link-Template']
-            eq_(u'<http://localhost/AdobeAuth/devices/{id}>; rel="item"',
-                template)
-            
-    def test_device_id_list_handler_get_success(self):
-        controller = self.manager.adobe_vendor_id
-        self.patron_identifier.register_device("device1")
-        self.patron_identifier.register_device("device2")
-        with self.app.test_request_context("/", headers=self.auth):
-            response = controller.device_id_list_handler()
-            eq_(200, response.status_code)
-            
-            # We got a list of device IDs.
-            eq_(self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE,
-                response.headers['Content-Type'])
-            eq_("device1\ndevice2", response.data)
-
-            # We got a URL Template (see test_link_template_header())
-            # that explains how to address any particular device ID.
-            expect = controller.link_template_header
-            for k, v in expect.items():
-                assert response.headers[k] == v
-            
-    def test_device_id_list_handler_post_success(self):
-        # The patron has no registered devices.
-        eq_([], self.patron_identifier.device_identifiers)
-        headers = dict(self.auth)
-        headers['Content-Type'] = self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE
-        with self.app.test_request_context(
-                "/", method='POST', headers=headers, data="device"
-        ):
-            response = self.manager.adobe_vendor_id.device_id_list_handler()
-            eq_(200, response.status_code)
-
-            # We just registered a new device with the patron.
-            eq_(['device'],
-                [x.device_identifier
-                 for x in self.patron_identifier.device_identifiers]
-            )
-            
     def device_id_list_handler_bad_auth(self):
         with self.app.test_request_context("/"):
             response = self.manager.adobe_vendor_id.device_id_list_handler()

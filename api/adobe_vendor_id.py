@@ -14,6 +14,7 @@ from config import (
     CannotLoadConfiguration,
     Configuration,
 )
+from api.base_controller import BaseCirculationManagerController
 from problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
@@ -32,7 +33,6 @@ class AdobeVendorIDController(object):
     well as an ACS implementation of the DRM Device Management
     Protocol.
     """
-    DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
 
     PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
     
@@ -74,12 +74,14 @@ class AdobeVendorIDController(object):
         return Response("UP", 200, self.PLAIN_TEXT_HEADERS)
 
 
-class DeviceManagementProtocolController(object):    
+class DeviceManagementProtocolController(BaseCirculationManagerController):
     """Implementation of the DRM Device ID Management Protocol.
 
     The code that does the actual work is in DeviceManagementRequestHandler.
     """
-
+    DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
+    PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
+    
     @property
     def link_template_header(self):
         url = url_for("adobe_drm_device", device_id="{id}", _external=True)
@@ -90,9 +92,13 @@ class DeviceManagementProtocolController(object):
     
     def device_id_list_handler(self):
         """Manage the list of device IDs associated with an Adobe ID."""
-        handler = DeviceManagementRequestHandler.from_request(
-            flask.request, self.model, self.authdata
-        )
+        patron = self.authenticated_patron_from_request()
+        if isinstance(patron, ProblemDetail):
+            return patron
+        if isinstance(patron, Response):
+            return patron
+
+        handler = DeviceManagementRequestHandler.from_request(flask.request)
         if isinstance(handler, ProblemDetail):
             return handler
         
@@ -118,9 +124,13 @@ class DeviceManagementProtocolController(object):
         
     def device_id_handler(self, device_id):
         """Manage one of the device IDs associated with an Adobe ID."""
-        handler = DeviceManagementRequestHandler.from_request(
-            flask.request, self.model, self.authdata
-        )
+        patron = self.authenticated_patron_from_request()
+        if isinstance(patron, ProblemDetail):
+            return patron
+        if isinstance(patron, Response):
+            return patron
+        
+        handler = DeviceManagementRequestHandler.from_request(flask.request)
         if isinstance(handler, ProblemDetail):
             return handler
 
@@ -229,7 +239,7 @@ class DeviceManagementRequestHandler(object):
         :return: A ProblemDetail, if the given request has no
         authenticated patorn. Otherwise, a DeviceManagementRequestHandler.
         """
-        if not request.patron:
+        if not getattr(request, 'patron', None):
             return INVALID_CREDENTIALS.detailed("No authenticated patron")
 
         credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
