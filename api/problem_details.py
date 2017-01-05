@@ -246,10 +246,3 @@ NO_ANNOTATION = pd(
     title=_("No annotation."),
     detail=_("The annotation you requested does not exist."),
 )
-
-REQUEST_ENTITY_TOO_LARGE = pd(
-    "http://librarysimplified.org/terms/problem/request-entity-too-large",
-    status_code=413,
-    title=_("Request entity too large."),
-    detail=_("You submitted a document that was too large for the server to handle."),
-)

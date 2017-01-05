@@ -26,6 +26,7 @@ from api.adobe_vendor_id import (
 )
 
 from api.opds import CirculationManagerAnnotator
+from api.testing import MockAdobeConfiguration
 
 from . import (
     DatabaseTest,
@@ -46,32 +47,19 @@ from api.config import (
 
 from api.mock_authentication import MockAuthenticationProvider       
 
-class VendorIDTest(DatabaseTest):
-
-    TEST_VENDOR_ID = "vendor id"
-    TEST_LIBRARY_URI = "http://me/"
-    TEST_LIBRARY_SHORT_NAME = "Lbry"
-    TEST_SECRET = "some secret"
-    TEST_OTHER_LIBRARY_URI = "http://you/"
-    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
-        
+class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
+       
     @contextlib.contextmanager
     def temp_config(self):
         """Configure a basic Vendor ID Service setup."""
         name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
         with temp_config() as config:
-            config[Configuration.INTEGRATIONS][name] = {
-                Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
-                AuthdataUtility.LIBRARY_URI_KEY: self.TEST_LIBRARY_URI,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: self.TEST_LIBRARY_SHORT_NAME,
-                AuthdataUtility.AUTHDATA_SECRET_KEY: self.TEST_SECRET,
-                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHER_LIBRARIES,
-            }
+            config[Configuration.INTEGRATIONS][name] = dict(
+                self.MOCK_ADOBE_CONFIGURATION
+            )
             yield config
 
 class TestVendorIDModel(VendorIDTest):
-
-    TEST_NODE_VALUE = 114740953091845
 
     credentials = dict(username="validpatron", password="password")
     
@@ -1090,7 +1078,7 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         handler = DeviceManagementRequestHandler(identifier)
         result = handler.register_device("device1\ndevice2")
         assert isinstance(result, ProblemDetail)
-        eq_(REQUEST_ENTITY_TOO_LARGE.uri, result.uri)
+        eq_(PAYLOAD_TOO_LARGE.uri, result.uri)
         eq_([], identifier.device_identifiers)
 
     def test_deregister_device(self):
@@ -1099,12 +1087,12 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         handler = DeviceManagementRequestHandler(identifier)
 
         result = handler.deregister_device("foo")
-        eq_(None, result)
+        eq_("Success", result)
         eq_([], identifier.device_identifiers)
 
         # Deregistration is idempotent.
         result = handler.deregister_device("foo")
-        eq_(None, result)
+        eq_("Success", result)
         eq_([], identifier.device_identifiers)
 
     def test_device_list(self):
@@ -1121,7 +1109,7 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
             patron_identifier
         )
 
-        headers = {"Authorization" : "Bearer %s" % base64.encodestring(short_token)}
+        headers = {"Authorization" : "Bearer %s" % base64.b64encode(short_token)}
         request = MockRequest(headers=headers)
         authenticator = MockAuthenticationProvider(
             patrons={"validpatron" : "password" }
@@ -1175,7 +1163,7 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("OAuth bearer token must be base64-encoded.", result.detail)
+        eq_("DRM Device Management API requires that bearer tokens be base64-encoded.", result.detail)
 
         # Correctly encoded but invalid
         token = base64.encodestring("invalid token")
@@ -1186,9 +1174,7 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_('Invalid OAuth bearer token "invalid token": Supposed client token "invalid token" does not contain a pipe.',
-            result.detail
-        )
+        assert result.detail.startswith("Invalid bearer token 'invalid token':")
 
         # A correctly encoded, valid, token from a library not
         # recognized by self.authdata.
@@ -1210,4 +1196,4 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         )
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_(u'Invalid OAuth bearer token "%s": I don\'t know how to handle tokens from library "ANOTHER"' % token, result.detail)
+        assert 'I don\\\'t know how to handle tokens from library "ANOTHER"' in result.detail

@@ -32,6 +32,8 @@ class AdobeVendorIDController(object):
     Protocol.
     """
     DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
+
+    PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
     
     def __init__(self, _db, vendor_id, node_value, authenticator, authdata=None):
         self._db = _db
@@ -49,7 +51,7 @@ class AdobeVendorIDController(object):
         __transaction = self._db.begin_nested()
         credential = self.model.create_authdata(patron)
         __transaction.commit()
-        return Response(credential.credential, 200, {"Content-Type": "text/plain"})
+        return Response(credential.credential, 200, self.PLAIN_TEXT_HEADERS)
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
@@ -67,9 +69,10 @@ class AdobeVendorIDController(object):
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def status_handler(self):
-        return Response("UP", 200, {"Content-Type": "text/plain"})
+        return Response("UP", 200, self.PLAIN_TEXT_HEADERS)
 
     # Implementation of the DRM Device ID Management Protocol.
+    #
     def device_id_list_handler(self):
         """Manage the list of device IDs associated with an Adobe ID."""
         handler = DeviceManagementRequestHandler.from_request(
@@ -78,28 +81,25 @@ class AdobeVendorIDController(object):
         if isinstance(handler, ProblemDetail):
             return handler
         
-        plain_text = {"Content-Type" : "text/plain"}
-        
-        expected_type = self.DEVICE_ID_LIST_MEDIA_TYPE
+        device_ids = self.DEVICE_ID_LIST_MEDIA_TYPE
         if flask.request.method=='GET':
             output = handler.device_list()
             if isinstance(output, ProblemDetail):
                 return output
             return Response(
-                output, 200, {"Content-Type": expected_type}
+                output, 200, {"Content-Type": device_ids}
             )
         elif flask.request.method=='POST':
             incoming_media_type = flask.request.headers.get('Content-Type')
-            if incoming_media_type != expected_type_:
-                return Response(
-                    "Expected %s document." % expected_type, 415,
-                    plain_text
+            if incoming_media_type != device_ids:
+                return UNSUPPORTED_MEDIA_TYPE.detailed(
+                    "Expected %s document." % device_ids
                 )
             output = handler.register_device(flask.request.data)
             if isinstance(output, ProblemDetail):
                 return output
-            return Response(output, 200, plain_text)
-        return Response("Only GET and POST are supported.", 405, plain_text)
+            return Response(output, 200, self.PLAIN_TEXT_HEADERS)
+        return METHOD_NOT_ALLOWED.detailed("Only GET and POST are supported.")
         
     def device_id_handler(self, device_id):
         """Manage one of the device IDs associated with an Adobe ID."""
@@ -110,12 +110,12 @@ class AdobeVendorIDController(object):
             return handler
 
         if flask.request.method != 'DELETE':
-            return Response("Only DELETE is supported.", 405)
+            return METHOD_NOT_ALLOWED.detailed("Only DELETE is supported.")
         
         output = handler.deregister_device(device_id)
         if isinstance(output, ProblemDetail):
             return output
-        return Response(output, 200, plain_text)
+        return Response(output, 200, self.PLAIN_TEXT_HEADERS)
     
 
 class AdobeVendorIDRequestHandler(object):
@@ -222,12 +222,11 @@ class DeviceManagementRequestHandler(object):
             return bad_bearer_token
         short_client_token = authorization[len('Bearer '):]
 
-        # The OAuth Bearer Token spec requires that tokens be base64-encoded.
         try:
-            short_client_token = base64.decodestring(short_client_token)
+            short_client_token = base64.b64decode(short_client_token)
         except Exception, e:
             return bad_bearer_token.detailed(
-                _("OAuth bearer token must be base64-encoded.")
+                _(u'DRM Device Management API requires that bearer tokens be base64-encoded.')
             )
         
         try:
@@ -235,8 +234,11 @@ class DeviceManagementRequestHandler(object):
                 short_client_token
             )
         except Exception, e:
+            # We use %r here, even though it makes some messages look bad,
+            # because there's a good probability that the token or the message
+            # contains binary data.
             return bad_bearer_token.detailed(
-                _('Invalid OAuth bearer token "%s": %s') % (
+                _(u'Invalid bearer token %r: %r') % (
                     short_client_token, e.message
                 )
             )
@@ -264,15 +266,18 @@ class DeviceManagementRequestHandler(object):
     def register_device(self, data):
         device_ids = data.split("\n")
         if len(device_ids) > 1:
-            return REQUEST_ENTITY_TOO_LARGE.detailed(
+            return PAYLOAD_TOO_LARGE.detailed(
                 _("You may only register one device ID at a time.")
             )
         for device_id in device_ids:
             self.delegated_patron_identifier.register_device(device_id)
-
+        return 'Success'
+            
     def deregister_device(self, device_id):
         self.delegated_patron_identifier.deregister_device(device_id)
-    
+        return 'Success'
+
+
 class AdobeRequestParser(XMLParser):
 
     NAMESPACES = { "adept" : "http://ns.adobe.com/adept" }
@@ -867,10 +872,6 @@ class AuthdataUtility(object):
 
         :raise ValueError: When the token is not valid for any reason.
         """
-        if not ' ' in token:
-            raise ValueError(
-                'Supposed client token "%s" does not contain a space.' % token
-            )
         if not '|' in token:
             raise ValueError(
                 'Supposed client token "%s" does not contain a pipe.' % token

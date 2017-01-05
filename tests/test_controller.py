@@ -69,7 +69,7 @@ from api.circulation import (
     FulfillmentInfo,
 )
 from api.novelist import MockNoveListAPI
-
+from api.adobe_vendor_id import AuthdataUtility
 from api.lanes import make_lanes_default
 from core.util.cdn import cdnify
 import base64
@@ -83,6 +83,7 @@ from core.util.opds_writer import (
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
 from api.admin.oauth import DummyGoogleClient
+from api.testing import MockAdobeConfiguration
 from lxml import etree
 import random
 import json
@@ -95,7 +96,7 @@ class TestCirculationManager(CirculationManager):
         base_url = url_for(view, *args, **kwargs)
         return cdnify(base_url, {"": "http://cdn/"})
 
-class ControllerTest(DatabaseTest):
+class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
@@ -155,6 +156,9 @@ class ControllerTest(DatabaseTest):
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
                 },
+                Configuration.ADOBE_VENDOR_ID_INTEGRATION : dict(
+                    self.MOCK_ADOBE_CONFIGURATION
+                )
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
@@ -162,7 +166,8 @@ class ControllerTest(DatabaseTest):
             )
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-
+            self.authdata = AuthdataUtility.from_config()
+            
     
 class CirculationControllerTest(ControllerTest):
 
@@ -1874,6 +1879,105 @@ class TestAnalyticsController(CirculationControllerTest):
                 )
                 assert circulation_event != None
 
+class TestAdobeVendorIDController(ControllerTest):
+
+    def setup(self):
+        super(TestAdobeVendorIDController, self).setup()
+        self.patron_identifier = self._delegated_patron_identifier(
+            self.authdata.library_uri
+        )
+        vendor_id, short_token = self.authdata.encode_short_client_token(
+            self.patron_identifier.patron_identifier
+        )
+
+        self.auth = {
+            "Authorization" : "Bearer %s" % base64.b64encode(short_token)
+        }
+
+    def test_device_id_handler_success(self):
+        self.patron_identifier.register_device("device")
+        with self.app.test_request_context(
+                "/", method='DELETE', headers=self.auth
+        ):
+            response = self.manager.adobe_vendor_id.device_id_handler("device")
+            eq_(200, response.status_code)
+
+    def test_device_id_handler_bad_auth(self):
+        with self.app.test_request_context("/", method='DELETE'):
+            response = self.manager.adobe_vendor_id.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(401, response.status_code)
+
+    def test_device_id_handler_bad_method(self):
+        with self.app.test_request_context("/", method='POST', headers=self.auth):
+            response = self.manager.adobe_vendor_id.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(405, response.status_code)
+            eq_("Only DELETE is supported.", response.detail)
+
+    def test_device_id_list_handler_get_success(self):
+        self.patron_identifier.register_device("device1")
+        self.patron_identifier.register_device("device2")
+        with self.app.test_request_context("/", headers=self.auth):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            eq_(200, response.status_code)
+            eq_(self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE,
+                response.headers['Content-Type'])
+            eq_("device1\ndevice2", response.data)
+
+    def test_device_id_list_handler_post_success(self):
+        # The patron has no registered devices.
+        eq_([], self.patron_identifier.device_identifiers)
+        headers = dict(self.auth)
+        headers['Content-Type'] = self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE
+        with self.app.test_request_context(
+                "/", method='POST', headers=headers, data="device"
+        ):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            eq_(200, response.status_code)
+
+            # A new device has been registered with the patron.
+            eq_(['device'],
+                [x.device_identifier
+                 for x in self.patron_identifier.device_identifiers]
+            )
+            
+    def device_id_list_handler_bad_auth(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            assert isinstance(response, ProblemDetail)
+            eq_(401, response.status_code)
+
+    def device_id_list_handler_bad_method(self):
+        with self.app.test_request_context(
+                "/", method='DELETE', headers=self.auth
+        ):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            assert isinstance(response, ProblemDetail)
+            eq_(405, response.status_code)
+
+    def test_device_id_list_handler_too_many_simultaneous_registrations(self):
+        headers = dict(self.auth)
+        headers['Content-Type'] = self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE
+        with self.app.test_request_context(
+                "/", method='POST', headers=headers, data="device1\ndevice2"
+        ):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            eq_(413, response.status_code)
+            eq_("You may only register one device ID at a time.", response.detail)
+
+    def test_device_id_list_handler_wrong_media_type(self):
+        headers = dict(self.auth)
+        headers['Content-Type'] = "text/plain"
+        with self.app.test_request_context(
+                "/", method='POST', headers=headers, data="device1\ndevice2"
+        ):
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            eq_(415, response.status_code)
+            eq_("Expected vnd.librarysimplified/drm-device-id-list document.",
+                response.detail)
+
+
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)
     the app server runs each incoming request in a separate database
@@ -1962,3 +2066,5 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
+
+    
