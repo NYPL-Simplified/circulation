@@ -22,20 +22,4 @@ Configuration.load()
 library_id = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("library_id", None)
 print "Updating availability data of library #%s" % library_id
 
-'''
-username = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("username", None)
-password = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("password", None)
-remote_stage = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("remote_stage", None)
-base_url = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("base_url", None)
-basic_token = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("basic_token", None)
-ebook_loan_length = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("ebook_loan_length", None)
-eaudio_loan_length = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("eaudio_loan_length", None)
-
-config_args = {"library_id":library_id, "username":username, "password":password, 
-    "remote_stage":remote_stage, "base_url":base_url, "basic_token":basic_token, 
-    "ebook_loan_length":ebook_loan_length, "eaudio_loan_length":eaudio_loan_length}
-
-#RunMonitorScript(OneClickCirculationMonitor, **config_args).run()
-'''
-
 RunMonitorScript(OneClickCirculationMonitor).run()

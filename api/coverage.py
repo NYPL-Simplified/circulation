@@ -158,7 +158,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
     def import_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and imports feed.
-        """        
+        """
         self.check_content_type(response)
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
                                 data_source_name=self.output_source.name)
@@ -204,6 +204,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID, 
                 Identifier.AXIS_360_ID,
+                Identifier.ONECLICK_ID, 
             ]
         output_source = DataSource.lookup(
             _db, DataSource.METADATA_WRANGLER
@@ -254,7 +255,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         """
         mapping = dict()
         for identifier in batch:
-            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID]:
+            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier
