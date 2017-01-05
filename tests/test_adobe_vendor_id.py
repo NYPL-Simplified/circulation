@@ -1051,15 +1051,7 @@ class TestAuthdataUtility(VendorIDTest):
         )
         eq_("My Adobe ID", uuid)
         eq_('Delegated account ID My Adobe ID', label)
-
-
-class MockRequest(object):
-    """Mock just enough of a Flask request to test
-    DeviceManagementRequestHandler.
-    """
-    def __init__(self, patron):
-        self.patron = patron
-        
+       
 
 class TestDeviceManagementRequestHandler(TestAuthdataUtility):
     
@@ -1102,21 +1094,3 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
-
-    def test_from_request_success(self):
-        patron = self._patron()
-        request = MockRequest(patron=patron)
-        result = DeviceManagementRequestHandler.from_request(request)
-        assert isinstance(result, DeviceManagementRequestHandler)
-
-        # We are about to register devices against the Credential
-        # representing this patron's identifier for Adobe account ID
-        # purposes.
-        #
-        # This Credential didn't exist before we called from_request(),
-        # but that's fine--it does now.
-        credential = result.credential
-        eq_(patron, result.credential.patron)
-        eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
-            credential.type)
-        
