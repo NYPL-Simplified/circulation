@@ -1119,16 +1119,4 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         eq_(patron, result.credential.patron)
         eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             credential.type)
-
-    def test_from_request_failure(self):
-        """You cannot create a DeviceManagementRequestHandler
-        from a request that does not have an authenticated patron.
-        """
-        # No valid patron
-        request = MockRequest(patron=None)
-        result = DeviceManagementRequestHandler.from_request(request)
-
-        assert isinstance(result, ProblemDetail)
-        eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("No authenticated patron", result.detail)
         

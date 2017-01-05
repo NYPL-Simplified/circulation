@@ -28,21 +28,15 @@ from core.model import (
 )
 
 class AdobeVendorIDController(object):
+
     """Flask controllers that implement the Account Service and
-    Authorization Service portions of the Adobe Vendor ID protocol, as
-    well as an ACS implementation of the DRM Device Management
-    Protocol.
+    Authorization Service portions of the Adobe Vendor ID protocol.
     """
-
-    PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
-    
-    def __init__(self, _db, vendor_id, node_value, authenticator, authdata=None):
+    def __init__(self, _db, vendor_id, node_value, authenticator):
         self._db = _db
-
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
         self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
-        self.authdata = authdata or AuthdataUtility.from_config()
-        
+
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron.
 
@@ -53,7 +47,7 @@ class AdobeVendorIDController(object):
         __transaction = self._db.begin_nested()
         credential = self.model.create_authdata(patron)
         __transaction.commit()
-        return Response(credential.credential, 200, self.PLAIN_TEXT_HEADERS)
+        return Response(credential.credential, 200, {"Content-Type": "text/plain"})
 
     def signin_handler(self):
         """Process an incoming signInRequest document."""
@@ -71,7 +65,7 @@ class AdobeVendorIDController(object):
         return Response(output, 200, {"Content-Type": "application/xml"})
 
     def status_handler(self):
-        return Response("UP", 200, self.PLAIN_TEXT_HEADERS)
+        return Response("UP", 200, {"Content-Type": "text/plain"})
 
 
 class DeviceManagementProtocolController(BaseCirculationManagerController):
@@ -84,21 +78,32 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
     
     @property
     def link_template_header(self):
+        """Generate the Link Template that explains how to deregister
+        a specific DRM device ID.
+        """
         url = url_for("adobe_drm_device", device_id="{id}", _external=True)
         # The curly brackets in {id} were escaped. Un-escape them to
         # get a Link Template.
         url = url.replace("%7Bid%7D", "{id}")
         return {"Link-Template": '<%s>; rel="item"' % url}
+
+    def _request_handler(self, patron):
+        """Create a DeviceManagementRequestHandler for the appropriate
+        Credential of the given Patron.
+       
+        :return: A DeviceManagementRequestHandler
+        """
+        if not patron:
+            return INVALID_CREDENTIALS.detailed("No authenticated patron")
+
+        credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
+            patron
+        )
+        return DeviceManagementRequestHandler(credential)
     
     def device_id_list_handler(self):
         """Manage the list of device IDs associated with an Adobe ID."""
-        patron = self.authenticated_patron_from_request()
-        if isinstance(patron, ProblemDetail):
-            return patron
-        if isinstance(patron, Response):
-            return patron
-
-        handler = DeviceManagementRequestHandler.from_request(flask.request)
+        handler = self._request_handler(flask.request.patron)
         if isinstance(handler, ProblemDetail):
             return handler
         
@@ -124,7 +129,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         
     def device_id_handler(self, device_id):
         """Manage one of the device IDs associated with an Adobe ID."""       
-        handler = DeviceManagementRequestHandler.from_request(flask.request)
+        handler = self._request_handler(getattr(flask.request, 'patron', None))
         if isinstance(handler, ProblemDetail):
             return handler
 
@@ -223,23 +228,6 @@ class AdobeVendorIDRequestHandler(object):
 
 class DeviceManagementRequestHandler(object):
     """Handle incoming requests for the DRM Device Management Protocol."""
-
-    @classmethod
-    def from_request(cls, request):
-        """If an appropriate Credential can be authenticated from the current
-        request, create a DeviceManagementRequestHandler for that
-        Credential.
-        
-        :return: A ProblemDetail, if the given request has no
-        authenticated patorn. Otherwise, a DeviceManagementRequestHandler.
-        """
-        if not getattr(request, 'patron', None):
-            return INVALID_CREDENTIALS.detailed("No authenticated patron")
-
-        credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
-            request.patron
-        )
-        return cls(credential)
         
     def __init__(self, credential):
         self.credential = credential

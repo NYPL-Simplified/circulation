@@ -1907,6 +1907,16 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(u'<http://localhost/AdobeAuth/devices/{id}>; rel="item"',
                 template)
 
+    def test__request_handler_failure(self):
+        """You cannot create a DeviceManagementRequestHandler
+        without providing a patron.
+        """
+        result = self.controller._request_handler(None)
+
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_("No authenticated patron", result.detail)
+            
     def test_device_id_list_handler_post_success(self):
         # The patron has no credentials, and thus no registered devices.
         eq_([], self.default_patron.credentials)
@@ -1915,6 +1925,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         with self.app.test_request_context(
             "/", method='POST', headers=headers, data="device"
         ):
+            self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(200, response.status_code)
 
@@ -1935,6 +1946,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         credential.register_drm_device_identifier("device1")
         credential.register_drm_device_identifier("device2")
         with self.app.test_request_context("/", headers=self.auth):
+            self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(200, response.status_code)
             
@@ -1951,6 +1963,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
     def device_id_list_handler_bad_auth(self):
         with self.app.test_request_context("/"):
+            self.controller.authenticated_patron_from_request()
             response = self.manager.adobe_vendor_id.device_id_list_handler()
             assert isinstance(response, ProblemDetail)
             eq_(401, response.status_code)
@@ -1959,6 +1972,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         with self.app.test_request_context(
             "/", method='DELETE', headers=self.auth
         ):
+            self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             assert isinstance(response, ProblemDetail)
             eq_(405, response.status_code)
@@ -1970,6 +1984,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         with self.app.test_request_context(
             "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
+            self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(413, response.status_code)
             eq_("You may only register one device ID at a time.", response.detail)
@@ -1980,12 +1995,12 @@ class TestDeviceManagementProtocolController(ControllerTest):
         with self.app.test_request_context(
             "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
+            self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(415, response.status_code)
             eq_("Expected vnd.librarysimplified/drm-device-id-list document.",
                 response.detail)
-            
-                                           
+
     def test_device_id_handler_success(self):
         credential = self._create_credential()
         credential.register_drm_device_identifier("device")
