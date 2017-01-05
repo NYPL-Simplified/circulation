@@ -123,13 +123,13 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         return METHOD_NOT_ALLOWED.detailed("Only GET and POST are supported.")
         
     def device_id_handler(self, device_id):
-        """Manage one of the device IDs associated with an Adobe ID."""
+        """Manage one of the device IDs associated with an Adobe ID."""       
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
             return patron
         if isinstance(patron, Response):
             return patron
-        
+
         handler = DeviceManagementRequestHandler.from_request(flask.request)
         if isinstance(handler, ProblemDetail):
             return handler

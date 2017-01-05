@@ -1881,6 +1881,20 @@ class TestAnalyticsController(CirculationControllerTest):
 
 class TestDeviceManagementProtocolController(ControllerTest):
 
+    def setup(self):
+        super(TestDeviceManagementProtocolController, self).setup()
+        self.auth = dict(Authorization=self.valid_auth)
+        
+    def _create_credential(self):
+        """Associate a credential with the default patron which
+        can have Adobe device identifiers associated with it,
+        """
+        return self._credential(
+            DataSource.INTERNAL_PROCESSING,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.default_patron
+        )
+    
     def test_link_template_header(self):
         """Test the value of the Link-Template header used in 
         device_id_list_handler.
@@ -1895,10 +1909,8 @@ class TestDeviceManagementProtocolController(ControllerTest):
     def test_device_id_list_handler_post_success(self):
         # The patron has no credentials, and thus no registered devices.
         eq_([], self.default_patron.credentials)
-        headers = {
-            'Authorization': self.valid_auth,                   
-            'Content-Type': self.manager.adobe_device_management.DEVICE_ID_LIST_MEDIA_TYPE
-        }
+        headers = dict(self.auth)
+        headers['Content-Type'] = self.manager.adobe_device_management.DEVICE_ID_LIST_MEDIA_TYPE
         with self.app.test_request_context(
             "/", method='POST', headers=headers, data="device"
         ):
@@ -1917,22 +1929,12 @@ class TestDeviceManagementProtocolController(ControllerTest):
                 [x.device_identifier for x in credential.drm_device_identifiers]
             )
 
-    def _create_credential(self):
-        return self._credential(
-            DataSource.INTERNAL_PROCESSING,
-            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
-            self.default_patron
-        )
-
     def test_device_id_list_handler_get_success(self):
         credential = self._create_credential()
         controller = self.manager.adobe_device_management
         credential.register_drm_device_identifier("device1")
         credential.register_drm_device_identifier("device2")
-        headers = {
-            'Authorization': self.valid_auth,                   
-        }
-        with self.app.test_request_context("/", headers=headers):
+        with self.app.test_request_context("/", headers=self.auth):
             response = controller.device_id_list_handler()
             eq_(200, response.status_code)
             
@@ -1946,28 +1948,6 @@ class TestDeviceManagementProtocolController(ControllerTest):
             expect = controller.link_template_header
             for k, v in expect.items():
                 assert response.headers[k] == v
-            
-                                           
-    def test_device_id_handler_success(self):
-        self.credential.register_drm_device_identifier("device")
-        with self.app.test_request_context(
-                "/", method='DELETE', headers=self.auth
-        ):
-            response = self.manager.adobe_vendor_id.device_id_handler("device")
-            eq_(200, response.status_code)
-
-    def test_device_id_handler_bad_auth(self):
-        with self.app.test_request_context("/", method='DELETE'):
-            response = self.manager.adobe_vendor_id.device_id_handler("device")
-            assert isinstance(response, ProblemDetail)
-            eq_(401, response.status_code)
-
-    def test_device_id_handler_bad_method(self):
-        with self.app.test_request_context("/", method='POST', headers=self.auth):
-            response = self.manager.adobe_vendor_id.device_id_handler("device")
-            assert isinstance(response, ProblemDetail)
-            eq_(405, response.status_code)
-            eq_("Only DELETE is supported.", response.detail)
 
     def device_id_list_handler_bad_auth(self):
         with self.app.test_request_context("/"):
@@ -1977,20 +1957,20 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
     def device_id_list_handler_bad_method(self):
         with self.app.test_request_context(
-                "/", method='DELETE', headers=self.auth
+            "/", method='DELETE', headers=self.auth
         ):
-            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            response = self.manager.adobe_device_management.device_id_list_handler()
             assert isinstance(response, ProblemDetail)
             eq_(405, response.status_code)
 
     def test_device_id_list_handler_too_many_simultaneous_registrations(self):
         """We only allow registration of one device ID at a time."""
         headers = dict(self.auth)
-        headers['Content-Type'] = self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE
+        headers['Content-Type'] = self.manager.adobe_device_management.DEVICE_ID_LIST_MEDIA_TYPE
         with self.app.test_request_context(
-                "/", method='POST', headers=headers, data="device1\ndevice2"
+            "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
-            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            response = self.manager.adobe_device_management.device_id_list_handler()
             eq_(413, response.status_code)
             eq_("You may only register one device ID at a time.", response.detail)
 
@@ -2000,10 +1980,34 @@ class TestDeviceManagementProtocolController(ControllerTest):
         with self.app.test_request_context(
             "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
-            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            response = self.manager.adobe_device_management.device_id_list_handler()
             eq_(415, response.status_code)
             eq_("Expected vnd.librarysimplified/drm-device-id-list document.",
                 response.detail)
+            
+                                           
+    def test_device_id_handler_success(self):
+        credential = self._create_credential()
+        credential.register_drm_device_identifier("device")
+        with self.app.test_request_context(
+                "/", method='DELETE', headers=self.auth
+        ):
+            response = self.manager.adobe_device_management.device_id_handler("device")
+            eq_(200, response.status_code)
+
+    def test_device_id_handler_bad_auth(self):
+        with self.app.test_request_context("/", method='DELETE'):
+            response = self.manager.adobe_device_management.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(401, response.status_code)
+
+    def test_device_id_handler_bad_method(self):
+        with self.app.test_request_context("/", method='POST', headers=self.auth):
+            response = self.manager.adobe_device_management.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(405, response.status_code)
+            eq_("Only DELETE is supported.", response.detail)
+
 
 
 class TestScopedSession(ControllerTest):
