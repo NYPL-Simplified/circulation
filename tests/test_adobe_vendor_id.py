@@ -1094,3 +1094,4 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
         handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
+        

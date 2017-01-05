@@ -2117,5 +2117,3 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
-
-    
