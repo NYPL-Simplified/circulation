@@ -201,7 +201,8 @@ class OPDSImporter(object):
    
     def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
                  identifier_mapping=None, mirror=None, http_get=None,
-                 metadata_client=None, data_source_offers_licenses=False
+                 metadata_client=None, data_source_offers_licenses=False,
+                 content_modifier=None,
     ):
         """
         :param data_source_name: Name of the source of this OPDS feed.
@@ -219,6 +220,7 @@ class OPDSImporter(object):
         self.identifier_mapping = identifier_mapping
         self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
+        self.content_modifier = content_modifier
         self.http_get = http_get
 
     @property
@@ -311,6 +313,7 @@ class OPDSImporter(object):
             link_content=True,
             even_if_not_apparently_updated=True,
             mirror=self.mirror,
+            content_modifier=self.content_modifier,
             http_get=self.http_get,
         )
         metadata.apply(
