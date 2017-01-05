@@ -1130,5 +1130,5 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
 
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
-        eq_("No authenticated patron.", result.detail)
+        eq_("No authenticated patron", result.detail)
         
