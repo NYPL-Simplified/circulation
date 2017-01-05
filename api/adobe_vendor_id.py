@@ -504,29 +504,22 @@ class AdobeVendorIDModel(object):
             uuid_and_label = (None, None)
         return uuid_and_label
 
-    def to_delegated_patron_identifier(
+    def to_delegated_patron_identifier_uuid(
             self, library_uri, foreign_patron_identifier, value_generator=None
     ):
         """Create or lookup a DelegatedPatronIdentifier containing an Adobe
         account ID for the given library and foreign patron ID.
 
-        :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
+        :return: A 2-tuple (UUID, label)
         """
         if not library_uri or not foreign_patron_identifier:
-            return None, False
+            return None, None
         value_generator = value_generator or self.uuid
-        return DelegatedPatronIdentifier.get_one_or_create(
+        identifier, is_new = DelegatedPatronIdentifier.get_one_or_create(
             self._db, library_uri, foreign_patron_identifier,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
         )
-   
-    def to_delegated_patron_identifier_uuid(self, *args, **kwargs):
-        """Create or lookup a DelegatedPatronIdentifier containing an Adobe
-        account ID for the given library and foreign patron ID.
 
-        :return: A 2-tuple (UUID, label)
-        """
-        identifier, is_new = self.to_delegated_patron_identifier(*args, **kwargs)
         if identifier is None:
             return None, None
         return (identifier.delegated_identifier,
