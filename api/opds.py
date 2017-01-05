@@ -31,6 +31,7 @@ from core.model import (
     Edition,
 )
 from core.lane import Lane
+from adobe_vendor_id import AuthdataUtility
 from circulation import BaseCirculationAPI
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
@@ -591,8 +592,6 @@ class CirculationManagerAnnotator(Annotator):
 
         def refresh(credential):
             credential.credential = str(uuid.uuid1())
-        # Avoid circular import    
-        from adobe_vendor_id import AuthdataUtility
         patron_identifier = Credential.lookup(
             _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
             refresher_method=refresh, allow_persistent_token=True
@@ -641,8 +640,6 @@ class CirculationManagerAnnotator(Annotator):
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
-            # Avoid circular import    
-            from adobe_vendor_id import AuthdataUtility
             authdata = AuthdataUtility.from_config()
             if authdata:
                 # TODO: We would like to call encode() here, and have
