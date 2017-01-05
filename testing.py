@@ -422,7 +422,6 @@ class DatabaseTest(object):
         )
         return complaint
 
-
     def _sample_ecosystem(self):
         """ Creates an ecosystem of some sample work, pool, edition, and author 
         objects that all know each other. 

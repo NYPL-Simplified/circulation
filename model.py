@@ -1680,8 +1680,9 @@ class Identifier(Base):
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, Hyperlink.IMAGE)
         images = images.join(Resource.representation)
-        images = images.filter(Representation.mirrored_at != None).filter(
-            Representation.mirror_url != None)
+        images = images.filter(Representation.mirrored_at != None).\
+            filter(Representation.mirror_url != None).\
+            filter(Resource.suppressed==False)
         images = images.all()
 
         champions = Resource.best_covers_among(images)
@@ -1691,7 +1692,7 @@ class Identifier(Base):
             [champion] = champions
         else:
             champion = random.choice(champions)
-            
+
         return champion, images
 
     @classmethod
@@ -2909,6 +2910,7 @@ class Edition(Base):
             # Edition's primary ID, use it. Otherwise, find the
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
+
             if best_cover:
                 if not best_cover.representation:
                     logging.warn(
@@ -2923,8 +2925,23 @@ class Edition(Base):
                             self.primary_identiifer, 
                             rep.url
                         )
-                self.set_cover(best_cover)
+                if best_cover.suppressed:
+                    # TODO : Currently, this suppresses the cover entirely.
+                    # In the future, it would be nice to look for another
+                    # acceptable cover somewhere in those others returned
+                    # by `best_cover_within_distance()` or possibly at a
+                    # farther distance.
+                    logging.info(
+                        "Best cover for %r has been suppressed.",
+                        self.primary_identifier
+                    )
+                else:
+                    self.set_cover(best_cover)
                 break
+            else:
+                self.cover = None
+                self.cover_full_url = None
+                self.cover_thumbnail_url = None
 
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.
@@ -3370,7 +3387,6 @@ class Work(Base):
             if other_work and is_new:
                 other_work.calculate_presentation()
 
-
     @property
     def pwids(self):
         """Return the set of permanent work IDs associated with this Work.
@@ -3472,6 +3488,49 @@ class Work(Base):
 
         query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
         return query
+
+    @classmethod
+    def suppress_covers(cls, _db, works_or_identifiers):
+        """Suppresses the currently visible covers of a number of Works"""
+
+        works = works_or_identifiers
+        if not isinstance(works[0], cls):
+            # This assumes that everything in the provided list is the
+            # same class: either Work or Identifier.
+            works = cls.from_identifiers(_db, works_or_identifiers).all()
+
+        work_ids = [w.id for w in works]
+
+        cover_urls = list()
+        for work in works:
+            # Create a list of the URLs of the works' active cover images.
+            edition = work.presentation_edition
+            if edition:
+                if edition.cover_full_url:
+                    cover_urls.append(edition.cover_full_url)
+                if edition.cover_thumbnail_url:
+                    cover_urls.append(edition.cover_thumbnail_url)
+
+        covers = _db.query(Resource).join(Hyperlink.identifier).\
+            join(Identifier.licensed_through).\
+            filter(Resource.url.in_(cover_urls), LicensePool.work_id.in_(work_ids))
+
+        for cover in covers:
+            cover.suppressed = True
+        _db.commit()
+
+        # Without doing anything fancy, update the cover (to reset it to None).
+        policy = PresentationCalculationPolicy(
+            choose_cover=True,
+            choose_edition=False,
+            set_edition_metadata=False,
+            classify=False,
+            choose_summary=False,
+            calculate_quality=False
+        )
+        for work in works:
+            work.presentation_edition.calculate_presentation(policy=policy)
+            work.calculate_presentation(policy=policy)
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
@@ -4711,6 +4770,11 @@ class Resource(Base):
     # A combination of the calculated quality value and the
     # human-entered quality value.
     quality = Column(Float, index=True)
+
+    # A Resource that seemingly looks fine may be manually suppressed
+    # to be temporarily or permanently ignored. This is specifically
+    # used to block undesireable covers from feeds.
+    suppressed = Column(Boolean, default=False, index=True)
 
     # URL must be unique.
     __table_args__ = (

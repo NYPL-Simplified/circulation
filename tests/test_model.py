@@ -1797,9 +1797,6 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
-
-
-
     def test_set_presentation_ready(self):
 
         work = self._work(with_license_pool=True)
@@ -2078,6 +2075,54 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of its last viable presentation edition.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+    def test_suppress_covers(self):
+        edition, lp = self._edition(with_open_access_download=True)
+
+        base_path = os.path.split(__file__)[0]
+        sample_cover_path = base_path + '/files/covers/test-book-cover.png'
+
+        # Create a cover and thumbnail for the edition.
+        cover_href = 'http://cover.png'
+        cover_link = lp.add_link(
+            Hyperlink.IMAGE, cover_href, lp.data_source,
+            media_type=Representation.PNG_MEDIA_TYPE,
+            content=open(sample_cover_path).read()
+        )[0]
+
+        thumbnail_href = 'http://thumbnail.png'
+        thumbnail_rep = self._representation(
+            url=thumbnail_href,
+            media_type=Representation.PNG_MEDIA_TYPE,
+            content=open(sample_cover_path).read(),
+            mirrored=True
+        )[0]
+
+        cover_rep = cover_link.resource.representation
+        cover_rep.mirror_url = cover_href
+        cover_rep.mirrored_at = datetime.datetime.utcnow()
+        cover_rep.thumbnails.append(thumbnail_rep)
+
+        edition.set_cover(cover_link.resource)
+
+        # A Work created from this edition has cover details.
+        work = self._work(presentation_edition=edition)
+        assert work.cover_full_url and work.cover_thumbnail_url
+
+        # Suppressing the cover removes it from the work.
+        Work.suppress_covers(self._db, [work])
+        assert not (work.cover_full_url and work.cover_thumbnail_url)
+        eq_(True, cover_link.resource.suppressed)
+
+        # Reset the cover.
+        cover_link.resource.suppressed = False
+        work.calculate_presentation()
+        assert work.cover_full_url and work.cover_thumbnail_url
+
+        # It also works with an Identifier.
+        identifier = work.license_pools[0].identifier
+        Work.suppress_covers(self._db, [identifier])
+        assert not (work.cover_full_url and work.cover_thumbnail_url)
 
     def test_missing_coverage_from(self):
         operation = 'the_operation'
