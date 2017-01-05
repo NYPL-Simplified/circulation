@@ -209,11 +209,9 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # and that's the only identifier we made
+        # We made exactly one OneClick and one ISBN-type identifiers.
         eq_(
-            [
-                (Identifier.ONECLICK_ID, "9780307378101"),
-            ],
+            [(Identifier.ISBN, "9780307378101"), (Identifier.ONECLICK_ID, "9780307378101")],
             sorted(ids)
         )
 
