@@ -1915,16 +1915,36 @@ class TestAdobeVendorIDController(ControllerTest):
             eq_(405, response.status_code)
             eq_("Only DELETE is supported.", response.detail)
 
+    def test_link_template_header(self):
+        """Test the value of the Link-Template header used in 
+        device_id_list_handler.
+        """
+        with self.app.test_request_context("/"):
+            headers = self.manager.adobe_vendor_id.link_template_header
+            eq_(1, len(headers))
+            template = headers['Link-Template']
+            eq_(u'<http://localhost/AdobeAuth/devices/{id}>; rel="item"',
+                template)
+            
     def test_device_id_list_handler_get_success(self):
+        controller = self.manager.adobe_vendor_id
         self.patron_identifier.register_device("device1")
         self.patron_identifier.register_device("device2")
         with self.app.test_request_context("/", headers=self.auth):
-            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            response = controller.device_id_list_handler()
             eq_(200, response.status_code)
+            
+            # We got a list of device IDs.
             eq_(self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE,
                 response.headers['Content-Type'])
             eq_("device1\ndevice2", response.data)
 
+            # We got a URL Template (see test_link_template_header())
+            # that explains how to address any particular device ID.
+            expect = controller.link_template_header
+            for k, v in expect.items():
+                assert response.headers[k] == v
+            
     def test_device_id_list_handler_post_success(self):
         # The patron has no registered devices.
         eq_([], self.patron_identifier.device_identifiers)
@@ -1936,7 +1956,7 @@ class TestAdobeVendorIDController(ControllerTest):
             response = self.manager.adobe_vendor_id.device_id_list_handler()
             eq_(200, response.status_code)
 
-            # A new device has been registered with the patron.
+            # We just registered a new device with the patron.
             eq_(['device'],
                 [x.device_identifier
                  for x in self.patron_identifier.device_identifiers]
@@ -1957,6 +1977,7 @@ class TestAdobeVendorIDController(ControllerTest):
             eq_(405, response.status_code)
 
     def test_device_id_list_handler_too_many_simultaneous_registrations(self):
+        """We only allow registration of one device ID at a time."""
         headers = dict(self.auth)
         headers['Content-Type'] = self.manager.adobe_vendor_id.DEVICE_ID_LIST_MEDIA_TYPE
         with self.app.test_request_context(
@@ -1970,7 +1991,7 @@ class TestAdobeVendorIDController(ControllerTest):
         headers = dict(self.auth)
         headers['Content-Type'] = "text/plain"
         with self.app.test_request_context(
-                "/", method='POST', headers=headers, data="device1\ndevice2"
+            "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
             response = self.manager.adobe_vendor_id.device_id_list_handler()
             eq_(415, response.status_code)

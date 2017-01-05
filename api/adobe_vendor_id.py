@@ -18,6 +18,7 @@ from problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
+from core.app_server import url_for
 from core.model import (
     get_one,
     Credential,
@@ -25,7 +26,7 @@ from core.model import (
     DelegatedPatronIdentifier,
 )
 
-class AdobeVendorIDController(object):   
+class AdobeVendorIDController(object):
     """Flask controllers that implement the Account Service and
     Authorization Service portions of the Adobe Vendor ID protocol, as
     well as an ACS implementation of the DRM Device Management
@@ -37,6 +38,7 @@ class AdobeVendorIDController(object):
     
     def __init__(self, _db, vendor_id, node_value, authenticator, authdata=None):
         self._db = _db
+
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
         self.model = AdobeVendorIDModel(self._db, authenticator, node_value)
         self.authdata = authdata or AuthdataUtility.from_config()
@@ -73,6 +75,14 @@ class AdobeVendorIDController(object):
 
     # Implementation of the DRM Device ID Management Protocol.
     #
+    @property
+    def link_template_header(self):
+        url = url_for("adobe_drm_device", device_id="{id}", _external=True)
+        # The curly brackets in {id} were escaped. Un-escape them to
+        # get a Link Template.
+        url = url.replace("%7Bid%7D", "{id}")
+        return {"Link-Template": '<%s>; rel="item"' % url}
+    
     def device_id_list_handler(self):
         """Manage the list of device IDs associated with an Adobe ID."""
         handler = DeviceManagementRequestHandler.from_request(
@@ -86,9 +96,9 @@ class AdobeVendorIDController(object):
             output = handler.device_list()
             if isinstance(output, ProblemDetail):
                 return output
-            return Response(
-                output, 200, {"Content-Type": device_ids}
-            )
+            headers = self.link_template_header
+            headers['Content-Type'] = device_ids
+            return Response(output, 200, headers)
         elif flask.request.method=='POST':
             incoming_media_type = flask.request.headers.get('Content-Type')
             if incoming_media_type != device_ids:
