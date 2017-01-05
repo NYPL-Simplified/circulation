@@ -731,7 +731,12 @@ class OneClickRepresentationExtractor(object):
                 oneclick_medium, Edition.BOOK_MEDIUM
             )
 
-            identifiers = [IdentifierData(Identifier.ONECLICK_ID, oneclick_id, 1)]
+            # passed to metadata.apply, the isbn_identifier will create an equivalency 
+            # between the OneClick-labeled and the ISBN-labeled identifier rows, which 
+            # will in turn allow us to ask the MetadataWrangler for more info about the book.
+            isbn_identifier = IdentifierData(Identifier.ISBN, oneclick_id)
+
+            identifiers = [primary_identifier, isbn_identifier]
             
             links = []
             # A cover and its thumbnail become a single LinkData.

@@ -3695,8 +3695,11 @@ class Work(Base):
                 if q is None:
                     continue
                 if default_quality is None or q > default_quality:
-                    default_quality = q
-            else:
+                    default_quality = q                    
+
+            if not default_quality:
+                # if we still haven't found anything of a quality measurement, 
+                # then at least make it an integer zero, not none.
                 default_quality = 0
             self.calculate_quality(identifier_ids, default_quality)
 
