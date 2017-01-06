@@ -2079,10 +2079,9 @@ class TestWork(DatabaseTest):
     def test_suppress_covers(self):
         edition, lp = self._edition(with_open_access_download=True)
 
+        # Create a cover and thumbnail for the edition.
         base_path = os.path.split(__file__)[0]
         sample_cover_path = base_path + '/files/covers/test-book-cover.png'
-
-        # Create a cover and thumbnail for the edition.
         cover_href = 'http://cover.png'
         cover_link = lp.add_link(
             Hyperlink.IMAGE, cover_href, lp.data_source,
@@ -2104,20 +2103,34 @@ class TestWork(DatabaseTest):
         cover_rep.thumbnails.append(thumbnail_rep)
 
         edition.set_cover(cover_link.resource)
+        full_url = cover_link.resource.url
+        thumbnail_url = thumbnail_rep.mirror_url
 
         # A Work created from this edition has cover details.
         work = self._work(presentation_edition=edition)
         assert work.cover_full_url and work.cover_thumbnail_url
 
-        # Suppressing the cover removes it from the work.
-        Work.suppress_covers(self._db, [work])
-        assert not (work.cover_full_url and work.cover_thumbnail_url)
+        # Suppressing the cover removes the cover from the work.
+        index = DummyExternalSearchIndex()
+        Work.suppress_covers(self._db, [work], search_index_client=index)
+        eq_(None, work.cover_full_url)
+        eq_(None, work.cover_thumbnail_url)
         eq_(True, cover_link.resource.suppressed)
+
+        # It also removes the link from the cached OPDS entries.
+        for url in [full_url, thumbnail_url]:
+            assert url not in work.simple_opds_entry
+            assert url not in work.verbose_opds_entry
 
         # Reset the cover.
         cover_link.resource.suppressed = False
-        work.calculate_presentation()
-        assert work.cover_full_url and work.cover_thumbnail_url
+        work.calculate_presentation(search_index_client=index)
+
+        eq_(full_url, work.cover_full_url)
+        eq_(thumbnail_url, work.cover_thumbnail_url)
+        for url in [full_url, thumbnail_url]:
+            assert url in work.simple_opds_entry
+            assert url in work.verbose_opds_entry
 
         # It also works with an Identifier.
         identifier = work.license_pools[0].identifier

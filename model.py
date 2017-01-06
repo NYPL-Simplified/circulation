@@ -3014,6 +3014,21 @@ class PresentationCalculationPolicy(object):
             update_search_index=True,
         )
 
+    @classmethod
+    def reset_cover(cls):
+        """A PresentationCalculationPolicy that only resets covers
+        (including updating cached entries, if necessary) without
+        impacting any other metadata.
+        """
+        return cls(
+            choose_cover=True,
+            choose_edition=False,
+            set_edition_metadata=False,
+            classify=False,
+            choose_summary=False,
+            calculate_quality=False
+        )
+
 
 class Work(Base):
 
@@ -3490,16 +3505,17 @@ class Work(Base):
         return query
 
     @classmethod
-    def suppress_covers(cls, _db, works_or_identifiers):
+    def suppress_covers(cls, _db, works_or_identifiers,
+                        search_index_client=None):
         """Suppresses the currently visible covers of a number of Works"""
 
-        works = works_or_identifiers
+        works = list(set(works_or_identifiers))
         if not isinstance(works[0], cls):
             # This assumes that everything in the provided list is the
             # same class: either Work or Identifier.
             works = cls.from_identifiers(_db, works_or_identifiers).all()
-
         work_ids = [w.id for w in works]
+        logging.info("Supressing covers for %i Works", len(works))
 
         cover_urls = list()
         for work in works:
@@ -3519,18 +3535,14 @@ class Work(Base):
             cover.suppressed = True
         _db.commit()
 
-        # Without doing anything fancy, update the cover (to reset it to None).
-        policy = PresentationCalculationPolicy(
-            choose_cover=True,
-            choose_edition=False,
-            set_edition_metadata=False,
-            classify=False,
-            choose_summary=False,
-            calculate_quality=False
-        )
+        # Remove the cover from the Work and its Edition and reset
+        # cached OPDS entries.
+        policy = PresentationCalculationPolicy.reset_cover()
         for work in works:
-            work.presentation_edition.calculate_presentation(policy=policy)
-            work.calculate_presentation(policy=policy)
+            work.calculate_presentation(
+                policy=policy, search_index_client=search_index_client
+            )
+        _db.commit()
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
@@ -3700,6 +3712,10 @@ class Work(Base):
         policy = policy or PresentationCalculationPolicy()
 
         edition_changed = self.calculate_presentation_edition(policy)
+
+        if policy.choose_cover:
+            cover_changed = self.presentation_edition.calculate_presentation(policy)
+            edition_changed = edition_changed or cover_changed
 
         summary = self.summary
         summary_text = self.summary_text
