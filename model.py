@@ -3526,15 +3526,18 @@ class Work(Base):
                     cover_urls.append(edition.cover_thumbnail_url)
 
         covers = _db.query(Resource).join(Hyperlink.identifier).\
-            join(Identifier.licensed_through).\
-            filter(Resource.url.in_(cover_urls), LicensePool.work_id.in_(work_ids))
+            join(Identifier.licensed_through).filter(
+                Resource.url.in_(cover_urls),
+                LicensePool.work_id.in_(work_ids),
+                Resource.suppressed != True
+            )
 
         editions = list()
         for cover in covers:
             cover.suppressed = True
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
-        _db.commit()
+        _db.flush()
 
         editions = list(set(editions))
         if editions:
