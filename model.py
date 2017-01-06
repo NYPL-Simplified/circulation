@@ -3029,6 +3029,7 @@ class Work(Base):
     # necessary to show up in featured feeds.
     default_quality_by_data_source = {
         DataSource.GUTENBERG: 0,
+        DataSource.ONECLICK: 0.4,
         DataSource.OVERDRIVE: 0.4,
         DataSource.THREEM : 0.65,
         DataSource.AXIS_360: 0.65,
@@ -3694,8 +3695,11 @@ class Work(Base):
                 if q is None:
                     continue
                 if default_quality is None or q > default_quality:
-                    default_quality = q
-            else:
+                    default_quality = q                    
+
+            if not default_quality:
+                # if we still haven't found anything of a quality measurement, 
+                # then at least make it an integer zero, not none.
                 default_quality = 0
             self.calculate_quality(identifier_ids, default_quality)
 
@@ -3887,6 +3891,7 @@ class Work(Base):
         and a fiction/nonfiction status. We don't need a cover or an
         author -- we can fill in that info later if it exists.
         """
+
         if (not self.presentation_edition
             or not self.license_pools
             or not self.title

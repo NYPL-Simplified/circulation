@@ -20,3 +20,8 @@ mock
 py-bcrypt
 Flask-Babel
 money
+
+# for author name manipulations
+nameparser
+fuzzywuzzy
+

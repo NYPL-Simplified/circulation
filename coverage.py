@@ -114,7 +114,6 @@ class BaseCoverageProvider(object):
         self.run_once_and_update_timestamp()
 
     def run_once_and_update_timestamp(self):
-
         # First cover items that have never had a coverage attempt
         # before.
         offset = 0

@@ -184,10 +184,10 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         [author1, author2] = metadata.contributors
         eq_(u"Mccall Smith, Alexander", author1.sort_name)
-        eq_(None, author1.display_name)
+        eq_(u"Alexander Mccall Smith", author1.display_name)
         eq_([Contributor.AUTHOR_ROLE], author1.roles)
         eq_(u"Wilder, Thornton", author2.sort_name)
-        eq_(None, author2.display_name)
+        eq_(u"Thornton Wilder", author2.display_name)
         eq_([Contributor.AUTHOR_ROLE], author2.roles)
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
@@ -209,11 +209,9 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # and that's the only identifier we made
+        # We made exactly one OneClick and one ISBN-type identifiers.
         eq_(
-            [
-                (Identifier.ONECLICK_ID, "9780307378101"),
-            ],
+            [(Identifier.ISBN, "9780307378101"), (Identifier.ONECLICK_ID, "9780307378101")],
             sorted(ids)
         )
 
