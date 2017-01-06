@@ -2925,20 +2925,14 @@ class Edition(Base):
                             self.primary_identiifer, 
                             rep.url
                         )
-                if best_cover.suppressed:
-                    # TODO : Currently, this suppresses the cover entirely.
-                    # In the future, it would be nice to look for another
-                    # acceptable cover somewhere in those others returned
-                    # by `best_cover_within_distance()` or possibly at a
-                    # farther distance.
-                    logging.info(
-                        "Best cover for %r has been suppressed.",
-                        self.primary_identifier
-                    )
-                else:
-                    self.set_cover(best_cover)
+                self.set_cover(best_cover)
                 break
-            else:
+        else:
+            # No cover has been found. If the Edition currently references
+            # a cover, it has since been suppressed or otherwise removed.
+            # All cover details need to be removed.
+            cover_info = [self.cover, self.cover_full_url, self.cover_thumbnail_url]
+            if any(cover_info):
                 self.cover = None
                 self.cover_full_url = None
                 self.cover_thumbnail_url = None
