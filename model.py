@@ -3515,7 +3515,11 @@ class Work(Base):
             # same class: either Work or Identifier.
             works = cls.from_identifiers(_db, works_or_identifiers).all()
         work_ids = [w.id for w in works]
-        logging.info("Supressing covers for %i Works", len(works))
+
+        if len(works) == 1:
+            logging.info("Suppressing cover for %r", works[0])
+        else:
+            logging.info("Supressing covers for %i Works", len(works))
 
         cover_urls = list()
         for work in works:
@@ -3543,6 +3547,13 @@ class Work(Base):
                 policy=policy, search_index_client=search_index_client
             )
         _db.commit()
+
+    def suppress_cover(self, search_index_client=None):
+        """Suppresses the current cover of the Work"""
+        _db = Session.object_session(self)
+        self.suppress_covers(
+            _db, [self], search_index_client=search_index_client
+        )
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
