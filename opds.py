@@ -413,7 +413,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
                cache_type=None, force_refresh=False,
-               use_materialized_works=True, suppressed_covers=None):
+               use_materialized_works=True):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -487,10 +487,7 @@ class AcquisitionFeed(OPDSFeed):
             all_works.append(work)
 
         all_works = annotator.sort_works_for_groups_feed(all_works)
-        feed = AcquisitionFeed(
-            _db, title, url, all_works, annotator,
-            suppressed_covers=suppressed_covers
-        )
+        feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
         # Render a 'start' link and an 'up' link.
         top_level_title = annotator.top_level_title() or "Collection Home"
@@ -517,9 +514,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True,
-             suppressed_covers=None
-    ):
+             force_refresh=False, use_materialized_works=True):
         """Create a feed representing one page of works from a given lane.
 
         :return: CachedFeed (if use_cache is True) or unicode
@@ -552,10 +547,7 @@ class AcquisitionFeed(OPDSFeed):
             works = []
         else:
             works = works_q.all()
-        feed = cls(
-            _db, title, url, works, annotator,
-            suppressed_covers=suppressed_covers
-        )
+        feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
         for args in cls.facet_links(annotator, facets):
@@ -673,7 +665,7 @@ class AcquisitionFeed(OPDSFeed):
             yield link
 
     def __init__(self, _db, title, url, works, annotator=None,
-                 precomposed_entries=[], suppressed_covers=None):
+                 precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
         into a feed.
         """
@@ -684,14 +676,7 @@ class AcquisitionFeed(OPDSFeed):
         super(AcquisitionFeed, self).__init__(title, url)
 
         for work in works:
-            suppressed_cover = filter(
-                lambda lp: lp.identifier in suppressed_covers,
-                work.license_pools
-            )
-            if suppressed_cover:
-                self.add_entry(work, use_cache=False)
-            else:
-                self.add_entry(work)
+            self.add_entry(work)
 
         # Add the precomposed entries and the messages.
         for entry in precomposed_entries:
