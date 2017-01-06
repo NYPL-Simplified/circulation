@@ -2014,8 +2014,12 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
     def test_device_id_handler_bad_auth(self):
         with self.app.test_request_context("/", method='DELETE'):
-            patron = self.controller.authenticated_patron_from_request()
-            response = self.controller.device_id_handler("device")
+            with temp_config() as config:
+                config[Configuration.INTEGRATIONS] = {
+                    "Circulation Manager" : { "url" : "http://foo/" }
+                }
+                patron = self.controller.authenticated_patron_from_request()
+                response = self.controller.device_id_handler("device")
             assert isinstance(response, ProblemDetail)
             eq_(401, response.status_code)
 
