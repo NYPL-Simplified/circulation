@@ -684,11 +684,11 @@ class AcquisitionFeed(OPDSFeed):
                 entry = entry.tag
             self.feed.append(entry)
 
-    def add_entry(self, work, use_cache=True):
+    def add_entry(self, work):
         """Attempt to create an OPDS <entry>. If successful, append it to
         the feed.
         """
-        entry = self.create_entry(work, use_cache=use_cache)
+        entry = self.create_entry(work)
 
         if entry is not None:
             if isinstance(entry, OPDSMessage):
