@@ -24,12 +24,14 @@ if not authdata:
     print "Adobe IDs not configured, doing nothing."
 
 count = 0
-print "Processing %d patrons." % _db.query(Patron).count()
-for patron in _db.query(Patron):
+qu = _db.query(Patron)
+print "Processing %d patrons." % qu.count()
+for patron in qu:
     credential, delegated_identifier = authdata.migrate_adobe_id(patron)
     count += 1
     if not (count % 100):
         print count
+        _db.commit()
     if credential is None or delegated_identifier is None:
         # This patron did not have an Adobe ID in the first place.
         # Do nothing.
