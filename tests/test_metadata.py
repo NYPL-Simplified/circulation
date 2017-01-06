@@ -402,6 +402,53 @@ class TestMetadataImporter(DatabaseTest):
         # Nothing was uploaded.
         eq_([], mirror.uploaded)
         
+    def test_mirror_with_content_modifier(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror = DummyS3Uploader()
+        def dummy_content_modifier(representation):
+            representation.content = "Replaced Content"
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirror=mirror, content_modifier=dummy_content_modifier, http_get=h.do_get)
+
+        link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            media_type=Representation.EPUB_MEDIA_TYPE,
+            href="http://example.com/test.epub",
+            content="I'm an epub",
+        )
+
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+            license_pool=pool, media_type=link.media_type,
+            content=link.content,
+        )
+
+        h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
+        
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+
+        representation = link_obj.resource.representation
+
+        # The representation was fetched successfully.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at != None
+
+        # The mirror url is set.
+        assert "Gutenberg" in representation.mirror_url
+        assert representation.mirror_url.endswith("%s/%s.epub" % (edition.primary_identifier.identifier, edition.title))
+
+        # Content isn't there since it was mirrored.
+        eq_(None, representation.content)
+
+        # The representation was mirrored, with the modified content.
+        eq_([representation], mirror.uploaded)
+        eq_(["Replaced Content"], mirror.content)
+
     def test_measurements(self):
         edition = self._edition()
         measurement = MeasurementData(quantity_measured=Measurement.POPULARITY,
