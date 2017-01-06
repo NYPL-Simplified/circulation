@@ -121,7 +121,8 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
             incoming_media_type = flask.request.headers.get('Content-Type')
             if incoming_media_type != device_ids:
                 return UNSUPPORTED_MEDIA_TYPE.detailed(
-                    _("Expected %s document.") % device_ids
+                    _("Expected %(media_type)s document.",
+                      media_type=device_ids)
                 )
             output = handler.register_device(flask.request.data)
             if isinstance(output, ProblemDetail):
