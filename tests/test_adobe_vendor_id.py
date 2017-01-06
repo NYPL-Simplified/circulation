@@ -15,15 +15,18 @@ from jwt.exceptions import (
 import re
 import datetime
 
+from api.problem_details import *
 from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
     AdobeVendorIDRequestHandler,
     AdobeVendorIDModel,
     AuthdataUtility,
+    DeviceManagementRequestHandler,
 )
 
 from api.opds import CirculationManagerAnnotator
+from api.testing import MockAdobeConfiguration
 
 from . import (
     DatabaseTest,
@@ -34,6 +37,7 @@ from core.model import (
     DataSource,
     DelegatedPatronIdentifier,
 )
+from core.util.problem_detail import ProblemDetail
 
 from api.config import (
     CannotLoadConfiguration,
@@ -43,32 +47,19 @@ from api.config import (
 
 from api.mock_authentication import MockAuthenticationProvider       
 
-class VendorIDTest(DatabaseTest):
-
-    TEST_VENDOR_ID = "vendor id"
-    TEST_LIBRARY_URI = "http://me/"
-    TEST_LIBRARY_SHORT_NAME = "Lbry"
-    TEST_SECRET = "some secret"
-    TEST_OTHER_LIBRARY_URI = "http://you/"
-    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
-        
+class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
+       
     @contextlib.contextmanager
     def temp_config(self):
         """Configure a basic Vendor ID Service setup."""
         name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
         with temp_config() as config:
-            config[Configuration.INTEGRATIONS][name] = {
-                Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
-                AuthdataUtility.LIBRARY_URI_KEY: self.TEST_LIBRARY_URI,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: self.TEST_LIBRARY_SHORT_NAME,
-                AuthdataUtility.AUTHDATA_SECRET_KEY: self.TEST_SECRET,
-                AuthdataUtility.OTHER_LIBRARIES_KEY: self.TEST_OTHER_LIBRARIES,
-            }
+            config[Configuration.INTEGRATIONS][name] = dict(
+                self.MOCK_ADOBE_CONFIGURATION
+            )
             yield config
 
 class TestVendorIDModel(VendorIDTest):
-
-    TEST_NODE_VALUE = 114740953091845
 
     credentials = dict(username="validpatron", password="password")
     
@@ -1060,3 +1051,53 @@ class TestAuthdataUtility(VendorIDTest):
         )
         eq_("My Adobe ID", uuid)
         eq_('Delegated account ID My Adobe ID', label)
+       
+
+class TestDeviceManagementRequestHandler(TestAuthdataUtility):
+    
+    def test_register_drm_device_identifier(self):
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
+        handler.register_device("device1")
+        eq_(
+            ['device1'],
+            [x.device_identifier for x in credential.drm_device_identifiers]
+        )
+
+    def test_register_drm_device_identifier_does_nothing_on_no_input(self):
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
+        handler.register_device("")
+        eq_([], credential.drm_device_identifiers)
+        
+    def test_register_drm_device_identifier_failure(self):
+        """You can only register one device in a single call."""
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
+        result = handler.register_device("device1\ndevice2")
+        assert isinstance(result, ProblemDetail)
+        eq_(PAYLOAD_TOO_LARGE.uri, result.uri)
+        eq_([], credential.drm_device_identifiers)
+
+    def test_deregister_drm_device_identifier(self):
+        credential = self._credential()
+        credential.register_drm_device_identifier("foo")
+        handler = DeviceManagementRequestHandler(credential)
+
+        result = handler.deregister_device("foo")
+        eq_("Success", result)
+        eq_([], credential.drm_device_identifiers)
+
+        # Deregistration is idempotent.
+        result = handler.deregister_device("foo")
+        eq_("Success", result)
+        eq_([], credential.drm_device_identifiers)
+
+    def test_device_list(self):
+        credential = self._credential()
+        credential.register_drm_device_identifier("foo")
+        credential.register_drm_device_identifier("bar")
+        handler = DeviceManagementRequestHandler(credential)
+        # Device IDs are sorted alphabetically.
+        eq_("bar\nfoo", handler.device_list())
+        

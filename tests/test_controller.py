@@ -69,7 +69,7 @@ from api.circulation import (
     FulfillmentInfo,
 )
 from api.novelist import MockNoveListAPI
-
+from api.adobe_vendor_id import AuthdataUtility
 from api.lanes import make_lanes_default
 from core.util.cdn import cdnify
 import base64
@@ -83,6 +83,7 @@ from core.util.opds_writer import (
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
 from api.admin.oauth import DummyGoogleClient
+from api.testing import MockAdobeConfiguration
 from lxml import etree
 import random
 import json
@@ -95,7 +96,7 @@ class TestCirculationManager(CirculationManager):
         base_url = url_for(view, *args, **kwargs)
         return cdnify(base_url, {"": "http://cdn/"})
 
-class ControllerTest(DatabaseTest):
+class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
@@ -155,6 +156,9 @@ class ControllerTest(DatabaseTest):
                 Configuration.CIRCULATION_MANAGER_INTEGRATION : {
                     "url": 'http://test-circulation-manager/'
                 },
+                Configuration.ADOBE_VENDOR_ID_INTEGRATION : dict(
+                    self.MOCK_ADOBE_CONFIGURATION
+                )
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
@@ -162,7 +166,8 @@ class ControllerTest(DatabaseTest):
             )
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-
+            self.authdata = AuthdataUtility.from_config()
+            
     
 class CirculationControllerTest(ControllerTest):
 
@@ -1873,6 +1878,160 @@ class TestAnalyticsController(CirculationControllerTest):
                     license_pool=self.lp
                 )
                 assert circulation_event != None
+
+class TestDeviceManagementProtocolController(ControllerTest):
+
+    def setup(self):
+        super(TestDeviceManagementProtocolController, self).setup()
+        self.auth = dict(Authorization=self.valid_auth)
+        self.controller = self.manager.adobe_device_management
+        
+    def _create_credential(self):
+        """Associate a credential with the default patron which
+        can have Adobe device identifiers associated with it,
+        """
+        return self._credential(
+            DataSource.INTERNAL_PROCESSING,
+            AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+            self.default_patron
+        )
+    
+    def test_link_template_header(self):
+        """Test the value of the Link-Template header used in 
+        device_id_list_handler.
+        """
+        with self.app.test_request_context("/"):
+            headers = self.controller.link_template_header
+            eq_(1, len(headers))
+            template = headers['Link-Template']
+            eq_(u'<http://localhost/AdobeAuth/devices/{id}>; rel="item"',
+                template)
+
+    def test__request_handler_failure(self):
+        """You cannot create a DeviceManagementRequestHandler
+        without providing a patron.
+        """
+        result = self.controller._request_handler(None)
+
+        assert isinstance(result, ProblemDetail)
+        eq_(INVALID_CREDENTIALS.uri, result.uri)
+        eq_("No authenticated patron", result.detail)
+            
+    def test_device_id_list_handler_post_success(self):
+        # The patron has no credentials, and thus no registered devices.
+        eq_([], self.default_patron.credentials)
+        headers = dict(self.auth)
+        headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
+        with self.app.test_request_context(
+            "/", method='POST', headers=headers, data="device"
+        ):
+            self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_list_handler()
+            eq_(200, response.status_code)
+
+            # We just registered a new device with the patron. This
+            # automatically created an appropriate Credential for
+            # them.
+            [credential] = self.default_patron.credentials
+            eq_(DataSource.INTERNAL_PROCESSING, credential.data_source.name)
+            eq_(AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
+                credential.type)
+
+            eq_(['device'],
+                [x.device_identifier for x in credential.drm_device_identifiers]
+            )
+
+    def test_device_id_list_handler_get_success(self):
+        credential = self._create_credential()
+        credential.register_drm_device_identifier("device1")
+        credential.register_drm_device_identifier("device2")
+        with self.app.test_request_context("/", headers=self.auth):
+            self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_list_handler()
+            eq_(200, response.status_code)
+            
+            # We got a list of device IDs.
+            eq_(self.controller.DEVICE_ID_LIST_MEDIA_TYPE,
+                response.headers['Content-Type'])
+            eq_("device1\ndevice2", response.data)
+
+            # We got a URL Template (see test_link_template_header())
+            # that explains how to address any particular device ID.
+            expect = self.controller.link_template_header
+            for k, v in expect.items():
+                assert response.headers[k] == v
+
+    def device_id_list_handler_bad_auth(self):
+        with self.app.test_request_context("/"):
+            self.controller.authenticated_patron_from_request()
+            response = self.manager.adobe_vendor_id.device_id_list_handler()
+            assert isinstance(response, ProblemDetail)
+            eq_(401, response.status_code)
+
+    def device_id_list_handler_bad_method(self):
+        with self.app.test_request_context(
+            "/", method='DELETE', headers=self.auth
+        ):
+            self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_list_handler()
+            assert isinstance(response, ProblemDetail)
+            eq_(405, response.status_code)
+
+    def test_device_id_list_handler_too_many_simultaneous_registrations(self):
+        """We only allow registration of one device ID at a time."""
+        headers = dict(self.auth)
+        headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
+        with self.app.test_request_context(
+            "/", method='POST', headers=headers, data="device1\ndevice2"
+        ):
+            self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_list_handler()
+            eq_(413, response.status_code)
+            eq_("You may only register one device ID at a time.", response.detail)
+
+    def test_device_id_list_handler_wrong_media_type(self):
+        headers = dict(self.auth)
+        headers['Content-Type'] = "text/plain"
+        with self.app.test_request_context(
+            "/", method='POST', headers=headers, data="device1\ndevice2"
+        ):
+            self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_list_handler()
+            eq_(415, response.status_code)
+            eq_("Expected vnd.librarysimplified/drm-device-id-list document.",
+                response.detail)
+
+    def test_device_id_handler_success(self):
+        credential = self._create_credential()
+        credential.register_drm_device_identifier("device")
+
+        with self.app.test_request_context(
+                "/", method='DELETE', headers=self.auth
+        ):
+            patron = self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_handler("device")
+            eq_(200, response.status_code)
+
+    def test_device_id_handler_bad_auth(self):
+        with self.app.test_request_context("/", method='DELETE'):
+            with temp_config() as config:
+                config[Configuration.INTEGRATIONS] = {
+                    "Circulation Manager" : { "url" : "http://foo/" }
+                }
+                patron = self.controller.authenticated_patron_from_request()
+                response = self.controller.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(401, response.status_code)
+
+    def test_device_id_handler_bad_method(self):
+        with self.app.test_request_context("/", method='POST', headers=self.auth):
+            patron = self.controller.authenticated_patron_from_request()
+            response = self.controller.device_id_handler("device")
+            assert isinstance(response, ProblemDetail)
+            eq_(405, response.status_code)
+            eq_("Only DELETE is supported.", response.detail)
+
+
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)
