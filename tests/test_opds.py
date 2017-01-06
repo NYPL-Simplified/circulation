@@ -285,7 +285,8 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
     def test_adobe_id_tags_when_vendor_id_configured(self):
         """When vendor ID delegation is configured, adobe_id_tags()
         returns a list containing a single tag. The tag contains
-        the information necessary to get an Adobe ID.
+        the information necessary to get an Adobe ID and a link to the local
+        DRM Device Management Protocol endpoint.
         """
         with self.temp_config() as config:
             patron_identifier = "patron identifier"
@@ -297,7 +298,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             key = '{http://librarysimplified.org/terms/drm}vendor'
             eq_("Some Vendor", element.attrib[key])
             
-            [token] = element.getchildren()
+            [token, device_management_link] = element.getchildren()
             
             eq_('{http://librarysimplified.org/terms/drm}clientToken', token.tag)
             # token.text is a token which we can decode, since we know
@@ -307,6 +308,14 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             decoded = authdata.decode_short_client_token(token)
             eq_(("http://a-library/", patron_identifier), decoded)
 
+            eq_("link", device_management_link.tag)
+            eq_("http://librarysimplified.org/terms/drm/rel/devices",
+                device_management_link.attrib['rel'])
+            expect_url = self.annotator.url_for(
+                'adobe_drm_devices', _external=True
+            )
+            eq_(expect_url, device_management_link.attrib['href'])
+            
             # If we call adobe_id_tags again we'll get a distinct tag
             # object that renders to the same XML.
             [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
