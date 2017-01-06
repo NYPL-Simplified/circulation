@@ -1695,6 +1695,14 @@ class TestWorkController(CirculationControllerTest):
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
+        # Language restrictions can remove books that would otherwise be
+        # in the feed.
+        with self.app.test_request_context("/"):
+            response = self.manager.work_controller.series(
+                series_name, 'fre', None
+            )
+            feed = feedparser.parse(response.data)
+            eq_(0, len(feed['entries']))
 
 class TestFeedController(CirculationControllerTest):
 
