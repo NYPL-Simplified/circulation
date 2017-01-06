@@ -57,6 +57,7 @@ class ReplacementPolicy(object):
             rights=False,
             link_content=False,
             mirror=None,
+            content_modifier=None,
             http_get=None,
             even_if_not_apparently_updated=False,
             presentation_calculation_policy=None
@@ -70,6 +71,7 @@ class ReplacementPolicy(object):
         self.link_content = link_content
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
+        self.content_modifier = content_modifier
         self.http_get = http_get
         self.presentation_calculation_policy = (
             presentation_calculation_policy or
@@ -552,6 +554,9 @@ class MetaToModelUtility(object):
                 representation.url, representation.status_code
             )
             return
+
+        if policy.content_modifier:
+            policy.content_modifier(representation)
 
         # The metadata may have some idea about the media type for this
         # LinkObject, but the media type we actually just saw takes 
