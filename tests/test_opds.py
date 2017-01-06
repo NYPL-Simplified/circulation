@@ -546,9 +546,13 @@ class TestOPDS(WithVendorIDTest):
             # and the patron's patron identifier for Adobe purposes.
             eq_('Some Vendor',
                 licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
-            [client_token] = licensor.getchildren()
+            [client_token, device_management_link] = licensor.getchildren()
             assert client_token.text.startswith('A LIBRARY')
             assert adobe_patron_identifier in client_token.text
+            eq_("{http://www.w3.org/2005/Atom}link",
+                device_management_link.tag)
+            eq_("http://librarysimplified.org/terms/drm/rel/devices",
+                device_management_link.attrib['rel'])
 
             # Unlike other places this tag shows up, we use the
             # 'scheme' attribute to explicitly state that this
