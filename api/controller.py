@@ -102,7 +102,11 @@ from lanes import (
     SeriesLane,
 )
 
-from adobe_vendor_id import AdobeVendorIDController
+from adobe_vendor_id import (
+    AdobeVendorIDController,
+    DeviceManagementProtocolController,
+    AuthdataUtility,
+)
 from axis import Axis360API
 from overdrive import OverdriveAPI
 from threem import ThreeMAPI
@@ -111,6 +115,7 @@ from novelist import (
     NoveListAPI,
     MockNoveListAPI,
 )
+from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI
 from services import ServiceStatus
 from core.analytics import Analytics
@@ -229,10 +234,14 @@ class CirculationManager(object):
         self.service_status = ServiceStatusController(self)
 
     def setup_adobe_vendor_id(self):
-        """Set up the controller for Adobe Vendor ID."""
+        """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
+        for the DRM Device Management Protocol.
+        """
         adobe = Configuration.integration(
             Configuration.ADOBE_VENDOR_ID_INTEGRATION
         )
+
+        # Relatively few libraries will have this setup.
         vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
         node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
         if vendor_id and node_value:
@@ -243,9 +252,18 @@ class CirculationManager(object):
                 self.auth
             )
         else:
-            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration.")
+            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
             self.adobe_vendor_id = None
 
+        # But almost all libraries will have this setup.
+        if adobe.get(AuthdataUtility.AUTHDATA_SECRET_KEY):
+            try:
+                authdata = AuthdataUtility.from_config()
+                self.adobe_device_management = DeviceManagementProtocolController(self)
+            except CannotLoadConfiguration, e:
+                self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
+
+            
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
@@ -254,77 +272,7 @@ class CirculationManager(object):
         )
 
 
-class CirculationManagerController(object):
-
-    def __init__(self, manager):
-        self.manager = manager
-        self._db = self.manager._db
-        self.circulation = self.manager.circulation
-        self.url_for = self.manager.url_for
-        self.cdn_url_for = self.manager.cdn_url_for
-
-    def authorization_header(self):
-        """Get the authentication header."""
-
-        # This is the basic auth header.
-        header = flask.request.authorization
-
-        # If we're using a token instead, flask doesn't extract it for us.
-        if not header:
-            if 'Authorization' in flask.request.headers:
-                header = flask.request.headers['Authorization']
-
-        return header
-
-
-    def authenticated_patron_from_request(self):
-        header = self.authorization_header()
-
-        if not header:
-            # No credentials were provided.
-            return self.authenticate()
-        try:
-            patron = self.authenticated_patron(header)
-        except RemoteInitiatedServerError,e:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _("Error in authentication service")
-            )
-        if isinstance(patron, ProblemDetail):
-            flask.request.patron = None
-            return patron
-        else:
-            flask.request.patron = patron
-            return patron
-
-    def authenticated_patron(self, authorization_header):
-        """Look up the patron authenticated by the given authorization header.
-
-        The header could contain a barcode and pin or a token for an
-        external service.
-
-        If there's a problem, return a Problem Detail Document.
-
-        If there's no problem, return a Patron object.
-        """
-        patron = self.manager.auth.authenticated_patron(
-            self._db, authorization_header
-        )
-        if not patron:
-            return INVALID_CREDENTIALS
-
-        if isinstance(patron, ProblemDetail):
-            return patron
-
-        return patron
-
-    def authenticate(self):
-        """Sends a 401 response that demands authentication."""
-        if not self.manager.opds_authentication_document:
-            self.manager.opds_authentication_document = self.manager.auth.create_authentication_document()
-
-        data = self.manager.opds_authentication_document
-        headers = self.manager.auth.create_authentication_headers()
-        return Response(data, 401, headers)
+class CirculationManagerController(BaseCirculationManagerController):
 
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
@@ -1097,7 +1045,7 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-
+    
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, data_source, identifier_type, identifier, event_type):

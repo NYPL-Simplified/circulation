@@ -12,6 +12,32 @@ from api.circulation import (
     LoanInfo,
     HoldInfo,
 )
+from api.config import Configuration
+from api.adobe_vendor_id import AuthdataUtility
+
+class MockAdobeConfiguration(object):
+    """Contains the constants necessary to set up an Adobe
+    AuthdataUtility.  This is used in test_adobe_vendor_id.py (to test
+    the basic functionality) and test_controller.py (to create an
+    AdobeVendorIDController for use in testing.)
+    """
+    
+    TEST_NODE_VALUE = 114740953091845
+    TEST_VENDOR_ID = "vendor id"
+    TEST_LIBRARY_URI = "http://me/"
+    TEST_LIBRARY_SHORT_NAME = "Lbry"
+    TEST_SECRET = "some secret"
+    TEST_OTHER_LIBRARY_URI = "http://you/"
+    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
+
+    MOCK_ADOBE_CONFIGURATION = {
+        Configuration.ADOBE_VENDOR_ID: TEST_VENDOR_ID,
+        Configuration.ADOBE_VENDOR_ID_NODE_VALUE: TEST_NODE_VALUE,
+        AuthdataUtility.LIBRARY_URI_KEY: TEST_LIBRARY_URI,
+        AuthdataUtility.LIBRARY_SHORT_NAME_KEY: TEST_LIBRARY_SHORT_NAME,
+        AuthdataUtility.AUTHDATA_SECRET_KEY: TEST_SECRET,
+        AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
+    }
 
 
 class MockRemoteAPI(BaseCirculationAPI):

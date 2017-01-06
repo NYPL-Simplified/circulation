@@ -9,12 +9,17 @@ from jwt.algorithms import HMACAlgorithm
 
 import flask
 from flask import Response
+from flask.ext.babel import lazy_gettext as _
 from config import (
     CannotLoadConfiguration,
     Configuration,
 )
+from api.base_controller import BaseCirculationManagerController
+from problem_details import *
 from sqlalchemy.orm.session import Session
 from core.util.xmlparser import XMLParser
+from core.util.problem_detail import ProblemDetail
+from core.app_server import url_for
 from core.model import (
     get_one,
     Credential,
@@ -62,6 +67,86 @@ class AdobeVendorIDController(object):
     def status_handler(self):
         return Response("UP", 200, {"Content-Type": "text/plain"})
 
+
+class DeviceManagementProtocolController(BaseCirculationManagerController):
+    """Implementation of the DRM Device ID Management Protocol.
+
+    The code that does the actual work is in DeviceManagementRequestHandler.
+    """
+    DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
+    PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
+    
+    @property
+    def link_template_header(self):
+        """Generate the Link Template that explains how to deregister
+        a specific DRM device ID.
+        """
+        url = url_for("adobe_drm_device", device_id="{id}", _external=True)
+        # The curly brackets in {id} were escaped. Un-escape them to
+        # get a Link Template.
+        url = url.replace("%7Bid%7D", "{id}")
+        return {"Link-Template": '<%s>; rel="item"' % url}
+
+    def _request_handler(self, patron):
+        """Create a DeviceManagementRequestHandler for the appropriate
+        Credential of the given Patron.
+       
+        :return: A DeviceManagementRequestHandler
+        """
+        if not patron:
+            return INVALID_CREDENTIALS.detailed(_("No authenticated patron"))
+
+        credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
+            patron
+        )
+        return DeviceManagementRequestHandler(credential)
+    
+    def device_id_list_handler(self):
+        """Manage the list of device IDs associated with an Adobe ID."""
+        handler = self._request_handler(flask.request.patron)
+        if isinstance(handler, ProblemDetail):
+            return handler
+        
+        device_ids = self.DEVICE_ID_LIST_MEDIA_TYPE
+        if flask.request.method=='GET':
+            # Serve a list of device IDs.
+            output = handler.device_list()
+            if isinstance(output, ProblemDetail):
+                return output
+            headers = self.link_template_header
+            headers['Content-Type'] = device_ids
+            return Response(output, 200, headers)
+        elif flask.request.method=='POST':
+            # Add a device ID to the list.
+            incoming_media_type = flask.request.headers.get('Content-Type')
+            if incoming_media_type != device_ids:
+                return UNSUPPORTED_MEDIA_TYPE.detailed(
+                    _("Expected %(media_type)s document.",
+                      media_type=device_ids)
+                )
+            output = handler.register_device(flask.request.data)
+            if isinstance(output, ProblemDetail):
+                return output
+            return Response(output, 200, self.PLAIN_TEXT_HEADERS)
+        return METHOD_NOT_ALLOWED.detailed(
+            _("Only GET and POST are supported.")
+        )
+        
+    def device_id_handler(self, device_id):
+        """Manage one of the device IDs associated with an Adobe ID."""       
+        handler = self._request_handler(getattr(flask.request, 'patron', None))
+        if isinstance(handler, ProblemDetail):
+            return handler
+
+        if flask.request.method != 'DELETE':
+            return METHOD_NOT_ALLOWED.detailed(_("Only DELETE is supported."))
+
+        # Delete the specified device ID.
+        output = handler.deregister_device(device_id)
+        if isinstance(output, ProblemDetail):
+            return output
+        return Response(output, 200, self.PLAIN_TEXT_HEADERS)
+    
 
 class AdobeVendorIDRequestHandler(object):
 
@@ -145,6 +230,36 @@ class AdobeVendorIDRequestHandler(object):
     def error_document(self, type, message):
         return self.ERROR_RESPONSE_TEMPLATE % dict(
             vendor_id=self.vendor_id, type=type, message=message)
+
+
+class DeviceManagementRequestHandler(object):
+    """Handle incoming requests for the DRM Device Management Protocol."""
+        
+    def __init__(self, credential):
+        self.credential = credential
+        
+    def device_list(self):
+        return "\n".join(
+            sorted(
+                x.device_identifier
+                for x in self.credential.drm_device_identifiers
+            )
+        )
+
+    def register_device(self, data):
+        device_ids = data.split("\n")
+        if len(device_ids) > 1:
+            return PAYLOAD_TOO_LARGE.detailed(
+                _("You may only register one device ID at a time.")
+            )
+        for device_id in device_ids:
+            if device_id:
+                self.credential.register_drm_device_identifier(device_id)
+        return 'Success'
+            
+    def deregister_device(self, device_id):
+        self.credential.deregister_drm_device_identifier(device_id)
+        return 'Success'
 
 
 class AdobeRequestParser(XMLParser):
@@ -395,7 +510,7 @@ class AdobeVendorIDModel(object):
             # token.
             uuid_and_label = (None, None)
         return uuid_and_label
-    
+
     def to_delegated_patron_identifier_uuid(
             self, library_uri, foreign_patron_identifier, value_generator=None
     ):
@@ -411,6 +526,9 @@ class AdobeVendorIDModel(object):
             self._db, library_uri, foreign_patron_identifier,
             DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID, value_generator
         )
+
+        if identifier is None:
+            return None, None
         return (identifier.delegated_identifier,
                 self.urn_to_label(identifier.delegated_identifier))
 
@@ -731,10 +849,11 @@ class AuthdataUtility(object):
 
         :raise ValueError: When the token is not valid for any reason.
         """
-        if not ' ' in token:
+        if not '|' in token:
             raise ValueError(
-                'Supposed client token "%s" does not contain a space.' % token
+                'Supposed client token "%s" does not contain a pipe.' % token
             )
+
         username, password = token.rsplit('|', 1)
         return self.decode_two_part_short_client_token(username, password)
         

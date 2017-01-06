@@ -620,13 +620,13 @@ class CirculationManagerAnnotator(Annotator):
    
     def adobe_id_tags(self, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
-        explain how to get an Adobe ID for this patron.
+        explain how to get an Adobe ID for this patron, and how to
+        manage their list of device IDs.
 
         :param delivery_mechanism: A DeliveryMechanism
 
         :return: If Adobe Vendor ID delegation is configured, a list
         containing a <drm:licensor> tag. If not, an empty list.
-
         """
         # CirculationManagerAnnotators are created per request.
         # Within the context of a single request, we can cache the
@@ -649,13 +649,24 @@ class CirculationManagerAnnotator(Annotator):
                 # into username/password.
                 vendor_id, jwt = authdata.encode_short_client_token(patron_identifier)
 
-                drm_link = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
+                drm_licensor = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
                 vendor_attr = "{%s}vendor" % OPDSFeed.DRM_NS
-                drm_link.attrib[vendor_attr] = vendor_id
+                drm_licensor.attrib[vendor_attr] = vendor_id
                 patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
                 patron_key.text = jwt
-                drm_link.append(patron_key)
-                cached = [drm_link]
+                drm_licensor.append(patron_key)
+                
+                # Add the link to the DRM Device Management Protocol
+                # endpoint. See:
+                # https://github.com/NYPL-Simplified/Simplified/wiki/DRM-Device-Management
+                device_list_link = OPDSFeed.makeelement("link")
+                device_list_link.attrib['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
+                device_list_link.attrib['href'] = self.url_for(
+                    "adobe_drm_devices", _external=True
+                )
+                drm_licensor.append(device_list_link)
+                cached = [drm_licensor]
+
             self._adobe_id_tags[patron_identifier] = cached
         else:
             cached = copy.deepcopy(cached)
