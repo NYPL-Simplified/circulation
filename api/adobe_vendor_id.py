@@ -121,13 +121,15 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
             incoming_media_type = flask.request.headers.get('Content-Type')
             if incoming_media_type != device_ids:
                 return UNSUPPORTED_MEDIA_TYPE.detailed(
-                    "Expected %s document." % device_ids
+                    _("Expected %s document.") % device_ids
                 )
             output = handler.register_device(flask.request.data)
             if isinstance(output, ProblemDetail):
                 return output
             return Response(output, 200, self.PLAIN_TEXT_HEADERS)
-        return METHOD_NOT_ALLOWED.detailed("Only GET and POST are supported.")
+        return METHOD_NOT_ALLOWED.detailed(
+            _("Only GET and POST are supported.")
+        )
         
     def device_id_handler(self, device_id):
         """Manage one of the device IDs associated with an Adobe ID."""       
@@ -136,7 +138,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
             return handler
 
         if flask.request.method != 'DELETE':
-            return METHOD_NOT_ALLOWED.detailed("Only DELETE is supported.")
+            return METHOD_NOT_ALLOWED.detailed(_("Only DELETE is supported."))
 
         # Delete the specified device ID.
         output = handler.deregister_device(device_id)
