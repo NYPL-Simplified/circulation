@@ -109,6 +109,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         
         device_ids = self.DEVICE_ID_LIST_MEDIA_TYPE
         if flask.request.method=='GET':
+            # Serve a list of device IDs.
             output = handler.device_list()
             if isinstance(output, ProblemDetail):
                 return output
@@ -116,6 +117,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
             headers['Content-Type'] = device_ids
             return Response(output, 200, headers)
         elif flask.request.method=='POST':
+            # Add a device ID to the list.
             incoming_media_type = flask.request.headers.get('Content-Type')
             if incoming_media_type != device_ids:
                 return UNSUPPORTED_MEDIA_TYPE.detailed(
@@ -135,7 +137,8 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
 
         if flask.request.method != 'DELETE':
             return METHOD_NOT_ALLOWED.detailed("Only DELETE is supported.")
-        
+
+        # Delete the specified device ID.
         output = handler.deregister_device(device_id)
         if isinstance(output, ProblemDetail):
             return output
@@ -247,7 +250,8 @@ class DeviceManagementRequestHandler(object):
                 _("You may only register one device ID at a time.")
             )
         for device_id in device_ids:
-            self.credential.register_drm_device_identifier(device_id)
+            if device_id:
+                self.credential.register_drm_device_identifier(device_id)
         return 'Success'
             
     def deregister_device(self, device_id):

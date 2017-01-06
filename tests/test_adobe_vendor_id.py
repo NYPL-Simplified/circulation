@@ -1064,6 +1064,12 @@ class TestDeviceManagementRequestHandler(TestAuthdataUtility):
             [x.device_identifier for x in credential.drm_device_identifiers]
         )
 
+    def test_register_drm_device_identifier_does_nothing_on_no_input(self):
+        credential = self._credential()
+        handler = DeviceManagementRequestHandler(credential)
+        handler.register_device("")
+        eq_([], credential.drm_device_identifiers)
+        
     def test_register_drm_device_identifier_failure(self):
         """You can only register one device in a single call."""
         credential = self._credential()
