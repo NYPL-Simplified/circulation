@@ -1151,7 +1151,7 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(AnnotationWriter.CONTENT_TYPE, response.headers['Content-Type'])
 
     def test_detail_for_other_patrons_annotation_returns_404(self):
-        patron = self.default_patron
+        patron = self._patron()
         self.pool.loan_to(patron)
 
         annotation, ignore = create(
