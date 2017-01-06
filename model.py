@@ -3529,9 +3529,19 @@ class Work(Base):
             join(Identifier.licensed_through).\
             filter(Resource.url.in_(cover_urls), LicensePool.work_id.in_(work_ids))
 
+        editions = list()
         for cover in covers:
             cover.suppressed = True
+            if len(cover.cover_editions) > 1:
+                editions += cover.cover_editions
         _db.commit()
+
+        editions = list(set(editions))
+        if editions:
+            # More Editions and Works have been impacted by this cover
+            # suppression.
+            works += [ed.work for ed in editions if ed.work]
+            editions = [ed for ed in editions if not ed.work]
 
         # Remove the cover from the Work and its Edition and reset
         # cached OPDS entries.
@@ -3540,6 +3550,8 @@ class Work(Base):
             work.calculate_presentation(
                 policy=policy, search_index_client=search_index_client
             )
+        for edition in editions:
+            edition.calculate_presentation(policy=policy)
         _db.commit()
 
     def suppress_cover(self, search_index_client=None):

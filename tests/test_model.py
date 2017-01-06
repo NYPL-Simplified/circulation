@@ -2111,32 +2111,56 @@ class TestWork(DatabaseTest):
         work = self._work(presentation_edition=edition)
         assert work.cover_full_url and work.cover_thumbnail_url
 
+        # A couple helper methods to make these tests more readable.
+        def has_no_cover(work_or_edition):
+            """Determines whether a Work or an Edition has a cover."""
+            eq_(None, work_or_edition.cover_full_url)
+            eq_(None, work_or_edition.cover_thumbnail_url)
+            eq_(True, cover_link.resource.suppressed)
+
+            if isinstance(work_or_edition, Work):
+                # It also removes the link from the cached OPDS entries.
+                for url in [full_url, thumbnail_url]:
+                    assert url not in work.simple_opds_entry
+                    assert url not in work.verbose_opds_entry
+
+            return True
+
+        def reset_cover():
+            """Makes the cover visible again for the main work object
+            and confirms its visibility.
+            """
+            cover_link.resource.suppressed = False
+            work.calculate_presentation(search_index_client=index)
+            eq_(full_url, work.cover_full_url)
+            eq_(thumbnail_url, work.cover_thumbnail_url)
+            for url in [full_url, thumbnail_url]:
+                assert url in work.simple_opds_entry
+                assert url in work.verbose_opds_entry
+
         # Suppressing the cover removes the cover from the work.
         index = DummyExternalSearchIndex()
         Work.suppress_covers(self._db, [work], search_index_client=index)
-        eq_(None, work.cover_full_url)
-        eq_(None, work.cover_thumbnail_url)
-        eq_(True, cover_link.resource.suppressed)
+        assert has_no_cover(work)
+        reset_cover()
 
-        # It also removes the link from the cached OPDS entries.
-        for url in [full_url, thumbnail_url]:
-            assert url not in work.simple_opds_entry
-            assert url not in work.verbose_opds_entry
-
-        # Reset the cover.
-        cover_link.resource.suppressed = False
-        work.calculate_presentation(search_index_client=index)
-
-        eq_(full_url, work.cover_full_url)
-        eq_(thumbnail_url, work.cover_thumbnail_url)
-        for url in [full_url, thumbnail_url]:
-            assert url in work.simple_opds_entry
-            assert url in work.verbose_opds_entry
-
-        # It also works with an Identifier.
+        # It also works with Identifiers.
         identifier = work.license_pools[0].identifier
-        Work.suppress_covers(self._db, [identifier])
-        assert not (work.cover_full_url and work.cover_thumbnail_url)
+        Work.suppress_covers(self._db, [identifier], search_index_client=index)
+        assert has_no_cover(work)
+        reset_cover()
+
+        # When other Works or Editions share a cover, they are also
+        # updated during the suppression process.
+        other_edition = self._edition()
+        other_edition.set_cover(cover_link.resource)
+        other_work_ed = self._edition()
+        other_work_ed.set_cover(cover_link.resource)
+        other_work = self._work(presentation_edition=other_work_ed)
+
+        Work.suppress_covers(self._db, [work], search_index_client=index)
+        assert has_no_cover(other_edition)
+        assert has_no_cover(other_work)
 
     def test_missing_coverage_from(self):
         operation = 'the_operation'
