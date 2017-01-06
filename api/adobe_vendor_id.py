@@ -94,7 +94,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         :return: A DeviceManagementRequestHandler
         """
         if not patron:
-            return INVALID_CREDENTIALS.detailed("No authenticated patron")
+            return INVALID_CREDENTIALS.detailed(_("No authenticated patron"))
 
         credential = AdobeVendorIDModel.get_or_create_patron_identifier_credential(
             patron
