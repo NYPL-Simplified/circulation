@@ -38,3 +38,8 @@ PyLD
 
 # A NYPL-specific requirement
 newrelic
+
+# for author name manipulations
+nameparser
+fuzzywuzzy
+
