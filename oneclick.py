@@ -388,13 +388,18 @@ class OneClickAPI(object):
             result = coverage_provider.update_metadata(catalog_item=catalog_item, metadata_replacement_policy=metadata_replacement_policy)
             if not isinstance(result, CoverageFailure):
                 items_created += 1
-                # We're populating the catalog, so we can assume the list OneClick
-                # sent us is of books we own licenses to.  
-                # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display 
-                # books they don't own, we'd need to call the search endpoint to get 
-                # the interest field, and then deal with licenses_owned. 
-                if isinstance(result, Identifier) and result.licensed_through:
-                    result.licensed_through.licenses_owned = 1
+
+                if isinstance(result, Identifier):
+                    # calls work.set_presentation_ready() for us
+                    coverage_provider.handle_success(result)
+
+                    # We're populating the catalog, so we can assume the list OneClick
+                    # sent us is of books we own licenses to.  
+                    # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display 
+                    # books they don't own, we'd need to call the search endpoint to get 
+                    # the interest field, and then deal with licenses_owned. 
+                    if result.licensed_through:
+                        result.licensed_through.licenses_owned = 1
 
         # stay data, stay!
         self._db.commit()
@@ -423,6 +428,10 @@ class OneClickAPI(object):
             result = coverage_provider.update_metadata(catalog_item)
             if not isinstance(result, CoverageFailure):
                 items_updated += 1
+
+                if isinstance(result, Identifier):
+                    # calls work.set_presentation_ready() for us
+                    coverage_provider.handle_success(result)
 
         for catalog_item in items_removed:
             metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
@@ -457,6 +466,9 @@ class OneClickAPI(object):
                 pool.last_checked = today
 
                 items_updated += 1
+
+        # stay data, stay!
+        self._db.commit()
 
         return items_transmitted, items_updated
 
@@ -850,11 +862,21 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         result = self.update_metadata(response_dictionary, identifier, self.metadata_replacement_policy)
 
+        if isinstance(result, Identifier):
+            # calls work.set_presentation_ready() for us
+            self.handle_success(result)
+
         return result
 
 
     def update_metadata(self, catalog_item, identifier=None, metadata_replacement_policy=None):
         """
+        Creates db objects corresponding to the book info passed in.
+
+        Note: It is expected that CoverageProvider.handle_success, which is responsible for 
+        setting the work to be presentation-ready is handled in the calling code.
+
+        :catalog_item - JSON representation of the book's metadata, coming from OneClick.
         :return CoverageFailure or a database object (Work, Identifier, etc.)
         """
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
@@ -877,9 +899,6 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         result = self.set_metadata(
             identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
         )
-
-        if not isinstance(result, CoverageFailure):
-            self.handle_success(identifier)
 
         return result
 
