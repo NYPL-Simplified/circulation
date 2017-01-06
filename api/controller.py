@@ -1015,8 +1015,9 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-
-        lane = SeriesLane(self._db, series_name, languages, audiences)
+        lane = SeriesLane(self._db, series_name=series_name,
+                          languages=languages, audiences=audiences
+        )
         annotator = self.manager.annotator(lane)
 
         # This has special handling of facets because a series can
