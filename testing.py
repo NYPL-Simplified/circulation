@@ -18,9 +18,11 @@ from model import (
     Complaint,
     Contributor,
     CoverageRecord,
+    Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
+    DelegatedPatronIdentifier,
     Edition,
     Genre,
     Hyperlink,
@@ -421,6 +423,37 @@ class DatabaseTest(object):
             resolved
         )
         return complaint
+
+    def _credential(self, data_source_name=DataSource.GUTENBERG,
+                    type=None, patron=None):
+        data_source = DataSource.lookup(self._db, data_source_name)
+        type = type or self._str
+        patron = patron or self._patron()
+        credential, is_new = Credential.persistent_token_create(
+            self._db, data_source, type, patron
+        )
+        return credential
+    
+    def _delegated_patron_identifier(
+            self, library_uri=None, patron_identifier=None,
+            identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,
+            identifier=None
+    ):
+        """Create a sample DelegatedPatronIdentifier"""
+        library_uri = library_uri or self._url
+        patron_identifier = patron_identifier or self._str
+        if callable(identifier):
+            make_id = identifier
+        else:
+            if not identifier:
+                identifier = self._str
+            def make_id():
+                return identifier
+        patron, is_new = DelegatedPatronIdentifier.get_one_or_create(
+            self._db, library_uri, patron_identifier, identifier_type,
+            make_id
+        )
+        return patron
 
 
     def _sample_ecosystem(self):

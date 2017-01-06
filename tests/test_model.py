@@ -44,6 +44,7 @@ from model import (
     DataSource,
     DelegatedPatronIdentifier,
     DeliveryMechanism,
+    DRMDeviceIdentifier,
     Genre,
     Hold,
     Hyperlink,
@@ -4331,7 +4332,36 @@ class TestDelegatedPatronIdentifier(DatabaseTest):
         eq_(identifier2.id, identifier.id)
         # id_2() was not called.
         eq_("id1", identifier2.delegated_identifier)
+
+
+class TestDRMDeviceIdentifier(DatabaseTest):
+
+    def setup(self):
+        super(TestDRMDeviceIdentifier, self).setup()
+        self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        self.patron = self._patron()
+        self.credential, ignore = Credential.persistent_token_create(
+            self._db, self.data_source, "Some Credential", self.patron)
         
+    def test_devices_for_credential(self):
+        device_id_1, new = self.credential.register_drm_device_identifier("foo")
+        eq_("foo", device_id_1.device_identifier)
+        eq_(self.credential, device_id_1.credential)
+        eq_(True, new)
+
+        device_id_2, new = self.credential.register_drm_device_identifier("foo")
+        eq_(device_id_1, device_id_2)
+        eq_(False, new)
+        
+        device_id_3, new = self.credential.register_drm_device_identifier("bar")
+
+        eq_(set([device_id_1, device_id_3]), set(self.credential.drm_device_identifiers))
+
+    def test_deregister(self):
+        device, new = self.credential.register_drm_device_identifier("foo")
+        self.credential.deregister_drm_device_identifier("foo")
+        eq_([], self.credential.drm_device_identifiers)
+        eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
 
