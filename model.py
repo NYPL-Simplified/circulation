@@ -1681,8 +1681,7 @@ class Identifier(Base):
             _db, identifier_ids, Hyperlink.IMAGE)
         images = images.join(Resource.representation)
         images = images.filter(Representation.mirrored_at != None).\
-            filter(Representation.mirror_url != None).\
-            filter(Resource.suppressed==False)
+            filter(Representation.mirror_url != None)
         images = images.all()
 
         champions = Resource.best_covers_among(images)
@@ -3528,13 +3527,13 @@ class Work(Base):
         covers = _db.query(Resource).join(Hyperlink.identifier).\
             join(Identifier.licensed_through).filter(
                 Resource.url.in_(cover_urls),
-                LicensePool.work_id.in_(work_ids),
-                Resource.suppressed != True
+                LicensePool.work_id.in_(work_ids)
             )
 
         editions = list()
         for cover in covers:
-            cover.suppressed = True
+            # Record a downvote that will dismiss the Resource.
+            cover.reject()
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
         _db.flush()
@@ -4796,21 +4795,16 @@ class Resource(Base):
 
     # The average of human-entered values for the quality of this
     # resource.
-    voted_quality = Column(Float)
+    voted_quality = Column(Float, default=float(0))
 
     # How many votes contributed to the voted_quality value. This lets
     # us scale new votes proportionately while keeping only two pieces
     # of information.
-    votes_for_quality = Column(Integer)
+    votes_for_quality = Column(Integer, default=0)
 
     # A combination of the calculated quality value and the
     # human-entered quality value.
     quality = Column(Float, index=True)
-
-    # A Resource that seemingly looks fine may be manually suppressed
-    # to be temporarily or permanently ignored. This is specifically
-    # used to block undesireable covers from feeds.
-    suppressed = Column(Boolean, default=False, index=True)
 
     # URL must be unique.
     __table_args__ = (
@@ -4869,21 +4863,83 @@ class Resource(Base):
 
     def add_quality_votes(self, quality, weight=1):
         """Record someone's vote as to the quality of this resource."""
+        self.voted_quality = self.voted_quality or 0
+        self.votes_for_quality = self.votes_for_quality or 0
+
         total_quality = self.voted_quality * self.votes_for_quality
         total_quality += (quality * weight)
         self.votes_for_quality += weight
         self.voted_quality = total_quality / float(self.votes_for_quality)
         self.update_quality()
 
+    def reject(self):
+        """Reject a Resource by making its voted_quality negative.
+
+        If the Resource is a cover, this rejection will render it unusable to
+        all Editions and Identifiers. Even if the cover is later `approved`
+        a rejection impacts the overall weight of the `vote_quality`.
+        """
+        if not self.voted_quality:
+            self.add_quality_votes(-1)
+            return
+
+        if self.voted_quality < 0:
+            # This Resource has already been rejected.
+            return
+
+        # Humans have voted positively on this Resource, and now it's
+        # being rejected regardless.
+        logging.warn("Rejecting Resource with positive votes: %r", self)
+
+        # Make the voted_quality negative without impacting the weight
+        # of existing votes so the value can be restored relatively
+        # painlessly if necessary.
+        self.voted_quality = -self.voted_quality
+
+        # However, because `votes_for_quality` is incremented, a
+        # rejection will impact the weight of all `voted_quality` votes
+        # even if the Resource is later approved.
+        self.votes_for_quality += 1
+        self.update_quality()
+
+    def approve(self):
+        """Approve a rejected Resource by making its human-generated
+        voted_quality positive while taking its rejection into account.
+        """
+        if self.voted_quality < 0:
+            # This Resource has been rejected. Reset its value to be
+            # positive.
+            if self.voted_quality == -1 and self.votes_for_quality == 1:
+                # We're undoing a single rejection.
+                self.voted_quality = 0
+            else:
+                # An existing positive voted_quality was made negative.
+                self.voted_quality = abs(self.voted_quality)
+            self.votes_for_quality += 1
+            self.update_quality()
+            return
+
+        self.add_quality_votes(1)
+
     def update_quality(self):
-        """Combine `estimated_quality` with `voted_quality` to form `quality`.
+        """Combine computer-generated `estimated_quality` with
+        human-generated `voted_quality` to form overall `quality`.
         """
         estimated_weight = self.ESTIMATED_QUALITY_WEIGHT
         votes_for_quality = self.votes_for_quality or 0
         total_weight = estimated_weight + votes_for_quality
 
-        total_quality = (((self.estimated_quality or 0) * self.ESTIMATED_QUALITY_WEIGHT) + 
-                         ((self.voted_quality or 0) * votes_for_quality))
+        voted_quality = (self.voted_quality or 0) * votes_for_quality
+        total_quality = (((self.estimated_quality or 0) * self.ESTIMATED_QUALITY_WEIGHT) +
+                         voted_quality)
+
+        if voted_quality < 0 and total_quality > 0:
+            # If `voted_quality` is negative, the Resource has been
+            # rejected by a human and should no longer be available.
+            #
+            # This human-generated negativity must be passed to the final
+            # Resource.quality value.
+            total_quality = -(total_quality)
         self.quality = total_quality / float(total_weight)
 
     @classmethod
@@ -4905,14 +4961,18 @@ class Resource(Base):
         champions = []
         champion_score = None
         champion_media_type_score = None
-           
+
         for r in resources:
             rep = r.representation
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
             media_priority = cls.image_type_priority(rep.media_type)
-            quality = r.quality_as_thumbnail_image
+
+            # This method will set the quality if it hasn't been set before.
+            r.quality_as_thumbnail_image
+            # Now we can use it.
+            quality = r.quality
             if not quality >= cls.MINIMUM_IMAGE_QUALITY:
                 # A Resource below the minimum quality threshold is not
                 # usable, period.
@@ -4934,6 +4994,7 @@ class Resource(Base):
                 elif media_priority == champion_media_type_priority:
                     # Same score, same format. We have two champions.
                     champions.append(r)
+
         return champions
 
     @property

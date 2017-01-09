@@ -2116,7 +2116,8 @@ class TestWork(DatabaseTest):
             """Determines whether a Work or an Edition has a cover."""
             eq_(None, work_or_edition.cover_full_url)
             eq_(None, work_or_edition.cover_thumbnail_url)
-            eq_(True, cover_link.resource.suppressed)
+            eq_(True, cover_link.resource.voted_quality < 0)
+            eq_(True, cover_link.resource.votes_for_quality > 0)
 
             if isinstance(work_or_edition, Work):
                 # It also removes the link from the cached OPDS entries.
@@ -2130,7 +2131,9 @@ class TestWork(DatabaseTest):
             """Makes the cover visible again for the main work object
             and confirms its visibility.
             """
-            cover_link.resource.suppressed = False
+            r = cover_link.resource
+            r.votes_for_quality = r.voted_quality = 0
+            r.update_quality()
             work.calculate_presentation(search_index_client=index)
             eq_(full_url, work.cover_full_url)
             eq_(thumbnail_url, work.cover_thumbnail_url)
@@ -3964,7 +3967,6 @@ class TestCoverResource(DatabaseTest):
             ValueError, 
             "Unsupported destination media type: text/plain",
             rep.scale, 300, 600, self._url, "text/plain")
-        
 
     def test_success(self):
         cover = self.sample_cover_representation("test-book-cover.png")
@@ -4123,6 +4125,66 @@ class TestCoverResource(DatabaseTest):
         # ...the decision becomes easy.
         eq_([resource_with_decent_cover], Resource.best_covers_among(l))
 
+    def test_rejection_and_approval(self):
+        # Create a Resource.
+        edition, pool = self._edition(with_open_access_download=True)
+        link = pool.add_link(Hyperlink.IMAGE, self._url, pool.data_source)[0]
+        cover = link.resource
+
+        # Give it all the right covers.
+        cover_rep = self.sample_cover_representation("test-book-cover.png")
+        thumbnail_rep = self.sample_cover_representation("test-book-cover.png")
+        cover.representation = cover_rep
+        cover_rep.thumbnails.append(thumbnail_rep)
+
+        # Set its quality.
+        cover.quality_as_thumbnail_image
+        original_quality = cover.quality
+        eq_(True, original_quality > 0)
+
+        # Rejecting it sets the voted_quality and quality below zero.
+        cover.reject()
+        eq_(True, cover.voted_quality < 0)
+        eq_(True, cover.quality < 0)
+
+        # If the quality is already below zero, rejecting it doesn't
+        # change the value.
+        last_voted_quality = cover.voted_quality
+        last_votes_for_quality = cover.votes_for_quality
+        last_quality = cover.quality
+        eq_(True, last_votes_for_quality > 0)
+        cover.reject()
+        eq_(last_voted_quality, cover.voted_quality)
+        eq_(last_votes_for_quality, cover.votes_for_quality)
+        eq_(last_quality, cover.quality)
+
+        # If the quality is approved, the votes are updated as expected.
+        cover.approve()
+        eq_(0, cover.voted_quality)
+        eq_(2, cover.votes_for_quality)
+        # Because the number of human votes have gone up in contention,
+        # the overall quality is lower than it was originally.
+        eq_(True, cover.quality < original_quality)
+        # But it's still above zero.
+        eq_(True, cover.quality > 0)
+
+        # Approving the cover again improves its quality further.
+        last_quality = cover.quality
+        cover.approve()
+        eq_(True, cover.voted_quality > 0)
+        eq_(3, cover.votes_for_quality)
+        eq_(True, cover.quality > last_quality)
+
+        # Rejecting the cover again will make the existing value negative.
+        last_voted_quality = cover.voted_quality
+        last_votes_for_quality = cover.votes_for_quality
+        last_quality = cover.quality
+        cover.reject()
+        eq_(-last_voted_quality, cover.voted_quality)
+        eq_(True, cover.quality < 0)
+
+        eq_(last_votes_for_quality+1, cover.votes_for_quality)
+
     def test_quality_as_thumbnail_image(self):
 
         # Get some data sources ready, since a big part of image
@@ -4174,7 +4236,6 @@ class TestCoverResource(DatabaseTest):
         # use of its covers over those provided by license sources.
         resource.data_source = metadata_wrangler
         eq_(2, resource.quality_as_thumbnail_image)
-        
 
     def test_thumbnail_size_quality_penalty(self):
         """Verify that Representation._cover_size_quality_penalty penalizes
