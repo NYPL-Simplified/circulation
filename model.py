@@ -2928,7 +2928,7 @@ class Edition(Base):
                 break
         else:
             # No cover has been found. If the Edition currently references
-            # a cover, it has since been suppressed or otherwise removed.
+            # a cover, it has since been rejected or otherwise removed.
             # All cover details need to be removed.
             cover_info = [self.cover, self.cover_full_url, self.cover_thumbnail_url]
             if any(cover_info):
@@ -3498,7 +3498,7 @@ class Work(Base):
         return query
 
     @classmethod
-    def suppress_covers(cls, _db, works_or_identifiers,
+    def reject_covers(cls, _db, works_or_identifiers,
                         search_index_client=None):
         """Suppresses the currently visible covers of a number of Works"""
 
@@ -3556,7 +3556,7 @@ class Work(Base):
             edition.calculate_presentation(policy=policy)
         _db.commit()
 
-    def suppress_cover(self, search_index_client=None):
+    def reject_cover(self, search_index_client=None):
         """Suppresses the current cover of the Work"""
         _db = Session.object_session(self)
         self.suppress_covers(

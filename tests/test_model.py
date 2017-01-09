@@ -2077,7 +2077,7 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
-    def test_suppress_covers(self):
+    def test_reject_covers(self):
         edition, lp = self._edition(with_open_access_download=True)
 
         # Create a cover and thumbnail for the edition.
@@ -2143,13 +2143,13 @@ class TestWork(DatabaseTest):
 
         # Suppressing the cover removes the cover from the work.
         index = DummyExternalSearchIndex()
-        Work.suppress_covers(self._db, [work], search_index_client=index)
+        Work.reject_covers(self._db, [work], search_index_client=index)
         assert has_no_cover(work)
         reset_cover()
 
         # It also works with Identifiers.
         identifier = work.license_pools[0].identifier
-        Work.suppress_covers(self._db, [identifier], search_index_client=index)
+        Work.reject_covers(self._db, [identifier], search_index_client=index)
         assert has_no_cover(work)
         reset_cover()
 
@@ -2161,7 +2161,7 @@ class TestWork(DatabaseTest):
         other_work_ed.set_cover(cover_link.resource)
         other_work = self._work(presentation_edition=other_work_ed)
 
-        Work.suppress_covers(self._db, [work], search_index_client=index)
+        Work.reject_covers(self._db, [work], search_index_client=index)
         assert has_no_cover(other_edition)
         assert has_no_cover(other_work)
 
