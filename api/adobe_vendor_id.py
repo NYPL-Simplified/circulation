@@ -833,8 +833,6 @@ class AuthdataUtility(object):
         # to register it. Even if the authentication API would
         # confirm that the new username/password authorizes the same user.
         # The authentication API isn't even consulted.
-        #
-        # expires = str(expires)
         expires = ''
         base = library_short_name + "|" + expires + "|" + patron_identifier
         signature = self.short_token_signer.sign(
@@ -888,10 +886,6 @@ class AuthdataUtility(object):
         # any value it might have is ignored.
         if expiration:
             raise ValueError('Expiration time must be blank.')
-        #try:
-        #    expiration = float(expiration)
-        #except ValueError:
-        #    raise ValueError('Expiration time "%s" is not numeric.' % expiration)
 
         # We don't police the content of the patron identifier but there
         # has to be _something_ there.
@@ -910,16 +904,6 @@ class AuthdataUtility(object):
                 "I don't know the secret for library %s" % library_uri
             )
         secret = self.secrets_by_library_uri[library_uri]
-
-        # # Don't bother checking an expired token.
-        # now = datetime.datetime.utcnow()
-        # expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
-        # if expiration < now:
-        #     raise ValueError(
-        #         "Token %s expired at %s (now is %s)." % (
-        #             token, expiration, now
-        #         )
-        #     )
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)

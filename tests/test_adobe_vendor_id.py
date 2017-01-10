@@ -902,13 +902,6 @@ class TestAuthdataUtility(VendorIDTest):
             m, "library||patron", "signature"
         )
 
-        # The token must not have expired.
-        #assert_raises_regexp(
-        #    ValueError,
-        #    'Token mylibrary|0|patron expired at 1970-01-01 00:20:34',
-        #    m, "mylibrary|0|patron", "signature"
-        #)
-
         # Finally, the signature must be valid.
         assert_raises_regexp(
             ValueError, 'Invalid signature for',
