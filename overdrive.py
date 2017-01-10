@@ -870,14 +870,13 @@ class OverdriveRepresentationExtractor(object):
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
-    def __init__(self, _db, input_identifier_types=None,
-                 metadata_replacement_policy=None, overdrive_api=None,
-                 **kwargs
+    def __init__(self, _db, metadata_replacement_policy=None, overdrive_api=None,
+                 input_identifier_types=None, input_identifiers=None, **kwargs
     ):
         overdrive_api = overdrive_api or OverdriveAPI(_db)
-        # We ignore the value of input_identifier_types, but it's
-        # passed in by RunCoverageProviderScript, so we accept it as
-        # part of the signature.
+        # We ignore the values of input_identifier_types and input_identifiers, 
+        # but they're passed in by RunCoverageProviderScript, so we accept 
+        # them as part of the signature.
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             _db, overdrive_api, DataSource.OVERDRIVE,
             batch_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
