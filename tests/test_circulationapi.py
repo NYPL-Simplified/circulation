@@ -119,6 +119,12 @@ class TestCirculationAPI(DatabaseTest):
             # perspective they _are_ loans.
             eq_(2, mock.count)
 
+            # Loans of open-access books go through a different code
+            # path, but they count as loans nonetheless.
+            self.pool.open_access = True
+            self.remote.queue_checkout(loaninfo)
+            loan, hold, is_new = self.borrow()
+            eq_(3, mock.count)
             
     def test_attempt_borrow_with_existing_remote_loan(self):
         """The patron has a remote loan that the circ manager doesn't know
