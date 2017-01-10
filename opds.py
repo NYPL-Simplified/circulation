@@ -487,9 +487,7 @@ class AcquisitionFeed(OPDSFeed):
             all_works.append(work)
 
         all_works = annotator.sort_works_for_groups_feed(all_works)
-        feed = AcquisitionFeed(
-            _db, title, url, all_works, annotator,
-        )
+        feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
         # Render a 'start' link and an 'up' link.
         top_level_title = annotator.top_level_title() or "Collection Home"
@@ -516,8 +514,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True
-    ):
+             force_refresh=False, use_materialized_works=True):
         """Create a feed representing one page of works from a given lane.
 
         :return: CachedFeed (if use_cache is True) or unicode
