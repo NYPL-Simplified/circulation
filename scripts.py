@@ -206,6 +206,7 @@ class IdentifierInputScript(InputScript):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
+        #set_trace()
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
             identifier_strings = parsed.identifier_strings
@@ -254,6 +255,7 @@ class IdentifierInputScript(InputScript):
         
         a b c
         """
+        #set_trace()
         current_identifier_type = None
         if len(arguments) == 0:
             return []
@@ -403,25 +405,33 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parsed
 
     def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
+        #set_trace()
         super(RunCoverageProviderScript, self).__init__(_db)
-        args = self.parse_command_line(self._db, cmd_args)
+        parsed_args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
-            if args.identifier_type:
-                self.identifier_type = args.identifier_type
+            if parsed_args.identifier_type:
+                self.identifier_type = parsed_args.identifier_type
                 self.identifier_types = [self.identifier_type]
             else:
                 self.identifier_type = None
                 self.identifier_types = []
-            kwargs = self.extract_additional_command_line_arguments(args)
+
+            if parsed_args.identifiers:
+                self.identifiers = parsed_args.identifiers
+            else:
+                self.identifiers = []
+
+            kwargs = self.extract_additional_command_line_arguments(parsed_args)
             kwargs.update(provider_arguments)
+
             provider = provider(
                 self._db, 
-                cutoff_time=args.cutoff_time,
+                cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
-        self.identifiers = args.identifiers
+
 
     def extract_additional_command_line_arguments(self, args):
         """A hook method for subclasses.
@@ -434,7 +444,9 @@ class RunCoverageProviderScript(IdentifierInputScript):
         """
         return {
             "input_identifier_types" : self.identifier_types, 
+            "input_identifiers" : self.identifiers, 
         }
+
 
     def do_run(self):
         if self.identifiers:
