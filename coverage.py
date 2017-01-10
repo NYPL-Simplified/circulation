@@ -249,6 +249,8 @@ class BaseCoverageProvider(object):
                         "Transient failure covering %r: %s", 
                         item.obj, item.exception
                     )
+                        
+
                     record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
                 else:
@@ -399,7 +401,10 @@ class CoverageProvider(BaseCoverageProvider):
     CAN_CREATE_LICENSE_POOLS = False
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 batch_size=100, cutoff_time=None, operation=None):
+                 batch_size=100, cutoff_time=None, operation=None, input_identifiers=None):
+        """
+        :param input_identifiers Specific identifier ids to run coverage for.  Ignored for now.
+        """
         _db = Session.object_session(output_source)
         super(CoverageProvider, self).__init__(
             _db, service_name, operation, batch_size, cutoff_time
