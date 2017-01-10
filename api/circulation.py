@@ -214,6 +214,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
+            self._collect_checkout_event(licensepool)
             return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
@@ -336,10 +337,7 @@ class CirculationAPI(object):
                 # Send out an analytics event to record the fact that
                 # a loan was initiated through the circulation
                 # manager.
-                Analytics.collect_event(
-                    self._db, licensepool,
-                    CirculationEvent.CM_CHECKOUT,
-                )
+                self._collect_checkout_event(licensepool)
             return loan, None, new_loan_record
 
         # At this point we know that we neither successfully
@@ -383,6 +381,15 @@ class CirculationAPI(object):
         __transaction.commit()
         return None, hold, is_new
 
+    def _collect_checkout_event(self, licensepool):
+        """Collect an analytics event indicating the given LicensePool
+        was checked out via the circulation manager.
+        """
+        Analytics.collect_event(
+            self._db, licensepool,
+            CirculationEvent.CM_CHECKOUT,
+        )
+    
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
