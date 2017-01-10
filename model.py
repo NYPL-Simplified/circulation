@@ -1680,8 +1680,8 @@ class Identifier(Base):
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, Hyperlink.IMAGE)
         images = images.join(Resource.representation)
-        images = images.filter(Representation.mirrored_at != None).filter(
-            Representation.mirror_url != None)
+        images = images.filter(Representation.mirrored_at != None).\
+            filter(Representation.mirror_url != None)
         images = images.all()
 
         champions = Resource.best_covers_among(images)
@@ -1691,7 +1691,7 @@ class Identifier(Base):
             [champion] = champions
         else:
             champion = random.choice(champions)
-            
+
         return champion, images
 
     @classmethod
@@ -2909,6 +2909,7 @@ class Edition(Base):
             # Edition's primary ID, use it. Otherwise, find the
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(distance)
+
             if best_cover:
                 if not best_cover.representation:
                     logging.warn(
@@ -2925,6 +2926,15 @@ class Edition(Base):
                         )
                 self.set_cover(best_cover)
                 break
+        else:
+            # No cover has been found. If the Edition currently references
+            # a cover, it has since been rejected or otherwise removed.
+            # All cover details need to be removed.
+            cover_info = [self.cover, self.cover_full_url, self.cover_thumbnail_url]
+            if any(cover_info):
+                self.cover = None
+                self.cover_full_url = None
+                self.cover_thumbnail_url = None
 
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.
@@ -2995,6 +3005,21 @@ class PresentationCalculationPolicy(object):
         return PresentationCalculationPolicy(
             regenerate_opds_entries=True,
             update_search_index=True,
+        )
+
+    @classmethod
+    def reset_cover(cls):
+        """A PresentationCalculationPolicy that only resets covers
+        (including updating cached entries, if necessary) without
+        impacting any other metadata.
+        """
+        return cls(
+            choose_cover=True,
+            choose_edition=False,
+            set_edition_metadata=False,
+            classify=False,
+            choose_summary=False,
+            calculate_quality=False
         )
 
 
@@ -3371,7 +3396,6 @@ class Work(Base):
             if other_work and is_new:
                 other_work.calculate_presentation()
 
-
     @property
     def pwids(self):
         """Return the set of permanent work IDs associated with this Work.
@@ -3473,6 +3497,72 @@ class Work(Base):
 
         query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
         return query
+
+    @classmethod
+    def reject_covers(cls, _db, works_or_identifiers,
+                        search_index_client=None):
+        """Suppresses the currently visible covers of a number of Works"""
+
+        works = list(set(works_or_identifiers))
+        if not isinstance(works[0], cls):
+            # This assumes that everything in the provided list is the
+            # same class: either Work or Identifier.
+            works = cls.from_identifiers(_db, works_or_identifiers).all()
+        work_ids = [w.id for w in works]
+
+        if len(works) == 1:
+            logging.info("Suppressing cover for %r", works[0])
+        else:
+            logging.info("Supressing covers for %i Works", len(works))
+
+        cover_urls = list()
+        for work in works:
+            # Create a list of the URLs of the works' active cover images.
+            edition = work.presentation_edition
+            if edition:
+                if edition.cover_full_url:
+                    cover_urls.append(edition.cover_full_url)
+                if edition.cover_thumbnail_url:
+                    cover_urls.append(edition.cover_thumbnail_url)
+
+        covers = _db.query(Resource).join(Hyperlink.identifier).\
+            join(Identifier.licensed_through).filter(
+                Resource.url.in_(cover_urls),
+                LicensePool.work_id.in_(work_ids)
+            )
+
+        editions = list()
+        for cover in covers:
+            # Record a downvote that will dismiss the Resource.
+            cover.reject()
+            if len(cover.cover_editions) > 1:
+                editions += cover.cover_editions
+        _db.flush()
+
+        editions = list(set(editions))
+        if editions:
+            # More Editions and Works have been impacted by this cover
+            # suppression.
+            works += [ed.work for ed in editions if ed.work]
+            editions = [ed for ed in editions if not ed.work]
+
+        # Remove the cover from the Work and its Edition and reset
+        # cached OPDS entries.
+        policy = PresentationCalculationPolicy.reset_cover()
+        for work in works:
+            work.calculate_presentation(
+                policy=policy, search_index_client=search_index_client
+            )
+        for edition in editions:
+            edition.calculate_presentation(policy=policy)
+        _db.commit()
+
+    def reject_cover(self, search_index_client=None):
+        """Suppresses the current cover of the Work"""
+        _db = Session.object_session(self)
+        self.suppress_covers(
+            _db, [self], search_index_client=search_index_client
+        )
 
     def all_editions(self, recursion_level=5):
         """All Editions identified by an Identifier equivalent to 
@@ -3642,6 +3732,10 @@ class Work(Base):
         policy = policy or PresentationCalculationPolicy()
 
         edition_changed = self.calculate_presentation_edition(policy)
+
+        if policy.choose_cover:
+            cover_changed = self.presentation_edition.calculate_presentation(policy)
+            edition_changed = edition_changed or cover_changed
 
         summary = self.summary
         summary_text = self.summary_text
@@ -4706,12 +4800,12 @@ class Resource(Base):
 
     # The average of human-entered values for the quality of this
     # resource.
-    voted_quality = Column(Float)
+    voted_quality = Column(Float, default=float(0))
 
     # How many votes contributed to the voted_quality value. This lets
     # us scale new votes proportionately while keeping only two pieces
     # of information.
-    votes_for_quality = Column(Integer)
+    votes_for_quality = Column(Integer, default=0)
 
     # A combination of the calculated quality value and the
     # human-entered quality value.
@@ -4774,21 +4868,83 @@ class Resource(Base):
 
     def add_quality_votes(self, quality, weight=1):
         """Record someone's vote as to the quality of this resource."""
+        self.voted_quality = self.voted_quality or 0
+        self.votes_for_quality = self.votes_for_quality or 0
+
         total_quality = self.voted_quality * self.votes_for_quality
         total_quality += (quality * weight)
         self.votes_for_quality += weight
         self.voted_quality = total_quality / float(self.votes_for_quality)
         self.update_quality()
 
+    def reject(self):
+        """Reject a Resource by making its voted_quality negative.
+
+        If the Resource is a cover, this rejection will render it unusable to
+        all Editions and Identifiers. Even if the cover is later `approved`
+        a rejection impacts the overall weight of the `vote_quality`.
+        """
+        if not self.voted_quality:
+            self.add_quality_votes(-1)
+            return
+
+        if self.voted_quality < 0:
+            # This Resource has already been rejected.
+            return
+
+        # Humans have voted positively on this Resource, and now it's
+        # being rejected regardless.
+        logging.warn("Rejecting Resource with positive votes: %r", self)
+
+        # Make the voted_quality negative without impacting the weight
+        # of existing votes so the value can be restored relatively
+        # painlessly if necessary.
+        self.voted_quality = -self.voted_quality
+
+        # However, because `votes_for_quality` is incremented, a
+        # rejection will impact the weight of all `voted_quality` votes
+        # even if the Resource is later approved.
+        self.votes_for_quality += 1
+        self.update_quality()
+
+    def approve(self):
+        """Approve a rejected Resource by making its human-generated
+        voted_quality positive while taking its rejection into account.
+        """
+        if self.voted_quality < 0:
+            # This Resource has been rejected. Reset its value to be
+            # positive.
+            if self.voted_quality == -1 and self.votes_for_quality == 1:
+                # We're undoing a single rejection.
+                self.voted_quality = 0
+            else:
+                # An existing positive voted_quality was made negative.
+                self.voted_quality = abs(self.voted_quality)
+            self.votes_for_quality += 1
+            self.update_quality()
+            return
+
+        self.add_quality_votes(1)
+
     def update_quality(self):
-        """Combine `estimated_quality` with `voted_quality` to form `quality`.
+        """Combine computer-generated `estimated_quality` with
+        human-generated `voted_quality` to form overall `quality`.
         """
         estimated_weight = self.ESTIMATED_QUALITY_WEIGHT
         votes_for_quality = self.votes_for_quality or 0
         total_weight = estimated_weight + votes_for_quality
 
-        total_quality = (((self.estimated_quality or 0) * self.ESTIMATED_QUALITY_WEIGHT) + 
-                         ((self.voted_quality or 0) * votes_for_quality))
+        voted_quality = (self.voted_quality or 0) * votes_for_quality
+        total_quality = (((self.estimated_quality or 0) * self.ESTIMATED_QUALITY_WEIGHT) +
+                         voted_quality)
+
+        if voted_quality < 0 and total_quality > 0:
+            # If `voted_quality` is negative, the Resource has been
+            # rejected by a human and should no longer be available.
+            #
+            # This human-generated negativity must be passed to the final
+            # Resource.quality value.
+            total_quality = -(total_quality)
         self.quality = total_quality / float(total_weight)
 
     @classmethod
@@ -4810,14 +4966,18 @@ class Resource(Base):
         champions = []
         champion_score = None
         champion_media_type_score = None
-           
+
         for r in resources:
             rep = r.representation
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
             media_priority = cls.image_type_priority(rep.media_type)
-            quality = r.quality_as_thumbnail_image
+
+            # This method will set the quality if it hasn't been set before.
+            r.quality_as_thumbnail_image
+            # Now we can use it.
+            quality = r.quality
             if not quality >= cls.MINIMUM_IMAGE_QUALITY:
                 # A Resource below the minimum quality threshold is not
                 # usable, period.
@@ -4839,6 +4999,7 @@ class Resource(Base):
                 elif media_priority == champion_media_type_priority:
                     # Same score, same format. We have two champions.
                     champions.append(r)
+
         return champions
 
     @property
