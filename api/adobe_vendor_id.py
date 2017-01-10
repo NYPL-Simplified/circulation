@@ -881,9 +881,6 @@ class AuthdataUtility(object):
         library_short_name, expiration, patron_identifier = token.split("|", 2)
 
         library_short_name = library_short_name.upper()
-        # NOTE: See the note in _encode_short_client_token(). We no longer
-        # put expiration times in short client tokens. That field is blank and
-        # any value it might have is ignored.
         if expiration:
             raise ValueError('Expiration time must be blank.')
 
