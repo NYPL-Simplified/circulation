@@ -7953,7 +7953,7 @@ class CustomList(Base):
     id = Column(Integer, primary_key=True)
     primary_language = Column(Unicode, index=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
-    foreign_identifier = Column(Unicode, index=True)
+    foreign_identifier = Column(Unicode, index=True, unique=True)
     name = Column(Unicode)
     description = Column(Unicode)
     created = Column(DateTime, index=True)
@@ -7978,6 +7978,22 @@ class CustomList(Base):
                 ds = DataSource.lookup(_db, ds)
             ids.append(ds.id)
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
+
+    @classmethod
+    def find(cls, _db, foreign_identifier, name=None):
+        """Finds a foreign list in the database by its `foreign_identifier`
+        and/or its name.
+        """
+        foreign_identifier = unicode(foreign_identifier)
+
+        qu = _db.query(cls)
+        if name:
+            name = unicode(name)
+            return qu.filter(or_(
+                CustomList.name==name,
+                CustomList.foreign_identifier==foreign_identifier
+            ))
+        return qu.filter(CustomList.foreign_identifier==foreign_identifier)
 
     def add_entry(self, edition, annotation=None, first_appearance=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
