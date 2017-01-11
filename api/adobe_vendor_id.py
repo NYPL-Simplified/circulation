@@ -826,17 +826,7 @@ class AuthdataUtility(object):
     
     def _encode_short_client_token(self, library_short_name,
                                    patron_identifier, expires):
-        # NOTE: We no longer put expiration time in the short
-        # token. It has to stay the same forever, because Adobe will
-        # not allow the deregistration of a device ID if the username
-        # or password(!) differs from the username and password used
-        # to register it. Even if the authentication API would
-        # confirm that the new username/password authorizes the same user.
-        # The authentication API isn't even consulted.
-        #
-        # expires = str(expires)
-        expires = ''
-        base = library_short_name + "|" + expires + "|" + patron_identifier
+        base = library_short_name + "|" + str(expires) + "|" + patron_identifier
         signature = self.short_token_signer.sign(
             base, self.short_token_signing_key
         )
@@ -883,15 +873,10 @@ class AuthdataUtility(object):
         library_short_name, expiration, patron_identifier = token.split("|", 2)
 
         library_short_name = library_short_name.upper()
-        # NOTE: See the note in _encode_short_client_token(). We no longer
-        # put expiration times in short client tokens. That field is blank and
-        # any value it might have is ignored.
-        if expiration:
-            raise ValueError('Expiration time must be blank.')
-        #try:
-        #    expiration = float(expiration)
-        #except ValueError:
-        #    raise ValueError('Expiration time "%s" is not numeric.' % expiration)
+        try:
+            expiration = float(expiration)
+        except ValueError:
+            raise ValueError('Expiration time "%s" is not numeric.' % expiration)
 
         # We don't police the content of the patron identifier but there
         # has to be _something_ there.
@@ -911,15 +896,15 @@ class AuthdataUtility(object):
             )
         secret = self.secrets_by_library_uri[library_uri]
 
-        # # Don't bother checking an expired token.
-        # now = datetime.datetime.utcnow()
-        # expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
-        # if expiration < now:
-        #     raise ValueError(
-        #         "Token %s expired at %s (now is %s)." % (
-        #             token, expiration, now
-        #         )
-        #     )
+        # Don't bother checking an expired token.
+        now = datetime.datetime.utcnow()
+        expiration = self.EPOCH + datetime.timedelta(seconds=expiration)
+        if expiration < now:
+            raise ValueError(
+                "Token %s expired at %s (now is %s)." % (
+                    token, expiration, now
+                )
+            )
 
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)

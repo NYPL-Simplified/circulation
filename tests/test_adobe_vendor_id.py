@@ -810,9 +810,7 @@ class TestAuthdataUtility(VendorIDTest):
         # what would otherwise be normal base64 text. Similarly for
         # the semicolon which replaced the slash, and the at sign which
         # replaced the equals sign.
-        #
-        # The expiration time is ignored.
-        eq_('a library||a patron identifier|IdA9biY5jO1IDoqvSUG3eKbw23p4kBi3DqBD2jQx;vs@',
+        eq_('a library|1234.5|a patron identifier|YoNGn7f38mF531KSWJ;o1H0Z3chbC:uTE:t7pAwqYxM@',
             value
         )
 
@@ -823,9 +821,9 @@ class TestAuthdataUtility(VendorIDTest):
         # triggering an Adobe bug ; token is not.
         signature = AuthdataUtility.adobe_base64_decode(signature)
 
-        # The token comes from the library name and the patron identifier.
-        # The time of creation is ignored.
-        eq_("a library||a patron identifier", token)
+        # The token comes from the library name, the patron identifier,
+        # and the time of creation.
+        eq_("a library|1234.5|a patron identifier", token)
 
         # The signature comes from signing the token with the
         # secret associated with this library.
@@ -874,45 +872,45 @@ class TestAuthdataUtility(VendorIDTest):
             ValueError, "Invalid client token",
             m, "foo|", "signature"
         )
-
-        # The expiration time must be blank.
-        assert_raises_regexp(
-             ValueError, 'Expiration time must be blank.',
-             m, "library|some time|patron", "signature"
-        )      
         
+        # The expiration time must be numeric.
+        assert_raises_regexp(
+            ValueError, 'Expiration time "a time" is not numeric',
+            m, "library|a time|patron", "signature"
+        )
+
         # The patron identifier must not be blank.
         assert_raises_regexp(
-            ValueError, 'Token library|| has empty patron identifier',
-            m, "library||", "signature"
+            ValueError, 'Token library|1234| has empty patron identifier',
+            m, "library|1234|", "signature"
         )
         
         # The library must be a known one.
         assert_raises_regexp(
             ValueError,
             'I don\'t know how to handle tokens from library "LIBRARY"',
-            m, "library||patron", "signature"
+            m, "library|1234|patron", "signature"
         )
-        
+
         # We must have the shared secret for the given library.
         self.authdata.library_uris_by_short_name['LIBRARY'] = 'http://a-library.com/'
         assert_raises_regexp(
             ValueError,
             'I don\'t know the secret for library http://a-library.com/',
-            m, "library||patron", "signature"
+            m, "library|1234|patron", "signature"
         )
 
         # The token must not have expired.
-        #assert_raises_regexp(
-        #    ValueError,
-        #    'Token mylibrary|0|patron expired at 1970-01-01 00:20:34',
-        #    m, "mylibrary|0|patron", "signature"
-        #)
+        assert_raises_regexp(
+            ValueError,
+            'Token mylibrary|1234|patron expired at 1970-01-01 00:20:34',
+            m, "mylibrary|1234|patron", "signature"
+        )
 
         # Finally, the signature must be valid.
         assert_raises_regexp(
             ValueError, 'Invalid signature for',
-            m, "mylibrary||patron", "signature"
+            m, "mylibrary|99999999999|patron", "signature"
         )
 
     def test_adobe_base64_encode_decode(self):
@@ -948,7 +946,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # The signature part of the token has been encoded with our
         # custom encoding, not vanilla base64.
-        eq_('lib||1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', token)
+        eq_('lib|0|1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', token)
         
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
