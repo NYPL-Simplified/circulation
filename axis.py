@@ -229,9 +229,10 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     """
     def __init__(self, _db, metadata_replacement_policy=None, axis_360_api=None,
                  input_identifier_types=None, input_identifiers=None, **kwargs):
-        # We ignore the values of input_identifier_types and input_identifiers, 
-        # but they're passed in by RunCoverageProviderScript, so we accept 
-        # them as part of the signature.
+        """
+        :param input_identifier_types Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        """
         self.parser = BibliographicParser()
         axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(

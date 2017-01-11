@@ -420,9 +420,10 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     def __init__(self, _db, metadata_replacement_policy=None, threem_api=None,
                  input_identifier_types=None, input_identifiers=None, **kwargs
     ):
-        # We ignore the values of input_identifier_types and input_identifiers, 
-        # but they're passed in by RunCoverageProviderScript, so we accept 
-        # them as part of the signature.
+        """
+        :param input_identifier_types Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        """
         threem_api = threem_api or ThreeMAPI(_db)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, threem_api, DataSource.THREEM,
