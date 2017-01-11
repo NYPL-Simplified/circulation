@@ -17,6 +17,8 @@ from circulation_exceptions import *
 
 from config import Configuration
 
+from core.analytics import Analytics
+
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
@@ -29,6 +31,7 @@ from core.metadata_layer import (
 )
 
 from core.model import (
+    CirculationEvent, 
     DataSource,
     Edition,
     Identifier, 
@@ -755,7 +758,7 @@ class OneClickCirculationMonitor(Monitor):
             OneClickBibliographicCoverageProvider(self._db)
         )
 
-        self.api = None
+        self.api = OneClickAPI.from_config(self._db)
 
 
     def process_availability(self, media_type='ebook'):
@@ -771,7 +774,7 @@ class OneClickCirculationMonitor(Monitor):
             # Log a circulation event for this work.
             if is_new:
                 Analytics.collect_event(
-                    self._db, license_pool, CirculationEvent.TITLE_ADD, license_pool.last_checked)
+                    self._db, license_pool, CirculationEvent.DISTRIBUTOR_AVAILABILITY_NOTIFY, license_pool.last_checked)
 
             item_count += 1
             if item_count % self.batch_size == 0:
@@ -781,7 +784,6 @@ class OneClickCirculationMonitor(Monitor):
 
 
     def run(self):
-        self.api = OneClickAPI(self._db)
         super(OneClickCirculationMonitor, self).run()
 
 
@@ -789,7 +791,7 @@ class OneClickCirculationMonitor(Monitor):
         ebook_count = self.process_availability(media_type='ebook')
         eaudio_count = self.process_availability(media_type='eaudio')
 
-        self.log.info("Processed %d ebooks and %d audiobooks.", (ebook_count, eaudio_count))
+        self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
 
 

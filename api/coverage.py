@@ -158,7 +158,7 @@ class OPDSImportCoverageProvider(CoverageProvider):
 
     def import_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and imports feed.
-        """        
+        """
         self.check_content_type(response)
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
                                 data_source_name=self.output_source.name)
@@ -197,13 +197,15 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     OPERATION = CoverageRecord.SYNC_OPERATION
 
     def __init__(self, _db, lookup=None, input_identifier_types=None, 
-                 operation=None, **kwargs):
+                 operation=None, input_identifiers=None, **kwargs):
+
         if not input_identifier_types:
             input_identifier_types = [
                 Identifier.OVERDRIVE_ID, 
                 Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID, 
                 Identifier.AXIS_360_ID,
+                Identifier.ONECLICK_ID, 
             ]
         output_source = DataSource.lookup(
             _db, DataSource.METADATA_WRANGLER
@@ -217,6 +219,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             **kwargs
         )
 
+        self.input_identifiers = input_identifiers
+
         if not self.lookup.authenticated:
             self.log.warn(
                 "Authentication for the Library Simplified Metadata Wrangler "
@@ -226,6 +230,12 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Returns items that are licensed and have not been covered"""
+
+        if self.input_identifiers:
+            # We were asked to run a specific list of identifiers, and only that list.
+            identifiers = self.input_identifiers
+
+
         uncovered = super(MetadataWranglerCoverageProvider, self).items_that_need_coverage(identifiers, **kwargs)
         reaper_covered = self._db.query(Identifier).\
                 join(Identifier.coverage_records).\
@@ -254,7 +264,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         """
         mapping = dict()
         for identifier in batch:
-            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID]:
+            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier
