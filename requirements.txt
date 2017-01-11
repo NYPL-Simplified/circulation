@@ -18,8 +18,6 @@ cairosvg==1.0.22
 py-bcrypt
 Flask-Babel
 money
-fuzzywuzzy
-nameparser
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient
@@ -40,3 +38,8 @@ PyLD
 
 # A NYPL-specific requirement
 newrelic
+
+# for author name manipulations
+nameparser
+fuzzywuzzy
+
