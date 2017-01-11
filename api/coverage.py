@@ -229,12 +229,13 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             )
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Returns items that are licensed and have not been covered"""
+        """Returns items that are licensed and have not been covered.
 
-        if self.input_identifiers:
-            # We were asked to run a specific list of identifiers, and only that list.
-            identifiers = self.input_identifiers
-
+        :param identifiers The batch of identifier objects to test for coverage. identifiers and 
+            self.input_identifiers can intersect -- if this provider was created for the 
+            purpose of running specific Identifiers, and within those Identifiers you want to 
+            batch, you can use both parameters.
+        """
 
         uncovered = super(MetadataWranglerCoverageProvider, self).items_that_need_coverage(identifiers, **kwargs)
         reaper_covered = self._db.query(Identifier).\
@@ -256,6 +257,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                         record.operation==CoverageRecord.REAP_OPERATION)]
             self._db.delete(reaper_coverage_record)
         return uncovered.except_(reaper_covered).union(relicensed)
+
 
     def create_identifier_mapping(self, batch):
         """The metadata wrangler can't look up Axis 360 identifiers, so look
@@ -379,6 +381,11 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Only identifiers associated with an open-access license
         need coverage.
+
+        :param identifiers The batch of identifier objects to test for coverage. identifiers and 
+            self.input_identifiers can intersect -- if this provider was created for the 
+            purpose of running specific Identifiers, and within those Identifiers you want to 
+            batch, you can use both parameters.
         """
         qu = super(ContentServerBibliographicCoverageProvider, 
                    self).items_that_need_coverage(identifiers, **kwargs)
