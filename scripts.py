@@ -405,7 +405,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parsed
 
     def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
-        #set_trace()
+
         super(RunCoverageProviderScript, self).__init__(_db)
         parsed_args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
@@ -421,7 +421,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             else:
                 self.identifiers = []
 
-            kwargs = self.extract_additional_command_line_arguments(parsed_args)
+            kwargs = self.extract_additional_command_line_arguments()
             kwargs.update(provider_arguments)
 
             provider = provider(
@@ -433,7 +433,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         self.name = self.provider.service_name
 
 
-    def extract_additional_command_line_arguments(self, args):
+    def extract_additional_command_line_arguments(self):
         """A hook method for subclasses.
         
         Turns command-line arguments into additional keyword arguments
