@@ -231,7 +231,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Returns items that are licensed and have not been covered.
 
-        :param identifiers The batch of identifier objects to test for coverage. identifiers and 
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
             self.input_identifiers can intersect -- if this provider was created for the 
             purpose of running specific Identifiers, and within those Identifiers you want to 
             batch, you can use both parameters.
@@ -382,7 +382,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
         """Only identifiers associated with an open-access license
         need coverage.
 
-        :param identifiers The batch of identifier objects to test for coverage. identifiers and 
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
             self.input_identifiers can intersect -- if this provider was created for the 
             purpose of running specific Identifiers, and within those Identifiers you want to 
             batch, you can use both parameters.
