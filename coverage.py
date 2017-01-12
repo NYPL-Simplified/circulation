@@ -245,14 +245,10 @@ class BaseCoverageProvider(object):
                     unhandled_items.remove(item.obj)
                 record = self.record_failure_as_coverage_record(item)
                 if item.transient:
-                    try:
-                        self.log.warn(
-                            "Transient failure covering %r: %s", 
-                            item.obj, item.exception
-                        )
-                    except Error, e:
-                        set_trace()
-
+                    self.log.warn(
+                        "Transient failure covering %r: %s", 
+                        item.obj, item.exception
+                    )
 
                     record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
@@ -406,8 +402,8 @@ class CoverageProvider(BaseCoverageProvider):
     def __init__(self, service_name, input_identifier_types, output_source,
                  batch_size=100, cutoff_time=None, operation=None, input_identifiers=None):
         """
-        :param input_identifier_types DataSource types to run coverage operations for.
-        :param input_identifiers Specific identifier objects to run coverage for.
+        :param input_identifier_types: DataSource types to run coverage operations for.
+        :param input_identifiers: Specific identifier objects to run coverage for.
         """
         _db = Session.object_session(output_source)
         super(CoverageProvider, self).__init__(
@@ -652,7 +648,7 @@ class CoverageProvider(BaseCoverageProvider):
         By default, all identifiers of the `input_identifier_types` which
         don't already have coverage are chosen.
 
-        :param identifiers The batch of identifier objects to test for coverage. identifiers and 
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
             self.input_identifiers can intersect -- if this provider was created for the 
             purpose of running specific Identifiers, and within those Identifiers you want to 
             batch, you can use both parameters.

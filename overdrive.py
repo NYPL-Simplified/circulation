@@ -874,8 +874,8 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
                  input_identifier_types=None, input_identifiers=None, **kwargs
     ):
         """
-        :param input_identifier_types Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
         """
 
         overdrive_api = overdrive_api or OverdriveAPI(_db)

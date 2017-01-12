@@ -206,7 +206,7 @@ class IdentifierInputScript(InputScript):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
-        #set_trace()
+
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
             identifier_strings = parsed.identifier_strings
@@ -255,7 +255,7 @@ class IdentifierInputScript(InputScript):
         
         a b c
         """
-        #set_trace()
+
         current_identifier_type = None
         if len(arguments) == 0:
             return []

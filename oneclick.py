@@ -822,16 +822,15 @@ class OneClickRepresentationExtractor(object):
 
 
 class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for OneClick records.
-    :param input_identifier_types Specific idendifier types to get coverage for.  Ignored, as we can assume we only want OneClick identifiers.
-    :param input_identifiers Specific identifiers to get coverage for.  Ex: '9781449880927', '9781449878955', etc..  Ignored for now.
-    """
+    """Fill in bibliographic metadata for OneClick records."""
 
     def __init__(self, _db, metadata_replacement_policy=None, oneclick_api=None,
                  input_identifier_types=None, input_identifiers=None, **kwargs):
         """
-        :param input_identifier_types Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.  
+            Ignored, as we can assume we only want OneClick identifiers.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+            Ex: '9781449880927', '9781449878955', etc..
         """
         
         oneclick_api = oneclick_api or OneClickAPI.from_config(_db)
