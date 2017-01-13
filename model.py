@@ -7998,18 +7998,51 @@ class CustomList(Base):
     def add_entry(self, edition, annotation=None, first_appearance=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
-        entry, was_new = get_one_or_create(
-            _db, CustomListEntry,
-            customlist=self, edition=edition,
-            create_method_kwargs=dict(first_appearance=first_appearance)
-        )
+
+        existing = self.entries_for_work(edition)
+        if existing:
+            was_new = False
+            entry = existing[0]
+            if len(existing) > 1:
+                entry.update(entries=existing[1:])
+            entry.edition = edition
+            _db.commit()
+        else:
+            entry, was_new = get_one_or_create(
+                _db, CustomListEntry,
+                customlist=self, edition=edition,
+                create_method_kwargs=dict(first_appearance=first_appearance)
+            )
         if (not entry.most_recent_appearance 
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
-        entry.annotation = annotation
+        if annotation:
+            entry.annotation = unicode(annotation)
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
         return entry, was_new
+
+    def remove_entry(self, edition):
+        """Remove the entry for a particular Edition and/or any of its
+        equivalent Editions.
+        """
+        _db = Session.object_session(self)
+
+        existing_entries = self.entries_for_work(edition)
+        for entry in existing_entries:
+            _db.delete(entry)
+        _db.commit()
+
+    def entries_for_work(self, work_or_edition):
+        """Find all of the entries in the list representing a particular
+        Edition or Work.
+        """
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
+
+        equivalents = edition.equivalent_editions()
+        return [e for e in self.entries if e.edition in equivalents]
 
 
 class CustomListEntry(Base):
@@ -8091,6 +8124,77 @@ class CustomListEntry(Base):
                 )
         self.license_pool = new_license_pool
         return self.license_pool
+
+    def update(self, _db, equivalent_entries=None):
+        """Combines any number of equivalent entries into a single entry
+        and updates the edition being used to represent the Work.
+        """
+        if not equivalent_entries:
+            # There are no entries to compare against. Leave it be.
+            return
+        equivalent_entries += [self]
+        equivalent_entries = list(set(equivalent_entries))
+
+        # Confirm that all the entries are from the same CustomList.
+        list_ids = set([e.list_id for e in equivalent_entries])
+        if not len(list_ids)==1:
+            raise ValueError("Cannot combine entries on different lists.")
+
+        # Confirm that all the entries are equivalent.
+        error = "Cannot combine entries that represent different Works."
+        equivalents = self.edition.equivalent_editions()
+        for equivalent_entry in equivalent_entries:
+            if equivalent_entry.edition not in equivalents:
+                raise ValueError(error)
+
+        # And get a Work if one exists.
+        works = set([])
+        for e in equivalent_entries:
+            license_pool = e.edition.license_pool
+            if license_pool:
+                works.add(license_pool.work)
+        works = [w for w in works if w]
+
+        if works:
+            if not len(works)==1:
+                # This shouldn't happen, given all the Editions are equivalent.
+                raise ValueError(error)
+            [work] = works
+
+        self.first_appearance = min(
+            [e.first_appearance for e in equivalent_entries]
+        )
+        self.most_recent_appearance = max(
+            [e.most_recent_appearance for e in equivalent_entries]
+        )
+
+        annotations = [unicode(e.annotation) for e in equivalent_entries
+                       if e.annotation]
+        if annotations:
+            if len(annotations)==1:
+                self.annotation = annotations[0]
+            if len(annotations) > 1:
+                # Just pick the longest one?
+                self.annotation = max(annotations, key=lambda a: len(a))
+
+        # Reset the entry's edition to be the Work's presentation edition.
+        best_edition = work.presentation_edition
+        if work and not best_edition:
+            work.calculate_presentation()
+            best_edition = work.presentation_edition
+        if best_edition and not best_edition==self.edition:
+            logging.info(
+                "Changing edition for list entry %r to %r from %r",
+                self, best_edition, self.edition
+            )
+            self.edition = best_edition or self
+
+        self.set_license_pool()
+
+        for entry in equivalent_entries:
+            if entry != self:
+                _db.delete(entry)
+        _db.commit
 
 
 class Complaint(Base):
