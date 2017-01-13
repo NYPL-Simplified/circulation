@@ -40,6 +40,7 @@ from model import (
     Contributor,
     CoverageRecord,
     Credential,
+    CustomList,
     CustomListEntry,
     DataSource,
     DelegatedPatronIdentifier,
@@ -4845,6 +4846,26 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             self.overdrive_streaming_text.content_type_media_type)
+
+
+class TestCustomList(DatabaseTest):
+
+    def test_find(self):
+        # When there's no CustomList to find, nothing is returned.
+        result = CustomList.find(self._db, 'my-list')
+        eq_(None, result)
+
+        custom_list = self._customlist(
+            foreign_identifier='a-list', name='My List', num_entries=0
+        )[0]
+        # A CustomList can be found by its foreign_identifier.
+        result = CustomList.find(self._db, 'a-list')
+        eq_(custom_list, result)
+
+        # Or its name.
+        result = CustomList.find(self._db, 'My List')
+        eq_(custom_list, result)
+
 
 class TestCustomListEntry(DatabaseTest):
 

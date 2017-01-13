@@ -7954,7 +7954,7 @@ class CustomList(Base):
     primary_language = Column(Unicode, index=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     foreign_identifier = Column(Unicode, index=True, unique=True)
-    name = Column(Unicode)
+    name = Column(Unicode, index=True, unique=True)
     description = Column(Unicode)
     created = Column(DateTime, index=True)
     updated = Column(DateTime, index=True)
@@ -7980,20 +7980,20 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, foreign_identifier, name=None):
-        """Finds a foreign list in the database by its `foreign_identifier`
-        and/or its name.
+    def find(cls, _db, foreign_identifier_or_name):
+        """Finds a foreign list in the database by its foreign_identifier
+        or its name.
         """
-        foreign_identifier = unicode(foreign_identifier)
+        foreign_identifier = unicode(foreign_identifier_or_name)
 
-        qu = _db.query(cls)
-        if name:
-            name = unicode(name)
-            return qu.filter(or_(
-                CustomList.name==name,
-                CustomList.foreign_identifier==foreign_identifier
-            ))
-        return qu.filter(CustomList.foreign_identifier==foreign_identifier)
+        custom_lists = _db.query(cls).filter(or_(
+            CustomList.foreign_identifier==foreign_identifier,
+            CustomList.name==foreign_identifier
+        )).all()
+
+        if not custom_lists:
+            return None
+        return custom_lists[0]
 
     def add_entry(self, edition, annotation=None, first_appearance=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
