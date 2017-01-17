@@ -7953,8 +7953,8 @@ class CustomList(Base):
     id = Column(Integer, primary_key=True)
     primary_language = Column(Unicode, index=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
-    foreign_identifier = Column(Unicode, index=True, unique=True)
-    name = Column(Unicode, index=True, unique=True)
+    foreign_identifier = Column(Unicode, index=True)
+    name = Column(Unicode, index=True)
     description = Column(Unicode)
     created = Column(DateTime, index=True)
     updated = Column(DateTime, index=True)
@@ -7962,6 +7962,11 @@ class CustomList(Base):
 
     entries = relationship(
         "CustomListEntry", backref="customlist", lazy="joined")
+
+    __table_args__ = (
+        UniqueConstraint('data_source_id', 'foreign_identifier'),
+        UniqueConstraint('data_source_id', 'name'),
+    )
 
     # TODO: It should be possible to associate a CustomList with an
     # audience, fiction status, and subject, but there is no planned
@@ -7980,16 +7985,19 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, foreign_identifier_or_name):
+    def find(cls, _db, source, foreign_identifier_or_name):
         """Finds a foreign list in the database by its foreign_identifier
         or its name.
         """
+        source_name = source
+        if isinstance(source, DataSource):
+            source_name = source.name
         foreign_identifier = unicode(foreign_identifier_or_name)
 
-        custom_lists = _db.query(cls).filter(or_(
-            CustomList.foreign_identifier==foreign_identifier,
-            CustomList.name==foreign_identifier
-        )).all()
+        custom_lists = _db.query(cls).join(CustomList.data_source).filter(
+            DataSource.name==unicode(source_name),
+            or_(CustomList.foreign_identifier==foreign_identifier,
+                CustomList.name==foreign_identifier)).all()
 
         if not custom_lists:
             return None

@@ -4851,19 +4851,20 @@ class TestDeliveryMechanism(DatabaseTest):
 class TestCustomList(DatabaseTest):
 
     def test_find(self):
+        source = DataSource.lookup(self._db, DataSource.NYT)
         # When there's no CustomList to find, nothing is returned.
-        result = CustomList.find(self._db, 'my-list')
+        result = CustomList.find(self._db, source, 'my-list')
         eq_(None, result)
 
         custom_list = self._customlist(
             foreign_identifier='a-list', name='My List', num_entries=0
         )[0]
         # A CustomList can be found by its foreign_identifier.
-        result = CustomList.find(self._db, 'a-list')
+        result = CustomList.find(self._db, source, 'a-list')
         eq_(custom_list, result)
 
         # Or its name.
-        result = CustomList.find(self._db, 'My List')
+        result = CustomList.find(self._db, source.name, 'My List')
         eq_(custom_list, result)
 
     def test_add_entry(self):
