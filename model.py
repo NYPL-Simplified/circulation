@@ -8004,7 +8004,7 @@ class CustomList(Base):
             was_new = False
             entry = existing[0]
             if len(existing) > 1:
-                entry.update(entries=existing[1:])
+                entry.update(_db, equivalent_entries=existing[1:])
             entry.edition = edition
             _db.commit()
         else:
@@ -8013,6 +8013,7 @@ class CustomList(Base):
                 customlist=self, edition=edition,
                 create_method_kwargs=dict(first_appearance=first_appearance)
             )
+
         if (not entry.most_recent_appearance 
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
@@ -8138,7 +8139,7 @@ class CustomListEntry(Base):
         # Confirm that all the entries are from the same CustomList.
         list_ids = set([e.list_id for e in equivalent_entries])
         if not len(list_ids)==1:
-            raise ValueError("Cannot combine entries on different lists.")
+            raise ValueError("Cannot combine entries on different CustomLists.")
 
         # Confirm that all the entries are equivalent.
         error = "Cannot combine entries that represent different Works."
@@ -8171,11 +8172,11 @@ class CustomListEntry(Base):
         annotations = [unicode(e.annotation) for e in equivalent_entries
                        if e.annotation]
         if annotations:
-            if len(annotations)==1:
-                self.annotation = annotations[0]
             if len(annotations) > 1:
                 # Just pick the longest one?
                 self.annotation = max(annotations, key=lambda a: len(a))
+            else:
+                self.annotation = annotations[0]
 
         # Reset the entry's edition to be the Work's presentation edition.
         best_edition = work.presentation_edition
@@ -8187,7 +8188,7 @@ class CustomListEntry(Base):
                 "Changing edition for list entry %r to %r from %r",
                 self, best_edition, self.edition
             )
-            self.edition = best_edition or self
+            self.edition = best_edition
 
         self.set_license_pool()
 

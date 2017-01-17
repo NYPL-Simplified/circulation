@@ -4913,7 +4913,7 @@ class TestCustomList(DatabaseTest):
         eq_(now, new_timed_entry.first_appearance)
         eq_(later, new_timed_entry.most_recent_appearance)
 
-        # For existing entries, arlier first_appearance datetimes are ignored.
+        # For existing entries, earlier first_appearance datetimes are ignored.
         entry = custom_list.add_entry(annotated_edition, first_appearance=now)[0]
         eq_(True, entry.first_appearance != now)
         eq_(True, entry.first_appearance >= now)
@@ -4951,9 +4951,10 @@ class TestCustomList(DatabaseTest):
         custom_list.remove_entry(second)
         eq_([], custom_list.entries)
 
-        # An edition that's not into the list doesn't cause any problems.
+        # An edition that's not on the list doesn't cause any problems.
+        custom_list.add_entry(second)
         custom_list.remove_entry(first)
-        eq_([], custom_list.entries)
+        eq_(1, len(custom_list.entries))
 
     def test_entries_for_work(self):
         custom_list, editions = self._customlist(num_entries=2)
