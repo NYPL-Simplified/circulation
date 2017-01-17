@@ -8061,6 +8061,7 @@ class CustomListEntry(Base):
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    featured = Column(Boolean, nullable=False, default=False)
     annotation = Column(Unicode)
 
     # These two fields are for best-seller lists. Even after a book
