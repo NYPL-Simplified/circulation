@@ -8003,7 +8003,18 @@ class CustomList(Base):
             return None
         return custom_lists[0]
 
-    def add_entry(self, edition, annotation=None, first_appearance=None):
+    @property
+    def featured_works(self):
+        _db = Session.object_session(self)
+        editions = [e.edition for e in self.entries if e.featured]
+        if not editions:
+            return None
+
+        identifiers = [ed.primary_identifier for ed in editions]
+        return Work.from_identifiers(_db, identifiers)
+
+    def add_entry(self, edition, annotation=None, first_appearance=None,
+                  featured=False):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
@@ -8029,6 +8040,8 @@ class CustomList(Base):
             entry.annotation = unicode(annotation)
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
+        if featured:
+            entry.featured = True
         return entry, was_new
 
     def remove_entry(self, edition):
