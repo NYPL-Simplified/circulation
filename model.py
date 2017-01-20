@@ -7961,7 +7961,7 @@ class CustomList(Base):
     primary_language = Column(Unicode, index=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     foreign_identifier = Column(Unicode, index=True)
-    name = Column(Unicode)
+    name = Column(Unicode, index=True)
     description = Column(Unicode)
     created = Column(DateTime, index=True)
     updated = Column(DateTime, index=True)
@@ -7969,6 +7969,11 @@ class CustomList(Base):
 
     entries = relationship(
         "CustomListEntry", backref="customlist", lazy="joined")
+
+    __table_args__ = (
+        UniqueConstraint('data_source_id', 'foreign_identifier'),
+        UniqueConstraint('data_source_id', 'name'),
+    )
 
     # TODO: It should be possible to associate a CustomList with an
     # audience, fiction status, and subject, but there is no planned
@@ -7986,21 +7991,87 @@ class CustomList(Base):
             ids.append(ds.id)
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
-    def add_entry(self, edition, annotation=None, first_appearance=None):
+    @classmethod
+    def find(cls, _db, source, foreign_identifier_or_name):
+        """Finds a foreign list in the database by its foreign_identifier
+        or its name.
+        """
+        source_name = source
+        if isinstance(source, DataSource):
+            source_name = source.name
+        foreign_identifier = unicode(foreign_identifier_or_name)
+
+        custom_lists = _db.query(cls).join(CustomList.data_source).filter(
+            DataSource.name==unicode(source_name),
+            or_(CustomList.foreign_identifier==foreign_identifier,
+                CustomList.name==foreign_identifier)).all()
+
+        if not custom_lists:
+            return None
+        return custom_lists[0]
+
+    @property
+    def featured_works(self):
+        _db = Session.object_session(self)
+        editions = [e.edition for e in self.entries if e.featured]
+        if not editions:
+            return None
+
+        identifiers = [ed.primary_identifier for ed in editions]
+        return Work.from_identifiers(_db, identifiers)
+
+    def add_entry(self, edition, annotation=None, first_appearance=None,
+                  featured=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
-        entry, was_new = get_one_or_create(
-            _db, CustomListEntry,
-            customlist=self, edition=edition,
-            create_method_kwargs=dict(first_appearance=first_appearance)
-        )
+
+        existing = self.entries_for_work(edition)
+        if existing:
+            was_new = False
+            entry = existing[0]
+            if len(existing) > 1:
+                entry.update(_db, equivalent_entries=existing[1:])
+            entry.edition = edition
+            _db.commit()
+        else:
+            entry, was_new = get_one_or_create(
+                _db, CustomListEntry,
+                customlist=self, edition=edition,
+                create_method_kwargs=dict(first_appearance=first_appearance)
+            )
+
         if (not entry.most_recent_appearance 
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
-        entry.annotation = annotation
+        if annotation:
+            entry.annotation = unicode(annotation)
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
+        if featured is not None:
+            entry.featured = featured
         return entry, was_new
+
+    def remove_entry(self, edition):
+        """Remove the entry for a particular Edition and/or any of its
+        equivalent Editions.
+        """
+        _db = Session.object_session(self)
+
+        existing_entries = self.entries_for_work(edition)
+        for entry in existing_entries:
+            _db.delete(entry)
+        _db.commit()
+
+    def entries_for_work(self, work_or_edition):
+        """Find all of the entries in the list representing a particular
+        Edition or Work.
+        """
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
+
+        equivalents = edition.equivalent_editions()
+        return [e for e in self.entries if e.edition in equivalents]
 
 
 class CustomListEntry(Base):
@@ -8010,6 +8081,7 @@ class CustomListEntry(Base):
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    featured = Column(Boolean, nullable=False, default=False)
     annotation = Column(Unicode)
 
     # These two fields are for best-seller lists. Even after a book
@@ -8082,6 +8154,77 @@ class CustomListEntry(Base):
                 )
         self.license_pool = new_license_pool
         return self.license_pool
+
+    def update(self, _db, equivalent_entries=None):
+        """Combines any number of equivalent entries into a single entry
+        and updates the edition being used to represent the Work.
+        """
+        if not equivalent_entries:
+            # There are no entries to compare against. Leave it be.
+            return
+        equivalent_entries += [self]
+        equivalent_entries = list(set(equivalent_entries))
+
+        # Confirm that all the entries are from the same CustomList.
+        list_ids = set([e.list_id for e in equivalent_entries])
+        if not len(list_ids)==1:
+            raise ValueError("Cannot combine entries on different CustomLists.")
+
+        # Confirm that all the entries are equivalent.
+        error = "Cannot combine entries that represent different Works."
+        equivalents = self.edition.equivalent_editions()
+        for equivalent_entry in equivalent_entries:
+            if equivalent_entry.edition not in equivalents:
+                raise ValueError(error)
+
+        # And get a Work if one exists.
+        works = set([])
+        for e in equivalent_entries:
+            license_pool = e.edition.license_pool
+            if license_pool:
+                works.add(license_pool.work)
+        works = [w for w in works if w]
+
+        if works:
+            if not len(works)==1:
+                # This shouldn't happen, given all the Editions are equivalent.
+                raise ValueError(error)
+            [work] = works
+
+        self.first_appearance = min(
+            [e.first_appearance for e in equivalent_entries]
+        )
+        self.most_recent_appearance = max(
+            [e.most_recent_appearance for e in equivalent_entries]
+        )
+
+        annotations = [unicode(e.annotation) for e in equivalent_entries
+                       if e.annotation]
+        if annotations:
+            if len(annotations) > 1:
+                # Just pick the longest one?
+                self.annotation = max(annotations, key=lambda a: len(a))
+            else:
+                self.annotation = annotations[0]
+
+        # Reset the entry's edition to be the Work's presentation edition.
+        best_edition = work.presentation_edition
+        if work and not best_edition:
+            work.calculate_presentation()
+            best_edition = work.presentation_edition
+        if best_edition and not best_edition==self.edition:
+            logging.info(
+                "Changing edition for list entry %r to %r from %r",
+                self, best_edition, self.edition
+            )
+            self.edition = best_edition
+
+        self.set_license_pool()
+
+        for entry in equivalent_entries:
+            if entry != self:
+                _db.delete(entry)
+        _db.commit
 
 
 class Complaint(Base):

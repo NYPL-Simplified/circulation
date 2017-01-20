@@ -42,6 +42,29 @@ def fast_query_count(query):
 
     return count
 
+def slugify(text, length_limit=None):
+    """Takes a string and turns it into a slug.
+
+    :Example:
+
+    >>> slugify('Some (???) Title Somewhere')
+    some-title-somewhere
+    >>> slugify('Sly & the Family Stone')
+    sly-and-the-family-stone
+    >>> slugify('Happy birthday!', length_limit=4)
+    happ
+    """
+    slug = re.sub('[.!@#\'$,?\(\)]', '', text.lower())
+    slug = re.sub('&', ' and ', slug)
+    slug = re.sub(' {2,}', ' ', slug)
+
+    slug = '-'.join(slug.split(' '))
+    while '--' in slug:
+        slug = re.sub('--', '-', slug)
+
+    if length_limit:
+        slug = slug[:length_limit]
+    return unicode(slug)
 
 class LanguageCodes(object):
     """Convert between ISO-639-2 and ISO-693-1 language codes.

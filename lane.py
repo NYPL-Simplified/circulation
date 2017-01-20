@@ -581,8 +581,15 @@ class Lane(object):
 
         # The lane may be restricted to books that are on a list
         # from a given data source.
-        self.list_data_source_id, self.list_ids = self.custom_lists_for_identifier(
+        custom_list_details = self.custom_lists_for_identifier(
             list_data_source, list_identifier)
+        (self.list_data_source_id,
+         self.list_ids,
+         self.list_featured_works_query) = custom_list_details
+        if not self.list_featured_works_query:
+            # The parent may have featured works from the list that
+            # could be included here.
+            set_from_parent('list_featured_works_query', None)
         set_from_parent(
             'list_seen_in_previous_days', list_seen_in_previous_days)
 
@@ -800,11 +807,34 @@ class Lane(object):
             list_data_source_id = list_data_source.id
         else:
             list_data_source_id = None
+
+        list_featured_works_query = None
         if lists:
             list_ids = [x.id for x in lists]
+            list_featured_works_query = self.extract_list_featured_works_query(lists)
         else:
             list_ids = None
-        return list_data_source_id, list_ids
+        return list_data_source_id, list_ids, list_featured_works_query
+
+    def extract_list_featured_works_query(self, lists):
+        if not lists:
+            return None
+        if isinstance(lists[0], int):
+            # We have CustomList ids instead of CustomList objects.
+            lists = self._db.query(CustomList).filter(CustomList.id.in_(lists))
+            lists = lists.all()
+
+        lists = [custom_list for custom_list in lists if custom_list.featured_works]
+        if not lists:
+            return None
+
+        work_ids = list()
+        for custom_list in lists:
+            work_ids += [work.id for work in custom_list.featured_works]
+
+        works_query = self._db.query(Work).with_labels().\
+            filter(Work.id.in_(work_ids))
+        return works_query
 
     @classmethod
     def from_description(cls, _db, parent, description):
@@ -1295,6 +1325,21 @@ class Lane(object):
         objects.
         """
         books = []
+        featured_subquery = None
+        target_size = Configuration.featured_lane_size()
+
+        # If this lane (or its ancestors) is a CustomList, look for any
+        # featured works that were set on the list itself.
+        list_books, work_id_column = self.list_featured_works(
+            use_materialized_works=use_materialized_works
+        )
+        if list_books:
+            target_size = target_size - len(list_books)
+            if target_size <= 0:
+                # We've found all the books we need from the
+                # human-generated selections on the CustomList.
+                return list_books
+
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
         # featuring all books, no matter what the availability.
@@ -1315,27 +1360,63 @@ class Lane(object):
                 # apply_filters may return None in subclasses of Lane
                 continue
 
+            if list_books:
+                # Remove any already-featured books, set by the
+                # CustomList(s), from the database results.
+                list_book_ids = [getattr(w, work_id_column.key) for w in list_books]
+                query = query.filter(work_id_column.notin_(list_book_ids))
+
             # This is the end of the line, so we're desperate
             # to fill the lane, even if it's a little short.
             use_min_size = (collection==Facets.COLLECTION_FULL and
                             availability==Facets.AVAILABLE_ALL)
 
             # Get a random sample of books to be featured.
-            books = self.randomized_sample_works(query, use_min_size=use_min_size)
+            books += self.randomized_sample_works(
+                query, target_size=target_size, use_min_size=use_min_size)
             if books:
                 break
+
+        if list_books and books:
+            # Combine any books from the CustomList with those that were
+            # randomly generated.
+            return list_books+books
         return books
 
-    def randomized_sample_works(self, query, use_min_size=False):
-        """Find a random sample of works for a feed"""
+    def list_featured_works(self, target_size=None, use_materialized_works=True):
+        """Returns the featured books for a lane descended from CustomList(s)"""
+        books = list()
+        work_id_column = None
+        target_size = target_size or Configuration.featured_lane_size()
 
+        if self.list_featured_works_query:
+            subquery = self.list_featured_works_query.with_labels().subquery()
+
+            if use_materialized_works:
+                query = self.materialized_works()
+
+                # Extract the MaterializedView model from the query
+                [work_model] = query._entities[0].entities
+                work_id_column = work_model.works_id
+            else:
+                query = self.works()
+                work_id_column = Work.id
+
+            query = query.join(subquery, work_id_column==subquery.c.works_id)
+            books += self.randomized_sample_works(
+                query, target_size=target_size, use_min_size=True
+            )
+
+        return books, work_id_column
+
+    def randomized_sample_works(self, query, target_size=None, use_min_size=False):
+        """Find a random sample of works for a feed"""
         offset = 0
-        target_size = Configuration.featured_lane_size()
         smallest_sample_size = target_size
 
         if use_min_size:
             smallest_sample_size = self.MINIMUM_SAMPLE_SIZE or (target_size-5)
-        total_size = query.count()
+        total_size = fast_query_count(query)
 
         if total_size < smallest_sample_size:
             # There aren't enough works here. Ignore the lane.
@@ -1505,7 +1586,10 @@ class QueryGeneratedLane(Lane):
         if not query:
             return []
 
-        return self.randomized_sample_works(query, use_min_size=True)
+        target_size = Configuration.featured_lane_size()
+        return self.randomized_sample_works(
+            query, target_size=target_size, use_min_size=True
+        )
 
     def lane_query_hook(self, qu, work_model=Work):
         """Create the query specific to a subclass of  QueryGeneratedLane
