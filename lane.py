@@ -1416,7 +1416,7 @@ class Lane(object):
 
         if use_min_size:
             smallest_sample_size = self.MINIMUM_SAMPLE_SIZE or (target_size-5)
-        total_size = query.count()
+        total_size = fast_query_count(query)
 
         if total_size < smallest_sample_size:
             # There aren't enough works here. Ignore the lane.
@@ -1586,7 +1586,10 @@ class QueryGeneratedLane(Lane):
         if not query:
             return []
 
-        return self.randomized_sample_works(query, use_min_size=True)
+        target_size = Configuration.featured_lane_size()
+        return self.randomized_sample_works(
+            query, target_size=target_size, use_min_size=True
+        )
 
     def lane_query_hook(self, qu, work_model=Work):
         """Create the query specific to a subclass of  QueryGeneratedLane
