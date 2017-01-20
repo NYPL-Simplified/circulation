@@ -1753,13 +1753,14 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            count_as_covered=None, count_as_missing_before=None
+            count_as_covered=None, count_as_missing_before=None, identifiers=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
 
         :param count_as_covered: Identifiers will be counted as
         covered if their CoverageRecords have a status in this list.
+        :param identifiers: Restrict search to a specific set of identifier objects.
         """
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
@@ -1770,7 +1771,13 @@ class Identifier(Base):
         missing = CoverageRecord.not_covered(
             count_as_covered, count_as_missing_before
         )
-        return qu.filter(missing)
+        qu = qu.filter(missing)
+
+        if identifiers:
+            qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+
+        return qu
+
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly

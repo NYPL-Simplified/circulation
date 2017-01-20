@@ -249,6 +249,7 @@ class BaseCoverageProvider(object):
                         "Transient failure covering %r: %s", 
                         item.obj, item.exception
                     )
+
                     record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
                 else:
@@ -399,7 +400,11 @@ class CoverageProvider(BaseCoverageProvider):
     CAN_CREATE_LICENSE_POOLS = False
 
     def __init__(self, service_name, input_identifier_types, output_source,
-                 batch_size=100, cutoff_time=None, operation=None):
+                 batch_size=100, cutoff_time=None, operation=None, input_identifiers=None):
+        """
+        :param input_identifier_types: DataSource types to run coverage operations for.
+        :param input_identifiers: Specific identifier objects to run coverage for.
+        """
         _db = Session.object_session(output_source)
         super(CoverageProvider, self).__init__(
             _db, service_name, operation, batch_size, cutoff_time
@@ -408,6 +413,8 @@ class CoverageProvider(BaseCoverageProvider):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
         self.output_source_name = output_source.name
+        self.input_identifiers = input_identifiers
+        
 
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
@@ -640,15 +647,23 @@ class CoverageProvider(BaseCoverageProvider):
 
         By default, all identifiers of the `input_identifier_types` which
         don't already have coverage are chosen.
+
+        :param identifiers: The batch of identifier objects to test for coverage. identifiers and 
+            self.input_identifiers can intersect -- if this provider was created for the 
+            purpose of running specific Identifiers, and within those Identifiers you want to 
+            batch, you can use both parameters.
         """
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.output_source,
             count_as_missing_before=self.cutoff_time, operation=self.operation,
-            **kwargs
+            identifiers=self.input_identifiers, **kwargs
         )
+
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+
         return qu
+
 
     def add_coverage_record_for(self, item):
         """Record this CoverageProvider's coverage for the given
