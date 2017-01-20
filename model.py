@@ -8014,7 +8014,7 @@ class CustomList(Base):
         return Work.from_identifiers(_db, identifiers)
 
     def add_entry(self, edition, annotation=None, first_appearance=None,
-                  featured=False):
+                  featured=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
@@ -8040,8 +8040,8 @@ class CustomList(Base):
             entry.annotation = unicode(annotation)
         if edition.license_pool and not entry.license_pool:
             entry.license_pool = edition.license_pool
-        if featured:
-            entry.featured = True
+        if featured is not None:
+            entry.featured = featured
         return entry, was_new
 
     def remove_entry(self, edition):
