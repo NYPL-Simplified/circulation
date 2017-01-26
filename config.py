@@ -15,12 +15,17 @@ class CannotLoadConfiguration(Exception):
 def temp_config(new_config=None, replacement_classes=None):
     old_config = Configuration.instance
     replacement_classes = replacement_classes or [Configuration]
-    if new_config is None:
-        new_config = copy.deepcopy(old_config)
+
+    replacement_config = copy.deepcopy(old_config)
+    if new_config:
+        # Merge the values of top-level keys (e.g. 'links', 'policies',
+        # 'integrations') with values in the proposed config.
+        # TODO: Update lower-level dicts and lists instead of overwriting them.
+        replacement_config.update(new_config)
     try:
         for c in replacement_classes:
-            c.instance = new_config
-        yield new_config
+            c.instance = replacement_config
+        yield replacement_config
     finally:
         for c in replacement_classes:
             c.instance = old_config
