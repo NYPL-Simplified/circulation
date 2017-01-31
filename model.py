@@ -5557,6 +5557,24 @@ class CachedFeed(Base):
     log = logging.getLogger("CachedFeed")
 
     @classmethod
+    def get_feed_or_create(cls, _db, **kwargs):
+        cached_feed = get_one(_db, cls, **kwargs)
+        is_new = False
+
+        while cached_feed and not (cached_feed.content and cached_feed.timestamp):
+            _db.delete(cached_feed)
+            cached_feed = get_one(_db, cls, **kwargs)
+
+        if not cached_feed:
+            if 'on_multiple' in kwargs:
+                del kwargs['on_multiple']
+            cached_feed, is_new = create(
+                _db, cls, create_method='',
+                create_method_kwargs=None, **kwargs)
+
+        return cached_feed, is_new
+
+    @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
         if max_age is None:
@@ -5594,15 +5612,14 @@ class CachedFeed(Base):
 
         # Get a CachedFeed object. We will either return its .content,
         # or update its .content.
-        feed, is_new = get_one_or_create(
-            _db, CachedFeed, on_multiple='interchangeable',
+        feed, is_new = cls.get_feed_or_create(
+            _db, on_multiple='interchangeable',
             lane_name=lane_name,
             license_pool=license_pool,
             type=type,
             languages=languages_key,
             facets=facets_key,
-            pagination=pagination_key,
-            )
+            pagination=pagination_key)
 
         if force_refresh is True:
             # No matter what, we've been directed to treat this

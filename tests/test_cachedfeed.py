@@ -27,6 +27,35 @@ from . import (
 
 class TestCachedFeed(DatabaseTest):
 
+    def test_get_feed_or_create(self):
+        lane = Lane(self._db, u'Fantasy', languages=['eng'])
+        kwargs = dict(
+            lane_name=u'Fantasy',
+            languages=u'eng',
+            facets=u'',
+            pagination=u'',
+            type=CachedFeed.PAGE_TYPE)
+
+        result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
+        eq_(True, isinstance(result, CachedFeed))
+        eq_(True, is_new)
+
+        # If a CachedFeed exists, but it hasn't been updated,
+        # a new CachedFeed is returned.
+        old_result = result
+        new_result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
+        eq_(True, old_result != new_result)
+        eq_(True, is_new)
+        # And the unusable CachedFeed is deleted from the db.
+        eq_(True, old_result not in self._db)
+
+        # But if we give the CachedFeed content, we'll get it back.
+        new_result.update(self._db, u"l'elephante")
+        old_result = new_result
+        new_result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
+        eq_(old_result, new_result)
+        eq_(False, is_new)
+
     def test_lifecycle(self):
         facets = Facets.default()
         pagination = Pagination.default()
