@@ -5662,7 +5662,7 @@ class CachedFeed(Base):
     def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
-        _db.commit()
+        _db.flush()
 
     def __repr__(self):
         if self.content:
