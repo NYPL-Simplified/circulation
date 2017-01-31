@@ -5571,7 +5571,7 @@ class CachedFeed(Base):
 
         license_pool = None
         if lane:
-            lane_name = lane.name
+            lane_name = unicode(lane.name)
             if hasattr(lane, 'license_pool'):
                 license_pool = lane.license_pool
         else:

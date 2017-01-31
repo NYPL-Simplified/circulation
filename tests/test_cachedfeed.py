@@ -30,7 +30,7 @@ class TestCachedFeed(DatabaseTest):
     def test_lifecycle(self):
         facets = Facets.default()
         pagination = Pagination.default()
-        lane = Lane(self._db, "My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
 
         # Fetch a cached feed from the database--it's empty.
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
@@ -64,7 +64,7 @@ class TestCachedFeed(DatabaseTest):
         
         facets = Facets.default()
         pagination = Pagination.default()
-        lane = Lane(self._db, "My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
 
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, 
                      pagination, None)

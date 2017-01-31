@@ -420,7 +420,7 @@ class AcquisitionFeed(OPDSFeed):
         :return: CachedFeed (if use_cache is True) or unicode
         """
         cached = None
-        use_cache = not cache_type == cls.NO_CACHE
+        use_cache = cache_type != cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached, usable = CachedFeed.fetch(
@@ -523,7 +523,7 @@ class AcquisitionFeed(OPDSFeed):
         pagination = pagination or Pagination.default()
 
         cached = None
-        use_cache = not cache_type == cls.NO_CACHE
+        use_cache = cache_type != cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.PAGE_TYPE
             cached, usable = CachedFeed.fetch(
