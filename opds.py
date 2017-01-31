@@ -507,7 +507,7 @@ class AcquisitionFeed(OPDSFeed):
 
         content = unicode(feed)
         if cached and use_cache:
-            cached.update(content)
+            cached.update(_db, content)
             return cached
         return content
 
@@ -582,7 +582,7 @@ class AcquisitionFeed(OPDSFeed):
 
         content = unicode(feed)
         if cached and use_cache:
-            cached.update(content)
+            cached.update(_db, content)
             return cached
         return content
 

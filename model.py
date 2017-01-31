@@ -5603,6 +5603,7 @@ class CachedFeed(Base):
             facets=facets_key,
             pagination=pagination_key,
             )
+
         if force_refresh is True:
             # No matter what, we've been directed to treat this
             # cached feed as stale.
@@ -5641,9 +5642,10 @@ class CachedFeed(Base):
         # Either there is no cached feed or it's time to update it.
         return feed, False
 
-    def update(self, content):
+    def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
+        _db.commit()
 
     def __repr__(self):
         if self.content:

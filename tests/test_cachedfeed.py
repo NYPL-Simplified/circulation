@@ -45,7 +45,7 @@ class TestCachedFeed(DatabaseTest):
         eq_('eng,chi', feed.languages)
 
         # Update the content
-        feed.update("The content")
+        feed.update(self._db, u"The content")
         self._db.commit()
 
         # Fetch it again.
@@ -85,7 +85,7 @@ class TestCachedFeed(DatabaseTest):
         feed, fresh = CachedFeed.fetch(
             *args, force_refresh=True, max_age=Configuration.CACHE_FOREVER
         )
-        feed.update("Cache this forever!")
+        feed.update(self._db, "Cache this forever!")
 
         # Once the feed has content associated with it, we can ask for
         # it in cached-forever mode and no longer get the exception.
