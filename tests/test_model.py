@@ -17,12 +17,15 @@ from nose.tools import (
 
 from psycopg2.extras import NumericRange
 
+from sqlalchemy import not_
+
 from sqlalchemy.exc import (
     IntegrityError,
 )
 
 from sqlalchemy.orm.exc import (
     NoResultFound,
+    MultipleResultsFound
 )
 
 from config import (
@@ -90,6 +93,41 @@ from analytics import (
     temp_analytics
 )
 from mock_analytics_provider import MockAnalyticsProvider
+
+class TestDatabaseInterface(DatabaseTest):
+
+    def test_get_one(self):
+
+        # When a matching object isn't found, None is returned.
+        result = get_one(self._db, Edition)
+        eq_(None, result)
+
+        # When a single item is found, it is returned.
+        edition = self._edition()
+        result = get_one(self._db, Edition)
+        eq_(edition, result)
+
+        # When multiple items are found, an error is raised.
+        other_edition = self._edition()
+        assert_raises(MultipleResultsFound, get_one, self._db, Edition)
+
+        # Unless they're interchangeable.
+        result = get_one(self._db, Edition, on_multiple='interchangeable')
+        assert result in self._db.query(Edition)
+
+        # Or specific attributes are passed that limit the results to one.
+        result = get_one(
+            self._db, Edition,
+            title=other_edition.title,
+            author=other_edition.author)
+        eq_(other_edition, result)
+
+        # A particular constraint clause can also be passed in.
+        titles = [ed.title for ed in (edition, other_edition)]
+        constraint = not_(Edition.title.in_(titles))
+        result = get_one(self._db, Edition, constraint=constraint)
+        eq_(None, result)
+
 
 class TestDataSource(DatabaseTest):
 

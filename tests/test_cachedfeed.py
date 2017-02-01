@@ -11,6 +11,7 @@ from config import (
 )
 
 from model import (
+    get_one_or_create,
     CachedFeed,
     WillNotGenerateExpensiveFeed,
 )
@@ -26,35 +27,6 @@ from . import (
 )
 
 class TestCachedFeed(DatabaseTest):
-
-    def test_get_feed_or_create(self):
-        lane = Lane(self._db, u'Fantasy', languages=['eng'])
-        kwargs = dict(
-            lane_name=u'Fantasy',
-            languages=u'eng',
-            facets=u'',
-            pagination=u'',
-            type=CachedFeed.PAGE_TYPE)
-
-        result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
-        eq_(True, isinstance(result, CachedFeed))
-        eq_(True, is_new)
-
-        # If a CachedFeed exists, but it hasn't been updated,
-        # a new CachedFeed is returned.
-        old_result = result
-        new_result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
-        eq_(True, old_result != new_result)
-        eq_(True, is_new)
-        # And the unusable CachedFeed is deleted from the db.
-        eq_(True, old_result not in self._db)
-
-        # But if we give the CachedFeed content, we'll get it back.
-        new_result.update(self._db, u"l'elephante")
-        old_result = new_result
-        new_result, is_new = CachedFeed.get_feed_or_create(self._db, **kwargs)
-        eq_(old_result, new_result)
-        eq_(False, is_new)
 
     def test_lifecycle(self):
         facets = Facets.default()
@@ -89,13 +61,40 @@ class TestCachedFeed(DatabaseTest):
         eq_("The content", feed.content)
         eq_(True, fresh)
 
+    def test_fetch_ignores_feeds_without_content(self):
+        facets = Facets.default()
+        pagination = Pagination.default()
+        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
+
+        # Create a feed without content (i.e. don't update it)
+        contentless_feed = get_one_or_create(
+            self._db, CachedFeed,
+            lane_name=lane.name,
+            type=CachedFeed.PAGE_TYPE,
+            languages=u"eng,chi",
+            facets=unicode(facets.query_string),
+            pagination=unicode(pagination.query_string))[0]
+
+        # It's not returned because it hasn't been updated.
+        args = (self._db, lane, CachedFeed.PAGE_TYPE, facets,
+                pagination, None)
+        feed, fresh = CachedFeed.fetch(*args)
+        eq_(True, feed != contentless_feed)
+        eq_(False, fresh)
+
+        # But if the feed is updated, we get it back.
+        feed.update(self._db, u"Just feedy things")
+        result, fresh = CachedFeed.fetch(*args)
+        eq_(True, fresh)
+        eq_(feed, result)
+
     def test_refusal_to_create_expensive_feed(self):
         
         facets = Facets.default()
         pagination = Pagination.default()
         lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
 
-        args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, 
+        args = (self._db, lane, CachedFeed.PAGE_TYPE, facets,
                      pagination, None)
         
         # If we ask for a group feed that will be cached forever, and it's
