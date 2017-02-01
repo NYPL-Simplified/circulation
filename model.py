@@ -346,9 +346,6 @@ def get_one_or_create(db, model, create_method='',
             for key in get_one_keys:
                 if key in kwargs:
                     del kwargs[key]
-            # if 'on_multiple' in kwargs:
-            #     del kwargs['on_multiple']
-            # if 'filter_constraints'
             obj = create(db, model, create_method, create_method_kwargs, **kwargs)
             __transaction.commit()
             return obj
