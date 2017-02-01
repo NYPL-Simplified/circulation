@@ -36,7 +36,6 @@ from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
     func,
-    or_,
     MetaData,
     Table,
 )
@@ -301,8 +300,22 @@ class SessionManager(object):
 
         session.commit()
 
-def get_one(db, model, on_multiple='error', **kwargs):
+def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
+    """Gets an object from the database based on its attributes.
+
+    :param constraint: A single clause that can be passed into
+        `sqlalchemy.Query.filter` to limit the object that is returned.
+    :return: object or None
+    """
+    constraint = constraint
+    if 'constraint' in kwargs:
+        constraint = kwargs['constraint']
+        del kwargs['constraint']
+
     q = db.query(model).filter_by(**kwargs)
+    if constraint is not None:
+        q = q.filter(constraint)
+
     try:
         return q.one()
     except MultipleResultsFound, e:
@@ -328,9 +341,11 @@ def get_one_or_create(db, model, create_method='',
     else:
         __transaction = db.begin_nested()
         try:
-            if 'on_multiple' in kwargs:
-                # This kwarg is supported by get_one() but not by create().
-                del kwargs['on_multiple']
+            # These kwargs are supported by get_one() but not by create().
+            get_one_keys = ['on_multiple', 'constraint']
+            for key in get_one_keys:
+                if key in kwargs:
+                    del kwargs[key]
             obj = create(db, model, create_method, create_method_kwargs, **kwargs)
             __transaction.commit()
             return obj
@@ -5571,7 +5586,7 @@ class CachedFeed(Base):
 
         license_pool = None
         if lane:
-            lane_name = lane.name
+            lane_name = unicode(lane.name)
             if hasattr(lane, 'license_pool'):
                 license_pool = lane.license_pool
         else:
@@ -5594,15 +5609,18 @@ class CachedFeed(Base):
 
         # Get a CachedFeed object. We will either return its .content,
         # or update its .content.
+        constraint_clause = and_(cls.content!=None, cls.timestamp!=None)
         feed, is_new = get_one_or_create(
-            _db, CachedFeed, on_multiple='interchangeable',
+            _db, cls,
+            on_multiple='interchangeable',
+            constraint=constraint_clause,
             lane_name=lane_name,
             license_pool=license_pool,
             type=type,
             languages=languages_key,
             facets=facets_key,
-            pagination=pagination_key,
-            )
+            pagination=pagination_key)
+
         if force_refresh is True:
             # No matter what, we've been directed to treat this
             # cached feed as stale.
@@ -5641,9 +5659,10 @@ class CachedFeed(Base):
         # Either there is no cached feed or it's time to update it.
         return feed, False
 
-    def update(self, content):
+    def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
+        _db.flush()
 
     def __repr__(self):
         if self.content:
