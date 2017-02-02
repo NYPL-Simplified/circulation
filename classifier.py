@@ -3579,7 +3579,10 @@ class WorkClassifier(object):
         """
         self.weigh_metadata()
 
-        explicitly_indicated_audiences = (Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ADULTS_ONLY)
+        explicitly_indicated_audiences = (
+            Classifier.AUDIENCE_CHILDREN,
+            Classifier.AUDIENCE_YOUNG_ADULT,
+            Classifier.AUDIENCE_ADULTS_ONLY)
         audiences_from_license_source = set(
             [classification.subject.audience
              for classification in self.direct_from_license_source]

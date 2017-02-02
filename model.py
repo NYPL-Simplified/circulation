@@ -4021,7 +4021,7 @@ class Work(Base):
             self, operation=WorkCoverageRecord.QUALITY_OPERATION
         )
 
-    def assign_genres(self, identifier_ids, cutoff=0.15):
+    def assign_genres(self, identifier_ids):
         """Set classification information for this work based on the
         subquery to get equivalent identifiers.
 

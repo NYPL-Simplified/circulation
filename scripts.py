@@ -628,7 +628,10 @@ class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, force=False, batch_size=10):
+    def __init__(self, force=False, batch_size=10, _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
@@ -880,7 +883,11 @@ class OPDSImportScript(Script):
         return parser
 
     def __init__(self, feed_url, opds_data_source, importer_class, 
-                 immediately_presentation_ready=False, cmd_args=None):
+                 immediately_presentation_ready=False, cmd_args=None,
+                 _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(cmd_args)
         self.force_reimport = args.force
         self.feed_url = args.url or feed_url

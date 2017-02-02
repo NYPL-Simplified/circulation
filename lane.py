@@ -456,7 +456,11 @@ class Lane(object):
         return depth
     
     def __repr__(self):
-        template = "<Lane name=%(full_name)s, display=%(display_name)s, media=%(media)s, genre=%(genres)s, fiction=%(fiction)s, audience=%(audiences)s, age_range=%(age_range)r, language=%(language)s, sublanes=%(sublanes)d>"
+        template = (
+            "<Lane name=%(full_name)s, display=%(display_name)s, "
+            "media=%(media)s, genre=%(genres)s, fiction=%(fiction)s, "
+            "audience=%(audiences)s, age_range=%(age_range)r, "
+            "language=%(language)s, sublanes=%(sublanes)d>")
 
         sublanes = getattr(self, 'sublanes', None)
         if sublanes:
@@ -669,7 +673,7 @@ class Lane(object):
         """
         # However the genres came in, turn them into database Genre
         # objects and the corresponding GenreData objects.
-        genres, genredata = self.load_genres(self._db, genres)
+        genres = self.load_genres(self._db, genres)[0]
 
         # Create a complete list of genres to exclude.
         full_exclude_genres = set()
