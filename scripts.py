@@ -635,14 +635,17 @@ class WorkProcessingScript(IdentifierInputScript):
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
+        self.data_source = args.identifier_data_source
+
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, self.identifier_type, self.identifiers, self.log
+            self._db, self.identifier_type, self.identifiers, self.data_source,
+            log=self.log
         )
         self.force = force
 
     @classmethod
-    def make_query(self, _db, identifier_type, identifiers, log=None):
+    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
             query = query.join(Work.license_pools).join(
@@ -657,6 +660,14 @@ class WorkProcessingScript(IdentifierInputScript):
             query = query.filter(
                 LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
+        elif data_source:
+            if log:
+                log.info(
+                    'Restricted to identifiers from DataSource "%s".', data_source
+                )
+            source = DataSource.lookup(_db, data_source)
+            query = query.filter(LicensePool.data_source==source)
+
         if identifier_type:
             if log:
                 log.info(

@@ -213,25 +213,45 @@ class TestWorkProcessingScript(DatabaseTest):
         g1 = self._work(with_license_pool=True, with_open_access_download=True)
         g2 = self._work(with_license_pool=True, with_open_access_download=True)
 
-        overdrive_edition, overdrive_pool = self._edition(
+        overdrive_edition = self._edition(
             data_source_name=DataSource.OVERDRIVE, 
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
-        )
+        )[0]
         overdrive_work = self._work(presentation_edition=overdrive_edition)
 
-        everything = WorkProcessingScript.make_query(self._db, None, None)
-        eq_(set([g1, g2, overdrive_work]), set(everything.all()))
+        ugi_edition = self._edition(
+            data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        unglue_it = self._work(presentation_edition=ugi_edition)
+
+        se_edition = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        standard_ebooks = self._work(presentation_edition=se_edition)
+
+        everything = WorkProcessingScript.make_query(self._db, None, None, None)
+        eq_(set([g1, g2, overdrive_work, unglue_it, standard_ebooks]),
+            set(everything.all()))
 
         all_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, []
+            self._db, Identifier.GUTENBERG_ID, [], None
         )
         eq_(set([g1, g2]), set(all_gutenberg.all()))
 
         one_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
+            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier], None
         )
         eq_([g1], one_gutenberg.all())
+
+        one_standard_ebook = WorkProcessingScript.make_query(
+            self._db, Identifier.URI, [], DataSource.STANDARD_EBOOKS
+        )
+        eq_([standard_ebooks], one_standard_ebook.all())
 
 
 class MockDatabaseMigrationScript(DatabaseMigrationScript):
