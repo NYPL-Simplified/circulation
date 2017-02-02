@@ -1,6 +1,8 @@
 from nose.tools import set_trace
 import re
 
+from fuzzywuzzy import fuzz
+
 from permanent_work_id import WorkIDCalculator;
 
 
@@ -15,6 +17,18 @@ def normalize_title_for_matching(title):
     """
     title = WorkIDCalculator.normalize_title(u''.join(title))
     return title
+
+
+def title_match_ratio(cls, title1, title2):
+    """
+    Returns a number between 0 and 100, representing the percent 
+    match (Levenshtein Distance) between book title1 and book title2, 
+    after each has been normalized.
+    """
+    title1 = normalize_title_for_matching(title1)
+    title2 = normalize_title_for_matching(title2)
+    match_ratio = fuzz.ratio(title1, title2)
+    return match_ratio
 
 
 def unfluff_title(title):

@@ -1321,7 +1321,6 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
-
         if not foreign_identifier_type or not foreign_id:
             return None
 

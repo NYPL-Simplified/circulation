@@ -62,6 +62,9 @@ from threem import (
 
 from axis import Axis360BibliographicCoverageProvider
 
+from canonicalize import AuthorNameCanonicalizer
+
+
 class Script(object):
 
     @property
@@ -1228,8 +1231,8 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        args = self.parse_command_line(self._db)
-        identifier_ids = [x.id for x in args.identifiers]
+        param_args = self.parse_command_line(self._db)
+        identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
@@ -1242,25 +1245,58 @@ class Explain(IdentifierInputScript):
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):
-        if edition.medium != 'Book':
+        if edition.medium not in ('Book', 'Audio'):
+            # we haven't yet decided what to display for you
             return
+
+        # Tell about the Edition record.
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
         print " Permanent work ID: %s" % edition.permanent_work_id
-        work = edition.work
-        lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+
         seen = set()
         cls.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
+
+        # Find all contributions, and tell about the contributors.
+        if edition.contributions:
+            for contribution in edition.contributions:
+                contributor_id = contribution.contributor.id
+                contributor_sort_name = contribution.contributor.sort_name
+                contributor_aliases = contribution.contributor.aliases
+                contributor_display_name = contribution.contributor.display_name
+                contributor_family_name = contribution.contributor.family_name
+                contributor_wikipedia_name = contribution.contributor.wikipedia_name
+                contributor_default_names = contribution.contributor.default_names()
+                output = "contributor_id=%s, contributor_sort_name=%s, contributor_aliases=%s, " % (contributor_id, contributor_sort_name, contributor_aliases)
+                output = output + "contributor_display_name=%s, contributor_wikipedia_name=%s, contributor_default_names=%s" % (contributor_display_name, contributor_wikipedia_name, contributor_default_names)
+                print output.encode("utf8")
+
+                canonicalizer = AuthorNameCanonicalizer(_db)
+                computed_sort_name = canonicalizer._canonicalize(edition.primary_identifier, contributor_display_name)
+                set_trace()
+                print "_canonicalize: %s" % computed_sort_name
+                #computed_sort_name, ignore_uris = canonicalizer.sort_name_from_oclc_linked_data(edition.primary_identifier, contributor_display_name)
+                #print "sort_name_from_oclc_linked_data: %s" % computed_sort_name
+                #computed_sort_name = canonicalizer.sort_name_from_viaf(contributor_display_name)
+                #print "sort_name_from_viaf: %s" % computed_sort_name
+
+
+        # Tell about the LicensePool.
+        lp = edition.license_pool
         if lp:
             cls.explain_license_pool(lp)
         else:
             print " No associated license pool."
+
+        # Tell about the Work.
+        work = edition.work
         if work:
             cls.explain_work(work)
         else:
             print " No associated work."
 
+        # Note:  Can change DB state.
         if work and presentation_calculation_policy is not None:
              print "!!! About to calculate presentation!"
              work.calculate_presentation(policy=presentation_calculation_policy)
@@ -1268,6 +1304,7 @@ class Explain(IdentifierInputScript):
              print
              print "After recalculating presentation:"
              cls.explain_work(work)
+
 
     @classmethod
     def explain_identifier(cls, identifier, primary, seen, strength, level):
@@ -1341,6 +1378,7 @@ class Explain(IdentifierInputScript):
             if not pool.superceded:
                 active = "ACTIVE"
             print "  %s: %r" % (active, pool.identifier)
+
 
 
 class SubjectAssignmentScript(SubjectInputScript):
