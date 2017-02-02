@@ -893,6 +893,7 @@ class DataSource(Base):
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
                 (cls.INTERNAL_PROCESSING, True, False, None, None),
+                (cls.FEEDBOOKS, True, False, Identifier.URI, None)
         ):
 
             extra = dict()

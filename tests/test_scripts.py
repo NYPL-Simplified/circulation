@@ -71,12 +71,12 @@ class TestIdentifierInputScript(DatabaseTest):
         i2 = self._identifier()
         args = [i1.identifier, 'no-such-identifier', i2.identifier]
         identifiers = IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, args
+            self._db, i1.type, None, args
         )
         eq_([i1, i2], identifiers)
 
         eq_([], IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, [])
+            self._db, i1.type, None, [])
         )
 
     def test_parse_list_as_identifiers_with_autocreate(self):
@@ -84,10 +84,24 @@ class TestIdentifierInputScript(DatabaseTest):
         type = Identifier.OVERDRIVE_ID
         args = ['brand-new-identifier']
         [i] = IdentifierInputScript.parse_identifier_list(
-            self._db, type, args, autocreate=True
+            self._db, type, None, args, autocreate=True
         )
         eq_(type, i.type)
         eq_('brand-new-identifier', i.identifier)
+
+    def test_parse_list_as_identifiers_with_data_source(self):
+        lp1 = self._licensepool(None, data_source_name=DataSource.UNGLUE_IT)
+        lp2 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+        lp3 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+
+        i1, i2, i3 = [lp.identifier for lp in [lp1, lp2, lp3]]
+        i1.type = i2.type = Identifier.URI
+        source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
+
+        # Only URIs with a FeedBooks LicensePool are selected.
+        identifiers = IdentifierInputScript.parse_identifier_list(
+            self._db, Identifier.URI, source, [])
+        eq_([i2], identifiers)
 
     def test_parse_command_line(self):
         i1 = self._identifier()
@@ -104,12 +118,16 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(i1.type, parsed.identifier_type)
 
     def test_parse_command_line_no_identifiers(self):
-        cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
+        cmd_args = [
+            "--identifier-type", Identifier.OVERDRIVE_ID,
+            "--identifier-data-source", DataSource.STANDARD_EBOOKS
+        ]
         parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
         eq_([], parsed.identifiers)
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
+        eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
 class TestPatronInputScript(DatabaseTest):

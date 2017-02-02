@@ -206,6 +206,9 @@ class IdentifierInputScript(InputScript):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
+        data_source = None
+        if parsed.identifier_data_source:
+            data_source = DataSource.lookup(_db, parsed.identifier_data_source)
 
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
@@ -215,8 +218,8 @@ class IdentifierInputScript(InputScript):
                     identifier_strings + stdin_identifier_strings
                 )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, identifier_strings,
-                *args, **kwargs
+                _db, parsed.identifier_type, data_source,
+                identifier_strings, *args, **kwargs
             )
         else:
             # The script can call parse_identifier_list later if it
@@ -232,6 +235,10 @@ class IdentifierInputScript(InputScript):
             help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. If IDENTIFIER is specified, this argument is required.'
         )
         parser.add_argument(
+            '--identifier-data-source',
+            help='Process identifiers with this LicensePool.data_source'
+        )
+        parser.add_argument(
             'identifier_strings',
             help='A specific identifier to process.',
             metavar='IDENTIFIER', nargs='*'
@@ -240,7 +247,7 @@ class IdentifierInputScript(InputScript):
 
     @classmethod
     def parse_identifier_list(
-            cls, _db, identifier_type, arguments, autocreate=False
+            cls, _db, identifier_type, data_source, arguments, autocreate=False
     ):
         """Turn a list of identifiers into a list of Identifier objects.
 
@@ -255,13 +262,21 @@ class IdentifierInputScript(InputScript):
         
         a b c
         """
+        identifiers = []
 
-        current_identifier_type = None
-        if len(arguments) == 0:
-            return []
         if not identifier_type:
             raise ValueError("No identifier type specified!")
-        identifiers = []
+
+        if len(arguments) == 0:
+            if data_source:
+                identifiers = _db.query(Identifier).\
+                    join(Identifier.licensed_through).\
+                    filter(
+                        Identifier.type==identifier_type,
+                        LicensePool.data_source==data_source
+                    ).all()
+            return identifiers
+
         for arg in arguments:
             identifier, ignore = Identifier.for_foreign_id(
                 _db, identifier_type, arg, autocreate=autocreate
