@@ -19,7 +19,7 @@ def normalize_title_for_matching(title):
     return title
 
 
-def title_match_ratio(cls, title1, title2):
+def title_match_ratio(title1, title2):
     """
     Returns a number between 0 and 100, representing the percent 
     match (Levenshtein Distance) between book title1 and book title2, 
