@@ -1,3 +1,4 @@
+import json
 from nose.tools import set_trace
 from datetime import datetime, timedelta
 
@@ -61,6 +62,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     SERVICE_NAME = "Axis 360"
 
+    ISO_DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+
+    license_endpoint = 'titleLicense/v2'
+    
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -165,6 +170,20 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def licensing_changes(self, since=None):
+        """Check on books that were added to or removed from the collection.
+
+        :return: a 2-tuple of lists ([added], [removed]). Each
+        list is a list of Axis 360 IDs.
+        """
+        url = self.base_url + self.license_endpoint
+        args = dict()
+        if since:
+            since = since.strftime(self.ISO_DATE_FORMAT)
+            args['modifiedSince'] = since
+        response = self.request(url, params=args)
+        return TitleLicenseResponseParser().process_all(response.content)
+
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
 
@@ -196,29 +215,37 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            pool = removed_identifier.licensed_through
-            if not pool:
-                self.log.warn(
-                    "Was about to reap %r but no local license pool.",
-                    removed_identifier
-                )
-                continue
-            if pool.licenses_owned == 0:
-                # Already reaped.
-                continue
-            self.log.info(
-                "Reaping %r", removed_identifier
-            )
+            self.reap_license_pool_for(removed_identifier)
 
-            availability = CirculationData(
-                data_source=pool.data_source,
-                primary_identifier=removed_identifier,
-                licenses_owned=0,
-                licenses_available=0,
-                licenses_reserved=0,
-                patrons_in_hold_queue=0,
+    def reap_license_pool_for(self, identifier):
+        """Reflect the fact that the LicensePool associated with an Identifier
+        is no longer in the collection.
+        """
+        if not identifier:
+            return
+
+        pool = identifier.licensed_through
+        if not pool:
+            self.log.warn(
+                "Was about to reap %r but no local license pool.",
+                identifier
             )
-            availability.apply(pool, False)
+            return
+
+        if pool.licenses_owned == 0:
+            # Already reaped.
+            return
+
+        self.log.info("Reaping %r", identifier)
+        availability = CirculationData(
+            data_source=pool.data_source,
+            primary_identifier=identifier,
+            licenses_owned=0,
+            licenses_available=0,
+            licenses_reserved=0,
+            patrons_in_hold_queue=0,
+        )
+        availability.apply(pool)
 
 
 class Axis360CirculationMonitor(Monitor):
@@ -301,18 +328,46 @@ class Axis360CirculationMonitor(Monitor):
 class MockAxis360API(BaseMockAxis360API, Axis360API):
     pass
 
-class AxisCollectionReaper(IdentifierSweepMonitor):
-    """Check for books that are in the local collection but have left our
-    Axis 360 collection.
+
+class AxisCollectionReaper(Monitor):
+    """Check for books that were in our collection but are no longer."""
+
+    def __init__(self, _db, interval_seconds=3600):
+        default_start_time = datetime.utcnow() - self.ONE_YEAR_AGO
+        super(AxisCollectionReaper, self).__init__(
+            _db, "Axis Collection Reaper", interval_seconds=interval_seconds,
+            default_start_time=default_start_time,
+            keep_timestamp=True
+        )
+        
+    def run_once(self, start, cutoff, api=None):
+        api = api or Axis360API(self._db)
+        new_cutoff = datetime.utcnow()
+
+        # Subtract five minutes from the last timestamp to compensate for
+        # clock skew or database replication problems.
+        since = start - timedelta(seconds=60*5)
+        added, removed = api.licensing_changes(since=since)
+        for identifier_string in removed:
+            identifier, ignore = Identifier.for_foreign_id(
+                self._db, Identifier.AXIS_360_ID,
+                identifier_string, autocreate=False
+            )
+            api.reap_license_pool_for(identifier)
+        return new_cutoff
+
+        
+class AxisCollectionSweep(IdentifierSweepMonitor):
+    """Check availability for every book in the collection.
     """
 
-    def __init__(self, _db, interval_seconds=3600*12):
-        super(AxisCollectionReaper, self).__init__(
-            _db, "Axis Collection Reaper", interval_seconds)
+    def __init__(self, _db, interval_seconds=3600*24*7):
+        super(AxisCollectionSweep, self).__init__(
+            _db, "Axis Collection Sweep", interval_seconds)
 
     def run(self):
         self.api = Axis360API(self._db)
-        super(AxisCollectionReaper, self).run()
+        super(AxisCollectionSweep, self).run()
 
     def identifier_query(self):
         return self._db.query(Identifier).join(
@@ -392,32 +447,41 @@ class ResponseParser(Axis360Parser):
             message = message.text
 
         if code is None:
+            code = code
+        else:
+            code = code.text
+        return self.exception_for_response_code(
+            code, message, custom_error_classes
+        )
+
+    @classmethod
+    def exception_for_response_code(cls, code, message,
+                                    custom_error_classes={}):
+        if code is None:
             # Something is so wrong that we don't know what to do.
-            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        code = code.text
+            raise RemoteInitiatedServerError(message, cls.SERVICE_NAME)
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
             raise RemoteInitiatedServerError(
                 "Invalid response code from Axis 360: %s" % code,
-                self.SERVICE_NAME
+                cls.SERVICE_NAME
             )
 
-        for d in custom_error_classes, self.code_to_exception:
+        for d in custom_error_classes, cls.code_to_exception:
             if (code, message) in d:
                 raise d[(code, message)]
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                cls = d[code]
-                if cls is RemoteInitiatedServerError:
-                    e = cls(message, self.SERVICE_NAME)
+                exc = d[code]
+                if exc is RemoteInitiatedServerError:
+                    e = exc(message, cls.SERVICE_NAME)
                 else:
-                    e = cls(message)
+                    e = exc(message)
                 raise e
         return code, message
-
 
 class CheckoutResponseParser(ResponseParser):
 
@@ -565,3 +629,56 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
+
+
+class TitleLicenseResponseParser(object):
+    """Parse the response to a titleLicense response.
+
+    This doesn't subclass ResponseParser because it is processing a
+    JSON entity-body rather than XML. It reuses
+    exception_for_response_code, though.
+    """
+    def process_all(self, content):
+        service_name = DataSource.AXIS_360
+        bad_response = RemoteInitiatedServerError(
+                "Bad response: %s" % content, service_name
+            )
+        try:
+            data = json.loads(content)
+        except Exception, e:
+            raise bad_response
+
+        if not isinstance(data, dict):
+            raise bad_response
+
+        no_status_code = RemoteInitiatedServerError(
+            "No status code: %s" % content, service_name
+        )
+        if not 'status' in data:
+            raise no_status_code
+
+        status_block = data['status']
+        code = status_block.get('Code')
+        message = status_block.get('Message')
+
+        # If the status code indicates a failure condition, this will
+        # raise an appropriate exception.
+        ResponseParser.exception_for_response_code(code, message)
+
+        added = []
+        removed = []
+
+        if data.get('titles') is None:
+            # Nothing has changed.
+            return added, removed
+
+        for title in data['titles']:
+            id = title.get('TitleID')
+            active = title.get('active', None)
+            if not id or active is None:
+                continue
+            if active:
+                added.append(id)
+            else:
+                removed.append(id)
+        return added, removed

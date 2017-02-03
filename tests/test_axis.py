@@ -1,4 +1,5 @@
 import datetime
+import json
 from lxml import etree
 from StringIO import StringIO
 from nose.tools import (
@@ -28,12 +29,14 @@ from core.metadata_layer import (
 from api.axis import (
     Axis360CirculationMonitor,
     Axis360API,
+    AxisCollectionReaper,
     AvailabilityResponseParser,
     CheckoutResponseParser,
     HoldResponseParser,
     HoldReleaseResponseParser,
     MockAxis360API,
     ResponseParser,
+    TitleLicenseResponseParser,
 )
 
 from . import (
@@ -57,15 +60,17 @@ from api.config import (
 from core.analytics import Analytics
 
 
-class TestAxis360API(DatabaseTest):
+class UsesSampleData(object):
+    @classmethod
+    def sample_data(self, filename):
+        return sample_data(filename, 'axis')
+
+
+class TestAxis360API(DatabaseTest, UsesSampleData):
 
     def setup(self):
         super(TestAxis360API,self).setup()
         self.api = MockAxis360API(self._db)
-
-    @classmethod
-    def sample_data(self, filename):
-        return sample_data(filename, 'axis')
 
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
@@ -125,7 +130,51 @@ class TestAxis360API(DatabaseTest):
             params = request[-1]['params']
             eq_('notifications@example.com', params['email'])
 
-class TestCirculationMonitor(DatabaseTest):
+    def test_licensing_changes(self):
+        data = self.sample_data("licenses_with_titles.json")
+        self.api.queue_response(200, content=data)
+        since = datetime.datetime.utcnow()
+
+        result = self.api.licensing_changes(since=since)
+        expect = ([u'0012436005'], [u'0012436003'])
+        eq_(expect, result)
+
+        [request] = self.api.requests
+        (url, args, kwargs) = request
+
+        # The request went to the right URL.
+        eq_('http://axis.test/titleLicense/v2', url)
+
+        # The date we passed in as `since` became the `modifiedSince`
+        # query parameter and was passed in to `request()`.
+        formatted_date = since.strftime(self.api.ISO_DATE_FORMAT)
+        eq_(formatted_date, kwargs['params']['modifiedSince'])
+
+    def test_reap_license_pool_for(self):
+
+        has_no_pool = self._identifier()
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        pool.patrons_in_hold_queue = 10
+        pool.licenses_reserved = 10
+
+        # If an Identifier has no LicensePool, reap_license_pool does nothing.
+        self.api.reap_license_pool_for(None)
+        self.api.reap_license_pool_for(has_no_pool)
+
+        eq_(10, pool.licenses_owned)
+
+        # If an Identifier does have a LicensePool, reap_license_pool
+        # clears it out of the collection.
+        self.api.reap_license_pool_for(pool.identifier)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+        
+
+class TestCirculationMonitor(DatabaseTest, UsesSampleData):
 
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.AXIS_360,
@@ -258,14 +307,41 @@ class TestCirculationMonitor(DatabaseTest):
         # Now we have information based on the CirculationData.
         eq_(9, licensepool.licenses_owned)
 
+class TestAxisCollectionReaper(DatabaseTest, UsesSampleData):
 
-class TestResponseParser(object):
+    def setup(self):
+        super(TestAxisCollectionReaper,self).setup()
+        self.api = MockAxis360API(self._db)
+    
+    def test_run_once(self):
 
-    @classmethod
-    def sample_data(self, filename):
-        return sample_data(filename, 'axis')
+        # Unbeknownst to us, this LicensePool has been removed from
+        # the collection.
+        edition = self._edition(
+            data_source_name=DataSource.AXIS_360,
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id=u'0012436003'
+        )
+        pool = self._licensepool(
+            edition=edition, data_source_name=DataSource.AXIS_360
+        )
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        
+        data = self.sample_data("licenses_with_titles.json")
+        self.api.queue_response(200, content=data)
+        
+        # Let's face the music.
+        reaper = AxisCollectionReaper(self._db)
+        now = datetime.datetime.utcnow()
+        reaper.run_once(now, None, self.api)
 
-class TestRaiseExceptionOnError(TestResponseParser):
+        # It's gone!
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+
+        
+class TestRaiseExceptionOnError(UsesSampleData):
 
     def test_internal_server_error(self):
         data = self.sample_data("internal_server_error.xml")
@@ -292,7 +368,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
         )
 
 
-class TestCheckoutResponseParser(TestResponseParser):
+class TestCheckoutResponseParser(UsesSampleData):
 
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
@@ -317,7 +393,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         parser = CheckoutResponseParser()
         assert_raises(NotFoundOnRemote, parser.process_all, data)
 
-class TestHoldResponseParser(TestResponseParser):
+class TestHoldResponseParser(UsesSampleData):
 
     def test_parse_hold_success(self):
         data = self.sample_data("place_hold_success.xml")
@@ -331,7 +407,7 @@ class TestHoldResponseParser(TestResponseParser):
         parser = HoldResponseParser()
         assert_raises(AlreadyOnHold, parser.process_all, data)
 
-class TestHoldReleaseResponseParser(TestResponseParser):
+class TestHoldReleaseResponseParser(UsesSampleData):
 
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
@@ -343,7 +419,7 @@ class TestHoldReleaseResponseParser(TestResponseParser):
         parser = HoldReleaseResponseParser()
         assert_raises(NotOnHold, parser.process_all, data)
 
-class TestAvailabilityResponseParser(TestResponseParser):
+class TestAvailabilityResponseParser(UsesSampleData):
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
@@ -371,3 +447,54 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_("0015176429", loan.identifier)
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
+
+
+class TestTitleLicenseResponseParser(UsesSampleData):
+
+    def test_not_json(self):
+        data = "This is not JSON"
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Bad response: This is not JSON",
+            parser.process_all, data
+        )
+
+    def test_not_a_dict(self):
+        data = '"foo"'
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, 'Bad response: "foo"',
+            parser.process_all, data
+        )
+        
+    def test_no_status_code(self):
+        data = '{}'
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "No status code: {}",
+            parser.process_all, data
+        )
+
+    def test_failure_condition(self):
+        data = self.sample_data("server_error.json")
+        parser = TitleLicenseResponseParser()
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Internal Server Error",
+            parser.process_all, data
+        )
+
+    def test_no_titles(self):
+        data = self.sample_data("licenses_without_titles.json")
+        parser = TitleLicenseResponseParser()
+        eq_(
+            ([], []), parser.process_all(data)
+        )
+        
+    def test_some_titles(self):
+        data = self.sample_data("licenses_with_titles.json")
+        parser = TitleLicenseResponseParser()
+        added, removed = parser.process_all(data)
+
+        # One title was added, one removed.
+        eq_([u'0012436005'], added)
+        eq_([u'0012436003'], removed)
