@@ -2726,11 +2726,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("african-american studies"),
                    Eg("customs & traditions"),
                    Eg("criminology"),
-
-                   # Stop from showing up as 'science'
-                   "social sciences",
-                   "social science",
-                   "human science",
                ),               
                
                Sports: match_kw(
@@ -2944,6 +2939,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "thriller.*romance",
         ),
         
+        # Stop from showing up as 'science'
+        Social_Sciences : match_kw(
+            "social sciences",
+            "social science",
+            "human science",
+        ),
+
         Science_Fiction : match_kw(
             "science fiction",
             "science fiction.*general",
