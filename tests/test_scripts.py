@@ -71,12 +71,12 @@ class TestIdentifierInputScript(DatabaseTest):
         i2 = self._identifier()
         args = [i1.identifier, 'no-such-identifier', i2.identifier]
         identifiers = IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, args
+            self._db, i1.type, None, args
         )
         eq_([i1, i2], identifiers)
 
         eq_([], IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, [])
+            self._db, i1.type, None, [])
         )
 
     def test_parse_list_as_identifiers_with_autocreate(self):
@@ -84,10 +84,24 @@ class TestIdentifierInputScript(DatabaseTest):
         type = Identifier.OVERDRIVE_ID
         args = ['brand-new-identifier']
         [i] = IdentifierInputScript.parse_identifier_list(
-            self._db, type, args, autocreate=True
+            self._db, type, None, args, autocreate=True
         )
         eq_(type, i.type)
         eq_('brand-new-identifier', i.identifier)
+
+    def test_parse_list_as_identifiers_with_data_source(self):
+        lp1 = self._licensepool(None, data_source_name=DataSource.UNGLUE_IT)
+        lp2 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+        lp3 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+
+        i1, i2, i3 = [lp.identifier for lp in [lp1, lp2, lp3]]
+        i1.type = i2.type = Identifier.URI
+        source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
+
+        # Only URIs with a FeedBooks LicensePool are selected.
+        identifiers = IdentifierInputScript.parse_identifier_list(
+            self._db, Identifier.URI, source, [])
+        eq_([i2], identifiers)
 
     def test_parse_command_line(self):
         i1 = self._identifier()
@@ -104,12 +118,16 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(i1.type, parsed.identifier_type)
 
     def test_parse_command_line_no_identifiers(self):
-        cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
+        cmd_args = [
+            "--identifier-type", Identifier.OVERDRIVE_ID,
+            "--identifier-data-source", DataSource.STANDARD_EBOOKS
+        ]
         parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
         eq_([], parsed.identifiers)
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
+        eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
 class TestPatronInputScript(DatabaseTest):
@@ -195,25 +213,45 @@ class TestWorkProcessingScript(DatabaseTest):
         g1 = self._work(with_license_pool=True, with_open_access_download=True)
         g2 = self._work(with_license_pool=True, with_open_access_download=True)
 
-        overdrive_edition, overdrive_pool = self._edition(
+        overdrive_edition = self._edition(
             data_source_name=DataSource.OVERDRIVE, 
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
-        )
+        )[0]
         overdrive_work = self._work(presentation_edition=overdrive_edition)
 
-        everything = WorkProcessingScript.make_query(self._db, None, None)
-        eq_(set([g1, g2, overdrive_work]), set(everything.all()))
+        ugi_edition = self._edition(
+            data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        unglue_it = self._work(presentation_edition=ugi_edition)
+
+        se_edition = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        standard_ebooks = self._work(presentation_edition=se_edition)
+
+        everything = WorkProcessingScript.make_query(self._db, None, None, None)
+        eq_(set([g1, g2, overdrive_work, unglue_it, standard_ebooks]),
+            set(everything.all()))
 
         all_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, []
+            self._db, Identifier.GUTENBERG_ID, [], None
         )
         eq_(set([g1, g2]), set(all_gutenberg.all()))
 
         one_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
+            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier], None
         )
         eq_([g1], one_gutenberg.all())
+
+        one_standard_ebook = WorkProcessingScript.make_query(
+            self._db, Identifier.URI, [], DataSource.STANDARD_EBOOKS
+        )
+        eq_([standard_ebooks], one_standard_ebook.all())
 
 
 class MockDatabaseMigrationScript(DatabaseMigrationScript):

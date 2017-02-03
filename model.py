@@ -908,6 +908,7 @@ class DataSource(Base):
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
                 (cls.INTERNAL_PROCESSING, True, False, None, None),
+                (cls.FEEDBOOKS, True, False, Identifier.URI, None)
         ):
 
             extra = dict()
@@ -4035,7 +4036,7 @@ class Work(Base):
             self, operation=WorkCoverageRecord.QUALITY_OPERATION
         )
 
-    def assign_genres(self, identifier_ids, cutoff=0.15):
+    def assign_genres(self, identifier_ids):
         """Set classification information for this work based on the
         subquery to get equivalent identifiers.
 

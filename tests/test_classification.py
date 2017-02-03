@@ -502,6 +502,11 @@ class TestKeyword(object):
         eq_(classifier.Social_Sciences,
             Keyword.genre(None, "Human Science")
         )
+
+        # was genreless
+        eq_(classifier.Short_Stories,
+            Keyword.genre(None, "Short Stories")
+        )
         
         # was Military History
         eq_(classifier.Military_SF,

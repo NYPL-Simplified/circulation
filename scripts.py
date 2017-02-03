@@ -206,6 +206,9 @@ class IdentifierInputScript(InputScript):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
+        data_source = None
+        if parsed.identifier_data_source:
+            data_source = DataSource.lookup(_db, parsed.identifier_data_source)
 
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
@@ -215,8 +218,8 @@ class IdentifierInputScript(InputScript):
                     identifier_strings + stdin_identifier_strings
                 )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, identifier_strings,
-                *args, **kwargs
+                _db, parsed.identifier_type, data_source,
+                identifier_strings, *args, **kwargs
             )
         else:
             # The script can call parse_identifier_list later if it
@@ -232,6 +235,10 @@ class IdentifierInputScript(InputScript):
             help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. If IDENTIFIER is specified, this argument is required.'
         )
         parser.add_argument(
+            '--identifier-data-source',
+            help='Process only identifiers which have a LicensePool associated with this DataSource'
+        )
+        parser.add_argument(
             'identifier_strings',
             help='A specific identifier to process.',
             metavar='IDENTIFIER', nargs='*'
@@ -240,7 +247,7 @@ class IdentifierInputScript(InputScript):
 
     @classmethod
     def parse_identifier_list(
-            cls, _db, identifier_type, arguments, autocreate=False
+            cls, _db, identifier_type, data_source, arguments, autocreate=False
     ):
         """Turn a list of identifiers into a list of Identifier objects.
 
@@ -255,13 +262,21 @@ class IdentifierInputScript(InputScript):
         
         a b c
         """
+        identifiers = []
 
-        current_identifier_type = None
-        if len(arguments) == 0:
-            return []
         if not identifier_type:
             raise ValueError("No identifier type specified!")
-        identifiers = []
+
+        if len(arguments) == 0:
+            if data_source:
+                identifiers = _db.query(Identifier).\
+                    join(Identifier.licensed_through).\
+                    filter(
+                        Identifier.type==identifier_type,
+                        LicensePool.data_source==data_source
+                    ).all()
+            return identifiers
+
         for arg in arguments:
             identifier, ignore = Identifier.for_foreign_id(
                 _db, identifier_type, arg, autocreate=autocreate
@@ -613,18 +628,24 @@ class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, force=False, batch_size=10):
+    def __init__(self, force=False, batch_size=10, _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
+        self.data_source = args.identifier_data_source
+
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, self.identifier_type, self.identifiers, self.log
+            self._db, self.identifier_type, self.identifiers, self.data_source,
+            log=self.log
         )
         self.force = force
 
     @classmethod
-    def make_query(self, _db, identifier_type, identifiers, log=None):
+    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
             query = query.join(Work.license_pools).join(
@@ -639,6 +660,14 @@ class WorkProcessingScript(IdentifierInputScript):
             query = query.filter(
                 LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
+        elif data_source:
+            if log:
+                log.info(
+                    'Restricted to identifiers from DataSource "%s".', data_source
+                )
+            source = DataSource.lookup(_db, data_source)
+            query = query.filter(LicensePool.data_source==source)
+
         if identifier_type:
             if log:
                 log.info(
@@ -865,7 +894,11 @@ class OPDSImportScript(Script):
         return parser
 
     def __init__(self, feed_url, opds_data_source, importer_class, 
-                 immediately_presentation_ready=False, cmd_args=None):
+                 immediately_presentation_ready=False, cmd_args=None,
+                 _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(cmd_args)
         self.force_reimport = args.force
         self.feed_url = args.url or feed_url
