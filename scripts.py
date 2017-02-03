@@ -236,7 +236,7 @@ class IdentifierInputScript(InputScript):
         )
         parser.add_argument(
             '--identifier-data-source',
-            help='Process identifiers with this LicensePool.data_source'
+            help='Process only identifiers which have a LicensePool associated with this DataSource'
         )
         parser.add_argument(
             'identifier_strings',
