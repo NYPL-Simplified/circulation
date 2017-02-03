@@ -218,7 +218,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 licenses_reserved=0,
                 patrons_in_hold_queue=0,
             )
-            availability.apply(pool, False)
+            availability.apply(pool, ReplacementPolicy.from_license_source())
 
 
 class Axis360CirculationMonitor(Monitor):
