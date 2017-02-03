@@ -941,7 +941,8 @@ class CirculationData(MetaToModelUtility):
         # open-access status.
         old_open_access = pool.open_access                    
         for lpdm in pool.delivery_mechanisms:
-            if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+            if (lpdm.rights_status
+                and lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS):
                 pool.open_access = True
                 break
         else:
