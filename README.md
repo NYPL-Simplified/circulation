@@ -1,4 +1,5 @@
 # Library Simplified Server Core
+[![Build Status](https://travis-ci.org/NYPL-Simplified/server_core.svg?branch=master)](https://travis-ci.org/NYPL-Simplified/server_core)
 
 This is the Server Core for [Library Simplified](http://www.librarysimplified.org/). The server core contains functionality common between various LS servers, including database models and essential class constants, OPDS parsers, and certain configuration details.
 
