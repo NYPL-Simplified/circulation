@@ -1769,8 +1769,8 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     LEVEL_2_NONFICTION_INDICATORS = match_kw(
         Eg("history"), Eg("biography"), Eg("histories"),
         Eg("biographies"), Eg("autobiography"), Eg("autobiographies"),
-        "nonfiction", Eg("essays"), Eg("letters"), Eg("biographical"),
-        Eg("true story"), Eg("personal memoirs"))
+        "nonfiction", Eg("essays"), Eg("letters"), Eg("true story"),
+        Eg("personal memoirs"))
     JUVENILE_INDICATORS = match_kw(
         "for children", "children's", "juvenile",
         Eg("nursery rhymes"), Eg("9-12"))
