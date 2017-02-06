@@ -114,6 +114,7 @@ from util.http import (
     RemoteIntegrationException,
 )
 from util.permanent_work_id import WorkIDCalculator
+from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
 from sqlalchemy.orm.session import Session
@@ -1897,7 +1898,7 @@ class Contributor(Base):
 
     # This is the name by which this person is known in the original
     # catalog. It is sortable, e.g. "Twain, Mark".
-    sort_name = Column(Unicode, index=True)
+    _sort_name = Column('sort_name', Unicode, index=True)
     aliases = Column(ARRAY(Unicode), default=[])
 
     # This is the name we will display publicly. Ideally it will be
@@ -2056,6 +2057,7 @@ class Contributor(Base):
 
         return contributors, new
 
+    '''
     # TODO: Stop using 'name' attribute, everywhere.
     @property
     def name(self):
@@ -2064,6 +2066,41 @@ class Contributor(Base):
     @name.setter
     def name(self, value):
         self.sort_name = value
+    '''
+
+    @property
+    def sort_name(self):
+        return self._sort_name
+
+    @sort_name.setter
+    def sort_name(self, new_sort_name, force=False):
+        """ See if the passed-in value is in the prescribed Last, First format.
+        If it is, great.  If it is not, and the force flag is set, then 
+        set the sort_name to the new value without further processing. 
+        If new value is not in correct format, and the force flag is not set, then 
+        attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
+        """
+        #set_trace()
+        if not new_sort_name:
+            self._sort_name = None
+            return
+
+        # simplistic test of format, but catches the most frequent problem
+        # where display-style names are put into sort name metadata by third parties.
+        if new_sort_name.find(",") == -1:
+            if force:
+                self._sort_name = None
+                return
+
+            # now we get interesting
+            self._sort_name = display_name_to_sort_name(new_sort_name, advanced=True)
+
+        self._sort_name = new_sort_name
+
+    # tell SQLAlchemy to use the sort_name setter for ort_name, not _sort_name, after all.
+    from sqlalchemy.orm import synonym
+    sort_name = synonym('_sort_name', descriptor=sort_name)
+
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.

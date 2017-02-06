@@ -935,6 +935,7 @@ class TestEdition(DatabaseTest):
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
+        #set_trace()
         wr = self._edition(authors=bob.sort_name)
         wr.calculate_presentation()
         eq_("Bob Bitshifter", wr.author)

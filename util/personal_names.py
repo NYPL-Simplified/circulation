@@ -32,24 +32,47 @@ def is_corporate_name(display_name):
     return False
 
 
-def display_name_to_sort_name(display_name):
+def display_name_to_sort_name(display_name, advanced=False):
+    """
+    Take the "First Name Last Name"-formatted display_name, and convert it 
+    to a "Last Name, First Name" format appropriate for searching and sorting by.
+
+    :param advanced: If off, use the old name-parsing algorithm.  If on, use the 
+        HumanName ;ibrary to try to parse the name.
+    """
+    if not display_name:
+        return None
+
     c = display_name.lower()
     if c.endswith('.'):
         c = c[:-1]
+
     if is_corporate_name(display_name):
         return display_name
     
-    parts = display_name.split(" ")
-    if len(parts) == 1:
-        return parts[0]
-    else:
-        return parts[-1] + ", " + " ".join(parts[:-1])
+    if not advanced:
+        parts = display_name.split(" ")
+        if len(parts) == 1:
+            return parts[0]
+        else:
+            return parts[-1] + ", " + " ".join(parts[:-1])
+
+    name = HumanName(display_name)
+    # name has title, first, middle, last, suffix, nickname
+    if name.nickname:
+        name.nickname = '(' + name.nickname + ')'
+    sort_name = u' '.join([name.last, ",", name.first, name.middle, name.suffix, name.nickname, name.title])
+
+    sort_name = name_tidy(sort_name)
+
+    return sort_name
+
 
 
 def name_tidy(name):
     """
     Convert to NFKD unicode.
-    Strip excessive whitespace.display_name.
+    Strip excessive whitespace.
     """
     name = unicodedata.normalize("NFKD", unicode(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
