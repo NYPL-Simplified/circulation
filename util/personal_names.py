@@ -61,7 +61,10 @@ def display_name_to_sort_name(display_name, advanced=False):
     # name has title, first, middle, last, suffix, nickname
     if name.nickname:
         name.nickname = '(' + name.nickname + ')'
-    sort_name = u' '.join([name.last, ",", name.first, name.middle, name.suffix, name.nickname, name.title])
+
+    sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname, name.title])
+    if name.last:
+        sort_name = u''.join([name.last, ", ", sort_name])
 
     sort_name = name_tidy(sort_name)
 
@@ -76,6 +79,7 @@ def name_tidy(name):
     """
     name = unicodedata.normalize("NFKD", unicode(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
+
     name = name.strip()
 
     return name

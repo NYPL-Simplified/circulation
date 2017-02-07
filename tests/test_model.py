@@ -721,6 +721,23 @@ class TestContributor(DatabaseTest):
         self._names("Twain, Mark", "Twain", "Mark Twain")
         self._names("Geering, R. G.", "Geering", "R. G. Geering")
 
+
+    def test_sort_name(self):
+        bob, new = get_one_or_create(self._db, Contributor, sort_name=None)
+        eq_(None, bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bob Bitshifter")
+        bob.sort_name = None
+        eq_(None, bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bob Bitshifter")
+        eq_("Bitshifter, Bob", bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
+        eq_("Bitshifter, Bob", bob.sort_name)
+
+
+
 class TestEdition(DatabaseTest):
 
     def test_author_contributors(self):
@@ -935,7 +952,6 @@ class TestEdition(DatabaseTest):
 
     def test_calculate_presentation_author(self):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
-        #set_trace()
         wr = self._edition(authors=bob.sort_name)
         wr.calculate_presentation()
         eq_("Bob Bitshifter", wr.author)

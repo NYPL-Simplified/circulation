@@ -48,6 +48,7 @@ from sqlalchemy.orm import (
     lazyload,
     relationship,
     sessionmaker,
+    synonym,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -2057,16 +2058,6 @@ class Contributor(Base):
 
         return contributors, new
 
-    '''
-    # TODO: Stop using 'name' attribute, everywhere.
-    @property
-    def name(self):
-        return self.sort_name
-
-    @name.setter
-    def name(self, value):
-        self.sort_name = value
-    '''
 
     @property
     def sort_name(self):
@@ -2089,16 +2080,16 @@ class Contributor(Base):
         # where display-style names are put into sort name metadata by third parties.
         if new_sort_name.find(",") == -1:
             if force:
-                self._sort_name = None
+                self._sort_name = new_sort_name
                 return
 
             # now we get interesting
             self._sort_name = display_name_to_sort_name(new_sort_name, advanced=True)
+            return
 
         self._sort_name = new_sort_name
 
     # tell SQLAlchemy to use the sort_name setter for ort_name, not _sort_name, after all.
-    from sqlalchemy.orm import synonym
     sort_name = synonym('_sort_name', descriptor=sort_name)
 
 
@@ -2124,6 +2115,11 @@ class Contributor(Base):
             destination,
             destination.viaf
         )
+        
+
+        # TODO: put in logic to keep sort_name is one of the contributor objects has it.
+
+
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
