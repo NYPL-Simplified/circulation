@@ -593,36 +593,9 @@ class Lane(object):
             formats=formats
         )
         if include_staff_picks:
-            full_name = "%s - Staff Picks" % self.name
-            try:
-                staff_picks_lane = Lane(
-                    full_name=full_name, display_name="Staff Picks",
-                    list_identifier="Staff Picks",
-                    searchable=False,
-                    **base_args
-                )
-            except UndefinedLane, e:
-                # Not a big deal, just don't add the lane.
-                staff_picks_lane = None
-            if staff_picks_lane:
-                self.sublanes.lanes.insert(0, staff_picks_lane)
-
+            self.include_staff_picks(**base_args)
         if include_best_sellers:
-            full_name = "%s - Best Sellers" % self.name
-            try:
-                best_seller_lane = Lane(
-                    full_name=full_name, display_name="Best Sellers", 
-                    list_data_source=DataSource.NYT,
-                    list_seen_in_previous_days=365*2,
-                    searchable=False,
-                    **base_args
-                )
-            except UndefinedLane, e:
-                # Not a big deal, just don't add the lane.
-                best_seller_lane = None
-            if best_seller_lane:
-                self.sublanes.lanes.insert(0, best_seller_lane)
-
+            self.include_best_sellers(**base_args)
 
         # Run some sanity checks.
         ch = Classifier.AUDIENCE_CHILDREN
@@ -630,15 +603,15 @@ class Lane(object):
         if ((include_best_sellers or include_staff_picks) and
             (self.list_data_source_id or self.list_ids)):
             raise UndefinedLane(
-                "Cannot include best-seller or staff-picks in a lane based on lists."
+                "Cannot include best-seller or staff-picks in a lane "
+                "based on lists."
             )
 
-        if (
-                self.age_range 
-                and not any(x in self.audiences for x in [ch, ya])
-        ):
+        if (self.age_range and
+            not any(x in self.audiences for x in [ch, ya])):
             raise UndefinedLane(
-                "Lane %s specifies age range but does not contain children's or young adult books." % self.name
+                "Lane %s specifies age range but does not contain "
+                "children's or young adult books." % self.name
             )
 
     def set_from_parent(self, field_name, value, default=None):
@@ -782,7 +755,8 @@ class Lane(object):
 
         if sublanes and subgenre_sublanes:
             raise UndefinedLane(
-                "Explicit list of sublanes was provided, but I'm also asked to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
+                "Explicit list of sublanes was provided, but I'm also asked "\
+                "to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
             )
 
         if subgenre_sublanes:
@@ -795,6 +769,41 @@ class Lane(object):
             )
         else:
             self.sublanes = LaneList.from_description(_db, self, [])
+
+    def include_staff_picks(self, **base_args):
+        """Includes a Staff Picks sublane to the base/top of this lane."""
+
+        full_name = "%s - Staff Picks" % self.name
+        try:
+            staff_picks_lane = Lane(
+                full_name=full_name, display_name="Staff Picks",
+                list_identifier="Staff Picks",
+                searchable=False,
+                **base_args
+            )
+        except UndefinedLane, e:
+            # Not a big deal, just don't add the lane.
+            staff_picks_lane = None
+        if staff_picks_lane:
+            self.sublanes.lanes.insert(0, staff_picks_lane)
+
+    def include_best_sellers(self, **base_args):
+        """Includes a NYT Best Sellers sublane to the base/top of this lane."""
+
+        full_name = "%s - Best Sellers" % self.name
+        try:
+            best_seller_lane = Lane(
+                full_name=full_name, display_name="Best Sellers",
+                list_data_source=DataSource.NYT,
+                list_seen_in_previous_days=365*2,
+                searchable=False,
+                **base_args
+            )
+        except UndefinedLane, e:
+            # Not a big deal, just don't add the lane.
+            best_seller_lane = None
+        if best_seller_lane:
+            self.sublanes.lanes.insert(0, best_seller_lane)
 
     def includes_language(self, language):
         """Would you expect to find books in the given language in
