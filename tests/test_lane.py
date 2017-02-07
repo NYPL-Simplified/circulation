@@ -327,7 +327,7 @@ class TestLanes(DatabaseTest):
     def test_all_matching_genres(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         cooking, ig = Genre.lookup(self._db, classifier.Cooking)
-        matches = Lane.all_matching_genres([fantasy, cooking])
+        matches = Lane.all_matching_genres(self._db, [fantasy, cooking])
         names = sorted([x.name for x in matches])
         eq_(
             [u'Cooking', u'Epic Fantasy', u'Fantasy', u'Historical Fantasy', 
@@ -458,25 +458,35 @@ class TestLanes(DatabaseTest):
 
         # Fantasy contains three subgenres and is restricted to fiction.
         fantasy, default = Lane.gather_matching_genres(
-            [self.fantasy], Lane.FICTION_DEFAULT_FOR_GENRE
+            self._db, [self.fantasy], Lane.FICTION_DEFAULT_FOR_GENRE
         )
-        eq_(4, len(fantasy))
-        eq_(True, default)
-
-        fantasy, default = Lane.gather_matching_genres([self.fantasy], True)
         eq_(4, len(fantasy))
         eq_(True, default)
 
         fantasy, default = Lane.gather_matching_genres(
-            [self.fantasy], True, [self.urban_fantasy]
+            self._db, [self.fantasy], True
+        )
+        eq_(4, len(fantasy))
+        eq_(True, default)
+
+        fantasy, default = Lane.gather_matching_genres(
+            self._db, [self.fantasy], True, [self.urban_fantasy]
         )
         eq_(3, len(fantasy))
         eq_(True, default)
 
+        # If there are only exclude_genres available, then it and its
+        # subgenres are ignored while every OTHER genre is set.
+        genres, default = Lane.gather_matching_genres(
+            self._db, [], True, [self.fantasy]
+        )
+        eq_(False, any([g for g in self.fantasy.self_and_subgenres if g in genres]))
+        # According to known fiction status, that is.
+        eq_(True, all([g.default_fiction==True for g in genres]))
 
         # Attempting to create a contradiction (like nonfiction fantasy)
         # will create a lane broad enough to actually contain books
-        fantasy, default = Lane.gather_matching_genres([self.fantasy], False)
+        fantasy, default = Lane.gather_matching_genres(self._db, [self.fantasy], False)
         eq_(4, len(fantasy))
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, default)
 
@@ -484,7 +494,7 @@ class TestLanes(DatabaseTest):
         # although we can make a lane that contains both, we can't
         # have it use the default value.
         assert_raises(UndefinedLane, Lane.gather_matching_genres,
-            [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
+            self._db, [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
         )
 
     def test_subgenres_become_sublanes(self):

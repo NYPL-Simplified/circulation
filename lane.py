@@ -688,7 +688,7 @@ class Lane(object):
 
         # Find all the genres that will go into this lane.
         genres, self.fiction = self.gather_matching_genres(
-            genres, fiction, full_exclude_genres
+            _db, genres, fiction, full_exclude_genres
         )
         self.genre_ids = [x.id for x in genres]
         self.genre_names = [x.name for x in genres]
@@ -906,16 +906,32 @@ class Lane(object):
         return genre_obj, genre_data
 
     @classmethod
-    def all_matching_genres(cls, genres, exclude_genres=None):
+    def all_matching_genres(cls, _db, genres, exclude_genres=None, fiction=None):
         matches = set()
         exclude_genres = exclude_genres or []
+        if exclude_genres:
+            if not isinstance(exclude_genres, list):
+                exclude_genres = list(exclude_genres)
+
+            for excluded_genre in exclude_genres[:]:
+                exclude_genres += excluded_genre.self_and_subgenres
+
+            if not genres:
+                # This is intended for lanes like "General Fiction"
+                # when we want everything EXCEPT for some given lanes.
+                genres = _db.query(Genre).all()
+                if fiction is not None:
+                    # Filter the genres according to their expected
+                    # fiction status.
+                    genres = filter(lambda g: g.default_fiction==fiction, genres)
+
         if genres:
             for genre in genres:
                 matches = matches.union(genre.self_and_subgenres)
         return [x for x in matches if x not in exclude_genres]
 
     @classmethod
-    def gather_matching_genres(cls, genres, fiction, exclude_genres=[]):
+    def gather_matching_genres(cls, _db, genres, fiction, exclude_genres=[]):
         """Find all subgenres of the given genres which match the given fiction
         status.
         
@@ -925,11 +941,12 @@ class Lane(object):
         It may also result in the need to create more sublanes.
         """
         fiction_default_by_genre = (fiction == cls.FICTION_DEFAULT_FOR_GENRE)
+
         if fiction_default_by_genre:
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-        genres = cls.all_matching_genres(genres, exclude_genres)
+        genres = cls.all_matching_genres(_db, genres, exclude_genres, fiction=fiction)
         for genre in genres:
             if fiction_default_by_genre:
                 if fiction is None:
