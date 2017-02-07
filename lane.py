@@ -600,9 +600,6 @@ class Lane(object):
         set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
 
-        if self.searchable and (self.list_data_source_id or self.list_ids):
-            raise UndefinedLane("Lane with list data source cannot be searchable")
-
         self.set_sublanes(
             self._db, sublanes, genres,
             exclude_genres=exclude_genres, fiction=fiction
