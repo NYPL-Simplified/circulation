@@ -548,31 +548,19 @@ class Lane(object):
         # e.g. "All Science Fiction"
         self.include_all_feed = include_all
 
-        def set_from_parent(field_name, value, default=None):
-            if value is None:
-                if self.parent:
-                    value = getattr(self.parent, field_name, default)
-                else:
-                    value = default
-            setattr(self, field_name, value)
-
-        def set_list(field_name, value, default=None):
-            if value is None:
-                if self.parent:
-                    value = getattr(self.parent, field_name, default)
-                else:
-                    value = default
-            if isinstance(value, basestring):
-                value = [value]
-            set_from_parent(field_name, value, default)
-
         if isinstance(age_range, int):
             age_range = [age_range]
         if age_range is not None:
             age_range = sorted(age_range)
-        set_from_parent('age_range', age_range)
+        self.set_from_parent('age_range', age_range)
 
         self.audiences = self.audience_list_for_age_range(audiences, age_range)
+
+
+        def set_list(field_name, value, default=None):
+            if isinstance(value, basestring):
+                value = [value]
+            self.set_from_parent(field_name, value, default)
 
         set_list('languages', languages)
         set_list('exclude_languages', exclude_languages)
@@ -583,21 +571,11 @@ class Lane(object):
         set_list('media', media, Edition.BOOK_MEDIUM)
         set_list('formats', formats)
 
-        # The lane may be restricted to books that are on a list
-        # from a given data source.
-        custom_list_details = self.custom_lists_for_identifier(
-            list_data_source, list_identifier)
-        (self.list_data_source_id,
-         self.list_ids,
-         self.list_featured_works_query) = custom_list_details
-        if not self.list_featured_works_query:
-            # The parent may have featured works from the list that
-            # could be included here.
-            set_from_parent('list_featured_works_query', None)
-        set_from_parent(
-            'list_seen_in_previous_days', list_seen_in_previous_days)
+        self.set_customlist_information(
+            list_data_source, list_identifier, list_seen_in_previous_days
+        )
 
-        set_from_parent(
+        self.set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
 
         self.set_sublanes(
@@ -662,6 +640,101 @@ class Lane(object):
             raise UndefinedLane(
                 "Lane %s specifies age range but does not contain children's or young adult books." % self.name
             )
+
+    def set_from_parent(self, field_name, value, default=None):
+        if value is None:
+            if self.parent:
+                value = getattr(self.parent, field_name, default)
+            else:
+                value = default
+        setattr(self, field_name, value)
+
+    def set_customlist_information(self, list_data_source, list_identifier,
+                                   list_seen_in_previous_days):
+        """Sets any attributes relevant to lanes created from CustomLists"""
+
+        # The lane may be restricted to books that are on a list
+        # from a given data source.
+        custom_list_details = self.custom_lists_for_identifier(
+            list_data_source, list_identifier)
+        (self.list_data_source_id,
+         self.list_ids,
+         self.list_featured_works_query) = custom_list_details
+
+        # Or its parent may be restricted, in which case it should be,
+        # too.
+        if not self.list_data_source_id:
+            self.set_from_parent('list_data_source_id', None)
+        if not self.list_ids:
+            self.set_from_parent('list_ids', None)
+        if not self.list_featured_works_query:
+            # The parent may have featured works from the list that
+            # could be included here.
+            self.set_from_parent('list_featured_works_query', None)
+
+        self.set_from_parent(
+            'list_seen_in_previous_days', list_seen_in_previous_days)
+
+    def custom_lists_for_identifier(self, list_data_source, list_identifier):
+        """Turn a data source and an identifier into a specific list
+        of CustomLists.
+        """
+        if isinstance(list_data_source, basestring):
+            list_data_source = DataSource.lookup(self._db, list_data_source)
+        # The lane may be restricted to books that are on one or
+        # more specific lists.
+        if not list_identifier:
+            lists = None
+        elif isinstance(list_identifier, CustomList):
+            lists = [list_identifier]
+        elif (isinstance(list_identifier, list) and
+              isinstance(list_identifier[0], CustomList)):
+            lists = list_identifier
+        else:
+            if isinstance(list_identifier, basestring):
+                list_identifiers = [list_identifier]
+            q = self._db.query(CustomList).filter(
+                CustomList.foreign_identifier.in_(list_identifiers))
+            if list_data_source:
+                q = q.filter(CustomList.data_source==list_data_source)
+            lists = q.all()
+            if not lists:
+                raise UndefinedLane(
+                    "Could not find any matching lists: %s, %r" %
+                    (list_data_source, list_identifiers)
+                )
+        if list_data_source:
+            list_data_source_id = list_data_source.id
+        else:
+            list_data_source_id = None
+
+        list_featured_works_query = None
+        if lists:
+            list_ids = [x.id for x in lists]
+            list_featured_works_query = self.extract_list_featured_works_query(lists)
+        else:
+            list_ids = None
+        return list_data_source_id, list_ids, list_featured_works_query
+
+    def extract_list_featured_works_query(self, lists):
+        if not lists:
+            return None
+        if isinstance(lists[0], int):
+            # We have CustomList ids instead of CustomList objects.
+            lists = self._db.query(CustomList).filter(CustomList.id.in_(lists))
+            lists = lists.all()
+
+        lists = [custom_list for custom_list in lists if custom_list.featured_works]
+        if not lists:
+            return None
+
+        work_ids = list()
+        for custom_list in lists:
+            work_ids += [work.id for work in custom_list.featured_works]
+
+        works_query = self._db.query(Work).with_labels().\
+            filter(Work.id.in_(work_ids))
+        return works_query
 
     def set_sublanes(self, _db, sublanes, genres,
                      exclude_genres=None, fiction=None):
@@ -775,74 +848,18 @@ class Lane(object):
             audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
         return audiences      
 
-    def custom_lists_for_identifier(self, list_data_source, list_identifier):
-        """Turn a data source and an identifier into a specific list
-        of CustomLists.
-        """
-        if isinstance(list_data_source, basestring):
-            list_data_source = DataSource.lookup(self._db, list_data_source)
-
-        # The lane may be restricted to books that are on one or
-        # more specific lists.
-        if not list_identifier:
-            lists = None
-        elif isinstance(list_identifier, CustomList):
-            lists = [list_identifier]
-        elif (isinstance(list_identifier, list) and
-              isinstance(list_identifier[0], CustomList)):
-            lists = list_identifier
-        else:
-            if isinstance(list_identifier, basestring):
-                list_identifiers = [list_identifier]
-            q = self._db.query(CustomList).filter(
-                CustomList.foreign_identifier.in_(list_identifiers))
-            if list_data_source:
-                q = q.filter(CustomList.data_source==list_data_source)
-            lists = q.all()
-            if not lists:
-                raise UndefinedLane(
-                    "Could not find any matching lists: %s, %r" %
-                    (list_data_source, list_identifiers)
-                )
-        if list_data_source:
-            list_data_source_id = list_data_source.id
-        else:
-            list_data_source_id = None
-
-        list_featured_works_query = None
-        if lists:
-            list_ids = [x.id for x in lists]
-            list_featured_works_query = self.extract_list_featured_works_query(lists)
-        else:
-            list_ids = None
-        return list_data_source_id, list_ids, list_featured_works_query
-
-    def extract_list_featured_works_query(self, lists):
-        if not lists:
-            return None
-        if isinstance(lists[0], int):
-            # We have CustomList ids instead of CustomList objects.
-            lists = self._db.query(CustomList).filter(CustomList.id.in_(lists))
-            lists = lists.all()
-
-        lists = [custom_list for custom_list in lists if custom_list.featured_works]
-        if not lists:
-            return None
-
-        work_ids = list()
-        for custom_list in lists:
-            work_ids += [work.id for work in custom_list.featured_works]
-
-        works_query = self._db.query(Work).with_labels().\
-            filter(Work.id.in_(work_ids))
-        return works_query
-
     @classmethod
     def from_description(cls, _db, parent, description):
         genre = None
         if isinstance(description, Lane):
             # The lane has already been created.
             description.parent = parent
+
+            if not (description.list_data_source_id
+                    or description.list_ids):
+                # This sublane may need to inherit some CustomList
+                # details from its newly-assigned parent.
+                description.set_customlist_information(None, None, None)
             return description
         elif isinstance(description, dict):
             if description.get('suppress_lane'):
