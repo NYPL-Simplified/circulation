@@ -1641,3 +1641,15 @@ class QueryGeneratedLane(Lane):
         :return: query or None
         """
         raise NotImplementedError()
+
+def make_lanes(_db, definitions=None):
+
+    definitions = definitions or Configuration.policy(
+        Configuration.LANES_POLICY
+    )
+    if not definitions:
+        # A lane arrangement is required for lane making.
+        return None
+
+    lanes = [Lane(_db=_db, **definition) for definition in definitions]
+    return LaneList.from_description(_db, None, lanes)

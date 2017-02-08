@@ -73,6 +73,8 @@ class Configuration(object):
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
 
+    LANES_POLICY = "lanes"
+
     # Facet policies
     FACET_POLICY = 'facets'
     ENABLED_FACETS_KEY = 'enabled'
