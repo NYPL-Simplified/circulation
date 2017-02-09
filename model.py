@@ -8332,6 +8332,42 @@ class Complaint(Base):
         return self.resolved
 
 
+class Library(Base):
+    """A library that uses this circulation manager to authenticate
+    its patrons and manage access to its content.
+
+    Currently, a circulation manager serves only one library,
+    but that will change.
+    """
+    __tablename__ = 'libraries'
+
+    id = Column(Integer, primary_key=True)
+    
+    # A URN that uniquely identifies the library, used to serve the
+    # library's Authentication for OPDS document.
+    urn = Column(Unicode, index=True)
+    
+    # A short name and secret for this library, shared with a library
+    # registry, used to create short client tokens that a patron can
+    # use to get an Adobe Account ID.
+    adobe_short_name = Column(Unicode, index=True)
+    adobe_shared_secret = Column(Unicode)
+
+    __table_args__ = (
+        UniqueConstraint('urn'),
+    )
+    
+    @validates('adobe_short_name')
+    def validate_adobe_short_name(self, key, value):
+        if not value:
+            return value
+        if '|' in value:
+            raise ValueError(
+                'Adobe short name cannot contain the pipe character.'
+            )
+        return value.upper()    
+
+
 class Admin(Base):
 
     __tablename__ = 'admins'
@@ -8345,7 +8381,6 @@ class Admin(Base):
         self.access_token = access_token
         self.credential = credential
         _db.commit()
-
 
 class Collection(Base):
 
