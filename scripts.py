@@ -24,7 +24,6 @@ from sqlalchemy.orm.exc import (
 from sqlalchemy.orm.session import Session
 
 from axis import Axis360BibliographicCoverageProvider
-from canonicalize import AuthorNameCanonicalizer
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
@@ -1221,8 +1220,16 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
 
 
-class CheckContributorNames(IdentifierInputScript):
-    """ TODO """
+class CheckContributorNamesInDB(IdentifierInputScript):
+    """ Checks that contributor sort_names are display_names in 
+    "last name, comma, other names" format.  
+
+    NOTE:  There's also CheckContributorNamesOnWeb in metadata, 
+    it's a child of this script.  Use it to check our knowledge against 
+    viaf, with the newer better sort_name selection and formatting.
+
+    TODO: make sure don't start at beginning again when interrupt while batch job is running.
+    """
 
     '''
     def __init__(self, batch_size=10):
@@ -1307,7 +1314,7 @@ class CheckContributorNames(IdentifierInputScript):
 
 
     @classmethod
-    def process_contribution(cls, _db, contribution, edition, search_web=False):
+    def process_contribution(cls, _db, contribution, edition):
         if not contribution or not edition:
             return
 
@@ -1315,25 +1322,12 @@ class CheckContributorNames(IdentifierInputScript):
 
         identifier = edition.primary_identifier
 
-        # searching viaf can be resource-expensive, so only do it if specifically asked
-        if search_web:
-            canonicalizer = AuthorNameCanonicalizer(_db)
-            computed_sort_name_from_web = canonicalizer.canonicalize_author_name(identifier, contributor.display_name)
-            success = check_sort_name(computed_sort_name_from_web, contributor, edition, DataSource.VIAF, CoverageRecord.REPAIR_SORT_NAME_OPERATION)
-            if not success:
-                output = "Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s: VIAF DISAGREES" % (contributor.id, contributor.sort_name, contributor.display_name)
-                print output.encode("utf8")
-
         computed_sort_name_local = display_name_to_sort_name(contributor.display_name, advanced=True)
         success = cls.check_sort_name(computed_sort_name_local, contributor, edition, DataSource.INTERNAL_PROCESSING, CoverageRecord.REPAIR_SORT_NAME_OPERATION)
         if not success:
             output = "Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s: INTERNAL MISMATCH" % (contributor.id, contributor.sort_name, contributor.display_name)
             print output.encode("utf8")
 
-
-        '''
-        TODO: make sure don't start at beginning again when interrupt while batch job is running.
-        '''
 
     @classmethod
     def check_sort_name(cls, computed_sort_name, contributor, edition, data_source, operation):
