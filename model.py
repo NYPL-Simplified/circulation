@@ -987,6 +987,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
+    REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(

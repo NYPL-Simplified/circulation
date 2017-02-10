@@ -736,6 +736,10 @@ class TestContributor(DatabaseTest):
         bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
         eq_("Bitshifter, Bob", bob.sort_name)
 
+        # test that human name parser doesn't die badly on foreign names
+        bob, ignore = self._contributor(sort_name=u"Боб  Битшифтер")
+        eq_(u"Битшифтер, Боб", bob.sort_name)
+
 
 
 class TestEdition(DatabaseTest):

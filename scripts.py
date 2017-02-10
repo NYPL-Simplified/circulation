@@ -23,12 +23,15 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
+from axis import Axis360BibliographicCoverageProvider
+from canonicalize import AuthorNameCanonicalizer
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one,
     get_one_or_create,
     production_session,
+    CoverageRecord, 
     CustomList,
     DataSource,
     Edition,
@@ -42,27 +45,16 @@ from model import (
     WorkCoverageRecord,
     WorkGenre,
 )
-from external_search import (
-    ExternalSearchIndex,
-)
+from external_search import ExternalSearchIndex
+from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from oneclick import OneClickAPI, MockOneClickAPI
+from overdrive import OverdriveBibliographicCoverageProvider
+from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
+from util.personal_names import display_name_to_sort_name
 
-from monitor import SubjectAssignmentMonitor
-
-from overdrive import (
-    OverdriveBibliographicCoverageProvider,
-)
-
-from threem import (
-    ThreeMBibliographicCoverageProvider,
-)
-
-from axis import Axis360BibliographicCoverageProvider
-
-from canonicalize import AuthorNameCanonicalizer
 
 
 class Script(object):
@@ -1228,6 +1220,141 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
+
+class CheckContributorNames(IdentifierInputScript):
+    """ TODO """
+
+    '''
+    def __init__(self, batch_size=10):
+        args = self.parse_command_line(self._db)
+        self.identifier_type = args.identifier_type
+        self.identifiers = args.identifiers
+        self.batch_size = batch_size
+        self.query = self.make_query(
+            self._db, self.identifier_type, self.identifiers, self.log
+        )
+        self.force = force
+    '''
+
+    @classmethod
+    def make_query(self, _db, identifier_type, identifiers, log=None):
+        #editions = self._db.query(Edition).filter(
+        #    Edition.primary_identifier_id.in_(identifier_ids)
+        #)
+
+        query = _db.query(Edition)
+        #if identifiers or identifier_type:
+            #query = query.join(Work.license_pools).join(
+            #    LicensePool.identifier
+            #)
+
+        if identifiers:
+            if log:
+                log.info(
+                    'Restricted to %d specific identifiers.' % len(identifiers)
+                )
+            query = query.filter(
+                Edition.primary_identifier_id.in_([x.id for x in identifiers])
+            )
+        if identifier_type:
+            if log:
+                log.info(
+                    'Restricted to identifier type "%s".' % identifier_type
+                )
+            query = query.filter(Identifier.type==identifier_type)
+        '''
+        'SELECT editions.id AS editions_id, editions.data_source_id AS editions_data_source_id, editions.primary_identifier_id AS editions_primary_identifier_id, 
+        editions.title AS editions_title, editions.sort_title AS editions_sort_title, editions.subtitle AS editions_subtitle, editions.series AS editions_series, 
+        editions.series_position AS editions_series_position, editions.permanent_work_id AS editions_permanent_work_id, editions.author AS editions_author, 
+        editions.sort_author AS editions_sort_author, editions.language AS editions_language, editions.publisher AS editions_publisher, 
+        editions.imprint AS editions_imprint, editions.issued AS editions_issued, editions.published AS editions_published, editions.medium AS editions_medium, 
+        editions.cover_id AS editions_cover_id, editions.cover_full_url AS editions_cover_full_url, editions.cover_thumbnail_url AS editions_cover_thumbnail_url, 
+        editions.open_access_download_url AS editions_open_access_download_url, editions.simple_opds_entry AS editions_simple_opds_entry, 
+        editions.extra AS editions_extra \n
+        FROM editions, identifiers \n
+        WHERE editions.primary_identifier_id IN (:primary_identifier_id_1) AND identifiers.type = :type_1'
+        '''
+
+        if log:
+            log.info(
+                "Processing %d editions.", query.count()
+            )
+        return query.order_by(Edition.id)
+
+
+    def run(self, batch_size=10):
+        param_args = self.parse_command_line(self._db)
+        
+        #if param_args.identifiers:
+            # we're asked about a specific set of work contributors
+            #identifier_ids = [x.id for x in param_args.identifiers]
+
+        self.query = self.make_query(
+            self._db, param_args.identifier_type, param_args.identifiers, self.log
+        )
+
+        editions = True
+        offset = 0
+        while editions:
+            editions = self.query.offset(offset).limit(batch_size).all()
+            for edition in editions:
+                if edition.contributions:
+                    for contribution in edition.contributions:
+                        self.process_contribution(self._db, contribution, edition)
+            offset += batch_size
+            self._db.commit()
+        self._db.commit()
+
+
+    @classmethod
+    def process_contribution(cls, _db, contribution, edition, search_web=False):
+        if not contribution or not edition:
+            return
+
+        contributor = contribution.contributor
+
+        identifier = edition.primary_identifier
+
+        # searching viaf can be resource-expensive, so only do it if specifically asked
+        if search_web:
+            canonicalizer = AuthorNameCanonicalizer(_db)
+            computed_sort_name_from_web = canonicalizer.canonicalize_author_name(identifier, contributor.display_name)
+            success = check_sort_name(computed_sort_name_from_web, contributor, edition, DataSource.VIAF, CoverageRecord.REPAIR_SORT_NAME_OPERATION)
+            if not success:
+                output = "Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s: VIAF DISAGREES" % (contributor.id, contributor.sort_name, contributor.display_name)
+                print output.encode("utf8")
+
+        computed_sort_name_local = display_name_to_sort_name(contributor.display_name, advanced=True)
+        success = cls.check_sort_name(computed_sort_name_local, contributor, edition, DataSource.INTERNAL_PROCESSING, CoverageRecord.REPAIR_SORT_NAME_OPERATION)
+        if not success:
+            output = "Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s: INTERNAL MISMATCH" % (contributor.id, contributor.sort_name, contributor.display_name)
+            print output.encode("utf8")
+
+
+        '''
+        TODO: make sure don't start at beginning again when interrupt while batch job is running.
+        '''
+
+    @classmethod
+    def check_sort_name(cls, computed_sort_name, contributor, edition, data_source, operation):
+        success = True
+        if computed_sort_name.strip().lower() != contributor.sort_name.strip().lower():
+            record, is_new = CoverageRecord.add_for(
+                edition=edition, data_source=DataSource.VIAF, operation=CoverageRecord.REPAIR_SORT_NAME_OPERATION,
+                status=CoverageRecord.TRANSIENT_FAILURE
+            )
+            # NOTE:  not the best way -- storing id info in the message field, but 
+            # perhaps better than making CoverageRecords cover Contributor-type objects.
+            record.exception = contributor.id
+            success = False
+
+        return success
+
+
+
+
+
+
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
@@ -1261,26 +1388,7 @@ class Explain(IdentifierInputScript):
         # Find all contributions, and tell about the contributors.
         if edition.contributions:
             for contribution in edition.contributions:
-                contributor_id = contribution.contributor.id
-                contributor_sort_name = contribution.contributor.sort_name
-                contributor_aliases = contribution.contributor.aliases
-                contributor_display_name = contribution.contributor.display_name
-                contributor_family_name = contribution.contributor.family_name
-                contributor_wikipedia_name = contribution.contributor.wikipedia_name
-                contributor_default_names = contribution.contributor.default_names()
-                output = "contributor_id=%s, contributor_sort_name=%s, contributor_aliases=%s, " % (contributor_id, contributor_sort_name, contributor_aliases)
-                output = output + "contributor_display_name=%s, contributor_wikipedia_name=%s, contributor_default_names=%s" % (contributor_display_name, contributor_wikipedia_name, contributor_default_names)
-                print output.encode("utf8")
-
-                canonicalizer = AuthorNameCanonicalizer(_db)
-                computed_sort_name = canonicalizer._canonicalize(edition.primary_identifier, contributor_display_name)
-                set_trace()
-                print "_canonicalize: %s" % computed_sort_name
-                #computed_sort_name, ignore_uris = canonicalizer.sort_name_from_oclc_linked_data(edition.primary_identifier, contributor_display_name)
-                #print "sort_name_from_oclc_linked_data: %s" % computed_sort_name
-                #computed_sort_name = canonicalizer.sort_name_from_viaf(contributor_display_name)
-                #print "sort_name_from_viaf: %s" % computed_sort_name
-
+                cls.explain_contribution(contribution)
 
         # Tell about the LicensePool.
         lp = edition.license_pool
@@ -1304,6 +1412,15 @@ class Explain(IdentifierInputScript):
              print
              print "After recalculating presentation:"
              cls.explain_work(work)
+
+
+    @classmethod
+    def explain_contribution(cls, contribution):
+        contributor_id = contribution.contributor.id
+        contributor_sort_name = contribution.contributor.sort_name
+        contributor_display_name = contribution.contributor.display_name
+        output = " Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name)
+        print output.encode("utf8")
 
 
     @classmethod
