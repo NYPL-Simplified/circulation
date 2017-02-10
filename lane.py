@@ -571,16 +571,18 @@ class Lane(object):
         set_list('media', media, Edition.BOOK_MEDIUM)
         set_list('formats', formats)
 
-        self.set_customlist_information(
-            list_data_source, list_identifier, list_seen_in_previous_days
-        )
-
         self.set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
 
         self.set_sublanes(
             self._db, sublanes, genres,
             exclude_genres=exclude_genres, fiction=fiction
+        )
+
+        # CustomList information must be set after sublanes.
+        # Otherwise, sublanes won't be restricted by the list.
+        self.set_customlist_information(
+            list_data_source, list_identifier, list_seen_in_previous_days
         )
 
         # Best-seller and staff pick lanes go at the top.
@@ -644,6 +646,11 @@ class Lane(object):
             # The parent may have featured works from the list that
             # could be included here.
             self.set_from_parent('list_featured_works_query', None)
+
+        for sublane in self.sublanes:
+            # If the sublanes were set beforehand, they need to
+            # inherit this information now.
+            sublane.set_customlist_information(None, None, None)
 
         self.set_from_parent(
             'list_seen_in_previous_days', list_seen_in_previous_days)
@@ -721,6 +728,7 @@ class Lane(object):
         # Create a complete list of genres to exclude.
         full_exclude_genres = set()
         if exclude_genres:
+            # TODO: automatically extract exclude_genres from parent lanes.
             for genre in exclude_genres:
                 genre, ignore = self.load_genre(self._db, genre)
                 for l in genre.self_and_subgenres:
@@ -863,12 +871,6 @@ class Lane(object):
         if isinstance(description, Lane):
             # The lane has already been created.
             description.parent = parent
-
-            if not (description.list_data_source_id
-                    or description.list_ids):
-                # This sublane may need to inherit some CustomList
-                # details from its newly-assigned parent.
-                description.set_customlist_information(None, None, None)
             return description
         elif isinstance(description, dict):
             if description.get('suppress_lane'):
