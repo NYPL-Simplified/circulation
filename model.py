@@ -8345,13 +8345,7 @@ class Library(Base):
     
     # A URN that uniquely identifies the library, used to serve the
     # library's Authentication for OPDS document.
-    urn = Column(Unicode, index=True)
-    
-    # A short name and secret for this library, shared with a library
-    # registry, used to create short client tokens that a patron can
-    # use to get an Adobe Account ID.
-    adobe_short_name = Column(Unicode, index=True)
-    adobe_shared_secret = Column(Unicode)
+    urn = Column(Unicode)
 
     __table_args__ = (
         UniqueConstraint('urn'),
@@ -8367,6 +8361,14 @@ class Library(Base):
             )
         return value.upper()    
 
+    @classmethod
+    def instance(cls, _db):
+        """Find the one and only library."""
+        return get_one(
+            _db, Library, create_method_kwargs=dict(
+                uuid=uuid.uuid4()
+            )
+        )
 
 class Admin(Base):
 
