@@ -649,7 +649,7 @@ class Annotation(Base):
     def set_inactive(self):
         self.active = False
         self.content = None
-        self.timestamp = datetime.datetime.now()
+        self.timestamp = datetime.datetime.utcnow()
 
 class DataSource(Base):
 
@@ -8069,6 +8069,10 @@ class CustomList(Base):
             entry.license_pool = edition.license_pool
         if featured is not None:
             entry.featured = featured
+
+        if was_new:
+            self.updated = datetime.datetime.utcnow()
+
         return entry, was_new
 
     def remove_entry(self, edition):
@@ -8080,6 +8084,9 @@ class CustomList(Base):
         existing_entries = self.entries_for_work(edition)
         for entry in existing_entries:
             _db.delete(entry)
+
+        if existing_entries:
+            self.updated = datetime.datetime.utcnow()
         _db.commit()
 
     def entries_for_work(self, work_or_edition):
