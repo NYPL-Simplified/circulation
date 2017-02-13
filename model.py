@@ -8072,7 +8072,7 @@ class CustomList(Base):
 
         if was_new:
             self.updated = datetime.datetime.utcnow()
-            _db.commit()
+
         return entry, was_new
 
     def remove_entry(self, edition):
