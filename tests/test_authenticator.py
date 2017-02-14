@@ -725,12 +725,15 @@ class TestAuthenticator(DatabaseTest):
         basic = MockBasicAuthenticationProvider()
         oauth = MockOAuthAuthenticationProvider("oauth")
         oauth.URI = "http://example.org/"
+        library = Library.instance(self._db)
+        expect_uuid = library.uuid
+        library.name = "A Fabulous Library"
         authenticator = Authenticator(
-            library = Library.instance(self._db),
+            library = library,
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
-
+        
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
@@ -764,8 +767,13 @@ class TestAuthenticator(DatabaseTest):
                 expect_oauth = oauth.authentication_provider_document
                 eq_(expect_oauth, oauth_doc)
 
-                # The other thing we need to test is that the links
-                # got pulled in from the configuration.
+                # We also need to test that the library's name and UUID
+                # were placed in the document.
+                eq_("A Fabulous Library", doc['name'])
+                eq_(expect_uuid, doc['id'])
+                
+                # We also need to test that the links got pulled in
+                # from the configuration.
                 links = doc['links']
                 eq_("http://terms", links['terms-of-service']['href'])
                 eq_("http://privacy", links['privacy-policy']['href'])
@@ -786,7 +794,7 @@ class TestAuthenticator(DatabaseTest):
                 # If the authenticator does not include a basic auth provider,
                 # no WWW-Authenticate header is provided. 
                 authenticator = Authenticator(
-                    library=Library.instance(self._db),
+                    library=library,
                     oauth_providers=[oauth],
                     bearer_token_signing_secret='secret'
                 )
