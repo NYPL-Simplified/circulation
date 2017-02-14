@@ -9,6 +9,7 @@ from core.model import (
     CirculationEvent,
     Credential,
     DataSource,
+    Library,
     Patron,
 )
 from core.util.problem_detail import (
@@ -329,7 +330,7 @@ class Authenticator(object):
             raise CannotLoadConfiguration(
                 "No authentication policy given."
             )
-
+        
         if (not isinstance(authentication_policy, dict)
             or not 'providers' in authentication_policy):
             raise CannotLoadConfiguration(
@@ -343,8 +344,14 @@ class Authenticator(object):
             # There's only one provider.
             providers = [providers]
 
-        # Start with an empty list of authenticators.
+        library = Library.instance(_db)
+        # Commit just in case that was the first time the Library was
+        # ever loaded.
+        _db.commit()
+            
+        # Start with an empty list of authenticators.        
         authenticator = cls(
+            library=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
@@ -370,9 +377,13 @@ class Authenticator(object):
         authenticator.assert_ready_for_oauth()
         return authenticator
 
-    def __init__(self, basic_auth_provider=None, oauth_providers=None,
+    def __init__(self, library, basic_auth_provider=None,
+                 oauth_providers=None,
                  bearer_token_signing_secret=None):
         """Initialize an Authenticator from a list of AuthenticationProviders.
+
+        :param library: The Library to which this Authenticator guards
+        access.
 
         :param basic_auth_provider: The AuthenticatonProvider that handles
         HTTP Basic Auth requests.
@@ -383,6 +394,8 @@ class Authenticator(object):
         :param bearer_token_signing_secret: The secret to use when
         signing JWTs for use as bearer tokens.
         """
+        self.library_uuid = library.uuid
+        self.library_name = library.name
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
@@ -584,8 +597,6 @@ class Authenticator(object):
         scheme, netloc, path, parameters, query, fragment = (
             urlparse.urlparse(circulation_manager_url))
 
-        opds_id = str(uuid.uuid3(uuid.NAMESPACE_DNS, str(netloc)))
-
         links = {}
         for rel, value in (
                 ("terms-of-service", Configuration.terms_of_service_url()),
@@ -597,9 +608,10 @@ class Authenticator(object):
             if value:
                 links[rel] = dict(href=value, type="text/html")
 
+        library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
             base_opds_document, list(self.providers),
-            name=unicode(_("Library")), id=opds_id, links=links,
+            name=library_name, id=self.library_uuid, links=links,
         )
         return json.dumps(doc)
 

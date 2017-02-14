@@ -20,6 +20,7 @@ from core.model import (
     CirculationEvent,
     Credential,
     DataSource,
+    Library,
     Patron
 )
 
@@ -447,7 +448,7 @@ class TestAuthenticator(DatabaseTest):
             Configuration.URL: "http://url",
             FirstBookAuthenticationAPI.SECRET_KEY: "secret",
         }
-        auth = Authenticator()
+        auth = Authenticator(library=Library.instance(self._db))
         auth.register_provider(config)
         assert isinstance(
             auth.basic_auth_provider, FirstBookAuthenticationAPI
@@ -459,7 +460,7 @@ class TestAuthenticator(DatabaseTest):
             Configuration.OAUTH_CLIENT_ID: 'client_id',
             Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
         }
-        auth = Authenticator()
+        auth = Authenticator(library=Library.instance(self._db))
         auth.register_provider(config)
         eq_(1, len(auth.oauth_providers_by_name))
         clever = auth.oauth_providers_by_name[
@@ -473,11 +474,15 @@ class TestAuthenticator(DatabaseTest):
 
         # You can create an Authenticator that only uses Basic Auth
         # without providing a secret.
-        Authenticator(basic_auth_provider=basic)
+        Authenticator(
+            library=Library.instance(self._db),
+            basic_auth_provider=basic
+        )
 
         # You can create an Authenticator that uses OAuth if you
         # provide a secret.
         Authenticator(
+            library=Library.instance(self._db),
             oauth_providers=[oauth], bearer_token_signing_secret="foo"
         )
         
@@ -486,6 +491,7 @@ class TestAuthenticator(DatabaseTest):
         assert_raises_regexp(
             Authenticator,
             "OAuth providers are configured, but secret for signing bearer tokens is not.",
+            library=Library.instance(self._db),
             oauth_providers=[oauth]
         )
         
@@ -495,6 +501,7 @@ class TestAuthenticator(DatabaseTest):
         oauth2 = MockOAuthAuthenticationProvider("provider2")
 
         authenticator = Authenticator(
+            library=Library.instance(self._db),
             basic_auth_provider=basic, oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -506,7 +513,10 @@ class TestAuthenticator(DatabaseTest):
         and you can't register two different OAuth providers
         with the same .NAME.
         """
-        authenticator = Authenticator(bearer_token_signing_secret='foo')
+        authenticator = Authenticator(
+            library=Library.instance(self._db),
+            bearer_token_signing_secret='foo'
+        )
         basic1 = MockBasicAuthenticationProvider()
         basic2 = MockBasicAuthenticationProvider()
         oauth1 = MockOAuthAuthenticationProvider("provider1")
@@ -536,7 +546,10 @@ class TestAuthenticator(DatabaseTest):
 
         # If there are no OAuth providers we cannot look one up.
         basic = MockBasicAuthenticationProvider()
-        authenticator = Authenticator(basic_auth_provider=basic)
+        authenticator = Authenticator(
+            library=Library.instance(self._db),
+            basic_auth_provider=basic
+        )
         problem = authenticator.oauth_provider_lookup("provider1")
         eq_(problem.uri, UNKNOWN_OAUTH_PROVIDER.uri)
         eq_(_("No OAuth providers are configured."), problem.detail)
@@ -546,6 +559,7 @@ class TestAuthenticator(DatabaseTest):
         oauth2 = MockOAuthAuthenticationProvider("provider2")
         oauth3 = MockOAuthAuthenticationProvider("provider3")
         authenticator = Authenticator(
+            library=Library.instance(self._db),
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -570,7 +584,10 @@ class TestAuthenticator(DatabaseTest):
         basic = MockBasicAuthenticationProvider(
             patron=patron, patrondata=patrondata
         )
-        authenticator = Authenticator(basic_auth_provider=basic)
+        authenticator = Authenticator(
+            library=Library.instance(self._db),
+            basic_auth_provider=basic
+        )
         eq_(
             patron,
             authenticator.authenticated_patron(
@@ -590,6 +607,7 @@ class TestAuthenticator(DatabaseTest):
         oauth1 = MockOAuthAuthenticationProvider("oauth1", patron=patron1)
         oauth2 = MockOAuthAuthenticationProvider("oauth2", patron=patron2)
         authenticator = Authenticator(
+            library=Library.instance(self._db),
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -617,7 +635,7 @@ class TestAuthenticator(DatabaseTest):
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
 
     def test_authenticated_patron_unsupported_mechanism(self):
-        authenticator = Authenticator()
+        authenticator = Authenticator(library=Library.instance(self._db))
         problem = authenticator.authenticated_patron(
             self._db, object()
         )
@@ -629,7 +647,11 @@ class TestAuthenticator(DatabaseTest):
 
         # We can pull the password out of a Basic Auth credential
         # if a Basic Auth authentication provider is configured.
-        authenticator = Authenticator(basic, [oauth], "secret")
+        authenticator = Authenticator(
+            library=Library.instance(self._db),
+            basic_auth_provider=basic, oauth_providers=[oauth],
+            bearer_token_signing_secret="secret"
+        )
         credential = dict(password="foo")
         eq_("foo",
             authenticator.get_credential_from_header(credential)
@@ -637,7 +659,11 @@ class TestAuthenticator(DatabaseTest):
 
         # We can't pull the password out if only OAuth authentication
         # providers are configured.
-        authenticator = Authenticator(None, [oauth], "secret")
+        authenticator = Authenticator(
+            library=Library.instance(self._db),
+            basic_auth_provider=None, oauth_providers=[oauth],
+            bearer_token_signing_secret="secret"
+        )
         eq_(None,
             authenticator.get_credential_from_header(credential)
         )
@@ -647,6 +673,7 @@ class TestAuthenticator(DatabaseTest):
         oauth1 = MockOAuthAuthenticationProvider("oauth1")
         oauth2 = MockOAuthAuthenticationProvider("oauth2")
         authenticator = Authenticator(
+            library=Library.instance(self._db),
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -678,6 +705,7 @@ class TestAuthenticator(DatabaseTest):
     def test_decode_bearer_token(self):
         oauth = MockOAuthAuthenticationProvider("oauth")
         authenticator = Authenticator(
+            library=Library.instance(self._db),
             oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
@@ -698,6 +726,7 @@ class TestAuthenticator(DatabaseTest):
         oauth = MockOAuthAuthenticationProvider("oauth")
         oauth.URI = "http://example.org/"
         authenticator = Authenticator(
+            library = Library.instance(self._db),
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
@@ -757,6 +786,7 @@ class TestAuthenticator(DatabaseTest):
                 # If the authenticator does not include a basic auth provider,
                 # no WWW-Authenticate header is provided. 
                 authenticator = Authenticator(
+                    library=Library.instance(self._db),
                     oauth_providers=[oauth],
                     bearer_token_signing_secret='secret'
                 )
@@ -1405,6 +1435,7 @@ class TestOAuthController(DatabaseTest):
         )
         self.oauth2.NAME = "Mock OAuth 2"
         self.auth = Authenticator(
+            library = Library.instance(self._db),
             basic_auth_provider=self.basic,
             oauth_providers=[self.oauth1, self.oauth2],
             bearer_token_signing_secret="a secret"
