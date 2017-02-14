@@ -52,6 +52,7 @@ from model import (
     Genre,
     Hold,
     Hyperlink,
+    Library,
     LicensePool,
     Measurement,
     Patron,
@@ -5127,6 +5128,19 @@ class TestCustomListEntry(DatabaseTest):
         eq_(longwinded_entry.most_recent_appearance, entry.most_recent_appearance)
 
 
+class TestLibrary(DatabaseTest):
+
+    def test_instance(self):
+
+        # There are no Library objects until we call instance().
+        eq_(0, self._db.query(Library).count())
+
+        # In the current release there will only ever be one library.
+        instance = Library.instance(self._db)
+        instance2 = Library.instance(self._db)
+        eq_(instance, instance2)
+
+        
 class TestCollection(DatabaseTest):
 
     def setup(self):

@@ -8342,33 +8342,30 @@ class Library(Base):
     __tablename__ = 'libraries'
 
     id = Column(Integer, primary_key=True)
-    
-    # A URN that uniquely identifies the library, used to serve the
-    # library's Authentication for OPDS document.
-    urn = Column(Unicode)
 
-    __table_args__ = (
-        UniqueConstraint('urn'),
-    )
-    
-    @validates('adobe_short_name')
-    def validate_adobe_short_name(self, key, value):
-        if not value:
-            return value
-        if '|' in value:
-            raise ValueError(
-                'Adobe short name cannot contain the pipe character.'
-            )
-        return value.upper()    
+    # The human-readable name of this library. Used in the library's
+    # Authentication for OPDS document.
+    name = Column(Unicode, unique=True)
 
+    # A short name of this library, to use when identifying it in
+    # scripts.
+    short_name = Column(Unicode, unique=True)
+    
+    # A UUID that uniquely identifies the library among all libraries
+    # in the world. This is used to serve the library's Authentication
+    # for OPDS document, and it also goes to the library registry.
+    uuid = Column(Unicode, unique=True)
+    
     @classmethod
     def instance(cls, _db):
         """Find the one and only library."""
-        return get_one(
+        library, is_new = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
-                uuid=uuid.uuid4()
+                uuid=str(uuid.uuid4())
             )
         )
+        return library
+
 
 class Admin(Base):
 
