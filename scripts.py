@@ -822,6 +822,12 @@ class LoanReaperScript(Script):
             self._reap(qu, explain)
 
     def _reap(self, qu, what):
+        """Delete every database object that matches the given query.
+
+        :param qu: The query that yields objects to delete.
+        :param what: A human-readable explanation of what's being
+                     deleted.
+        """
         counter = 0
         print "Reaping %d %s." % (qu.count(), what)
         for o in qu:
