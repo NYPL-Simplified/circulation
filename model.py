@@ -763,11 +763,6 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
-    # One DataSource can have one Collection.
-    collection = relationship(
-        "Collection", backref="data_source", uselist=False
-    )
-
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -8383,134 +8378,240 @@ class Admin(Base):
 
 class Collection(Base):
 
+    """A Collection is a set of LicensePools obtained through some mechanism.
+    """
+
     __tablename__ = 'collections'
-
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode, unique=True, nullable=False)
-    client_id = Column(Unicode, unique=True, index=True)
-    _client_secret = Column(Unicode, nullable=False)
 
-    # A collection can have one DataSource
-    data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    library_id = Column(Integer, ForeignKey('libraries.id'), index=True)
+    
+    # What piece of code do we run to find out about changes to this
+    # collection?
+    protocol = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'protocol' field.
+    OPDS_IMPORT = 'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+    
+    # How does the provider of this collection distinguish it from
+    # other collections it provides? On the other side this is usually
+    # called a "library ID".
+    external_account_id = Column(Unicode)
+
+    # If there is a special URL to use for access to this collection,
+    # put it here. This is most common for OPDS and ODL integrations.
+    url = Column(Unicode)
+
+    # If access requires authentication, these fields represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    username = Column(Unicode)
+    password = Column(Unicode)
+
+    # Any additional configuration information goes into the
+    # collectionsettings table.
+    settings = Relationship(
+        "CollectionSetting", backref="collection"
     )
-
-    # A collection can include many Identifiers
-    catalog = relationship(
-        "Identifier", secondary=lambda: collections_identifiers,
+    
+    # A Collection can provide books to many Libraries.
+    libraries = relationship(
+        "Library", secondary=lambda: collections_libraries,
+        backref="collections"
+    )
+    
+    # A Collection can include many LicensePools.
+    licensepools = relationship(
+        "LicensePool", secondary=lambda: collections_licensepools,
         backref="collections"
     )
 
 
-    def __repr__(self):
-        return "%s ID=%s DATASOURCE_ID=%d" % (
-            self.name, self.id, self.data_source.id
-        )
+class CollectionSetting(Base):
+    """An extra piece of information associated with a collection."""
+    __tablename__ = 'collectionsettings'
+    id = Column(Integer, primary_key=True)
+    collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
 
-    @hybrid_property
-    def client_secret(self):
-        """Gets encrypted client_secret from database"""
-        return self._client_secret
-
-    @client_secret.setter
-    def _set_client_secret(self, plaintext_secret):
-        """Encrypts client secret string for database"""
-        self._client_secret = unicode(bcrypt.hashpw(
-            plaintext_secret, bcrypt.gensalt()
-        ))
-
-    def _correct_secret(self, plaintext_secret):
-        """Determines if a plaintext string is the client_secret"""
-        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
-                == self.client_secret)
-
-    @classmethod
-    def register(cls, _db, name):
-        """Creates a new collection with client details and a datasource."""
-
-        name = unicode(name)
-        collection = get_one(_db, cls, name=name)
-        if collection:
-            raise ValueError(
-                "A collection with the name '%s' already exists: %r" % (
-                name, collection)
-            )
-
-        collection_data_source, ignore = get_one_or_create(
-            _db, DataSource, name=name, offers_licenses=False
-        )
-
-        client_id, plaintext_client_secret = cls._generate_client_details()
-        # Generate a new client_id if it's not unique initially.
-        while get_one(_db, cls, client_id=client_id):
-            client_id, plaintext_client_secret = cls._generate_client_details()
-
-        collection, ignore = get_one_or_create(
-            _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret),
-            data_source=collection_data_source
-        )
-
-        _db.commit()
-        return collection, plaintext_client_secret
-
-    @classmethod
-    def _generate_client_details(cls):
-        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
-                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                           '0123456789')
-        client_secret_chars = client_id_chars + '!#$%&*+,-._'
-
-        def make_client_string(chars, length):
-            return u"".join([random.choice(chars) for x in range(length)])
-        client_id = make_client_string(client_id_chars, 25)
-        client_secret = make_client_string(client_secret_chars, 40)
-
-        return client_id, client_secret
-
-    @classmethod
-    def authenticate(cls, _db, client_id, plaintext_client_secret):
-        collection = get_one(_db, cls, client_id=unicode(client_id))
-        if (collection and
-            collection._correct_secret(plaintext_client_secret)):
-            return collection
-        return None
-
-    def catalog_identifier(self, _db, identifier):
-        """Catalogs an identifier for a collection"""
-        if identifier not in self.catalog:
-            self.catalog.append(identifier)
-            _db.commit()
-
-    def works_updated_since(self, _db, timestamp):
-        """Returns all of a collection's works that have been updated since the
-        last time the collection was checked"""
-
-        query = _db.query(Work).join(Work.coverage_records)
-        query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.collections).filter(
-            Collection.id==self.id
-        )
-        if timestamp:
-            query = query.filter(
-                WorkCoverageRecord.timestamp > timestamp
-            )
-
-        return query
+    __table_args__ = (
+        UniqueConstraint('collection_id', 'key'),
+    )
 
 
-collections_identifiers = Table(
-    'collectionsidentifiers', Base.metadata,
-    Column(
-        'collection_id', Integer, ForeignKey('collections.id'),
-        index=True, nullable=False
-    ),
-    Column(
-        'identifier_id', Integer, ForeignKey('identifiers.id'),
-        index=True, nullable=False
-    ),
-    UniqueConstraint('collection_id', 'identifier_id'),
-)
+collections_libraries = Table(
+    'collections_libraries', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'library_id'),
+ )
+
+collections_licensepools = Table(
+    'collections_licensepools', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'licensepool_id', Integer, ForeignKey('licensepools.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'licensepool_id'),
+ )
+
+    
+# class Catalog(Base):
+
+#     """A Catalog is like a Collection, but it doesn't hold any actual
+#     LicensePools, it just records Identifiers.
+
+#     The Collections associated with a Library in its circulation
+#     manager will show up as Catalogs associated with the same Library
+#     in its metadata wrangler.
+#     """
+    
+#     __tablename__ = 'catalogs'
+
+#     id = Column(Integer, primary_key=True)
+#     name = Column(Unicode, unique=True, nullable=False)
+#     client_id = Column(Unicode, unique=True, index=True)
+#     _client_secret = Column(Unicode, nullable=False)
+
+#     # A catalog can have one DataSource
+#     data_source_id = Column(
+#         Integer, ForeignKey('datasources.id'), index=True
+#     )
+
+#     # A catalog can include many Identifiers
+#     catalog = relationship(
+#         "Identifier", secondary=lambda: collections_identifiers,
+#         backref="collections"
+#     )
+
+
+#     def __repr__(self):
+#         return "%s ID=%s DATASOURCE_ID=%d" % (
+#             self.name, self.id, self.data_source.id
+#         )
+
+#     @hybrid_property
+#     def client_secret(self):
+#         """Gets encrypted client_secret from database"""
+#         return self._client_secret
+
+#     @client_secret.setter
+#     def _set_client_secret(self, plaintext_secret):
+#         """Encrypts client secret string for database"""
+#         self._client_secret = unicode(bcrypt.hashpw(
+#             plaintext_secret, bcrypt.gensalt()
+#         ))
+
+#     def _correct_secret(self, plaintext_secret):
+#         """Determines if a plaintext string is the client_secret"""
+#         return (bcrypt.hashpw(plaintext_secret, self.client_secret)
+#                 == self.client_secret)
+
+#     @classmethod
+#     def register(cls, _db, name):
+#         """Creates a new collection with client details and a datasource."""
+
+#         name = unicode(name)
+#         collection = get_one(_db, cls, name=name)
+#         if collection:
+#             raise ValueError(
+#                 "A collection with the name '%s' already exists: %r" % (
+#                 name, collection)
+#             )
+
+#         collection_data_source, ignore = get_one_or_create(
+#             _db, DataSource, name=name, offers_licenses=False
+#         )
+
+#         client_id, plaintext_client_secret = cls._generate_client_details()
+#         # Generate a new client_id if it's not unique initially.
+#         while get_one(_db, cls, client_id=client_id):
+#             client_id, plaintext_client_secret = cls._generate_client_details()
+
+#         collection, ignore = get_one_or_create(
+#             _db, cls, name=name, client_id=unicode(client_id),
+#             client_secret=unicode(plaintext_client_secret),
+#             data_source=collection_data_source
+#         )
+
+#         _db.commit()
+#         return collection, plaintext_client_secret
+
+#     @classmethod
+#     def _generate_client_details(cls):
+#         client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+#                            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+#                            '0123456789')
+#         client_secret_chars = client_id_chars + '!#$%&*+,-._'
+
+#         def make_client_string(chars, length):
+#             return u"".join([random.choice(chars) for x in range(length)])
+#         client_id = make_client_string(client_id_chars, 25)
+#         client_secret = make_client_string(client_secret_chars, 40)
+
+#         return client_id, client_secret
+
+#     @classmethod
+#     def authenticate(cls, _db, client_id, plaintext_client_secret):
+#         collection = get_one(_db, cls, client_id=unicode(client_id))
+#         if (collection and
+#             collection._correct_secret(plaintext_client_secret)):
+#             return collection
+#         return None
+
+#     def catalog_identifier(self, _db, identifier):
+#         """Catalogs an identifier for a collection"""
+#         if identifier not in self.catalog:
+#             self.catalog.append(identifier)
+#             _db.commit()
+
+#     def works_updated_since(self, _db, timestamp):
+#         """Returns all of a collection's works that have been updated since the
+#         last time the collection was checked"""
+
+#         query = _db.query(Work).join(Work.coverage_records)
+#         query = query.join(Work.license_pools).join(Identifier)
+#         query = query.join(Identifier.collections).filter(
+#             Collection.id==self.id
+#         )
+#         if timestamp:
+#             query = query.filter(
+#                 WorkCoverageRecord.timestamp > timestamp
+#             )
+
+#         return query
+
+
+# collections_identifiers = Table(
+#     'collectionsidentifiers', Base.metadata,
+#     Column(
+#         'collection_id', Integer, ForeignKey('collections.id'),
+#         index=True, nullable=False
+#     ),
+#     Column(
+#         'identifier_id', Integer, ForeignKey('identifiers.id'),
+#         index=True, nullable=False
+#     ),
+#     UniqueConstraint('collection_id', 'identifier_id'),
+# )
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
