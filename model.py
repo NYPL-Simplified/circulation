@@ -431,7 +431,10 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
-   
+
+    # One Patron can have many associated PatronSettings.
+    settings = relationship("PatronSetting", backref="patron")
+    
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
@@ -480,6 +483,23 @@ class Patron(Base):
         if work.audience in allowed:
             return True
         return False
+
+
+class PatronSetting(object):
+    """An extra piece of information associated with a patron."""
+    __tablename__ = 'patronsettings'
+    id = Column(Integer, primary_key=True)
+    patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
+
+    # Constants to use when setting boolean values of PatronSetting.VALUE
+    TRUE = "True"
+    FALSE = "False"
+    
+    __table_args__ = (
+        UniqueConstraint('patron_id', 'key'),
+    )
 
 
 class LoanAndHoldMixin(object):
