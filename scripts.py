@@ -1,5 +1,8 @@
 from cStringIO import StringIO
-from datetime import timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from nose.tools import set_trace
 import csv
 import json
@@ -39,10 +42,12 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    Hold,
     Hyperlink,
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Loan,
     Representation,
     Subject,
     Work,
@@ -779,3 +784,50 @@ class UpdateSearchIndexScript(RunMonitorScript):
             SearchIndexMonitor,
             index_name=parsed.works_index,
         )
+
+class LoanReaperScript(Script):
+    """Remove expired loans and holds whose owners have not yet synced
+    with the loan providers.
+
+    This stops the library from keeping a record of the final loans and
+    holds of a patron who stopped using the circulation manager.
+
+    If a loan or (more likely) hold is removed incorrectly, it will be
+    restored the next time the patron syncs their loans feed.
+    """
+    def do_run(self):
+        now = datetime.utcnow()
+
+        # Reap loans and holds that we know have expired.
+        for obj, what in ((Loan, 'loans'), (Hold, 'holds')):
+            qu = self._db.query(obj).filter(obj.end < now)
+            self._reap(qu, "expired %s" % what)
+
+        for obj, what, max_age in (
+                (Loan, 'loans', timedelta(days=90)),
+                (Hold, 'holds', timedelta(days=365)),
+        ):
+            # Reap loans and holds which have no end date and are very
+            # old. It's very likely these loans and holds have expired
+            # and we simply don't have the information.
+            older_than = now - max_age
+            qu = self._db.query(obj).join(obj.license_pool).filter(
+                obj.end == None).filter(
+                    obj.start < older_than).filter(
+                        LicensePool.open_access == False
+                    )
+            explain = "%s older than %s" % (
+                what, older_than.strftime("%Y-%m-%d")
+            )
+            self._reap(qu, explain)
+
+    def _reap(self, qu, what):
+        counter = 0
+        print "Reaping %d %s." % (qu.count(), what)
+        for o in qu:
+            self._db.delete(o)
+            counter += 1
+            if not counter % 100:
+                print counter
+                self._db.commit()
+        self._db.commit()
