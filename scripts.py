@@ -1283,7 +1283,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     self.name, existing_timestamp)
             else:
                 raise RuntimeError(
-                    "%s timestamp already exists: %r" %
+                    "%s timestamp already exists: %r. Use --force to update." %
                     (self.name, existing_timestamp))
 
         timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
