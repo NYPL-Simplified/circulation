@@ -290,6 +290,7 @@ def lanes_for_large_collection(_db, languages):
              ),
             Lane(_db, full_name="Informational books", genres=None,
                  fiction=False, exclude_genres=[genres.Biography_Memoir],
+                 subgenre_behavior=Lane.IN_SAME_LANE,
                  **children_common_args
              )
         ],
