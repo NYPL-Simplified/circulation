@@ -55,6 +55,7 @@ from model import (
     LicensePool,
     Measurement,
     Patron,
+    PatronProfileStore,
     Representation,
     Resource,
     RightsStatus,
@@ -4575,6 +4576,45 @@ class TestPatron(DatabaseTest):
             patron._external_type = None
 
 
+class TestPatronProfileStore(DatabaseTest):
+
+    def setup(self):
+        super(TestPatronProfileStore, self).setup()
+        self.patron = self._patron()
+        self.store = PatronProfileStore(self.patron)
+        
+    def test_setting_names(self):
+        """Only one item is currently settable."""
+        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]), self.store.setting_names)
+
+    def test_representation(self):
+        # synchronize_annotations always shows up as settable, even if
+        # the current value is None.
+        eq_(None, self.patron.synchronize_annotations)
+        rep = self.store.representation
+        eq_({'settings': {'simplified:synchronize_annotations': None}},
+            rep)
+
+        self.patron.synchronize_annotations = True
+        self.patron.authorization_expires = datetime.datetime(
+            2016, 1, 1, 10, 20, 30
+        )
+        rep = self.store.representation
+        eq_({'simplified:authorization_expires': '2016-01-01T10:20:30Z',
+             'settings': {'simplified:synchronize_annotations': True}},
+            rep
+        )
+
+    def test_set(self):
+        # This is a no-op.
+        self.store.set({}, {})
+        eq_(None, self.patron.synchronize_annotations)
+
+        # This is not.
+        self.store.set({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
+        eq_(True, self.patron.synchronize_annotations)
+
+        
 class TestBaseCoverageRecord(DatabaseTest):
 
     def test_not_covered(self):

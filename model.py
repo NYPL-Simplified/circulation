@@ -103,6 +103,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from user_profile import ProfileStore
 from util import (
     LanguageCodes,
     MetadataSimilarity,
@@ -423,6 +424,11 @@ class Patron(Base):
     # Common reasons for blocks are kept in circulation's PatronData
     # class.
     block_reason = Column(String(255), default=None)
+
+    # Whether or not the patron wants their annotations synchronized
+    # across devices (which requires storing those annotations on a
+    # library server).
+    synchronize_annotations = Column(Boolean, default=None)
     
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
@@ -431,9 +437,6 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
-
-    # One Patron can have many associated PatronSettings.
-    settings = relationship("PatronSetting", backref="patron")
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
@@ -485,21 +488,40 @@ class Patron(Base):
         return False
 
 
-class PatronSetting(object):
-    """An extra piece of information associated with a patron."""
-    __tablename__ = 'patronsettings'
-    id = Column(Integer, primary_key=True)
-    patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
-    key = Column(Unicode, index=True)
-    value = Column(Unicode)
+class PatronProfileStore(ProfileStore):
+    """Interface between a Patron object and the User Profile Management
+    Protocol.
+    """
 
-    # Constants to use when setting boolean values of PatronSetting.VALUE
-    TRUE = "True"
-    FALSE = "False"
+    def __init__(self, patron):
+        """Constructor."""
+        self.patron = patron
     
-    __table_args__ = (
-        UniqueConstraint('patron_id', 'key'),
-    )
+    @property
+    def setting_names(self):
+        """Make it clear which settings can be edited."""
+        return set([self.SYNCHRONIZE_ANNOTATIONS])
+
+    @property
+    def representation(self):
+        """Create a document representing the patron's current status."""
+        rep = dict()
+        if self.patron.authorization_expires:
+            rep[self.AUTHORIZATION_EXPIRES] = (
+                self.patron.authorization_expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+            )
+        settings = {
+            self.SYNCHRONIZE_ANNOTATIONS :
+            self.patron.synchronize_annotations
+        }
+        rep[self.SETTINGS_KEY] = settings
+        return rep
+
+    def set(self, settable, full):
+        """Bring the Patron's status up-to-date with the given document."""
+        key = self.SYNCHRONIZE_ANNOTATIONS
+        if key in settable:
+            self.patron.synchronize_annotations = settable[key]
 
 
 class LoanAndHoldMixin(object):

@@ -11,7 +11,6 @@ class ProfileController(object):
 
     MEDIA_TYPE = "vnd.librarysimplified/user-profile+json"
     LINK_RELATION = "http://librarysimplified.org/terms/rel/user-profile"
-    SETTINGS_KEY = 'settings'
     
     def __init__(self, store):
         """Constructor.
@@ -74,7 +73,7 @@ class ProfileController(object):
             return INVALID_INPUT.detailed(
                 _("Submitted profile document was not a JSON object.")
             )
-        settable = full_data.get(self.SETTINGS_KEY)
+        settable = full_data.get(ProfileStore.SETTINGS_KEY)
         if settable:
             # The incoming document is a request to change at least one
             # setting.
@@ -97,6 +96,12 @@ class ProfileController(object):
 class ProfileStore(object):
     """An abstract store for a user profile."""
 
+    NS = 'simplified:'
+    FINES = NS + 'fines'
+    AUTHORIZATION_EXPIRES = NS + "authorization_expires"
+    SYNCHRONIZE_ANNOTATIONS = NS + 'synchronize_annotations'
+    SETTINGS_KEY = 'settings'
+    
     @property
     def representation(self):
         """Represent the current state of the store as a dictionary.
@@ -147,7 +152,7 @@ class DictionaryBasedProfileStore(object):
         :return: A dictionary that can be converted to a Profile document.
         """
         body = dict(self.read_only)
-        body[ProfileController.SETTINGS_KEY] = dict(self.writable)
+        body[ProfileStore.SETTINGS_KEY] = dict(self.writable)
         return body
 
     @property
