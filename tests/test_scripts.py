@@ -499,6 +499,12 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
         eq_(str(self.timestamp.counter), migration[9])
 
+        # And removes those counter digits when the timestamp is updated.
+        migration = '20260101-what-it-do.sql'
+        self.script.update_timestamp(self.timestamp, migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(self.timestamp.counter, None)
+
     def test_running_a_migration_updates_the_timestamp(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
         self.timestamp.timestamp = future_time

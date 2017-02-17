@@ -1240,6 +1240,7 @@ class DatabaseMigrationScript(Script):
         # additional number is added. This number is held in the 'counter'
         # column of Timestamp.
         # (It's not ideal, but it avoids creating a new database table.)
+        timestamp.counter = None
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
@@ -1308,12 +1309,11 @@ class Explain(IdentifierInputScript):
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
-        #policy = PresentationCalculationPolicy.recalculate_everything()
+
         policy = None
         for edition in editions:
             self.explain(self._db, edition, policy)
             print "-" * 80
-        #self._db.commit()
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):
