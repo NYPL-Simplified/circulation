@@ -1256,12 +1256,29 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
     DatabaseMigrationScript to manage migrations.
     """
 
-    def do_run(self):
+    @classmethod
+    def arg_parser(cls):
+        parser = super(DatabaseMigrationInitializationScript, cls).arg_parser()
+        parser.add_argument(
+            '-f', '--force', action='store_true',
+            help="Force reset the initialization, ignoring any existing timestamps."
+        )
+        return parser
+
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(cmd_args=cmd_args)
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp:
-            raise Exception(
-                "Timestamp for Database Migration script already exists"
-            )
+            if parsed.force:
+                self.log.warn(
+                    "Overwriting existing %s timestamp: %r",
+                    self.name, existing_timestamp)
+            else:
+                raise RuntimeError(
+                    "%s timestamp already exists: %r" %
+                    (self.name, existing_timestamp))
+
+        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
 
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]

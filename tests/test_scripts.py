@@ -577,20 +577,31 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         super(TestDatabaseMigrationInitializationScript, self).setup()
         self.script = DatabaseMigrationInitializationScript(_db=self._db)
 
+    @property
+    def timestamp(self):
+        return self._db.query(Timestamp).\
+            filter(Timestamp.service==self.script.name).one()
+
+    def assert_matches_latest_migration(self):
+        migrations = self.script.fetch_migration_files()[0]
+        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+
     def test_accurate_timestamp_created(self):
         timestamps = self._db.query(Timestamp).all()
         eq_(timestamps, [])
 
         self.script.do_run()
-
-        migrations = self.script.fetch_migration_files()[0]
-        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+        self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name)
-        assert_raises(Exception, self.script.do_run)
+        assert_raises(RuntimeError, self.script.do_run)
+
+    def test_error_not_raised_when_timestamp_forced(self):
+        Timestamp.stamp(self._db, self.script.name)
+        self.script.do_run(['-f'])
+        self.assert_matches_latest_migration()
 
 
 class TestAddClassificationScript(DatabaseTest):
