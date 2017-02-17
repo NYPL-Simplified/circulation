@@ -8,7 +8,7 @@ from user_profile import (
     DictionaryBasedProfileStore,
 )
 
-class TestProfileManager(object):
+class TestProfileController(object):
 
     def setup(self):
         self.read_only = dict(key="value")
