@@ -1072,9 +1072,9 @@ class DatabaseMigrationScript(Script):
         return [core, server]
 
     def do_run(self):
-        args = self.parse_command_line()
-        last_run_date = args.last_run_date
-        last_run_counter = args.last_run_counter
+        parsed = self.parse_command_line()
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if last_run_date:
@@ -1267,6 +1267,13 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(cmd_args=cmd_args)
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
+
+        if last_run_counter and not last_run_date:
+            raise ValueError(
+                "Timestamp.counter must be reset alongside Timestamp.timestamp")
+
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp:
             if parsed.force:
@@ -1279,6 +1286,12 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     (self.name, existing_timestamp))
 
         timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        if last_run_date:
+            submitted_time = self.parse_time(last_run_date)
+            timestamp.timestamp = submitted_time
+            timestamp.counter = last_run_counter
+            self._db.commit()
+            return
 
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]

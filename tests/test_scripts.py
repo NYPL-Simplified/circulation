@@ -570,7 +570,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'SERVER' in test_generated_files[1]
 
 
-
 class TestDatabaseMigrationInitializationScript(DatabaseTest):
 
     def setup(self):
@@ -602,6 +601,37 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         Timestamp.stamp(self._db, self.script.name)
         self.script.do_run(['-f'])
         self.assert_matches_latest_migration()
+
+    def test_accepts_last_run_date(self):
+        # A timestamp can be passed via the command line.
+        self.script.do_run(['--last-run-date', '20101010'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+        # It will override an existing timestamp if forced.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20111111', '--force'])
+        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+    def test_accepts_last_run_counter(self):
+        # If a counter is passed without a date, an error is raised.
+        assert_raises(ValueError, self.script.do_run, ['--last-run-counter', '7'])
+
+        # With a date, the counter can be set.
+        self.script.do_run(['--last-run-date', '20101010', '--last-run-counter', '7'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(7, self.timestamp.counter)
+
+        # When forced, the counter can be reset on an existing timestamp.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
+        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(2, self.timestamp.counter)
 
 
 class TestAddClassificationScript(DatabaseTest):
