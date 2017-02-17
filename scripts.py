@@ -1072,9 +1072,9 @@ class DatabaseMigrationScript(Script):
         return [core, server]
 
     def do_run(self):
-        args = self.parse_command_line()
-        last_run_date = args.last_run_date
-        last_run_counter = args.last_run_counter
+        parsed = self.parse_command_line()
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if last_run_date:
@@ -1240,6 +1240,7 @@ class DatabaseMigrationScript(Script):
         # additional number is added. This number is held in the 'counter'
         # column of Timestamp.
         # (It's not ideal, but it avoids creating a new database table.)
+        timestamp.counter = None
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
@@ -1256,12 +1257,42 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
     DatabaseMigrationScript to manage migrations.
     """
 
-    def do_run(self):
+    @classmethod
+    def arg_parser(cls):
+        parser = super(DatabaseMigrationInitializationScript, cls).arg_parser()
+        parser.add_argument(
+            '-f', '--force', action='store_true',
+            help="Force reset the initialization, ignoring any existing timestamps."
+        )
+        return parser
+
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(cmd_args=cmd_args)
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
+
+        if last_run_counter and not last_run_date:
+            raise ValueError(
+                "Timestamp.counter must be reset alongside Timestamp.timestamp")
+
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp:
-            raise Exception(
-                "Timestamp for Database Migration script already exists"
-            )
+            if parsed.force:
+                self.log.warn(
+                    "Overwriting existing %s timestamp: %r",
+                    self.name, existing_timestamp)
+            else:
+                raise RuntimeError(
+                    "%s timestamp already exists: %r. Use --force to update." %
+                    (self.name, existing_timestamp))
+
+        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        if last_run_date:
+            submitted_time = self.parse_time(last_run_date)
+            timestamp.timestamp = submitted_time
+            timestamp.counter = last_run_counter
+            self._db.commit()
+            return
 
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
@@ -1278,12 +1309,11 @@ class Explain(IdentifierInputScript):
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
-        #policy = PresentationCalculationPolicy.recalculate_everything()
+
         policy = None
         for edition in editions:
             self.explain(self._db, edition, policy)
             print "-" * 80
-        #self._db.commit()
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):

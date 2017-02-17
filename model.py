@@ -6950,6 +6950,12 @@ class Timestamp(Base):
     timestamp = Column(DateTime)
     counter = Column(Integer)
 
+    def __repr__(self):
+        timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        if self.counter:
+            timestamp += (' %d' % self.counter)
+        return (u"<Timestamp %s: %s>" % (self.service, timestamp)).encode("utf8")
+
     @classmethod
     def stamp(self, _db, service):
         now = datetime.datetime.utcnow()
