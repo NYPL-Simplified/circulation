@@ -73,76 +73,76 @@ class ExternalSearchIndex(object):
         if use_alias:
             self.setup_current_alias()
 
-    def setup_index(self):
-        """
-        Create the search index with appropriate mapping.
+    def setup_index(self, new_index=None):
+        """Create the search index with appropriate mapping.
 
         This will destroy the search index, and all works will need
         to be indexed again. In production, don't use this on an
         existing index. Use it to create a new index, then change the 
         alias to point to the new index.
         """
+        index = new_index or self.works_index
 
-        if self.works_index:
-            if self.indices.exists(self.works_index):
-                self.indices.delete(self.works_index)
+        if self.indices.exists(index):
+            self.indices.delete(index)
 
-            self.log.info("Creating index %s", self.works_index)
-            self.indices.create(
-                index=self.works_index,
-                body={
-                    "settings": {
-                        "analysis": {
-                            "filter": {
-                                "en_stop_filter": {
-                                    "type": "stop",
-                                    "stopwords": ["_english_"]
-                                },
-                                "en_stem_filter": {
-                                    "type": "stemmer",
-                                    "name": "english"
-                                },
-                                "en_stem_minimal_filter": {
-                                    "type": "stemmer",
-                                    "name": "english"
-                                },
+        self.log.info("Creating index %s", index)
+        self.indices.create(
+            index=index,
+            body={
+                "settings": {
+                    "analysis": {
+                        "filter": {
+                            "en_stop_filter": {
+                                "type": "stop",
+                                "stopwords": ["_english_"]
                             },
-                            "analyzer" : {
-                                "en_analyzer": {
-                                    "type": "custom",
-                                    "char_filter": ["html_strip"],
-                                    "tokenizer": "standard",
-                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                                },
-                                "en_minimal_analyzer": {
-                                    "type": "custom",
-                                    "char_filter": ["html_strip"],
-                                    "tokenizer": "standard",
-                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                                },
-                            }
-                        }
-                    }
-                },
-            )
-        
-            mapping = {"properties": {}}
-            for field in ["title", "series", "subtitle", "summary", "classifications.term"]:
-                mapping["properties"][field] = {
-                    "type": "string",
-                    "analyzer": "en_analyzer",
-                    "fields": {
-                        "minimal": {
-                            "type": "string",
-                            "analyzer": "en_minimal_analyzer"
+                            "en_stem_filter": {
+                                "type": "stemmer",
+                                "name": "english"
+                            },
+                            "en_stem_minimal_filter": {
+                                "type": "stemmer",
+                                "name": "english"
+                            },
+                        },
+                        "analyzer" : {
+                            "en_analyzer": {
+                                "type": "custom",
+                                "char_filter": ["html_strip"],
+                                "tokenizer": "standard",
+                                "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                            },
+                            "en_minimal_analyzer": {
+                                "type": "custom",
+                                "char_filter": ["html_strip"],
+                                "tokenizer": "standard",
+                                "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                            },
                         }
                     }
                 }
-            self.indices.put_mapping(
-                doc_type=self.work_document_type,
-                body=mapping,
-                index=self.works_index,
-            )
+            },
+        )
+
+        mapping = {"properties": {}}
+        for field in ["title", "series", "subtitle", "summary", "classifications.term"]:
+            mapping["properties"][field] = {
+                "type": "string",
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": "string",
+                        "analyzer": "en_minimal_analyzer"
+                    }
+                }
+            }
+
+        self.indices.put_mapping(
+            doc_type=self.work_document_type,
+            body=mapping,
+            index=index,
+        )
 
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
