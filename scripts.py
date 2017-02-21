@@ -42,6 +42,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    get_one,
     Hold,
     Hyperlink,
     Identifier,
@@ -50,10 +51,12 @@ from core.model import (
     Loan,
     Representation,
     Subject,
+    Timestamp,
     Work,
 )
 from core.scripts import (
     Script as CoreScript,
+    DatabaseMigrationInitializationScript,
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
@@ -750,6 +753,7 @@ class LanguageListScript(Script):
         print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
         print json.dumps([l[0] for l in sorted_languages])
 
+
 class CompileTranslationsScript(Script):
     """A script to combine translation files for circulation, core
     and the admin interface, and compile the result to be used by the
@@ -770,6 +774,27 @@ class CompileTranslationsScript(Script):
         
         os.system("pybabel compile -f -d translations")
 
+
+class InstanceInitializationScript(Script):
+    """A script to initialize an instance of the Circulation Manager.
+
+    This script is intended for use in servers, Docker containers, etc,
+    when the Circulation Manager app is being installed. It initializes
+    the database and sets an appropriate alias on the ElasticSearch index.
+    """
+
+    def do_run(self):
+        # Creates a "-current" alias on the Elasticsearch client.
+        search_client = ExternalSearchIndex()
+
+        # Set a timestamp that represents the new database's version.
+        db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
+        existing = get_one(self._db, Timestamp, service=db_init_script.name)
+        if existing:
+            raise RuntimeError("Database has already been initialized.")
+        db_init_script.run()
+
+
 class UpdateSearchIndexScript(RunMonitorScript):
 
     def __init__(self):
@@ -784,6 +809,7 @@ class UpdateSearchIndexScript(RunMonitorScript):
             SearchIndexMonitor,
             index_name=parsed.works_index,
         )
+
 
 class LoanReaperScript(Script):
     """Remove expired loans and holds whose owners have not yet synced
