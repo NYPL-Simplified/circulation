@@ -4637,15 +4637,16 @@ class TestPatronProfileStorage(DatabaseTest):
         self.patron = self._patron()
         self.store = PatronProfileStorage(self.patron)
         
-    def test_setting_names(self):
-        """Only one item is currently settable."""
-        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]), self.store.setting_names)
+    def test_writable_setting_names(self):
+        """Only one setting is currently writable."""
+        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]),
+            self.store.writable_setting_names)
 
-    def test_representation(self):
+    def test_profile_document(self):
         # synchronize_annotations always shows up as settable, even if
         # the current value is None.
         eq_(None, self.patron.synchronize_annotations)
-        rep = self.store.representation
+        rep = self.store.profile_document
         eq_({'settings': {'simplified:synchronize_annotations': None}},
             rep)
 
@@ -4653,19 +4654,19 @@ class TestPatronProfileStorage(DatabaseTest):
         self.patron.authorization_expires = datetime.datetime(
             2016, 1, 1, 10, 20, 30
         )
-        rep = self.store.representation
+        rep = self.store.profile_document
         eq_({'simplified:authorization_expires': '2016-01-01T10:20:30Z',
              'settings': {'simplified:synchronize_annotations': True}},
             rep
         )
 
-    def test_set(self):
+    def test_update(self):
         # This is a no-op.
-        self.store.set({}, {})
+        self.store.update({}, {})
         eq_(None, self.patron.synchronize_annotations)
 
         # This is not.
-        self.store.set({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
+        self.store.update({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
         eq_(True, self.patron.synchronize_annotations)
 
         
