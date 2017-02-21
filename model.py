@@ -103,7 +103,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
-from user_profile import ProfileStore
+from user_profile import ProfileStorage
 from util import (
     LanguageCodes,
     MetadataSimilarity,
@@ -488,37 +488,46 @@ class Patron(Base):
         return False
 
 
-class PatronProfileStore(ProfileStore):
+class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
     Protocol.
     """
 
     def __init__(self, patron):
-        """Constructor."""
+        """Set up a storage interface for a specific Patron.
+
+        :param patron: We are accessing the profile for this patron.
+        """
         self.patron = patron
     
     @property
-    def setting_names(self):
-        """Make it clear which settings can be edited."""
+    def writable_setting_names(self):
+        """Return the subset of settings that are considered writable."""
         return set([self.SYNCHRONIZE_ANNOTATIONS])
 
     @property
-    def representation(self):
-        """Create a document representing the patron's current status."""
-        rep = dict()
+    def profile_document(self):
+        """Create a Profile document representing the patron's current
+        status.
+        """
+        doc = dict()
         if self.patron.authorization_expires:
-            rep[self.AUTHORIZATION_EXPIRES] = (
+            doc[self.AUTHORIZATION_EXPIRES] = (
                 self.patron.authorization_expires.strftime("%Y-%m-%dT%H:%M:%SZ")
             )
         settings = {
             self.SYNCHRONIZE_ANNOTATIONS :
             self.patron.synchronize_annotations
         }
-        rep[self.SETTINGS_KEY] = settings
-        return rep
+        doc[self.SETTINGS_KEY] = settings
+        return doc
 
-    def set(self, settable, full):
-        """Bring the Patron's status up-to-date with the given document."""
+    def update(self, settable, full):
+        """Bring the Patron's status up-to-date with the given document.
+        
+        Right now this means making sure Patron.synchronize_annotations
+        is up to date.
+        """
         key = self.SYNCHRONIZE_ANNOTATIONS
         if key in settable:
             self.patron.synchronize_annotations = settable[key]

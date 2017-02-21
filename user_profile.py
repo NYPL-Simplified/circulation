@@ -12,48 +12,48 @@ class ProfileController(object):
     MEDIA_TYPE = "vnd.librarysimplified/user-profile+json"
     LINK_RELATION = "http://librarysimplified.org/terms/rel/user-profile"
     
-    def __init__(self, store):
+    def __init__(self, storage):
         """Constructor.
 
-        :param store: An instance of ProfileStore.
+        :param storage: An instance of ProfileStorage.
         """
-        self.store = store
+        self.storage = storage
 
     def get(self):
-        """Turn the store into a Profile document and send out its JSON-based
-        representation.
+        """Turn the storage object into a Profile document and send out its
+        JSON-based representation.
 
         :param return: A ProblemDetail if there is a problem; otherwise,
             a 3-tuple (response code, media type, entity-body)
         """
-        representation = None
+        profile_document = None
         try:
-            representation = self.store.representation
+            profile_document = self.storage.profile_document
         except Exception, e:
             if hasattr(e, 'as_problem_detail_document'):
                 return e.as_problem_detail_document()
             else:
                 return INTERNAL_SERVER_ERROR.with_debug(e.message)
-        if not isinstance(representation, dict):
+        if not isinstance(profile_document, dict):
             return INTERNAL_SERVER_ERROR.with_debug(
-                _("Profile representation is not a JSON object: %r.") % (
-                    representation
+                _("Profile document is not a JSON object: %r.") % (
+                    profile_document
                 )
             )
         try:
-            body = json.dumps(representation)
+            body = json.dumps(profile_document)
         except Exception, e:
             return INTERNAL_SERVER_ERROR.with_debug(
-                _("Could not convert profile to JSON: %r.") % (
-                    representation
+                _("Could not convert profile document to JSON: %r.") % (
+                    profile_document
                 )
             )
             
         return 200, self.MEDIA_TYPE, body
         
     def put(self, headers, body):
-        """Turn the store into a Profile document and send out its JSON-based
-        representation.
+        """Update the profile storage object with new settings
+        from a Profile document sent with a PUT request.
 
         :param return: A ProblemDetail if there is a problem; otherwise,
             a 3-tuple (response code, media type, entity-body)
@@ -64,28 +64,32 @@ class ProfileController(object):
                 _("Expected %s") % self.MEDIA_TYPE
             )
         try:
-            full_data = json.loads(body)
+            profile_document = json.loads(body)
         except Exception, e:
             return INVALID_INPUT.detailed(
                 _("Submitted profile document was not valid JSON.")
             )
-        if not isinstance(full_data, dict):
+        if not isinstance(profile_document, dict):
             return INVALID_INPUT.detailed(
                 _("Submitted profile document was not a JSON object.")
             )
-        settable = full_data.get(ProfileStore.SETTINGS_KEY)
-        if settable:
+        new_settings = profile_document.get(ProfileStorage.SETTINGS_KEY)
+        if new_settings:
             # The incoming document is a request to change at least one
-            # setting.
-            allowable = set(self.store.setting_names)
-            for k in settable.keys():
-                if k not in allowable:
+            # setting in the profile.
+            writable = set(self.storage.writable_setting_names)
+            for k in new_settings.keys():
+                # A Profile document is invalid if it attempts to
+                # change the value of a read-only profile setting.
+                if k not in writable:
                     return INVALID_INPUT.detailed(
                         _('"%s" is not a writable setting.' % k)
                     )
             try:
-                self.store.set(settable, full_data)
+                # Update the profile storage with the new settings.
+                self.storage.update(new_settings, profile_document)
             except Exception, e:
+                # There was a problem updating the profile storage.
                 if hasattr(e, 'as_problem_detail_document'):
                     return e.as_problem_detail_document()
                 else:
@@ -93,8 +97,15 @@ class ProfileController(object):
         return 200, "text/plain", ""
 
 
-class ProfileStore(object):
-    """An abstract store for a user profile."""
+class ProfileStorage(object):
+    """An abstract class defining a specific user's profile.
+
+    Subclasses should get profile information from somewhere specific,
+    e.g. a database row.
+
+    An instance of this class is responsible for one specific user's profile,
+    not the set of all profiles.
+    """
 
     NS = 'simplified:'
     FINES = NS + 'fines'
@@ -103,75 +114,74 @@ class ProfileStore(object):
     SETTINGS_KEY = 'settings'
     
     @property
-    def representation(self):
-        """Represent the current state of the store as a dictionary.
+    def profile_document(self):
+        """Create a Profile document representing the current state of 
+        the user's profile.
 
-        :return: A dictionary that can be converted to a Profile document.
+        :return: A dictionary that can be serialized as JSON.
+        """
+        raise NotImplementedError()
+    
+    def update(self, new_values, profile_document):
+        """(Try to) change the user's profile so it looks like the provided
+        Profile document.
+
+        :param new_values: A dictionary of settings that the
+            client wants to change.
+
+        :param profile_document: The full Profile document as provided
+            by the client. Should not be necessary, but provided in
+            case it's useful.
+
+        :raise Exception: If there's a problem making the user's profile
+            look like the provided Profile document.
         """
         raise NotImplementedError()
 
-
     @property
-    def setting_names(self):
-        """Return the subset of fields that are considered writable.
-        
+    def writable_setting_names(self):
+        """Return the subset of settings that are considered writable.
+    
+        An attempt to modify a setting that's not in this list will fail
+        before update() is called.
+
         :return: An iterable.
         """
         raise NotImplementedError()
+
+
+class MockProfileStorage(ProfileStorage):
+    """A profile storage object for use in tests.
+
+    Keeps information in in-memory dictionaries rather than in a database.
+    """
     
-    def set(self, settable, full):
-        """(Try to) make the local store look like the provided Profile
-        document.
+    def __init__(self, read_only_settings=None, writable_settings=None):
+        """Create a profile for a simulated user.
 
-        :param settable: The portion of the Profile document containing
-            settings that the client wants to change.
+        :param read_only_settings: A dictionary of values that cannot be
+            changed.
 
-        :param full: The full Profile document as provided by the client.
-            Should not be necessary but provided in case it's userful.
+        :param writable_settings: A dictionary of values that can be changed
+            through the User Profile Management Protocol.
         """
-        raise NotImplementedError()
-    
-
-class DictionaryBasedProfileStore(object):
-    """A simple in-memory store based on Python dictionaries."""
-    
-    def __init__(self, read_only=None, writable=None):
-        """Constructor.
-        
-        :param read_only: A dictionary of profile information that cannot
-            be changed.
-        :param writable: A dictionary of settings that can be changed.
-        """
-        self.read_only = read_only or dict()
-        self.writable = writable or dict()
+        self.read_only_settings = read_only_settings or dict()
+        self.writable_settings = writable_settings or dict()
 
     @property
-    def representation(self):
-        """Represent the current state of the store as a dictionary.
-
-        :return: A dictionary that can be converted to a Profile document.
-        """
-        body = dict(self.read_only)
-        body[ProfileStore.SETTINGS_KEY] = dict(self.writable)
+    def profile_document(self):
+        body = dict(self.read_only_settings)
+        body[self.SETTINGS_KEY] = dict(self.writable_settings)
         return body
 
+    def update(self, new_values, profile_document):
+        """(Try to) change the user's profile so it looks like the provided
+        Profile document.
+        """
+        for k, v in new_values.items():
+            self.writable_settings[k] = v
+    
     @property
-    def setting_names(self):
-        """Return the subset of fields that are considered writable.
-        
-        :return: An iterable.
-        """
-        return self.writable.keys()
-        
-    def set(self, settable, full):
-        """(Try to) make the local store look like the provided Profile
-        document.
-
-        :param settable: The portion of the Profile document containing
-            settings that the client wants to change.
-
-        :param full: The full Profile document as provided by the client.
-            Should not be necessary but provided in case it's userful.
-        """
-        for k, v in settable.items():
-            self.writable[k] = v
+    def writable_setting_names(self):
+        """Return the subset of fields that are considered writable."""
+        return self.writable_settings.keys()

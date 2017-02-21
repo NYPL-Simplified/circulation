@@ -5,32 +5,32 @@ from nose.tools import (
 import json
 from user_profile import (
     ProfileController,
-    DictionaryBasedProfileStore,
+    MockProfileStorage,
 )
 
 class TestProfileController(object):
 
     def setup(self):
-        self.read_only = dict(key="value")
-        self.writable = dict(writable_key="old_value")
-        self.store = DictionaryBasedProfileStore(self.read_only, self.writable)
-        self.controller = ProfileController(self.store)
+        self.read_only_settings = dict(key="value")
+        self.writable_settings = dict(writable_key="old_value")
+        self.storage = MockProfileStorage(self.read_only_settings, self.writable_settings)
+        self.controller = ProfileController(self.storage)
 
-    def test_representation(self):
+    def test_profile_document(self):
         """Test that the default setup becomes a dictionary ready for
         conversion to JSON.
         """
         eq_({'key': 'value', 'settings': {'writable_key': 'old_value'}},
-            self.store.representation)
+            self.storage.profile_document)
         
     def test_get_success(self):
         """Test that sending a GET request to the controller results in the
-        expected representation.
+        expected profile_document.
         """
         status_code, media_type, body = self.controller.get()
         eq_(200, status_code)
         eq_(ProfileController.MEDIA_TYPE, media_type)
-        eq_(json.dumps(self.store.representation), body)
+        eq_(json.dumps(self.storage.profile_document), body)
 
     def test_put_success(self):
         """Test that sending a new dictionary of key-value pairs
@@ -39,69 +39,69 @@ class TestProfileController(object):
         """
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
         expected_new_state = dict(writable_key="new value")
-        old_read_only = dict(self.store.read_only)
+        old_read_only = dict(self.storage.read_only_settings)
         body = json.dumps(dict(settings=expected_new_state))
         status_code, media_type, body = self.controller.put(headers, body)
         eq_(200, status_code)
-        eq_(expected_new_state, self.store.writable)
-        eq_(old_read_only, self.store.read_only)
+        eq_(expected_new_state, self.storage.writable_settings)
+        eq_(old_read_only, self.storage.read_only_settings)
 
     def test_put_noop(self):
         """Test that sending an empty dictionary of key-value pairs
         succeeds but does nothing.
         """
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
-        expected_new_state = dict(self.store.writable)
+        expected_new_state = dict(self.storage.writable_settings)
         status_code, media_type, body = self.controller.put(
             headers, json.dumps({})
         )
         eq_(200, status_code)
-        eq_(expected_new_state, self.store.writable)
+        eq_(expected_new_state, self.storage.writable_settings)
         
-    def test_get_exception_during_representation(self):
+    def test_get_exception_during_profile_document(self):
         """Test what happens if an exception is raised during the
-        creation of a representation.
+        creation of a profile_document.
         """
         
-        class BadStore(DictionaryBasedProfileStore):
+        class BadStorage(MockProfileStorage):
             @property
-            def representation(self):
+            def profile_document(self):
                 raise Exception("Oh no")
 
-        self.controller.store = BadStore()
+        self.controller.storage = BadStorage()
         problem = self.controller.get()
         eq_(500, problem.status_code)
         eq_(u"Oh no", problem.debug_message)
         
-    def test_get_non_dictionary_representation(self):
-        """Test what happens if the representation is not a dictionary.
+    def test_get_non_dictionary_profile_document(self):
+        """Test what happens if the profile_document is not a dictionary.
         """
         
-        class BadStore(DictionaryBasedProfileStore):
+        class BadStorage(MockProfileStorage):
             @property
-            def representation(self):
+            def profile_document(self):
                 return u"Here it is!"
 
-        self.controller.store = BadStore()
+        self.controller.storage = BadStorage()
         problem = self.controller.get()
         eq_(500, problem.status_code)
-        eq_(u"Profile representation is not a JSON object: u'Here it is!'.",
+        eq_(u"Profile profile_document is not a JSON object: u'Here it is!'.",
             problem.debug_message)
         
-    def test_get_non_dictionary_representation(self):
-        """Test what happens if the representation cannot be converted to JSON.
+    def test_get_non_dictionary_profile_document(self):
+        """Test what happens if the profile_document cannot be converted to JSON.
         """
         
-        class BadStore(DictionaryBasedProfileStore):
+        class BadStorage(MockProfileStorage):
             @property
-            def representation(self):
+            def profile_document(self):
                 return dict(key=object())
 
-        self.controller.store = BadStore()
+        self.controller.storage = BadStorage()
         problem = self.controller.get()
         eq_(500, problem.status_code)
         assert problem.debug_message.startswith(
-            u"Could not convert profile to JSON: {'key': <object object"
+            u"Could not convert profile document to JSON: {'key': <object object"
         )
 
     def test_put_bad_media_type(self):
@@ -138,12 +138,12 @@ class TestProfileController(object):
         eq_(400, problem.status_code)
         eq_('"key" is not a writable setting.', problem.detail)
 
-    def test_set_raises_exception(self):
+    def test_update_raises_exception(self):
 
-        class BadStore(DictionaryBasedProfileStore):
-            def set(self, settable, full):
+        class BadStorage(MockProfileStorage):
+            def update(self, settable, full):
                 raise Exception("Oh no")
-        self.controller.store = BadStore(self.read_only, self.writable)
+        self.controller.storage = BadStorage(self.read_only_settings, self.writable_settings)
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
         body = json.dumps(dict(settings=dict(writable_key="new value")))
         problem = self.controller.put(headers, body)
