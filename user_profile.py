@@ -24,7 +24,7 @@ class ProfileController(object):
         JSON-based representation.
 
         :param return: A ProblemDetail if there is a problem; otherwise,
-            a 3-tuple (response code, media type, entity-body)
+            a 3-tuple (entity-body, response code, headers)
         """
         profile_document = None
         try:
@@ -49,7 +49,7 @@ class ProfileController(object):
                 )
             )
             
-        return 200, self.MEDIA_TYPE, body
+        return body, 200, {"Content-Type": self.MEDIA_TYPE}
         
     def put(self, headers, body):
         """Update the profile storage object with new settings
@@ -94,7 +94,7 @@ class ProfileController(object):
                     return e.as_problem_detail_document()
                 else:
                     return INTERNAL_SERVER_ERROR.with_debug(e.message)
-        return 200, "text/plain", ""
+        return body, 200, {"Content-Type": "text/plain"}
 
 
 class ProfileStorage(object):
