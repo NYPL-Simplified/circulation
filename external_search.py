@@ -15,6 +15,7 @@ import time
 class ExternalSearchIndex(object):
     
     work_document_type = 'work-type'
+    CURRENT_ALIAS_SUFFIX = '-current'
     __client = None
 
     def __init__(self, url=None, works_index=None):
@@ -23,7 +24,7 @@ class ExternalSearchIndex(object):
 
         # By default, assume that there is no search index.
         self.works_index = None
-
+        use_alias = False
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
                 integration = Configuration.integration(
@@ -34,6 +35,11 @@ class ExternalSearchIndex(object):
                     works_index = integration.get(
                         Configuration.ELASTICSEARCH_INDEX_KEY
                     ) or None
+
+                    # An alias should only be created if we're using the
+                    # configured works_index. Otherwise, the included
+                    # index might be temporary.
+                    use_alias = True
 
                 if not url:
                     if not integration:
@@ -64,6 +70,8 @@ class ExternalSearchIndex(object):
             
         if not self.indices.exists(self.works_index):
             self.setup_index()
+        if use_alias:
+            self.setup_current_alias()
 
     def setup_index(self):
         """
@@ -135,8 +143,35 @@ class ExternalSearchIndex(object):
                 body=mapping,
                 index=self.works_index,
             )
-            
-                
+
+    def setup_current_alias(self):
+        """Put an alias ending with '-current' on the existing works_index."""
+        if self.works_index.endswith(self.CURRENT_ALIAS_SUFFIX):
+            # The alias has already been created.
+            return
+
+        alias_details = self.indices.get_alias(index=self.works_index)
+        existing = alias_details[self.works_index]['aliases']
+        current_alias = [k for k in existing.keys()
+                         if k.endswith(self.CURRENT_ALIAS_SUFFIX)]
+
+        if current_alias:
+            # Assume there's only one '-current' alias on this index.
+            current_alias = current_alias[0]
+        else:
+            # Build an appropriate alias name.
+            base_works_index = re.sub(r'-v[0-9]+$', '', self.works_index)
+            alias_name = base_works_index + self.CURRENT_ALIAS_SUFFIX
+            current_alias = alias_name
+
+            # Create the alias.
+            response = self.indices.put_alias(index=self.works_index, name=alias_name)
+            if not response.get('acknowledged'):
+                self.log.error("Alias '%s' could not be created", alias_name)
+                return
+
+        # Make sure we're pointing to the alias instead of the index.
+        self.works_index = self.__client.works_index = current_alias
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
