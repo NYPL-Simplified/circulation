@@ -126,7 +126,7 @@ class ProfileStorage(object):
 
         :param profile_document: The full Profile document as provided
             by the client. Should not be necessary, but provided in
-            case it's userful.
+            case it's useful.
 
         :raise Exception: If there's a problem making the user's profile
             look like the provided Profile document.
@@ -145,7 +145,7 @@ class ProfileStorage(object):
         raise NotImplementedError()
 
 
-class MockProfileStorage(object):
+class MockProfileStorage(ProfileStorage):
     """A profile storage object for use in tests.
 
     Keeps information in in-memory dictionaries rather than in a database.
