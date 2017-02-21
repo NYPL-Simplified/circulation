@@ -428,7 +428,8 @@ class Patron(Base):
     # Whether or not the patron wants their annotations synchronized
     # across devices (which requires storing those annotations on a
     # library server).
-    synchronize_annotations = Column(Boolean, default=None)
+    _synchronize_annotations = Column(Boolean, default=None,
+                                      name="synchronize_annotations")
     
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
@@ -487,6 +488,27 @@ class Patron(Base):
             return True
         return False
 
+    @hybrid_property
+    def synchronize_annotations(self):
+        return self._synchronize_annotations
+    
+    @synchronize_annotations.setter
+    def _set_synchronize_annotations(self, value):
+        """When a patron says they don't want their annotations to be stored
+        on a library server, delete all their annotations.
+        """
+        if value is None:
+            # A patron cannot decide to go back to the state where
+            # they hadn't made a decision.
+            raise ValueError(
+                "synchronize_annotations cannot be unset once set."
+            )
+        if value is False:
+            _db = Session.object_session(self)
+            qu = _db.query(Annotation).filter(Annotation.patron==self)
+            for annotation in qu:
+                _db.delete(annotation)
+        self._synchronize_annotations = value
 
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
@@ -696,6 +718,20 @@ class Annotation(Base):
     active = Column(Boolean, default=True)
     content = Column(Unicode)
     target = Column(Unicode)
+
+    @classmethod
+    def get_one_or_create(self, _db, patron, *args, **kwargs):
+        """Find or create an Annotation, but only if the patron has
+        annotation sync turned on.
+        """
+        if not patron.synchronize_annotations:
+            raise ValueError(
+                "Patron has opted out of synchronizing annotations."
+            )
+    
+        return get_one_or_create(
+            _db, Annotation, patron=patron, *args, **kwargs
+        )
 
     def set_inactive(self):
         self.active = False

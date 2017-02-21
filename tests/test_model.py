@@ -55,7 +55,7 @@ from model import (
     LicensePool,
     Measurement,
     Patron,
-    PatronProfileStore,
+    PatronProfileStorage,
     Representation,
     Resource,
     RightsStatus,
@@ -4575,13 +4575,67 @@ class TestPatron(DatabaseTest):
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
 
+    def test_set_synchronize_annotations(self):
+        # Two patrons.
+        p1 = self._patron()
+        p2 = self._patron()
+        
+        identifier = self._identifier()
+        
+        for patron in [p1, p2]:
+            # Each patron decides they want to synchronize annotations
+            # to a library server.
+            eq_(None, patron.synchronize_annotations)
+            patron.synchronize_annotations = True
 
-class TestPatronProfileStore(DatabaseTest):
+            # Each patron gets one annotation.
+            annotation, ignore = Annotation.get_one_or_create(
+                self._db,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+            annotation.content="The content for %s" % patron.id,
+
+            eq_(1, len(patron.annotations))
+            
+        # Patron #1 decides they don't want their annotations stored
+        # on a library server after all. This deletes their
+        # annotation.
+        p1.synchronize_annotations = False
+        self._db.commit()
+        eq_(0, len(p1.annotations))
+
+        # Patron #1 can no longer use Annotation.get_one_or_create.
+        assert_raises(
+            ValueError, Annotation.get_one_or_create,
+            self._db, patron=p1, identifier=identifier,
+            motivation=Annotation.IDLING,
+        )
+        
+        # Patron #2's annotation is unaffected.
+        eq_(1, len(p2.annotations))
+
+        # But patron #2 can use Annotation.get_one_or_create.
+        i2, is_new = Annotation.get_one_or_create(
+            self._db, patron=p2, identifier=self._identifier(),
+            motivation=Annotation.IDLING,
+        )
+        eq_(True, is_new)
+
+        # Once you make a decision, you can change your mind, but you
+        # can't go back to not having made the decision.
+        def try_to_set_none(patron):
+            patron.synchronize_annotations = None
+        assert_raises(ValueError, try_to_set_none, p2)
+
+
+class TestPatronProfileStorage(DatabaseTest):
 
     def setup(self):
-        super(TestPatronProfileStore, self).setup()
+        super(TestPatronProfileStorage, self).setup()
         self.patron = self._patron()
-        self.store = PatronProfileStore(self.patron)
+        self.store = PatronProfileStorage(self.patron)
         
     def test_setting_names(self):
         """Only one item is currently settable."""
