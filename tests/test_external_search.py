@@ -197,6 +197,40 @@ class TestExternalSearch(DatabaseTest):
             ExternalSearchIndex.__client = None
         super(TestExternalSearch, self).teardown()
 
+    def test_setup_index_creates_new_index(self):
+        if not self.search:
+            return
+
+        self.search.setup_index(new_index='test_index-v2')
+
+        eq_(True, self.search.indices.exists('test_index'))
+        eq_(True, self.search.indices.exists('test_index-v2'))
+
+        # The search index is still the initial index.
+        eq_('test_index', self.search.works_index)
+
+        # The alias hasn't been passed over to the new index
+        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        eq_(alias, self.search.works_alias)
+        eq_(True, self.search.indices.exists_alias('test_index', alias))
+        eq_(False, self.search.indices.exists_alias('test_index-v2', alias))
+
+        # Cleaning up.
+        self.search.indices.delete('test_index-v2')
+
+    def test_setup_current_alias(self):
+        if not self.search:
+            return
+
+        # The alias is set after the search index is created.
+        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        eq_(True, self.search.indices.exists_alias('test_index', alias))
+
+        # The works_alias is set to the alias instead of the index itself.
+        eq_(alias, self.search.works_alias)
+        # The works_index is left alone for upload tasks.
+        eq_('test_index', self.search.works_index)
+
     def test_query_works(self):
         """
         These are all in one method because the setup is expensive.
