@@ -548,31 +548,19 @@ class Lane(object):
         # e.g. "All Science Fiction"
         self.include_all_feed = include_all
 
-        def set_from_parent(field_name, value, default=None):
-            if value is None:
-                if self.parent:
-                    value = getattr(self.parent, field_name, default)
-                else:
-                    value = default
-            setattr(self, field_name, value)
-
-        def set_list(field_name, value, default=None):
-            if value is None:
-                if self.parent:
-                    value = getattr(self.parent, field_name, default)
-                else:
-                    value = default
-            if isinstance(value, basestring):
-                value = [value]
-            set_from_parent(field_name, value, default)
-
         if isinstance(age_range, int):
             age_range = [age_range]
         if age_range is not None:
             age_range = sorted(age_range)
-        set_from_parent('age_range', age_range)
+        self.set_from_parent('age_range', age_range)
 
         self.audiences = self.audience_list_for_age_range(audiences, age_range)
+
+
+        def set_list(field_name, value, default=None):
+            if isinstance(value, basestring):
+                value = [value]
+            self.set_from_parent(field_name, value, default)
 
         set_list('languages', languages)
         set_list('exclude_languages', exclude_languages)
@@ -583,29 +571,18 @@ class Lane(object):
         set_list('media', media, Edition.BOOK_MEDIUM)
         set_list('formats', formats)
 
-        # The lane may be restricted to books that are on a list
-        # from a given data source.
-        custom_list_details = self.custom_lists_for_identifier(
-            list_data_source, list_identifier)
-        (self.list_data_source_id,
-         self.list_ids,
-         self.list_featured_works_query) = custom_list_details
-        if not self.list_featured_works_query:
-            # The parent may have featured works from the list that
-            # could be included here.
-            set_from_parent('list_featured_works_query', None)
-        set_from_parent(
-            'list_seen_in_previous_days', list_seen_in_previous_days)
-
-        set_from_parent(
+        self.set_from_parent(
             'subgenre_behavior', subgenre_behavior, self.IN_SUBLANES)
-
-        if self.searchable and (self.list_data_source_id or self.list_ids):
-            raise UndefinedLane("Lane with list data source cannot be searchable")
 
         self.set_sublanes(
             self._db, sublanes, genres,
             exclude_genres=exclude_genres, fiction=fiction
+        )
+
+        # CustomList information must be set after sublanes.
+        # Otherwise, sublanes won't be restricted by the list.
+        self.set_customlist_information(
+            list_data_source, list_identifier, list_seen_in_previous_days
         )
 
         # Best-seller and staff pick lanes go at the top.
@@ -618,36 +595,9 @@ class Lane(object):
             formats=formats
         )
         if include_staff_picks:
-            full_name = "%s - Staff Picks" % self.name
-            try:
-                staff_picks_lane = Lane(
-                    full_name=full_name, display_name="Staff Picks",
-                    list_identifier="Staff Picks",
-                    searchable=False,
-                    **base_args
-                )
-            except UndefinedLane, e:
-                # Not a big deal, just don't add the lane.
-                staff_picks_lane = None
-            if staff_picks_lane:
-                self.sublanes.lanes.insert(0, staff_picks_lane)
-
+            self.include_staff_picks(**base_args)
         if include_best_sellers:
-            full_name = "%s - Best Sellers" % self.name
-            try:
-                best_seller_lane = Lane(
-                    full_name=full_name, display_name="Best Sellers", 
-                    list_data_source=DataSource.NYT,
-                    list_seen_in_previous_days=365*2,
-                    searchable=False,
-                    **base_args
-                )
-            except UndefinedLane, e:
-                # Not a big deal, just don't add the lane.
-                best_seller_lane = None
-            if best_seller_lane:
-                self.sublanes.lanes.insert(0, best_seller_lane)
-
+            self.include_best_sellers(**base_args)
 
         # Run some sanity checks.
         ch = Classifier.AUDIENCE_CHILDREN
@@ -655,128 +605,55 @@ class Lane(object):
         if ((include_best_sellers or include_staff_picks) and
             (self.list_data_source_id or self.list_ids)):
             raise UndefinedLane(
-                "Cannot include best-seller or staff-picks in a lane based on lists."
+                "Cannot include best-seller or staff-picks in a lane "
+                "based on lists."
             )
 
-        if (
-                self.age_range 
-                and not any(x in self.audiences for x in [ch, ya])
-        ):
+        if (self.age_range and
+            not any(x in self.audiences for x in [ch, ya])):
             raise UndefinedLane(
-                "Lane %s specifies age range but does not contain children's or young adult books." % self.name
+                "Lane %s specifies age range but does not contain "
+                "children's or young adult books." % self.name
             )
 
-    def set_sublanes(self, _db, sublanes, genres,
-                     exclude_genres=None, fiction=None):
-        """Transforms a list of genres or sublanes into a LaneList and sets
-        that LaneList as the value of self.sublanes
-        """
-        # However the genres came in, turn them into database Genre
-        # objects and the corresponding GenreData objects.
-        genres = self.load_genres(self._db, genres)[0]
-
-        # Create a complete list of genres to exclude.
-        full_exclude_genres = set()
-        if exclude_genres:
-            for genre in exclude_genres:
-                genre, ignore = self.load_genre(self._db, genre)
-                for l in genre.self_and_subgenres:
-                    full_exclude_genres.add(l)
-
-        if fiction is None:
-            fiction = self.FICTION_DEFAULT_FOR_GENRE
-
-        # Find all the genres that will go into this lane.
-        genres, self.fiction = self.gather_matching_genres(
-            genres, fiction, full_exclude_genres
-        )
-        self.genre_ids = [x.id for x in genres]
-        self.genre_names = [x.name for x in genres]
-
-        if sublanes and not isinstance(sublanes, list):
-            sublanes = [sublanes]
-        subgenre_sublanes = []
-        if self.subgenre_behavior == self.IN_SUBLANES:
-            # All subgenres of the given genres that are not in
-            # full_exclude_genres must get a constructed sublane.
-            for genre in genres:
-                for subgenre in genre.subgenres:
-                    if subgenre in full_exclude_genres:
-                        continue
-                    sublane = Lane(
-                            self._db, full_name=subgenre.name,
-                            parent=self, genres=[subgenre],
-                            subgenre_behavior=self.IN_SUBLANES
-                    )
-                    subgenre_sublanes.append(sublane)
-
-        if sublanes and subgenre_sublanes:
-            raise UndefinedLane(
-                "Explicit list of sublanes was provided, but I'm also asked to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
-            )
-
-        if subgenre_sublanes:
-            self.sublanes = LaneList(self)
-            for sl in subgenre_sublanes:
-                self.sublanes.add(sl)
-        elif sublanes:
-            self.sublanes = LaneList.from_description(
-                _db, self, sublanes
-            )
-        else:
-            self.sublanes = LaneList.from_description(_db, self, [])
-
-    def includes_language(self, language):
-        """Would you expect to find books in the given language in
-        this lane?
-        """
-        if self.exclude_languages:
-            # We include all language except the ones on the exclude list.
-            if language in self.exclude_languages:
-                return False
-            else:
-                return True
-        if self.languages and language not in self.languages:
-            # We only include languages on the include list.
-            return False
-        # We include all languages.
-        return True        
-
-    def audience_list_for_age_range(self, audiences, age_range):
-        """Normalize a value for Work.audience based on .age_range
-
-        If you set audience to Young Adult but age_range to 16-18,
-        you're saying that books for 18-year-olds (i.e. adults) are
-        okay.
-
-        If you set age_range to Young Adult but age_range to 12-15, you're
-        saying that books for 12-year-olds (i.e. children) are
-        okay.
-        """
-        if not audiences:
+    def set_from_parent(self, field_name, value, default=None):
+        if value is None:
             if self.parent:
-                audiences = self.parent.audiences
+                value = getattr(self.parent, field_name, default)
             else:
-                audiences = []
-        if isinstance(audiences, basestring):
-            audiences = [audiences]
-        if isinstance(audiences, set):
-            audiences = audiences
-        else:
-            audiences = set(audiences)
-        if not age_range:
-            return audiences
+                value = default
+        setattr(self, field_name, value)
 
-        if not isinstance(age_range, list):
-            age_range = [age_range]
+    def set_customlist_information(self, list_data_source, list_identifier,
+                                   list_seen_in_previous_days):
+        """Sets any attributes relevant to lanes created from CustomLists"""
 
-        if age_range[-1] >= 18:
-            audiences.add(Classifier.AUDIENCE_ADULT)
-        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_CHILDREN)
-        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
-        return audiences      
+        # The lane may be restricted to books that are on a list
+        # from a given data source.
+        custom_list_details = self.custom_lists_for_identifier(
+            list_data_source, list_identifier)
+        (self.list_data_source_id,
+         self.list_ids,
+         self.list_featured_works_query) = custom_list_details
+
+        # Or its parent may be restricted, in which case it should be,
+        # too.
+        if not self.list_data_source_id:
+            self.set_from_parent('list_data_source_id', None)
+        if not self.list_ids:
+            self.set_from_parent('list_ids', None)
+        if not self.list_featured_works_query:
+            # The parent may have featured works from the list that
+            # could be included here.
+            self.set_from_parent('list_featured_works_query', None)
+
+        for sublane in self.sublanes:
+            # If the sublanes were set beforehand, they need to
+            # inherit this information now.
+            sublane.set_customlist_information(None, None, None)
+
+        self.set_from_parent(
+            'list_seen_in_previous_days', list_seen_in_previous_days)
 
     def custom_lists_for_identifier(self, list_data_source, list_identifier):
         """Turn a data source and an identifier into a specific list
@@ -784,7 +661,6 @@ class Lane(object):
         """
         if isinstance(list_data_source, basestring):
             list_data_source = DataSource.lookup(self._db, list_data_source)
-
         # The lane may be restricted to books that are on one or
         # more specific lists.
         if not list_identifier:
@@ -839,6 +715,155 @@ class Lane(object):
         works_query = self._db.query(Work).with_labels().\
             filter(Work.id.in_(work_ids))
         return works_query
+
+    def set_sublanes(self, _db, sublanes, genres,
+                     exclude_genres=None, fiction=None):
+        """Transforms a list of genres or sublanes into a LaneList and sets
+        that LaneList as the value of self.sublanes
+        """
+        # However the genres came in, turn them into database Genre
+        # objects and the corresponding GenreData objects.
+        genres = self.load_genres(self._db, genres)[0]
+
+        # Create a complete list of genres to exclude.
+        full_exclude_genres = set()
+        if exclude_genres:
+            # TODO: automatically extract exclude_genres from parent lanes.
+            for genre in exclude_genres:
+                genre, ignore = self.load_genre(self._db, genre)
+                for l in genre.self_and_subgenres:
+                    full_exclude_genres.add(l)
+
+        if fiction is None:
+            fiction = self.FICTION_DEFAULT_FOR_GENRE
+
+        # Find all the genres that will go into this lane.
+        genres, self.fiction = self.gather_matching_genres(
+            _db, genres, fiction, full_exclude_genres
+        )
+        self.genre_ids = [x.id for x in genres]
+        self.genre_names = [x.name for x in genres]
+
+        if sublanes and not isinstance(sublanes, list):
+            sublanes = [sublanes]
+        subgenre_sublanes = []
+        if self.subgenre_behavior == self.IN_SUBLANES:
+            # All subgenres of the given genres that are not in
+            # full_exclude_genres must get a constructed sublane.
+            for genre in genres:
+                for subgenre in genre.subgenres:
+                    if subgenre in full_exclude_genres:
+                        continue
+                    sublane = Lane(
+                            self._db, full_name=subgenre.name,
+                            parent=self, genres=[subgenre],
+                            subgenre_behavior=self.IN_SUBLANES
+                    )
+                    subgenre_sublanes.append(sublane)
+
+        if sublanes and subgenre_sublanes:
+            raise UndefinedLane(
+                "Explicit list of sublanes was provided, but I'm also asked "\
+                "to turn %s subgenres into sublanes!" % len(subgenre_sublanes)
+            )
+
+        if subgenre_sublanes:
+            self.sublanes = LaneList(self)
+            for sl in subgenre_sublanes:
+                self.sublanes.add(sl)
+        elif sublanes:
+            self.sublanes = LaneList.from_description(
+                _db, self, sublanes
+            )
+        else:
+            self.sublanes = LaneList.from_description(_db, self, [])
+
+    def include_staff_picks(self, **base_args):
+        """Includes a Staff Picks sublane to the base/top of this lane."""
+
+        full_name = "%s - Staff Picks" % self.name
+        try:
+            staff_picks_lane = Lane(
+                full_name=full_name, display_name="Staff Picks",
+                list_identifier="Staff Picks",
+                searchable=False,
+                **base_args
+            )
+        except UndefinedLane, e:
+            # Not a big deal, just don't add the lane.
+            staff_picks_lane = None
+        if staff_picks_lane:
+            self.sublanes.lanes.insert(0, staff_picks_lane)
+
+    def include_best_sellers(self, **base_args):
+        """Includes a NYT Best Sellers sublane to the base/top of this lane."""
+
+        full_name = "%s - Best Sellers" % self.name
+        try:
+            best_seller_lane = Lane(
+                full_name=full_name, display_name="Best Sellers",
+                list_data_source=DataSource.NYT,
+                list_seen_in_previous_days=365*2,
+                searchable=False,
+                **base_args
+            )
+        except UndefinedLane, e:
+            # Not a big deal, just don't add the lane.
+            best_seller_lane = None
+        if best_seller_lane:
+            self.sublanes.lanes.insert(0, best_seller_lane)
+
+    def includes_language(self, language):
+        """Would you expect to find books in the given language in
+        this lane?
+        """
+        if self.exclude_languages:
+            # We include all language except the ones on the exclude list.
+            if language in self.exclude_languages:
+                return False
+            else:
+                return True
+        if self.languages and language not in self.languages:
+            # We only include languages on the include list.
+            return False
+        # We include all languages.
+        return True        
+
+    def audience_list_for_age_range(self, audiences, age_range):
+        """Normalize a value for Work.audience based on .age_range
+
+        If you set audience to Young Adult but age_range to 16-18,
+        you're saying that books for 18-year-olds (i.e. adults) are
+        okay.
+
+        If you set age_range to Young Adult but age_range to 12-15, you're
+        saying that books for 12-year-olds (i.e. children) are
+        okay.
+        """
+        if not audiences:
+            if self.parent:
+                audiences = self.parent.audiences
+            else:
+                audiences = []
+        if isinstance(audiences, basestring):
+            audiences = [audiences]
+        if isinstance(audiences, set):
+            audiences = audiences
+        else:
+            audiences = set(audiences)
+        if not age_range:
+            return audiences
+
+        if not isinstance(age_range, list):
+            age_range = [age_range]
+
+        if age_range[-1] >= 18:
+            audiences.add(Classifier.AUDIENCE_ADULT)
+        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_CHILDREN)
+        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
+        return audiences      
 
     @classmethod
     def from_description(cls, _db, parent, description):
@@ -906,16 +931,32 @@ class Lane(object):
         return genre_obj, genre_data
 
     @classmethod
-    def all_matching_genres(cls, genres, exclude_genres=None):
+    def all_matching_genres(cls, _db, genres, exclude_genres=None, fiction=None):
         matches = set()
         exclude_genres = exclude_genres or []
+        if exclude_genres:
+            if not isinstance(exclude_genres, list):
+                exclude_genres = list(exclude_genres)
+
+            for excluded_genre in exclude_genres[:]:
+                exclude_genres += excluded_genre.self_and_subgenres
+
+            if not genres:
+                # This is intended for lanes like "General Fiction"
+                # when we want everything EXCEPT for some given lanes.
+                genres = _db.query(Genre).all()
+                if fiction is not None:
+                    # Filter the genres according to their expected
+                    # fiction status.
+                    genres = filter(lambda g: g.default_fiction==fiction, genres)
+
         if genres:
             for genre in genres:
                 matches = matches.union(genre.self_and_subgenres)
         return [x for x in matches if x not in exclude_genres]
 
     @classmethod
-    def gather_matching_genres(cls, genres, fiction, exclude_genres=[]):
+    def gather_matching_genres(cls, _db, genres, fiction, exclude_genres=[]):
         """Find all subgenres of the given genres which match the given fiction
         status.
         
@@ -925,11 +966,12 @@ class Lane(object):
         It may also result in the need to create more sublanes.
         """
         fiction_default_by_genre = (fiction == cls.FICTION_DEFAULT_FOR_GENRE)
+
         if fiction_default_by_genre:
             # Unset `fiction`. We'll set it again when we find out
             # whether we've got fiction or nonfiction genres.
             fiction = None
-        genres = cls.all_matching_genres(genres, exclude_genres)
+        genres = cls.all_matching_genres(_db, genres, exclude_genres, fiction=fiction)
         for genre in genres:
             if fiction_default_by_genre:
                 if fiction is None:
@@ -1601,3 +1643,15 @@ class QueryGeneratedLane(Lane):
         :return: query or None
         """
         raise NotImplementedError()
+
+def make_lanes(_db, definitions=None):
+
+    definitions = definitions or Configuration.policy(
+        Configuration.LANES_POLICY
+    )
+    if not definitions:
+        # A lane arrangement is required for lane making.
+        return None
+
+    lanes = [Lane(_db=_db, **definition) for definition in definitions]
+    return LaneList.from_description(_db, None, lanes)

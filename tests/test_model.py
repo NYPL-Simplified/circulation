@@ -5012,6 +5012,8 @@ class TestCustomList(DatabaseTest):
         eq_(workless_edition, workless_entry.edition)
         eq_(True, workless_entry.first_appearance > now)
         eq_(None, workless_entry.license_pool)
+        # And the CustomList will be seen as updated.
+        eq_(True, custom_list.updated > now)
 
         # An edition with a work can create an entry.
         worked_edition, lp = self._edition(with_license_pool=True)
@@ -5034,10 +5036,13 @@ class TestCustomList(DatabaseTest):
         eq_(now, timed_entry.most_recent_appearance)
 
         # If the entry already exists, the most_recent_appearance is updated.
+        previous_list_update_time = custom_list.updated
         new_timed_entry, is_new = custom_list.add_entry(timed_edition)
         eq_(False, is_new)
         eq_(timed_entry, new_timed_entry)
         eq_(True, timed_entry.most_recent_appearance > now)
+        # But the CustomList update time is not.
+        eq_(previous_list_update_time, custom_list.updated)
 
         # If the entry already exists, the most_recent_appearance can be
         # updated by passing in a later first_appearance.
@@ -5062,6 +5067,8 @@ class TestCustomList(DatabaseTest):
         equivalent_entry, is_new = custom_list.add_entry(equivalent)
         eq_(False, is_new)
         eq_(workless_entry, equivalent_entry)
+        # Or update the CustomList updated time
+        eq_(previous_list_update_time, custom_list.updated)
         # But it will change the edition to the one that's requested.
         eq_(equivalent, workless_entry.edition)
         # And/or add a license_pool if one is newly available.
@@ -5070,25 +5077,32 @@ class TestCustomList(DatabaseTest):
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=2)
         [first, second] = editions
+        now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
         eq_(second, custom_list.entries[0].edition)
+        # And CustomList.updated is changed.
+        eq_(True, custom_list.updated > now)
 
         # An entry is also removed if any of its equivalent editions
         # are passed in.
+        previous_list_update_time = custom_list.updated
         equivalent = self._edition(with_open_access_download=True)[0]
         second.primary_identifier.equivalent_to(
             equivalent.data_source, equivalent.primary_identifier, 1
         )
         custom_list.remove_entry(second)
         eq_([], custom_list.entries)
+        eq_(True, custom_list.updated > previous_list_update_time)
 
         # An edition that's not on the list doesn't cause any problems.
         custom_list.add_entry(second)
+        previous_list_update_time = custom_list.updated
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
+        eq_(previous_list_update_time, custom_list.updated)
 
     def test_entries_for_work(self):
         custom_list, editions = self._customlist(num_entries=2)
