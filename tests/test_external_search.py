@@ -194,6 +194,7 @@ class TestExternalSearch(DatabaseTest):
     def teardown(self):
         if self.search:
             self.search.indices.delete(self.search.works_index)
+            self.search.indices.delete('test_index-v2', ignore=[404])
             ExternalSearchIndex.__client = None
         super(TestExternalSearch, self).teardown()
 
