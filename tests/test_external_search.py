@@ -44,7 +44,7 @@ class TestExternalSearch(DatabaseTest):
                 ExternalSearchIndex.__client = None
                 self.search = ExternalSearchIndex()
                 # Start with an empty index
-                self.search.setup_index()
+                self.search.setup_index(current_alias=True)
             except Exception as e:
                 self.search = None
                 print "Unable to set up elasticsearch index, search tests will be skipped."
