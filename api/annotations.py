@@ -169,13 +169,21 @@ class AnnotationParser(object):
         else:
             content = None
 
-        annotation, is_new = Annotation.get_one_or_create(
-            _db, patron=patron,
-            identifier=identifier,
-            motivation=motivation,
-        )
+        target = json.dumps(target)
+        extra_kwargs = {}
+        if motivation == Annotation.IDLING:
+            # A given book can only have one 'idling' annotation.
+            pass
+        elif motivation == Annotation.BOOKMARKING:
+            # A given book can only have one 'bookmarking' annotation
+            # per target.
+            extra_kwargs['target'] = target
 
-        annotation.target = json.dumps(target)
+        annotation = Annotation.get_one_or_create(
+            _db, patron=patron, identifier=identifier,
+            **extra_kwargs
+        )
+        annotation.target = target
         if content:
             annotation.content = json.dumps(content)
         annotation.active = True
