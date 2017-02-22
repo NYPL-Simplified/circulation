@@ -12,10 +12,11 @@ from core.classifier import (
 from core import classifier
 
 from core.lane import (
+    Facets,
     Lane,
     LaneList,
+    make_lanes as core_make_lanes,
     QueryGeneratedLane,
-    Facets,
 )
 from core.model import (
     get_one,
@@ -31,15 +32,13 @@ from novelist import NoveListAPI
 
 def make_lanes(_db, definitions=None):
 
-    definitions = definitions or Configuration.policy(
-        Configuration.LANES_POLICY
-    )
+    lanes = core_make_lanes(_db, definitions)
+    if lanes:
+        return lanes
 
-    if not definitions:
-        lanes = make_lanes_default(_db)
-    else:
-        lanes = [Lane(_db=_db, **definition) for definition in definitions]
-
+    # There was no configuration to create the lanes,
+    # so go with  the default configuration instead.
+    lanes = make_lanes_default(_db)
     return LaneList.from_description(_db, None, lanes)
 
 def make_lanes_default(_db):
@@ -290,6 +289,7 @@ def lanes_for_large_collection(_db, languages):
              ),
             Lane(_db, full_name="Informational books", genres=None,
                  fiction=False, exclude_genres=[genres.Biography_Memoir],
+                 subgenre_behavior=Lane.IN_SAME_LANE,
                  **children_common_args
              )
         ],

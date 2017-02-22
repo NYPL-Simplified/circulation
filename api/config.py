@@ -21,7 +21,6 @@ class Configuration(CoreConfiguration):
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
-    LANES_POLICY = "lanes"
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     ROOT_LANE_POLICY = "root_lane"
