@@ -147,7 +147,8 @@ class ExternalSearchIndex(object):
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
         if self.works_index.endswith(self.CURRENT_ALIAS_SUFFIX):
-            # The alias has already been created.
+            # The alias has already been created and the works_index
+            # appropriately set.
             return
 
         alias_details = self.indices.get_alias(index=self.works_index)
