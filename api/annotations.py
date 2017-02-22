@@ -179,9 +179,9 @@ class AnnotationParser(object):
             # per target.
             extra_kwargs['target'] = target
 
-        annotation = Annotation.get_one_or_create(
+        annotation, ignore = Annotation.get_one_or_create(
             _db, patron=patron, identifier=identifier,
-            **extra_kwargs
+            motivation=motivation, **extra_kwargs
         )
         annotation.target = target
         if content:
