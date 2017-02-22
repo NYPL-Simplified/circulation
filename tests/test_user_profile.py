@@ -27,9 +27,9 @@ class TestProfileController(object):
         """Test that sending a GET request to the controller results in the
         expected profile_document.
         """
-        status_code, media_type, body = self.controller.get()
+        body, status_code, headers = self.controller.get()
         eq_(200, status_code)
-        eq_(ProfileController.MEDIA_TYPE, media_type)
+        eq_(ProfileController.MEDIA_TYPE, headers['Content-Type'])
         eq_(json.dumps(self.storage.profile_document), body)
 
     def test_put_success(self):
@@ -41,7 +41,7 @@ class TestProfileController(object):
         expected_new_state = dict(writable_key="new value")
         old_read_only = dict(self.storage.read_only_settings)
         body = json.dumps(dict(settings=expected_new_state))
-        status_code, media_type, body = self.controller.put(headers, body)
+        body, status_code, headers = self.controller.put(headers, body)
         eq_(200, status_code)
         eq_(expected_new_state, self.storage.writable_settings)
         eq_(old_read_only, self.storage.read_only_settings)
@@ -52,7 +52,7 @@ class TestProfileController(object):
         """
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
         expected_new_state = dict(self.storage.writable_settings)
-        status_code, media_type, body = self.controller.put(
+        body, status_code, headers = self.controller.put(
             headers, json.dumps({})
         )
         eq_(200, status_code)
