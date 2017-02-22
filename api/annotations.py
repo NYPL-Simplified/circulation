@@ -166,7 +166,7 @@ class AnnotationParser(object):
         else:
             content = None
 
-        annotation, is_new = Annotations.get_one_or_create(
+        annotation, is_new = Annotation.get_one_or_create(
             _db, patron=patron,
             identifier=identifier,
             motivation=motivation,
