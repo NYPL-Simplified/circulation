@@ -1103,6 +1103,7 @@ class TestAnnotationController(CirculationControllerTest):
         with self.app.test_request_context(
             "/", headers=dict(Authorization=self.valid_auth), method='POST', data=json.dumps(data)):
             patron = self.manager.annotations.authenticated_patron_from_request()
+            patron.synchronize_annotations = True
             # The patron doesn't have any annotations yet.
             annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
             eq_(0, len(annotations))
