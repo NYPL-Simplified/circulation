@@ -631,9 +631,11 @@ class Annotation(Base):
     LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
 
     IDLING = LS_NAMESPACE + u'idling'
+    BOOKMARKING = LS_NAMESPACE + u'bookmarking'
 
     MOTIVATIONS = [
-        IDLING
+        IDLING,
+        BOOKMARKING,
     ]
 
     __tablename__ = 'annotations'
