@@ -783,9 +783,10 @@ class InstanceInitializationScript(Script):
     the database and sets an appropriate alias on the ElasticSearch index.
     """
 
-    def do_run(self):
+    def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
-        search_client = ExternalSearchIndex()
+        if not ignore_search:
+            search_client = ExternalSearchIndex()
 
         # Set a timestamp that represents the new database's version.
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
