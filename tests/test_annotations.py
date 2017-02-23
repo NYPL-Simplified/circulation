@@ -492,7 +492,7 @@ class TestAnnotationParser(AnnotationTest):
         self.pool.loan_to(self.patron)
 
         data = self._sample_jsonld()
-        data["motivation"] = "bookmarking"
+        data["motivation"] = "not-a-valid-motivation"
         data_json = json.dumps(data)
 
         annotation = AnnotationParser.parse(self._db, data_json, self.patron)
