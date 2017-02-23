@@ -125,18 +125,7 @@ class ExternalSearchIndex(object):
             },
         )
 
-        mapping = {"properties": {}}
-        for field in ["title", "series", "subtitle", "summary", "classifications.term"]:
-            mapping["properties"][field] = {
-                "type": "string",
-                "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": "string",
-                        "analyzer": "en_minimal_analyzer"
-                    }
-                }
-            }
+        mapping = ExternalSearchIndexVersions.latest_mapping()
 
         self.indices.put_mapping(
             doc_type=self.work_document_type,
@@ -561,6 +550,43 @@ class ExternalSearchIndex(object):
         self.log.info("Successfully indexed %i documents, failed to index %i." % (success_count, len(failures)))
 
         return successes, failures
+
+
+class ExternalSearchIndexVersions(object):
+
+    VERSIONS = ['v2']
+
+    @classmethod
+    def latest(cls):
+        version_re = re.compile('v(\d+)')
+        versions = [int(re.match(version_re, v).groups()[0]) for v in cls.VERSIONS]
+        latest = sorted(versions)[-1]
+        return 'v%d' % latest
+
+    @classmethod
+    def latest_mapping(cls):
+        version_method = cls.latest() + '_mapping'
+        return getattr(cls, version_method)()
+
+    @classmethod
+    def map_fields(cls, fields, field_description):
+        mapping = {"properties": {}}
+        for field in fields:
+            mapping["properties"][field] = field_description
+        return mapping
+
+    @classmethod
+    def v2_mapping(cls):
+        return cls.map_fields(
+            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            field_description={
+                "type": "string",
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": "string",
+                        "analyzer": "en_minimal_analyzer"}}}
+        )
 
 
 class DummyExternalSearchIndex(ExternalSearchIndex):
