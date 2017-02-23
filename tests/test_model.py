@@ -36,6 +36,7 @@ from config import (
 from model import (
     Annotation,
     BaseCoverageRecord,
+    Catalog,
     CirculationEvent,
     Classification,
     Collection,
