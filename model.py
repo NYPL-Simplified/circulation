@@ -8459,7 +8459,9 @@ class Library(Base):
     # The name of this library to use when signing short client tokens
     # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
     # This name must be unique across the library registry.
-    library_registry_short_name = Column(Unicode, unique=True)
+    _library_registry_short_name = Column(
+        Unicode, unique=True, name='library_registry_short_name'
+    )
 
     # The shared secret to use when signing short client tokens for
     # consumption by the library registry.
@@ -8474,6 +8476,22 @@ class Library(Base):
             )
         )
         return library
+
+    @hybrid_property
+    def library_registry_short_name(self):
+        """Gets library_registry_shared_secret from database"""
+        return self._library_registry_short_name
+
+    @library_registry_short_name.setter
+    def _set_library_registry_short_name(self, value):
+        """Uppercase the library registry short name on the way in."""
+        if value:
+            value = value.upper()
+            if '|' in value:
+                raise ValueError(
+                    "Library registry short name cannot contain the pipe character."
+                )
+        self._library_registry_short_name = value
 
 
 class Admin(Base):
