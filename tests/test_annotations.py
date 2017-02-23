@@ -348,12 +348,12 @@ class TestAnnotationParser(AnnotationTest):
         self.identifier = self.pool.identifier
         self.patron = self._patron()
         
-    def _sample_jsonld(self):
+    def _sample_jsonld(self, motivation=Annotation.IDLING):
         data = dict()
         data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
                             {'ls': Annotation.LS_NAMESPACE}]
         data["type"] = "Annotation"
-        data["motivation"] = Annotation.IDLING.replace(Annotation.LS_NAMESPACE, 'ls:')
+        data["motivation"] = motivation.replace(Annotation.LS_NAMESPACE, 'ls:')
         data["body"] = {
             "type": "TextualBody",
             "bodyValue": "A good description of the topic that bears further investigation",
