@@ -21,6 +21,7 @@ from api.mock_authentication import (
 
 from core.model import (
     DataSource,
+    Library,
 )
 
 class TestServiceStatusMonitor(DatabaseTest):
@@ -69,7 +70,8 @@ class TestServiceStatusMonitor(DatabaseTest):
             test_username="user",
             test_password="pass",
         )
-        auth = Authenticator(provider)
+        library = Library.instance(self._db)
+        auth = Authenticator(library, provider)
 
         class MockPatronActivity(object):
             def __init__(self, _db, data_source_name):
