@@ -8654,7 +8654,7 @@ class Catalog(Base):
         catalog, ignore = get_one_or_create(
             _db, cls, name=name, client_id=unicode(client_id),
             client_secret=unicode(plaintext_client_secret),
-            data_source=collection_data_source
+            data_source=catalog_data_source
         )
 
         _db.commit()
