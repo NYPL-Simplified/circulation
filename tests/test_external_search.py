@@ -18,6 +18,7 @@ from lane import Lane
 from model import Edition
 from external_search import (
     ExternalSearchIndex,
+    ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
 )
 from classifier import Classifier
@@ -38,7 +39,7 @@ class TestExternalSearch(DatabaseTest):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index"
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-current"
 
             try:
                 ExternalSearchIndex.__client = None
@@ -202,35 +203,35 @@ class TestExternalSearch(DatabaseTest):
         if not self.search:
             return
 
-        self.search.setup_index(new_index='test_index-v2')
+        current_index = 'test_index-' + ExternalSearchIndexVersions.latest()
+        self.search.setup_index(new_index='the_other_index')
 
-        eq_(True, self.search.indices.exists('test_index'))
-        eq_(True, self.search.indices.exists('test_index-v2'))
+        # Both indices exist.
+        eq_(True, self.search.indices.exists(current_index))
+        eq_(True, self.search.indices.exists('the_other_index'))
 
-        # The search index is still the initial index.
-        eq_('test_index', self.search.works_index)
+        # The index for the app's search is still the original index.
+        eq_(current_index, self.search.works_index)
 
-        # The alias hasn't been passed over to the new index
+        # The alias hasn't been passed over to the new index.
         alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(alias, self.search.works_alias)
-        eq_(True, self.search.indices.exists_alias('test_index', alias))
-        eq_(False, self.search.indices.exists_alias('test_index-v2', alias))
-
-        # Cleaning up.
-        self.search.indices.delete('test_index-v2')
+        eq_(True, self.search.indices.exists_alias(current_index, alias))
+        eq_(False, self.search.indices.exists_alias('the_other_index', alias))
 
     def test_setup_current_alias(self):
         if not self.search:
             return
 
-        # The alias is set after the search index is created.
-        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
-        eq_(True, self.search.indices.exists_alias('test_index', alias))
+        # The index was generated from the alias in configuration.
+        index_name = 'test_index-' + ExternalSearchIndexVersions.latest()
+        eq_(index_name, self.search.works_index)
+        eq_(True, self.search.indices.exists(index_name))
 
-        # The works_alias is set to the alias instead of the index itself.
+        # The alias is also created from the configuration.
+        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(alias, self.search.works_alias)
-        # The works_index is left alone for upload tasks.
-        eq_('test_index', self.search.works_index)
+        eq_(True, self.search.indices.exists_alias(index_name, alias))
 
     def test_query_works(self):
         """

@@ -16,6 +16,7 @@ class ExternalSearchIndex(object):
     
     work_document_type = 'work-type'
     CURRENT_ALIAS_SUFFIX = '-current'
+    VERSION_RE = re.compile('-v([0-9]+)$')
     __client = None
 
     def __init__(self, url=None, works_index=None):
@@ -24,7 +25,8 @@ class ExternalSearchIndex(object):
 
         # By default, assume that there is no search index.
         self.works_index = None
-        use_alias = False
+        from_configuration = False
+
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
                 integration = Configuration.integration(
@@ -35,12 +37,7 @@ class ExternalSearchIndex(object):
                     works_index = integration.get(
                         Configuration.ELASTICSEARCH_INDEX_KEY
                     ) or None
-
-                    # An alias for the 'current' version of the index
-                    # should only be created if we're using the
-                    # configured works_index. Otherwise, the included
-                    # index might be temporary.
-                    use_alias = True
+                    from_configuration = True
 
                 if not url:
                     if not integration:
@@ -59,21 +56,50 @@ class ExternalSearchIndex(object):
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
 
-        self.works_alias = self.works_index = self.__client.works_index
-
         self.indices = self.__client.indices
         self.search = self.__client.search
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+
+        self.works_index = self.works_alias = self.__client.works_index
+        if from_configuration:
+            # An alias for the 'current' version of the index
+            # should only be created if we're using the
+            # configured works_index. Otherwise, the included
+            # index might be temporary.
+            self.set_works_index(self.works_alias)
+
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
-            
-        if not self.indices.exists(self.works_index):
-            self.setup_index(current_alias=use_alias)
 
-    def setup_index(self, new_index=None, current_alias=False):
+    def set_works_index(self, current_alias):
+        index_details = self.indices.get_alias(name=current_alias, ignore=[404])
+        found = not (index_details.get('status')==404 or 'error' in index_details)
+
+        if found:
+            # We found an index.  Assume there's only one.
+            # This is where new documents will be uploaded.
+            self.works_index = index_details.keys()[0]
+
+        if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
+            # The alias culled from configuration is intended to be
+            # a current alias. Get the index name from here.
+            current_re = re.compile(self.CURRENT_ALIAS_SUFFIX+'$')
+            base_works_index = re.sub(current_re, '', current_alias)
+            version = ExternalSearchIndexVersions.latest()
+            self.works_index = base_works_index+'-'+version
+        else:
+            # Without the CURRENT_ALIAS_SUFFIX, assume the index string
+            # from config is the index itself and needs to be swapped.
+            self.works_index = current_alias
+
+        if not self.indices.exists(self.works_index):
+            self.setup_index()
+        self.setup_current_alias()
+
+    def setup_index(self, new_index=None):
         """Create the search index with appropriate mapping.
 
         This will destroy the search index, and all works will need
@@ -133,35 +159,32 @@ class ExternalSearchIndex(object):
             index=index,
         )
 
-        if current_alias:
-            self.setup_current_alias()
-
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
-        existing_alias_details = None
 
-        # Remove any version-styled endings to the index name (e.g. '-v3')
-        base_works_index = re.sub(r'-v[0-9]+$', '', self.works_index)
+        base_works_index = re.sub(self.VERSION_RE, '', self.works_index)
         alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
+        exists = self.indices.exists_alias(index=self.works_index, name=alias_name)
 
-        try:
-            existing_alias_details = self.indices.get_alias(
-                index=self.works_index, name=alias_name
-            )
-        except NotFoundError:
-            # It doesn't exist.
-            pass
+        if self.indices.exists_alias(name=alias_name):
+            # Ensure that the alias will only pointing at the current index.
+            all_indices = self.indices.get_alias(alias_name).keys()
+            other_indices = set(all_indices).difference([self.works_index])
+            for index in other_indices:
+                self.indices.delete_alias(index=index, name=alias_name)
 
-        if not existing_alias_details:
+        if not exists:
             response = self.indices.put_alias(
                 index=self.works_index, name=alias_name
             )
             if not response.get('acknowledged'):
                 self.log.error("Alias '%s' could not be created", alias_name)
+                # Work against the index instead of an alias.
+                self.works_alias = self.__client.works_index = self.works_index
                 return
 
-        # Make sure we're searching against the alias instead of the index.
-        self.works_alias = alias_name
+        # Search against the alias.
+        self.works_alias = self.__client.works_index = alias_name
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
