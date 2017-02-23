@@ -5250,6 +5250,22 @@ class TestLibrary(DatabaseTest):
         instance2 = Library.instance(self._db)
         eq_(instance, instance2)
 
+    def test_library_registry_short_name(self):
+        library = Library.instance(self._db)
+
+        # Short name is always uppercased.
+        library.library_registry_short_name = "foo"
+        eq_("FOO", library.library_registry_short_name)
+
+        # Short name cannot contain a pipe character.
+        def set_to_pipe():
+            library.library_registry_short_name = "foo|bar"
+        assert_raises(ValueError, set_to_pipe)
+
+        # You can set the short name to None. This isn't
+        # recommended, but it's not an error.
+        library.library_registry_short_name = None
+        
 
 class TestCollection(DatabaseTest):
 
