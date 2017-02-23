@@ -582,6 +582,23 @@ class TestIdentifier(DatabaseTest):
         )
 
 
+class TestGenre(DatabaseTest):
+
+    def test_default_fiction(self):
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        nonfiction, ignore = Genre.lookup(self._db, "History")
+        eq_(True, sf.default_fiction)
+        eq_(False, nonfiction.default_fiction)
+
+        # Create a previously unknown genre.
+        genre, ignore = Genre.lookup(
+            self._db, "Some Weird Genre", autocreate=True
+        )
+
+        # We don't know its default fiction status.
+        eq_(None, genre.default_fiction)
+
+        
 class TestSubject(DatabaseTest):
 
     def test_lookup_autocreate(self):

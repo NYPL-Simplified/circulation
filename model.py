@@ -5209,6 +5209,8 @@ class Genre(Base):
 
     @property
     def default_fiction(self):
+        if self.name not in classifier.genres:
+            return None
         return classifier.genres[self.name].is_fiction
 
 class Subject(Base):
