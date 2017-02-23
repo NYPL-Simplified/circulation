@@ -8566,7 +8566,7 @@ class Collection(Base):
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
-        setting, ignore = self.setting(key)
+        setting = self.setting(key)
         setting.value = value
         return setting
     
@@ -8574,12 +8574,13 @@ class Collection(Base):
         """Find or create a CollectionSetting on this Collection.
 
         :param key: Name of the setting.
-        :return: 2-tuple (CollectionSetting, is_new)
+        :return: A CollectionSetting
         """
         _db = Session.object_session(self)
-        return get_one_or_create(
+        setting, is_new = get_one_or_create(
             _db, CollectionSetting, collection=self, key=key
         )
+        return setting
 
 
 class CollectionSetting(Base):

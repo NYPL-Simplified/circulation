@@ -15,6 +15,8 @@ from config import (
 )
 
 from model import (
+    get_one_or_create,
+    Collection,
     Contributor,
     Credential,
     DataSource,
@@ -22,6 +24,7 @@ from model import (
     Edition,
     Hyperlink,
     Identifier,
+    Library,
     Measurement,
     Representation,
     Subject,
@@ -98,49 +101,47 @@ class OverdriveAPI(object):
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
    
-    def __init__(self, _db, testing=False):
+    def __init__(self, _db, collection):
         self._db = _db
+        
+        if collection.protocol != collection.OVERDRIVE:
+            raise ValueError(
+                "Collection protocol is %s, but passed into OverdriveAPI!" %
+                collection.protocol
+            )
+        
+        self.client_key = collection.username
+        self.client_secret = collection.password
+        self.library_id = collection.external_account_id
+        self.website_id = collection.setting('website_id').value
+        
+        if (not self.client_key or not self.client_secret or not self.website_id
+            or not self.library_id):
+            raise CannotLoadConfiguration(
+                "Overdrive configuration is incomplete."
+            )
 
-        # Set some stuff from environment variables
-        self.testing = testing
-        if not testing:
-            values = self.environment_values()
-            if len([x for x in values if not x]):
-                self.log.info(
-                    "No Overdrive client configured."
-                )
-                raise CannotLoadConfiguration("No Overdrive client configured.")
-
-            (self.client_key, self.client_secret, self.website_id, 
-             self.library_id) = values
-
-            # Get set up with up-to-date credentials from the API.
-            self.check_creds()
-            self.collection_token = self.get_library()['collectionToken']
-
-
-    @classmethod
-    def environment_values(cls):
-        value = Configuration.integration('Overdrive')
-        values = []
-        for name in [
-                'client_key',
-                'client_secret',
-                'website_id',
-                'library_id',
-        ]:
-            var = value.get(name)
-            if var:
-                var = var.encode("utf8")
-            values.append(var)
-        return values
+        # Get set up with up-to-date credentials from the API.
+        self.check_creds()
+        self.collection_token = self.get_library()['collectionToken']
 
     @classmethod
     def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None. Otherwise return an OverdriveAPI object.
+        library = Library.instance(_db)
+        collection = [x for x in library.collections
+                      if x.protocol == collection.OVERDRIVE]
+        if len(collection == 0):
+            # There are no Overdrive collections configured.
+            return None
+
+        if len(collection) > 1:
+            raise ValueError(
+                "Multiple Overdrive collections found for one library. This is not yet supprted."
+            )
+        [collection] = collection 
+
         try:
-            return cls(_db)
+            return cls(_db, collection)
         except CannotLoadConfiguration, e:
             return None
 
@@ -340,21 +341,25 @@ class MockOverdriveAPI(OverdriveAPI):
     def __init__(self, _db, *args, **kwargs):
         self.responses = []
 
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test Overdrive Collection",
+            protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
+                username='a', password='b', external_account_id='c'
+            )
+        )
+        collection.set_setting('website_id', 'd')
+        library.collections.append(collection)
+        
         # The constructor will make a request for the access token,
         # and then a request for the collection token.
         self.queue_response(200, content=self.mock_access_token("bearer token"))
         self.queue_response(
             200, content=self.mock_collection_token("collection token")
         )
-
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['Overdrive'] = {
-                'client_key' : 'a',
-                'client_secret' : 'b',
-                'website_id' : 'c',
-                'library_id' : 'd',
-            }
-            super(MockOverdriveAPI, self).__init__(_db, *args, **kwargs)
+        
+        super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
 
     def mock_access_token(self, credential):
         return json.dumps(dict(access_token=credential, expires_in=3600))
