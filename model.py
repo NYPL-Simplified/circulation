@@ -8455,7 +8455,7 @@ class Library(Base):
     # in the world. This is used to serve the library's Authentication
     # for OPDS document, and it also goes to the library registry.
     uuid = Column(Unicode, unique=True)
-    
+   
     @classmethod
     def instance(cls, _db):
         """Find the one and only library."""
@@ -8481,6 +8481,7 @@ class Admin(Base):
         self.credential = credential
         _db.commit()
 
+
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
@@ -8491,8 +8492,6 @@ class Collection(Base):
 
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
-    library_id = Column(Integer, ForeignKey('libraries.id'), index=True)
-    
     # What piece of code do we run to find out about changes to this
     # collection?
     protocol = Column(Unicode, nullable=False, index=True)
@@ -8538,9 +8537,30 @@ class Collection(Base):
         backref="collections"
     )
 
+    def set_setting(self, key, value):
+        """Create or update a key-value setting for this Collection."""
+        setting, ignore = self.setting(key)
+        setting.value = value
+        return setting
+    
+    def setting(self, key):
+        """Find or create a CollectionSetting on this Collection.
+
+        :param key: Name of the setting.
+        :return: 2-tuple (CollectionSetting, is_new)
+        """
+        _db = Session.object_session(self)
+        return get_one_or_create(
+            _db, CollectionSetting, collection=self, key=key
+        )
+
 
 class CollectionSetting(Base):
-    """An extra piece of information associated with a Collection."""
+    """An extra piece of information associated with a Collection.
+
+    e.g. the "website ID" associated with an Overdrive collection, which
+    does not map onto any of the attributes of Collection.
+    """
     __tablename__ = 'collectionsettings'
     id = Column(Integer, primary_key=True)
     collection_id = Column(Integer, ForeignKey('collections.id'), index=True)

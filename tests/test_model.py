@@ -5250,7 +5250,32 @@ class TestLibrary(DatabaseTest):
         instance2 = Library.instance(self._db)
         eq_(instance, instance2)
 
-        
+
+class TestCollection(DatabaseTest):
+
+    def test_set_key_value_pair(self):
+        """Test the ability to associate extra key-value pairs with
+        a Collection.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE
+        )
+        eq_([], collection.settings)
+
+        setting = collection.set_setting("website_id", "id1")
+        eq_("website_id", setting.key)
+        eq_("id1", setting.value)
+
+        # Calling set() again updates the key-value pair.
+        eq_([setting], collection.settings)
+        setting2 = collection.set_setting("website_id", "id2")
+        eq_(setting, setting2)
+        eq_("id2", setting2.value)
+
+        eq_((setting2, False), collection.setting("website_id"))
+
+
 class TestCatalog(DatabaseTest):
 
     def setup(self):
