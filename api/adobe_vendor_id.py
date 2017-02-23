@@ -691,7 +691,7 @@ class AuthdataUtility(object):
         if (not vendor_id or not library_uri
             or not library_short_name or not secret):
             raise CannotLoadConfiguration(
-                "Adobe Vendor ID configuration is incomplete. %s, %s, library.short_name and library.secret must all be defined." % (
+                "Adobe Vendor ID configuration is incomplete. %s, %s, library.library_registry_short_name and library.library_registry_shared_secret must all be defined." % (
                     cls.LIBRARY_URI_KEY,
                     Configuration.ADOBE_VENDOR_ID
                 )
