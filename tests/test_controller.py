@@ -133,7 +133,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             create_method_kwargs=dict(external_identifier="unittestuser")
         )
 
-        self.initialize_library(_db)        
+        self.initialize_library(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY : {
