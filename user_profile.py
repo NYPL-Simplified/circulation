@@ -11,7 +11,6 @@ class ProfileController(object):
 
     MEDIA_TYPE = "vnd.librarysimplified/user-profile+json"
     LINK_RELATION = "http://librarysimplified.org/terms/rel/user-profile"
-    SETTINGS_KEY = 'settings'
     
     def __init__(self, storage):
         """Constructor.
@@ -25,7 +24,7 @@ class ProfileController(object):
         JSON-based representation.
 
         :param return: A ProblemDetail if there is a problem; otherwise,
-            a 3-tuple (response code, media type, entity-body)
+            a 3-tuple (entity-body, response code, headers)
         """
         profile_document = None
         try:
@@ -50,7 +49,7 @@ class ProfileController(object):
                 )
             )
             
-        return 200, self.MEDIA_TYPE, body
+        return body, 200, {"Content-Type": self.MEDIA_TYPE}
         
     def put(self, headers, body):
         """Update the profile storage object with new settings
@@ -74,7 +73,7 @@ class ProfileController(object):
             return INVALID_INPUT.detailed(
                 _("Submitted profile document was not a JSON object.")
             )
-        new_settings = profile_document.get(self.SETTINGS_KEY)
+        new_settings = profile_document.get(ProfileStorage.SETTINGS_KEY)
         if new_settings:
             # The incoming document is a request to change at least one
             # setting in the profile.
@@ -95,7 +94,7 @@ class ProfileController(object):
                     return e.as_problem_detail_document()
                 else:
                     return INTERNAL_SERVER_ERROR.with_debug(e.message)
-        return 200, "text/plain", ""
+        return body, 200, {"Content-Type": "text/plain"}
 
 
 class ProfileStorage(object):
@@ -108,6 +107,12 @@ class ProfileStorage(object):
     not the set of all profiles.
     """
 
+    NS = 'simplified:'
+    FINES = NS + 'fines'
+    AUTHORIZATION_EXPIRES = NS + "authorization_expires"
+    SYNCHRONIZE_ANNOTATIONS = NS + 'synchronize_annotations'
+    SETTINGS_KEY = 'settings'
+    
     @property
     def profile_document(self):
         """Create a Profile document representing the current state of 
@@ -166,7 +171,7 @@ class MockProfileStorage(ProfileStorage):
     @property
     def profile_document(self):
         body = dict(self.read_only_settings)
-        body[ProfileController.SETTINGS_KEY] = dict(self.writable_settings)
+        body[self.SETTINGS_KEY] = dict(self.writable_settings)
         return body
 
     def update(self, new_values, profile_document):
