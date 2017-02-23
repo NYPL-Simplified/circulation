@@ -5250,50 +5250,50 @@ class TestLibrary(DatabaseTest):
         eq_(instance, instance2)
 
         
-class TestCollection(DatabaseTest):
+class TestCatalog(DatabaseTest):
 
     def setup(self):
-        super(TestCollection, self).setup()
-        self.collection = self._collection()
+        super(TestCatalog, self).setup()
+        self.catalog = self._catalog()
 
     def test_encrypts_client_secret(self):
-        collection, new = get_one_or_create(
-            self._db, Collection, name=u"Test Collection", client_id=u"test",
+        catalog, new = get_one_or_create(
+            self._db, Catalog, name=u"Test Catalog", client_id=u"test",
             client_secret=u"megatest"
         )
-        assert collection.client_secret != u"megatest"
-        eq_(True, collection.client_secret.startswith("$2a$"))
+        assert catalog.client_secret != u"megatest"
+        eq_(True, catalog.client_secret.startswith("$2a$"))
 
     def test_register(self):
-        collection, plaintext_secret = Collection.register(
+        catalog, plaintext_secret = Catalog.register(
             self._db, u"A Library"
         )
 
-        # It creates client details and a DataSource for the collection
-        assert collection.client_id and collection.client_secret
-        assert get_one(self._db, DataSource, name=collection.name)
+        # It creates client details and a DataSource for the catalog
+        assert catalog.client_id and catalog.client_secret
+        assert get_one(self._db, DataSource, name=catalog.name)
 
         # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+        assert_raises(ValueError, Catalog.register, self._db, u"A Library")
 
     def test_authenticate(self):
 
-        result = Collection.authenticate(self._db, u"abc", u"def")
-        eq_(self.collection, result)
+        result = Catalog.authenticate(self._db, u"abc", u"def")
+        eq_(self.catalog, result)
 
-        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        result = Catalog.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
-        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        result = Catalog.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
     def test_catalog_identifier(self):
-        """#catalog_identifier associates an identifier with the collection"""
+        """#catalog_identifier associates an identifier with the catalog"""
 
         identifier = self._identifier()
-        self.collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(self.collection.catalog))
-        eq_(identifier, self.collection.catalog[0])
+        self.catalog.catalog_identifier(self._db, identifier)
+        eq_(1, len(self.catalog.catalog))
+        eq_(identifier, self.catalog.catalog[0])
 
     def test_works_updated_since(self):
 
@@ -5301,13 +5301,13 @@ class TestCollection(DatabaseTest):
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         timestamp = datetime.datetime.utcnow()
-        # A collection with no catalog returns nothing.
-        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+        # An empty catalog returns nothing.
+        eq_([], self.catalog.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
-        updated_works = self.collection.works_updated_since(self._db, None).all()
+        self.catalog.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.catalog.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.catalog.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))
         assert w1 in updated_works and w2 in updated_works
@@ -5316,7 +5316,7 @@ class TestCollection(DatabaseTest):
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
-        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+        eq_([w1], self.catalog.works_updated_since(self._db, timestamp).all())
 
 
 class TestMaterializedViews(DatabaseTest):
