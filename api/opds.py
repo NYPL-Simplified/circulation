@@ -781,13 +781,29 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"
         return tags
 
+    @property
+    def user_profile_management_protocol_link(self):
+        """Create a <link> tag that points to the circulation
+        manager's User Profile Management Protocol endpoint
+        for the current patron.
+        """
+        link = OPDSFeed.makeelement("link")
+        link.attrib['rel'] = 'http://librarysimplified.org/terms/rel/user-profile'
+        link.attrib['href'] = self.url_for(
+            'patron_profile', _external=True
+        )
+        return link
+        
     def annotate_feed(self, feed, lane):
-        """Add feed-level DRM device registration tags to the feed."""
+        """Annotate the feed with top-level DRM device registration tags
+        and a link to the User Profile Management Protocol endpoint.
+        """
         super(CirculationManagerLoanAndHoldAnnotator, self).annotate_feed(
             feed, lane
         )
         if self.patron:
             tags = self.drm_device_registration_feed_tags(self.patron)
+            tags.append(self.user_profile_management_protocol_link)
             for tag in tags:
                 feed.feed.append(tag)
 

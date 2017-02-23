@@ -20,7 +20,17 @@ from api.annotations import (
 )
 from api.problem_details import *
 
-class TestAnnotationWriter(ControllerTest):
+class AnnotationTest(DatabaseTest):
+    
+    def _patron(self):
+        """Create a test patron who has opted in to annotation sync."""
+        patron = super(AnnotationTest, self)._patron()
+        patron.synchronize_annotations = True
+        return patron
+
+
+class TestAnnotationWriter(AnnotationTest, ControllerTest):
+   
     def test_annotations_for(self):
         patron = self._patron()
 
@@ -330,7 +340,8 @@ class TestAnnotationWriter(ControllerTest):
             }
             eq_(compacted_body, detail["body"])
 
-class TestAnnotationParser(DatabaseTest):
+
+class TestAnnotationParser(AnnotationTest):
     def setup(self):
         super(TestAnnotationParser, self).setup()
         self.pool = self._licensepool(None)
@@ -462,7 +473,7 @@ class TestAnnotationParser(DatabaseTest):
         annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(INVALID_ANNOTATION_MOTIVATION, annotation)
-
+        
     def test_parse_jsonld_with_no_loan(self):
         data = self._sample_jsonld()
         data_json = json.dumps(data)
@@ -501,3 +512,14 @@ class TestAnnotationParser(DatabaseTest):
         eq_(original_annotation, annotation)
         eq_(True, annotation.active)
         assert annotation.timestamp > yesterday
+
+    def test_parse_jsonld_with_patron_opt_out(self):
+        self.pool.loan_to(self.patron)
+        data = self._sample_jsonld()
+        data_json = json.dumps(data)
+
+        self.patron.synchronize_annotations=False
+        annotation = AnnotationParser.parse(
+            self._db, data_json, self.patron
+        )
+        eq_(PATRON_NOT_OPTED_IN_TO_ANNOTATION_SYNC, annotation)
