@@ -8479,7 +8479,7 @@ class Library(Base):
 
     @hybrid_property
     def library_registry_short_name(self):
-        """Gets library_registry_shared_secret from database"""
+        """Gets library_registry_short_name from database"""
         return self._library_registry_short_name
 
     @library_registry_short_name.setter
