@@ -8450,13 +8450,22 @@ class Library(Base):
     name = Column(Unicode, unique=True)
 
     # A short name of this library, to use when identifying it in
-    # scripts.
+    # scripts. e.g. "NYPL" for NYPL.
     short_name = Column(Unicode, unique=True)
     
     # A UUID that uniquely identifies the library among all libraries
     # in the world. This is used to serve the library's Authentication
     # for OPDS document, and it also goes to the library registry.
     uuid = Column(Unicode, unique=True)
+
+    # The name of this library to use when signing short client tokens
+    # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
+    # This name must be unique across the library registry.
+    library_registry_short_name = Column(Unicode, unique=True)
+
+    # The shared secret to use when signing short client tokens for
+    # consumption by the library registry.
+    library_registry_shared_secret = Column(Unicode, unique=True)
     
     @classmethod
     def instance(cls, _db):
