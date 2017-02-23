@@ -56,6 +56,7 @@ from model import (
     LicensePool,
     Measurement,
     Patron,
+    PatronProfileStorage,
     Representation,
     Resource,
     RightsStatus,
@@ -4575,7 +4576,101 @@ class TestPatron(DatabaseTest):
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
 
+    def test_set_synchronize_annotations(self):
+        # Two patrons.
+        p1 = self._patron()
+        p2 = self._patron()
+        
+        identifier = self._identifier()
+        
+        for patron in [p1, p2]:
+            # Each patron decides they want to synchronize annotations
+            # to a library server.
+            eq_(None, patron.synchronize_annotations)
+            patron.synchronize_annotations = True
 
+            # Each patron gets one annotation.
+            annotation, ignore = Annotation.get_one_or_create(
+                self._db,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+            annotation.content="The content for %s" % patron.id,
+
+            eq_(1, len(patron.annotations))
+            
+        # Patron #1 decides they don't want their annotations stored
+        # on a library server after all. This deletes their
+        # annotation.
+        p1.synchronize_annotations = False
+        self._db.commit()
+        eq_(0, len(p1.annotations))
+
+        # Patron #1 can no longer use Annotation.get_one_or_create.
+        assert_raises(
+            ValueError, Annotation.get_one_or_create,
+            self._db, patron=p1, identifier=identifier,
+            motivation=Annotation.IDLING,
+        )
+        
+        # Patron #2's annotation is unaffected.
+        eq_(1, len(p2.annotations))
+
+        # But patron #2 can use Annotation.get_one_or_create.
+        i2, is_new = Annotation.get_one_or_create(
+            self._db, patron=p2, identifier=self._identifier(),
+            motivation=Annotation.IDLING,
+        )
+        eq_(True, is_new)
+
+        # Once you make a decision, you can change your mind, but you
+        # can't go back to not having made the decision.
+        def try_to_set_none(patron):
+            patron.synchronize_annotations = None
+        assert_raises(ValueError, try_to_set_none, p2)
+
+
+class TestPatronProfileStorage(DatabaseTest):
+
+    def setup(self):
+        super(TestPatronProfileStorage, self).setup()
+        self.patron = self._patron()
+        self.store = PatronProfileStorage(self.patron)
+        
+    def test_writable_setting_names(self):
+        """Only one setting is currently writable."""
+        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]),
+            self.store.writable_setting_names)
+
+    def test_profile_document(self):
+        # synchronize_annotations always shows up as settable, even if
+        # the current value is None.
+        eq_(None, self.patron.synchronize_annotations)
+        rep = self.store.profile_document
+        eq_({'settings': {'simplified:synchronize_annotations': None}},
+            rep)
+
+        self.patron.synchronize_annotations = True
+        self.patron.authorization_expires = datetime.datetime(
+            2016, 1, 1, 10, 20, 30
+        )
+        rep = self.store.profile_document
+        eq_({'simplified:authorization_expires': '2016-01-01T10:20:30Z',
+             'settings': {'simplified:synchronize_annotations': True}},
+            rep
+        )
+
+    def test_update(self):
+        # This is a no-op.
+        self.store.update({}, {})
+        eq_(None, self.patron.synchronize_annotations)
+
+        # This is not.
+        self.store.update({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
+        eq_(True, self.patron.synchronize_annotations)
+
+        
 class TestBaseCoverageRecord(DatabaseTest):
 
     def test_not_covered(self):
@@ -4918,6 +5013,8 @@ class TestCustomList(DatabaseTest):
         eq_(workless_edition, workless_entry.edition)
         eq_(True, workless_entry.first_appearance > now)
         eq_(None, workless_entry.license_pool)
+        # And the CustomList will be seen as updated.
+        eq_(True, custom_list.updated > now)
 
         # An edition with a work can create an entry.
         worked_edition, lp = self._edition(with_license_pool=True)
@@ -4940,10 +5037,13 @@ class TestCustomList(DatabaseTest):
         eq_(now, timed_entry.most_recent_appearance)
 
         # If the entry already exists, the most_recent_appearance is updated.
+        previous_list_update_time = custom_list.updated
         new_timed_entry, is_new = custom_list.add_entry(timed_edition)
         eq_(False, is_new)
         eq_(timed_entry, new_timed_entry)
         eq_(True, timed_entry.most_recent_appearance > now)
+        # But the CustomList update time is not.
+        eq_(previous_list_update_time, custom_list.updated)
 
         # If the entry already exists, the most_recent_appearance can be
         # updated by passing in a later first_appearance.
@@ -4968,6 +5068,8 @@ class TestCustomList(DatabaseTest):
         equivalent_entry, is_new = custom_list.add_entry(equivalent)
         eq_(False, is_new)
         eq_(workless_entry, equivalent_entry)
+        # Or update the CustomList updated time
+        eq_(previous_list_update_time, custom_list.updated)
         # But it will change the edition to the one that's requested.
         eq_(equivalent, workless_entry.edition)
         # And/or add a license_pool if one is newly available.
@@ -4976,25 +5078,32 @@ class TestCustomList(DatabaseTest):
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=2)
         [first, second] = editions
+        now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
         eq_(second, custom_list.entries[0].edition)
+        # And CustomList.updated is changed.
+        eq_(True, custom_list.updated > now)
 
         # An entry is also removed if any of its equivalent editions
         # are passed in.
+        previous_list_update_time = custom_list.updated
         equivalent = self._edition(with_open_access_download=True)[0]
         second.primary_identifier.equivalent_to(
             equivalent.data_source, equivalent.primary_identifier, 1
         )
         custom_list.remove_entry(second)
         eq_([], custom_list.entries)
+        eq_(True, custom_list.updated > previous_list_update_time)
 
         # An edition that's not on the list doesn't cause any problems.
         custom_list.add_entry(second)
+        previous_list_update_time = custom_list.updated
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
+        eq_(previous_list_update_time, custom_list.updated)
 
     def test_entries_for_work(self):
         custom_list, editions = self._customlist(num_entries=2)

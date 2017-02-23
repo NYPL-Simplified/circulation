@@ -103,6 +103,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from user_profile import ProfileStorage
 from util import (
     LanguageCodes,
     MetadataSimilarity,
@@ -423,6 +424,12 @@ class Patron(Base):
     # Common reasons for blocks are kept in circulation's PatronData
     # class.
     block_reason = Column(String(255), default=None)
+
+    # Whether or not the patron wants their annotations synchronized
+    # across devices (which requires storing those annotations on a
+    # library server).
+    _synchronize_annotations = Column(Boolean, default=None,
+                                      name="synchronize_annotations")
     
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
@@ -431,7 +438,7 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
-   
+    
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
@@ -480,6 +487,72 @@ class Patron(Base):
         if work.audience in allowed:
             return True
         return False
+
+    @hybrid_property
+    def synchronize_annotations(self):
+        return self._synchronize_annotations
+    
+    @synchronize_annotations.setter
+    def _set_synchronize_annotations(self, value):
+        """When a patron says they don't want their annotations to be stored
+        on a library server, delete all their annotations.
+        """
+        if value is None:
+            # A patron cannot decide to go back to the state where
+            # they hadn't made a decision.
+            raise ValueError(
+                "synchronize_annotations cannot be unset once set."
+            )
+        if value is False:
+            _db = Session.object_session(self)
+            qu = _db.query(Annotation).filter(Annotation.patron==self)
+            for annotation in qu:
+                _db.delete(annotation)
+        self._synchronize_annotations = value
+
+class PatronProfileStorage(ProfileStorage):
+    """Interface between a Patron object and the User Profile Management
+    Protocol.
+    """
+
+    def __init__(self, patron):
+        """Set up a storage interface for a specific Patron.
+
+        :param patron: We are accessing the profile for this patron.
+        """
+        self.patron = patron
+    
+    @property
+    def writable_setting_names(self):
+        """Return the subset of settings that are considered writable."""
+        return set([self.SYNCHRONIZE_ANNOTATIONS])
+
+    @property
+    def profile_document(self):
+        """Create a Profile document representing the patron's current
+        status.
+        """
+        doc = dict()
+        if self.patron.authorization_expires:
+            doc[self.AUTHORIZATION_EXPIRES] = (
+                self.patron.authorization_expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+            )
+        settings = {
+            self.SYNCHRONIZE_ANNOTATIONS :
+            self.patron.synchronize_annotations
+        }
+        doc[self.SETTINGS_KEY] = settings
+        return doc
+
+    def update(self, settable, full):
+        """Bring the Patron's status up-to-date with the given document.
+        
+        Right now this means making sure Patron.synchronize_annotations
+        is up to date.
+        """
+        key = self.SYNCHRONIZE_ANNOTATIONS
+        if key in settable:
+            self.patron.synchronize_annotations = settable[key]
 
 
 class LoanAndHoldMixin(object):
@@ -631,9 +704,11 @@ class Annotation(Base):
     LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
 
     IDLING = LS_NAMESPACE + u'idling'
+    BOOKMARKING = LS_NAMESPACE + u'bookmarking'
 
     MOTIVATIONS = [
-        IDLING
+        IDLING,
+        BOOKMARKING,
     ]
 
     __tablename__ = 'annotations'
@@ -646,10 +721,24 @@ class Annotation(Base):
     content = Column(Unicode)
     target = Column(Unicode)
 
+    @classmethod
+    def get_one_or_create(self, _db, patron, *args, **kwargs):
+        """Find or create an Annotation, but only if the patron has
+        annotation sync turned on.
+        """
+        if not patron.synchronize_annotations:
+            raise ValueError(
+                "Patron has opted out of synchronizing annotations."
+            )
+    
+        return get_one_or_create(
+            _db, Annotation, patron=patron, *args, **kwargs
+        )
+
     def set_inactive(self):
         self.active = False
         self.content = None
-        self.timestamp = datetime.datetime.now()
+        self.timestamp = datetime.datetime.utcnow()
 
 class DataSource(Base):
 
@@ -6950,6 +7039,12 @@ class Timestamp(Base):
     timestamp = Column(DateTime)
     counter = Column(Integer)
 
+    def __repr__(self):
+        timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        if self.counter:
+            timestamp += (' %d' % self.counter)
+        return (u"<Timestamp %s: %s>" % (self.service, timestamp)).encode("utf8")
+
     @classmethod
     def stamp(self, _db, service):
         now = datetime.datetime.utcnow()
@@ -8069,6 +8164,10 @@ class CustomList(Base):
             entry.license_pool = edition.license_pool
         if featured is not None:
             entry.featured = featured
+
+        if was_new:
+            self.updated = datetime.datetime.utcnow()
+
         return entry, was_new
 
     def remove_entry(self, edition):
@@ -8080,6 +8179,9 @@ class CustomList(Base):
         existing_entries = self.entries_for_work(edition)
         for entry in existing_entries:
             _db.delete(entry)
+
+        if existing_entries:
+            self.updated = datetime.datetime.utcnow()
         _db.commit()
 
     def entries_for_work(self, work_or_edition):

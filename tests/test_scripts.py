@@ -499,6 +499,12 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
         eq_(str(self.timestamp.counter), migration[9])
 
+        # And removes those counter digits when the timestamp is updated.
+        migration = '20260101-what-it-do.sql'
+        self.script.update_timestamp(self.timestamp, migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(self.timestamp.counter, None)
+
     def test_running_a_migration_updates_the_timestamp(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
         self.timestamp.timestamp = future_time
@@ -570,27 +576,68 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'SERVER' in test_generated_files[1]
 
 
-
 class TestDatabaseMigrationInitializationScript(DatabaseTest):
 
     def setup(self):
         super(TestDatabaseMigrationInitializationScript, self).setup()
         self.script = DatabaseMigrationInitializationScript(_db=self._db)
 
+    @property
+    def timestamp(self):
+        return self._db.query(Timestamp).\
+            filter(Timestamp.service==self.script.name).one()
+
+    def assert_matches_latest_migration(self):
+        migrations = self.script.fetch_migration_files()[0]
+        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+
     def test_accurate_timestamp_created(self):
         timestamps = self._db.query(Timestamp).all()
         eq_(timestamps, [])
 
         self.script.do_run()
-
-        migrations = self.script.fetch_migration_files()[0]
-        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+        self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name)
-        assert_raises(Exception, self.script.do_run)
+        assert_raises(RuntimeError, self.script.do_run)
+
+    def test_error_not_raised_when_timestamp_forced(self):
+        Timestamp.stamp(self._db, self.script.name)
+        self.script.do_run(['-f'])
+        self.assert_matches_latest_migration()
+
+    def test_accepts_last_run_date(self):
+        # A timestamp can be passed via the command line.
+        self.script.do_run(['--last-run-date', '20101010'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+        # It will override an existing timestamp if forced.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20111111', '--force'])
+        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+    def test_accepts_last_run_counter(self):
+        # If a counter is passed without a date, an error is raised.
+        assert_raises(ValueError, self.script.do_run, ['--last-run-counter', '7'])
+
+        # With a date, the counter can be set.
+        self.script.do_run(['--last-run-date', '20101010', '--last-run-counter', '7'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(7, self.timestamp.counter)
+
+        # When forced, the counter can be reset on an existing timestamp.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
+        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(2, self.timestamp.counter)
 
 
 class TestAddClassificationScript(DatabaseTest):
