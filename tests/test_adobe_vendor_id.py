@@ -5,7 +5,6 @@ from nose.tools import (
     assert_raises,
     assert_raises_regexp
 )
-import contextlib
 import jwt
 from jwt.exceptions import (
     DecodeError,
@@ -49,20 +48,8 @@ from api.config import (
 from api.mock_authentication import MockAuthenticationProvider       
 
 class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
-       
-    @contextlib.contextmanager
-    def temp_config(self):
-        """Configure a basic Vendor ID Service setup."""
-        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][name] = dict(
-                self.MOCK_ADOBE_CONFIGURATION
-            )
-            library = Library.instance(self._db)
-            library.library_registry_short_name = "Lbry"
-            library.library_registry_shared_secret = "some secret"
+    pass
 
-            yield config
 
 class TestVendorIDModel(VendorIDTest):
 
