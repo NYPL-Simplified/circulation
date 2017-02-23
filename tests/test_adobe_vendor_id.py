@@ -205,16 +205,18 @@ class TestVendorIDModel(VendorIDTest):
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
                 AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: "You",
-                AuthdataUtility.AUTHDATA_SECRET_KEY: "secret2",
             }
+            library = Library.instance(self._db)
+            library.library_registry_short_name = "You"
+            library.library_registry_shared_secret = "secret2"
+            
             utility = AuthdataUtility.from_config(self._db)
             vendor_id, jwt = utility.encode("Foreign patron")
 
         # Here's another library that issues Adobe IDs for that
         # first library.
         with self.temp_config():
-            utility = AuthdataUtility.from_config()
+            utility = AuthdataUtility.from_config(self._db)
             eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
             # Because this library shares the other library's secret,
@@ -294,9 +296,10 @@ class TestVendorIDModel(VendorIDTest):
         eq_(new_label, label)
         
     def test_short_client_token_lookup_delegated_patron_identifier_failure(self):
-        uuid, label = self.model.short_client_token_lookup(
-            "bad token", "bad signature"
-        )
+        with self.temp_config():
+            uuid, label = self.model.short_client_token_lookup(
+                "bad token", "bad signature"
+            )
         eq_(None, uuid)
         eq_(None, label)
         
