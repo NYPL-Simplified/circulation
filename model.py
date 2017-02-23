@@ -8515,11 +8515,11 @@ class Collection(Base):
     # authenticate. If there's a secret but no key, it's stored in
     # 'password'.
     username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nulalble=True)
+    password = Column(Unicode, nullable=True)
 
     # Any additional configuration information goes into the
     # collectionsettings table.
-    settings = Relationship(
+    settings = relationship(
         "CollectionSetting", backref="collection"
     )
     
