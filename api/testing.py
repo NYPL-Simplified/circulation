@@ -25,8 +25,6 @@ class MockAdobeConfiguration(object):
     TEST_NODE_VALUE = 114740953091845
     TEST_VENDOR_ID = "vendor id"
     TEST_LIBRARY_URI = "http://me/"
-    TEST_LIBRARY_SHORT_NAME = "Lbry"
-    TEST_SECRET = "some secret"
     TEST_OTHER_LIBRARY_URI = "http://you/"
     TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
 
@@ -34,8 +32,6 @@ class MockAdobeConfiguration(object):
         Configuration.ADOBE_VENDOR_ID: TEST_VENDOR_ID,
         Configuration.ADOBE_VENDOR_ID_NODE_VALUE: TEST_NODE_VALUE,
         AuthdataUtility.LIBRARY_URI_KEY: TEST_LIBRARY_URI,
-        AuthdataUtility.LIBRARY_SHORT_NAME_KEY: TEST_LIBRARY_SHORT_NAME,
-        AuthdataUtility.AUTHDATA_SECRET_KEY: TEST_SECRET,
         AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
     }
 
