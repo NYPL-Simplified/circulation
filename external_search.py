@@ -15,9 +15,19 @@ import time
 class ExternalSearchIndex(object):
     
     work_document_type = 'work-type'
+    __client = None
+
     CURRENT_ALIAS_SUFFIX = '-current'
     VERSION_RE = re.compile('-v([0-9]+)$')
-    __client = None
+
+    @classmethod
+    def reset(cls):
+        """Resets the __client object to None so a new configuration
+        can be applied during object initialization.
+
+        This method is only intended for use in testing.
+        """
+        cls.__client = None
 
     def __init__(self, url=None, works_index=None):
     

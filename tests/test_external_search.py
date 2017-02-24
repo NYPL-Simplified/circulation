@@ -42,10 +42,7 @@ class TestExternalSearch(DatabaseTest):
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-current"
 
             try:
-                ExternalSearchIndex.__client = None
                 self.search = ExternalSearchIndex()
-                # Start with an empty index
-                self.search.setup_index(current_alias=True)
             except Exception as e:
                 self.search = None
                 print "Unable to set up elasticsearch index, search tests will be skipped."
@@ -195,8 +192,8 @@ class TestExternalSearch(DatabaseTest):
     def teardown(self):
         if self.search:
             self.search.indices.delete(self.search.works_index)
-            self.search.indices.delete('test_index-v2', ignore=[404])
-            ExternalSearchIndex.__client = None
+            self.search.indices.delete('the_other_index', ignore=[404])
+            ExternalSearchIndex.reset()
         super(TestExternalSearch, self).teardown()
 
     def test_setup_index_creates_new_index(self):
