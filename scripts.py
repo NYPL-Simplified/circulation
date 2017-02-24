@@ -856,35 +856,53 @@ class DisappearingBookReportScript(Script):
                      "Last seen (best guess)",
                      "Current licenses owned",
                      "Current licenses available",
-                     "First loan/hold activity",
-                     "Most recent loan/hold activity",
+                     "Changes in number of licenses",
                      "Changes in title availability",
-                     "Changes in number of licenses"
         ]
         print "\t".join(first_row)
 
         for pool in qu:
             self.explain(pool)
 
-    def gather_information_for(self, licensepool):
+    def investigate(self, licensepool):
+        """Find when the given LicensePool might have disappeared from the
+        collection.
+
+        :param licensepool: A LicensePool.
+
+        :return: a 3-tuple (last_seen, title_removal_events,
+        license_removal_events).
+
+        `last_seen` is the latest point at which we knew the book was
+        circulating. If we never knew the book to be circulating, this
+        is the first time we ever saw the LicensePool.
+
+        `title_removal_events` is a query that returns CirculationEvents
+        in which this LicensePool was removed from the remote collection.
+
+        `license_removal_events` is a query that returns
+        CirculationEvents in which LicensePool.licenses_owned went
+        from having a positive number to being zero or a negative
+        number.
+        """
         first_activity = None
         most_recent_activity = None
+
+        # If we have absolutely no information about the book ever
+        # circulating, we act like we lost track of the book
+        # immediately after seeing it for the first time.
         last_seen = licensepool.availability_time
+
+        # If there's a recorded loan or hold on the book, that can
+        # push up the last time the book was known to be circulating.
         for l in (licensepool.loans, licensepool.holds):
             for item in l:
-                if not first_activity or item.start < first_activity:
-                    first_activity = item.start
-                if not most_recent_activity or item.start > most_recent_activity:
-                    most_recent_activity = item.start
-
-        # If we don't find any relevant circulation events, our best
-        # guess as to when the book disappeared is the last time
-        # a loan or hold was taken out on it.
-        if most_recent_activity:
-            last_seen = most_recent_activity
+                if not last_seen or item.start > last_seen:
+                    last_seen = item.start
                     
         # Now we look for relevant circulation events. First, an event
-        # where the title was explicitly removed.
+        # where the title was explicitly removed is pretty clearly
+        # a 'last seen'.
         base_query = self._db.query(CirculationEvent).filter(
             CirculationEvent.license_pool==licensepool).order_by(
                 CirculationEvent.start.desc()
@@ -897,8 +915,9 @@ class DisappearingBookReportScript(Script):
             if not last_seen or candidate > last_seen:
                 last_seen = candidate
         
-        # Also look for an event where the title went from a nonzero number
-        # of licenses to a zero number of licenses.
+        # Also look for an event where the title went from a nonzero
+        # number of licenses to a zero number of licenses. That's a
+        # good 'last seen'.
         license_removal_events = base_query.filter(
             CirculationEvent.type==CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
         ).filter(
@@ -910,13 +929,16 @@ class DisappearingBookReportScript(Script):
             if not last_seen or candidate > last_seen:
                 last_seen = candidate
         
-        return first_activity, most_recent_activity, last_seen, title_removal_events, license_removal_events
+        return last_seen, title_removal_events, license_removal_events
 
     format = "%Y-%m-%d"
+
     def explain(self, licensepool):
         edition = licensepool.presentation_edition
         identifier = licensepool.identifier
-        first_activity, most_recent_activity, last_seen, title_removal_events, license_removal_events = self.gather_information_for(licensepool)
+        last_seen, title_removal_events, license_removal_events = self.investigate(
+            licensepool
+        )
 
         data = ["%s %s" % (identifier.type, identifier.identifier)]
         if edition:
@@ -933,17 +955,6 @@ class DisappearingBookReportScript(Script):
         data.append(last_seen)
         data.append(licensepool.licenses_owned)
         data.append(licensepool.licenses_available)
-        if first_activity:
-            data.append(first_activity.strftime(self.format))
-        else:
-            data.append("")
-        if most_recent_activity:
-            data.append(most_recent_activity.strftime(self.format))
-        else:
-            data.append("")
-        title_removals = [event.start.strftime(self.format)
-                          for event in title_removal_events]
-        data.append(", ".join(title_removals))
 
         license_removals = []
         for event in license_removal_events:
@@ -953,4 +964,9 @@ class DisappearingBookReportScript(Script):
             )
             license_removals.append(description)
         data.append(", ".join(license_removals))
+
+        title_removals = [event.start.strftime(self.format)
+                          for event in title_removal_events]
+        data.append(", ".join(title_removals))
+        
         print "\t".join([unicode(x).encode("utf8") for x in data])
