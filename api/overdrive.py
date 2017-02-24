@@ -15,7 +15,8 @@ from circulation import (
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
-    OverdriveBibliographicCoverageProvider
+    OverdriveBibliographicCoverageProvider,
+    MockOverdriveAPI,
 )
 
 from core.model import (
@@ -746,30 +747,13 @@ class DummyOverdriveResponse(object):
         return json.loads(self.content)
 
 
-class DummyOverdriveAPI(OverdriveAPI):
+class DummyOverdriveAPI(MockOverdriveAPI, OverdriveAPI):
 
     library_data = '{"id":1810,"name":"My Public Library (MA)","type":"Library","collectionToken":"1a09d9203","links":{"self":{"href":"http://api.overdrive.com/v1/libraries/1810","type":"application/vnd.overdrive.api+json"},"products":{"href":"http://api.overdrive.com/v1/collections/1a09d9203/products","type":"application/vnd.overdrive.api+json"},"dlrHomepage":{"href":"http://ebooks.nypl.org","type":"text/html"}},"formats":[{"id":"audiobook-wma","name":"OverDrive WMA Audiobook"},{"id":"ebook-pdf-adobe","name":"Adobe PDF eBook"},{"id":"ebook-mediado","name":"MediaDo eBook"},{"id":"ebook-epub-adobe","name":"Adobe EPUB eBook"},{"id":"ebook-kindle","name":"Kindle Book"},{"id":"audiobook-mp3","name":"OverDrive MP3 Audiobook"},{"id":"ebook-pdf-open","name":"Open PDF eBook"},{"id":"ebook-overdrive","name":"OverDrive Read"},{"id":"video-streaming","name":"Streaming Video"},{"id":"ebook-epub-open","name":"Open EPUB eBook"}]}'
 
     token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
 
     collection_token = 'fake token'
-
-    def __init__(self, *args, **kwargs):
-        super(DummyOverdriveAPI, self).__init__(
-            *args, testing=True, **kwargs
-        )
-        self.requests = []
-        self.responses = []
-
-    def queue_response(self, response_code=200, media_type="application/json",
-                       other_headers=None, content=''):
-        headers = {"content-type": media_type}
-        if not isinstance(content, basestring):
-            content = json.dumps(content)
-        if other_headers:
-            for k, v in other_headers.items():
-                headers[k.lower()] = v
-        self.responses.append((response_code, headers, content))
 
     # Give canned answers to the most basic requests -- for access tokens
     # and basic library information.
@@ -779,16 +763,15 @@ class DummyOverdriveAPI(OverdriveAPI):
     def get_library(self):
         return json.loads(self.library_data)
 
-    def get(self, url, extra_headers, exception_on_401=False):
-        self.requests.append((url, extra_headers))
-        return self.responses.pop()
-
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
-        value = self.responses.pop()
         self.requests.append((patron, pin, url, extra_headers, data,
                               method))
-        return DummyOverdriveResponse(*value)
+
+        return super(DummyOverdriveAPI, self).patron_request(
+            patron, pin, url, extra_headers, data, exception_on_401,
+            method
+        )
 
 
 class OverdriveCirculationMonitor(Monitor):
@@ -809,7 +792,7 @@ class OverdriveCirculationMonitor(Monitor):
         return self.api.recently_changed_ids(start, cutoff)
 
     def run(self):
-        self.api = OverdriveAPI(self._db)
+        self.api = OverdriveAPI.from_environment(self._db)
         super(OverdriveCirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
@@ -877,7 +860,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
             _db, "Overdrive Collection Reaper", interval_seconds)
 
     def run(self):
-        self.api = OverdriveAPI(self._db)
+        self.api = OverdriveAPI.from_environment(self._db)
         super(OverdriveCollectionReaper, self).run()
 
     def identifier_query(self):
@@ -903,12 +886,12 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
     """Check the current formats of every Overdrive book
     in our collection.
     """
-    def __init__(self, _db, testing=False, api=None):
+    def __init__(self, _db, api=None):
         super(OverdriveFormatSweep, self).__init__(
             _db, "Overdrive Format Sweep", batch_size=25)
         self._db = _db
         if not api:
-            api = OverdriveAPI(self._db, testing=testing)
+            api = OverdriveAPI.from_environment(self._db)
         self.api = api
         self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 

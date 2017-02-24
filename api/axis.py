@@ -311,7 +311,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
             _db, "Axis Collection Reaper", interval_seconds)
 
     def run(self):
-        self.api = Axis360API(self._db)
+        self.api = Axis360API.from_environment(self._db)
         super(AxisCollectionReaper, self).run()
 
     def identifier_query(self):
