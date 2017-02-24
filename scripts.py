@@ -843,6 +843,10 @@ class LoanReaperScript(Script):
 
 class DisappearingBookReportScript(Script):
 
+    """Print a TSV-format report on books that used to be in the
+    collection, or should be in the collection, but aren't.
+    """
+    
     def do_run(self):
         qu = self._db.query(LicensePool).filter(
             LicensePool.open_access==False).filter(
