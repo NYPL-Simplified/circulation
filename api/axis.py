@@ -230,7 +230,7 @@ class Axis360CirculationMonitor(Monitor):
     FIVE_MINUTES = timedelta(minutes=5)
 
     def __init__(self, _db, name="Axis 360 Circulation Monitor",
-                 interval_seconds=60, batch_size=50):
+                 interval_seconds=60, batch_size=50, api=None):
         super(Axis360CirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds,
             default_start_time = self.VERY_LONG_AGO
@@ -244,12 +244,12 @@ class Axis360CirculationMonitor(Monitor):
         else:
             # This should only happen during a test.
             self.metadata_wrangler = None
+        self.api = api or Axis360API.from_environment(self._db)
         self.bibliographic_coverage_provider = (
-            Axis360BibliographicCoverageProvider(self._db)
+            Axis360BibliographicCoverageProvider(self._db, axis_360_api=api)
         )
 
     def run(self):
-        self.api = Axis360API(self._db)
         super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):

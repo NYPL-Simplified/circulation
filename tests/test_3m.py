@@ -19,6 +19,7 @@ from core.model import (
 )
 from . import DatabaseTest
 from api.circulation_exceptions import *
+from api.threem import MockThreeMAPI
 
 class Test3MEventParser(object):
 
@@ -208,30 +209,31 @@ class TestErrorParser(object):
 
 class TestThreeMEventMonitor(DatabaseTest):
 
-  def test_default_start_time(self):
-    monitor = ThreeMEventMonitor(self._db, testing=True)
-    two_years_ago = datetime.datetime.utcnow() - monitor.TWO_YEARS_AGO
+    def test_default_start_time(self):
+        api = MockThreeMAPI(self._db)
+        monitor = ThreeMEventMonitor(self._db, api=api)
+        two_years_ago = datetime.datetime.utcnow() - monitor.TWO_YEARS_AGO
 
-    # Returns a date two years ago if the monitor has never been run before.
-    default_start_time = monitor.create_default_start_time(self._db, [])
-    assert (two_years_ago - default_start_time).total_seconds() <= 1
+        # Returns a date two years ago if the monitor has never been run before.
+        default_start_time = monitor.create_default_start_time(self._db, [])
+        assert (two_years_ago - default_start_time).total_seconds() <= 1
 
-    # After ThreeM has been initialized, it returns None if no
-    # arguments are passed
-    Timestamp.stamp(self._db, monitor.service_name)
-    eq_(None, monitor.create_default_start_time(self._db, []))
+        # After ThreeM has been initialized, it returns None if no
+        # arguments are passed
+        Timestamp.stamp(self._db, monitor.service_name)
+        eq_(None, monitor.create_default_start_time(self._db, []))
 
-    # Returns a date two years ago if args are formatted improperly or the
-    # monitor has never been run before
-    not_date_args = ['initialize']
-    too_many_args = ['2013', '04', '02']
-    for args in [not_date_args, too_many_args]:
-      default_start_time = monitor.create_default_start_time(self._db, args)
-      eq_(True, isinstance(default_start_time, datetime.datetime))
-      assert (two_years_ago - default_start_time).total_seconds() <= 1
+        # Returns a date two years ago if args are formatted improperly or the
+        # monitor has never been run before
+        not_date_args = ['initialize']
+        too_many_args = ['2013', '04', '02']
+        for args in [not_date_args, too_many_args]:
+            default_start_time = monitor.create_default_start_time(self._db, args)
+            eq_(True, isinstance(default_start_time, datetime.datetime))
+            assert (two_years_ago - default_start_time).total_seconds() <= 1
 
-    # Returns an appropriate date if command line arguments are passed
-    # as expected
-    proper_args = ['2013-04-02']
-    default_start_time = monitor.create_default_start_time(self._db, proper_args)
-    eq_(datetime.datetime(2013, 4, 2), default_start_time)
+        # Returns an appropriate date if command line arguments are passed
+        # as expected
+        proper_args = ['2013-04-02']
+        default_start_time = monitor.create_default_start_time(self._db, proper_args)
+        eq_(datetime.datetime(2013, 4, 2), default_start_time)
