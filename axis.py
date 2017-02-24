@@ -49,6 +49,12 @@ class Axis360API(object):
 
     PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
     QA_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
+
+    # Map simple nicknames to server URLs.
+    SERVER_NICKNAMES = {
+        "production" : PRODUCTION_BASE_URL,
+        "qa" : QA_BASE_URL,
+    }
     
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
@@ -65,12 +71,10 @@ class Axis360API(object):
         self.password = collection.password
 
         # Convert the nickname for a server into an actual URL.
-        if base_url == 'qa':
-            self.base_url = self.QA_BASE_URL
-        elif base_url == 'production' or not base_url:
-            self.base_url = self.PRODUCTION_BASE_URL
-        else:
-            self.base_url = base_url
+        base_url = collection.url
+        if base_url in self.SERVER_NICKNAMES:
+            base_url = self.SERVER_NICKNAMES[base_url]
+        self.base_url = base_url
 
         if (not self.library_id or not self.username
             or not self.password):
@@ -207,7 +211,7 @@ class MockAxis360API(Axis360API):
             )
         )
         library.collections.append(collection)
-        super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        super(MockAxis360API, self).__init__(_db, collection, *args, **kwargs)
         if with_token:
             self.token = "mock token"
         self.responses = []
