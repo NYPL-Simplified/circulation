@@ -91,8 +91,8 @@ class Axis360API(object):
         """
         library = Library.instance(_db)
         collections = [x for x in library.collections
-                      if x.protocol == collection.AXIS_360]
-        if len(collections == 0):
+                      if x.protocol == Collection.AXIS_360]
+        if len(collections) == 0:
             # There are no Axis 360 collections configured.
             return None
 
@@ -246,7 +246,6 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
         """
         self.parser = BibliographicParser()
-        axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(
             _db, axis_360_api, DataSource.AXIS_360,
             batch_size=25, 

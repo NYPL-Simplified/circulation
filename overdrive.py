@@ -132,8 +132,8 @@ class OverdriveAPI(object):
         """
         library = Library.instance(_db)
         collections = [x for x in library.collections
-                      if x.protocol == collection.OVERDRIVE]
-        if len(collections == 0):
+                      if x.protocol == Collection.OVERDRIVE]
+        if len(collections) == 0:
             # There are no Overdrive collections configured.
             return None
 
