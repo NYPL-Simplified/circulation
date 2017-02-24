@@ -763,16 +763,15 @@ class DummyOverdriveAPI(MockOverdriveAPI, OverdriveAPI):
     def get_library(self):
         return json.loads(self.library_data)
 
-    def patron_request(self, patron, pin, url, extra_headers={}, data=None,
-                       exception_on_401=False, method=None):
-        self.requests.append((patron, pin, url, extra_headers, data,
-                              method))
+    def patron_request(self, patron, pin, *args, **kwargs):
+        response = self._make_request(*args, **kwargs)
 
-        return super(DummyOverdriveAPI, self).patron_request(
-            patron, pin, url, extra_headers, data, exception_on_401,
-            method
-        )
-
+        # Modify the record of the request to include the patron information.
+        original_data = self.requests.pop()
+        new_data = tuple([patron, pin] + list(original_data))
+        self.requests.append(new_data)
+        return response
+    
 
 class OverdriveCirculationMonitor(Monitor):
     """Maintain LicensePools for Overdrive titles.
