@@ -35,7 +35,6 @@ class ExternalSearchIndex(object):
 
         # By default, assume that there is no search index.
         self.works_index = None
-        from_configuration = False
 
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
@@ -47,7 +46,6 @@ class ExternalSearchIndex(object):
                     works_index = integration.get(
                         Configuration.ELASTICSEARCH_INDEX_KEY
                     ) or None
-                    from_configuration = True
 
                 if not url:
                     if not integration:
@@ -62,7 +60,10 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client = Elasticsearch(
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
-            ExternalSearchIndex.__client.works_index = works_index
+
+            # Set the index and the alias to the same value for
+            # now.
+            ExternalSearchIndex.__client.works_alias = works_index
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
 
@@ -72,13 +73,8 @@ class ExternalSearchIndex(object):
         self.delete = self.__client.delete
         self.exists = self.__client.exists
 
-        self.works_index = self.works_alias = self.__client.works_index
-        if from_configuration:
-            # An alias for the 'current' version of the index
-            # should only be created if we're using the
-            # configured works_index. Otherwise, the included
-            # index might be temporary.
-            self.set_works_index(self.works_alias)
+        self.works_alias = self.__client.works_alias
+        self.set_works_index(self.works_alias)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
@@ -91,7 +87,7 @@ class ExternalSearchIndex(object):
         if found:
             # We found an index.  Assume there's only one.
             # This is where new documents will be uploaded.
-            self.works_index = index_details.keys()[0]
+            self.works_index = self.__client.works_index = index_details.keys()[0]
 
         if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
             # The alias culled from configuration is intended to be
@@ -103,7 +99,7 @@ class ExternalSearchIndex(object):
         else:
             # Without the CURRENT_ALIAS_SUFFIX, assume the index string
             # from config is the index itself and needs to be swapped.
-            self.works_index = current_alias
+            self.works_index = self.__client.works_index = current_alias
 
         if not self.indices.exists(self.works_index):
             self.setup_index()
