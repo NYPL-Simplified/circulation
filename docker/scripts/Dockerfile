@@ -14,6 +14,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 # Create cron tasks & logfile
 RUN touch /var/log/cron.log
 COPY libsimple_crontab /etc/cron.d/circulation
+VOLUME /var/log
 
 WORKDIR bin
 
