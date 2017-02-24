@@ -52,9 +52,9 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
 
     def test_full_url(self):
         id = self.api.library_id
-        eq_("http://3m.test/cirrus/library/%s/foo" % id,
+        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
             self.api.full_url("foo"))
-        eq_("http://3m.test/cirrus/library/%s/foo" % id, 
+        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id, 
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
@@ -67,7 +67,7 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
         headers = request[-1]['headers']
         eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
         eq_('2.0', headers['3mcl-Version'])
-        expect = '3MCLAUTH b:ppuKJ2nf8OO3vCYhH3mJE8c7mjB6mGxzcPO3KOz4FTE='
+        expect = '3MCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
         eq_(expect, headers['3mcl-Authorization'])
         
         # Tweak one of the variables that go into the signature, and

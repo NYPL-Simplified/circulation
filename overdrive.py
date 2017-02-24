@@ -127,18 +127,21 @@ class OverdriveAPI(object):
 
     @classmethod
     def from_environment(cls, _db):
+        """Load an OverdriveAPI instance for the 'default' Overdrive
+        collection.
+        """
         library = Library.instance(_db)
-        collection = [x for x in library.collections
+        collections = [x for x in library.collections
                       if x.protocol == collection.OVERDRIVE]
-        if len(collection == 0):
+        if len(collections == 0):
             # There are no Overdrive collections configured.
             return None
 
-        if len(collection) > 1:
+        if len(collections) > 1:
             raise ValueError(
-                "Multiple Overdrive collections found for one library. This is not yet supprted."
+                "Multiple Overdrive collections found for one library. This is not yet supported."
             )
-        [collection] = collection 
+        [collection] = collections 
 
         try:
             return cls(_db, collection)

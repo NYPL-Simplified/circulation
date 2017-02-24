@@ -19,12 +19,15 @@ from coverage import (
     CoverageFailure,
 )
 from model import (
+    get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     Representation,
     Hyperlink,
     Identifier,
+    Library,
     Measurement,
     Edition,
     Subject,
@@ -58,51 +61,50 @@ class ThreeMAPI(object):
 
     MAX_METADATA_AGE = timedelta(days=180)
 
-    log = logging.getLogger("3M API")
+    log = logging.getLogger("Bibliotheca API")
 
-    def __init__(self, _db, base_url = "https://partner.yourcloudlibrary.com/",
-                 version="2.0", testing=False):
+    DEFAULT_VERSION = "2.0"
+    DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
+    
+    def __init__(self, _db, collection):
         self._db = _db
-        self.version = version
-        self.base_url = base_url
+        self.version = (
+            collection.setting('version').value or self.DEFAULT_VERSION
+        )
+        self.account_id = collection.username
+        self.account_key = collection.password
+        self.library_id = collection.external_account_id
+        self.base_url = collection.url or self.DEFAULT_BASE_URL
+        
+        if not self.account_id or not self.account_key or not self.library_id:
+            raise CannotLoadConfiguration(
+                "Bibliotheca configuration is incomplete."
+            )
+
         self.item_list_parser = ItemListParser()
-
-        if testing:
-            return
-
-        values = self.environment_values()
-        if len([x for x in values if not x]):
-            raise CannotLoadConfiguration("3M integration has incomplete configuration.")
-        (self.library_id, self.account_id, self.account_key) = values
-
-    @classmethod
-    def environment_values(
-            self, client_key=None, client_secret=None,
-            website_id=None, library_id=None, collection_name=None):
-        value = Configuration.integration('3M')
-        values = []
-        for name in [
-                'library_id',
-                'account_id',
-                'account_key',
-            ]:
-            var = value.get(name)
-            if var:
-                var = var.encode("utf8")
-            values.append(var)
-        return values
 
     @classmethod
     def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None
-        values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No 3M client configured."
-            )
+        """Load a ThreeMAPI instance for the 'default' Bibliotheca
+        collection.
+        """
+        library = Library.instance(_db)
+        collections = [x for x in library.collections
+                      if x.protocol == collection.BIBLIOTHECA]
+        if len(collections == 0):
+            # There are no Bibliotheca collections configured.
             return None
-        return cls(_db)
+
+        if len(collections) > 1:
+            raise ValueError(
+                "Multiple Bibliotheca collections found for one library. This is not yet supported."
+            )
+        [collection] = collections
+
+        try:
+            return cls(_db, collection)
+        except CannotLoadConfiguration, e:
+            return None
 
     @property
     def source(self):
@@ -210,15 +212,19 @@ class MockThreeMAPI(ThreeMAPI):
         self.responses = []
         self.requests = []
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['3M'] = {
-                'library_id' : 'a',
-                'account_id' : 'b',
-                'account_key' : 'c',
-            }
-            super(MockThreeMAPI, self).__init__(
-                _db, *args, base_url="http://3m.test", **kwargs
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test Bibliotheca Collection",
+            protocol=Collection.BIBLIOTHECA, create_method_kwargs=dict(
+                username='a', password='b', external_account_id='c',
+                url="http://bibliotheca.test"
             )
+        )
+        library.collections.append(collection)
+        super(MockThreeMAPI, self).__init__(
+            _db, collection, *args, **kwargs
+        )
 
     def now(self):
         """Return an unvarying time in the format 3M expects."""
