@@ -869,7 +869,7 @@ class DisappearingBookReportScript(Script):
     def gather_information_for(self, licensepool):
         first_activity = None
         most_recent_activity = None
-        last_seen = None
+        last_seen = licensepool.availability_time
         for l in (licensepool.loans, licensepool.holds):
             for item in l:
                 if not first_activity or item.start < first_activity:
@@ -880,7 +880,8 @@ class DisappearingBookReportScript(Script):
         # If we don't find any relevant circulation events, our best
         # guess as to when the book disappeared is the last time
         # a loan or hold was taken out on it.
-        last_seen = most_recent_activity
+        if most_recent_activity:
+            last_seen = most_recent_activity
                     
         # Now we look for relevant circulation events. First, an event
         # where the title was explicitly removed.
