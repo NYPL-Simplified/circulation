@@ -962,7 +962,7 @@ class DisappearingBookReportScript(Script):
 
         license_removals = []
         for event in license_removal_events:
-            description =u"%s: %s → %s" % (
+            description =u"%s: %s→%s" % (
                     event.start.strftime(self.format), event.old_value,
                 event.new_value
             )
