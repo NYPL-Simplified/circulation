@@ -25,5 +25,4 @@ RUN virtualenv env && \
 RUN /bin/bash -c 'source env/bin/activate && pip install -r requirements.txt && python -m textblob.download_corpora'
 RUN mv /root/nltk_data /usr/lib/
 
-VOLUME /var/www/circulation
 ENTRYPOINT ["/bin/bash"]
