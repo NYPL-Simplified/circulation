@@ -1,3 +1,4 @@
+# encoding: utf-8
 from cStringIO import StringIO
 from datetime import (
     datetime,
@@ -36,6 +37,7 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
+    CirculationEvent,
     Contribution,
     Credential,
     CustomList,
@@ -837,3 +839,117 @@ class LoanReaperScript(Script):
                 print counter
                 self._db.commit()
         self._db.commit()
+
+
+class DisappearingBookReportScript(Script):
+
+    def do_run(self):
+        qu = self._db.query(LicensePool).filter(
+            LicensePool.open_access==False).filter(
+                LicensePool.suppressed==False).filter(
+                    LicensePool.licenses_owned<=0).order_by(
+                        LicensePool.availability_time.desc())
+        first_row = ["Identifier",
+                     "Title",
+                     "Author",
+                     "First seen",
+                     "Last seen (best guess)",
+                     "Current licenses owned",
+                     "Current licenses available",
+                     "First loan/hold activity",
+                     "Most recent loan/hold activity",
+                     "Changes in title availability",
+                     "Changes in number of licenses"
+        ]
+        print "\t".join(first_row)
+
+        for pool in qu:
+            self.explain(pool)
+
+    def gather_information_for(self, licensepool):
+        first_activity = None
+        most_recent_activity = None
+        last_seen = None
+        for l in (licensepool.loans, licensepool.holds):
+            for item in l:
+                if not first_activity or item.start < first_activity:
+                    first_activity = item.start
+                if not most_recent_activity or item.start > most_recent_activity:
+                    most_recent_activity = item.start
+
+        # If we don't find any relevant circulation events, our best
+        # guess as to when the book disappeared is the last time
+        # a loan or hold was taken out on it.
+        last_seen = most_recent_activity
+                    
+        # Now we look for relevant circulation events. First, an event
+        # where the title was explicitly removed.
+        base_query = self._db.query(CirculationEvent).filter(
+            CirculationEvent.license_pool==licensepool).order_by(
+                CirculationEvent.start.desc()
+            )
+        title_removal_events = base_query.filter(
+            CirculationEvent.type==CirculationEvent.DISTRIBUTOR_TITLE_REMOVE
+        )
+        if title_removal_events.count():
+            candidate = title_removal_events[-1].start
+            if not last_seen or candidate > last_seen:
+                last_seen = candidate
+        
+        # Also look for an event where the title went from a nonzero number
+        # of licenses to a zero number of licenses.
+        license_removal_events = base_query.filter(
+            CirculationEvent.type==CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
+        ).filter(
+            CirculationEvent.old_value>0).filter(
+                CirculationEvent.new_value<=0
+            )
+        if license_removal_events.count():
+            candidate = license_removal_events[-1].start
+            if not last_seen or candidate > last_seen:
+                last_seen = candidate
+        
+        return first_activity, most_recent_activity, last_seen, title_removal_events, license_removal_events
+
+    format = "%Y-%m-%d"
+    def explain(self, licensepool):
+        edition = licensepool.presentation_edition
+        identifier = licensepool.identifier
+        first_activity, most_recent_activity, last_seen, title_removal_events, license_removal_events = self.gather_information_for(licensepool)
+
+        data = ["%s %s" % (identifier.type, identifier.identifier)]
+        if edition:
+            data.extend([edition.title, edition.author])
+        if licensepool.availability_time:
+            first_seen = licensepool.availability_time.strftime(self.format)
+        else:
+            first_seen = ''
+        data.append(first_seen)
+        if last_seen:
+            last_seen = last_seen.strftime(self.format)
+        else:
+            last_seen = ''
+        data.append(last_seen)
+        data.append(licensepool.licenses_owned)
+        data.append(licensepool.licenses_available)
+        if first_activity:
+            data.append(first_activity.strftime(self.format))
+        else:
+            data.append("")
+        if most_recent_activity:
+            data.append(most_recent_activity.strftime(self.format))
+        else:
+            data.append("")
+        title_removals = [event.start.strftime(self.format)
+                          for event in title_removal_events]
+        data.append(", ".join(title_removals))
+
+        license_removals = []
+        for event in license_removal_events:
+            description =u"%s: %s → %s" % (
+                    event.start.strftime(self.format), event.old_value,
+                event.new_value
+            )
+            license_removals.append(description)
+        data.append(", ".join(license_removals))
+        print "\t".join([unicode(x).encode("utf8") for x in data])
