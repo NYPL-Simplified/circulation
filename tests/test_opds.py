@@ -538,7 +538,20 @@ class TestOPDS(WithVendorIDTest):
             feed = feedparser.parse(raw)
             eq_(0, len(feed['entries']))
 
-            # ... but we do have DRM licensing information.
+            # ... but we have a link to the User Profile Management
+            # Protocol endpoint...
+            links = feed['feed']['links']
+            [upmp_link] = [
+                x for x in links
+                if x['rel'] == 'http://librarysimplified.org/terms/rel/user-profile'
+            ]
+            annotator = cls(None, None, patron, test_mode=True)
+            expect_url = annotator.url_for(
+                'patron_profile', _external=True
+            )
+            eq_(expect_url, upmp_link['href'])
+            
+            # ... and we have DRM licensing information.
             tree = etree.fromstring(raw)
             parser = OPDSXMLParser()
             licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
