@@ -64,6 +64,12 @@ class Axis360API(object):
     log = logging.getLogger("Axis 360 API")
 
     def __init__(self, _db, collection):
+        if collection.protocol != collection.AXIS_360:
+            raise ValueError(
+                "Collection protocol is %s, but passed into Axis360API!" %
+                collection.protocol
+            )
+
         self._db = _db
 
         self.library_id = collection.external_account_id
@@ -71,7 +77,7 @@ class Axis360API(object):
         self.password = collection.password
 
         # Convert the nickname for a server into an actual URL.
-        base_url = collection.url
+        base_url = collection.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = base_url
