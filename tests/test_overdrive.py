@@ -10,7 +10,7 @@ from datetime import (
     timedelta,
 )
 from api.overdrive import (
-    DummyOverdriveAPI,
+    MockOverdriveAPI,
 )
 
 from api.circulation import (
@@ -64,7 +64,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         ignore, patron_with_email = self.sample_json(
             "patron_info.json"
         )
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=patron_with_email)
         patron = self._patron()
         # If the patron has used a particular email address to put
@@ -102,7 +102,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True
         )
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(400, content=over_hold_limit)
         assert_raises(
             PatronHoldLimitReached,
@@ -131,7 +131,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             "successful_hold.json"
         )
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=patron_with_email)
         api.queue_response(200, content=successful_hold)
         with temp_config() as config:
@@ -169,7 +169,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
 
         # We will get the loan, try to lock in the format, and fail.
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=loan)
         api.queue_response(400, content=lock_in_format_not_available)
         
@@ -214,7 +214,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             "streaming_fulfill_link_response.json"
         )
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=streaming_fulfill_link)
 
         href, type = api.get_fulfillment_link_from_download_link(patron, '1234', "http://download-link", fulfill_url="http://fulfill")
@@ -242,7 +242,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # for the new pool's Identifier.
         bibliographic['id'] = pool.identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=bibliographic)
 
         api.update_formats(pool)
@@ -291,7 +291,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         availability['id'] = pool.identifier.identifier
         bibliographic['id'] = pool.identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=availability)
         api.queue_response(200, content=bibliographic)
 
@@ -308,7 +308,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         """Test the method that actually looks up Overdrive circulation
         information.
         """
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content="foo")
 
         book, (status_code, headers, content) = api.circulation_lookup(
@@ -326,7 +326,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         ignore, availability = self.sample_json(
             "overdrive_availability_information.json"
         )
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(500, content="An error occured.")
         book = dict(id=identifier.identifier, availability_link=self._url)
         pool, was_new, changed = api.update_licensepool(book)
@@ -352,7 +352,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         availability['id'] = identifier.identifier
         bibliographic['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         api.queue_response(200, content=availability)
         api.queue_response(200, content=bibliographic)
 
@@ -394,7 +394,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created Identifier.
         raw['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         pool, was_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, 
             identifier.type, identifier.identifier
@@ -433,7 +433,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         p2, was_new, changed = api.update_licensepool_with_book_info(
             raw, pool, False
         )
@@ -455,7 +455,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         raw['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
+        api = MockOverdriveAPI(self._db)
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, identifier.type, 
             identifier.identifier
@@ -471,13 +471,13 @@ class TestExtractData(OverdriveAPITest):
 
     def test_get_download_link(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        url = DummyOverdriveAPI.get_download_link(
+        url = MockOverdriveAPI.get_download_link(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
         
         assert_raises(
             NoAcceptableFormat, 
-            DummyOverdriveAPI.get_download_link,
+            MockOverdriveAPI.get_download_link,
             json, "no-such-format", "http://foo.com/"
         )
 
@@ -485,13 +485,13 @@ class TestExtractData(OverdriveAPITest):
         data, json = self.sample_json("checkout_response_book_fulfilled_on_kindle.json")
         assert_raises(
             FulfilledOnIncompatiblePlatform,
-            DummyOverdriveAPI.get_download_link,
+            MockOverdriveAPI.get_download_link,
             json, "ebook-epub-adobe", "http://foo.com/"            
         )
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        expires, url = DummyOverdriveAPI.extract_data_from_checkout_response(
+        expires, url = MockOverdriveAPI.extract_data_from_checkout_response(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_(2013, expires.year)
         eq_(10, expires.month)
@@ -504,22 +504,22 @@ class TestExtractData(OverdriveAPITest):
 
         # The book already fulfilled on Kindle doesn't get turned into
         # LoanInfo.
-        eq_(None, DummyOverdriveAPI.process_checkout_data(on_kindle))
+        eq_(None, MockOverdriveAPI.process_checkout_data(on_kindle))
 
         # The book not yet fulfilled does show up as a LoanInfo.
-        loan_info = DummyOverdriveAPI.process_checkout_data(not_on_kindle)
+        loan_info = MockOverdriveAPI.process_checkout_data(not_on_kindle)
         eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
 
         data, format_locked_in = self.sample_json("checkout_response_locked_in_format.json")
 
         # A book that's on loan with a format locked in shows up.
-        loan_info = DummyOverdriveAPI.process_checkout_data(format_locked_in)
+        loan_info = MockOverdriveAPI.process_checkout_data(format_locked_in)
         assert loan_info != None
 
         data, no_format_locked_in = self.sample_json("checkout_response_no_format_locked_in.json")
 
         # A book that's on loan with no format locked in also shows up.
-        loan_info = DummyOverdriveAPI.process_checkout_data(no_format_locked_in)
+        loan_info = MockOverdriveAPI.process_checkout_data(no_format_locked_in)
         assert loan_info != None
 
         # TODO: In the future both of these tests should return a
@@ -532,7 +532,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
         holds_data, json_holds = self.sample_json("no_holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
 
@@ -557,7 +557,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
         holds_data, json_holds = self.sample_json("no_holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
 
@@ -590,7 +590,7 @@ class TestSyncBookshelf(OverdriveAPITest):
    
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
@@ -604,7 +604,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
@@ -633,7 +633,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         overdrive_hold, new = overdrive_edition.license_pool.on_hold_to(patron)
 
 
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
 
@@ -653,7 +653,7 @@ class TestSyncBookshelf(OverdriveAPITest):
                                     with_license_pool=True)
         threem_hold, new = threem.license_pool.on_hold_to(patron)
    
-        overdrive = DummyOverdriveAPI(self._db)
+        overdrive = MockOverdriveAPI(self._db)
         overdrive.queue_response(200, content=loans_data)
         overdrive.queue_response(200, content=holds_data)
 

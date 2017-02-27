@@ -16,7 +16,7 @@ from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
     OverdriveBibliographicCoverageProvider,
-    MockOverdriveAPI,
+    MockOverdriveAPI as BaseMockOverdriveAPI,
 )
 
 from core.model import (
@@ -741,7 +741,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return None
 
 
-class DummyOverdriveResponse(object):
+class MockOverdriveResponse(object):
     def __init__(self, status_code, headers, content):
         self.status_code = status_code
         self.headers = headers
@@ -751,7 +751,7 @@ class DummyOverdriveResponse(object):
         return json.loads(self.content)
 
 
-class DummyOverdriveAPI(MockOverdriveAPI, OverdriveAPI):
+class MockOverdriveAPI(BaseMockOverdriveAPI, OverdriveAPI):
 
     library_data = '{"id":1810,"name":"My Public Library (MA)","type":"Library","collectionToken":"1a09d9203","links":{"self":{"href":"http://api.overdrive.com/v1/libraries/1810","type":"application/vnd.overdrive.api+json"},"products":{"href":"http://api.overdrive.com/v1/collections/1a09d9203/products","type":"application/vnd.overdrive.api+json"},"dlrHomepage":{"href":"http://ebooks.nypl.org","type":"text/html"}},"formats":[{"id":"audiobook-wma","name":"OverDrive WMA Audiobook"},{"id":"ebook-pdf-adobe","name":"Adobe PDF eBook"},{"id":"ebook-mediado","name":"MediaDo eBook"},{"id":"ebook-epub-adobe","name":"Adobe EPUB eBook"},{"id":"ebook-kindle","name":"Kindle Book"},{"id":"audiobook-mp3","name":"OverDrive MP3 Audiobook"},{"id":"ebook-pdf-open","name":"Open PDF eBook"},{"id":"ebook-overdrive","name":"OverDrive Read"},{"id":"video-streaming","name":"Streaming Video"},{"id":"ebook-epub-open","name":"Open EPUB eBook"}]}'
 
