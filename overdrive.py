@@ -124,7 +124,7 @@ class OverdriveAPI(object):
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
         self.collection_token = self.get_library()['collectionToken']
-
+        
     @classmethod
     def from_environment(cls, _db):
         """Load an OverdriveAPI instance for the 'default' Overdrive
@@ -251,15 +251,18 @@ class OverdriveAPI(object):
         """
         # We don't cache this because it changes constantly.
         status_code, headers, content = self.get(link, {})
-        data = json.loads(content)
+        if isinstance(content, basestring):
+            content = json.loads(content)
 
         # Find the link to the next page of results, if any.
-        next_link = OverdriveRepresentationExtractor.link(data, rel_to_follow)
+        next_link = OverdriveRepresentationExtractor.link(
+            content, rel_to_follow
+        )
 
         # Prepare to get availability information for all the books on
         # this page.
         availability_queue = (
-            OverdriveRepresentationExtractor.availability_link_list(data))
+            OverdriveRepresentationExtractor.availability_link_list(content))
         return availability_queue, next_link
 
 
@@ -299,7 +302,9 @@ class OverdriveAPI(object):
             item_id=identifier.identifier
         )
         status_code, headers, content = self.get(url, {})
-        return json.loads(content)
+        if isinstance(content, basestring):
+            content = json.loads(content)
+        return content
 
     def metadata_lookup_obj(self, identifier):
         url = self.METADATA_ENDPOINT % dict(
@@ -307,8 +312,9 @@ class OverdriveAPI(object):
             item_id=identifier
         )
         status_code, headers, content = self.get(url, {})
-        data = json.loads(content)
-        return OverdriveRepresentationExtractor.book_info_to_metadata(data)
+        if isinstance(content, basestring):
+            content = json.loads(content)
+        return OverdriveRepresentationExtractor.book_info_to_metadata(content)
 
 
     @classmethod
@@ -342,6 +348,7 @@ class OverdriveAPI(object):
 class MockOverdriveAPI(OverdriveAPI):
 
     def __init__(self, _db, *args, **kwargs):
+        self.requests = []
         self.responses = []
 
         library = Library.instance(_db)
@@ -386,6 +393,7 @@ class MockOverdriveAPI(OverdriveAPI):
 
     def _make_request(self, url, *args, **kwargs):
         response = self.responses.pop()
+        self.requests.append((url, args, kwargs))
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
@@ -570,7 +578,6 @@ class OverdriveRepresentationExtractor(object):
         primary_identifier = IdentifierData(
             Identifier.OVERDRIVE_ID, overdrive_id
         )
-
         if (book.get('isOwnedByCollections') is not False):
             # We own this book.
             for collection in book['collections']:
