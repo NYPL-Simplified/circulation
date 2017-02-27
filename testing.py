@@ -784,8 +784,13 @@ class MockRequestsResponse(object):
         self.url = url or "http://url/"
 
     def json(self):
-        return json.loads(self.content)
-
+        content = self.content
+        # The queued content might be a JSON string or it might
+        # just be the object you'd get from loading a JSON string.
+        if isinstance(content, basestring):
+            content = json.loads(self.content)
+        return content
+        
     @property
     def text(self):
         return self.content.decode("utf8")
