@@ -67,6 +67,12 @@ class ThreeMAPI(object):
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
     
     def __init__(self, _db, collection):
+        if collection.protocol != collection.BIBLIOTHECA:
+            raise ValueError(
+                "Collection protocol is %s, but passed into BibliothecaAPI!" %
+                collection.protocol
+            )
+
         self._db = _db
         self.version = (
             collection.setting('version').value or self.DEFAULT_VERSION

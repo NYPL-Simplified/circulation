@@ -64,6 +64,12 @@ class Axis360API(object):
     log = logging.getLogger("Axis 360 API")
 
     def __init__(self, _db, collection):
+        if collection.protocol != collection.AXIS_360:
+            raise ValueError(
+                "Collection protocol is %s, but passed into Axis360API!" %
+                collection.protocol
+            )
+
         self._db = _db
 
         self.library_id = collection.external_account_id
