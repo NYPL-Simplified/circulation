@@ -5289,7 +5289,7 @@ class TestCollection(DatabaseTest):
         eq_(setting, setting2)
         eq_("id2", setting2.value)
 
-        eq_((setting2, False), collection.setting("website_id"))
+        eq_(setting2, collection.setting("website_id"))
 
 
 class TestCatalog(DatabaseTest):
