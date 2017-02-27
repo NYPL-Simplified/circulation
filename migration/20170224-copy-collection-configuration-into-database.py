@@ -28,6 +28,7 @@ def copy_library_registry_information(_db, library):
     config = Configuration.integration("Adobe Vendor ID")
     if not config:
         print u"No Adobe Vendor ID configuration, not setting short name or secret."
+    library.short_name = config.get("library_short_name")
     library.library_registry_short_name = config.get("library_short_name")
     library.library_registry_shared_secret = config.get("authdata_secret")
 
@@ -115,5 +116,4 @@ convert_overdrive(_db, library)
 convert_bibliotheca(_db, library)
 convert_axis(_db, library)
 convert_content_server(_db, library)
-set_trace()
 _db.commit()
