@@ -137,7 +137,8 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             _db, Patron, authorization_identifier="unittestuser",
             create_method_kwargs=dict(external_identifier="unittestuser")
         )
-        
+
+        self.initialize_library(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY : {
@@ -169,9 +170,9 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
+            self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-            self.authdata = AuthdataUtility.from_config()
             
     
 class CirculationControllerTest(ControllerTest):
@@ -558,8 +559,9 @@ class TestLoanController(CirculationControllerTest):
                     datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
-            response = self.manager.loans.borrow(
-                data_source.name, identifier.type, identifier.identifier)
+            with self.temp_config():
+                response = self.manager.loans.borrow(
+                    data_source.name, identifier.type, identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=pool)
@@ -854,7 +856,7 @@ class TestLoanController(CirculationControllerTest):
 
         auth = 'Basic ' + base64.b64encode('ihavefines:password')
         
-        with temp_config() as config:
+        with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
@@ -869,7 +871,7 @@ class TestLoanController(CirculationControllerTest):
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "$12345678.90 outstanding" in response.detail
 
-        with temp_config() as config:
+        with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
@@ -917,7 +919,8 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            response = self.manager.loans.sync()
+            with self.temp_config() as config:
+                response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
@@ -961,7 +964,8 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            response = self.manager.loans.sync()
+            with self.temp_config() as config:
+                response = self.manager.loans.sync()
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']

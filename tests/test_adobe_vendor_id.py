@@ -5,7 +5,6 @@ from nose.tools import (
     assert_raises,
     assert_raises_regexp
 )
-import contextlib
 import jwt
 from jwt.exceptions import (
     DecodeError,
@@ -36,6 +35,7 @@ from core.model import (
     Credential,
     DataSource,
     DelegatedPatronIdentifier,
+    Library,
 )
 from core.util.problem_detail import ProblemDetail
 
@@ -48,16 +48,8 @@ from api.config import (
 from api.mock_authentication import MockAuthenticationProvider       
 
 class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
-       
-    @contextlib.contextmanager
-    def temp_config(self):
-        """Configure a basic Vendor ID Service setup."""
-        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][name] = dict(
-                self.MOCK_ADOBE_CONFIGURATION
-            )
-            yield config
+    pass
+
 
 class TestVendorIDModel(VendorIDTest):
 
@@ -200,16 +192,18 @@ class TestVendorIDModel(VendorIDTest):
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
                 AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: "You",
-                AuthdataUtility.AUTHDATA_SECRET_KEY: "secret2",
             }
-            utility = AuthdataUtility.from_config()
+            library = Library.instance(self._db)
+            library.library_registry_short_name = "You"
+            library.library_registry_shared_secret = "secret2"
+            
+            utility = AuthdataUtility.from_config(self._db)
             vendor_id, jwt = utility.encode("Foreign patron")
 
         # Here's another library that issues Adobe IDs for that
         # first library.
         with self.temp_config():
-            utility = AuthdataUtility.from_config()
+            utility = AuthdataUtility.from_config(self._db)
             eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
             # Because this library shares the other library's secret,
@@ -244,10 +238,12 @@ class TestVendorIDModel(VendorIDTest):
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
                 AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY: "You",
-                AuthdataUtility.AUTHDATA_SECRET_KEY: "secret2",
             }
-            utility = AuthdataUtility.from_config()
+            library = Library.instance(self._db)
+            library.library_registry_short_name = "You"
+            library.library_registry_shared_secret = "secret2"
+            
+            utility = AuthdataUtility.from_config(self._db)
             vendor_id, short_client_token = utility.encode_short_client_token(
                 "Foreign patron"
             )
@@ -255,7 +251,7 @@ class TestVendorIDModel(VendorIDTest):
         # Here's another library that issues Adobe IDs for that
         # first library.
         with self.temp_config():
-            utility = AuthdataUtility.from_config()
+            utility = AuthdataUtility.from_config(self._db)
             eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
             # Because this library shares the other library's secret,
@@ -287,9 +283,10 @@ class TestVendorIDModel(VendorIDTest):
         eq_(new_label, label)
         
     def test_short_client_token_lookup_delegated_patron_identifier_failure(self):
-        uuid, label = self.model.short_client_token_lookup(
-            "bad token", "bad signature"
-        )
+        with self.temp_config():
+            uuid, label = self.model.short_client_token_lookup(
+                "bad token", "bad signature"
+            )
         eq_(None, uuid)
         eq_(None, label)
         
@@ -601,22 +598,26 @@ class TestAuthdataUtility(VendorIDTest):
         # from_config() returns None.
         with temp_config() as config:
             config[Configuration.INTEGRATIONS] = {}
-            eq_(None, AuthdataUtility.from_config())
+            eq_(None, AuthdataUtility.from_config(self._db))
             
         with self.temp_config() as config:
             # Test success
-            utility = AuthdataUtility.from_config()
+            utility = AuthdataUtility.from_config(self._db)
+
+            library = Library.instance(self._db)
+            eq_("LBRY", library.library_registry_short_name)
+            eq_("some secret", library.library_registry_shared_secret)
+            
             eq_(self.TEST_VENDOR_ID, utility.vendor_id)
             eq_(self.TEST_LIBRARY_URI, utility.library_uri)
-            eq_(self.TEST_SECRET, utility.secret)
             eq_(
                 {self.TEST_OTHER_LIBRARY_URI : "secret2",
-                 self.TEST_LIBRARY_URI : self.TEST_SECRET},
+                 self.TEST_LIBRARY_URI : "some secret"},
                 utility.secrets_by_library_uri
             )
-
+            
             # Library short names get uppercased.
-            eq_("LBRY", utility.short_name)
+            eq_("LBRY", library.library_registry_short_name)
             eq_(
                 {"LBRY": self.TEST_LIBRARY_URI,
                  "YOU" : self.TEST_OTHER_LIBRARY_URI },
@@ -628,39 +629,35 @@ class TestAuthdataUtility(VendorIDTest):
             integration = config[Configuration.INTEGRATIONS][name]
             del integration[Configuration.ADOBE_VENDOR_ID]
             assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config
+                CannotLoadConfiguration, AuthdataUtility.from_config,
+                self._db
             )
             integration[Configuration.ADOBE_VENDOR_ID] = self.TEST_VENDOR_ID
 
             del integration[AuthdataUtility.LIBRARY_URI_KEY]
             assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config
+                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
             )
             integration[AuthdataUtility.LIBRARY_URI_KEY] = self.TEST_LIBRARY_URI
 
-            del integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY]
+            old_short_name = library.library_registry_short_name
+            library.library_registry_short_name = None
             assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config
+                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
             )
-            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = self.TEST_LIBRARY_SHORT_NAME
+            library.library_registry_short_name = old_short_name
 
-            # The library short name cannot contain the pipe character.
-            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = "foo|bar"
+            old_secret = library.library_registry_shared_secret
+            library.library_registry_shared_secret = None
             assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config
+                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
             )
-            integration[AuthdataUtility.LIBRARY_SHORT_NAME_KEY] = self.TEST_LIBRARY_SHORT_NAME
-            
-            del integration[AuthdataUtility.AUTHDATA_SECRET_KEY]
-            assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config
-            )
-            integration[AuthdataUtility.AUTHDATA_SECRET_KEY] = self.TEST_SECRET
+            library.library_registry_shared_secret = old_secret
             
             # If other libraries are not configured, that's fine.
             del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
-            authdata = AuthdataUtility.from_config()
-            eq_({self.TEST_LIBRARY_URI : self.TEST_SECRET}, authdata.secrets_by_library_uri)
+            authdata = AuthdataUtility.from_config(self._db)
+            eq_({self.TEST_LIBRARY_URI : "some secret"}, authdata.secrets_by_library_uri)
             eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
 
         # Short library names are case-insensitive. If the
@@ -672,7 +669,7 @@ class TestAuthdataUtility(VendorIDTest):
                 "http://a/" : ("a", "secret1"),
                 "http://b/" : ("A", "secret2"),
             }
-            assert_raises(ValueError, AuthdataUtility.from_config)
+            assert_raises(ValueError, AuthdataUtility.from_config, self._db)
             
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"

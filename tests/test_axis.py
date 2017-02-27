@@ -177,8 +177,8 @@ class TestCirculationMonitor(DatabaseTest):
             Analytics.initialize(
                 ['core.local_analytics_provider'], config
             )
-            monitor = Axis360CirculationMonitor(self._db)
-            monitor.api = None
+            api = MockAxis360API(self._db)
+            monitor = Axis360CirculationMonitor(self._db, api=api)
             edition, license_pool = monitor.process_book(
                 self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
             eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
@@ -249,8 +249,8 @@ class TestCirculationMonitor(DatabaseTest):
             identifier=licensepool.identifier.identifier
         )
         metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
-        monitor = Axis360CirculationMonitor(self._db)
-        monitor.api = None
+        api = MockAxis360API(self._db)
+        monitor = Axis360CirculationMonitor(self._db, api=api)
         edition, licensepool = monitor.process_book(
             metadata, self.AVAILABILITY_DATA
         )

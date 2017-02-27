@@ -51,6 +51,7 @@ from core.model import (
     DataSource,
     Hold,
     Identifier,
+    Library,
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
@@ -260,9 +261,10 @@ class CirculationManager(object):
             self.adobe_vendor_id = None
 
         # But almost all libraries will have this setup.
-        if adobe.get(AuthdataUtility.AUTHDATA_SECRET_KEY):
+        library = Library.instance(self._db)
+        if library.library_registry_shared_secret:
             try:
-                authdata = AuthdataUtility.from_config()
+                authdata = AuthdataUtility.from_config(self._db)
                 self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
                 self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")

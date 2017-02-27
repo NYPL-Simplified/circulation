@@ -1,8 +1,10 @@
 import logging
 from collections import defaultdict
+import contextlib
 from core.model import (
     DataSource,
     Identifier,
+    Library,
     Loan,
     Hold,
 )
@@ -12,7 +14,10 @@ from api.circulation import (
     LoanInfo,
     HoldInfo,
 )
-from api.config import Configuration
+from api.config import (
+    Configuration,
+    temp_config,
+)
 from api.adobe_vendor_id import AuthdataUtility
 
 class MockAdobeConfiguration(object):
@@ -25,19 +30,36 @@ class MockAdobeConfiguration(object):
     TEST_NODE_VALUE = 114740953091845
     TEST_VENDOR_ID = "vendor id"
     TEST_LIBRARY_URI = "http://me/"
-    TEST_LIBRARY_SHORT_NAME = "Lbry"
-    TEST_SECRET = "some secret"
     TEST_OTHER_LIBRARY_URI = "http://you/"
     TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
 
+    LIBRARY_REGISTRY_SHORT_NAME = 'LBRY'
+    LIBRARY_REGISTRY_SHARED_SECRET = 'some secret'
+    
     MOCK_ADOBE_CONFIGURATION = {
         Configuration.ADOBE_VENDOR_ID: TEST_VENDOR_ID,
         Configuration.ADOBE_VENDOR_ID_NODE_VALUE: TEST_NODE_VALUE,
         AuthdataUtility.LIBRARY_URI_KEY: TEST_LIBRARY_URI,
-        AuthdataUtility.LIBRARY_SHORT_NAME_KEY: TEST_LIBRARY_SHORT_NAME,
-        AuthdataUtility.AUTHDATA_SECRET_KEY: TEST_SECRET,
         AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
     }
+
+    @classmethod
+    def initialize_library(cls, _db):
+        """Initialize the Library object with default data."""
+        library = Library.instance(_db)
+        library.library_registry_short_name = cls.LIBRARY_REGISTRY_SHORT_NAME
+        library.library_registry_shared_secret = cls.LIBRARY_REGISTRY_SHARED_SECRET
+
+    @contextlib.contextmanager
+    def temp_config(self):
+        """Configure a basic Vendor ID Service setup."""
+        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][name] = dict(
+                self.MOCK_ADOBE_CONFIGURATION
+            )
+            self.initialize_library(self._db)
+            yield config
 
 
 class MockRemoteAPI(BaseCirculationAPI):
