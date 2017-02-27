@@ -701,10 +701,15 @@ class Hold(Base, LoanAndHoldMixin):
     )
 
 class Annotation(Base):
-    LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
+    # The Web Annotation Data Model defines a basic set of motivations.
+    # https://www.w3.org/TR/annotation-model/#motivation-and-purpose
+    OA_NAMESPACE = u"http://www.w3.org/ns/oa#"
 
+    # We need to define some terms of our own.
+    LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
+   
     IDLING = LS_NAMESPACE + u'idling'
-    BOOKMARKING = LS_NAMESPACE + u'bookmarking'
+    BOOKMARKING = OA_NAMESPACE + u'bookmarking'
 
     MOTIVATIONS = [
         IDLING,
