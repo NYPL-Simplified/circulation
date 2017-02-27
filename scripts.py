@@ -627,9 +627,9 @@ class ConfigureLibraryScript(Script):
                 "You can't set the shared secret to a random value and a specific value at the same time."
             )
        
-        if not args.name and not args.short_name:
+        if not args.short_name:
             raise ValueError(
-                "You must specify either the name or the short name of the library."
+                "You must identify the library by its short name."
             )
 
         # Are we talking about an existing library?
@@ -638,6 +638,8 @@ class ConfigureLibraryScript(Script):
         if libraries:
             # Currently there can only be one library, and one already exists.
             [library] = libraries
+            if args.short_name and library.short_name != args.short_name:
+                raise ValueError("Could not locate library '%s'" % args.short_name)
         else:
             # No existing library. Make one.
             library, ignore = get_one_or_create(

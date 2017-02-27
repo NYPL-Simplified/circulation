@@ -6,6 +6,7 @@ from StringIO import StringIO
 
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -895,7 +896,88 @@ class TestShowLibrariesScript(DatabaseTest):
         expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
-def TestConfigureLibraryScript(DatabaseTest):
+
+class TestConfigureLibraryScript(DatabaseTest):
     
+    def test_bad_arguments(self):
+        script = ConfigureLibraryScript()
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        library.library_registry_shared_secret='secret'
+        self._db.commit()
+        assert_raises_regexp(
+            ValueError,
+            "You must identify the library by its short name.",
+            script.do_run, self._db, []
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            "Could not locate library 'foo'",
+            script.do_run, self._db, ["--short-name=foo"]
+        )
+        assert_raises_regexp(
+            ValueError,
+            "Cowardly refusing to overwrite an existing shared secret with a random value.",
+            script.do_run, self._db, [
+                "--short-name=L1",
+                "--random-library-registry-shared-secret"
+            ]
+        )
+
     def test_create_library(self):
-        pass
+        # There is no library.
+        eq_([], self._db.query(Library).all())
+
+        script = ConfigureLibraryScript()
+        output = StringIO()
+        script.do_run(
+            self._db, [
+                "--short-name=L1",
+                "--name=Library 1",
+                "--library-registry-shared-secret=foo",
+                "--library-registry-short-name=nyl1",
+            ],
+            output
+        )
+
+        # Now there is one library.
+        [library] = self._db.query(Library).all()
+        eq_("Library 1", library.name)
+        eq_("L1", library.short_name)
+        eq_("foo", library.library_registry_shared_secret)
+        eq_("NYL1", library.library_registry_short_name)
+        expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
+
+    def test_reconfigure_library(self):
+        # The library exists.
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        script = ConfigureLibraryScript()
+        output = StringIO()
+
+        # We're going to change one value and add some more.
+        script.do_run(
+            self._db, [
+                "--short-name=L1",
+                "--name=Library 1 New Name",
+                "--random-library-registry-shared-secret",
+                "--library-registry-short-name=nyl1",
+            ],
+            output
+        )
+
+        eq_("Library 1 New Name", library.name)
+        eq_("NYL1", library.library_registry_short_name)
+
+        # The shared secret was randomly generated, so we can't test
+        # its exact value, but we do know it's a string that can be
+        # converted into a hexadecimal number.
+        assert library.library_registry_shared_secret != None
+        int(library.library_registry_shared_secret, 16)
+        
+        expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
