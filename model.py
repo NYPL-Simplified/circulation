@@ -8471,6 +8471,11 @@ class Library(Base):
     # The shared secret to use when signing short client tokens for
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
+
+    def __repr__(cls):
+        return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
+            self.name, self.short_name, self.uuid, self.library_registry_short_name
+        )
     
     @classmethod
     def instance(cls, _db):
@@ -8481,7 +8486,7 @@ class Library(Base):
             )
         )
         return library
-
+    
     @hybrid_property
     def library_registry_short_name(self):
         """Gets library_registry_short_name from database"""
@@ -8498,6 +8503,34 @@ class Library(Base):
                 )
         self._library_registry_short_name = value
 
+    def explain(self, include_library_registry_shared_secret=False):
+        """Create a series of human-readable strings to explain a library's
+        settings.
+
+        :param include_library_registry_shared_secret: For security reasons,
+           the shared secret is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.uuid:
+            lines.append('UUID: "%s"' % self.uuid)
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.short_name:
+            lines.append('Short name: "%s"' % self.short_name)
+        if self.library_registry_short_name:
+            lines.append(
+                'Short name (for library registry): "%s"' %
+                self.library_registry_short_name
+            )
+        if (self.library_registry_shared_secret and
+            include_library_registry_shared_secret):
+            lines.append(
+                'Shared secret (for library registry): "%s"' %
+                self.library_registry_shared_secret
+            )
+        return lines
 
 class Admin(Base):
 

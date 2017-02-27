@@ -3,9 +3,12 @@ import datetime
 import imp
 import logging
 import os
+import random
 import re
 import requests
+import string
 import time
+import uuid
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
@@ -33,6 +36,7 @@ from model import (
     DataSource,
     Edition,
     Identifier,
+    Library,
     LicensePool,
     Patron,
     PresentationCalculationPolicy,
@@ -541,6 +545,131 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             provider.ensure_coverage(identifier, force=True)
 
 
+class ShowLibrariesScript(Script):
+    """Show information about the libraries on a circulation manager."""
+    
+    name = "List the libraries on this circulation manager."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--short-name',
+            help='Only display information for the library with the given short name',
+        )
+        parser.add_argument(
+            '--show-registry-shared-secret',
+            help='Print out the secret shared with the library registry.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.short_name:
+            library = get_one(
+                _db, Library, short_name=args.short_name
+            )
+            libraries = [library]
+        else:
+            libraries = _db.query(Library).order_by(Library.name).all()
+        if not libraries:
+            output.write("No libraries found.\n")
+        for library in libraries:
+            output.write(
+                "\n".join(
+                    library.explain(
+                        include_library_registry_shared_secret=
+                        args.show_registry_shared_secret
+                    )
+                )
+            )
+            output.write("\n")
+
+        
+class ConfigureLibraryScript(Script):
+    """Create a library or change its settings."""
+    name = "Change a library's settings"
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Official name of the library',
+        )
+        parser.add_argument(
+            '--short-name',
+            help='Short name of the library',
+        )
+        parser.add_argument(
+            '--library-registry-short-name',
+            help='Short name of the library, as used on the library registry',
+        )
+        parser.add_argument(
+            '--library-registry-shared-secret',
+            help='Set the library registry shared secret to a specific value.',
+        )
+        parser.add_argument(
+            '--random-library-registry-shared-secret',
+            help='Set the library registry shared secret to a random value.',
+            action='store_true',
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        self.args = args
+        if (args.random_library_registry_shared_secret
+            and args.library_registry_shared_secret):
+            raise ValueError(
+                "You can't set the shared secret to a random value and a specific value at the same time."
+            )
+       
+        if not args.name and not args.short_name:
+            raise ValueError(
+                "You must specify either the name or the short name of the library."
+            )
+
+        # Are we talking about an existing library?
+        libraries = _db.query(Library).all()
+
+        if libraries:
+            # Currently there can only be one library, and one already exists.
+            [library] = libraries
+        else:
+            # No existing library. Make one.
+            library, ignore = get_one_or_create(
+                _db, Library, create_method_kwargs=dict(
+                    uuid=str(uuid.uuid4())
+                )
+            )
+
+        if self.args.random_library_registry_shared_secret:
+            if library.library_registry_shared_secret:
+                raise ValueError(
+                    "Cowardly refusing to overwrite an existing shared secret with a random value."
+                )
+            else:
+                args.library_registry_shared_secret = "".join(
+                    [random.choice('1234567890abcdef') for x in range(32)]
+                )
+            
+        if self.args.name:
+            library.name = self.args.name
+        if self.args.short_name:
+            library.short_name = self.args.short_name
+        if self.args.library_registry_short_name:
+            library.library_registry_short_name = self.args.library_registry_short_name
+        if self.args.library_registry_shared_secret:
+            library.library_registry_shared_secret = self.args.library_registry_shared_secret
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(library.explain()))
+        output.write("\n")
+            
+        
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 

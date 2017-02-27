@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import tempfile
+from StringIO import StringIO
 
 from nose.tools import (
     assert_raises,
@@ -20,28 +21,32 @@ from config import (
 )
 
 from model import (
+    create,
     get_one,
     CustomList,
     DataSource,
     Edition,
     Identifier,
+    Library,
     LicensePool,
     Timestamp, 
     Work,
 )
 from scripts import (
-    Script,
+    AddClassificationScript,
+    ConfigureLibraryScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
-    AddClassificationScript,
-    PatronInputScript,
-    RunCoverageProviderScript,
-    WorkProcessingScript,
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
+    PatronInputScript,
+    RunCoverageProviderScript,
+    Script,
+    ShowLibrariesScript,
+    WorkProcessingScript,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -842,9 +847,55 @@ class TestOneClickDeltaScript(DatabaseTest):
         eq_(8, len(pools))
 
 
+class TestShowLibrariesScript(DatabaseTest):
+
+    def test_with_no_libraries(self):
+        output = StringIO()
+        ShowLibrariesScript().do_run(self._db, output=output)
+        eq_("No libraries found.\n", output.getvalue())
+
+    def test_with_multiple_libraries(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l1.library_registry_shared_secret="a"
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        l2.library_registry_shared_secret="b"
+
+        # The output of this script is the result of running explain()
+        # on both libraries.
+        output = StringIO()
+        ShowLibrariesScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=False))
+        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
+        # We can tell the script to only list a single library.
+        output = StringIO()
+        ShowLibrariesScript().do_run(
+            self._db,
+            cmd_args=["--short-name=L2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the library registry
+        # shared secret.
+        output = StringIO()
+        ShowLibrariesScript().do_run(
+            self._db,
+            cmd_args=["--show-registry-shared-secret"],
+            output=output
+        )
+        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=True))
+        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
-
-
-
+def TestConfigureLibraryScript(DatabaseTest):
+    
+    def test_create_library(self):
+        pass
