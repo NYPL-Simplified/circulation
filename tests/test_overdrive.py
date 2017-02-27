@@ -145,8 +145,8 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # And when we placed it on hold, we passed in foo@bar.com
         # as the email address -- not notifications@example.com.
-        hold_request = api.requests[-1]
-        body = hold_request[3][1]
+        url, positional_args, kwargs = api.requests[-1]
+        headers, body = positional_args
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
 
     def test_fulfill_raises_exception_and_updates_formats_for_outdated_format(self):

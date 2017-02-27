@@ -761,9 +761,12 @@ class DummyOverdriveAPI(MockOverdriveAPI, OverdriveAPI):
         response = self._make_request(*args, **kwargs)
 
         # Modify the record of the request to include the patron information.
-        original_data = self.requests.pop()
-        new_data = tuple([patron, pin] + list(original_data))
-        self.requests.append(new_data)
+        original_data = self.requests[-1]
+
+        # The last item in the record of the request is keyword arguments.
+        # Stick this information in there to minimize confusion.
+        original_data[-1]['_patron'] = patron
+        original_data[-1]['_pin'] = patron
         return response
     
 
