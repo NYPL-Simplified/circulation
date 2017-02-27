@@ -293,7 +293,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
                 if response.status_code == 400:
-                    message = json.loads(response.content).get("message")
+                    message = response.json().get("message")
                     if message == "The selected format may not be available for this title.":
                         raise FormatNotAvailable("This book is not available in the format you requested.")
                 else:
@@ -642,7 +642,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
             return None, None, False
 
-        book.update(json.loads(content))
+        if isinstance(content, basestring):
+            content = json.loads(content)
+        book.update(content)
 
         # Update book_id now that we know we have new data.
         book_id = book['id']
@@ -754,14 +756,6 @@ class DummyOverdriveAPI(MockOverdriveAPI, OverdriveAPI):
     token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
 
     collection_token = 'fake token'
-
-    # Give canned answers to the most basic requests -- for access tokens
-    # and basic library information.
-    def token_post(self, *args, **kwargs):
-        return DummyOverdriveResponse(200, {}, self.token_data)
-
-    def get_library(self):
-        return json.loads(self.library_data)
 
     def patron_request(self, patron, pin, *args, **kwargs):
         response = self._make_request(*args, **kwargs)

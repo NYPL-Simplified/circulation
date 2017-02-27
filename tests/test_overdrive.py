@@ -132,8 +132,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
 
         api = DummyOverdriveAPI(self._db)
-        api.queue_response(200, content=successful_hold)
         api.queue_response(200, content=patron_with_email)
+        api.queue_response(200, content=successful_hold)
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
             hold = api.place_hold(self._patron(), 'pin', pool, 
@@ -146,7 +146,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # And when we placed it on hold, we passed in foo@bar.com
         # as the email address -- not notifications@example.com.
         hold_request = api.requests[-1]
-        body = hold_request[4]
+        body = hold_request[3][1]
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
 
     def test_fulfill_raises_exception_and_updates_formats_for_outdated_format(self):
@@ -168,10 +168,11 @@ class TestOverdriveAPI(OverdriveAPITest):
             "lock_in_format_not_available.json"
         )
 
+        # We will get the loan, try to lock in the format, and fail.
         api = DummyOverdriveAPI(self._db)
-        api.queue_response(400, content=lock_in_format_not_available)
         api.queue_response(200, content=loan)
-
+        api.queue_response(400, content=lock_in_format_not_available)
+        
         # Trying to get a fulfillment link raises an exception.
         assert_raises(
             FormatNotAvailable,
@@ -185,10 +186,13 @@ class TestOverdriveAPI(OverdriveAPITest):
             "bibliographic_information.json"
         )
 
-        api.queue_response(200, content=bibliographic)
-        api.queue_response(400, content=lock_in_format_not_available)
+        # If we have the LicensePool available (as opposed to just the
+        # identifier), we will get the loan, try to lock in the
+        # format, fail, and then update the bibliographic information.
         api.queue_response(200, content=loan)
-
+        api.queue_response(400, content=lock_in_format_not_available)
+        api.queue_response(200, content=bibliographic)
+        
         assert_raises(
             FormatNotAvailable,
             api.fulfill,
@@ -288,8 +292,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         bibliographic['id'] = pool.identifier.identifier
 
         api = DummyOverdriveAPI(self._db)
-        api.queue_response(200, content=bibliographic)
         api.queue_response(200, content=availability)
+        api.queue_response(200, content=bibliographic)
 
         api.update_availability(pool)
 
@@ -349,8 +353,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         bibliographic['id'] = identifier.identifier
 
         api = DummyOverdriveAPI(self._db)
-        api.queue_response(200, content=bibliographic)
         api.queue_response(200, content=availability)
+        api.queue_response(200, content=bibliographic)
 
         # Now we're ready. When we call update_licensepool, the
         # OverdriveAPI will retrieve the availability information,
@@ -529,8 +533,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         holds_data, json_holds = self.sample_json("no_holds.json")
 
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
 
         patron = self._patron()
         circulation = CirculationAPI(self._db, overdrive=overdrive)
@@ -543,8 +547,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(loans))
         eq_(loans, patron.loans)        
@@ -554,8 +558,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         holds_data, json_holds = self.sample_json("no_holds.json")
 
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
 
         # Create a loan not present in the sample data.
         patron = self._patron()
@@ -587,8 +591,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
 
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
@@ -601,8 +605,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         holds_data, json_holds = self.sample_json("holds.json")
 
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
         patron = self._patron()
 
@@ -612,8 +616,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(holds, patron.holds)
 
         # Running the sync again leaves all four holds in place.
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
         circulation = CirculationAPI(self._db, overdrive=overdrive)
         loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
@@ -630,8 +634,8 @@ class TestSyncBookshelf(OverdriveAPITest):
 
 
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
 
         # The hold not present in the sample data has been removed
         circulation = CirculationAPI(self._db, overdrive=overdrive)
@@ -650,8 +654,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         threem_hold, new = threem.license_pool.on_hold_to(patron)
    
         overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(200, content=holds_data)
         overdrive.queue_response(200, content=loans_data)
+        overdrive.queue_response(200, content=holds_data)
 
         # Overdrive doesn't know about the 3M hold, but it was
         # not destroyed, because it came from another source.
