@@ -5317,7 +5317,7 @@ class TestCollection(DatabaseTest):
 
 
     def test_explain(self):
-        """Test that Library.explain gives all relevant information
+        """Test that Collection.explain gives all relevant information
         about a Library.
         """
         collection, ignore = get_one_or_create(

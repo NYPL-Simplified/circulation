@@ -778,7 +778,6 @@ class ConfigureCollectionScript(Script):
         args = self.parse_command_line(_db, cmd_args=cmd_args)
 
         # Find or create the collection
-        create_kwargs = dict()
         protocol = None
         if args.protocol:
             protocol = args.protocol
