@@ -125,51 +125,8 @@ class ExternalSearchIndex(object):
             self.indices.delete(index)
 
         self.log.info("Creating index %s", index)
-        self.indices.create(
-            index=index,
-            body={
-                "settings": {
-                    "analysis": {
-                        "filter": {
-                            "en_stop_filter": {
-                                "type": "stop",
-                                "stopwords": ["_english_"]
-                            },
-                            "en_stem_filter": {
-                                "type": "stemmer",
-                                "name": "english"
-                            },
-                            "en_stem_minimal_filter": {
-                                "type": "stemmer",
-                                "name": "english"
-                            },
-                        },
-                        "analyzer" : {
-                            "en_analyzer": {
-                                "type": "custom",
-                                "char_filter": ["html_strip"],
-                                "tokenizer": "standard",
-                                "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                            },
-                            "en_minimal_analyzer": {
-                                "type": "custom",
-                                "char_filter": ["html_strip"],
-                                "tokenizer": "standard",
-                                "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                            },
-                        }
-                    }
-                }
-            },
-        )
-
-        mapping = ExternalSearchIndexVersions.latest_mapping()
-
-        self.indices.put_mapping(
-            doc_type=self.work_document_type,
-            body=mapping,
-            index=index,
-        )
+        body = ExternalSearchIndexVersions.latest_body()
+        self.indices.create(index=index, body=body)
 
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
@@ -641,8 +598,8 @@ class ExternalSearchIndexVersions(object):
         return 'v%d' % latest
 
     @classmethod
-    def latest_mapping(cls):
-        version_method = cls.latest() + '_mapping'
+    def latest_body(cls):
+        version_method = cls.latest() + '_body'
         return getattr(cls, version_method)()
 
     @classmethod
@@ -653,8 +610,42 @@ class ExternalSearchIndexVersions(object):
         return mapping
 
     @classmethod
-    def v2_mapping(cls):
-        return cls.map_fields(
+    def v2_body(cls):
+
+        settings = {
+            "analysis": {
+                "filter": {
+                    "en_stop_filter": {
+                        "type": "stop",
+                        "stopwords": ["_english_"]
+                    },
+                    "en_stem_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                    "en_stem_minimal_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                },
+                "analyzer" : {
+                    "en_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                    },
+                    "en_minimal_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                }
+            }
+        }
+
+        mapping = cls.map_fields(
             fields=["title", "series", "subtitle", "summary", "classifications.term"],
             field_description={
                 "type": "string",
@@ -664,6 +655,9 @@ class ExternalSearchIndexVersions(object):
                         "type": "string",
                         "analyzer": "en_minimal_analyzer"}}}
         )
+        mappings = { ExternalSearchIndex.work_document_type : mapping }
+
+        return dict(settings=settings, mappings=mappings)
 
     @classmethod
     def create_new_version(cls, search_client, base_index_name, version=None):
