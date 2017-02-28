@@ -193,6 +193,7 @@ class TestExternalSearch(DatabaseTest):
         if self.search:
             self.search.indices.delete(self.search.works_index)
             self.search.indices.delete('the_other_index', ignore=[404])
+            self.search.indices.delete('test_index-v100', ignore=[404])
             ExternalSearchIndex.reset()
         super(TestExternalSearch, self).teardown()
 
@@ -200,7 +201,7 @@ class TestExternalSearch(DatabaseTest):
         if not self.search:
             return
 
-        current_index = 'test_index-' + ExternalSearchIndexVersions.latest()
+        current_index = self.search.works_index
         self.search.setup_index(new_index='the_other_index')
 
         # Both indices exist.
@@ -229,6 +230,21 @@ class TestExternalSearch(DatabaseTest):
         alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(alias, self.search.works_alias)
         eq_(True, self.search.indices.exists_alias(index_name, alias))
+
+        # If the -current alias is already set on a different index, it
+        # won't be reassigned. Instead, search will occur against the
+        # index itself.
+        ExternalSearchIndex.reset()
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {
+                Configuration.URL : "http://localhost:9200",
+                Configuration.ELASTICSEARCH_INDEX_KEY : "test_index-v100"
+            }
+
+            self.search = ExternalSearchIndex()
+
+        eq_('test_index-v100', self.search.works_index)
+        eq_('test_index-v100', self.search.works_alias)
 
     def test_query_works(self):
         """

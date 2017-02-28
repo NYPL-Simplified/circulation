@@ -73,7 +73,10 @@ class ExternalSearchIndex(object):
         self.delete = self.__client.delete
         self.exists = self.__client.exists
 
+        # Search queries run against the works_alias.
         self.works_alias = self.__client.works_alias
+
+        # Document upload runs against the works_index.
         self.set_works_index(self.works_alias)
 
         def bulk(docs, **kwargs):
@@ -81,25 +84,28 @@ class ExternalSearchIndex(object):
         self.bulk = bulk
 
     def set_works_index(self, current_alias):
+        """Finds or creates the index based on provided configuration"""
         index_details = self.indices.get_alias(name=current_alias, ignore=[404])
         found = not (index_details.get('status')==404 or 'error' in index_details)
 
+        def _set_works_index(name):
+            self.works_index = self.__client.works_index = name
+
         if found:
-            # We found an index.  Assume there's only one.
-            # This is where new documents will be uploaded.
-            self.works_index = self.__client.works_index = index_details.keys()[0]
+            # We found an index for the alias in configuration. Assume
+            # there is only one.
+            _set_works_index(index_details.keys()[0])
 
         if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
             # The alias culled from configuration is intended to be
             # a current alias. Get the index name from here.
-            current_re = re.compile(self.CURRENT_ALIAS_SUFFIX+'$')
-            base_works_index = re.sub(current_re, '', current_alias)
+            base_works_index = self._base_works_index(current_alias)
             version = ExternalSearchIndexVersions.latest()
-            self.works_index = base_works_index+'-'+version
+            _set_works_index(base_works_index+'-'+version)
         else:
             # Without the CURRENT_ALIAS_SUFFIX, assume the index string
             # from config is the index itself and needs to be swapped.
-            self.works_index = self.__client.works_index = current_alias
+            _set_works_index(current_alias)
 
         if not self.indices.exists(self.works_index):
             self.setup_index()
@@ -168,29 +174,45 @@ class ExternalSearchIndex(object):
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
 
-        base_works_index = re.sub(self.VERSION_RE, '', self.works_index)
+        base_works_index = self._base_works_index(self.works_index)
         alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
-        exists = self.indices.exists_alias(index=self.works_index, name=alias_name)
+        exists = self.indices.exists_alias(name=alias_name)
 
-        if self.indices.exists_alias(name=alias_name):
-            # Ensure that the alias will only pointing at the current index.
-            all_indices = self.indices.get_alias(alias_name).keys()
-            other_indices = set(all_indices).difference([self.works_index])
-            for index in other_indices:
-                self.indices.delete_alias(index=index, name=alias_name)
+        def _set_works_alias(name):
+            self.works_alias = self.__client.works_alias = name
 
-        if not exists:
-            response = self.indices.put_alias(
+        if exists:
+            exists_on_works_index = self.indices.exists_alias(
                 index=self.works_index, name=alias_name
             )
-            if not response.get('acknowledged'):
-                self.log.error("Alias '%s' could not be created", alias_name)
-                # Work against the index instead of an alias.
-                self.works_alias = self.__client.works_index = self.works_index
-                return
+            if exists_on_works_index:
+                _set_works_alias(alias_name)
+            else:
+                # The current alias is already set on a different index.
+                # Don't overwrite it. Instead, just use the given index.
+                _set_works_alias(self.works_index)
+            return
 
-        # Search against the alias.
-        self.works_alias = self.__client.works_index = alias_name
+        # Create the alias and search against it.
+        response = self.indices.put_alias(
+            index=self.works_index, name=alias_name
+        )
+        if not response.get('acknowledged'):
+            self.log.error("Alias '%s' could not be created", alias_name)
+            # Work against the index instead of an alias.
+            _set_works_alias(self.works_index)
+            return
+        _set_works_alias(alias_name)
+
+
+    def _base_works_index(self, index_or_alias):
+        """Removes version or current suffix from base index name"""
+
+        current_re = re.compile(self.CURRENT_ALIAS_SUFFIX+'$')
+        base_works_index = re.sub(current_re, '', index_or_alias)
+        base_works_index = re.sub(self.VERSION_RE, '', base_works_index)
+
+        return base_works_index
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
