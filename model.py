@@ -8567,6 +8567,8 @@ class Collection(Base):
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
+
+    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
     
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually

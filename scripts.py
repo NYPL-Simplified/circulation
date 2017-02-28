@@ -621,7 +621,6 @@ class ConfigureLibraryScript(Script):
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
-        self.args = args
         if (args.random_library_registry_shared_secret
             and args.library_registry_shared_secret):
             raise ValueError(
@@ -649,7 +648,7 @@ class ConfigureLibraryScript(Script):
                 )
             )
 
-        if self.args.random_library_registry_shared_secret:
+        if args.random_library_registry_shared_secret:
             if library.library_registry_shared_secret:
                 raise ValueError(
                     "Cowardly refusing to overwrite an existing shared secret with a random value."
@@ -659,14 +658,14 @@ class ConfigureLibraryScript(Script):
                     [random.choice('1234567890abcdef') for x in range(32)]
                 )
             
-        if self.args.name:
-            library.name = self.args.name
-        if self.args.short_name:
-            library.short_name = self.args.short_name
-        if self.args.library_registry_short_name:
-            library.library_registry_short_name = self.args.library_registry_short_name
-        if self.args.library_registry_shared_secret:
-            library.library_registry_shared_secret = self.args.library_registry_shared_secret
+        if args.name:
+            library.name = args.name
+        if args.short_name:
+            library.short_name = args.short_name
+        if args.library_registry_short_name:
+            library.library_registry_short_name = args.library_registry_short_name
+        if args.library_registry_shared_secret:
+            library.library_registry_shared_secret = args.library_registry_shared_secret
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(library.explain()))
@@ -709,7 +708,127 @@ class ShowCollectionsScript(Script):
             )
             output.write("\n")
 
+
+class ConfigureCollectionScript(Script):
+    """Create a collection or change its settings."""
+    name = "Change a collection's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Name of the collection',
+            required=True
+        )
+        parser.add_argument(
+            '--protocol',
+            help='Protocol used to get licenses. Possible values: "%s"' % (
+                '", "'.join(Collection.PROTOCOLS)
+            )
+        )
+        parser.add_argument(
+            '--external-account-id',
+            help='The ID of this collection according to the license source. Sometimes called a "library ID".',
+        )
+        parser.add_argument(
+            '--url',
+            help='Run the acquisition protocol against this URL.',
+        )
+        parser.add_argument(
+            '--username',
+            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+        )
+        parser.add_argument(
+            '--password',
+            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+        )
+        parser.add_argument(
+            '--setting',
+            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
+            action="append",
+        )
+        library_names = cls._library_names(_db)
+        if library_names:
+            parser.add_argument(
+                '--library',
+                help='Associate this collection with the given library. Possible libraries: %s' % library_names,
+                action="append",
+            )
         
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the collection
+        create_kwargs = dict()
+        protocol = None
+        if args.protocol:
+            protocol = args.protocol
+            
+        collection = get_one(_db, Collection, name=args.name)
+        if not collection:
+            if protocol:
+                collection, is_new = get_one_or_create(
+                    _db, Collection, name=args.name, protocol=protocol
+                )
+            else:
+                raise ValueError(
+                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                )
+        if protocol:
+            collection.protocol = protocol
+        if args.external_account_id:
+            collection.external_account_id = args.external_account_id
+        if args.url:
+            collection.url = args.url
+        if args.username:
+            collection.username = args.username
+        if args.password:
+            collection.password = args.password
+        if args.setting:
+            for setting in args.setting:
+                if not '=' in setting:
+                    raise ValueError(
+                        'Incorrect format for setting: "%s". Should be "key=value"'
+                        % setting
+                    )
+                key, value = setting.split('=', 1)
+                collection.setting(key).value = value
+        if args.library:
+            for name in args.library:
+                library = get_one(_db, Library, short_name=name)
+                if not library:
+                    library_names = self._library_names(_db)
+                    message = 'No such library: "%s".' % name
+                    if library_names:
+                        message += " I only know about: %s" % library_names
+                    raise ValueError(message)
+                if collection not in library.collections:
+                    library.collections.append(collection)
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(collection.explain()))
+        output.write("\n")
+
+
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 

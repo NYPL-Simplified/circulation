@@ -36,6 +36,7 @@ from model import (
 )
 from scripts import (
     AddClassificationScript,
+    ConfigureCollectionScript,
     ConfigureLibraryScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
@@ -1029,3 +1030,88 @@ class TestShowCollectionsScript(DatabaseTest):
         expect_1 = "\n".join(c1.explain(include_password=True))
         expect_2 = "\n".join(c2.explain(include_password=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+class TestConfigureCollectionScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureCollectionScript()
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        self._db.commit()
+
+        assert_raises_regexp(
+            ValueError,
+            'No collection called "collection". You can create it, but you must specify a protocol.',
+            script.do_run, self._db, ["--name=collection"]
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            'Incorrect format for setting: "key". Should be "key=value"',
+            script.do_run, self._db, [
+                "--name=collection", "--protocol=Overdrive",
+                "--setting=key"
+            ]
+        )
+
+        # Try to add the collection to a nonexistent library.
+        assert_raises_regexp(
+            ValueError,
+            'No such library: "nosuchlibrary". I only know about: "L1"',
+            script.do_run, self._db, [
+                "--name=collection", "--protocol=Overdrive",
+                "--library=nosuchlibrary"
+            ]
+        )
+
+
+    def test_success(self):
+        
+        script = ConfigureCollectionScript()
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        l3, ignore = create(
+            self._db, Library, name="Library 3", short_name="L3",
+        )
+        self._db.commit()
+
+        output = StringIO()
+        script.do_run(
+            self._db, ["--name=New Collection", "--protocol=Overdrive",
+                       "--library=L2", "--library=L1",
+                       "--setting=library_id=1234",
+                       "--external-account-id=acctid",
+                       "--url=url",
+                       "--username=username",
+                       "--password=password",
+            ], output
+        )
+
+        # The collection was created and configured properly.
+        collection = get_one(self._db, Collection)
+        eq_("New Collection", collection.name)
+        eq_("url", collection.url)
+        eq_("acctid", collection.external_account_id)
+        eq_("username", collection.username)
+        eq_("password", collection.password)
+
+        # Two libraries now have access to the collection.
+        eq_([collection], l1.collections)
+        eq_([collection], l2.collections)
+        eq_([], l3.collections)
+
+        # One CollectionSetting was set on the collection.
+        [setting] = collection.settings
+        eq_("library_id", setting.key)
+        eq_("1234", setting.value)
+
+        # The output explains the collection settings.
+        expect = ("Configuration settings stored.\n"
+                  + "\n".join(collection.explain()) + "\n")
+        eq_(expect, output.getvalue())
