@@ -546,9 +546,9 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
 
 
 class ShowLibrariesScript(Script):
-    """Show information about the libraries on a circulation manager."""
+    """Show information about the libraries on a server."""
     
-    name = "List the libraries on this circulation manager."
+    name = "List the libraries on this server."
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -670,7 +670,49 @@ class ConfigureLibraryScript(Script):
         output.write("Configuration settings stored.\n")
         output.write("\n".join(library.explain()))
         output.write("\n")
-            
+
+
+class ShowCollectionsScript(Script):
+    """Show information about the collections on a server."""
+    
+    name = "List the collections on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Only display information for the collection with the given name',
+        )
+        parser.add_argument(
+            '--show-password',
+            help='Print out the password for this collection.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.short_name:
+            library = get_one(
+                _db, Library, short_name=args.short_name
+            )
+            libraries = [library]
+        else:
+            libraries = _db.query(Library).order_by(Library.name).all()
+        if not libraries:
+            output.write("No libraries found.\n")
+        for library in libraries:
+            output.write(
+                "\n".join(
+                    library.explain(
+                        include_library_registry_shared_secret=
+                        args.show_registry_shared_secret
+                    )
+                )
+            )
+            output.write("\n")
+
         
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"

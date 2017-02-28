@@ -8620,6 +8620,36 @@ class Collection(Base):
         )
         return setting
 
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain a collection's
+        settings.
+
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.protocol:
+            lines.append('Protocol: "%s"' % self.protocol)
+        for library in self.libraries:
+            lines.append('Used by library: "%s"' % (
+                library.short_name or library.name
+            ))
+        if self.external_account_id:
+            lines.append('External account ID: "%s"' % self.external_account_id)
+        if self.url:
+            lines.append('URL: "%s"' % self.url)
+        if self.username:
+            lines.append('Username: "%s"' % self.url)
+        if self.password and include_password:
+            lines.append('Password: "%s"' % self.password)
+        for setting in self.settings:
+            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+        return lines
+
 
 class CollectionSetting(Base):
     """An extra piece of information associated with a Collection.
