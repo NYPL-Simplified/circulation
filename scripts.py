@@ -32,6 +32,7 @@ from model import (
     get_one,
     get_one_or_create,
     production_session,
+    Collection,
     CustomList,
     DataSource,
     Edition,
@@ -685,7 +686,7 @@ class ShowCollectionsScript(Script):
         )
         parser.add_argument(
             '--show-password',
-            help='Print out the password for this collection.',
+            help='Display collection passwords.',
             action='store_true'
         )
         return parser
@@ -693,22 +694,17 @@ class ShowCollectionsScript(Script):
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
-        if args.short_name:
-            library = get_one(
-                _db, Library, short_name=args.short_name
-            )
-            libraries = [library]
+        if args.name:
+            collection = get_one(_db, Collection, name=args.name)
+            collections = [collection]
         else:
-            libraries = _db.query(Library).order_by(Library.name).all()
-        if not libraries:
-            output.write("No libraries found.\n")
-        for library in libraries:
+            collections = _db.query(Collection).order_by(Collection.name).all()
+        if not collections:
+            output.write("No collections found.\n")
+        for collection in collections:
             output.write(
                 "\n".join(
-                    library.explain(
-                        include_library_registry_shared_secret=
-                        args.show_registry_shared_secret
-                    )
+                    collection.explain(include_password=args.show_password)
                 )
             )
             output.write("\n")

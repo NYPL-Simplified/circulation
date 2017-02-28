@@ -24,6 +24,7 @@ from config import (
 from model import (
     create,
     get_one,
+    Collection,
     CustomList,
     DataSource,
     Edition,
@@ -46,6 +47,7 @@ from scripts import (
     PatronInputScript,
     RunCoverageProviderScript,
     Script,
+    ShowCollectionsScript,
     ShowLibrariesScript,
     WorkProcessingScript,
 )
@@ -981,3 +983,49 @@ class TestConfigureLibraryScript(DatabaseTest):
         
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
+
+
+class TestShowCollectionsScript(DatabaseTest):
+
+    def test_with_no_collections(self):
+        output = StringIO()
+        ShowCollectionsScript().do_run(self._db, output=output)
+        eq_("No collections found.\n", output.getvalue())
+
+    def test_with_multiple_collections(self):
+        c1, ignore = create(self._db, Collection, name="Collection 1",
+                            protocol=Collection.OVERDRIVE)
+        c1.collection_password="a"
+        c2, ignore = create(self._db, Collection, name="Collection 2",
+                            protocol=Collection.BIBLIOTHECA)
+        c2.collection_password="b"
+
+        # The output of this script is the result of running explain()
+        # on both collections.
+        output = StringIO()
+        ShowCollectionsScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(c1.explain(include_password=False))
+        expect_2 = "\n".join(c2.explain(include_password=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+        # We can tell the script to only list a single collection.
+        output = StringIO()
+        ShowCollectionsScript().do_run(
+            self._db,
+            cmd_args=["--name=Collection 2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the collection password
+        output = StringIO()
+        ShowCollectionsScript().do_run(
+            self._db,
+            cmd_args=["--show-password"],
+            output=output
+        )
+        expect_1 = "\n".join(c1.explain(include_password=True))
+        expect_2 = "\n".join(c2.explain(include_password=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
