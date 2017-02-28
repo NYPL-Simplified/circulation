@@ -792,7 +792,8 @@ class InstanceInitializationScript(Script):
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
         existing = get_one(self._db, Timestamp, service=db_init_script.name)
         if existing:
-            raise RuntimeError("Database has already been initialized.")
+            # No need to run the script. We already have a timestamp.
+            return
         db_init_script.run()
 
 
