@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises,
     eq_,
     set_trace,
 )
@@ -245,6 +246,43 @@ class TestExternalSearch(DatabaseTest):
 
         eq_('test_index-v100', self.search.works_index)
         eq_('test_index-v100', self.search.works_alias)
+
+    def test_transfer_current_alias(self):
+        if not self.search:
+            return
+
+        # If the index doesn't exist, an error is raised.
+        assert_raises(
+            ValueError, self.search.transfer_current_alias, 'test_index-v3')
+
+        original_index = self.search.works_index
+
+        # If the -current alias doesn't exist, it's created
+        # and everything is updated accordingly.
+        self.search.setup_index(new_index='the_other_index')
+        self.search.transfer_current_alias('the_other_index')
+        eq_('the_other_index', self.search.works_index)
+        eq_('the_other_index-current', self.search.works_alias)
+
+        # If the -current alias already exists on the index,
+        # it's used without a problem.
+        self.search.transfer_current_alias(original_index)
+        eq_(original_index, self.search.works_index)
+        eq_('test_index-current', self.search.works_alias)
+
+        # If the -current alias is being used on a different version of the
+        # index, it's deleted from that index and placed on the new one.
+        self.search.setup_index('test_index-v100')
+        self.search.transfer_current_alias('test_index-v100')
+        eq_('test_index-v100', self.search.works_index)
+        eq_('test_index-current', self.search.works_alias)
+
+        # It has been removed from other index.
+        eq_(False, self.search.indices.exists_alias(
+            index=original_index, name='test_index-current'))
+        # And only exists on the new index.
+        alias_indices = self.search.indices.get_alias(name='test_index-current').keys()
+        eq_(['test_index-v100'], alias_indices)
 
     def test_query_works(self):
         """

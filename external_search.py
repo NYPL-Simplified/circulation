@@ -204,6 +204,32 @@ class ExternalSearchIndex(object):
             return
         _set_works_alias(alias_name)
 
+    def transfer_current_alias(self, new_index):
+        """Force -current alias onto a new index"""
+        if not self.indices.exists(index=new_index):
+            raise ValueError(
+                "Index '%s' does not exist on this client." % new_index)
+
+        self.works_index = self.__client.works_index = new_index
+        alias_name = self._base_works_index(new_index)+self.CURRENT_ALIAS_SUFFIX
+
+        exists = self.indices.exists_alias(name=alias_name)
+        if not exists:
+            self.setup_current_alias()
+            return
+
+        exists_on_works_index = self.indices.get_alias(
+            index=self.works_index, name=alias_name
+        )
+        if not exists_on_works_index:
+            # The alias exists on one or more other indices.
+            # Remove it from them.
+            self.indices.delete_alias(index='_all', name=alias_name)
+            self.indices.put_alias(
+                index=self.works_index, name=alias_name
+            )
+
+        self.works_alias = self.__client.works_alias = alias_name
 
     def _base_works_index(self, index_or_alias):
         """Removes version or current suffix from base index name"""
@@ -638,6 +664,24 @@ class ExternalSearchIndexVersions(object):
                         "type": "string",
                         "analyzer": "en_minimal_analyzer"}}}
         )
+
+    @classmethod
+    def create_new_version(cls, search_client, base_index_name, version=None):
+        """Creates an index for a new version
+
+        :return: True or False, indicating whether the index was created new.
+        """
+        if not version:
+            version = cls.latest()
+        if not version.startswith('v'):
+            version = 'v%s' % version
+
+        versioned_index = base_index_name+'-'+version
+        if search_client.indices.exists(index=versioned_index):
+            return False
+        else:
+            search_client.setup_index(new_index=versioned_index)
+            return True
 
 
 class DummyExternalSearchIndex(ExternalSearchIndex):
