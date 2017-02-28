@@ -8471,6 +8471,11 @@ class Library(Base):
     # The shared secret to use when signing short client tokens for
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
+
+    def __repr__(cls):
+        return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
+            self.name, self.short_name, self.uuid, self.library_registry_short_name
+        )
     
     @classmethod
     def instance(cls, _db):
@@ -8481,7 +8486,7 @@ class Library(Base):
             )
         )
         return library
-
+    
     @hybrid_property
     def library_registry_short_name(self):
         """Gets library_registry_short_name from database"""
@@ -8498,6 +8503,34 @@ class Library(Base):
                 )
         self._library_registry_short_name = value
 
+    def explain(self, include_library_registry_shared_secret=False):
+        """Create a series of human-readable strings to explain a library's
+        settings.
+
+        :param include_library_registry_shared_secret: For security reasons,
+           the shared secret is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.uuid:
+            lines.append('UUID: "%s"' % self.uuid)
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.short_name:
+            lines.append('Short name: "%s"' % self.short_name)
+        if self.library_registry_short_name:
+            lines.append(
+                'Short name (for library registry): "%s"' %
+                self.library_registry_short_name
+            )
+        if (self.library_registry_shared_secret and
+            include_library_registry_shared_secret):
+            lines.append(
+                'Shared secret (for library registry): "%s"' %
+                self.library_registry_shared_secret
+            )
+        return lines
 
 class Admin(Base):
 
@@ -8534,6 +8567,8 @@ class Collection(Base):
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
+
+    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
     
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
@@ -8586,6 +8621,36 @@ class Collection(Base):
             _db, CollectionSetting, collection=self, key=key
         )
         return setting
+
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain a collection's
+        settings.
+
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.protocol:
+            lines.append('Protocol: "%s"' % self.protocol)
+        for library in self.libraries:
+            lines.append('Used by library: "%s"' % (
+                library.short_name or library.name
+            ))
+        if self.external_account_id:
+            lines.append('External account ID: "%s"' % self.external_account_id)
+        if self.url:
+            lines.append('URL: "%s"' % self.url)
+        if self.username:
+            lines.append('Username: "%s"' % self.url)
+        if self.password and include_password:
+            lines.append('Password: "%s"' % self.password)
+        for setting in self.settings:
+            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+        return lines
 
 
 class CollectionSetting(Base):

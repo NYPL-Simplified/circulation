@@ -5265,7 +5265,31 @@ class TestLibrary(DatabaseTest):
         # You can set the short name to None. This isn't
         # recommended, but it's not an error.
         library.library_registry_short_name = None
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        library = Library.instance(self._db)
+        library.uuid = "uuid"
+        library.name = "The Library"
+        library.short_name = "Short"
+        library.library_registry_short_name = "SHORT"
+        library.library_registry_shared_secret = "secret"
+
+        data = library.explain()
+        eq_(
+            ['UUID: "uuid"',
+             'Name: "The Library"',
+             'Short name: "Short"',
+             'Short name (for library registry): "SHORT"'],
+            data
+        )
+
         
+        with_secret = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secret
+
 
 class TestCollection(DatabaseTest):
 
@@ -5290,6 +5314,40 @@ class TestCollection(DatabaseTest):
         eq_("id2", setting2.value)
 
         eq_(setting2, collection.setting("website_id"))
+
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE,
+        )
+        library = Library.instance(self._db)
+        library.name = "The only library"
+        library.collections.append(collection)
+        
+        collection.external_account_id = "id"
+        collection.url = "url"
+        collection.username = "username"
+        collection.password = "password"
+        setting = collection.set_setting("setting", "value")
+
+        data = collection.explain()
+        eq_(['Name: "test collection"',
+             'Protocol: "Overdrive"',
+             'Used by library: "The only library"',
+             'External account ID: "id"',
+             'URL: "url"',
+             'Username: "url"',
+             'Setting "setting": "value"'
+        ],
+            data
+        )
+
+        with_password = collection.explain(include_password=True)
+        assert 'Password: "password"' in with_password
 
 
 class TestCatalog(DatabaseTest):
