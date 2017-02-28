@@ -1041,12 +1041,15 @@ class TestConfigureCollectionScript(DatabaseTest):
         )
         self._db.commit()
 
+        # Reference to a nonexistent collection without the information
+        # necessary to create it.
         assert_raises_regexp(
             ValueError,
             'No collection called "collection". You can create it, but you must specify a protocol.',
             script.do_run, self._db, ["--name=collection"]
         )
 
+        # Incorrect format for the 'setting' argument.
         assert_raises_regexp(
             ValueError,
             'Incorrect format for setting: "key". Should be "key=value"',
@@ -1081,6 +1084,8 @@ class TestConfigureCollectionScript(DatabaseTest):
         )
         self._db.commit()
 
+        # Create a collection, set all its attributes, set a custom
+        # setting, and associate it with two libraries.
         output = StringIO()
         script.do_run(
             self._db, ["--name=New Collection", "--protocol=Overdrive",
@@ -1114,4 +1119,32 @@ class TestConfigureCollectionScript(DatabaseTest):
         # The output explains the collection settings.
         expect = ("Configuration settings stored.\n"
                   + "\n".join(collection.explain()) + "\n")
+        eq_(expect, output.getvalue())
+
+    def test_reconfigure_collection(self):
+        # The collection exists.
+        collection, ignore = create(
+            self._db, Collection, name="Collection 1",
+            protocol=Collection.OVERDRIVE
+        )
+        script = ConfigureCollectionScript()
+        output = StringIO()
+
+        # We're going to change one value and add a new one.
+        script.do_run(
+            self._db, [
+                "--name=Collection 1",
+                "--url=foo",
+                "--protocol=%s" % Collection.BIBLIOTHECA
+            ],
+            output
+        )
+
+        # The collection has been changed.
+        eq_("foo", collection.url)
+        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        
+        expect = ("Configuration settings stored.\n"
+                  + "\n".join(collection.explain()) + "\n")
+        
         eq_(expect, output.getvalue())

@@ -812,7 +812,7 @@ class ConfigureCollectionScript(Script):
                     )
                 key, value = setting.split('=', 1)
                 collection.setting(key).value = value
-        if args.library:
+        if hasattr(args, 'library'):
             for name in args.library:
                 library = get_one(_db, Library, short_name=name)
                 if not library:
