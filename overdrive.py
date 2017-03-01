@@ -15,6 +15,7 @@ from config import (
 )
 
 from model import (
+    get_one,
     get_one_or_create,
     Collection,
     Contributor,
@@ -962,12 +963,12 @@ class OverdriveAdvantageAccount(object):
         :yield: A sequence of OverdriveAdvantageAccount objects.
         """
         data = json.loads(content)
-        parent_id = data.get('id')
+        parent_id = str(data.get('id'))
         accounts = data.get('advantageAccounts', {})
         for account in accounts:
             name = account['name']
             products_link = account['links']['products']['href']
-            library_id = account.get('id')
+            library_id = str(account.get('id'))
             name = account.get('name')
             type = account.get('type')
             yield cls(parent_library_id=parent_id, library_id=library_id,
@@ -976,24 +977,29 @@ class OverdriveAdvantageAccount(object):
     def to_collection(self, _db):
         """Find or create a Collection object for this Overdrive Advantage
         account.
+
+        :return: a 2-tuple of Collections (primary Overdrive
+        collection, Overdrive Advantage collection)
         """
         # First find the parent Collection.
         parent = get_one(
-            Collection, external_account_id=self.parent_library_id,
+            _db, Collection, external_account_id=self.parent_library_id,
             protocol=Collection.OVERDRIVE
         )
         if not parent:
             # Without the parent's credentials we can't access the child.
             return None
-        child = get_one_or_create(
-            Collection, parent=parent, protocol=Collection.OVERDRIVE,
-            external_account_id=self.library_id
+        name = self.type + " - " + self.name
+        child, ignore = get_one_or_create(
+            _db, Collection, parent_id=parent.id, protocol=Collection.OVERDRIVE,
+            external_account_id=self.library_id,
+            create_method_kwargs=dict(name=name)
         )
 
         # Set or update the name of the collection to reflect the name of
-        # the library.
-        child.name = self.type + " - " + self.name
-
+        # the library, just in case that name has changed.
+        child.name = name
+        return parent, child
         
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
