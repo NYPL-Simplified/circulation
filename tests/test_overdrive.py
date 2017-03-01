@@ -140,8 +140,8 @@ class TestOverdriveAPI(OverdriveTest):
         self.api.queue_response(401)
 
         # We refresh the bearer token.
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
 
         # Then we retry the GET but we get another 401.
@@ -156,7 +156,7 @@ class TestOverdriveAPI(OverdriveTest):
         """If we fail to refresh the OAuth bearer token, an exception is
         raised.
         """
-        self.api.bearer_token_response = MockRequestsResponse(401, {}, "")
+        self.api.access_token_response = MockRequestsResponse(401, {}, "")
 
         assert_raises_regexp(
             BadResponseException,

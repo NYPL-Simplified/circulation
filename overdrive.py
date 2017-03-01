@@ -443,7 +443,6 @@ class MockOverdriveAPI(OverdriveAPI):
         whether to queue a response.
         """
         response = self.access_token_response
-        set_trace()
         return HTTP._process_response(url, response, **kwargs)
 
     def mock_access_token_response(self, credential):
