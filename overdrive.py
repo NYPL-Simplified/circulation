@@ -409,7 +409,7 @@ class MockOverdriveAPI(OverdriveAPI):
         self.responses = []
 
         if not collection:
-            # OverdriveAPI needs a Collection, but not was provided.
+            # OverdriveAPI needs a Collection, but none was provided.
             # Just create a basic one.
             library = Library.instance(_db)
             collection, ignore = get_one_or_create(
@@ -440,7 +440,7 @@ class MockOverdriveAPI(OverdriveAPI):
         because only the first MockOverdriveAPI instantiation in a
         given test actually makes this call. By mocking the response
         to this method separately we remove the need to figure out
-        whether to queue a response.
+        whether to queue a response in a given test.
         """
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
