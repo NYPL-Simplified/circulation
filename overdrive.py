@@ -263,8 +263,11 @@ class OverdriveAPI(object):
         :yield: A sequence of OverdriveAdvantageAccount objects.
         """
         library = self.get_library()
+        links = library.get('links', {})
         advantage = links.get('advantageAccounts')
         if advantage:
+            # This library has Overdrive Advantage accounts, or at
+            # least a link where some may be found.
             advantage_url = advantage.get('href')
             if not advantage_url:
                 return
@@ -947,24 +950,23 @@ class OverdriveAdvantageAccount(object):
         self.parent_library_id = parent_library_id
         self.library_id = library_id
         self.name = name
-        self.collection_token = collection_token
         self.type = type
 
     @classmethod
-    def from_representation(self, content):
+    def from_representation(cls, content):
         """Turn the representation of an advantageAccounts link into a list of
         OverdriveAdvantageAccount objects.
 
+        :param content: The data obtained by following an advantageAccounts
+            link.
         :yield: A sequence of OverdriveAdvantageAccount objects.
         """
-        data = json.loads(representation.content)
+        data = json.loads(content)
         parent_id = data.get('id')
         accounts = data.get('advantageAccounts', {})
         for account in accounts:
             name = account['name']
             products_link = account['links']['products']['href']
-            status_code, headers, content = self.get(products_link, {})
-            data = json.loads(content)
             library_id = account.get('id')
             name = account.get('name')
             type = account.get('type')

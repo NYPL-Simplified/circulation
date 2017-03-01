@@ -8659,7 +8659,7 @@ class Collection(Base):
         if self.url:
             lines.append('URL: "%s"' % self.url)
         if self.username:
-            lines.append('Username: "%s"' % self.url)
+            lines.append('Username: "%s"' % self.username)
         if self.password and include_password:
             lines.append('Password: "%s"' % self.password)
         for setting in self.settings:
