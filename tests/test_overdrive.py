@@ -21,6 +21,8 @@ from coverage import (
 )
 
 from model import (
+    create,
+    Collection,
     Contributor,
     DeliveryMechanism,
     Edition,
@@ -357,7 +359,42 @@ class TestOverdriveAdvantageAccount(OverdriveTest):
         eq_("9", ac2.library_id)
         eq_("The Common Community Library", ac2.name)
 
+    def test_to_collection(self):
+        """Test that we can turn an OverdriveAdvantageAccount object into
+        a Collection object.
+        """
 
+        account = OverdriveAdvantageAccount(
+            "parent_id", "child_id", "Library Name",
+            "Library Advantage Account"
+        )
+
+        # We can't just create a Collection object for this object because
+        # the parent doesn't exist.
+        assert_raises_regexp(
+            ValueError,
+            "Cannot create a Collection whose parent does not already exist.",
+            account.to_collection, self._db
+        )
+        
+        # So, create a Collection to be the parent.
+        parent, ignore = create(
+            self._db, Collection, name="Parent",
+            protocol=Collection.OVERDRIVE, external_account_id="parent_id"
+        )
+
+        # Now it works.
+        p, collection = account.to_collection(self._db)
+        eq_(p, parent)
+        eq_(parent, collection.parent)
+        eq_(collection.external_account_id, account.library_id)
+        eq_(Collection.OVERDRIVE, collection.protocol)
+
+        # To ensure uniqueness, the collection was named after its
+        # parent.
+        eq_("%s / %s" % (parent.name, collection.name), collection.name)
+
+        
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
     """Test the code that looks up bibliographic information from Overdrive."""
 

@@ -991,7 +991,9 @@ class OverdriveAdvantageAccount(object):
         )
         if not parent:
             # Without the parent's credentials we can't access the child.
-            return None
+            raise ValueError(
+                "Cannot create a Collection whose parent does not already exist."
+            )
         name = parent.name + " / " + self.name
         child, ignore = get_one_or_create(
             _db, Collection, parent_id=parent.id, protocol=Collection.OVERDRIVE,
