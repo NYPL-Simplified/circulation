@@ -115,12 +115,12 @@ class OverdriveAPI(object):
 
         self.library_id = collection.external_account_id
         if collection.parent:
-            # This is an Overdrive Advantage account. We're going to
-            # inherit all of the credentials from the parent (the main
-            # Overdrive account), other than the library ID.
+            # This is an Overdrive Advantage account.
             self.parent_library_id = collection.parent.external_account_id
-
-            # Everything else comes from the parent.
+            
+            # We're going to inherit all of the Overdrive credentials
+            # from the parent (the main Overdrive account), except for the
+            # library ID, which we already set.
             collection = collection.parent
         else:
             self.parent_library_id = None
@@ -409,6 +409,8 @@ class MockOverdriveAPI(OverdriveAPI):
         self.responses = []
 
         if not collection:
+            # OverdriveAPI needs a Collection, but not was provided.
+            # Just create a basic one.
             library = Library.instance(_db)
             collection, ignore = get_one_or_create(
                 _db, Collection,
@@ -431,9 +433,9 @@ class MockOverdriveAPI(OverdriveAPI):
 
         We mock the method rather than queueing up a mock response
         because only the first MockOverdriveAPI instantiation in a
-        given test actually needs to make this call. By mocking the
-        method we remove the need to communicate whether or not the
-        mock response should be queued.
+        given test actually makes this call. By mocking the method, we
+        remove the need to communicate we need to queue the mock
+        response.
         """
         token = self.mock_access_token("bearer token")
         return MockRequestsResponse(200, {}, token)
