@@ -8603,7 +8603,8 @@ class Collection(Base):
     # An Overdrive collection may have many children corresponding
     # to Overdrive Advantage collections.
     children = relationship(
-        "Collection", backref="parent", remote_side = [id]
+        "Collection", backref=backref("parent", remote_side = [id]),
+        uselist=False
     )
     
     # A Collection can provide books to many Libraries.
@@ -8648,6 +8649,8 @@ class Collection(Base):
         lines = []
         if self.name:
             lines.append('Name: "%s"' % self.name)
+        if self.parent:
+            lines.append('Parent: %s' % self.parent.name)
         if self.protocol:
             lines.append('Protocol: "%s"' % self.protocol)
         for library in self.libraries:

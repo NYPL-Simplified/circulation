@@ -118,13 +118,16 @@ class OverdriveAPI(object):
             # inherit all of the credentials from the parent (the main
             # Overdrive account), other than the library ID.
             self.parent_library_id = collection.parent.external_account_id
+
+            # Everything else comes from the parent.
+            collection = collection.parent
         else:
             self.parent_library_id = None
             
         self.client_key = collection.username
         self.client_secret = collection.password
         self.website_id = collection.setting('website_id').value
-        
+
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
             raise CannotLoadConfiguration(
@@ -989,13 +992,12 @@ class OverdriveAdvantageAccount(object):
         if not parent:
             # Without the parent's credentials we can't access the child.
             return None
-        name = self.type + " - " + self.name
+        name = parent.name + " / " + self.name
         child, ignore = get_one_or_create(
             _db, Collection, parent_id=parent.id, protocol=Collection.OVERDRIVE,
             external_account_id=self.library_id,
             create_method_kwargs=dict(name=name)
         )
-
         # Set or update the name of the collection to reflect the name of
         # the library, just in case that name has changed.
         child.name = name
