@@ -161,6 +161,33 @@ class TestOverdriveAPI(OverdriveTest):
             None
         )
 
+    def test_library_endpoint(self):
+        """Verify that Advantage collections and regular Overdrive
+        collections start at different endpoints.
+        """
+        # Here's an Overdrive collection.
+        main = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id="1",
+            username="user", password="password"
+        )
+        main.setting('website_id').value = '100'
+
+        # Here's an Overdrive API client for that collection.
+        overdrive_main = MockOverdriveAPI(self._db, main)
+        eq_("https://api.overdrive.com/v1/libraries/1",
+            overdrive_main._library_endpoint)
+
+        # Here's an Overdrive Advantage collection associated with the
+        # main Overdrive collection.
+        child = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id="2",
+        )
+        child.parent = main
+        overdrive_child = MockOverdriveAPI(self._db, child)
+        eq_(
+            'https://api.overdrive.com/v1/libraries/1/advantageAccounts/2',
+            overdrive_child._library_endpoint
+        )
 
 class TestOverdriveRepresentationExtractor(OverdriveTest):
 
@@ -378,9 +405,9 @@ class TestOverdriveAdvantageAccount(OverdriveTest):
         )
         
         # So, create a Collection to be the parent.
-        parent, ignore = create(
-            self._db, Collection, name="Parent",
-            protocol=Collection.OVERDRIVE, external_account_id="parent_id"
+        parent = self._collection(
+            name="Parent", protocol=Collection.OVERDRIVE,
+            external_account_id="parent_id"
         )
 
         # Now it works.
@@ -392,7 +419,7 @@ class TestOverdriveAdvantageAccount(OverdriveTest):
 
         # To ensure uniqueness, the collection was named after its
         # parent.
-        eq_("%s / %s" % (parent.name, collection.name), collection.name)
+        eq_("%s / %s" % (parent.name, account.name), collection.name)
 
         
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):

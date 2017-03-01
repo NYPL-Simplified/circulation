@@ -57,6 +57,7 @@ from util.http import (
     BadResponseException,
 )
 
+from testing import MockRequestsResponse
 
 class OverdriveAPI(object):
 
@@ -403,29 +404,39 @@ class OverdriveAPI(object):
 
 class MockOverdriveAPI(OverdriveAPI):
 
-    def __init__(self, _db, *args, **kwargs):
+    def __init__(self, _db, collection=None, *args, **kwargs):
         self.requests = []
         self.responses = []
 
-        library = Library.instance(_db)
-        collection, ignore = get_one_or_create(
-            _db, Collection,
-            name="Test Overdrive Collection",
-            protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
-                username='a', password='b', external_account_id='c'
+        if not collection:
+            library = Library.instance(_db)
+            collection, ignore = get_one_or_create(
+                _db, Collection,
+                name="Test Overdrive Collection",
+                protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
+                    username='a', password='b', external_account_id='c'
+                )
             )
-        )
-        collection.set_setting('website_id', 'd')
-        library.collections.append(collection)
+            collection.set_setting('website_id', 'd')
+            library.collections.append(collection)
         
-        # The constructor will make a request for the access token,
-        # and then a request for the collection token.
-        self.queue_response(200, content=self.mock_access_token("bearer token"))
+        # The constructor will always make a request for the collection token.
         self.queue_response(
             200, content=self.mock_collection_token("collection token")
         )
-        
         super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
+
+    def token_post(self, *args, **kwargs):
+        """Mock the request for an OAuth token.
+
+        We mock the method rather than queueing up a mock response
+        because only the first MockOverdriveAPI instantiation in a
+        given test actually needs to make this call. By mocking the
+        method we remove the need to communicate whether or not the
+        mock response should be queued.
+        """
+        token = self.mock_access_token("bearer token")
+        return MockRequestsResponse(200, {}, token)
 
     def mock_access_token(self, credential):
         return json.dumps(dict(access_token=credential, expires_in=3600))
@@ -434,7 +445,6 @@ class MockOverdriveAPI(OverdriveAPI):
         return json.dumps(dict(collectionToken=token))
 
     def queue_response(self, status_code, headers={}, content=None):
-        from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
