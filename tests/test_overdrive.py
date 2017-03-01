@@ -34,6 +34,8 @@ from model import (
 )
 from scripts import RunCoverageProviderScript
 
+from testing import MockRequestsResponse
+
 from util.http import (
     BadResponseException,
     HTTP,
@@ -66,7 +68,7 @@ class TestOverdriveAPI(OverdriveTest):
         self.api.queue_response(200, content="some content")
         response = self.api.token_post(self._url, "the payload")
         eq_(200, response.status_code)
-        eq_("some content", response.content)
+        eq_(self.api.access_token_response.content, response.content)
 
     def test_get_success(self):
         self.api.queue_response(200, content="some content")
@@ -97,11 +99,13 @@ class TestOverdriveAPI(OverdriveTest):
         # We try to GET and receive a 401.
         self.api.queue_response(401)
 
-        # We refresh the bearer token.
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        # We refresh the bearer token. (This happens in
+        # MockOverdriveAPI.token_post, so we don't mock the response
+        # in the normal way.)
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
-
+        
         # Then we retry the GET and it succeeds this time.
         self.api.queue_response(200, content="at last, the content")
 
@@ -120,8 +124,8 @@ class TestOverdriveAPI(OverdriveTest):
         eq_("bearer token", credential.credential)
         eq_(self.api.token, credential.credential)
 
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
 
         self.api.refresh_creds(credential)
@@ -152,7 +156,7 @@ class TestOverdriveAPI(OverdriveTest):
         """If we fail to refresh the OAuth bearer token, an exception is
         raised.
         """
-        self.api.queue_response(401)
+        self.api.bearer_token_response = MockRequestsResponse(401, {}, "")
 
         assert_raises_regexp(
             BadResponseException,

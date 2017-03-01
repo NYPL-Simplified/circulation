@@ -426,22 +426,29 @@ class MockOverdriveAPI(OverdriveAPI):
         self.queue_response(
             200, content=self.mock_collection_token("collection token")
         )
+        self.access_token_response = self.mock_access_token_response(
+            "bearer token"
+        )
+
         super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
 
-    def token_post(self, *args, **kwargs):
+    def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
 
-        We mock the method rather than queueing up a mock response
+        We mock the method by looking at the access_token_response
+        property, rather than inserting a mock response in the queue,
         because only the first MockOverdriveAPI instantiation in a
-        given test actually makes this call. By mocking the method, we
-        remove the need to communicate we need to queue the mock
-        response.
+        given test actually makes this call. By mocking the response
+        to this method separately we remove the need to figure out
+        whether to queue a response.
         """
-        token = self.mock_access_token("bearer token")
-        return MockRequestsResponse(200, {}, token)
+        response = self.access_token_response
+        set_trace()
+        return HTTP._process_response(url, response, **kwargs)
 
-    def mock_access_token(self, credential):
-        return json.dumps(dict(access_token=credential, expires_in=3600))
+    def mock_access_token_response(self, credential):
+        token = dict(access_token=credential, expires_in=3600)
+        return MockRequestsResponse(200, {}, json.dumps(token))
 
     def mock_collection_token(self, token):
         return json.dumps(dict(collectionToken=token))
