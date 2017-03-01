@@ -11,6 +11,7 @@ import pkgutil
 from overdrive import (
     OverdriveAPI,
     MockOverdriveAPI,
+    OverdriveAdvantageAccount,
     OverdriveRepresentationExtractor,
     OverdriveBibliographicCoverageProvider,
 )
@@ -331,6 +332,30 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
         ]
         eq_(1, awards.value)
         eq_(1, awards.weight)
+
+
+class TestOverdriveAdvantageAccount(OverdriveTest):
+
+    def test_from_representation(self):
+        """Test the creation of OverdriveAdvantageAccount objects
+        from Overdrive's representation of a list of accounts.
+        """
+        raw, data = self.sample_json("advantage_accounts.json")
+        [ac1, ac2] = OverdriveAdvantageAccount.from_representation(raw)
+
+        # The two Advantage accounts have the same parent library ID
+        # and the same type.
+        eq_("1225", ac1.parent_library_id)
+        eq_("1225", ac2.parent_library_id)
+        eq_("Library Advantage Account", ac1.type)
+        eq_("Library Advantage Account", ac2.type)
+
+        # But they have different names and library IDs.
+        eq_("3", ac1.library_id)
+        eq_("The Other Side of Town Library", ac1.name)
+
+        eq_("9", ac2.library_id)
+        eq_("The Common Community Library", ac2.name)
 
 
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):

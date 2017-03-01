@@ -5340,7 +5340,7 @@ class TestCollection(DatabaseTest):
              'Used by library: "The only library"',
              'External account ID: "id"',
              'URL: "url"',
-             'Username: "url"',
+             'Username: "username"',
              'Setting "setting": "value"'
         ],
             data
@@ -5349,6 +5349,17 @@ class TestCollection(DatabaseTest):
         with_password = collection.explain(include_password=True)
         assert 'Password: "password"' in with_password
 
+        # If the collection is the child of another collection,
+        # its parent is mentioned.
+        child = Collection(
+            name="Child", parent=collection, external_account_id="id2"
+        )
+        data = child.explain()
+        eq_(['Name: "Child"',
+             'Parent: test collection',
+             'External account ID: "id2"'],
+            data
+        )
 
 class TestCatalog(DatabaseTest):
 
