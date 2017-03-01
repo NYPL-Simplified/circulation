@@ -33,9 +33,6 @@ class ExternalSearchIndex(object):
     
         self.log = logging.getLogger("External search index")
 
-        # By default, assume that there is no search index.
-        self.works_index = None
-
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
                 integration = Configuration.integration(
@@ -45,14 +42,16 @@ class ExternalSearchIndex(object):
                 if not works_index:
                     works_index = integration.get(
                         Configuration.ELASTICSEARCH_INDEX_KEY
-                    ) or None
+                    )
 
                 if not url:
                     if not integration:
                         return
                     url = integration[Configuration.URL]
 
-            use_ssl = url and url.startswith('https://')
+            if not url:
+                raise Exception("Cannot connect to Elasticsearch cluster.")
+            use_ssl = url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
                 works_index, url
@@ -61,29 +60,24 @@ class ExternalSearchIndex(object):
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
 
-            # Set the index and the alias to the same value for
-            # now.
-            ExternalSearchIndex.__client.works_alias = works_index
-            if not url:
-                raise Exception("Cannot connect to Elasticsearch cluster.")
-
         self.indices = self.__client.indices
         self.search = self.__client.search
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
 
-        # Search queries run against the works_alias.
-        self.works_alias = self.__client.works_alias
-
+        # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
-        self.set_works_index(self.works_alias)
+        # Search queries run against works_alias.
+        self.works_index = None
+        self.works_alias = None
+        self.set_works_index_and_alias(works_index)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
 
-    def set_works_index(self, current_alias):
+    def set_works_index_and_alias(self, current_alias):
         """Finds or creates the index based on provided configuration"""
         index_details = self.indices.get_alias(name=current_alias, ignore=[404])
         found = not (index_details.get('status')==404 or 'error' in index_details)
