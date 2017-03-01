@@ -59,7 +59,7 @@ if config_index == search.works_index:
             (search.works_alias, config_index, search.works_alias))
 
 elif 'error' not in search.indices.get_alias(name=config_index):
-    # The configuration has an alias in its configuration.
+    # The configuration has an alias instead of an index.
     if config_index == search.works_alias:
         print "No action needed. Elasticsearch alias '%s' is properly named and configured." % config_index
         print "Works are being uploaded to Elasticsearch index '%s'" % search.works_index
@@ -85,7 +85,7 @@ elif 'error' not in search.indices.get_alias(name=config_index):
                  current_alias_index, index, current_alias, current_alias_index))
         else:
             # ExternalSearchIndex.setup_current_alias() already does this,
-            # so it should never need to happen here.
+            # so it shouldn't need to happen here.
             response = search.indices.put_alias(
                 index=search.works_index, name=current_alias
             )
