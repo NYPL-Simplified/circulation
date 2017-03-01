@@ -8556,6 +8556,20 @@ class Collection(Base):
     settings = relationship(
         "CollectionSetting", backref="collection"
     )
+
+    # A Collection may reuse the credentials from some other
+    # Collection. For instance, an Overdrive Advantage collection is a
+    # specialization of an ordinary Overdrive collection. It uses the
+    # same access key and secret as the Overdrive collection, but it
+    # has a distinct external_account_id.
+    parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
+
+    # A collection may have many child collections. For example,
+    # An Overdrive collection may have many children corresponding
+    # to Overdrive Advantage collections.
+    children = relationship(
+        "Collection", backref="parent", remote_side = [id]
+    )
     
     # A Collection can provide books to many Libraries.
     libraries = relationship(

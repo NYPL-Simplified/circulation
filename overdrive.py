@@ -65,6 +65,7 @@ class OverdriveAPI(object):
     PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
 
     LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(library_id)s"
+    ADVANTAGE_LIBRARY_ENDPOINT = "https://api.overdrive.com/v1/libraries/%(parent_library_id)s/advantageAccounts/%(library_id)s"
     ALL_PRODUCTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?sort=%(sort)s"
     METADATA_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products/%(item_id)s/metadata"
     EVENTS_ENDPOINT = "https://api.overdrive.com/v1/collections/%(collection_token)s/products?lastUpdateTime=%(lastupdatetime)s&sort=%(sort)s&limit=%(limit)s"
@@ -109,10 +110,18 @@ class OverdriveAPI(object):
                 "Collection protocol is %s, but passed into OverdriveAPI!" %
                 collection.protocol
             )
-        
+
+        self.library_id = collection.external_account_id
+        if collection.parent:
+            # This is an Overdrive Advantage account. We're going to
+            # inherit all of the credentials from the parent (the main
+            # Overdrive account), other than the library ID.
+            self.parent_library_id = collection.parent.external_account_id
+        else:
+            self.parent_library_id = None
+            
         self.client_key = collection.username
         self.client_secret = collection.password
-        self.library_id = collection.external_account_id
         self.website_id = collection.setting('website_id').value
         
         if (not self.client_key or not self.client_secret or not self.website_id
@@ -218,14 +227,55 @@ class OverdriveAPI(object):
         credential.expires = datetime.datetime.utcnow() + datetime.timedelta(
             seconds=expires_in)
 
+    @property
+    def _library_endpoint(self):
+        """Which URL should we go to to get information about this collection?
+
+        If this is an ordinary Overdrive account, we get information
+        from LIBRARY_ENDPOINT.
+
+        If this is an Overdrive Advantage account, we get information
+        from LIBRARY_ADVANTAGE_ENDPOINT.
+        """
+        args = dict(library_id=self.library_id)
+        if self.parent_library_id:
+            # This is an Overdrive advantage account.
+            args['parent_library_id'] = self.parent_library_id
+            endpoint = self.ADVANTAGE_LIBRARY_ENDPOINT
+        else:
+            endpoint = self.LIBRARY_ENDPOINT
+        return endpoint % args
+        
     def get_library(self):
-        url = self.LIBRARY_ENDPOINT % dict(library_id=self.library_id)
+        """Get basic information about the collection, including
+        a link to the titles in the collection.
+        """
+        url = self._library_endpoint
         representation, cached = Representation.get(
             self._db, url, self.get, 
             exception_handler=Representation.reraise_exception,
         )
         return json.loads(representation.content)
 
+    def get_advantage_accounts(self):
+        """Find all the Overdrive Advantage accounts managed by this library.
+
+        :yield: A sequence of OverdriveAdvantageAccount objects.
+        """
+        library = self.get_library()
+        advantage = links.get('advantageAccounts')
+        if advantage:
+            advantage_url = advantage.get('href')
+            if not advantage_url:
+                return
+            representation, cached = Representation.get(
+                self._db, advantage_url, self.get,
+                exception_handler=Representation.reraise_exception,
+            )
+            return OverdriveAdvantageAccount.from_representation(
+                representation.content
+            )
+    
     def all_ids(self):
         """Get IDs for every book in the system, with the most recently added
         ones at the front.
@@ -234,7 +284,6 @@ class OverdriveAPI(object):
                       sort="dateAdded:desc")
         next_link = self.make_link_safe(
             self.ALL_PRODUCTS_ENDPOINT % params)
-
         while next_link:
             page_inventory, next_link = self._get_book_list_page(
                 next_link, 'next'
@@ -880,8 +929,49 @@ class OverdriveRepresentationExtractor(object):
             metadata.circulation = circulationdata
 
         return metadata
+   
 
+class OverdriveAdvantageAccount(object):
+    """Holder and parser for data associated with Overdrive Advantage.
+    """
+    
+    def __init__(self, parent_library_id, library_id, name, type):
+        """Constructor.
+        
+        :param parent_library_id: The library ID of the parent Overdrive 
+            account.
+        :param library_id: The library ID of the Overdrive Advantage account.
+        :param name: The name of the library whose Advantage account this is.
+        :param type: Should be the literal string 'Library Advantage Account'
+        """
+        self.parent_library_id = parent_library_id
+        self.library_id = library_id
+        self.name = name
+        self.collection_token = collection_token
+        self.type = type
 
+    @classmethod
+    def from_representation(self, content):
+        """Turn the representation of an advantageAccounts link into a list of
+        OverdriveAdvantageAccount objects.
+
+        :yield: A sequence of OverdriveAdvantageAccount objects.
+        """
+        data = json.loads(representation.content)
+        parent_id = data.get('id')
+        accounts = data.get('advantageAccounts', {})
+        for account in accounts:
+            name = account['name']
+            products_link = account['links']['products']['href']
+            status_code, headers, content = self.get(products_link, {})
+            data = json.loads(content)
+            library_id = account.get('id')
+            name = account.get('name')
+            type = account.get('type')
+            yield cls(parent_library_id=parent_id, library_id=library_id,
+                      name=name, type=type)
+
+        
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
