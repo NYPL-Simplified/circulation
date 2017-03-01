@@ -21,7 +21,6 @@ from coverage import (
 )
 
 from model import (
-    create,
     Collection,
     Contributor,
     DeliveryMechanism,
