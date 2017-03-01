@@ -973,6 +973,27 @@ class OverdriveAdvantageAccount(object):
             yield cls(parent_library_id=parent_id, library_id=library_id,
                       name=name, type=type)
 
+    def to_collection(self, _db):
+        """Find or create a Collection object for this Overdrive Advantage
+        account.
+        """
+        # First find the parent Collection.
+        parent = get_one(
+            Collection, external_account_id=self.parent_library_id,
+            protocol=Collection.OVERDRIVE
+        )
+        if not parent:
+            # Without the parent's credentials we can't access the child.
+            return None
+        child = get_one_or_create(
+            Collection, parent=parent, protocol=Collection.OVERDRIVE,
+            external_account_id=self.library_id
+        )
+
+        # Set or update the name of the collection to reflect the name of
+        # the library.
+        child.name = self.type + " - " + self.name
+
         
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
