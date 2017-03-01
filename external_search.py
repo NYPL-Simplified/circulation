@@ -95,38 +95,21 @@ class ExternalSearchIndex(object):
             # We found an index for the alias in configuration. Assume
             # there is only one.
             _set_works_index(index_details.keys()[0])
-
-        if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
-            # The alias culled from configuration is intended to be
-            # a current alias. Get the index name from here.
-            base_works_index = self._base_works_index(current_alias)
-            version = ExternalSearchIndexVersions.latest()
-            _set_works_index(base_works_index+'-'+version)
         else:
-            # Without the CURRENT_ALIAS_SUFFIX, assume the index string
-            # from config is the index itself and needs to be swapped.
-            _set_works_index(current_alias)
+            if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
+                # The alias culled from configuration is intended to be
+                # a current alias, but we couldn't find an index with that
+                # alias.
+                raise ValueError(
+                    "External search alias '%s' not found." % current_alias)
+            else:
+                # Without the CURRENT_ALIAS_SUFFIX, assume the index string
+                # from config is the index itself and needs to be swapped.
+                _set_works_index(current_alias)
 
         if not self.indices.exists(self.works_index):
             self.setup_index()
         self.setup_current_alias()
-
-    def setup_index(self, new_index=None):
-        """Create the search index with appropriate mapping.
-
-        This will destroy the search index, and all works will need
-        to be indexed again. In production, don't use this on an
-        existing index. Use it to create a new index, then change the 
-        alias to point to the new index.
-        """
-        index = new_index or self.works_index
-
-        if self.indices.exists(index):
-            self.indices.delete(index)
-
-        self.log.info("Creating index %s", index)
-        body = ExternalSearchIndexVersions.latest_body()
-        self.indices.create(index=index, body=body)
 
     def setup_current_alias(self):
         """Put an alias ending with '-current' on the existing works_index."""
@@ -160,6 +143,23 @@ class ExternalSearchIndex(object):
             _set_works_alias(self.works_index)
             return
         _set_works_alias(alias_name)
+
+    def setup_index(self, new_index=None):
+        """Create the search index with appropriate mapping.
+
+        This will destroy the search index, and all works will need
+        to be indexed again. In production, don't use this on an
+        existing index. Use it to create a new index, then change the
+        alias to point to the new index.
+        """
+        index = new_index or self.works_index
+
+        if self.indices.exists(index):
+            self.indices.delete(index)
+
+        self.log.info("Creating index %s", index)
+        body = ExternalSearchIndexVersions.latest_body()
+        self.indices.create(index=index, body=body)
 
     def transfer_current_alias(self, new_index):
         """Force -current alias onto a new index"""

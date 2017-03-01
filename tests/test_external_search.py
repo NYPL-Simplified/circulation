@@ -40,7 +40,7 @@ class TestExternalSearch(DatabaseTest):
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-current"
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-v0"
 
             try:
                 self.search = ExternalSearchIndex()
@@ -218,12 +218,17 @@ class TestExternalSearch(DatabaseTest):
         eq_(True, self.search.indices.exists_alias(current_index, alias))
         eq_(False, self.search.indices.exists_alias('the_other_index', alias))
 
+    def test_set_works_index_and_alias(self):
+
+        # If -current alias is given but doesn't exist, an error will be raised.
+        assert_raises(ValueError, self.search.set_works_index_and_alias, 'banana-current')
+
     def test_setup_current_alias(self):
         if not self.search:
             return
 
-        # The index was generated from the alias in configuration.
-        index_name = 'test_index-' + ExternalSearchIndexVersions.latest()
+        # The index was generated from the string in configuration.
+        index_name = 'test_index-v0'
         eq_(index_name, self.search.works_index)
         eq_(True, self.search.indices.exists(index_name))
 
