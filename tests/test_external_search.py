@@ -25,18 +25,10 @@ from external_search import (
 from classifier import Classifier
 
 
-class TestExternalSearch(DatabaseTest):
-    """
-    These tests require elasticsearch to be running locally. If it's not, or there's
-    an error creating the index, the tests will pass without doing anything.
-
-    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
-    a type of search by changing analyzers or queries, but search needs to be tested manually
-    to ensure that it works well overall, with a realistic index.
-    """
+class ExternalSearchTest(DatabaseTest):
 
     def setup(self):
-        super(TestExternalSearch, self).setup()
+        super(ExternalSearchTest, self).setup()
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
             config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
@@ -49,6 +41,28 @@ class TestExternalSearch(DatabaseTest):
                 print "Unable to set up elasticsearch index, search tests will be skipped."
                 print e
 
+    def teardown(self):
+        if self.search:
+            if self.search.works_index:
+                self.search.indices.delete(self.search.works_index, ignore=[404])
+            self.search.indices.delete('the_other_index', ignore=[404])
+            self.search.indices.delete('test_index-v100', ignore=[404])
+            ExternalSearchIndex.reset()
+        super(ExternalSearchTest, self).teardown()
+
+
+class TestExternalSearch(ExternalSearchTest):
+    """
+    These tests require elasticsearch to be running locally. If it's not, or there's
+    an error creating the index, the tests will pass without doing anything.
+
+    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
+    a type of search by changing analyzers or queries, but search needs to be tested manually
+    to ensure that it works well overall, with a realistic index.
+    """
+
+    def setup(self):
+        super(TestExternalSearch, self).setup()
         if self.search:
             works = []
 
@@ -189,14 +203,6 @@ class TestExternalSearch(DatabaseTest):
             self.search.bulk_update(works)
 
             time.sleep(2)
-
-    def teardown(self):
-        if self.search:
-            self.search.indices.delete(self.search.works_index)
-            self.search.indices.delete('the_other_index', ignore=[404])
-            self.search.indices.delete('test_index-v100', ignore=[404])
-            ExternalSearchIndex.reset()
-        super(TestExternalSearch, self).teardown()
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -903,7 +909,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
-class TestSearchErrors(DatabaseTest):
+class TestSearchErrors(ExternalSearchTest):
     def test_search_connection_timeout(self):
         attempts = []
 
@@ -919,11 +925,10 @@ class TestSearchErrors(DatabaseTest):
             errors = map(error, docs)
             return 0, errors
 
-        search = ExternalSearchIndex()
-        search.bulk = bulk_with_timeout
+        self.search.bulk = bulk_with_timeout
         
         work = self._work()
-        successes, failures = search.bulk_update([work])
+        successes, failures = self.search.bulk_update([work])
         eq_([], successes)
         eq_(1, len(failures))
         eq_(work, failures[0][0])
@@ -943,10 +948,10 @@ class TestSearchErrors(DatabaseTest):
                              exception="Exception")]
             success_count = 1
             return success_count, failures
-        search = ExternalSearchIndex()
-        search.bulk = bulk_with_error
 
-        successes, failures = search.bulk_update([successful_work, failing_work])
+        self.search.bulk = bulk_with_error
+
+        successes, failures = self.search.bulk_update([successful_work, failing_work])
         eq_([successful_work], successes)
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
