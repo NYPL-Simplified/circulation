@@ -375,12 +375,9 @@ class TestOverdriveAdvantageAccount(OverdriveTest):
         raw, data = self.sample_json("advantage_accounts.json")
         [ac1, ac2] = OverdriveAdvantageAccount.from_representation(raw)
 
-        # The two Advantage accounts have the same parent library ID
-        # and the same type.
+        # The two Advantage accounts have the same parent library ID.
         eq_("1225", ac1.parent_library_id)
         eq_("1225", ac2.parent_library_id)
-        eq_("Library Advantage Account", ac1.type)
-        eq_("Library Advantage Account", ac2.type)
 
         # But they have different names and library IDs.
         eq_("3", ac1.library_id)
@@ -396,7 +393,6 @@ class TestOverdriveAdvantageAccount(OverdriveTest):
 
         account = OverdriveAdvantageAccount(
             "parent_id", "child_id", "Library Name",
-            "Library Advantage Account"
         )
 
         # We can't just create a Collection object for this object because
