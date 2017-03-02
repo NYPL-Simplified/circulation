@@ -225,9 +225,13 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(False, self.search.indices.exists_alias('the_other_index', alias))
 
     def test_set_works_index_and_alias(self):
+        # If -current alias is given but doesn't exist, the appropriate
+        # index and alias will be created.
+        self.search.set_works_index_and_alias('banana-current')
 
-        # If -current alias is given but doesn't exist, an error will be raised.
-        assert_raises(ValueError, self.search.set_works_index_and_alias, 'banana-current')
+        expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
+        eq_(expected_index, self.search.works_index)
+        eq_('banana-current', self.search.works_alias)
 
     def test_setup_current_alias(self):
         if not self.search:

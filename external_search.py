@@ -94,10 +94,23 @@ class ExternalSearchIndex(object):
         else:
             if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
                 # The alias culled from configuration is intended to be
-                # a current alias, but we couldn't find an index with that
-                # alias.
-                raise ValueError(
-                    "External search alias '%s' not found." % current_alias)
+                # a current alias, but an index with that alias wasn't
+                # found. Find or create an appropriate index.
+                base_index_name = self.base_index_name(current_alias)
+                new_index = base_index_name+'-'+ExternalSearchIndexVersions.latest()
+                exists = self.indices.exists(index=new_index)
+                created = None
+
+                if not exists:
+                    created = ExternalSearchIndexVersions.create_new_version(
+                        self, base_index_name)
+                if exists or created:
+                    _set_works_index(new_index)
+                else:
+                    raise ValueError(
+                        ("Requested external search alias '%s' not found"
+                         " and new index '%s' could not be found or created.")
+                        % (current_alias, new_index))
             else:
                 # Without the CURRENT_ALIAS_SUFFIX, assume the index string
                 # from config is the index itself and needs to be swapped.
