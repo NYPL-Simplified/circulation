@@ -5028,7 +5028,7 @@ class TestCustomList(DatabaseTest):
         eq_(True, isinstance(workless_entry, CustomListEntry))
         eq_(workless_edition, workless_entry.edition)
         eq_(True, workless_entry.first_appearance > now)
-        eq_(None, workless_entry.license_pool)
+        eq_(None, workless_entry.work)
         # And the CustomList will be seen as updated.
         eq_(True, custom_list.updated > now)
 
@@ -5088,8 +5088,8 @@ class TestCustomList(DatabaseTest):
         eq_(previous_list_update_time, custom_list.updated)
         # But it will change the edition to the one that's requested.
         eq_(equivalent, workless_entry.edition)
-        # And/or add a license_pool if one is newly available.
-        eq_(lp, equivalent_entry.license_pool)
+        # And/or add a .work if one is newly available.
+        eq_(lp.work, equivalent_entry.work)
 
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=2)
