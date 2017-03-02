@@ -193,7 +193,7 @@ class TitleFromExternalList(object):
             
         list_entry.annotation = self.annotation
 
-        list_entry.set_license_pool(self.metadata, metadata_client)
+        list_entry.set_work(self.metadata, metadata_client)
         return list_entry, is_new
 
     def to_edition(self, _db, metadata_client, overwrite_old_data=False):

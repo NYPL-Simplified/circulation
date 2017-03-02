@@ -3193,6 +3193,9 @@ class Work(Base):
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
+    # One Work may be associated with many CustomListEntries.
+    custom_list_entries = relationship('CustomListEntry', backref='work')
+    
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
@@ -5805,10 +5808,6 @@ class LicensePool(Base):
     # One LicensePool can have many Holds.
     holds = relationship('Hold', backref='license_pool')
 
-    # One LicensePool can be associated with many CustomListEntries.
-    custom_list_entries = relationship(
-        'CustomListEntry', backref='license_pool')
-
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
@@ -8167,8 +8166,8 @@ class CustomList(Base):
             entry.most_recent_appearance = first_appearance
         if annotation:
             entry.annotation = unicode(annotation)
-        if edition.license_pool and not entry.license_pool:
-            entry.license_pool = edition.license_pool
+        if edition.work and not entry.work:
+            entry.work = edition.work
         if featured is not None:
             entry.featured = featured
 
@@ -8209,7 +8208,7 @@ class CustomListEntry(Base):
     id = Column(Integer, primary_key=True)    
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     featured = Column(Boolean, nullable=False, default=False)
     annotation = Column(Unicode)
 
@@ -8218,22 +8217,19 @@ class CustomListEntry(Base):
     # still relevant.
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
-
-    def set_license_pool(self, metadata=None, metadata_client=None):
-        """If possible, set the best available LicensePool to be used when
-        fulfilling requests for this CustomListEntry.
-
-        'Best' means it has the most copies of the book available
-        right now.
+    
+    def set_work(self, metadata=None, metadata_client=None):
+        """If possible, identify a locally known Work that is the same
+        title as the title identified by this CustomListEntry.
         """
         _db = Session.object_session(self)
         edition = self.edition
         if not self.edition:
-            # This shouldn't happen, but no edition means no license pool.
-            self.license_pool = None
-            return self.license_pool
+            # This shouldn't happen, but no edition means no work
+            self.work = None
+            return self.work
 
-        new_license_pool = None
+        new_work = None
         if not metadata:
             from metadata_layer import Metadata
             metadata = Metadata.from_edition(edition)
@@ -8244,11 +8240,14 @@ class CustomListEntry(Base):
             _db, metadata_client)
         for lp, quality in sorted(
                 potential_license_pools.items(), key=lambda x: -x[1]):
-            if lp.deliverable and quality >= 0.8:
-                new_license_pool = lp
+            if lp.deliverable and lp.work and quality >= 0.8:
+                # This work has at least one deliverable LicensePool
+                # associated with it, so it's likely to be real
+                # data and not leftover junk.
+                new_work = lp.work
                 break
 
-        if not new_license_pool:
+        if not new_work:
             # Try using the less reliable, more expensive method of
             # matching based on equivalent identifiers.
             equivalent_identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
@@ -8258,31 +8257,25 @@ class CustomListEntry(Base):
                     LicensePool.licenses_available.desc(),
                     LicensePool.patrons_in_hold_queue.asc())
             pools = [x for x in pool_q if x.deliverable]
-            if pools:
-                new_license_pool = pools[0]
+            for pool in pools:
+                if pool.deliverable and pool.work:
+                    new_work = pool.work
+                    break
 
-        old_license_pool = self.license_pool
-        if old_license_pool != new_license_pool:
-            if old_license_pool:
-                old_id = old_license_pool.identifier
-            else:
-                old_id = None
-            if new_license_pool:
-                new_id = new_license_pool.identifier
-            else:
-                new_id = None
-            if old_id:
+        old_work = self.work
+        if old_work != new_work:
+            if old_work:
                 logging.info(
-                    "Changing license pool for list entry %r to %r (was %r)", 
-                    self.edition, new_id, old_id
+                    "Changing work for list entry %r to %r (was %r)", 
+                    self.edition, new_work, old_work
                 )
             else:
                 logging.info(
-                    "Setting license pool for list entry %r to %r", 
-                    self.edition, new_id
+                    "Setting work for list entry %r to %r", 
+                    self.edition, new_work
                 )
-        self.license_pool = new_license_pool
-        return self.license_pool
+        self.work = new_work
+        return self.work
 
     def update(self, _db, equivalent_entries=None):
         """Combines any number of equivalent entries into a single entry
@@ -8309,9 +8302,9 @@ class CustomListEntry(Base):
         # And get a Work if one exists.
         works = set([])
         for e in equivalent_entries:
-            license_pool = e.edition.license_pool
-            if license_pool:
-                works.add(license_pool.work)
+            work = e.edition.work
+            if work:
+                works.add(work)
         works = [w for w in works if w]
 
         if works:
@@ -8348,7 +8341,7 @@ class CustomListEntry(Base):
             )
             self.edition = best_edition
 
-        self.set_license_pool()
+        self.set_work()
 
         for entry in equivalent_entries:
             if entry != self:
