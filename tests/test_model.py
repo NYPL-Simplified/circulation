@@ -5156,7 +5156,7 @@ class TestCustomList(DatabaseTest):
 
 class TestCustomListEntry(DatabaseTest):
 
-    def test_set_license_pool(self):
+    def test_set_work(self):
 
         # Start with a custom list with no entries
         list, ignore = self._customlist(num_entries=0)
@@ -5170,20 +5170,32 @@ class TestCustomListEntry(DatabaseTest):
         )
 
         eq_(edition, entry.edition)
-        eq_(None, entry.license_pool)
+        eq_(None, entry.work)
 
         # Here's another edition, with a license pool.
         other_edition, lp = self._edition(with_open_access_download=True)
-
+       
         # And its identifier is equivalent to the entry's edition's identifier.
         data_source = DataSource.lookup(self._db, DataSource.OCLC)
         lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
 
-        # If we call set_license_pool, it should find the license pool
-        # from the equivalent identifier.
-        entry.set_license_pool()
+        # If we call set_work, it does nothing, because there is no work
+        # associated with either edition.
+        entry.set_work()
 
-        eq_(lp, entry.license_pool)
+        # But if we assign a Work with the LicensePool, and try again...
+        work, ignore = lp.calculate_work()
+        entry.set_work()
+        eq_(work, other_edition.work)
+        
+        # set_work() traces the line from the CustomListEntry to its
+        # Edition to the equivalent Edition to its Work, and associates
+        # that Work with the CustomListEntry.
+        eq_(work, entry.work)
+
+        # Even though the CustomListEntry's edition is not directly
+        # associated with the Work.
+        eq_(None, edition.work)
 
     def test_update(self):
         custom_list, [edition] = self._customlist(entries_exist_as_works=False)
@@ -5235,7 +5247,7 @@ class TestCustomListEntry(DatabaseTest):
         eq_(u"Whoo, go books!", entry.annotation)
         # The Edition and LicensePool are updated to have a Work.
         eq_(entry.edition, work.presentation_edition)
-        eq_(entry.license_pool, equivalent.license_pool)
+        eq_(entry.work, equivalent.work)
         # The equivalent entry has been deleted.
         eq_([], self._db.query(CustomListEntry).\
                 filter(CustomListEntry.id==equivalent_entry.id).all())
