@@ -270,6 +270,8 @@ class OverdriveAPI(object):
         library = self.get_library()
         links = library.get('links', {})
         advantage = links.get('advantageAccounts')
+        if not advantage:
+            return
         if advantage:
             # This library has Overdrive Advantage accounts, or at
             # least a link where some may be found.
@@ -960,19 +962,17 @@ class OverdriveAdvantageAccount(object):
     """Holder and parser for data associated with Overdrive Advantage.
     """
     
-    def __init__(self, parent_library_id, library_id, name, type):
+    def __init__(self, parent_library_id, library_id, name):
         """Constructor.
         
         :param parent_library_id: The library ID of the parent Overdrive 
             account.
         :param library_id: The library ID of the Overdrive Advantage account.
         :param name: The name of the library whose Advantage account this is.
-        :param type: Should be the literal string 'Library Advantage Account'
         """
         self.parent_library_id = parent_library_id
         self.library_id = library_id
         self.name = name
-        self.type = type
 
     @classmethod
     def from_representation(cls, content):
@@ -991,9 +991,8 @@ class OverdriveAdvantageAccount(object):
             products_link = account['links']['products']['href']
             library_id = str(account.get('id'))
             name = account.get('name')
-            type = account.get('type')
             yield cls(parent_library_id=parent_id, library_id=library_id,
-                      name=name, type=type)
+                      name=name)
 
     def to_collection(self, _db):
         """Find or create a Collection object for this Overdrive Advantage
