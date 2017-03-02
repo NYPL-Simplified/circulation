@@ -6493,6 +6493,8 @@ class LicensePool(Base):
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
+        if not self.identifier:
+            return
         q = Identifier.resources_for_identifier_ids(
             _db, [self.identifier.id], open_access
         )
