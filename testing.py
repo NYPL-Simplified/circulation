@@ -253,7 +253,6 @@ class DatabaseTest(object):
             pool = presentation_edition.license_pool
         if with_open_access_download:
             pool.open_access = True
-            presentation_edition.set_open_access_link()
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(

@@ -2481,10 +2481,6 @@ class Edition(Base):
     cover_full_url = Column(Unicode)
     cover_thumbnail_url = Column(Unicode)
     
-    # This lets us avoid a lot of work figuring out the best open
-    # access link for this Edition.
-    open_access_download_url = Column(Unicode)
-
     # An OPDS entry containing all metadata about this entry that
     # would be relevant to display to a library patron.
     simple_opds_entry = Column(Unicode, default=None)
@@ -2716,15 +2712,6 @@ class Edition(Base):
             type = "text"
         return dict(type=type, value=content)
 
-    def set_open_access_link(self):
-        url = None
-        pool = self.license_pool
-        if pool:
-            resource = pool.best_open_access_link
-            if resource and resource.representation:
-                url = resource.representation.mirror_url
-        self.open_access_download_url = url
-
     def set_cover(self, resource):
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
@@ -2947,7 +2934,6 @@ class Edition(Base):
         old_sort_author = self.sort_author
         old_sort_title = self.sort_title
         old_work_id = self.permanent_work_id
-        old_open_access_download_url = self.open_access_download_url
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
 
@@ -2955,7 +2941,6 @@ class Edition(Base):
             self.author, self.sort_author = self.calculate_author()
             self.sort_title = TitleProcessor.sort_title_for(self.title)
             self.calculate_permanent_work_id()
-            self.set_open_access_link()
             CoverageRecord.add_for(
                 self, data_source=self.data_source,
                 operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
@@ -2968,7 +2953,6 @@ class Edition(Base):
             or self.sort_author != old_sort_author
             or self.sort_title != old_sort_title
             or self.permanent_work_id != old_work_id
-            or self.open_access_download_url != old_open_access_download_url
             or self.cover != old_cover
             or self.cover_full_url != old_cover_full_url
         ):
@@ -5853,6 +5837,10 @@ class LicensePool(Base):
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
 
+    # This lets us cache the work of figuring out the best open access
+    # link for this LicensePool.
+    _open_access_download_url = Column(Unicode, name="open_access_download_url")
+    
     # A Identifier should have at most one LicensePool.
     __table_args__ = (
         UniqueConstraint('identifier_id'),
@@ -6512,8 +6500,35 @@ class LicensePool(Base):
             yield resource
 
     @property
+    def open_access_download_url(self):
+        """Alias for best_open_access_link.
+
+        If _open_access_download_url is currently None, this will set
+        to a good value if possible.
+        """
+        return self.best_open_access_link
+        
+    @property
     def best_open_access_link(self):
-        """Find the best open-access Resource provided by this LicensePool."""
+        """Find the best open-access link for this LicensePool.
+
+        Cache it so that the next access will be faster.
+        """
+        if not self.open_access:
+            return None
+        if not self._open_access_download_url:
+            url = None
+            resource = self.best_open_access_resource
+            if resource and resource.representation:
+                url = resource.representation.mirror_url
+            self._open_access_download_url = url
+        return self._open_access_download_url
+
+    @property
+    def best_open_access_resource(self):
+        """Determine the best open-access Resource currently provided by this 
+        LicensePool.
+        """
         best = None
         best_priority = -1
         for resource in self.open_access_links:
