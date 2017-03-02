@@ -111,7 +111,7 @@ class TestCirculationData(DatabaseTest):
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
                              key=lambda x: x.delivery_mechanism.content_type)
-        eq_(epub.resource, edition.license_pool.best_open_access_link)
+        eq_(epub.resource, edition.license_pool.best_open_access_resource)
 
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
