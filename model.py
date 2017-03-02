@@ -8591,6 +8591,21 @@ class Collection(Base):
     settings = relationship(
         "CollectionSetting", backref="collection"
     )
+
+    # A Collection may specialize some other Collection. For instance,
+    # an Overdrive Advantage collection is a specialization of an
+    # ordinary Overdrive collection. It uses the same access key and
+    # secret as the Overdrive collection, but it has a distinct
+    # external_account_id.
+    parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
+
+    # A collection may have many child collections. For example,
+    # An Overdrive collection may have many children corresponding
+    # to Overdrive Advantage collections.
+    children = relationship(
+        "Collection", backref=backref("parent", remote_side = [id]),
+        uselist=False
+    )
     
     # A Collection can provide books to many Libraries.
     libraries = relationship(
@@ -8634,6 +8649,8 @@ class Collection(Base):
         lines = []
         if self.name:
             lines.append('Name: "%s"' % self.name)
+        if self.parent:
+            lines.append('Parent: %s' % self.parent.name)
         if self.protocol:
             lines.append('Protocol: "%s"' % self.protocol)
         for library in self.libraries:
@@ -8645,7 +8662,7 @@ class Collection(Base):
         if self.url:
             lines.append('URL: "%s"' % self.url)
         if self.username:
-            lines.append('Username: "%s"' % self.url)
+            lines.append('Username: "%s"' % self.username)
         if self.password and include_password:
             lines.append('Password: "%s"' % self.password)
         for setting in self.settings:
