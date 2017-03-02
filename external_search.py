@@ -78,7 +78,9 @@ class ExternalSearchIndex(object):
         self.bulk = bulk
 
     def set_works_index_and_alias(self, current_alias):
-        """Finds or creates the index based on provided configuration"""
+        """Finds or creates the works_index and works_alias based on
+        provided configuration.
+        """
         index_details = self.indices.get_alias(name=current_alias, ignore=[404])
         found = not (index_details.get('status')==404 or 'error' in index_details)
 
@@ -106,7 +108,14 @@ class ExternalSearchIndex(object):
         self.setup_current_alias()
 
     def setup_current_alias(self):
-        """Put an alias ending with '-current' on the existing works_index."""
+        """Finds or creates a works_alias based on the base works_index
+        name and ending in the expected CURRENT_ALIAS_SUFFIX.
+
+        If the resulting alias exists and is affixed to a different
+        index or if it can't be generated for any reason, the alias will
+        not be created or moved. Instead, the search client will use the
+        the works_index directly for search queries.
+        """
 
         base_works_index = self._base_works_index(self.works_index)
         alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
