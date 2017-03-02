@@ -58,7 +58,7 @@ if config_index == search.works_index:
             update_required_text %
             (search.works_alias, config_index, search.works_alias))
 
-elif 'error' not in search.indices.get_alias(name=config_index):
+elif 'error' not in search.indices.get_alias(name=config_index, ignore=[404]):
     # The configuration has an alias instead of an index.
     if config_index == search.works_alias:
         print "No action needed. Elasticsearch alias '%s' is properly named and configured." % config_index
@@ -68,7 +68,7 @@ elif 'error' not in search.indices.get_alias(name=config_index):
         # that does.
         index = search.indices.get_alias(name=config_index).keys()[0]
         current_alias = search._base_works_index(index)+search.CURRENT_ALIAS_SUFFIX
-        current_alias_index = ','.join(search.indices.get_alias(name=current_alias, ignore=[404]).keys())
+        current_alias_index = ','.join(search.indices.get_alias(name=current_alias).keys())
 
         if (current_alias_index != search.works_index or alias_not_used):
             # An alias with the proper naming convention exists elsewhere.

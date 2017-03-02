@@ -776,11 +776,14 @@ class CompileTranslationsScript(Script):
 
 
 class InstanceInitializationScript(Script):
-    """A script to initialize an instance of the Circulation Manager.
+    """An idempotent script to initialize an instance of the Circulation Manager.
 
     This script is intended for use in servers, Docker containers, etc,
     when the Circulation Manager app is being installed. It initializes
     the database and sets an appropriate alias on the ElasticSearch index.
+
+    Because it's currently run every time a container is started, it must
+    remain idempotent.
     """
 
     def do_run(self, ignore_search=False):
