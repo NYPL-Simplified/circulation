@@ -117,7 +117,7 @@ class ExternalSearchIndex(object):
         the works_index directly for search queries.
         """
 
-        base_works_index = self._base_works_index(self.works_index)
+        base_works_index = self.base_index_name(self.works_index)
         alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
         exists = self.indices.exists_alias(name=alias_name)
 
@@ -170,8 +170,17 @@ class ExternalSearchIndex(object):
             raise ValueError(
                 "Index '%s' does not exist on this client." % new_index)
 
+        current_base_name = self.base_index_name(self.works_index)
+        new_base_name = self.base_index_name(new_index)
+
+        if new_base_name != current_base_name:
+            raise ValueError(
+                ("Index '%s' is not in series with current index '%s'. "
+                 "Confirm the base name (without version number) of both indices"
+                 "is the same.") % (new_index, self.works_index))
+
         self.works_index = self.__client.works_index = new_index
-        alias_name = self._base_works_index(new_index)+self.CURRENT_ALIAS_SUFFIX
+        alias_name = self.base_index_name(new_index)+self.CURRENT_ALIAS_SUFFIX
 
         exists = self.indices.exists_alias(name=alias_name)
         if not exists:
@@ -191,7 +200,7 @@ class ExternalSearchIndex(object):
 
         self.works_alias = self.__client.works_alias = alias_name
 
-    def _base_works_index(self, index_or_alias):
+    def base_index_name(self, index_or_alias):
         """Removes version or current suffix from base index name"""
 
         current_re = re.compile(self.CURRENT_ALIAS_SUFFIX+'$')
