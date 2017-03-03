@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises,
     eq_,
     set_trace,
 )
@@ -18,12 +19,39 @@ from lane import Lane
 from model import Edition
 from external_search import (
     ExternalSearchIndex,
+    ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
 )
 from classifier import Classifier
 
 
-class TestExternalSearch(DatabaseTest):
+class ExternalSearchTest(DatabaseTest):
+
+    def setup(self):
+        super(ExternalSearchTest, self).setup()
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-v0"
+
+            try:
+                self.search = ExternalSearchIndex()
+            except Exception as e:
+                self.search = None
+                print "Unable to set up elasticsearch index, search tests will be skipped."
+                print e
+
+    def teardown(self):
+        if self.search:
+            if self.search.works_index:
+                self.search.indices.delete(self.search.works_index, ignore=[404])
+            self.search.indices.delete('the_other_index', ignore=[404])
+            self.search.indices.delete('test_index-v100', ignore=[404])
+            ExternalSearchIndex.reset()
+        super(ExternalSearchTest, self).teardown()
+
+
+class TestExternalSearch(ExternalSearchTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
     an error creating the index, the tests will pass without doing anything.
@@ -35,21 +63,6 @@ class TestExternalSearch(DatabaseTest):
 
     def setup(self):
         super(TestExternalSearch, self).setup()
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index"
-
-            try:
-                ExternalSearchIndex.__client = None
-                self.search = ExternalSearchIndex()
-                # Start with an empty index
-                self.search.setup_index()
-            except Exception as e:
-                self.search = None
-                print "Unable to set up elasticsearch index, search tests will be skipped."
-                print e
-
         if self.search:
             works = []
 
@@ -191,11 +204,107 @@ class TestExternalSearch(DatabaseTest):
 
             time.sleep(2)
 
-    def teardown(self):
-        if self.search:
-            self.search.indices.delete(self.search.works_index)
-            ExternalSearchIndex.__client = None
-        super(TestExternalSearch, self).teardown()
+    def test_setup_index_creates_new_index(self):
+        if not self.search:
+            return
+
+        current_index = self.search.works_index
+        self.search.setup_index(new_index='the_other_index')
+
+        # Both indices exist.
+        eq_(True, self.search.indices.exists(current_index))
+        eq_(True, self.search.indices.exists('the_other_index'))
+
+        # The index for the app's search is still the original index.
+        eq_(current_index, self.search.works_index)
+
+        # The alias hasn't been passed over to the new index.
+        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        eq_(alias, self.search.works_alias)
+        eq_(True, self.search.indices.exists_alias(current_index, alias))
+        eq_(False, self.search.indices.exists_alias('the_other_index', alias))
+
+    def test_set_works_index_and_alias(self):
+        # If -current alias is given but doesn't exist, the appropriate
+        # index and alias will be created.
+        self.search.set_works_index_and_alias('banana-current')
+
+        expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
+        eq_(expected_index, self.search.works_index)
+        eq_('banana-current', self.search.works_alias)
+
+    def test_setup_current_alias(self):
+        if not self.search:
+            return
+
+        # The index was generated from the string in configuration.
+        index_name = 'test_index-v0'
+        eq_(index_name, self.search.works_index)
+        eq_(True, self.search.indices.exists(index_name))
+
+        # The alias is also created from the configuration.
+        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        eq_(alias, self.search.works_alias)
+        eq_(True, self.search.indices.exists_alias(index_name, alias))
+
+        # If the -current alias is already set on a different index, it
+        # won't be reassigned. Instead, search will occur against the
+        # index itself.
+        ExternalSearchIndex.reset()
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {
+                Configuration.URL : "http://localhost:9200",
+                Configuration.ELASTICSEARCH_INDEX_KEY : "test_index-v100"
+            }
+
+            self.search = ExternalSearchIndex()
+
+        eq_('test_index-v100', self.search.works_index)
+        eq_('test_index-v100', self.search.works_alias)
+
+    def test_transfer_current_alias(self):
+        if not self.search:
+            return
+
+        # If the index doesn't exist, an error is raised.
+        assert_raises(
+            ValueError, self.search.transfer_current_alias, 'test_index-v3')
+
+        original_index = self.search.works_index
+
+        # If the -current alias doesn't exist, it's created
+        # and everything is updated accordingly.
+        self.search.indices.delete_alias(
+            index=original_index, name='test_index-current'
+        )
+        self.search.setup_index(new_index='test_index-v100')
+        self.search.transfer_current_alias('test_index-v100')
+        eq_('test_index-v100', self.search.works_index)
+        eq_('test_index-current', self.search.works_alias)
+
+        # If the -current alias already exists on the index,
+        # it's used without a problem.
+        self.search.transfer_current_alias('test_index-v100')
+        eq_('test_index-v100', self.search.works_index)
+        eq_('test_index-current', self.search.works_alias)
+
+        # If the -current alias is being used on a different version of the
+        # index, it's deleted from that index and placed on the new one.
+        self.search.setup_index(original_index)
+        self.search.transfer_current_alias(original_index)
+        eq_(original_index, self.search.works_index)
+        eq_('test_index-current', self.search.works_alias)
+
+        # It has been removed from other index.
+        eq_(False, self.search.indices.exists_alias(
+            index='test_index-v100', name='test_index-current'))
+        # And only exists on the new index.
+        alias_indices = self.search.indices.get_alias(name='test_index-current').keys()
+        eq_(['test_index-v0'], alias_indices)
+
+        # If the index doesn't have the same base name, an error is raised.
+        assert_raises(
+            ValueError, self.search.transfer_current_alias, 'banana-v10')
 
     def test_query_works(self):
         """
@@ -811,7 +920,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
-class TestSearchErrors(DatabaseTest):
+class TestSearchErrors(ExternalSearchTest):
     def test_search_connection_timeout(self):
         attempts = []
 
@@ -827,11 +936,10 @@ class TestSearchErrors(DatabaseTest):
             errors = map(error, docs)
             return 0, errors
 
-        search = ExternalSearchIndex()
-        search.bulk = bulk_with_timeout
+        self.search.bulk = bulk_with_timeout
         
         work = self._work()
-        successes, failures = search.bulk_update([work])
+        successes, failures = self.search.bulk_update([work])
         eq_([], successes)
         eq_(1, len(failures))
         eq_(work, failures[0][0])
@@ -851,10 +959,10 @@ class TestSearchErrors(DatabaseTest):
                              exception="Exception")]
             success_count = 1
             return success_count, failures
-        search = ExternalSearchIndex()
-        search.bulk = bulk_with_error
 
-        successes, failures = search.bulk_update([successful_work, failing_work])
+        self.search.bulk = bulk_with_error
+
+        successes, failures = self.search.bulk_update([successful_work, failing_work])
         eq_([successful_work], successes)
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])

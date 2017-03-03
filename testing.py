@@ -15,6 +15,7 @@ from model import (
     Base,
     Catalog,
     Classification,
+    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -636,6 +637,19 @@ class DatabaseTest(object):
         return
 
 
+    def _collection(self, name=None, protocol=Collection.OPDS_IMPORT,
+                    external_account_id=None, url=None, username=None,
+                    password=None):
+        name = name or self._str
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name=name, protocol=protocol
+        )
+        collection.external_account_id = external_account_id
+        collection.url = url
+        collection.username = username
+        collection.password = password
+        return collection
+        
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         return get_one_or_create(
