@@ -60,7 +60,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
     SERVICE_NAME = "Axis 360"
-
+    PSEUDONYM_DATA_SOURCE_NAME = DataSource.AXIS_360
+    
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -79,7 +80,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
         url = self.base_url + "checkout/v2" 
         title_id = licensepool.identifier.identifier
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         args = dict(titleId=title_id, patronId=patron_id, 
                     format=internal_format)
         response = self.request(url, data=args, method="POST")
@@ -125,7 +126,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         url = self.base_url + "addtoHold/v2" 
         identifier = licensepool.identifier
         title_id = identifier.identifier
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
@@ -142,7 +143,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         url = self.base_url + "removeHold/v2"
         identifier = licensepool.identifier
         title_id = identifier.identifier
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
         try:
@@ -159,8 +160,9 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             title_ids = [identifier.identifier]
         else:
             title_ids = None
+        patron_id = self.patron_identifier(patron)
         availability = self.availability(
-            patron_id=patron.authorization_identifier, 
+            patron_id=patron_id,
             title_ids=title_ids)
         return list(AvailabilityResponseParser().process_all(
             availability.content))

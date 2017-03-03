@@ -7,11 +7,13 @@ import logging
 import re
 import time
 from flask.ext.babel import lazy_gettext as _
+from sqlalchemy.orm.session import Session
 
 from core.analytics import Analytics
 from core.model import (
     get_one,
     CirculationEvent,
+    Credential,
     Identifier,
     DataSource,
     LicensePoolDeliveryMechanism,
@@ -785,6 +787,45 @@ class BaseCirculationAPI(object):
     # is called "ebook-epub-adobe" in Overdrive.
     delivery_mechanism_to_internal_format = {}
 
+    # If you want the circulation manager to refer to patrons by
+    # a pseudonym when talking to the API, then set this
+    # to the name of the data source managed by your API.
+    #
+    # If you want the circulation manager to use the patron's authorization
+    # identifier when talking to the API, leave this alone.
+    PSEUDONYM_DATA_SOURCE_NAME = None
+
+    PSEUDONYM_CREDENTIAL_NAME = 'Vendor-facing pseudonym'
+    
+    def patron_identifier(self, patron):
+        """Determine the identifier to use when identifying this patron
+        to the API.
+        
+        :param patron: A Patron.
+
+        :return: A vendor-specific pseudonym if possible. This lets us
+        stop a vendor from knowing the patron's 'real' authorization
+        identifier. If this is not possible, the return value is the
+        patron's actual authorization identifier. Either way, it's a
+        string.
+        """
+        identifier = patron.authorization_identifier
+        if not self.PSEUDONYM_DATA_SOURCE_NAME:
+            return identifier
+        _db = Session.object_session(patron)
+        data_source = DataSource.lookup(
+            _db, self.PSEUDONYM_DATA_SOURCE_NAME, autocreate=True,
+            offers_licenses=True
+        )
+        credential, is_new = Credential.persistent_token_create(
+            _db, data_source, self.PSEUDONYM_CREDENTIAL_NAME,
+            patron
+        )
+        print "Pseudonym for %s: %s" % (
+            patron.authorization_identifier, credential.credential
+        )
+        return credential.credential
+        
     def internal_format(self, delivery_mechanism):
         """Look up the internal format for this delivery mechanism or
         raise an exception.
