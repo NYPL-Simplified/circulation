@@ -19,4 +19,4 @@ VOLUME /var/log
 WORKDIR bin
 
 COPY supervisord.conf /etc/supervisor/conf.d
-CMD ["-c", "/usr/bin/supervisord"]
+CMD ["-c", "source env/bin/activate && if [ -f bin/util/initialize_instance ]; then bin/util/initialize_instance; fi && supervisord"]
