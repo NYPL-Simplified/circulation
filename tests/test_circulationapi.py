@@ -18,6 +18,7 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    BaseCirculationAPI,
     CirculationAPI,
     FulfillmentInfo,
     LoanInfo,
@@ -666,3 +667,34 @@ class TestCirculationAPI(DatabaseTest):
         eq_(0, len(loans))
         eq_(0, len(holds))
         eq_(False, complete)
+
+
+class TestBaseCirculationAPI(DatabaseTest):
+    def test_patron_identifier(self):
+
+        # By default, patron_identifier() returns the patron's
+        # authorization identifier.
+        api = BaseCirculationAPI()
+        patron = self._patron()
+        eq_(patron.authorization_identifier, api.patron_identifier(patron))
+
+        # However, if the API client defines PSEUDONYM_DATA_SOURCE_NAME,
+        # patron_identifier() returns a pseudonym for the patron,
+        # creating one if necessary.
+        api.PSEUDONYM_DATA_SOURCE_NAME = DataSource.AXIS_360
+        pseudonym = api.patron_identifier(patron)
+        assert pseudonym != patron.authorization_identifier
+
+        [credential] = patron.credentials
+        eq_(api.PSEUDONYM_DATA_SOURCE_NAME, credential.data_source.name)
+        eq_(api.PSEUDONYM_CREDENTIAL, credential.type)
+        eq_(pseudonym, credential.credential)
+
+        # The pseudonym is reused over time.
+        pseudonym2 = api.patron_identifier(patron)
+        eq_(pseudonym, pseudonym2)
+
+        # But a different data source will get a different pseudonym.
+        api.PSEUDONYM_DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
+        pseudonym3 = api.patron_identifier(patron)
+        assert pseudonym != pseudonym3

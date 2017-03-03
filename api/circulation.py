@@ -795,7 +795,7 @@ class BaseCirculationAPI(object):
     # identifier when talking to the API, leave this alone.
     PSEUDONYM_DATA_SOURCE_NAME = None
 
-    PSEUDONYM_CREDENTIAL_NAME = 'Vendor-facing pseudonym'
+    PSEUDONYM_CREDENTIAL = 'Vendor-facing pseudonym'
     
     def patron_identifier(self, patron):
         """Determine the identifier to use when identifying this patron
@@ -818,7 +818,7 @@ class BaseCirculationAPI(object):
             offers_licenses=True
         )
         credential, is_new = Credential.persistent_token_create(
-            _db, data_source, self.PSEUDONYM_CREDENTIAL_NAME,
+            _db, data_source, self.PSEUDONYM_CREDENTIAL,
             patron
         )
         print "Pseudonym for %s: %s" % (
