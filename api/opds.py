@@ -615,10 +615,10 @@ class CirculationManagerAnnotator(Annotator):
             
             # Generate a <drm:licensor> tag that can feed into the
             # Vendor ID service.
-            return self.adobe_id_tags(patron)
+            return self.adobe_id_tags(_db, patron)
         return []
    
-    def adobe_id_tags(self, patron_identifier):
+    def adobe_id_tags(self, _db, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
         explain how to get an Adobe ID for this patron, and how to
         manage their list of device IDs.
@@ -639,7 +639,7 @@ class CirculationManagerAnnotator(Annotator):
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
-            authdata = AuthdataUtility.from_config()
+            authdata = AuthdataUtility.from_config(_db)
             if authdata:
                 # TODO: We would like to call encode() here, and have
                 # the client use a JWT as authdata, but we can't,
@@ -775,19 +775,36 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         This allows us to deregister an Adobe ID, in preparation for
         logout, even if there is no active loan that requires one.
         """
-        tags = copy.deepcopy(self.adobe_id_tags(patron))
+        _db = Session.object_session(patron)
+        tags = copy.deepcopy(self.adobe_id_tags(_db, patron))
         attr = '{%s}scheme' % OPDSFeed.DRM_NS
         for tag in tags:
             tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"
         return tags
 
+    @property
+    def user_profile_management_protocol_link(self):
+        """Create a <link> tag that points to the circulation
+        manager's User Profile Management Protocol endpoint
+        for the current patron.
+        """
+        link = OPDSFeed.makeelement("link")
+        link.attrib['rel'] = 'http://librarysimplified.org/terms/rel/user-profile'
+        link.attrib['href'] = self.url_for(
+            'patron_profile', _external=True
+        )
+        return link
+        
     def annotate_feed(self, feed, lane):
-        """Add feed-level DRM device registration tags to the feed."""
+        """Annotate the feed with top-level DRM device registration tags
+        and a link to the User Profile Management Protocol endpoint.
+        """
         super(CirculationManagerLoanAndHoldAnnotator, self).annotate_feed(
             feed, lane
         )
         if self.patron:
             tags = self.drm_device_registration_feed_tags(self.patron)
+            tags.append(self.user_profile_management_protocol_link)
             for tag in tags:
                 feed.feed.append(tag)
 

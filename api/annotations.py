@@ -125,6 +125,9 @@ class AnnotationParser(object):
 
     @classmethod
     def parse(cls, _db, data, patron):
+        if patron.synchronize_annotations != True:
+            return PATRON_NOT_OPTED_IN_TO_ANNOTATION_SYNC
+        
         try:
             data = json.loads(data)
             data = jsonld.expand(data)
@@ -166,14 +169,21 @@ class AnnotationParser(object):
         else:
             content = None
 
-        annotation, is_new = get_one_or_create(
-            _db, Annotation,
-            patron=patron,
-            identifier=identifier,
-            motivation=motivation,
-        )
+        target = json.dumps(target)
+        extra_kwargs = {}
+        if motivation == Annotation.IDLING:
+            # A given book can only have one 'idling' annotation.
+            pass
+        elif motivation == Annotation.BOOKMARKING:
+            # A given book can only have one 'bookmarking' annotation
+            # per target.
+            extra_kwargs['target'] = target
 
-        annotation.target = json.dumps(target)
+        annotation, ignore = Annotation.get_one_or_create(
+            _db, patron=patron, identifier=identifier,
+            motivation=motivation, **extra_kwargs
+        )
+        annotation.target = target
         if content:
             annotation.content = json.dumps(content)
         annotation.active = True

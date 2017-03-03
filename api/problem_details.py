@@ -219,6 +219,13 @@ INVALID_ANALYTICS_EVENT_TYPE = pd(
     detail=_("The analytics event must be a supported type."),
 )
 
+PATRON_NOT_OPTED_IN_TO_ANNOTATION_SYNC = pd(
+    "http://librarysimplified.org/terms/problem/opt-in-required",
+    status_code=403,
+    title=_("Patron must opt in."),
+    detail=_("The patron must opt in to synchronize annotations to a server."),
+)
+
 INVALID_ANNOTATION_MOTIVATION = pd(
     "http://librarysimplified.org/terms/problem/invalid-annotation-motivation",
     status_code=400,

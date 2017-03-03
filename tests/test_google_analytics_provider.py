@@ -69,6 +69,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("publisher", params['cd9'][0])
         eq_("lang", params['cd10'][0])
         eq_("Folklore", params['cd11'][0])
+        eq_("true", params['cd12'][0])
 
     def test_collect_event_without_work(self):
         ga = MockGoogleAnalyticsProvider("faketrackingid")
@@ -100,6 +101,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd9'))
         eq_(None, params.get('cd10'))
         eq_(None, params.get('cd11'))
+        eq_(None, params.get('cd12'))
 
     def test_collect_event_without_license_pool(self):
         ga = MockGoogleAnalyticsProvider('faketrackingid')
@@ -125,3 +127,4 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd9'))
         eq_(None, params.get('cd10'))
         eq_(None, params.get('cd11'))
+        eq_(None, params.get('cd12'))

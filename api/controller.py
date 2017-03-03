@@ -12,6 +12,7 @@ from lxml import etree
 from functools import wraps
 import flask
 from flask import (
+    make_response,
     Response,
     redirect,
 )
@@ -50,9 +51,11 @@ from core.model import (
     DataSource,
     Hold,
     Identifier,
+    Library,
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
+    PatronProfileStorage,
     Representation,
     Work,
 )
@@ -63,6 +66,7 @@ from core.util.opds_writer import (
      OPDSFeed,
 )
 from core.opensearch import OpenSearchDocument
+from core.user_profile import ProfileController as CoreProfileController
 from core.util.flask_util import (
     problem,
 )
@@ -229,6 +233,7 @@ class CirculationManager(object):
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
         self.oauth_controller = OAuthController(self.auth)
+        self.profiles = ProfileController(self)
         
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
@@ -256,9 +261,10 @@ class CirculationManager(object):
             self.adobe_vendor_id = None
 
         # But almost all libraries will have this setup.
-        if adobe.get(AuthdataUtility.AUTHDATA_SECRET_KEY):
+        library = Library.instance(self._db)
+        if library.library_registry_shared_secret:
             try:
-                authdata = AuthdataUtility.from_config()
+                authdata = AuthdataUtility.from_config(self._db)
                 self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
                 self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
@@ -1046,7 +1052,30 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    
+
+class ProfileController(CirculationManagerController):
+    """Implement the User Profile Management Protocol."""
+
+    @property
+    def _controller(self):
+        """Instantiate a CoreProfileController that actually does the work.
+        """
+        patron = self.authenticated_patron_from_request()
+        storage = PatronProfileStorage(patron)
+        return CoreProfileController(storage)
+        
+    def protocol(self):
+        """Handle a UPMP request."""
+        controller = self._controller
+        if flask.request.method == 'GET':
+            result = controller.get()
+        else:
+            result = controller.put(flask.request.headers, flask.request.data)
+        if isinstance(result, ProblemDetail):
+            return result
+        return make_response(*result)
+
+
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, data_source, identifier_type, identifier, event_type):

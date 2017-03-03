@@ -1,5 +1,6 @@
 # encoding=utf8
 from nose.tools import (
+    assert_raises,
     eq_,
     set_trace,
 )
@@ -57,6 +58,10 @@ from core.lane import (
     Pagination,
 )
 from core.problem_details import *
+from core.user_profile import (
+    ProfileController,
+    ProfileStorage,
+)
 from core.util.problem_detail import ProblemDetail
 from core.util.http import RemoteIntegrationException
 from core.testing import DummyHTTPClient
@@ -132,7 +137,8 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             _db, Patron, authorization_identifier="unittestuser",
             create_method_kwargs=dict(external_identifier="unittestuser")
         )
-        
+
+        self.initialize_library(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.AUTHENTICATION_POLICY : {
@@ -164,9 +170,9 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
+            self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-            self.authdata = AuthdataUtility.from_config()
             
     
 class CirculationControllerTest(ControllerTest):
@@ -553,8 +559,9 @@ class TestLoanController(CirculationControllerTest):
                     datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
-            response = self.manager.loans.borrow(
-                data_source.name, identifier.type, identifier.identifier)
+            with self.temp_config():
+                response = self.manager.loans.borrow(
+                    data_source.name, identifier.type, identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=pool)
@@ -849,7 +856,7 @@ class TestLoanController(CirculationControllerTest):
 
         auth = 'Basic ' + base64.b64encode('ihavefines:password')
         
-        with temp_config() as config:
+        with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
@@ -864,7 +871,7 @@ class TestLoanController(CirculationControllerTest):
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "$12345678.90 outstanding" in response.detail
 
-        with temp_config() as config:
+        with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
@@ -912,7 +919,8 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            response = self.manager.loans.sync()
+            with self.temp_config() as config:
+                response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
@@ -956,7 +964,8 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            response = self.manager.loans.sync()
+            with self.temp_config() as config:
+                response = self.manager.loans.sync()
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -1098,6 +1107,7 @@ class TestAnnotationController(CirculationControllerTest):
         with self.app.test_request_context(
             "/", headers=dict(Authorization=self.valid_auth), method='POST', data=json.dumps(data)):
             patron = self.manager.annotations.authenticated_patron_from_request()
+            patron.synchronize_annotations = True
             # The patron doesn't have any annotations yet.
             annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
             eq_(0, len(annotations))
@@ -2040,6 +2050,100 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_("Only DELETE is supported.", response.detail)
 
 
+class TestProfileController(ControllerTest):
+    """Test that a client can interact with the User Profile Management
+    Protocol.
+    """
+
+    def setup(self):
+        super(TestProfileController, self).setup()
+
+        # Nothing will happen to this patron. This way we can verify
+        # that a patron can only see/modify their own profile.
+        self.other_patron = self._patron()
+        self.other_patron.synchronize_annotations = False
+        self.auth = dict(Authorization=self.valid_auth)
+        
+    def test_get(self):
+        """Verify that a patron can see their own profile."""
+        with self.app.test_request_context(
+                "/", method='GET', headers=self.auth
+        ):
+            patron = self.controller.authenticated_patron_from_request()
+            patron.synchronize_annotations = True
+            response = self.manager.profiles.protocol()
+            eq_("200 OK", response.status)
+            data = json.loads(response.data)
+            settings = data['settings']
+            eq_(True, settings[ProfileStorage.SYNCHRONIZE_ANNOTATIONS])
+
+    def test_put(self):
+        """Verify that a patron can modify their own profile."""
+        payload = {
+            'settings': {
+                ProfileStorage.SYNCHRONIZE_ANNOTATIONS: True
+            }
+        }
+
+        request_patron = None
+        identifier = self._identifier()
+        with self.app.test_request_context(
+                "/", method='PUT', headers=self.auth,
+                content_type=ProfileController.MEDIA_TYPE,
+                data=json.dumps(payload)
+        ):
+            # By default, a patron has no value for synchronize_annotations.
+            request_patron = self.controller.authenticated_patron_from_request()
+            eq_(None, request_patron.synchronize_annotations)
+
+            # This means we can't create annotations for them.
+            assert_raises(ValueError,  Annotation.get_one_or_create,
+                self._db, patron=request_patron, identifier=identifier
+            )
+            
+            # But by sending a PUT request...
+            response = self.manager.profiles.protocol()
+
+            # ...we can change synchronize_annotations to True.
+            eq_(True, request_patron.synchronize_annotations)
+
+            # The other patron is unaffected.
+            eq_(False, self.other_patron.synchronize_annotations)
+            
+        # Now we can create an annotation for the patron who enabled
+        # annotation sync.
+        annotation = Annotation.get_one_or_create(
+            self._db, patron=request_patron, identifier=identifier)
+        eq_(1, len(request_patron.annotations))
+        
+        # But if we make another request and change their
+        # synchronize_annotations field to False...
+        payload['settings'][ProfileStorage.SYNCHRONIZE_ANNOTATIONS] = False
+        with self.app.test_request_context(
+                "/", method='PUT', headers=self.auth,
+                content_type=ProfileController.MEDIA_TYPE,
+                data=json.dumps(payload)
+        ):
+            response = self.manager.profiles.protocol()
+
+            # ...the annotation goes away.
+            self._db.commit()
+            eq_(False, request_patron.synchronize_annotations)
+            eq_(0, len(request_patron.annotations))
+
+    def test_problemdetail_on_error(self):
+        """Verify that an error results in a ProblemDetail being returned
+        from the controller.
+        """
+        with self.app.test_request_context(
+                "/", method='PUT', headers=self.auth,
+                content_type="text/plain",
+        ):
+            response = self.manager.profiles.protocol()
+            assert isinstance(response, ProblemDetail)
+            eq_(415, response.status_code)
+            eq_("Expected vnd.librarysimplified/user-profile+json",
+                response.detail)
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)
