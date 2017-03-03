@@ -857,11 +857,9 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
-    # One DataSource can have one Collection.
-    collection = relationship(
-        "Collection", backref="data_source", uselist=False
-    )
-
+    # One DataSource can have many Catalogs.
+    catalogs = relationship("Catalog", backref="data_source")
+    
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -8451,6 +8449,101 @@ class Complaint(Base):
         return self.resolved
 
 
+class Library(Base):
+    """A library that uses this circulation manager to authenticate
+    its patrons and manage access to its content.
+
+    Currently, a circulation manager serves only one library,
+    but that will change.
+    """
+    __tablename__ = 'libraries'
+
+    id = Column(Integer, primary_key=True)
+
+    # The human-readable name of this library. Used in the library's
+    # Authentication for OPDS document.
+    name = Column(Unicode, unique=True)
+
+    # A short name of this library, to use when identifying it in
+    # scripts. e.g. "NYPL" for NYPL.
+    short_name = Column(Unicode, unique=True)
+    
+    # A UUID that uniquely identifies the library among all libraries
+    # in the world. This is used to serve the library's Authentication
+    # for OPDS document, and it also goes to the library registry.
+    uuid = Column(Unicode, unique=True)
+
+    # The name of this library to use when signing short client tokens
+    # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
+    # This name must be unique across the library registry.
+    _library_registry_short_name = Column(
+        Unicode, unique=True, name='library_registry_short_name'
+    )
+
+    # The shared secret to use when signing short client tokens for
+    # consumption by the library registry.
+    library_registry_shared_secret = Column(Unicode, unique=True)
+
+    def __repr__(cls):
+        return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
+            self.name, self.short_name, self.uuid, self.library_registry_short_name
+        )
+    
+    @classmethod
+    def instance(cls, _db):
+        """Find the one and only library."""
+        library, is_new = get_one_or_create(
+            _db, Library, create_method_kwargs=dict(
+                uuid=str(uuid.uuid4())
+            )
+        )
+        return library
+    
+    @hybrid_property
+    def library_registry_short_name(self):
+        """Gets library_registry_short_name from database"""
+        return self._library_registry_short_name
+
+    @library_registry_short_name.setter
+    def _set_library_registry_short_name(self, value):
+        """Uppercase the library registry short name on the way in."""
+        if value:
+            value = value.upper()
+            if '|' in value:
+                raise ValueError(
+                    "Library registry short name cannot contain the pipe character."
+                )
+        self._library_registry_short_name = value
+
+    def explain(self, include_library_registry_shared_secret=False):
+        """Create a series of human-readable strings to explain a library's
+        settings.
+
+        :param include_library_registry_shared_secret: For security reasons,
+           the shared secret is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.uuid:
+            lines.append('UUID: "%s"' % self.uuid)
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.short_name:
+            lines.append('Short name: "%s"' % self.short_name)
+        if self.library_registry_short_name:
+            lines.append(
+                'Short name (for library registry): "%s"' %
+                self.library_registry_short_name
+            )
+        if (self.library_registry_shared_secret and
+            include_library_registry_shared_secret):
+            lines.append(
+                'Shared secret (for library registry): "%s"' %
+                self.library_registry_shared_secret
+            )
+        return lines
+
 class Admin(Base):
 
     __tablename__ = 'admins'
@@ -8468,22 +8561,180 @@ class Admin(Base):
 
 class Collection(Base):
 
+    """A Collection is a set of LicensePools obtained through some mechanism.
+    """
+
     __tablename__ = 'collections'
+    id = Column(Integer, primary_key=True)
+
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    # What piece of code do we run to find out about changes to this
+    # collection?
+    protocol = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'protocol' field.
+    OPDS_IMPORT = 'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+
+    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
+    
+    # How does the provider of this collection distinguish it from
+    # other collections it provides? On the other side this is usually
+    # called a "library ID".
+    external_account_id = Column(Unicode, nullable=True)
+
+    # If there is a special URL to use for access to this collection,
+    # put it here. This is most common for OPDS and ODL integrations.
+    url = Column(Unicode, nullable=True)
+
+    # If access requires authentication, these fields represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    username = Column(Unicode, nullable=True)
+    password = Column(Unicode, nullable=True)
+
+    # Any additional configuration information goes into the
+    # collectionsettings table.
+    settings = relationship(
+        "CollectionSetting", backref="collection"
+    )
+    
+    # A Collection can provide books to many Libraries.
+    libraries = relationship(
+        "Library", secondary=lambda: collections_libraries,
+        backref="collections"
+    )
+    
+    # A Collection can include many LicensePools.
+    licensepools = relationship(
+        "LicensePool", secondary=lambda: collections_licensepools,
+        backref="collections"
+    )
+
+    def set_setting(self, key, value):
+        """Create or update a key-value setting for this Collection."""
+        setting = self.setting(key)
+        setting.value = value
+        return setting
+    
+    def setting(self, key):
+        """Find or create a CollectionSetting on this Collection.
+
+        :param key: Name of the setting.
+        :return: A CollectionSetting
+        """
+        _db = Session.object_session(self)
+        setting, is_new = get_one_or_create(
+            _db, CollectionSetting, collection=self, key=key
+        )
+        return setting
+
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain a collection's
+        settings.
+
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.protocol:
+            lines.append('Protocol: "%s"' % self.protocol)
+        for library in self.libraries:
+            lines.append('Used by library: "%s"' % (
+                library.short_name or library.name
+            ))
+        if self.external_account_id:
+            lines.append('External account ID: "%s"' % self.external_account_id)
+        if self.url:
+            lines.append('URL: "%s"' % self.url)
+        if self.username:
+            lines.append('Username: "%s"' % self.url)
+        if self.password and include_password:
+            lines.append('Password: "%s"' % self.password)
+        for setting in self.settings:
+            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+        return lines
+
+
+class CollectionSetting(Base):
+    """An extra piece of information associated with a Collection.
+
+    e.g. the "website ID" associated with an Overdrive collection, which
+    does not map onto any of the attributes of Collection.
+    """
+    __tablename__ = 'collectionsettings'
+    id = Column(Integer, primary_key=True)
+    collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
+
+    __table_args__ = (
+        UniqueConstraint('collection_id', 'key'),
+    )
+
+
+collections_libraries = Table(
+    'collections_libraries', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'library_id'),
+ )
+
+collections_licensepools = Table(
+    'collections_licensepools', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'licensepool_id', Integer, ForeignKey('licensepools.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'licensepool_id'),
+ )
+
+    
+class Catalog(Base):
+
+    """A Catalog is like a Collection, but it doesn't hold any actual
+    LicensePools, it just records Identifiers.
+
+    The Collections associated with a Library in its circulation
+    manager will show up as Catalogs associated with the corresponding
+    Library in the metadata wrangler.
+    """
+
+    __tablename__ = 'catalogs'
 
     id = Column(Integer, primary_key=True)
     name = Column(Unicode, unique=True, nullable=False)
     client_id = Column(Unicode, unique=True, index=True)
     _client_secret = Column(Unicode, nullable=False)
 
-    # A collection can have one DataSource
+    # A catalog can have one DataSource
     data_source_id = Column(
         Integer, ForeignKey('datasources.id'), index=True
     )
 
-    # A collection can include many Identifiers
+    # A catalog can include many Identifiers
     catalog = relationship(
-        "Identifier", secondary=lambda: collections_identifiers,
-        backref="collections"
+        "Identifier", secondary=lambda: catalogs_identifiers,
+        backref="catalogs"
     )
 
 
@@ -8511,17 +8762,17 @@ class Collection(Base):
 
     @classmethod
     def register(cls, _db, name):
-        """Creates a new collection with client details and a datasource."""
+        """Creates a new catalog with client details and a datasource."""
 
         name = unicode(name)
-        collection = get_one(_db, cls, name=name)
-        if collection:
+        catalog = get_one(_db, cls, name=name)
+        if catalog:
             raise ValueError(
-                "A collection with the name '%s' already exists: %r" % (
-                name, collection)
+                "A catalog with the name '%s' already exists: %r" % (
+                name, catalog)
             )
 
-        collection_data_source, ignore = get_one_or_create(
+        catalog_data_source, ignore = get_one_or_create(
             _db, DataSource, name=name, offers_licenses=False
         )
 
@@ -8530,14 +8781,14 @@ class Collection(Base):
         while get_one(_db, cls, client_id=client_id):
             client_id, plaintext_client_secret = cls._generate_client_details()
 
-        collection, ignore = get_one_or_create(
+        catalog, ignore = get_one_or_create(
             _db, cls, name=name, client_id=unicode(client_id),
             client_secret=unicode(plaintext_client_secret),
-            data_source=collection_data_source
+            data_source=catalog_data_source
         )
 
         _db.commit()
-        return collection, plaintext_client_secret
+        return catalog, plaintext_client_secret
 
     @classmethod
     def _generate_client_details(cls):
@@ -8555,26 +8806,26 @@ class Collection(Base):
 
     @classmethod
     def authenticate(cls, _db, client_id, plaintext_client_secret):
-        collection = get_one(_db, cls, client_id=unicode(client_id))
-        if (collection and
-            collection._correct_secret(plaintext_client_secret)):
-            return collection
+        catalog = get_one(_db, cls, client_id=unicode(client_id))
+        if (catalog and
+            catalog._correct_secret(plaintext_client_secret)):
+            return catalog
         return None
 
     def catalog_identifier(self, _db, identifier):
-        """Catalogs an identifier for a collection"""
+        """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
             _db.commit()
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all of a collection's works that have been updated since the
-        last time the collection was checked"""
+        """Returns all of a catalog's works that have been updated since the
+        last time the catalog was checked"""
 
         query = _db.query(Work).join(Work.coverage_records)
         query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.collections).filter(
-            Collection.id==self.id
+        query = query.join(Identifier.catalogs).filter(
+            Catalog.id==self.id
         )
         if timestamp:
             query = query.filter(
@@ -8584,17 +8835,17 @@ class Collection(Base):
         return query
 
 
-collections_identifiers = Table(
-    'collectionsidentifiers', Base.metadata,
+catalogs_identifiers = Table(
+    'catalogsidentifiers', Base.metadata,
     Column(
-        'collection_id', Integer, ForeignKey('collections.id'),
+        'catalog_id', Integer, ForeignKey('catalogs.id'),
         index=True, nullable=False
     ),
     Column(
         'identifier_id', Integer, ForeignKey('identifiers.id'),
         index=True, nullable=False
     ),
-    UniqueConstraint('collection_id', 'identifier_id'),
+    UniqueConstraint('catalog_id', 'identifier_id'),
 )
 
 from sqlalchemy.sql import compiler

@@ -13,8 +13,8 @@ from config import Configuration
 os.environ['TESTING'] = 'true'
 from model import (
     Base,
+    Catalog,
     Classification,
-    Collection,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -636,10 +636,10 @@ class DatabaseTest(object):
         return
 
 
-    def _collection(self, name=u"Faketown Public Library"):
+    def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         return get_one_or_create(
-            self._db, Collection, name=name, data_source=source,
+            self._db, Catalog, name=name, data_source=source,
             client_id=u"abc", client_secret=u"def"
         )[0]
 
@@ -783,8 +783,13 @@ class MockRequestsResponse(object):
         self.url = url or "http://url/"
 
     def json(self):
-        return json.loads(self.content)
-
+        content = self.content
+        # The queued content might be a JSON string or it might
+        # just be the object you'd get from loading a JSON string.
+        if isinstance(content, basestring):
+            content = json.loads(self.content)
+        return content
+        
     @property
     def text(self):
         return self.content.decode("utf8")

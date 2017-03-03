@@ -36,6 +36,7 @@ from config import (
 from model import (
     Annotation,
     BaseCoverageRecord,
+    Catalog,
     CirculationEvent,
     Classification,
     Collection,
@@ -52,6 +53,7 @@ from model import (
     Genre,
     Hold,
     Hyperlink,
+    Library,
     LicensePool,
     Measurement,
     Patron,
@@ -5265,50 +5267,162 @@ class TestCustomListEntry(DatabaseTest):
         eq_(longwinded_entry.most_recent_appearance, entry.most_recent_appearance)
 
 
+class TestLibrary(DatabaseTest):
+
+    def test_instance(self):
+
+        # There are no Library objects until we call instance().
+        eq_(0, self._db.query(Library).count())
+
+        # In the current release there will only ever be one library.
+        instance = Library.instance(self._db)
+        instance2 = Library.instance(self._db)
+        eq_(instance, instance2)
+
+    def test_library_registry_short_name(self):
+        library = Library.instance(self._db)
+
+        # Short name is always uppercased.
+        library.library_registry_short_name = "foo"
+        eq_("FOO", library.library_registry_short_name)
+
+        # Short name cannot contain a pipe character.
+        def set_to_pipe():
+            library.library_registry_short_name = "foo|bar"
+        assert_raises(ValueError, set_to_pipe)
+
+        # You can set the short name to None. This isn't
+        # recommended, but it's not an error.
+        library.library_registry_short_name = None
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        library = Library.instance(self._db)
+        library.uuid = "uuid"
+        library.name = "The Library"
+        library.short_name = "Short"
+        library.library_registry_short_name = "SHORT"
+        library.library_registry_shared_secret = "secret"
+
+        data = library.explain()
+        eq_(
+            ['UUID: "uuid"',
+             'Name: "The Library"',
+             'Short name: "Short"',
+             'Short name (for library registry): "SHORT"'],
+            data
+        )
+
+        
+        with_secret = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secret
+
+
 class TestCollection(DatabaseTest):
 
+    def test_set_key_value_pair(self):
+        """Test the ability to associate extra key-value pairs with
+        a Collection.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE
+        )
+        eq_([], collection.settings)
+
+        setting = collection.set_setting("website_id", "id1")
+        eq_("website_id", setting.key)
+        eq_("id1", setting.value)
+
+        # Calling set() again updates the key-value pair.
+        eq_([setting], collection.settings)
+        setting2 = collection.set_setting("website_id", "id2")
+        eq_(setting, setting2)
+        eq_("id2", setting2.value)
+
+        eq_(setting2, collection.setting("website_id"))
+
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE,
+        )
+        library = Library.instance(self._db)
+        library.name = "The only library"
+        library.collections.append(collection)
+        
+        collection.external_account_id = "id"
+        collection.url = "url"
+        collection.username = "username"
+        collection.password = "password"
+        setting = collection.set_setting("setting", "value")
+
+        data = collection.explain()
+        eq_(['Name: "test collection"',
+             'Protocol: "Overdrive"',
+             'Used by library: "The only library"',
+             'External account ID: "id"',
+             'URL: "url"',
+             'Username: "url"',
+             'Setting "setting": "value"'
+        ],
+            data
+        )
+
+        with_password = collection.explain(include_password=True)
+        assert 'Password: "password"' in with_password
+
+
+class TestCatalog(DatabaseTest):
+
     def setup(self):
-        super(TestCollection, self).setup()
-        self.collection = self._collection()
+        super(TestCatalog, self).setup()
+        self.catalog = self._catalog()
 
     def test_encrypts_client_secret(self):
-        collection, new = get_one_or_create(
-            self._db, Collection, name=u"Test Collection", client_id=u"test",
+        catalog, new = get_one_or_create(
+            self._db, Catalog, name=u"Test Catalog", client_id=u"test",
             client_secret=u"megatest"
         )
-        assert collection.client_secret != u"megatest"
-        eq_(True, collection.client_secret.startswith("$2a$"))
+        assert catalog.client_secret != u"megatest"
+        eq_(True, catalog.client_secret.startswith("$2a$"))
 
     def test_register(self):
-        collection, plaintext_secret = Collection.register(
+        catalog, plaintext_secret = Catalog.register(
             self._db, u"A Library"
         )
 
-        # It creates client details and a DataSource for the collection
-        assert collection.client_id and collection.client_secret
-        assert get_one(self._db, DataSource, name=collection.name)
+        # It creates client details and a DataSource for the catalog
+        assert catalog.client_id and catalog.client_secret
+        assert get_one(self._db, DataSource, name=catalog.name)
 
         # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+        assert_raises(ValueError, Catalog.register, self._db, u"A Library")
 
     def test_authenticate(self):
 
-        result = Collection.authenticate(self._db, u"abc", u"def")
-        eq_(self.collection, result)
+        result = Catalog.authenticate(self._db, u"abc", u"def")
+        eq_(self.catalog, result)
 
-        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        result = Catalog.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
-        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        result = Catalog.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
     def test_catalog_identifier(self):
-        """#catalog_identifier associates an identifier with the collection"""
+        """#catalog_identifier associates an identifier with the catalog"""
 
         identifier = self._identifier()
-        self.collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(self.collection.catalog))
-        eq_(identifier, self.collection.catalog[0])
+        self.catalog.catalog_identifier(self._db, identifier)
+        eq_(1, len(self.catalog.catalog))
+        eq_(identifier, self.catalog.catalog[0])
 
     def test_works_updated_since(self):
 
@@ -5316,13 +5430,13 @@ class TestCollection(DatabaseTest):
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         timestamp = datetime.datetime.utcnow()
-        # A collection with no catalog returns nothing.
-        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+        # An empty catalog returns nothing.
+        eq_([], self.catalog.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
-        updated_works = self.collection.works_updated_since(self._db, None).all()
+        self.catalog.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.catalog.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.catalog.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))
         assert w1 in updated_works and w2 in updated_works
@@ -5331,7 +5445,7 @@ class TestCollection(DatabaseTest):
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
-        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+        eq_([w1], self.catalog.works_updated_since(self._db, timestamp).all())
 
 
 class TestMaterializedViews(DatabaseTest):
