@@ -11,6 +11,7 @@ import pkgutil
 from overdrive import (
     OverdriveAPI,
     MockOverdriveAPI,
+    OverdriveAdvantageAccount,
     OverdriveRepresentationExtractor,
     OverdriveBibliographicCoverageProvider,
 )
@@ -20,6 +21,7 @@ from coverage import (
 )
 
 from model import (
+    Collection,
     Contributor,
     DeliveryMechanism,
     Edition,
@@ -30,6 +32,8 @@ from model import (
     Hyperlink,
 )
 from scripts import RunCoverageProviderScript
+
+from testing import MockRequestsResponse
 
 from util.http import (
     BadResponseException,
@@ -63,7 +67,7 @@ class TestOverdriveAPI(OverdriveTest):
         self.api.queue_response(200, content="some content")
         response = self.api.token_post(self._url, "the payload")
         eq_(200, response.status_code)
-        eq_("some content", response.content)
+        eq_(self.api.access_token_response.content, response.content)
 
     def test_get_success(self):
         self.api.queue_response(200, content="some content")
@@ -94,11 +98,13 @@ class TestOverdriveAPI(OverdriveTest):
         # We try to GET and receive a 401.
         self.api.queue_response(401)
 
-        # We refresh the bearer token.
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        # We refresh the bearer token. (This happens in
+        # MockOverdriveAPI.token_post, so we don't mock the response
+        # in the normal way.)
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
-
+        
         # Then we retry the GET and it succeeds this time.
         self.api.queue_response(200, content="at last, the content")
 
@@ -117,8 +123,8 @@ class TestOverdriveAPI(OverdriveTest):
         eq_("bearer token", credential.credential)
         eq_(self.api.token, credential.credential)
 
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
 
         self.api.refresh_creds(credential)
@@ -133,8 +139,8 @@ class TestOverdriveAPI(OverdriveTest):
         self.api.queue_response(401)
 
         # We refresh the bearer token.
-        self.api.queue_response(
-            200, content=self.api.mock_access_token("new bearer token")
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token"
         )
 
         # Then we retry the GET but we get another 401.
@@ -149,7 +155,7 @@ class TestOverdriveAPI(OverdriveTest):
         """If we fail to refresh the OAuth bearer token, an exception is
         raised.
         """
-        self.api.queue_response(401)
+        self.api.access_token_response = MockRequestsResponse(401, {}, "")
 
         assert_raises_regexp(
             BadResponseException,
@@ -158,6 +164,33 @@ class TestOverdriveAPI(OverdriveTest):
             None
         )
 
+    def test_library_endpoint(self):
+        """Verify that Advantage collections and regular Overdrive
+        collections start at different endpoints.
+        """
+        # Here's an Overdrive collection.
+        main = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id="1",
+            username="user", password="password"
+        )
+        main.setting('website_id').value = '100'
+
+        # Here's an Overdrive API client for that collection.
+        overdrive_main = MockOverdriveAPI(self._db, main)
+        eq_("https://api.overdrive.com/v1/libraries/1",
+            overdrive_main._library_endpoint)
+
+        # Here's an Overdrive Advantage collection associated with the
+        # main Overdrive collection.
+        child = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id="2",
+        )
+        child.parent = main
+        overdrive_child = MockOverdriveAPI(self._db, child)
+        eq_(
+            'https://api.overdrive.com/v1/libraries/1/advantageAccounts/2',
+            overdrive_child._library_endpoint
+        )
 
 class TestOverdriveRepresentationExtractor(OverdriveTest):
 
@@ -333,6 +366,61 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
         eq_(1, awards.weight)
 
 
+class TestOverdriveAdvantageAccount(OverdriveTest):
+
+    def test_from_representation(self):
+        """Test the creation of OverdriveAdvantageAccount objects
+        from Overdrive's representation of a list of accounts.
+        """
+        raw, data = self.sample_json("advantage_accounts.json")
+        [ac1, ac2] = OverdriveAdvantageAccount.from_representation(raw)
+
+        # The two Advantage accounts have the same parent library ID.
+        eq_("1225", ac1.parent_library_id)
+        eq_("1225", ac2.parent_library_id)
+
+        # But they have different names and library IDs.
+        eq_("3", ac1.library_id)
+        eq_("The Other Side of Town Library", ac1.name)
+
+        eq_("9", ac2.library_id)
+        eq_("The Common Community Library", ac2.name)
+
+    def test_to_collection(self):
+        """Test that we can turn an OverdriveAdvantageAccount object into
+        a Collection object.
+        """
+
+        account = OverdriveAdvantageAccount(
+            "parent_id", "child_id", "Library Name",
+        )
+
+        # We can't just create a Collection object for this object because
+        # the parent doesn't exist.
+        assert_raises_regexp(
+            ValueError,
+            "Cannot create a Collection whose parent does not already exist.",
+            account.to_collection, self._db
+        )
+        
+        # So, create a Collection to be the parent.
+        parent = self._collection(
+            name="Parent", protocol=Collection.OVERDRIVE,
+            external_account_id="parent_id"
+        )
+
+        # Now it works.
+        p, collection = account.to_collection(self._db)
+        eq_(p, parent)
+        eq_(parent, collection.parent)
+        eq_(collection.external_account_id, account.library_id)
+        eq_(Collection.OVERDRIVE, collection.protocol)
+
+        # To ensure uniqueness, the collection was named after its
+        # parent.
+        eq_("%s / %s" % (parent.name, account.name), collection.name)
+
+        
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
     """Test the code that looks up bibliographic information from Overdrive."""
 
