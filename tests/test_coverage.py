@@ -469,7 +469,7 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
         # The syncing record has been deleted from the database
         assert doubly_sync_record not in remaining_records
-        eq_([sync_cr, reaped_cr, doubly_reap_record], remaining_records)
+        eq_(sorted([sync_cr, reaped_cr, doubly_reap_record]), sorted(remaining_records))
 
 
 class TestContentServerBibliographicCoverageProvider(DatabaseTest):

@@ -22,8 +22,10 @@ from core.lane import (
 )
 
 from core.model import (
-    DataSource,
     Credential,
+    DataSource,
+    get_one,
+    Timestamp,
 )
 
 from . import (
@@ -34,6 +36,7 @@ from scripts import (
     AdobeAccountIDResetScript,
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
+    InstanceInitializationScript,
     LoanReaperScript,
 )
 
@@ -152,6 +155,7 @@ class TestRepresentationPerLane(TestLaneScript):
             eq_(False, script.should_process_lane(parent))
             eq_(True, script.should_process_lane(child))
 
+
 class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_default_arguments(self):
@@ -211,6 +215,20 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 cached_feeds = script.process_lane(lane)
                 # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
                 eq_(4, len(cached_feeds))
+
+
+class TestInstanceInitializationScript(DatabaseTest):
+
+    def test_run(self):
+        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        eq_(None, timestamp)
+
+        script = InstanceInitializationScript(_db=self._db)
+        script.do_run(ignore_search=True)
+
+        # It initializes the database.
+        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        assert timestamp
 
 
 class TestLoanReaperScript(DatabaseTest):

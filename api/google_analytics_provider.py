@@ -46,7 +46,8 @@ class GoogleAnalyticsProvider(object):
                     'cd8': work.target_age_string,
                     'cd9': edition.publisher,
                     'cd10': edition.language,
-                    'cd11': work.top_genre()
+                    'cd11': work.top_genre(),
+                    'cd12': "true" if license_pool.open_access else "false",
                 })
         # urlencode doesn't like unicode strings so we convert them to utf8
         fields = {k: unicode(v).encode('utf8') for k, v in fields.iteritems()}
