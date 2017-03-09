@@ -1241,29 +1241,11 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     viaf, with the newer better sort_name selection and formatting.
 
     TODO: make sure don't start at beginning again when interrupt while batch job is running.
-    TODO: if sort_name is not too far from display_name, then just auto-fix.  if it is, make a 
-    wrong-author complaint.
-    TODO: make sure passing an identifier does constrain the query.
     """
 
-    '''
-    def __init__(self, batch_size=10):
-        args = self.parse_command_line(self._db)
-        self.identifier_type = args.identifier_type
-        self.identifiers = args.identifiers
-        self.batch_size = batch_size
-        self.query = self.make_query(
-            self._db, self.identifier_type, self.identifiers, self.log
-        )
-        self.force = force
-    '''
 
     @classmethod
     def make_query(self, _db, identifier_type, identifiers, log=None):
-        #editions = self._db.query(Edition).filter(
-        #    Edition.primary_identifier_id.in_(identifier_ids)
-        #)
-
         query = _db.query(Edition)
         if identifiers or identifier_type:
             query = query.join(Edition.primary_identifier)
@@ -1313,17 +1295,14 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         while editions:
             my_query = self.query.offset(offset).limit(batch_size)
-            #from model import dump_query
-            #print "query=%s" % dump_query(my_query)
             editions = my_query.all()
 
-            #print "editions.len()=%s, offset=%s" % (len(editions), offset)
             for edition in editions:
                 if edition.contributions:
                     for contribution in edition.contributions:
                         self.process_contribution(self._db, contribution, self.log)
             offset += batch_size
-            #set_trace()
+
             self._db.commit()
         self._db.commit()
 
@@ -1337,7 +1316,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         identifier = contribution.edition.primary_identifier
 
-        #computed_sort_name_local_old = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
         if contributor.sort_name and contributor.display_name:
             set_trace()
             computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
@@ -1387,42 +1365,12 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     def register_problem(cls, source, contribution, contributor, computed_sort_name, log=None):
 
         success = True
-        '''
-        record, is_new = CoverageRecord.add_for(
-            edition=edition, data_source=DataSource.VIAF, operation=CoverageRecord.REPAIR_SORT_NAME_OPERATION,
-            status=CoverageRecord.TRANSIENT_FAILURE
-        )
-        # NOTE:  not the best way -- storing id info in the message field, but 
-        # perhaps better than making CoverageRecords cover Contributor-type objects.
-        record.exception = contributor.id
-        '''
 
         detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
-
-        #controller = ComplaintController()
-        #data = json.dumps(
-        #    {
-        #        "type": "http://librarysimplified.org/terms/problem/wrong-author",
-        #        "source": source,
-        #        "detail": detail,
-        #    }
-        #)
-        # if we don't have a pool, the complaint registration code will raise an error, 
-        # which is the behavior we want here.
         pool = contribution.edition.is_presentation_for
-
-        #response = controller.register(pool, data)
-        #if not response.status.startswith('201'):
-        #    # drop it, we'll get it next time
-        #    pass
-        #else:
-        #    set_trace()
-
-        #complaint, is_new = Complaint.register(license_pool, type, resolved)
         complaint_type = "http://librarysimplified.org/terms/problem/wrong-author";
         try:
             complaint, is_new = Complaint.register(pool, complaint_type, source, detail)
-            #_db.commit()
         except ValueError, e:
             # log and move on, don't stop run
             log.error("Error registering complaint: %r", contributor, exc_info=e)
