@@ -2071,8 +2071,11 @@ class Contributor(Base):
         set the sort_name to the new value without further processing. 
         If new value is not in correct format, and the force flag is not set, then 
         attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
+
+        Note: For now, have decided to not automatically update any edition.sort_author 
+        that might have contributions by this Contributor.
         """
-        #set_trace()
+
         if not new_sort_name:
             self._sort_name = None
             return
@@ -2085,7 +2088,7 @@ class Contributor(Base):
                 return
 
             # now we get interesting
-            self._sort_name = display_name_to_sort_name(new_sort_name, advanced=True)
+            self._sort_name = display_name_to_sort_name(new_sort_name)
             return
 
         self._sort_name = new_sort_name
@@ -2117,10 +2120,7 @@ class Contributor(Base):
             destination.viaf
         )
         
-
-        # TODO: put in logic to keep sort_name is one of the contributor objects has it.
-
-
+        # make sure we're not losing any names we know for the contributor
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
@@ -2128,6 +2128,18 @@ class Contributor(Base):
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
             destination.aliases = new_aliases
+
+        if not destination.family_name:
+            destination.family_name = self.family_name
+        if not destination.display_name:
+            destination.display_name = self.display_name
+        # keep sort_name if one of the contributor objects has it.
+        if not destination.sort_name:
+            destination.sort_name = self.sort_name
+        if not destination.wikipedia_name:
+            destination.wikipedia_name = self.wikipedia_name
+
+        # merge non-name-related properties
         for k, v in self.extra.items():
             if not k in destination.extra:
                 destination.extra[k] = v
@@ -2135,13 +2147,6 @@ class Contributor(Base):
             destination.lc = self.lc
         if not destination.viaf:
             destination.viaf = self.viaf
-        if not destination.family_name:
-            destination.family_name = self.family_name
-        if not destination.display_name:
-            destination.display_name = self.display_name
-        if not destination.wikipedia_name:
-            destination.wikipedia_name = self.wikipedia_name
-
         if not destination.biography:
             destination.biography = self.biography
 

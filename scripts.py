@@ -12,8 +12,10 @@ from requests.exceptions import (
 )
 import sys
 import traceback
+import unicodedata
 
 from collections import defaultdict
+import json
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
@@ -23,6 +25,7 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
+from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
@@ -30,6 +33,7 @@ from model import (
     get_one,
     get_one_or_create,
     production_session,
+    Complaint, 
     CoverageRecord, 
     CustomList,
     DataSource,
@@ -52,7 +56,11 @@ from oneclick import OneClickAPI, MockOneClickAPI
 from overdrive import OverdriveBibliographicCoverageProvider
 from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
-from util.personal_names import display_name_to_sort_name
+from util.personal_names import (
+    contributor_name_match_ratio, 
+    display_name_to_sort_name, 
+    is_corporate_name
+)
 
 
 
@@ -1224,11 +1232,18 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     """ Checks that contributor sort_names are display_names in 
     "last name, comma, other names" format.  
 
+    Read contributors edition by edition, so that can, if necessary, 
+    restrict db query by passed-in identifiers, and so can find associated 
+    license pools to register author complaints to.
+
     NOTE:  There's also CheckContributorNamesOnWeb in metadata, 
     it's a child of this script.  Use it to check our knowledge against 
     viaf, with the newer better sort_name selection and formatting.
 
     TODO: make sure don't start at beginning again when interrupt while batch job is running.
+    TODO: if sort_name is not too far from display_name, then just auto-fix.  if it is, make a 
+    wrong-author complaint.
+    TODO: make sure passing an identifier does constrain the query.
     """
 
     '''
@@ -1250,10 +1265,11 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         #)
 
         query = _db.query(Edition)
-        #if identifiers or identifier_type:
-            #query = query.join(Work.license_pools).join(
-            #    LicensePool.identifier
-            #)
+        if identifiers or identifier_type:
+            query = query.join(Edition.primary_identifier)
+
+        # we only want to look at editions with license pools, in case we want to make a Complaint
+        query = query.join(Edition.is_presentation_for)
 
         if identifiers:
             if log:
@@ -1269,32 +1285,22 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                     'Restricted to identifier type "%s".' % identifier_type
                 )
             query = query.filter(Identifier.type==identifier_type)
-        '''
-        'SELECT editions.id AS editions_id, editions.data_source_id AS editions_data_source_id, editions.primary_identifier_id AS editions_primary_identifier_id, 
-        editions.title AS editions_title, editions.sort_title AS editions_sort_title, editions.subtitle AS editions_subtitle, editions.series AS editions_series, 
-        editions.series_position AS editions_series_position, editions.permanent_work_id AS editions_permanent_work_id, editions.author AS editions_author, 
-        editions.sort_author AS editions_sort_author, editions.language AS editions_language, editions.publisher AS editions_publisher, 
-        editions.imprint AS editions_imprint, editions.issued AS editions_issued, editions.published AS editions_published, editions.medium AS editions_medium, 
-        editions.cover_id AS editions_cover_id, editions.cover_full_url AS editions_cover_full_url, editions.cover_thumbnail_url AS editions_cover_thumbnail_url, 
-        editions.open_access_download_url AS editions_open_access_download_url, editions.simple_opds_entry AS editions_simple_opds_entry, 
-        editions.extra AS editions_extra \n
-        FROM editions, identifiers \n
-        WHERE editions.primary_identifier_id IN (:primary_identifier_id_1) AND identifiers.type = :type_1'
-        '''
 
         if log:
             log.info(
                 "Processing %d editions.", query.count()
             )
+            print "Processing %d editions.", query.count()
+
         return query.order_by(Edition.id)
 
 
     def run(self, batch_size=10):
         param_args = self.parse_command_line(self._db)
         
-        #if param_args.identifiers:
+        if param_args.identifiers:
             # we're asked about a specific set of work contributors
-            #identifier_ids = [x.id for x in param_args.identifiers]
+            identifier_ids = [x.id for x in param_args.identifiers]
 
         self.query = self.make_query(
             self._db, param_args.identifier_type, param_args.identifiers, self.log
@@ -1302,44 +1308,125 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         editions = True
         offset = 0
+        output = "ContributorID|\tSortName|\tDisplayName|\tComputedSortName|\tMatchRatio_Etc|\tResolution"
+        print output.encode("utf8")
+
         while editions:
-            editions = self.query.offset(offset).limit(batch_size).all()
+            my_query = self.query.offset(offset).limit(batch_size)
+            #from model import dump_query
+            #print "query=%s" % dump_query(my_query)
+            editions = my_query.all()
+
+            #print "editions.len()=%s, offset=%s" % (len(editions), offset)
             for edition in editions:
                 if edition.contributions:
                     for contribution in edition.contributions:
-                        self.process_contribution(self._db, contribution, edition)
+                        self.process_contribution(self._db, contribution, self.log)
             offset += batch_size
+            #set_trace()
             self._db.commit()
         self._db.commit()
 
 
     @classmethod
-    def process_contribution(cls, _db, contribution, edition):
-        if not contribution or not edition:
+    def process_contribution(cls, _db, contribution, log=None):
+        if not contribution or not contribution.edition:
             return
 
         contributor = contribution.contributor
 
-        identifier = edition.primary_identifier
+        identifier = contribution.edition.primary_identifier
 
-        computed_sort_name_local = display_name_to_sort_name(contributor.display_name, advanced=True)
-        success = cls.check_sort_name(computed_sort_name_local, contributor, edition, DataSource.INTERNAL_PROCESSING, CoverageRecord.REPAIR_SORT_NAME_OPERATION)
-        if not success:
-            output = "Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s: INTERNAL MISMATCH" % (contributor.id, contributor.sort_name, contributor.display_name)
-            print output.encode("utf8")
+        #computed_sort_name_local_old = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
+        if contributor.sort_name and contributor.display_name:
+            set_trace()
+            computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
+            # Did HumanName parser produce a differet result from the plain comma replacement?
+            if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
+                # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced 
+                # suffix, we can fix without asking for human intervention.  if the names are very different, 
+                # there's a chance the sort and display names are different on purpose, s.a. when foreign names 
+                # are passed as translated into only one of the fields, or when the author has a popular pseudonym. 
+                # best ask a human.
+
+                # if the relative lengths are off than by a stray space or comma, ask a human
+                # it probably means that a human metadata professional had added an explanation/expansion to the 
+                # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data 
+                # with the "Jones, Bob A." that the auto-algorigthm would generate.
+                length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
+                if abs(length_difference) > 3:
+                    cls.register_problem(source="CheckContributorNamesInDB", contribution=contribution, contributor=contributor, 
+                        computed_sort_name=computed_sort_name_local_new, log=log)
+                    output = "%s|\t%s|\t%s|\t%s|\tlength|\tcomplain" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
+                    print output.encode("utf8")
+                    return
+
+                match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
+
+                if (match_ratio < 40):
+                    # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
+                    # and is non-trivial to fix.  
+                    cls.register_problem(source="CheckContributorNamesInDB", contribution=contribution, contributor=contributor, 
+                        computed_sort_name=computed_sort_name_local_new, log=log)
+                    output = "%s|\t%s|\t%s|\t%s|\t%s|\tcomplain" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
+                    print output.encode("utf8")
+                else:
+                    # we can fix it!
+                    output = "%s|\t%s|\t%s|\t%s|\t%s|\tfix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
+                    print output.encode("utf8")
+
+                    contributor.sort_name = computed_sort_name_local_new
+
+                    # also change edition.sort_author, if the author was primary
+                    edition_contributors = contribution.edition.author_contributors
+                    if (len(edition_contributors) > 0 and (edition_contributors[0].id == contributor.id)):
+                        contribution.edition.sort_author = computed_sort_name_local_new
 
 
     @classmethod
-    def check_sort_name(cls, computed_sort_name, contributor, edition, data_source, operation):
+    def register_problem(cls, source, contribution, contributor, computed_sort_name, log=None):
+
         success = True
-        if computed_sort_name.strip().lower() != contributor.sort_name.strip().lower():
-            record, is_new = CoverageRecord.add_for(
-                edition=edition, data_source=DataSource.VIAF, operation=CoverageRecord.REPAIR_SORT_NAME_OPERATION,
-                status=CoverageRecord.TRANSIENT_FAILURE
-            )
-            # NOTE:  not the best way -- storing id info in the message field, but 
-            # perhaps better than making CoverageRecords cover Contributor-type objects.
-            record.exception = contributor.id
+        '''
+        record, is_new = CoverageRecord.add_for(
+            edition=edition, data_source=DataSource.VIAF, operation=CoverageRecord.REPAIR_SORT_NAME_OPERATION,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        # NOTE:  not the best way -- storing id info in the message field, but 
+        # perhaps better than making CoverageRecords cover Contributor-type objects.
+        record.exception = contributor.id
+        '''
+
+        detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
+
+        #controller = ComplaintController()
+        #data = json.dumps(
+        #    {
+        #        "type": "http://librarysimplified.org/terms/problem/wrong-author",
+        #        "source": source,
+        #        "detail": detail,
+        #    }
+        #)
+        # if we don't have a pool, the complaint registration code will raise an error, 
+        # which is the behavior we want here.
+        pool = contribution.edition.is_presentation_for
+
+        #response = controller.register(pool, data)
+        #if not response.status.startswith('201'):
+        #    # drop it, we'll get it next time
+        #    pass
+        #else:
+        #    set_trace()
+
+        #complaint, is_new = Complaint.register(license_pool, type, resolved)
+        complaint_type = "http://librarysimplified.org/terms/problem/wrong-author";
+        try:
+            complaint, is_new = Complaint.register(pool, complaint_type, source, detail)
+            #_db.commit()
+        except ValueError, e:
+            # log and move on, don't stop run
+            log.error("Error registering complaint: %r", contributor, exc_info=e)
+            print("Error registering complaint: %r", contributor)
             success = False
 
         return success

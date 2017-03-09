@@ -628,12 +628,12 @@ class TestContributor(DatabaseTest):
         [robert], ignore = Contributor.lookup(self._db, sort_name=u"Robert")
         
         # Here's Bob.
-        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
         bob.extra[u'foo'] = u'bar'
         bob.aliases = [u'Bobby']
         bob.viaf = u'viaf'
         bob.lc = u'lc'
-        bob.display_name = u"Bob's display name"
+        bob.display_name = u"Bob Jones"
         bob.family_name = u"Bobb"
         bob.wikipedia_name = u"Bob_(Person)"
 
@@ -655,7 +655,7 @@ class TestContributor(DatabaseTest):
 
         # 'Bob' is now listed as an alias for Robert, as is Bob's
         # alias.
-        eq_([u'Bob', u'Bobby'], robert.aliases)
+        eq_([u'Jones, Bob', u'Bobby'], robert.aliases)
 
         # The extra information associated with Bob is now associated
         # with Robert.
@@ -664,7 +664,8 @@ class TestContributor(DatabaseTest):
         eq_(u"viaf", robert.viaf)
         eq_(u"lc", robert.lc)
         eq_(u"Bobb", robert.family_name)
-        eq_(u"Bob's display name", robert.display_name)
+        eq_(u"Bob Jones", robert.display_name)
+        eq_(u"Robert", robert.sort_name)
         eq_(u"Bob_(Person)", robert.wikipedia_name)
 
         # The standalone 'Bob' record has been removed from the database.
@@ -675,6 +676,14 @@ class TestContributor(DatabaseTest):
         # Bob's book is now associated with 'Robert', not the standalone
         # 'Bob' record.
         eq_([robert], bobs_book.author_contributors)
+
+        # confirm the sort_name is propagated, if not already set in the destination contributor
+        robert.sort_name = None
+        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
+        bob.merge_into(robert)
+        eq_(u"Jones, Bob", robert.sort_name)
+
+
 
     def _names(self, in_name, out_family, out_display,
                default_display_name=None):

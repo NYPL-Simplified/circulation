@@ -9,12 +9,40 @@ from permanent_work_id import WorkIDCalculator;
 
 """Fallback algorithms for dealing with personal names when VIAF fails us."""
 
+
+#@classmethod
+def contributor_name_match_ratio(name1, name2, normalize_names=True):
+    """
+    Returns a number between 0 and 100, representing the percent 
+    match (Levenshtein Distance) between name1 and name2, 
+    after each has been normalized.
+    """
+    if normalize_names:
+        name1 = normalize_contributor_name_for_matching(name1)
+        name2 = normalize_contributor_name_for_matching(name2)
+    match_ratio = fuzz.ratio(name1, name2)
+    return match_ratio
+
+
 def is_corporate_name(display_name):
     """Does this display name look like a corporate name?"""
-    corporations = ['National Geographic', 'Smithsonian Institution', 
-        'Verlag', 'College', 'University',  
-        'Harper & Brothers', 'Williams & Wilkins', 
-        'Estampie', 'Paul Taylor Dance', 'Gallery']
+
+    corporations = ['National Geographic', 'Smithsonian Institution', 'Princeton', 
+
+        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', 
+
+        'Harper & Brothers', 'Harper Collins', 'HarperCollins', 'Williams & Wilkins', 
+        'Estampie', 'Paul Taylor Dance', 'Gallery', 'EMI Televisa', 'Mysterious Traveler', 
+
+        'Association', 'International', 'National', 'Society', 'Team', 
+
+        'History', 'Science', 
+
+        u'\xa9', 'Copyright', '(C)', '&#169;', 
+
+        'Professors', 'Multiple', 'Various',  
+        'Full Cast', 'BBC', 'LTD', 'Limited', 'Productions', 'Visual Media', 'Radio Classics'
+        ]
 
     display_name = display_name.lower().replace(".", "").replace(",", "").replace("&amp;", "&")
 
@@ -32,13 +60,16 @@ def is_corporate_name(display_name):
     return False
 
 
-def display_name_to_sort_name(display_name, advanced=False):
+def display_name_to_sort_name(display_name):
     """
     Take the "First Name Last Name"-formatted display_name, and convert it 
     to a "Last Name, First Name" format appropriate for searching and sorting by.
 
-    :param advanced: If off, use the old name-parsing algorithm.  If on, use the 
-        HumanName ;ibrary to try to parse the name.
+    Checks first if the display_name fits what we know of corporate entity business names.
+    If yes, uses the whole name without re-converting it.
+
+    Uses the HumanName library to try to parse the name into parts, and rearrange the parts into 
+    desired order and format.
     """
     if not display_name:
         return None
@@ -47,16 +78,12 @@ def display_name_to_sort_name(display_name, advanced=False):
     if c.endswith('.'):
         c = c[:-1]
 
+    # TODO: to humanname: PhD, Ph.D. Sister, Queen are titles
+
+    # check if corporate, and if yes, return whole
     if is_corporate_name(display_name):
         return display_name
     
-    if not advanced:
-        parts = display_name.split(" ")
-        if len(parts) == 1:
-            return parts[0]
-        else:
-            return parts[-1] + ", " + " ".join(parts[:-1])
-
     name = HumanName(display_name)
     # name has title, first, middle, last, suffix, nickname
     if name.nickname:
