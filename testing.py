@@ -10,7 +10,7 @@ import tempfile
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
-os.environ['TESTING'] = 'true'
+
 from model import (
     Base,
     Catalog,

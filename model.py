@@ -8484,7 +8484,7 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
-    def __repr__(cls):
+    def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
         )
