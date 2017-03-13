@@ -1317,7 +1317,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         identifier = contribution.edition.primary_identifier
 
         if contributor.sort_name and contributor.display_name:
-            set_trace()
+            
             computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
             # Did HumanName parser produce a differet result from the plain comma replacement?
             if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
