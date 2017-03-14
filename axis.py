@@ -212,8 +212,8 @@ class MockAxis360API(Axis360API):
             _db, Collection,
             name="Test Axis 360 Collection",
             protocol=Collection.AXIS_360, create_method_kwargs=dict(
-                username='a', password='b', external_account_id='c',
-                url="http://axis.test/"
+                username=u'a', password=u'b', external_account_id=u'c',
+                url=u"http://axis.test/"
             )
         )
         library.collections.append(collection)

@@ -223,7 +223,7 @@ class MockThreeMAPI(ThreeMAPI):
             _db, Collection,
             name="Test Bibliotheca Collection",
             protocol=Collection.BIBLIOTHECA, create_method_kwargs=dict(
-                username='a', password='b', external_account_id='c',
+                username=u'a', password=u'b', external_account_id=u'c',
                 url="http://bibliotheca.test"
             )
         )

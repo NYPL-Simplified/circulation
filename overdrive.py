@@ -418,7 +418,7 @@ class MockOverdriveAPI(OverdriveAPI):
                 _db, Collection,
                 name="Test Overdrive Collection",
                 protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
-                    username='a', password='b', external_account_id='c'
+                    username=u'a', password=u'b', external_account_id=u'c'
                 )
             )
             collection.set_setting('website_id', 'd')
