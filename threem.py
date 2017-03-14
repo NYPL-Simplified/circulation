@@ -77,9 +77,9 @@ class ThreeMAPI(object):
         self.version = (
             collection.setting('version').value or self.DEFAULT_VERSION
         )
-        self.account_id = collection.username
-        self.account_key = collection.password
-        self.library_id = collection.external_account_id
+        self.account_id = collection.username.encode("utf8")
+        self.account_key = collection.password.encode("utf8")
+        self.library_id = collection.external_account_id.encode("utf8")
         self.base_url = collection.url or self.DEFAULT_BASE_URL
         
         if not self.account_id or not self.account_key or not self.library_id:

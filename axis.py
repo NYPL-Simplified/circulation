@@ -72,9 +72,9 @@ class Axis360API(object):
 
         self._db = _db
 
-        self.library_id = collection.external_account_id
-        self.username = collection.username
-        self.password = collection.password
+        self.library_id = collection.external_account_id.encode("utf8")
+        self.username = collection.username.encode("utf8")
+        self.password = collection.password.encode("utf8")
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.url or self.PRODUCTION_BASE_URL

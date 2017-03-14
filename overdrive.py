@@ -125,9 +125,9 @@ class OverdriveAPI(object):
         else:
             self.parent_library_id = None
             
-        self.client_key = collection.username
-        self.client_secret = collection.password
-        self.website_id = collection.setting('website_id').value
+        self.client_key = collection.username.encode("utf8")
+        self.client_secret = collection.password.encode("utf8")
+        self.website_id = collection.setting('website_id').value.encode("utf8")
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
