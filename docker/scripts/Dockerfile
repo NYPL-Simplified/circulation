@@ -1,6 +1,6 @@
 FROM nypl/circ-base
 ENV TZ=US/Eastern
-ENV FIRST_RUN ""
+ENV LIBSIMPLE_DB_INIT ""
 
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
