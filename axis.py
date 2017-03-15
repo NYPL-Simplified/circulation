@@ -121,7 +121,7 @@ class Axis360API(object):
     def authorization_headers(self):
         authorization = u":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
-        authorization = base64.b64encode(authorization)
+        authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
     def refresh_bearer_token(self):

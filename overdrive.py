@@ -220,7 +220,7 @@ class OverdriveAPI(object):
     def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
         s = "%s:%s" % (self.client_key, self.client_secret)
-        auth = base64.encodestring(s).strip()
+        auth = base64.standard_b64encode(s).strip()
         headers = dict(headers)
         headers['Authorization'] = "Basic %s" % auth
         return self._do_post(url, payload, headers, **kwargs)
