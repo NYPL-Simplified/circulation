@@ -1,5 +1,6 @@
 FROM nypl/circ-base
 ENV TZ=US/Eastern
+ENV LIBSIMPLE_DB_INIT ""
 
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
@@ -18,5 +19,9 @@ VOLUME /var/log
 
 WORKDIR bin
 
+# Copy over script to initialize database
+COPY libsimple_init /usr/local/bin
+RUN chmod +x /usr/local/bin/libsimple_init
+
 COPY supervisord.conf /etc/supervisor/conf.d
-CMD ["-c", "/usr/bin/supervisord"]
+CMD ["-c", "libsimple_init && supervisord"]
