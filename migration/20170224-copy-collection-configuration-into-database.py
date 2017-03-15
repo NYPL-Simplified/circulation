@@ -95,6 +95,31 @@ def convert_axis(_db, library):
     collection.password = password
     collection.external_account_id = library_id
     collection.url = url
+
+def convert_one_click(_db, library):
+    config = Configuration.integration('OneClick')
+    if not config:
+        print u"No OneClick configuration, not creating a Collection for it."
+    print u"Creating Collection object for OneClick collection."
+    username = config.get('username')
+    basic_token = config.get('basic_token')
+    library_id = config.get('library_id')
+    url = config.get('url')
+    ebook_loan_length = config.get('ebook_loan_length')
+    eaudio_loan_length = config.get('eaudio_loan_length')
+    
+    collection, ignore = get_one_or_create(
+        _db, Collection,
+        protocol=Collection.ONE_CLICK,
+        name="OneClick"
+    )
+    library.collections.append(collection)
+    collection.username = username
+    collection.password = basic_token
+    collection.external_account_id = library_id
+    collection.url = url
+    collection.set_setting("ebook_loan_length", ebook_loan_length)
+    collection.set_setting("eaudio_loan_length", eaudio_loan_length)
     
 def convert_content_server(_db, library):
     config = Configuration.integration("Content Server")
@@ -115,5 +140,6 @@ copy_library_registry_information(_db, library)
 convert_overdrive(_db, library)
 convert_bibliotheca(_db, library)
 convert_axis(_db, library)
+convert_one_click(_db, library)
 convert_content_server(_db, library)
 _db.commit()
