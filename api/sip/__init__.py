@@ -5,6 +5,7 @@ from api.authenticator import (
     PatronData,
 )
 from api.sip.client import SIPClient
+from core.util.http import RemoteIntegrationException
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -57,7 +58,13 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             )
             
     def remote_authenticate(self, username, password):
-        info = self.client.patron_information(username, password)
+        try:
+            info = self.client.patron_information(username, password)
+        except IOError, e:
+            raise RemoteIntegrationException(
+                self.client.target_server,
+                e.message
+            )
         return self.info_to_patrondata(info)
 
     @classmethod
