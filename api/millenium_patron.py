@@ -8,6 +8,7 @@ import requests
 from money import Money
 
 from core.util.xmlparser import XMLParser
+
 from authenticator import (
     BasicAuthenticationProvider,
     PatronData,

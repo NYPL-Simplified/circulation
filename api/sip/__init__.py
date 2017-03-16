@@ -6,6 +6,7 @@ from api.authenticator import (
 )
 from api.sip.client import SIPClient
 from core.util.http import RemoteIntegrationException
+from core.util import MoneyUtility
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -93,7 +94,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         if 'personal_name' in info:
             patrondata.personal_name = info['personal_name']
         if 'fee_amount' in info:
-            patrondata.fines = info['fee_amount']
+            fines = info['fee_amount']
+        else:
+            fines = '0'
+        patrondata.fines = MoneyUtility.parse(fines)
         if 'sipserver_patron_class' in info:
             patrondata.external_type = info['sipserver_patron_class']
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
