@@ -32,6 +32,8 @@ class ExternalSearchIndex(object):
     def __init__(self, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
+        self.works_index = None
+        self.works_alias = None
 
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
@@ -59,7 +61,6 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client = Elasticsearch(
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
-
         self.indices = self.__client.indices
         self.search = self.__client.search
         self.index = self.__client.index
@@ -69,8 +70,6 @@ class ExternalSearchIndex(object):
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
-        self.works_index = None
-        self.works_alias = None
         self.set_works_index_and_alias(works_index)
 
         def bulk(docs, **kwargs):
