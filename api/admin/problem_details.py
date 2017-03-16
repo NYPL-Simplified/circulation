@@ -85,3 +85,52 @@ INVALID_SERIES_POSITION = pd(
     title=_("Invalid series positon."),
     detail=_("The series position must be a number or blank."),
 )
+
+LIBRARY_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/library-not-found",
+    status_code=400,
+    title=_("Library not found."),
+    detail=_("Currently there can only be one library, and the request does not match the existing library."),
+)
+
+CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET = pd(
+    "http://librarysimplified.org/terms/problem/cannot-set-both-random-and-specific-secret",
+    status_code=400,
+    title=_("Cannot set both random and specific secret"),
+    detail=_("You can't set the shared secret to a random value and a specific value at the same time"),
+)
+
+CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET = pd(
+    "http://librarysimplified.org/terms/problem/cannot-replace-existing-secret-with-random-secret",
+    status_code=400,
+    title=_("Cannot replace existing secret with random secret"),
+    detail=_("You can't overwrite an existing shared secret with a random value"),
+)
+
+MISSING_COLLECTION_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection-name",
+    status_code=400,
+    title=_("Missing collection name."),
+    detail=_("You must identify the collection by its name."),
+)
+
+NO_PROTOCOL_FOR_NEW_COLLECTION = pd(
+    "http://librarysimplified.org/terms/problem/no-protocol-for-new-collection",
+    status_code=400,
+    title=_("No protocol for new collection"),
+    detail=_("The specified collection doesn't exist. You can create it, but you must specify a protocol."),
+)
+
+NO_SUCH_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/no-such-library",
+    status_code=400,
+    title=_("No such library"),
+    detail=_("One of the libraries added to the collection does not exist."),
+)
+
+INCOMPLETE_COLLECTION_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-collection-configuration",
+    status_code=400,
+    title=_("Incomplete collection configuration"),
+    detail=_("The collection's configuration is missing a required field."),
+)

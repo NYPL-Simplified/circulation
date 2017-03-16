@@ -3,6 +3,9 @@ import logging
 import sys
 import os
 import base64
+import random
+import uuid
+import json
 
 import flask
 from flask import (
@@ -49,6 +52,10 @@ from core.app_server import (
     feed_response,
     load_pagination_from_request
 )
+from core.model import (
+    Collection,
+    Library,
+)
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
@@ -77,6 +84,7 @@ def setup_admin_controllers(manager):
     manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
+    manager.admin_settings_controller = SettingsController(manager)
 
 
 class AdminController(object):
@@ -815,3 +823,181 @@ class DashboardController(CirculationManagerController):
             ]
 
         return [header] + map(result_to_row, results), date
+
+class SettingsController(CirculationManagerController):
+
+    def libraries(self):
+        if flask.request.method == 'GET':
+            libraries = [
+                dict(
+                    uuid=library.uuid,
+                    name=library.name,
+                    short_name=library.short_name,
+                    library_registry_short_name=library.library_registry_short_name,
+                    library_registry_shared_secret=library.library_registry_shared_secret
+                )
+                for library in self._db.query(Library).order_by(Library.name).all()
+            ]
+        
+            return dict(libraries=libraries)
+
+
+        library_uuid = flask.request.form.get("uuid")
+        name = flask.request.form.get("name")
+        short_name = flask.request.form.get("short_name")
+        registry_short_name = flask.request.form.get("library_registry_short_name")
+        registry_shared_secret = flask.request.form.get("library_registry_shared_secret")
+        use_random_registry_shared_secret = flask.request.form.get("random_library_registry_shared_secret") == "true"
+
+        libraries = self._db.query(Library).all()
+        is_new = False
+
+        if libraries:
+            # Currently there can only be one library, and one already exists.
+            [library] = libraries
+            if library.uuid != library_uuid:
+                return LIBRARY_NOT_FOUND
+        else:
+            library, is_new = get_one_or_create(
+                self._db, Library, create_method_kwargs=dict(
+                    uuid=str(uuid.uuid4())
+                )
+            )
+
+        if registry_shared_secret and use_random_registry_shared_secret:
+            return CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET
+
+        if use_random_registry_shared_secret:
+            if library.library_registry_shared_secret:
+                return CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET
+            registry_shared_secret = "".join(
+                [random.choice('1234567890abcdef') for x in range(32)]
+            )
+
+        if name:
+            library.name = name
+        if short_name:
+            library.short_name = short_name
+        if registry_short_name:
+            library.library_registry_short_name = registry_short_name
+        if registry_shared_secret:
+            library.library_registry_shared_secret = registry_shared_secret
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def collections(self):
+        if flask.request.method == 'GET':
+            collections = [
+                dict(
+                    name=collection.name,
+                    protocol=collection.protocol,
+                    libraries=[library.short_name for library in collection.libraries],
+                    external_account_id=collection.external_account_id,
+                    url=collection.url,
+                    username=collection.username,
+                    password=collection.password,
+                    settings={setting.key: setting.value for setting in collection.settings}
+                )
+                for collection in self._db.query(Collection).order_by(Collection.name).all()
+            ]
+
+            return dict(
+                collections=collections,
+                protocols=Collection.PROTOCOLS,
+            )
+
+
+        name = flask.request.form.get("name")
+        if not name:
+            return MISSING_COLLECTION_NAME
+        protocol = flask.request.form.get("protocol")
+        external_account_id = flask.request.form.get("external_account_id")
+        url = flask.request.form.get("url")
+        username = flask.request.form.get("username")
+        password = flask.request.form.get("password")
+        settings = {}
+        if flask.request.form.get("settings"):
+            settings = json.loads(flask.request.form.get("settings"))
+        libraries = []
+        if flask.request.form.get("libraries"):
+            libraries = json.loads(flask.request.form.get("libraries"))
+
+        is_new = False
+
+        collection = get_one(self._db, Collection, name=name)
+        if not collection:
+            if protocol:
+                collection, is_new = get_one_or_create(
+                    self._db, Collection, name=name, protocol=protocol
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_COLLECTION
+
+        if protocol:
+            collection.protocol = protocol
+        if external_account_id:
+            collection.external_account_id = external_account_id
+        if url:
+            collection.url = url
+        if username:
+            collection.username = username
+        if password:
+            collection.password = password
+
+        for key, value in settings.items():
+            collection.setting(key).value = value
+        for setting in collection.settings:
+            if setting.key not in settings.keys():
+                self._db.delete(setting)
+
+
+        if collection.protocol == Collection.OPDS_IMPORT and not collection.url:
+            self._db.rollback()
+            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An OPDS Import collection must have a url."))
+
+        if (collection.protocol == Collection.OVERDRIVE
+            and (not collection.username
+                 or not collection.password
+                 or not collection.external_account_id
+                 or not collection.setting("website_id").value)):
+            self._db.rollback()
+            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An Overdrive collection must have username, password, external_account_id, and website_id."))
+
+        if (collection.protocol == Collection.BIBLIOTHECA
+            and (not collection.username
+                 or not collection.password
+                 or not collection.external_account_id)):
+            self._db.rollback()
+            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("A Bibliotheca collection must have username, password, and external_account_id."))
+
+        if (collection.protocol == Collection.AXIS_360
+            and (not collection.username
+                 or not collection.password
+                 or not collection.external_account_id)):
+            self._db.rollback()
+            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An Axis 360 collection must have username, password, and external_account_id."))
+
+        if (collection.protocol == Collection.ONE_CLICK
+            and (not collection.username
+                 or not collection.password
+                 or not collection.external_account_id)):
+            self._db.rollback()
+            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("A OneClick collection must have username, password, and external_account_id."))
+
+        for short_name in libraries:
+            library = get_one(self._db, Library, short_name=short_name)
+            if not library:
+                return NO_SUCH_LIBRARY.detailed(_("%(library_short_name)s was added to the collection, but it does not exist.", library_short_name=short_name))
+            if collection not in library.collections:
+                library.collections.append(collection)
+        for library in collection.libraries:
+            if library.short_name not in libraries:
+                library.collections.remove(collection)
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
