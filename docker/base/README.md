@@ -1,6 +1,7 @@
 # Supported tags and respective `Dockerfile` links
 
-- `1.0.0`, `latest` [(1.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/base/Dockerfile)
+- `1.1.20`, `1.1`, `latest` [(1.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/base/Dockerfile)
+- `1.0`
 
 Older versions of the Circulation Manager are not currently supported.
 
@@ -19,7 +20,7 @@ You will need:
 With your configuration file stored on the host, you are ready to run:
 ```
 $ docker run --name base -it \
-    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE:/var/www/circulation/config.json \
+    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE_DIRECTORY:/etc/circulation \
     nypl/circ-base
 ```
 

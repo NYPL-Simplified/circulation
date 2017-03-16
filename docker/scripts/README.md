@@ -1,6 +1,7 @@
 # Supported tags and respective `Dockerfile` links
 
-- `1.0.0`, `latest` [(1.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/scripts/Dockerfile)
+- `1.1.20`, `1.1`, `latest` [(1.1.20/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/scripts/Dockerfile)
+- `1.0`
 
 Older versions of the Circulation Manager are not currently supported.
 
@@ -15,13 +16,14 @@ This particular image builds containers to handle automated scripts on the Circu
 ## Using This Image
 You will need:
 - **A configuration file** created using JSON and the keys and values described at length [here](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration). If you're unfamiliar with JSON, we highly recommend taking the time to confirm that your configuration file is valid.
-- **Your local timezone**, selected according to [Debian-system timezone options](http://manpages.ubuntu.com/manpages/saucy/man3/DateTime::TimeZone::Catalog.3pm.html). This will allow timed scripts intended to run at hours of low usage to run in accordance with your local time.
+- **Your local timezone**, selected according to [Debian-system timezone options](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). This will allow timed scripts intended to run at hours of low usage to run in accordance with your local time.
 
 With your time zone value and the configuration file stored on the host, you are ready to run:
 ```
 $ docker run --name scripts \
     -d -e TZ="YOUR_TIMEZONE_STRING" \
-    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE:/var/www/circulation/config.json \
+    -e LIBSIMPLE_DB_INIT=true \                  # only when using the database for the first time
+    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE_DIRECTORY:/etc/circulation \
     nypl/circ-scripts
 ```
 
@@ -32,12 +34,12 @@ For troubleshooting information and installation directions for the entire Circu
 If you are familiar with the LS Circulation Manager's automated job processes and would like to incorporate your own crontab, you are welcome to do so. If your changes won't overlap with existing scripts, it can be copied into a running container as follows:
 `$ docker cp PATH_TO_YOUR_NEW_CRONTAB scripts:/etc/cron.d/`
 
-However, if you intend to replace the existing crontab, you will need to add the file as a new container:
+However, if you intend to replace the existing crontab, you will need to inject the file into a new container:
 ```
 $ docker run --name scripts \
     -d -e TZ="YOUR_TIMEZONE_STRING" \
-    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE:/var/www/circulation/config.json \
-    -v FULL_PATH_TO_YOUR_NEW_CRONTAB scripts:/etc/cron.d/circulation \
+    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE_DIRECTORY:/etc/circulation \
+    -v FULL_PATH_TO_DIRECTORY_WITH_YOUR_NEW_CRONTAB:/etc/cron.d \
     nypl/circ-scripts
 ```
 

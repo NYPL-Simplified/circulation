@@ -1,6 +1,7 @@
 # Supported tags and respective `Dockerfile` links
 
-- `1.0.0`, `latest` [(1.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/deploy/Dockerfile)
+- `1.1.20`, `1.1`, `latest` [(1.1/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/deploy/Dockerfile)
+- `1.0`
 
 Older versions of the Circulation Manager are not currently supported.
 
@@ -22,7 +23,8 @@ With your the exposed port and the complete configuration file stored on the hos
 ```
 $ docker run --name deploy \
     -d -p 80:80 \
-    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE:/var/www/circulation/config.json \
+    -v FULL_PATH_TO_YOUR_CONFIGURATION_FILE_DIRECTORY:/etc/circulation \
+    -e LIBSIMPLE_DB_INIT=true \                  # only when using the database for the first time
     nypl/circ-deploy
 ```
 
