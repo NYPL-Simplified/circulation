@@ -101,7 +101,6 @@ def convert_one_click(_db, library):
     if not config:
         print u"No OneClick configuration, not creating a Collection for it."
     print u"Creating Collection object for OneClick collection."
-    username = config.get('username')
     basic_token = config.get('basic_token')
     library_id = config.get('library_id')
     url = config.get('url')
@@ -114,7 +113,6 @@ def convert_one_click(_db, library):
         name="OneClick"
     )
     library.collections.append(collection)
-    collection.username = username
     collection.password = basic_token
     collection.external_account_id = library_id
     collection.url = url
