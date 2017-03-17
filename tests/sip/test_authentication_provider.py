@@ -121,7 +121,7 @@ class TestSIP2AuthenticationProvider(object):
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",
             SIP2AuthenticationProvider,
-            "server.local", None, None, None, None, None, client=CannotConnect
+            "server.local", None, None, None, None, client=CannotConnect
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -135,7 +135,7 @@ class TestSIP2AuthenticationProvider(object):
         client.target_server = 'server.local'
             
         provider = SIP2AuthenticationProvider(
-            None, None, None, None, None, None, client=client
+            None, None, None, None, None, client=client
         )
         assert_raises_regexp(
             RemoteIntegrationException,

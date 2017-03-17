@@ -15,7 +15,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
     def __init__(self, server, port, login_user_id,
-                 login_password, location_code, field_separator,
+                 login_password, location_code, field_separator='|',
                  client=None,
                  **kwargs):
         """An object capable of communicating with a SIP server.
