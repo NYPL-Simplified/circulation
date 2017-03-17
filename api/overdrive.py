@@ -125,20 +125,35 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
     def refresh_patron_access_token(self, credential, patron, pin):
+        """Request an OAuth bearer token that allows us to act on
+        behalf of a specific patron.
+
+        Documentation: https://developer.overdrive.com/apis/patron-auth
+        """
         payload = dict(
             grant_type="password",
             username=patron.authorization_identifier,
-            password=pin,
             scope="websiteid:%s authorizationname:%s" % (
                 self.website_id, "default")
         )
+        if pin:
+            # A PIN was provided.
+            payload['password'] = pin
+        else:
+            # No PIN was provided. Depending on the library,
+            # this might be fine. If it's not fine, Overdrive will
+            # refuse to issue a token.
+            payload['password_required'] = 'false'
+            payload['password'] = '[ignore]'
         response = self.token_post(self.PATRON_TOKEN_ENDPOINT, payload)
         if response.status_code == 200:
             self._update_credential(credential, response.json())
         elif response.status_code == 400:
             response = response.json()
-            raise PatronAuthorizationFailedException(
-                response['error'] + "/" + response['error_description'])
+            message = response['error']
+            if 'error_description' in response:
+                message += '/' + response['error_description']
+            raise PatronAuthorizationFailedException(message)
         return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):
