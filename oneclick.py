@@ -81,7 +81,6 @@ class OneClickAPI(object):
             )
         
         self.library_id = collection.external_account_id.encode("utf8")
-        self.username = collection.username.encode("utf8")
         self.token = collection.password.encode("utf8")
 
         # Convert the nickname for a server into an actual URL.
@@ -537,7 +536,7 @@ class MockOneClickAPI(OneClickAPI):
                 _db, Collection,
                 name="Test OneClick Collection",
                 protocol=Collection.ONE_CLICK, create_method_kwargs=dict(
-                    username=u'username_123', password=u'abcdef123hijklm',
+                    password=u'abcdef123hijklm',
                     external_account_id=u'library_id_123',
                 )
             )
