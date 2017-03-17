@@ -156,10 +156,7 @@ class OverdriveAPI(object):
             )
         [collection] = collections 
 
-        try:
-            return cls(_db, collection)
-        except CannotLoadConfiguration, e:
-            return None
+        return cls(_db, collection)
 
     @property
     def source(self):
