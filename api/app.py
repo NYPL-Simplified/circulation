@@ -18,7 +18,7 @@ from flask.ext.babel import Babel
 
 app = Flask(__name__)
 
-testing = 'TESTING' in os.environ and False
+testing = 'TESTING' in os.environ
 db_url = Configuration.database_url(testing)
 SessionManager.initialize(db_url)
 session_factory = SessionManager.sessionmaker(db_url)

@@ -125,6 +125,11 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
     def refresh_patron_access_token(self, credential, patron, pin):
+        """Request an OAuth bearer token that allows us to act on
+        behalf of a specific patron.
+
+        Documentation: https://developer.overdrive.com/apis/patron-auth
+        """
         payload = dict(
             grant_type="password",
             username=patron.authorization_identifier,
