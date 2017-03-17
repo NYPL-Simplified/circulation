@@ -2065,12 +2065,15 @@ class Contributor(Base):
         return self._sort_name
 
     @sort_name.setter
-    def sort_name(self, new_sort_name, force=False):
+    def sort_name(self, new_sort_name):
         """ See if the passed-in value is in the prescribed Last, First format.
-        If it is, great.  If it is not, and the force flag is set, then 
-        set the sort_name to the new value without further processing. 
-        If new value is not in correct format, and the force flag is not set, then 
+        If it is, great, set the self._sprt_name to the new value.  
+
+        If new value is not in correct format, then 
         attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
+
+        Note: If for any reason you need to force the sort_name to an improper value, 
+        set it like so:  contributor._sort_name="Foo Bar", and you'll avoid further processing. 
 
         Note: For now, have decided to not automatically update any edition.sort_author 
         that might have contributions by this Contributor.
@@ -2083,11 +2086,7 @@ class Contributor(Base):
         # simplistic test of format, but catches the most frequent problem
         # where display-style names are put into sort name metadata by third parties.
         if new_sort_name.find(",") == -1:
-            if force:
-                self._sort_name = new_sort_name
-                return
-
-            # now we get interesting
+            # auto-magically fix syntax
             self._sort_name = display_name_to_sort_name(new_sort_name)
             return
 
