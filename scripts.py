@@ -34,6 +34,7 @@ from model import (
     get_one_or_create,
     production_session,
     Complaint, 
+    Contributor, 
     CoverageRecord, 
     CustomList,
     DataSource,
@@ -1243,6 +1244,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     TODO: make sure don't start at beginning again when interrupt while batch job is running.
     """
 
+    COMPLAINT_SOURCE = "CheckContributorNamesInDB"
+    COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
 
     @classmethod
     def make_query(self, _db, identifier_type, identifiers, log=None):
@@ -1290,7 +1293,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
         editions = True
         offset = 0
-        output = "ContributorID|\tSortName|\tDisplayName|\tComputedSortName|\tMatchRatio_Etc|\tResolution"
+        output = "ContributorID|\tSortName|\tDisplayName|\tComputedSortName|\tResolution|\tComplaintSource"
         print output.encode("utf8")
 
         while editions:
@@ -1300,7 +1303,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
             for edition in editions:
                 if edition.contributions:
                     for contribution in edition.contributions:
-                        self.process_contribution(self._db, contribution, self.log)
+                        self.process_contribution_local(self._db, contribution, self.log)
             offset += batch_size
 
             self._db.commit()
@@ -1308,7 +1311,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 
     @classmethod
-    def process_contribution(cls, _db, contribution, log=None):
+    def process_contribution_local(cls, _db, contribution, log=None):
         if not contribution or not contribution.edition:
             return
 
@@ -1317,10 +1320,11 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         identifier = contribution.edition.primary_identifier
 
         if contributor.sort_name and contributor.display_name:
-            
             computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
             # Did HumanName parser produce a differet result from the plain comma replacement?
             if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
+                error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
+
                 # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced 
                 # suffix, we can fix without asking for human intervention.  if the names are very different, 
                 # there's a chance the sort and display names are different on purpose, s.a. when foreign names 
@@ -1333,44 +1337,65 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 # with the "Jones, Bob A." that the auto-algorigthm would generate.
                 length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
                 if abs(length_difference) > 3:
-                    cls.register_problem(source="CheckContributorNamesInDB", contribution=contribution, contributor=contributor, 
-                        computed_sort_name=computed_sort_name_local_new, log=log)
-                    output = "%s|\t%s|\t%s|\t%s|\tlength|\tcomplain" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
-                    print output.encode("utf8")
-                    return
+                    return cls.process_local_mismatch(_db=_db, contribution=contribution,  
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
 
                 match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
 
                 if (match_ratio < 40):
                     # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
                     # and is non-trivial to fix.  
-                    cls.register_problem(source="CheckContributorNamesInDB", contribution=contribution, contributor=contributor, 
-                        computed_sort_name=computed_sort_name_local_new, log=log)
-                    output = "%s|\t%s|\t%s|\t%s|\t%s|\tcomplain" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
-                    print output.encode("utf8")
+                    cls.process_local_mismatch(_db=_db, contribution=contribution, 
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
                 else:
                     # we can fix it!
-                    output = "%s|\t%s|\t%s|\t%s|\t%s|\tfix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new, match_ratio)
+                    output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
                     print output.encode("utf8")
-
-                    contributor.sort_name = computed_sort_name_local_new
-
-                    # also change edition.sort_author, if the author was primary
-                    edition_contributors = contribution.edition.author_contributors
-                    if (len(edition_contributors) > 0 and (edition_contributors[0].id == contributor.id)):
-                        contribution.edition.sort_author = computed_sort_name_local_new
+                    cls.set_contributor_sort_name(computed_sort_name_local_new, contribution)
 
 
     @classmethod
-    def register_problem(cls, source, contribution, contributor, computed_sort_name, log=None):
+    def set_contributor_sort_name(cls, sort_name, contribution):
+        """ Sets the contributor.sort_name and associated edition.author_name to the passed-in value. """
+        contribution.contributor.sort_name = sort_name
 
+        # also change edition.sort_author, if the author was primary
+        # Note: I considered using contribution.edition.author_contributors, but 
+        # found that it's not impossible to have a messy dataset that doesn't work on.  
+        # For our purpose here, the following logic is cleaner-acting:
+        # If this author appears as Primary Author anywhere on the edition, then change edition.sort_author.
+        edition_contributions = contribution.edition.contributions
+        for edition_contribution in edition_contributions:
+            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and 
+                (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
+                contribution.edition.sort_author = sort_name
+
+
+    @classmethod
+    def process_local_mismatch(cls, _db, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Determines if a problem is to be investigated further or recorded as a Complaint, 
+        to be solved by a human.  In this class, it's always a complaint.  In the overridden 
+        method in the child class in metadata_wrangler code, we sometimes go do a web query.
+        """ 
+        cls.register_problem(source=cls.COMPLAINT_SOURCE, contribution=contribution, 
+            computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
+
+
+    @classmethod
+    def register_problem(cls, source, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Make a Complaint in the database, so a human can take a look at this Contributor's name
+        and resolve whatever the complex issue that got us here.
+        """
         success = True
+        contributor = contribution.contributor
 
-        detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
         pool = contribution.edition.is_presentation_for
-        complaint_type = "http://librarysimplified.org/terms/problem/wrong-author";
         try:
-            complaint, is_new = Complaint.register(pool, complaint_type, source, detail)
+            complaint, is_new = Complaint.register(pool, cls.COMPLAINT_TYPE, source, error_message_detail)
+            output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
+            print output.encode("utf8")
         except ValueError, e:
             # log and move on, don't stop run
             log.error("Error registering complaint: %r", contributor, exc_info=e)
