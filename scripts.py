@@ -1275,7 +1275,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
             log.info(
                 "Processing %d editions.", query.count()
             )
-            print "Processing %d editions.", query.count()
 
         return query.order_by(Edition.id)
 
@@ -1283,10 +1282,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     def run(self, batch_size=10):
         param_args = self.parse_command_line(self._db)
         
-        if param_args.identifiers:
-            # we're asked about a specific set of work contributors
-            identifier_ids = [x.id for x in param_args.identifiers]
-
         self.query = self.make_query(
             self._db, param_args.identifier_type, param_args.identifiers, self.log
         )
@@ -1399,7 +1394,6 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         except ValueError, e:
             # log and move on, don't stop run
             log.error("Error registering complaint: %r", contributor, exc_info=e)
-            print("Error registering complaint: %r", contributor)
             success = False
 
         return success
