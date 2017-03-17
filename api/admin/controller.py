@@ -990,7 +990,7 @@ class SettingsController(CirculationManagerController):
         for short_name in libraries:
             library = get_one(self._db, Library, short_name=short_name)
             if not library:
-                return NO_SUCH_LIBRARY.detailed(_("%(library_short_name)s was added to the collection, but it does not exist.", library_short_name=short_name))
+                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=short_name))
             if collection not in library.collections:
                 library.collections.append(collection)
         for library in collection.libraries:
