@@ -21,6 +21,8 @@ from config import (
 
 from model import (
     get_one,
+    Complaint, 
+    Contributor, 
     CustomList,
     DataSource,
     Edition,
@@ -31,6 +33,7 @@ from model import (
 )
 from scripts import (
     Script,
+    CheckContributorNamesInDB, 
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
@@ -47,6 +50,7 @@ from util.opds_writer import (
     OPDSFeed,
 )
 
+
 class TestScript(DatabaseTest):
 
     def test_parse_time(self): 
@@ -61,6 +65,72 @@ class TestScript(DatabaseTest):
         eq_(Script.parse_time("20160101"), reference_date)
 
         assert_raises(ValueError, Script.parse_time, "201601-01")
+
+
+class TestCheckContributorNamesInDB(DatabaseTest):
+    def test_process_contribution_local(self):
+        stdin = MockStdin()
+
+        edition_alice, pool_alice = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="1",
+            with_open_access_download=True,
+            title="Alice Writes Books")
+
+        alice, new = self._contributor(sort_name="Alice Alrighty")
+        alice._sort_name = "Alice Alrighty"
+        alice.display_name="Alice Alrighty"
+
+        edition_alice.add_contributor(
+            alice, [Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+        edition_alice.sort_author="Alice Rocks"
+
+        # everything is set up as we expect
+        eq_("Alice Alrighty", alice.sort_name)
+        eq_("Alice Alrighty", alice.display_name)
+        eq_("Alice Rocks", edition_alice.sort_author)
+
+        edition_bob, pool_bob = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=Identifier.GUTENBERG_ID,
+            identifier_id="2",
+            with_open_access_download=True,
+            title="Bob Writes Books")
+
+        bob, new = self._contributor(sort_name="Bob")
+        bob.display_name="Bob Bitshifter"
+
+        edition_bob.add_contributor(
+            bob, [Contributor.PRIMARY_AUTHOR_ROLE]
+        )
+        edition_bob.sort_author="Bob Rocks"
+
+        eq_("Bob", bob.sort_name)
+        eq_("Bob Bitshifter", bob.display_name)
+        eq_("Bob Rocks", edition_bob.sort_author)
+
+        contributor_fixer = CheckContributorNamesInDB(self._db)
+        contributor_fixer.run()
+
+        # Alice got fixed up.
+        eq_("Alrighty, Alice", alice.sort_name)
+        eq_("Alice Alrighty", alice.display_name)
+        eq_("Alrighty, Alice", edition_alice.sort_author)
+
+        # Bob's repairs were too extensive to make.
+        eq_("Bob", bob.sort_name)
+        eq_("Bob Bitshifter", bob.display_name)
+        eq_("Bob Rocks", edition_bob.sort_author)
+
+        # and we lodged a proper complaint
+        q = self._db.query(Complaint).filter(Complaint.source==CheckContributorNamesInDB.COMPLAINT_SOURCE)
+        q = q.filter(Complaint.type==CheckContributorNamesInDB.COMPLAINT_TYPE).filter(Complaint.license_pool==pool_bob)
+        complaints = q.all()
+        eq_(1, len(complaints))
+        eq_(None, complaints[0].resolved)
+
 
 
 class TestIdentifierInputScript(DatabaseTest):
