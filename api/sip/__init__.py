@@ -49,21 +49,28 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
         """
         super(SIP2AuthenticationProvider, self).__init__(**kwargs)
-        if client:
-            self.client = client
-        else:
-            self.client = SIPClient(
-                target_server=server, target_port=port,
-                login_user_id=login_user_id, login_password=login_password,
-                location_code=location_code, separator=field_separator
+        try:
+            if client:
+                if callable(client):
+                    client = client()
+            else:
+                client = SIPClient(
+                    target_server=server, target_port=port,
+                    login_user_id=login_user_id, login_password=login_password,
+                    location_code=location_code, separator=field_separator
+                )
+        except IOError, e:
+            raise RemoteIntegrationException(
+                server or 'unknown server', e.message
             )
-            
+        self.client = client
+
     def remote_authenticate(self, username, password):
         try:
             info = self.client.patron_information(username, password)
         except IOError, e:
             raise RemoteIntegrationException(
-                self.client.target_server,
+                self.client.target_server or 'unknown server',
                 e.message
             )
         return self.info_to_patrondata(info)

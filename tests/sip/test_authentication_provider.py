@@ -1,10 +1,12 @@
 from datetime import datetime
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
 from api.sip.client import MockSIPClient
 from api.sip import SIP2AuthenticationProvider
+from core.util.http import RemoteIntegrationException
 
 class TestSIP2AuthenticationProvider(object):
 
@@ -43,7 +45,7 @@ class TestSIP2AuthenticationProvider(object):
         eq_("12345", patrondata.authorization_identifier)
         eq_("foo@example.com", patrondata.email_address)
         eq_("SHELDON, ALICE", patrondata.personal_name)
-        eq_("0", patrondata.fines)
+        eq_(0, patrondata.fines)
         eq_(None, patrondata.authorization_expires)
         eq_(None, patrondata.external_type)
         
@@ -57,7 +59,7 @@ class TestSIP2AuthenticationProvider(object):
         eq_("12345", patrondata.authorization_identifier)
         eq_("863715", patrondata.permanent_id)
         eq_("Booth Active Test", patrondata.personal_name)
-        eq_(None, patrondata.fines)
+        eq_(0, patrondata.fines)
         eq_(datetime(2019, 10, 4), patrondata.authorization_expires)
         eq_("Adult", patrondata.external_type)
         
@@ -68,7 +70,7 @@ class TestSIP2AuthenticationProvider(object):
         # becomes PatronData.permanent_id.
         eq_("863716", patrondata.permanent_id)
         eq_("Booth Expired Test", patrondata.personal_name)
-        eq_(None, patrondata.fines)
+        eq_(0, patrondata.fines)
         eq_(datetime(2008, 9, 7), patrondata.authorization_expires)
 
         client.queue_response(self.evergreen_excessive_fines)
@@ -76,7 +78,7 @@ class TestSIP2AuthenticationProvider(object):
         eq_("12345", patrondata.authorization_identifier)
         eq_("863718", patrondata.permanent_id)
         eq_("Booth Excessive Fines Test", patrondata.personal_name)
-        eq_('100.00', patrondata.fines)
+        eq_(100, patrondata.fines)
         eq_(datetime(2019, 10, 04), patrondata.authorization_expires)
 
         # Some examples taken from a Polaris instance.
@@ -84,7 +86,7 @@ class TestSIP2AuthenticationProvider(object):
         patrondata = auth.remote_authenticate("user", "pass")
         eq_("25891000331441", patrondata.authorization_identifier)
         eq_("foo@bar.com", patrondata.email_address)
-        eq_("9.25", patrondata.fines)
+        eq_(9.25, patrondata.fines)
         eq_("Falk, Jen", patrondata.personal_name)
         eq_(datetime(2018, 6, 9, 23, 59, 59),
             patrondata.authorization_expires)
@@ -104,11 +106,46 @@ class TestSIP2AuthenticationProvider(object):
         
         client.queue_response(self.polaris_excess_fines)
         patrondata = auth.remote_authenticate("user", "pass")
-        eq_("11.50", patrondata.fines)
+        eq_(11.50, patrondata.fines)
+
+    def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
+        """If the IP of the circulation manager has not been whitelisted,
+        we generally can't even connect to the server.
+        """
+        class CannotConnect(MockSIPClient):
+            def connect(self):
+                raise IOError("Doom!")
+
+
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            "Error accessing server.local: Doom!",
+            SIP2AuthenticationProvider,
+            "server.local", None, None, None, None, None, client=CannotConnect
+        )
+
+    def test_ioerror_during_send_becomes_remoteintegrationexception(self):
+        """If there's an IOError communicating with the server,
+        it becomes a RemoteIntegrationException.
+        """
+        class CannotSend(MockSIPClient):
+            def do_send(self, data):
+                raise IOError("Doom!")
+        client = CannotSend()
+        client.target_server = 'server.local'
+            
+        provider = SIP2AuthenticationProvider(
+            None, None, None, None, None, None, client=client
+        )
+        assert_raises_regexp(
+            RemoteIntegrationException,
+            "Error accessing server.local: Doom!",
+            provider.remote_authenticate,
+            "username", "password",
+        )
         
     def test_parse_date(self):
         parse = SIP2AuthenticationProvider.parse_date
         eq_(datetime(2011, 1, 2), parse("20110102"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102    102030"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102UTC102030"))
-        
