@@ -974,7 +974,7 @@ class TestSettingsController(AdminControllerTest):
                 ("uuid", library.uuid),
                 ("short_name", "nypl"),
                 ("library_registry_shared_secret", "secret"),
-                ("random_library_registry_shared_secret", "true"),
+                ("random_library_registry_shared_secret", ""),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET)
@@ -983,7 +983,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
                 ("short_name", library.short_name),
-                ("random_library_registry_shared_secret", "true"),
+                ("random_library_registry_shared_secret", ""),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET)
@@ -1026,7 +1026,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
                 ("library_registry_short_name", "NYPL"),
-                ("random_library_registry_shared_secret", "true"),
+                ("random_library_registry_shared_secret", ""),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 200)

@@ -847,7 +847,7 @@ class SettingsController(CirculationManagerController):
         short_name = flask.request.form.get("short_name")
         registry_short_name = flask.request.form.get("library_registry_short_name")
         registry_shared_secret = flask.request.form.get("library_registry_shared_secret")
-        use_random_registry_shared_secret = flask.request.form.get("random_library_registry_shared_secret") == "true"
+        use_random_registry_shared_secret = "random_library_registry_shared_secret" in flask.request.form
 
         libraries = self._db.query(Library).all()
         is_new = False
