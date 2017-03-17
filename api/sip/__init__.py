@@ -5,6 +5,8 @@ from api.authenticator import (
     PatronData,
 )
 from api.sip.client import SIPClient
+from core.util.http import RemoteIntegrationException
+from core.util import MoneyUtility
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -13,7 +15,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
     def __init__(self, server, port, login_user_id,
-                 login_password, location_code, field_separator,
+                 login_password, location_code, field_separator='|',
                  client=None,
                  **kwargs):
         """An object capable of communicating with a SIP server.
@@ -47,17 +49,36 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
         """
         super(SIP2AuthenticationProvider, self).__init__(**kwargs)
-        if client:
-            self.client = client
-        else:
-            self.client = SIPClient(
-                target_server=server, target_port=port,
-                login_user_id=login_user_id, login_password=login_password,
-                location_code=location_code, separator=field_separator
+        try:
+            if client:
+                if callable(client):
+                    client = client()
+            else:
+                client = SIPClient(
+                    target_server=server, target_port=port,
+                    login_user_id=login_user_id, login_password=login_password,
+                    location_code=location_code, separator=field_separator
+                )
+        except IOError, e:
+            raise RemoteIntegrationException(
+                server or 'unknown server', e.message
             )
-            
+        self.client = client
+
     def remote_authenticate(self, username, password):
-        info = self.client.patron_information(username, password)
+        """Authenticate a patron with the SIP2 server.
+
+        :param username: The patron's username/barcode/card
+            number/authorization identifier.
+        :param password: The patron's password/pin/access code.
+        """
+        try:
+            info = self.client.patron_information(username, password)
+        except IOError, e:
+            raise RemoteIntegrationException(
+                self.client.target_server or 'unknown server',
+                e.message
+            )
         return self.info_to_patrondata(info)
 
     @classmethod
@@ -86,7 +107,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         if 'personal_name' in info:
             patrondata.personal_name = info['personal_name']
         if 'fee_amount' in info:
-            patrondata.fines = info['fee_amount']
+            fines = info['fee_amount']
+        else:
+            fines = '0'
+        patrondata.fines = MoneyUtility.parse(fines)
         if 'sipserver_patron_class' in info:
             patrondata.external_type = info['sipserver_patron_class']
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:

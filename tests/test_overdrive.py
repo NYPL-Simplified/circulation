@@ -466,7 +466,41 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
 
+    def test_refresh_patron_access_token(self):
+        """Verify that patron information is included in the request
+        when refreshing a patron access token.
+        """
+        api = MockOverdriveAPI(self._db)
+        patron = self._patron()
+        patron.authorization_identifier = 'barcode'
+        credential = self._credential(patron=patron)
 
+        data, raw = self.sample_json("patron_token.json")
+        api.queue_response(200, content=raw)
+        
+        # Try to refresh the patron access token with a PIN, and
+        # then without a PIN.
+        api.refresh_patron_access_token(credential, patron, "a pin")
+
+        api.refresh_patron_access_token(credential, patron, None)
+
+        # Verify that the requests that were made correspond to what
+        # Overdrive is expecting.
+        initial, with_pin, without_pin = api.access_token_requests
+        url, payload, headers, kwargs = with_pin
+        eq_("https://oauth-patron.overdrive.com/patrontoken", url)
+        eq_("barcode", payload['username'])
+        eq_("websiteid:d authorizationname:default", payload['scope'])
+        eq_("a pin", payload['password'])
+        assert not 'password_required' in payload
+
+        url, payload, headers, kwargs = without_pin
+        eq_("https://oauth-patron.overdrive.com/patrontoken", url)
+        eq_("barcode", payload['username'])
+        eq_("websiteid:d authorizationname:default", payload['scope'])
+        eq_("false", payload['password_required'])
+        eq_("[ignore]", payload['password'])
+        
 class TestExtractData(OverdriveAPITest):
 
     def test_get_download_link(self):
