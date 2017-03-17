@@ -8,7 +8,6 @@ import logging
 import urlparse
 import urllib
 import sys
-
 from config import (
     temp_config, 
     Configuration,
@@ -407,6 +406,7 @@ class OverdriveAPI(object):
 class MockOverdriveAPI(OverdriveAPI):
 
     def __init__(self, _db, collection=None, *args, **kwargs):
+        self.access_token_requests = []
         self.requests = []
         self.responses = []
 
@@ -444,6 +444,7 @@ class MockOverdriveAPI(OverdriveAPI):
         to this method separately we remove the need to figure out
         whether to queue a response in a given test.
         """
+        self.access_token_requests.append((url, payload, headers, kwargs))
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
 
