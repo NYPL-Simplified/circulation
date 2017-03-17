@@ -55,6 +55,9 @@ class TestNameConversions(DatabaseTest):
         sort_name = display_name_to_sort_name(u"Prince")
         eq_(u"Prince", sort_name)
 
+        sort_name = display_name_to_sort_name(u"Pope Francis")
+        eq_(u"Pope, Francis", sort_name)
+
         sort_name = display_name_to_sort_name(u"Bob Bitshifter")
         eq_(u"Bitshifter, Bob", sort_name)
 
@@ -71,6 +74,22 @@ class TestNameConversions(DatabaseTest):
         # already having a comma still gets good results
         sort_name = display_name_to_sort_name(u"Bob, The Grand Duke of Awesomeness")
         eq_(u"Bob, Duke of Awesomeness The Grand", sort_name)
+
+        # all forms of PhD are recognized
+        sort_name = display_name_to_sort_name(u"John Doe, PhD")
+        eq_(u"Doe, John PhD", sort_name)
+        sort_name = display_name_to_sort_name(u"John Doe, Ph.D.")
+        eq_(u"Doe, John PhD", sort_name)
+        sort_name = display_name_to_sort_name(u"John Doe, Ph D")
+        eq_(u"Doe, John PhD", sort_name)
+        sort_name = display_name_to_sort_name(u"John Doe, Ph. D.")
+        eq_(u"Doe, John PhD", sort_name)
+        sort_name = display_name_to_sort_name(u"John Doe, PHD")
+        eq_(u"Doe, John PhD", sort_name)
+        
+        sort_name = display_name_to_sort_name(u"John Doe, M.D.")
+        eq_(u"Doe, John MD", sort_name)
+
 
 
 

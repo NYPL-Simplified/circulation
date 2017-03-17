@@ -9,8 +9,30 @@ from permanent_work_id import WorkIDCalculator;
 
 """Fallback algorithms for dealing with personal names when VIAF fails us."""
 
+phdFix = re.compile("((. +)|(, ?))P(h|H)\.? *(D|d)(\.| |$){1}")
+mdFix = re.compile("((. +)|(, ?))M\.? *D(\.| |$){1}")
 
-#@classmethod
+
+def replaceMD(match):
+    """
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 1:
+        return match
+
+    return match.groups()[0] + "MD"
+
+
+def replacePhD(match):
+    """
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 1:
+        return match
+
+    return match.groups()[0] + "PhD"
+
+
 def contributor_name_match_ratio(name1, name2, normalize_names=True):
     """
     Returns a number between 0 and 100, representing the percent 
@@ -60,6 +82,14 @@ def is_corporate_name(display_name):
     return False
 
 
+def is_one_name(human_name):
+    """ Examples: 'Pope Francis', 'Prince'. """
+    if name.first and not name.last:
+        return True
+
+    return False
+
+
 def display_name_to_sort_name(display_name):
     """
     Take the "First Name Last Name"-formatted display_name, and convert it 
@@ -71,32 +101,38 @@ def display_name_to_sort_name(display_name):
     Uses the HumanName library to try to parse the name into parts, and rearrange the parts into 
     desired order and format.
     """
+
     if not display_name:
         return None
 
-    c = display_name.lower()
-    if c.endswith('.'):
-        c = c[:-1]
-
-    # TODO: to humanname: PhD, Ph.D. Sister, Queen are titles
+    # TODO: to humanname: PhD, Ph.D. Sister, Queen are titles and suffixes
 
     # check if corporate, and if yes, return whole
     if is_corporate_name(display_name):
         return display_name
+
+    # clean up the common PhD and MD suffixes, so HumanName recognizes them better
+    display_name = phdFix.sub(replacePhD, display_name, re.I)
+    display_name = mdFix.sub(replaceMD, display_name, re.I)
     
-    name = HumanName(display_name)
     # name has title, first, middle, last, suffix, nickname
+    name = HumanName(display_name)
+
     if name.nickname:
         name.nickname = '(' + name.nickname + ')'
 
-    sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname, name.title])
-    if name.last:
+    if not name.last:
+        # Examples: 'Pope Francis', 'Prince'.
+        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname])
+        if name.title:
+            sort_name = u''.join([name.title, ", ", sort_name])
+    else:
+        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname, name.title])
         sort_name = u''.join([name.last, ", ", sort_name])
 
     sort_name = name_tidy(sort_name)
 
     return sort_name
-
 
 
 def name_tidy(name):
@@ -108,8 +144,10 @@ def name_tidy(name):
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
 
     name = name.strip()
+    if name.endswith(','):
+        name = name[:-1]
 
-    return name
+    return name.strip()
 
 
 def normalize_contributor_name_for_matching(name):
