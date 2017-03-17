@@ -8,7 +8,6 @@ import logging
 import urlparse
 import urllib
 import sys
-
 from config import (
     temp_config, 
     Configuration,
@@ -157,10 +156,7 @@ class OverdriveAPI(object):
             )
         [collection] = collections 
 
-        try:
-            return cls(_db, collection)
-        except CannotLoadConfiguration, e:
-            return None
+        return cls(_db, collection)
 
     @property
     def source(self):
@@ -220,7 +216,7 @@ class OverdriveAPI(object):
     def token_post(self, url, payload, headers={}, **kwargs):
         """Make an HTTP POST request for purposes of getting an OAuth token."""
         s = "%s:%s" % (self.client_key, self.client_secret)
-        auth = base64.encodestring(s).strip()
+        auth = base64.standard_b64encode(s).strip()
         headers = dict(headers)
         headers['Authorization'] = "Basic %s" % auth
         return self._do_post(url, payload, headers, **kwargs)
@@ -407,6 +403,7 @@ class OverdriveAPI(object):
 class MockOverdriveAPI(OverdriveAPI):
 
     def __init__(self, _db, collection=None, *args, **kwargs):
+        self.access_token_requests = []
         self.requests = []
         self.responses = []
 
@@ -444,6 +441,7 @@ class MockOverdriveAPI(OverdriveAPI):
         to this method separately we remove the need to figure out
         whether to queue a response in a given test.
         """
+        self.access_token_requests.append((url, payload, headers, kwargs))
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
 

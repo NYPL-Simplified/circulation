@@ -107,10 +107,7 @@ class ThreeMAPI(object):
             )
         [collection] = collections
 
-        try:
-            return cls(_db, collection)
-        except CannotLoadConfiguration, e:
-            return None
+        return cls(_db, collection)
 
     @property
     def source(self):
@@ -138,7 +135,7 @@ class ThreeMAPI(object):
         signature_string = "\n".join(signature_components)
         digest = hmac.new(self.account_key, msg=signature_string,
                     digestmod=hashlib.sha256).digest()
-        signature = base64.b64encode(digest)
+        signature = base64.standard_b64encode(digest)
         return signature, now
 
     def full_url(self, path):

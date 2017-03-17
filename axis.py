@@ -108,10 +108,7 @@ class Axis360API(object):
             )
         [collection] = collections 
 
-        try:
-            return cls(_db, collection)
-        except CannotLoadConfiguration, e:
-            return None
+        return cls(_db, collection)
         
     @property
     def source(self):
@@ -121,7 +118,7 @@ class Axis360API(object):
     def authorization_headers(self):
         authorization = u":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
-        authorization = base64.b64encode(authorization)
+        authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
     def refresh_bearer_token(self):
