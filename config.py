@@ -68,6 +68,8 @@ class Configuration(object):
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
 
+    LANES_POLICY = "lanes"
+
     # Facet policies
     FACET_POLICY = 'facets'
     ENABLED_FACETS_KEY = 'enabled'
@@ -338,5 +340,6 @@ class Configuration(object):
 
     @classmethod
     def _load(cls, str):
-        lines = [x for x in str.split("\n") if not x.strip().startswith("#")]
+        lines = [x for x in str.split("\n")
+                 if not (x.strip().startswith("#") or x.strip().startswith("//"))]
         return json.loads("\n".join(lines))

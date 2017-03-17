@@ -3,9 +3,12 @@ import datetime
 import imp
 import logging
 import os
+import random
 import re
 import requests
+import string
 import time
+import uuid
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
@@ -33,6 +36,7 @@ from model import (
     get_one,
     get_one_or_create,
     production_session,
+    Collection,
     Complaint, 
     Contributor, 
     CoverageRecord, 
@@ -40,6 +44,7 @@ from model import (
     DataSource,
     Edition,
     Identifier,
+    Library,
     LicensePool,
     Patron,
     PresentationCalculationPolicy,
@@ -209,6 +214,10 @@ class IdentifierInputScript(InputScript):
         """Turn identifiers as specified on the command line into
         real database Identifier objects.
         """
+        data_source = None
+        if parsed.identifier_data_source:
+            data_source = DataSource.lookup(_db, parsed.identifier_data_source)
+
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
             identifier_strings = parsed.identifier_strings
@@ -217,8 +226,8 @@ class IdentifierInputScript(InputScript):
                     identifier_strings + stdin_identifier_strings
                 )
             parsed.identifiers = cls.parse_identifier_list(
-                _db, parsed.identifier_type, identifier_strings,
-                *args, **kwargs
+                _db, parsed.identifier_type, data_source,
+                identifier_strings, *args, **kwargs
             )
         else:
             # The script can call parse_identifier_list later if it
@@ -234,6 +243,10 @@ class IdentifierInputScript(InputScript):
             help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. If IDENTIFIER is specified, this argument is required.'
         )
         parser.add_argument(
+            '--identifier-data-source',
+            help='Process only identifiers which have a LicensePool associated with this DataSource'
+        )
+        parser.add_argument(
             'identifier_strings',
             help='A specific identifier to process.',
             metavar='IDENTIFIER', nargs='*'
@@ -242,7 +255,7 @@ class IdentifierInputScript(InputScript):
 
     @classmethod
     def parse_identifier_list(
-            cls, _db, identifier_type, arguments, autocreate=False
+            cls, _db, identifier_type, data_source, arguments, autocreate=False
     ):
         """Turn a list of identifiers into a list of Identifier objects.
 
@@ -257,12 +270,21 @@ class IdentifierInputScript(InputScript):
         
         a b c
         """
-        current_identifier_type = None
-        if len(arguments) == 0:
-            return []
+        identifiers = []
+
         if not identifier_type:
             raise ValueError("No identifier type specified!")
-        identifiers = []
+
+        if len(arguments) == 0:
+            if data_source:
+                identifiers = _db.query(Identifier).\
+                    join(Identifier.licensed_through).\
+                    filter(
+                        Identifier.type==identifier_type,
+                        LicensePool.data_source==data_source
+                    ).all()
+            return identifiers
+
         for arg in arguments:
             identifier, ignore = Identifier.for_foreign_id(
                 _db, identifier_type, arg, autocreate=autocreate
@@ -406,27 +428,35 @@ class RunCoverageProviderScript(IdentifierInputScript):
         return parsed
 
     def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
+
         super(RunCoverageProviderScript, self).__init__(_db)
-        args = self.parse_command_line(self._db, cmd_args)
+        parsed_args = self.parse_command_line(self._db, cmd_args)
         if callable(provider):
-            if args.identifier_type:
-                self.identifier_type = args.identifier_type
+            if parsed_args.identifier_type:
+                self.identifier_type = parsed_args.identifier_type
                 self.identifier_types = [self.identifier_type]
             else:
                 self.identifier_type = None
                 self.identifier_types = []
-            kwargs = self.extract_additional_command_line_arguments(args)
+
+            if parsed_args.identifiers:
+                self.identifiers = parsed_args.identifiers
+            else:
+                self.identifiers = []
+
+            kwargs = self.extract_additional_command_line_arguments()
             kwargs.update(provider_arguments)
+
             provider = provider(
                 self._db, 
-                cutoff_time=args.cutoff_time,
+                cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
         self.provider = provider
         self.name = self.provider.service_name
-        self.identifiers = args.identifiers
 
-    def extract_additional_command_line_arguments(self, args):
+
+    def extract_additional_command_line_arguments(self):
         """A hook method for subclasses.
         
         Turns command-line arguments into additional keyword arguments
@@ -437,7 +467,9 @@ class RunCoverageProviderScript(IdentifierInputScript):
         """
         return {
             "input_identifier_types" : self.identifier_types, 
+            "input_identifiers" : self.identifiers, 
         }
+
 
     def do_run(self):
         if self.identifiers:
@@ -515,6 +547,288 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
                 metadata_replacement_policy=self.metadata_replacement_policy,
             )
             provider.ensure_coverage(identifier, force=True)
+
+
+class ShowLibrariesScript(Script):
+    """Show information about the libraries on a server."""
+    
+    name = "List the libraries on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--short-name',
+            help='Only display information for the library with the given short name',
+        )
+        parser.add_argument(
+            '--show-registry-shared-secret',
+            help='Print out the secret shared with the library registry.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.short_name:
+            library = get_one(
+                _db, Library, short_name=args.short_name
+            )
+            libraries = [library]
+        else:
+            libraries = _db.query(Library).order_by(Library.name).all()
+        if not libraries:
+            output.write("No libraries found.\n")
+        for library in libraries:
+            output.write(
+                "\n".join(
+                    library.explain(
+                        include_library_registry_shared_secret=
+                        args.show_registry_shared_secret
+                    )
+                )
+            )
+            output.write("\n")
+
+        
+class ConfigureLibraryScript(Script):
+    """Create a library or change its settings."""
+    name = "Change a library's settings"
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Official name of the library',
+        )
+        parser.add_argument(
+            '--short-name',
+            help='Short name of the library',
+        )
+        parser.add_argument(
+            '--library-registry-short-name',
+            help='Short name of the library, as used on the library registry',
+        )
+        parser.add_argument(
+            '--library-registry-shared-secret',
+            help='Set the library registry shared secret to a specific value.',
+        )
+        parser.add_argument(
+            '--random-library-registry-shared-secret',
+            help='Set the library registry shared secret to a random value.',
+            action='store_true',
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if (args.random_library_registry_shared_secret
+            and args.library_registry_shared_secret):
+            raise ValueError(
+                "You can't set the shared secret to a random value and a specific value at the same time."
+            )
+       
+        if not args.short_name:
+            raise ValueError(
+                "You must identify the library by its short name."
+            )
+
+        # Are we talking about an existing library?
+        libraries = _db.query(Library).all()
+
+        if libraries:
+            # Currently there can only be one library, and one already exists.
+            [library] = libraries
+            if args.short_name and library.short_name != args.short_name:
+                raise ValueError("Could not locate library '%s'" % args.short_name)
+        else:
+            # No existing library. Make one.
+            library, ignore = get_one_or_create(
+                _db, Library, create_method_kwargs=dict(
+                    uuid=str(uuid.uuid4())
+                )
+            )
+
+        if args.random_library_registry_shared_secret:
+            if library.library_registry_shared_secret:
+                raise ValueError(
+                    "Cowardly refusing to overwrite an existing shared secret with a random value."
+                )
+            else:
+                args.library_registry_shared_secret = "".join(
+                    [random.choice('1234567890abcdef') for x in range(32)]
+                )
+            
+        if args.name:
+            library.name = args.name
+        if args.short_name:
+            library.short_name = args.short_name
+        if args.library_registry_short_name:
+            library.library_registry_short_name = args.library_registry_short_name
+        if args.library_registry_shared_secret:
+            library.library_registry_shared_secret = args.library_registry_shared_secret
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(library.explain()))
+        output.write("\n")
+
+
+class ShowCollectionsScript(Script):
+    """Show information about the collections on a server."""
+    
+    name = "List the collections on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Only display information for the collection with the given name',
+        )
+        parser.add_argument(
+            '--show-password',
+            help='Display collection passwords.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.name:
+            collection = get_one(_db, Collection, name=args.name)
+            collections = [collection]
+        else:
+            collections = _db.query(Collection).order_by(Collection.name).all()
+        if not collections:
+            output.write("No collections found.\n")
+        for collection in collections:
+            output.write(
+                "\n".join(
+                    collection.explain(include_password=args.show_password)
+                )
+            )
+            output.write("\n")
+
+
+class ConfigureCollectionScript(Script):
+    """Create a collection or change its settings."""
+    name = "Change a collection's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Name of the collection',
+            required=True
+        )
+        parser.add_argument(
+            '--protocol',
+            help='Protocol used to get licenses. Possible values: "%s"' % (
+                '", "'.join(Collection.PROTOCOLS)
+            )
+        )
+        parser.add_argument(
+            '--external-account-id',
+            help='The ID of this collection according to the license source. Sometimes called a "library ID".',
+        )
+        parser.add_argument(
+            '--url',
+            help='Run the acquisition protocol against this URL.',
+        )
+        parser.add_argument(
+            '--username',
+            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+        )
+        parser.add_argument(
+            '--password',
+            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+        )
+        parser.add_argument(
+            '--setting',
+            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
+            action="append",
+        )
+        library_names = cls._library_names(_db)
+        if library_names:
+            parser.add_argument(
+                '--library',
+                help='Associate this collection with the given library. Possible libraries: %s' % library_names,
+                action="append",
+            )
+        
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the collection
+        protocol = None
+        if args.protocol:
+            protocol = args.protocol
+            
+        collection = get_one(_db, Collection, name=args.name)
+        if not collection:
+            if protocol:
+                collection, is_new = get_one_or_create(
+                    _db, Collection, name=args.name, protocol=protocol
+                )
+            else:
+                raise ValueError(
+                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                )
+        if protocol:
+            collection.protocol = protocol
+        if args.external_account_id:
+            collection.external_account_id = args.external_account_id
+        if args.url:
+            collection.url = args.url
+        if args.username:
+            collection.username = args.username
+        if args.password:
+            collection.password = args.password
+        if args.setting:
+            for setting in args.setting:
+                if not '=' in setting:
+                    raise ValueError(
+                        'Incorrect format for setting: "%s". Should be "key=value"'
+                        % setting
+                    )
+                key, value = setting.split('=', 1)
+                collection.setting(key).value = value
+        if hasattr(args, 'library'):
+            for name in args.library:
+                library = get_one(_db, Library, short_name=name)
+                if not library:
+                    library_names = self._library_names(_db)
+                    message = 'No such library: "%s".' % name
+                    if library_names:
+                        message += " I only know about: %s" % library_names
+                    raise ValueError(message)
+                if collection not in library.collections:
+                    library.collections.append(collection)
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(collection.explain()))
+        output.write("\n")
 
 
 class AddClassificationScript(IdentifierInputScript):
@@ -604,18 +918,24 @@ class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, force=False, batch_size=10):
+    def __init__(self, force=False, batch_size=10, _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
+        self.data_source = args.identifier_data_source
+
         self.batch_size = batch_size
         self.query = self.make_query(
-            self._db, self.identifier_type, self.identifiers, self.log
+            self._db, self.identifier_type, self.identifiers, self.data_source,
+            log=self.log
         )
         self.force = force
 
     @classmethod
-    def make_query(self, _db, identifier_type, identifiers, log=None):
+    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
             query = query.join(Work.license_pools).join(
@@ -630,6 +950,14 @@ class WorkProcessingScript(IdentifierInputScript):
             query = query.filter(
                 LicensePool.identifier_id.in_([x.id for x in identifiers])
             )
+        elif data_source:
+            if log:
+                log.info(
+                    'Restricted to identifiers from DataSource "%s".', data_source
+                )
+            source = DataSource.lookup(_db, data_source)
+            query = query.filter(LicensePool.data_source==source)
+
         if identifier_type:
             if log:
                 log.info(
@@ -856,7 +1184,11 @@ class OPDSImportScript(Script):
         return parser
 
     def __init__(self, feed_url, opds_data_source, importer_class, 
-                 immediately_presentation_ready=False, cmd_args=None):
+                 immediately_presentation_ready=False, cmd_args=None,
+                 _db=None):
+        if _db:
+            self._session = _db
+
         args = self.parse_command_line(cmd_args)
         self.force_reimport = args.force
         self.feed_url = args.url or feed_url
@@ -1030,9 +1362,9 @@ class DatabaseMigrationScript(Script):
         return [core, server]
 
     def do_run(self):
-        args = self.parse_command_line()
-        last_run_date = args.last_run_date
-        last_run_counter = args.last_run_counter
+        parsed = self.parse_command_line()
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if last_run_date:
@@ -1198,6 +1530,7 @@ class DatabaseMigrationScript(Script):
         # additional number is added. This number is held in the 'counter'
         # column of Timestamp.
         # (It's not ideal, but it avoids creating a new database table.)
+        timestamp.counter = None
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
@@ -1214,12 +1547,42 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
     DatabaseMigrationScript to manage migrations.
     """
 
-    def do_run(self):
+    @classmethod
+    def arg_parser(cls):
+        parser = super(DatabaseMigrationInitializationScript, cls).arg_parser()
+        parser.add_argument(
+            '-f', '--force', action='store_true',
+            help="Force reset the initialization, ignoring any existing timestamps."
+        )
+        return parser
+
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(cmd_args=cmd_args)
+        last_run_date = parsed.last_run_date
+        last_run_counter = parsed.last_run_counter
+
+        if last_run_counter and not last_run_date:
+            raise ValueError(
+                "Timestamp.counter must be reset alongside Timestamp.timestamp")
+
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp:
-            raise Exception(
-                "Timestamp for Database Migration script already exists"
-            )
+            if parsed.force:
+                self.log.warn(
+                    "Overwriting existing %s timestamp: %r",
+                    self.name, existing_timestamp)
+            else:
+                raise RuntimeError(
+                    "%s timestamp already exists: %r. Use --force to update." %
+                    (self.name, existing_timestamp))
+
+        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        if last_run_date:
+            submitted_time = self.parse_time(last_run_date)
+            timestamp.timestamp = submitted_time
+            timestamp.counter = last_run_counter
+            self._db.commit()
+            return
 
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
@@ -1411,12 +1774,11 @@ class Explain(IdentifierInputScript):
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
-        #policy = PresentationCalculationPolicy.recalculate_everything()
+
         policy = None
         for edition in editions:
             self.explain(self._db, edition, policy)
             print "-" * 80
-        #self._db.commit()
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):

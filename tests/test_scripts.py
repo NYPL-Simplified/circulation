@@ -2,9 +2,11 @@ import datetime
 import json
 import os
 import tempfile
+from StringIO import StringIO
 
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -20,31 +22,39 @@ from config import (
 )
 
 from model import (
+    create,
     get_one,
+    Collection,
     Complaint, 
     Contributor, 
     CustomList,
     DataSource,
     Edition,
     Identifier,
+    Library,
     LicensePool,
     Timestamp, 
     Work,
 )
+
 from scripts import (
-    Script,
+    AddClassificationScript,
     CheckContributorNamesInDB, 
+    ConfigureCollectionScript,
+    ConfigureLibraryScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
-    AddClassificationScript,
-    PatronInputScript,
-    RunCoverageProviderScript,
-    WorkProcessingScript,
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
+    PatronInputScript,
+    RunCoverageProviderScript,
+    Script,
+    ShowCollectionsScript,
+    ShowLibrariesScript,
+    WorkProcessingScript,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -141,12 +151,12 @@ class TestIdentifierInputScript(DatabaseTest):
         i2 = self._identifier()
         args = [i1.identifier, 'no-such-identifier', i2.identifier]
         identifiers = IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, args
+            self._db, i1.type, None, args
         )
         eq_([i1, i2], identifiers)
 
         eq_([], IdentifierInputScript.parse_identifier_list(
-            self._db, i1.type, [])
+            self._db, i1.type, None, [])
         )
 
     def test_parse_list_as_identifiers_with_autocreate(self):
@@ -154,10 +164,24 @@ class TestIdentifierInputScript(DatabaseTest):
         type = Identifier.OVERDRIVE_ID
         args = ['brand-new-identifier']
         [i] = IdentifierInputScript.parse_identifier_list(
-            self._db, type, args, autocreate=True
+            self._db, type, None, args, autocreate=True
         )
         eq_(type, i.type)
         eq_('brand-new-identifier', i.identifier)
+
+    def test_parse_list_as_identifiers_with_data_source(self):
+        lp1 = self._licensepool(None, data_source_name=DataSource.UNGLUE_IT)
+        lp2 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+        lp3 = self._licensepool(None, data_source_name=DataSource.FEEDBOOKS)
+
+        i1, i2, i3 = [lp.identifier for lp in [lp1, lp2, lp3]]
+        i1.type = i2.type = Identifier.URI
+        source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
+
+        # Only URIs with a FeedBooks LicensePool are selected.
+        identifiers = IdentifierInputScript.parse_identifier_list(
+            self._db, Identifier.URI, source, [])
+        eq_([i2], identifiers)
 
     def test_parse_command_line(self):
         i1 = self._identifier()
@@ -174,12 +198,16 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(i1.type, parsed.identifier_type)
 
     def test_parse_command_line_no_identifiers(self):
-        cmd_args = ["--identifier-type", Identifier.OVERDRIVE_ID]
+        cmd_args = [
+            "--identifier-type", Identifier.OVERDRIVE_ID,
+            "--identifier-data-source", DataSource.STANDARD_EBOOKS
+        ]
         parsed = IdentifierInputScript.parse_command_line(
             self._db, cmd_args, MockStdin()
         )
         eq_([], parsed.identifiers)
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
+        eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
 class TestPatronInputScript(DatabaseTest):
@@ -265,25 +293,45 @@ class TestWorkProcessingScript(DatabaseTest):
         g1 = self._work(with_license_pool=True, with_open_access_download=True)
         g2 = self._work(with_license_pool=True, with_open_access_download=True)
 
-        overdrive_edition, overdrive_pool = self._edition(
+        overdrive_edition = self._edition(
             data_source_name=DataSource.OVERDRIVE, 
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
-        )
+        )[0]
         overdrive_work = self._work(presentation_edition=overdrive_edition)
 
-        everything = WorkProcessingScript.make_query(self._db, None, None)
-        eq_(set([g1, g2, overdrive_work]), set(everything.all()))
+        ugi_edition = self._edition(
+            data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        unglue_it = self._work(presentation_edition=ugi_edition)
+
+        se_edition = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            identifier_type=Identifier.URI,
+            with_license_pool=True
+        )[0]
+        standard_ebooks = self._work(presentation_edition=se_edition)
+
+        everything = WorkProcessingScript.make_query(self._db, None, None, None)
+        eq_(set([g1, g2, overdrive_work, unglue_it, standard_ebooks]),
+            set(everything.all()))
 
         all_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, []
+            self._db, Identifier.GUTENBERG_ID, [], None
         )
         eq_(set([g1, g2]), set(all_gutenberg.all()))
 
         one_gutenberg = WorkProcessingScript.make_query(
-            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier]
+            self._db, Identifier.GUTENBERG_ID, [g1.license_pools[0].identifier], None
         )
         eq_([g1], one_gutenberg.all())
+
+        one_standard_ebook = WorkProcessingScript.make_query(
+            self._db, Identifier.URI, [], DataSource.STANDARD_EBOOKS
+        )
+        eq_([standard_ebooks], one_standard_ebook.all())
 
 
 class MockDatabaseMigrationScript(DatabaseMigrationScript):
@@ -531,6 +579,12 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
         eq_(str(self.timestamp.counter), migration[9])
 
+        # And removes those counter digits when the timestamp is updated.
+        migration = '20260101-what-it-do.sql'
+        self.script.update_timestamp(self.timestamp, migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(self.timestamp.counter, None)
+
     def test_running_a_migration_updates_the_timestamp(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
         self.timestamp.timestamp = future_time
@@ -602,27 +656,68 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'SERVER' in test_generated_files[1]
 
 
-
 class TestDatabaseMigrationInitializationScript(DatabaseTest):
 
     def setup(self):
         super(TestDatabaseMigrationInitializationScript, self).setup()
         self.script = DatabaseMigrationInitializationScript(_db=self._db)
 
+    @property
+    def timestamp(self):
+        return self._db.query(Timestamp).\
+            filter(Timestamp.service==self.script.name).one()
+
+    def assert_matches_latest_migration(self):
+        migrations = self.script.fetch_migration_files()[0]
+        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+
     def test_accurate_timestamp_created(self):
         timestamps = self._db.query(Timestamp).all()
         eq_(timestamps, [])
 
         self.script.do_run()
-
-        migrations = self.script.fetch_migration_files()[0]
-        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
+        self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name)
-        assert_raises(Exception, self.script.do_run)
+        assert_raises(RuntimeError, self.script.do_run)
+
+    def test_error_not_raised_when_timestamp_forced(self):
+        Timestamp.stamp(self._db, self.script.name)
+        self.script.do_run(['-f'])
+        self.assert_matches_latest_migration()
+
+    def test_accepts_last_run_date(self):
+        # A timestamp can be passed via the command line.
+        self.script.do_run(['--last-run-date', '20101010'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+        # It will override an existing timestamp if forced.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20111111', '--force'])
+        expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+
+    def test_accepts_last_run_counter(self):
+        # If a counter is passed without a date, an error is raised.
+        assert_raises(ValueError, self.script.do_run, ['--last-run-counter', '7'])
+
+        # With a date, the counter can be set.
+        self.script.do_run(['--last-run-date', '20101010', '--last-run-counter', '7'])
+        expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(7, self.timestamp.counter)
+
+        # When forced, the counter can be reset on an existing timestamp.
+        previous_timestamp = self.timestamp
+        self.script.do_run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
+        expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
+        eq_(previous_timestamp, self.timestamp)
+        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(2, self.timestamp.counter)
 
 
 class TestAddClassificationScript(DatabaseTest):
@@ -827,9 +922,300 @@ class TestOneClickDeltaScript(DatabaseTest):
         eq_(8, len(pools))
 
 
+class TestShowLibrariesScript(DatabaseTest):
+
+    def test_with_no_libraries(self):
+        output = StringIO()
+        ShowLibrariesScript().do_run(self._db, output=output)
+        eq_("No libraries found.\n", output.getvalue())
+
+    def test_with_multiple_libraries(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l1.library_registry_shared_secret="a"
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        l2.library_registry_shared_secret="b"
+
+        # The output of this script is the result of running explain()
+        # on both libraries.
+        output = StringIO()
+        ShowLibrariesScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=False))
+        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
+        # We can tell the script to only list a single library.
+        output = StringIO()
+        ShowLibrariesScript().do_run(
+            self._db,
+            cmd_args=["--short-name=L2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the library registry
+        # shared secret.
+        output = StringIO()
+        ShowLibrariesScript().do_run(
+            self._db,
+            cmd_args=["--show-registry-shared-secret"],
+            output=output
+        )
+        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=True))
+        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
+class TestConfigureLibraryScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureLibraryScript()
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        library.library_registry_shared_secret='secret'
+        self._db.commit()
+        assert_raises_regexp(
+            ValueError,
+            "You must identify the library by its short name.",
+            script.do_run, self._db, []
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            "Could not locate library 'foo'",
+            script.do_run, self._db, ["--short-name=foo"]
+        )
+        assert_raises_regexp(
+            ValueError,
+            "Cowardly refusing to overwrite an existing shared secret with a random value.",
+            script.do_run, self._db, [
+                "--short-name=L1",
+                "--random-library-registry-shared-secret"
+            ]
+        )
+
+    def test_create_library(self):
+        # There is no library.
+        eq_([], self._db.query(Library).all())
+
+        script = ConfigureLibraryScript()
+        output = StringIO()
+        script.do_run(
+            self._db, [
+                "--short-name=L1",
+                "--name=Library 1",
+                "--library-registry-shared-secret=foo",
+                "--library-registry-short-name=nyl1",
+            ],
+            output
+        )
+
+        # Now there is one library.
+        [library] = self._db.query(Library).all()
+        eq_("Library 1", library.name)
+        eq_("L1", library.short_name)
+        eq_("foo", library.library_registry_shared_secret)
+        eq_("NYL1", library.library_registry_short_name)
+        expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
+
+    def test_reconfigure_library(self):
+        # The library exists.
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        script = ConfigureLibraryScript()
+        output = StringIO()
+
+        # We're going to change one value and add some more.
+        script.do_run(
+            self._db, [
+                "--short-name=L1",
+                "--name=Library 1 New Name",
+                "--random-library-registry-shared-secret",
+                "--library-registry-short-name=nyl1",
+            ],
+            output
+        )
+
+        eq_("Library 1 New Name", library.name)
+        eq_("NYL1", library.library_registry_short_name)
+
+        # The shared secret was randomly generated, so we can't test
+        # its exact value, but we do know it's a string that can be
+        # converted into a hexadecimal number.
+        assert library.library_registry_shared_secret != None
+        int(library.library_registry_shared_secret, 16)
+        
+        expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
 
 
+class TestShowCollectionsScript(DatabaseTest):
+
+    def test_with_no_collections(self):
+        output = StringIO()
+        ShowCollectionsScript().do_run(self._db, output=output)
+        eq_("No collections found.\n", output.getvalue())
+
+    def test_with_multiple_collections(self):
+        c1, ignore = create(self._db, Collection, name="Collection 1",
+                            protocol=Collection.OVERDRIVE)
+        c1.collection_password="a"
+        c2, ignore = create(self._db, Collection, name="Collection 2",
+                            protocol=Collection.BIBLIOTHECA)
+        c2.collection_password="b"
+
+        # The output of this script is the result of running explain()
+        # on both collections.
+        output = StringIO()
+        ShowCollectionsScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(c1.explain(include_password=False))
+        expect_2 = "\n".join(c2.explain(include_password=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+        # We can tell the script to only list a single collection.
+        output = StringIO()
+        ShowCollectionsScript().do_run(
+            self._db,
+            cmd_args=["--name=Collection 2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the collection password
+        output = StringIO()
+        ShowCollectionsScript().do_run(
+            self._db,
+            cmd_args=["--show-password"],
+            output=output
+        )
+        expect_1 = "\n".join(c1.explain(include_password=True))
+        expect_2 = "\n".join(c2.explain(include_password=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+class TestConfigureCollectionScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureCollectionScript()
+        library, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        self._db.commit()
+
+        # Reference to a nonexistent collection without the information
+        # necessary to create it.
+        assert_raises_regexp(
+            ValueError,
+            'No collection called "collection". You can create it, but you must specify a protocol.',
+            script.do_run, self._db, ["--name=collection"]
+        )
+
+        # Incorrect format for the 'setting' argument.
+        assert_raises_regexp(
+            ValueError,
+            'Incorrect format for setting: "key". Should be "key=value"',
+            script.do_run, self._db, [
+                "--name=collection", "--protocol=Overdrive",
+                "--setting=key"
+            ]
+        )
+
+        # Try to add the collection to a nonexistent library.
+        assert_raises_regexp(
+            ValueError,
+            'No such library: "nosuchlibrary". I only know about: "L1"',
+            script.do_run, self._db, [
+                "--name=collection", "--protocol=Overdrive",
+                "--library=nosuchlibrary"
+            ]
+        )
+
+
+    def test_success(self):
+        
+        script = ConfigureCollectionScript()
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        l3, ignore = create(
+            self._db, Library, name="Library 3", short_name="L3",
+        )
+        self._db.commit()
+
+        # Create a collection, set all its attributes, set a custom
+        # setting, and associate it with two libraries.
+        output = StringIO()
+        script.do_run(
+            self._db, ["--name=New Collection", "--protocol=Overdrive",
+                       "--library=L2", "--library=L1",
+                       "--setting=library_id=1234",
+                       "--external-account-id=acctid",
+                       "--url=url",
+                       "--username=username",
+                       "--password=password",
+            ], output
+        )
+
+        # The collection was created and configured properly.
+        collection = get_one(self._db, Collection)
+        eq_("New Collection", collection.name)
+        eq_("url", collection.url)
+        eq_("acctid", collection.external_account_id)
+        eq_("username", collection.username)
+        eq_("password", collection.password)
+
+        # Two libraries now have access to the collection.
+        eq_([collection], l1.collections)
+        eq_([collection], l2.collections)
+        eq_([], l3.collections)
+
+        # One CollectionSetting was set on the collection.
+        [setting] = collection.settings
+        eq_("library_id", setting.key)
+        eq_("1234", setting.value)
+
+        # The output explains the collection settings.
+        expect = ("Configuration settings stored.\n"
+                  + "\n".join(collection.explain()) + "\n")
+        eq_(expect, output.getvalue())
+
+    def test_reconfigure_collection(self):
+        # The collection exists.
+        collection, ignore = create(
+            self._db, Collection, name="Collection 1",
+            protocol=Collection.OVERDRIVE
+        )
+        script = ConfigureCollectionScript()
+        output = StringIO()
+
+        # We're going to change one value and add a new one.
+        script.do_run(
+            self._db, [
+                "--name=Collection 1",
+                "--url=foo",
+                "--protocol=%s" % Collection.BIBLIOTHECA
+            ],
+            output
+        )
+
+        # The collection has been changed.
+        eq_("foo", collection.url)
+        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        
+        expect = ("Configuration settings stored.\n"
+                  + "\n".join(collection.explain()) + "\n")
+        
+        eq_(expect, output.getvalue())

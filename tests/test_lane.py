@@ -327,7 +327,7 @@ class TestLanes(DatabaseTest):
     def test_all_matching_genres(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         cooking, ig = Genre.lookup(self._db, classifier.Cooking)
-        matches = Lane.all_matching_genres([fantasy, cooking])
+        matches = Lane.all_matching_genres(self._db, [fantasy, cooking])
         names = sorted([x.name for x in matches])
         eq_(
             [u'Cooking', u'Epic Fantasy', u'Fantasy', u'Historical Fantasy', 
@@ -369,6 +369,84 @@ class TestLanes(DatabaseTest):
         eq_("Everything - Staff Picks", picks.name)
         eq_([staff_picks.id], picks.list_ids)
 
+    def test_custom_list_can_set_featured_works(self):
+        my_list = self._customlist(num_entries=4)[0]
+
+        featured_entries = my_list.entries[1:3]
+        featured_works = list()
+        for entry in featured_entries:
+            featured_works.append(entry.edition.work)
+            entry.featured = True
+
+        other_works = [e.edition.work for e in my_list.entries if not e.featured]
+        for work in other_works:
+            # Make the other works feature-quality so they are in the running.
+            work.quality = 1.0
+
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+
+        lane = Lane(self._db, u'My Lane', list_identifier=my_list.foreign_identifier)
+
+        result = lane.list_featured_works_query.all()
+        eq_(sorted(featured_works), sorted(result))
+
+        def _assert_featured_works(size, expected_works=None, expected_length=None,
+                                   sampled_works=None):
+            featured_works = None
+            featured_materialized_works = None
+            with temp_config() as config:
+                config[Configuration.POLICIES] = {
+                    Configuration.FEATURED_LANE_SIZE : size
+                }
+                featured_works = lane.featured_works(use_materialized_works=False)
+                featured_materialized_works = lane.featured_works()
+
+            expected_length = expected_length
+            if expected_length == None:
+                expected_length = size
+            eq_(expected_length, len(featured_works))
+            eq_(expected_length, len(featured_materialized_works))
+
+            expected_works = expected_works or []
+            for work in expected_works:
+                assert work in featured_works
+                # There's also a single MaterializedWork that matches the work.
+                [materialized_work] = filter(
+                    lambda mw: mw.works_id==work.id, featured_materialized_works
+                )
+
+                # Remove the confirmed works for the next test.
+                featured_works.remove(work)
+                featured_materialized_works.remove(materialized_work)
+
+            sampled_works = sampled_works or []
+            for work in featured_works:
+                assert work in sampled_works
+            for work in featured_materialized_works:
+                [sampled_work] = filter(
+                    lambda sample: sample.id==work.works_id, sampled_works
+                )
+
+        # If the number of featured works completely fills the lane,
+        # we only get featured works back.
+        _assert_featured_works(2, featured_works)
+
+        # If the number of featured works doesn't fill the lane, a
+        # random other work that does will be sampled from the lane's
+        # works
+        _assert_featured_works(3, featured_works, sampled_works=other_works)
+
+        # If the number of featured works falls slightly below the featured
+        # lane size, all the available books are returned, without the
+        # CustomList features being duplicated.
+        _assert_featured_works(
+            5, featured_works, expected_length=4, sampled_works=other_works)
+
+        # If the number of featured works falls far (>5) below the featured
+        # lane size, nothing is returned.
+        _assert_featured_works(10, expected_length=0)
+
     def test_gather_matching_genres(self):
         self.fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         self.urban_fantasy, ig = Genre.lookup(
@@ -380,25 +458,35 @@ class TestLanes(DatabaseTest):
 
         # Fantasy contains three subgenres and is restricted to fiction.
         fantasy, default = Lane.gather_matching_genres(
-            [self.fantasy], Lane.FICTION_DEFAULT_FOR_GENRE
+            self._db, [self.fantasy], Lane.FICTION_DEFAULT_FOR_GENRE
         )
-        eq_(4, len(fantasy))
-        eq_(True, default)
-
-        fantasy, default = Lane.gather_matching_genres([self.fantasy], True)
         eq_(4, len(fantasy))
         eq_(True, default)
 
         fantasy, default = Lane.gather_matching_genres(
-            [self.fantasy], True, [self.urban_fantasy]
+            self._db, [self.fantasy], True
+        )
+        eq_(4, len(fantasy))
+        eq_(True, default)
+
+        fantasy, default = Lane.gather_matching_genres(
+            self._db, [self.fantasy], True, [self.urban_fantasy]
         )
         eq_(3, len(fantasy))
         eq_(True, default)
 
+        # If there are only exclude_genres available, then it and its
+        # subgenres are ignored while every OTHER genre is set.
+        genres, default = Lane.gather_matching_genres(
+            self._db, [], True, [self.fantasy]
+        )
+        eq_(False, any([g for g in self.fantasy.self_and_subgenres if g in genres]))
+        # According to known fiction status, that is.
+        eq_(True, all([g.default_fiction==True for g in genres]))
 
         # Attempting to create a contradiction (like nonfiction fantasy)
         # will create a lane broad enough to actually contain books
-        fantasy, default = Lane.gather_matching_genres([self.fantasy], False)
+        fantasy, default = Lane.gather_matching_genres(self._db, [self.fantasy], False)
         eq_(4, len(fantasy))
         eq_(Lane.BOTH_FICTION_AND_NONFICTION, default)
 
@@ -406,7 +494,7 @@ class TestLanes(DatabaseTest):
         # although we can make a lane that contains both, we can't
         # have it use the default value.
         assert_raises(UndefinedLane, Lane.gather_matching_genres,
-            [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
+            self._db, [self.fantasy, self.history], Lane.FICTION_DEFAULT_FOR_GENRE
         )
 
     def test_subgenres_become_sublanes(self):

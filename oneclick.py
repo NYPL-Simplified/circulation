@@ -16,12 +16,15 @@ from config import (
 from coverage import BibliographicCoverageProvider, CoverageFailure
 
 from model import (
+    Collection,
     Contributor,
+    get_one_or_create,
     DataSource,
     DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
+    Library,
     Representation,
     Subject,
     Work,
@@ -52,28 +55,43 @@ from util.http import (
 class OneClickAPI(object):
 
     API_VERSION = "v1"
+    PRODUCTION_BASE_URL = "https://api.oneclickdigital.com/"
+    QA_BASE_URL = "https://api.oneclickdigital.us/"
+    
+    # Map simple nicknames to server URLs.
+    SERVER_NICKNAMES = {
+        "production" : PRODUCTION_BASE_URL,
+        "qa" : QA_BASE_URL,
+    }
+
     DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
-
+   
     log = logging.getLogger("OneClick API")
 
-    def __init__(self, _db, library_id=None, username=None, password=None, 
-        remote_stage=None, base_url=None, basic_token=None, 
-        ebook_loan_length=None, eaudio_loan_length=None):
+    def __init__(self, _db, collection):
         self._db = _db
-            
-        self.library_id = library_id
-        self.username = username
-        self.password = password
-        self.remote_stage = remote_stage
-        self.base_url = base_url or ''
-        self.base_url = self.base_url + self.API_VERSION
-        self.token = basic_token
+
+        if collection.protocol != collection.ONE_CLICK:
+            raise ValueError(
+                "Collection protocol is %s, but passed into OneClickAPI!" %
+                collection.protocol
+            )
+        
+        self.library_id = collection.external_account_id.encode("utf8")
+        self.token = collection.password.encode("utf8")
+
+        # Convert the nickname for a server into an actual URL.
+        base_url = collection.url or self.PRODUCTION_BASE_URL
+        if base_url in self.SERVER_NICKNAMES:
+            base_url = self.SERVER_NICKNAMES[base_url]
+        self.base_url = (base_url + self.API_VERSION).encode("utf8")
+
         # expiration defaults are OneClick-general
-        self.ebook_loan_length = ebook_loan_length
-        self.eaudio_loan_length = eaudio_loan_length
+        self.ebook_loan_length = collection.setting('ebook_loan_length').value or '21'
+        self.eaudio_loan_length = collection.setting('eaudio_loan_length').value or '21'
 
 
     @classmethod
@@ -91,38 +109,23 @@ class OneClickAPI(object):
 
     @classmethod
     def from_config(cls, _db):
-        config = Configuration.integration(Configuration.ONECLICK_INTEGRATION, required=True)
-        property_names = [
-            'library_id',
-            'username',
-            'password',
-            'remote_stage', 
-            'url', 
-            'basic_token', 
-            'ebook_loan_length', 
-            'eaudio_loan_length'
-        ]
-        property_values = {}
-        for name in property_names:
-            value = config.get(name)
-            if value:
-                value = value.encode("utf8")
-            property_values[name] = value
+        """Load a OneClickAPI instance for the 'default' OneClick
+        collection.
+        """
+        library = Library.instance(_db)
+        collections = [x for x in library.collections
+                       if x.protocol == Collection.ONE_CLICK]
+        if len(collections) == 0:
+            # There are no OneClick collections configured.
+            return None
 
-        if len(property_values.values()) == 0:
-            cls.log.info("No OneClick client configured.")
-            raise ValueError("No OneClick client configured.")
+        if len(collections) > 1:
+            raise ValueError(
+                "Multiple OneClick collections found for one library. This is not yet supported."
+            )
+        [collection] = collections 
 
-
-        api = cls(_db, library_id=property_values['library_id'], 
-            username=property_values['username'], password=property_values['password'], 
-            remote_stage=property_values['remote_stage'], base_url=property_values['url'], 
-            basic_token=property_values['basic_token'], 
-            ebook_loan_length=property_values['ebook_loan_length'], 
-            eaudio_loan_length=property_values['eaudio_loan_length'])
-
-        return api
-
+        return cls(_db, collection)
 
     @property
     def source(self):
@@ -521,34 +524,25 @@ class OneClickAPI(object):
 
 class MockOneClickAPI(OneClickAPI):
 
-    def __init__(self, _db, with_token=True, base_path=None, *args, **kwargs):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : 'library_id_123',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            super(MockOneClickAPI, self).__init__(_db, 
-                library_id='library_id_123', 
-                username='username_123', password='password_123', 
-                remote_stage='qa', base_url='www.oneclickapi.test', 
-                basic_token='abcdef123hijklm', 
-                ebook_loan_length='21', 
-                eaudio_loan_length='21')
-
-        if with_token:
-            self.token = "mock token"
+    def __init__(self, _db, collection=None, base_path=None):
+        if not collection:
+            # OneClickAPI needs a Collection, but none was provided.
+            # Just create a basic one.
+            library = Library.instance(_db)
+            collection, ignore = get_one_or_create(
+                _db, Collection,
+                name="Test OneClick Collection",
+                protocol=Collection.ONE_CLICK, create_method_kwargs=dict(
+                    password=u'abcdef123hijklm',
+                    external_account_id=u'library_id_123',
+                )
+            )
 
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
-
+        return super(MockOneClickAPI, self).__init__(_db, collection)
 
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
@@ -824,12 +818,14 @@ class OneClickRepresentationExtractor(object):
 class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for OneClick records."""
 
-    def __init__(self, _db, input_identifier_types=None, 
-                 metadata_replacement_policy=None, oneclick_api=None,
-                 **kwargs):
-        # We ignore the value of input_identifier_types, but it's
-        # passed in by RunCoverageProviderScript, so we accept it as
-        # part of the signature.
+    def __init__(self, _db, metadata_replacement_policy=None, oneclick_api=None,
+                 input_identifier_types=None, input_identifiers=None, **kwargs):
+        """
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.  
+            Ignored, as we can assume we only want OneClick identifiers.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+            Ex: '9781449880927', '9781449878955', etc..
+        """
         
         oneclick_api = oneclick_api or OneClickAPI.from_config(_db)
         super(OneClickBibliographicCoverageProvider, self).__init__(

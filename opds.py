@@ -291,9 +291,7 @@ class Annotator(object):
                 continue
             edition = p.presentation_edition
             if p.open_access:
-                # Make sure there's a usable link--it might be
-                # audio-only or something.
-                if edition and edition.open_access_download_url:
+                if p.best_open_access_link:
                     active_license_pool = p
                     # We have an unlimited source for this book.
                     # There's no need to keep looking.
@@ -420,7 +418,7 @@ class AcquisitionFeed(OPDSFeed):
         :return: CachedFeed (if use_cache is True) or unicode
         """
         cached = None
-        use_cache = not cache_type == cls.NO_CACHE
+        use_cache = cache_type != cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached, usable = CachedFeed.fetch(
@@ -507,7 +505,7 @@ class AcquisitionFeed(OPDSFeed):
 
         content = unicode(feed)
         if cached and use_cache:
-            cached.update(content)
+            cached.update(_db, content)
             return cached
         return content
 
@@ -523,7 +521,7 @@ class AcquisitionFeed(OPDSFeed):
         pagination = pagination or Pagination.default()
 
         cached = None
-        use_cache = not cache_type == cls.NO_CACHE
+        use_cache = cache_type != cls.NO_CACHE
         if use_cache:
             cache_type = cache_type or CachedFeed.PAGE_TYPE
             cached, usable = CachedFeed.fetch(
@@ -582,7 +580,7 @@ class AcquisitionFeed(OPDSFeed):
 
         content = unicode(feed)
         if cached and use_cache:
-            cached.update(content)
+            cached.update(_db, content)
             return cached
         return content
 

@@ -20,12 +20,15 @@ from util.http import (
 )
 from coverage import CoverageFailure
 from model import (
+    get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     LicensePool,
     Edition,
     Identifier,
+    Library,
     Representation,
     Subject,
 )
@@ -46,6 +49,12 @@ class Axis360API(object):
 
     PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
     QA_BASE_URL = "http://axis360apiqa.baker-taylor.com/Services/VendorAPI/"
+
+    # Map simple nicknames to server URLs.
+    SERVER_NICKNAMES = {
+        "production" : PRODUCTION_BASE_URL,
+        "qa" : QA_BASE_URL,
+    }
     
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
@@ -54,50 +63,53 @@ class Axis360API(object):
 
     log = logging.getLogger("Axis 360 API")
 
-    def __init__(self, _db, username=None, library_id=None, password=None,
-                 base_url=None):
+    def __init__(self, _db, collection):
+        if collection.protocol != collection.AXIS_360:
+            raise ValueError(
+                "Collection protocol is %s, but passed into Axis360API!" %
+                collection.protocol
+            )
+
         self._db = _db
-        (env_library_id, env_username, 
-         env_password, env_base_url) = self.environment_values()
+
+        self.library_id = collection.external_account_id.encode("utf8")
+        self.username = collection.username.encode("utf8")
+        self.password = collection.password.encode("utf8")
+
+        # Convert the nickname for a server into an actual URL.
+        base_url = collection.url or self.PRODUCTION_BASE_URL
+        if base_url in self.SERVER_NICKNAMES:
+            base_url = self.SERVER_NICKNAMES[base_url]
+        self.base_url = base_url
+
+        if (not self.library_id or not self.username
+            or not self.password):
+            raise CannotLoadConfiguration(
+                "Axis 360 configuration is incomplete."
+            )
             
-        self.library_id = library_id or env_library_id
-        self.username = username or env_username
-        self.password = password or env_password
-        self.base_url = base_url or env_base_url
-        if self.base_url == 'qa':
-            self.base_url = self.QA_BASE_URL
-        elif self.base_url == 'production':
-            self.base_url = self.PRODUCTION_BASE_URL
         self.token = None
 
     @classmethod
-    def environment_values(cls):
-        config = Configuration.integration('Axis 360')
-        values = []
-        for name in [
-                'library_id',
-                'username',
-                'password',
-                'server',
-        ]:
-            value = config.get(name)
-            if value:
-                value = value.encode("utf8")
-            values.append(value)
-        return values
-
-    @classmethod
     def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None
-        values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No Axis 360 client configured."
-            )
+        """Load an Axis360API instance for the 'default' Axis 360
+        collection.
+        """
+        library = Library.instance(_db)
+        collections = [x for x in library.collections
+                      if x.protocol == Collection.AXIS_360]
+        if len(collections) == 0:
+            # There are no Axis 360 collections configured.
             return None
-        return cls(_db)
 
+        if len(collections) > 1:
+            raise ValueError(
+                "Multiple Axis 360 collections found for one library. This is not yet supported."
+            )
+        [collection] = collections 
+
+        return cls(_db, collection)
+        
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.AXIS_360)
@@ -106,7 +118,7 @@ class Axis360API(object):
     def authorization_headers(self):
         authorization = u":".join([self.username, self.password, self.library_id])
         authorization = authorization.encode("utf_16_le")
-        authorization = base64.b64encode(authorization)
+        authorization = base64.standard_b64encode(authorization)
         return dict(Authorization="Basic " + authorization)
 
     def refresh_bearer_token(self):
@@ -192,14 +204,17 @@ class Axis360API(object):
 class MockAxis360API(Axis360API):
 
     def __init__(self, _db, with_token=True, *args, **kwargs):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['Axis 360'] = {
-                'library_id' : 'a',
-                'username' : 'b',
-                'password' : 'c',
-                'server' : 'http://axis.test/',
-            }
-            super(MockAxis360API, self).__init__(_db, *args, **kwargs)
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test Axis 360 Collection",
+            protocol=Collection.AXIS_360, create_method_kwargs=dict(
+                username=u'a', password=u'b', external_account_id=u'c',
+                url=u"http://axis.test/"
+            )
+        )
+        library.collections.append(collection)
+        super(MockAxis360API, self).__init__(_db, collection, *args, **kwargs)
         if with_token:
             self.token = "mock token"
         self.responses = []
@@ -227,14 +242,13 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     not normally necessary because the Axis 360 API combines
     bibliographic and availability data.
     """
-    def __init__(self, _db, input_identifier_types=None, 
-                 metadata_replacement_policy=None, axis_360_api=None,
-                 **kwargs):
-        # We ignore the value of input_identifier_types, but it's
-        # passed in by RunCoverageProviderScript, so we accept it as
-        # part of the signature.
+    def __init__(self, _db, metadata_replacement_policy=None, axis_360_api=None,
+                 input_identifier_types=None, input_identifiers=None, **kwargs):
+        """
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        """
         self.parser = BibliographicParser()
-        axis_360_api = axis_360_api or Axis360API(_db)
         super(Axis360BibliographicCoverageProvider, self).__init__(
             _db, axis_360_api, DataSource.AXIS_360,
             batch_size=25, 

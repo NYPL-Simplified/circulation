@@ -132,9 +132,19 @@ class ReplacementPolicy(object):
 class SubjectData(object):
     def __init__(self, type, identifier, name=None, weight=1):
         self.type = type
+
+        # Because subjects are sometimes evaluated according to keyword
+        # matching, it's important that any leading or trailing white
+        # space is removed during import.
         self.identifier = identifier
+        if identifier:
+            self.identifier = identifier.strip()
+
         self.name = name
-        self.weight=weight
+        if name:
+            self.name = name.strip()
+
+        self.weight = weight
 
     @property
     def key(self):
@@ -941,7 +951,8 @@ class CirculationData(MetaToModelUtility):
         # open-access status.
         old_open_access = pool.open_access                    
         for lpdm in pool.delivery_mechanisms:
-            if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+            if (lpdm.rights_status
+                and lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS):
                 pool.open_access = True
                 break
         else:

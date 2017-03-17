@@ -17,12 +17,15 @@ from nose.tools import (
 
 from psycopg2.extras import NumericRange
 
+from sqlalchemy import not_
+
 from sqlalchemy.exc import (
     IntegrityError,
 )
 
 from sqlalchemy.orm.exc import (
     NoResultFound,
+    MultipleResultsFound
 )
 
 from config import (
@@ -33,6 +36,7 @@ from config import (
 from model import (
     Annotation,
     BaseCoverageRecord,
+    Catalog,
     CirculationEvent,
     Classification,
     Collection,
@@ -40,6 +44,7 @@ from model import (
     Contributor,
     CoverageRecord,
     Credential,
+    CustomList,
     CustomListEntry,
     DataSource,
     DelegatedPatronIdentifier,
@@ -48,9 +53,11 @@ from model import (
     Genre,
     Hold,
     Hyperlink,
+    Library,
     LicensePool,
     Measurement,
     Patron,
+    PatronProfileStorage,
     Representation,
     Resource,
     RightsStatus,
@@ -89,6 +96,41 @@ from analytics import (
     temp_analytics
 )
 from mock_analytics_provider import MockAnalyticsProvider
+
+class TestDatabaseInterface(DatabaseTest):
+
+    def test_get_one(self):
+
+        # When a matching object isn't found, None is returned.
+        result = get_one(self._db, Edition)
+        eq_(None, result)
+
+        # When a single item is found, it is returned.
+        edition = self._edition()
+        result = get_one(self._db, Edition)
+        eq_(edition, result)
+
+        # When multiple items are found, an error is raised.
+        other_edition = self._edition()
+        assert_raises(MultipleResultsFound, get_one, self._db, Edition)
+
+        # Unless they're interchangeable.
+        result = get_one(self._db, Edition, on_multiple='interchangeable')
+        assert result in self._db.query(Edition)
+
+        # Or specific attributes are passed that limit the results to one.
+        result = get_one(
+            self._db, Edition,
+            title=other_edition.title,
+            author=other_edition.author)
+        eq_(other_edition, result)
+
+        # A particular constraint clause can also be passed in.
+        titles = [ed.title for ed in (edition, other_edition)]
+        constraint = not_(Edition.title.in_(titles))
+        result = get_one(self._db, Edition, constraint=constraint)
+        eq_(None, result)
+
 
 class TestDataSource(DatabaseTest):
 
@@ -542,6 +584,23 @@ class TestIdentifier(DatabaseTest):
         )
 
 
+class TestGenre(DatabaseTest):
+
+    def test_default_fiction(self):
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        nonfiction, ignore = Genre.lookup(self._db, "History")
+        eq_(True, sf.default_fiction)
+        eq_(False, nonfiction.default_fiction)
+
+        # Create a previously unknown genre.
+        genre, ignore = Genre.lookup(
+            self._db, "Some Weird Genre", autocreate=True
+        )
+
+        # We don't know its default fiction status.
+        eq_(None, genre.default_fiction)
+
+        
 class TestSubject(DatabaseTest):
 
     def test_lookup_autocreate(self):
@@ -4565,7 +4624,101 @@ class TestPatron(DatabaseTest):
             assert_raises(TypeError, lambda x: patron.external_type)
             patron._external_type = None
 
+    def test_set_synchronize_annotations(self):
+        # Two patrons.
+        p1 = self._patron()
+        p2 = self._patron()
+        
+        identifier = self._identifier()
+        
+        for patron in [p1, p2]:
+            # Each patron decides they want to synchronize annotations
+            # to a library server.
+            eq_(None, patron.synchronize_annotations)
+            patron.synchronize_annotations = True
 
+            # Each patron gets one annotation.
+            annotation, ignore = Annotation.get_one_or_create(
+                self._db,
+                patron=patron,
+                identifier=identifier,
+                motivation=Annotation.IDLING,
+            )
+            annotation.content="The content for %s" % patron.id,
+
+            eq_(1, len(patron.annotations))
+            
+        # Patron #1 decides they don't want their annotations stored
+        # on a library server after all. This deletes their
+        # annotation.
+        p1.synchronize_annotations = False
+        self._db.commit()
+        eq_(0, len(p1.annotations))
+
+        # Patron #1 can no longer use Annotation.get_one_or_create.
+        assert_raises(
+            ValueError, Annotation.get_one_or_create,
+            self._db, patron=p1, identifier=identifier,
+            motivation=Annotation.IDLING,
+        )
+        
+        # Patron #2's annotation is unaffected.
+        eq_(1, len(p2.annotations))
+
+        # But patron #2 can use Annotation.get_one_or_create.
+        i2, is_new = Annotation.get_one_or_create(
+            self._db, patron=p2, identifier=self._identifier(),
+            motivation=Annotation.IDLING,
+        )
+        eq_(True, is_new)
+
+        # Once you make a decision, you can change your mind, but you
+        # can't go back to not having made the decision.
+        def try_to_set_none(patron):
+            patron.synchronize_annotations = None
+        assert_raises(ValueError, try_to_set_none, p2)
+
+
+class TestPatronProfileStorage(DatabaseTest):
+
+    def setup(self):
+        super(TestPatronProfileStorage, self).setup()
+        self.patron = self._patron()
+        self.store = PatronProfileStorage(self.patron)
+        
+    def test_writable_setting_names(self):
+        """Only one setting is currently writable."""
+        eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]),
+            self.store.writable_setting_names)
+
+    def test_profile_document(self):
+        # synchronize_annotations always shows up as settable, even if
+        # the current value is None.
+        eq_(None, self.patron.synchronize_annotations)
+        rep = self.store.profile_document
+        eq_({'settings': {'simplified:synchronize_annotations': None}},
+            rep)
+
+        self.patron.synchronize_annotations = True
+        self.patron.authorization_expires = datetime.datetime(
+            2016, 1, 1, 10, 20, 30
+        )
+        rep = self.store.profile_document
+        eq_({'simplified:authorization_expires': '2016-01-01T10:20:30Z',
+             'settings': {'simplified:synchronize_annotations': True}},
+            rep
+        )
+
+    def test_update(self):
+        # This is a no-op.
+        self.store.update({}, {})
+        eq_(None, self.patron.synchronize_annotations)
+
+        # This is not.
+        self.store.update({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
+        eq_(True, self.patron.synchronize_annotations)
+
+        
 class TestBaseCoverageRecord(DatabaseTest):
 
     def test_not_covered(self):
@@ -4876,9 +5029,166 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             self.overdrive_streaming_text.content_type_media_type)
 
+
+class TestCustomList(DatabaseTest):
+
+    def test_find(self):
+        source = DataSource.lookup(self._db, DataSource.NYT)
+        # When there's no CustomList to find, nothing is returned.
+        result = CustomList.find(self._db, source, 'my-list')
+        eq_(None, result)
+
+        custom_list = self._customlist(
+            foreign_identifier='a-list', name='My List', num_entries=0
+        )[0]
+        # A CustomList can be found by its foreign_identifier.
+        result = CustomList.find(self._db, source, 'a-list')
+        eq_(custom_list, result)
+
+        # Or its name.
+        result = CustomList.find(self._db, source.name, 'My List')
+        eq_(custom_list, result)
+
+    def test_add_entry(self):
+        custom_list = self._customlist(num_entries=0)[0]
+        now = datetime.datetime.utcnow()
+
+        # An edition without a work can create an entry.
+        workless_edition = self._edition()
+        workless_entry, is_new = custom_list.add_entry(workless_edition)
+        eq_(True, is_new)
+        eq_(True, isinstance(workless_entry, CustomListEntry))
+        eq_(workless_edition, workless_entry.edition)
+        eq_(True, workless_entry.first_appearance > now)
+        eq_(None, workless_entry.work)
+        # And the CustomList will be seen as updated.
+        eq_(True, custom_list.updated > now)
+
+        # An edition with a work can create an entry.
+        worked_edition, lp = self._edition(with_license_pool=True)
+        worked_entry, is_new = custom_list.add_entry(worked_edition)
+        eq_(True, is_new)
+        eq_(worked_edition, worked_entry.edition)
+        eq_(True, worked_entry.first_appearance > now)
+
+        # Annotations can be passed to the entry.
+        annotated_edition = self._edition()
+        annotated_entry = custom_list.add_entry(
+            annotated_edition, annotation="Sure, this is a good book."
+        )[0]
+        eq_(u"Sure, this is a good book.", annotated_entry.annotation)
+
+        # A first_appearance time can be passed to an entry.
+        timed_edition = self._edition()
+        timed_entry = custom_list.add_entry(timed_edition, first_appearance=now)[0]
+        eq_(now, timed_entry.first_appearance)
+        eq_(now, timed_entry.most_recent_appearance)
+
+        # If the entry already exists, the most_recent_appearance is updated.
+        previous_list_update_time = custom_list.updated
+        new_timed_entry, is_new = custom_list.add_entry(timed_edition)
+        eq_(False, is_new)
+        eq_(timed_entry, new_timed_entry)
+        eq_(True, timed_entry.most_recent_appearance > now)
+        # But the CustomList update time is not.
+        eq_(previous_list_update_time, custom_list.updated)
+
+        # If the entry already exists, the most_recent_appearance can be
+        # updated by passing in a later first_appearance.
+        later = datetime.datetime.utcnow()
+        new_timed_entry = custom_list.add_entry(timed_edition, first_appearance=later)[0]
+        eq_(timed_entry, new_timed_entry)
+        eq_(now, new_timed_entry.first_appearance)
+        eq_(later, new_timed_entry.most_recent_appearance)
+
+        # For existing entries, earlier first_appearance datetimes are ignored.
+        entry = custom_list.add_entry(annotated_edition, first_appearance=now)[0]
+        eq_(True, entry.first_appearance != now)
+        eq_(True, entry.first_appearance >= now)
+        eq_(True, entry.most_recent_appearance != now)
+        eq_(True, entry.most_recent_appearance >= now)
+
+        # Adding an equivalent edition will not create multiple entries.
+        equivalent, lp = self._edition(with_open_access_download=True)
+        workless_edition.primary_identifier.equivalent_to(
+            equivalent.data_source, equivalent.primary_identifier, 1
+        )
+        equivalent_entry, is_new = custom_list.add_entry(equivalent)
+        eq_(False, is_new)
+        eq_(workless_entry, equivalent_entry)
+        # Or update the CustomList updated time
+        eq_(previous_list_update_time, custom_list.updated)
+        # But it will change the edition to the one that's requested.
+        eq_(equivalent, workless_entry.edition)
+        # And/or add a .work if one is newly available.
+        eq_(lp.work, equivalent_entry.work)
+
+    def test_remove_entry(self):
+        custom_list, editions = self._customlist(num_entries=2)
+        [first, second] = editions
+        now = datetime.datetime.utcnow()
+
+        # An entry is removed if its edition is passed in.
+        custom_list.remove_entry(first)
+        eq_(1, len(custom_list.entries))
+        eq_(second, custom_list.entries[0].edition)
+        # And CustomList.updated is changed.
+        eq_(True, custom_list.updated > now)
+
+        # An entry is also removed if any of its equivalent editions
+        # are passed in.
+        previous_list_update_time = custom_list.updated
+        equivalent = self._edition(with_open_access_download=True)[0]
+        second.primary_identifier.equivalent_to(
+            equivalent.data_source, equivalent.primary_identifier, 1
+        )
+        custom_list.remove_entry(second)
+        eq_([], custom_list.entries)
+        eq_(True, custom_list.updated > previous_list_update_time)
+
+        # An edition that's not on the list doesn't cause any problems.
+        custom_list.add_entry(second)
+        previous_list_update_time = custom_list.updated
+        custom_list.remove_entry(first)
+        eq_(1, len(custom_list.entries))
+        eq_(previous_list_update_time, custom_list.updated)
+
+    def test_entries_for_work(self):
+        custom_list, editions = self._customlist(num_entries=2)
+        edition = editions[0]
+        [entry] = [e for e in custom_list.entries if e.edition==edition]
+
+        # The entry is returned when you search by Edition.
+        eq_([entry], custom_list.entries_for_work(edition))
+
+        # It's also returned when you search by Work.
+        eq_([entry], custom_list.entries_for_work(edition.work))
+
+        # Or when you search with an equivalent Edition
+        equivalent = self._edition()
+        edition.primary_identifier.equivalent_to(
+            equivalent.data_source, equivalent.primary_identifier, 1
+        )
+        eq_([entry], custom_list.entries_for_work(equivalent))
+
+        # Multiple equivalent entries may be returned, too, if they
+        # were added manually or before the editions were set as
+        # equivalent.
+        not_yet_equivalent = self._edition()
+        other_entry = custom_list.add_entry(not_yet_equivalent)[0]
+        edition.primary_identifier.equivalent_to(
+            not_yet_equivalent.data_source,
+            not_yet_equivalent.primary_identifier, 1
+        )
+        eq_(
+            sorted([entry, other_entry]),
+            sorted(custom_list.entries_for_work(not_yet_equivalent))
+        )
+
+
 class TestCustomListEntry(DatabaseTest):
 
-    def test_set_license_pool(self):
+    def test_set_work(self):
 
         # Start with a custom list with no entries
         list, ignore = self._customlist(num_entries=0)
@@ -4892,66 +5202,268 @@ class TestCustomListEntry(DatabaseTest):
         )
 
         eq_(edition, entry.edition)
-        eq_(None, entry.license_pool)
+        eq_(None, entry.work)
 
         # Here's another edition, with a license pool.
         other_edition, lp = self._edition(with_open_access_download=True)
-
+       
         # And its identifier is equivalent to the entry's edition's identifier.
         data_source = DataSource.lookup(self._db, DataSource.OCLC)
         lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
 
-        # If we call set_license_pool, it should find the license pool
-        # from the equivalent identifier.
-        entry.set_license_pool()
+        # If we call set_work, it does nothing, because there is no work
+        # associated with either edition.
+        entry.set_work()
 
-        eq_(lp, entry.license_pool)
+        # But if we assign a Work with the LicensePool, and try again...
+        work, ignore = lp.calculate_work()
+        entry.set_work()
+        eq_(work, other_edition.work)
+        
+        # set_work() traces the line from the CustomListEntry to its
+        # Edition to the equivalent Edition to its Work, and associates
+        # that Work with the CustomListEntry.
+        eq_(work, entry.work)
+
+        # Even though the CustomListEntry's edition is not directly
+        # associated with the Work.
+        eq_(None, edition.work)
+
+    def test_update(self):
+        custom_list, [edition] = self._customlist(entries_exist_as_works=False)
+        identifier = edition.primary_identifier
+        [entry] = custom_list.entries
+        entry_attributes = vars(entry).values()
+        created = entry.first_appearance
+
+        # Running update without entries or forcing doesn't change the entry.
+        entry.update(self._db)
+        eq_(entry_attributes, vars(entry).values())
+
+        # Trying to update an entry with entries from a different
+        # CustomList is a no-go.
+        other_custom_list = self._customlist()[0]
+        [external_entry] = other_custom_list.entries
+        assert_raises(
+            ValueError, entry.update, self._db,
+            equivalent_entries=[external_entry]
+        )
+
+        # So is attempting to update an entry with other entries that
+        # don't represent the same work.
+        external_work = self._work(with_license_pool=True)
+        external_work_edition = external_work.presentation_edition
+        external_work_entry = custom_list.add_entry(external_work_edition)[0]
+        assert_raises(
+            ValueError, entry.update, self._db,
+            equivalent_entries=[external_work_entry]
+        )
+
+        # Okay, but with an actual equivalent entry...
+        work = self._work(with_open_access_download=True)
+        equivalent = work.presentation_edition
+        equivalent_entry = custom_list.add_entry(
+            equivalent, annotation="Whoo, go books!"
+        )[0]
+        identifier.equivalent_to(
+            equivalent.data_source, equivalent.primary_identifier, 1
+        )
+
+        # ...updating changes the original entry as expected.
+        entry.update(self._db, equivalent_entries=[equivalent_entry])
+        # The first_appearance hasn't changed because the entry was created first.
+        eq_(created, entry.first_appearance)
+        # But the most recent appearance is of the entry created last.
+        eq_(equivalent_entry.most_recent_appearance, entry.most_recent_appearance)
+        # Annotations are shared.
+        eq_(u"Whoo, go books!", entry.annotation)
+        # The Edition and LicensePool are updated to have a Work.
+        eq_(entry.edition, work.presentation_edition)
+        eq_(entry.work, equivalent.work)
+        # The equivalent entry has been deleted.
+        eq_([], self._db.query(CustomListEntry).\
+                filter(CustomListEntry.id==equivalent_entry.id).all())
+
+        # The entry with the longest annotation wins the annotation awards.
+        long_annotation = "Wow books are so great especially when they're annotated."
+        longwinded = self._edition()
+        longwinded_entry = custom_list.add_entry(
+            longwinded, annotation=long_annotation)[0]
+
+        identifier.equivalent_to(
+            longwinded.data_source, longwinded.primary_identifier, 1)
+        entry.update(self._db, equivalent_entries=[longwinded_entry])
+        eq_(long_annotation, entry.annotation)
+        eq_(longwinded_entry.most_recent_appearance, entry.most_recent_appearance)
+
+
+class TestLibrary(DatabaseTest):
+
+    def test_instance(self):
+
+        # There are no Library objects until we call instance().
+        eq_(0, self._db.query(Library).count())
+
+        # In the current release there will only ever be one library.
+        instance = Library.instance(self._db)
+        instance2 = Library.instance(self._db)
+        eq_(instance, instance2)
+
+    def test_library_registry_short_name(self):
+        library = Library.instance(self._db)
+
+        # Short name is always uppercased.
+        library.library_registry_short_name = "foo"
+        eq_("FOO", library.library_registry_short_name)
+
+        # Short name cannot contain a pipe character.
+        def set_to_pipe():
+            library.library_registry_short_name = "foo|bar"
+        assert_raises(ValueError, set_to_pipe)
+
+        # You can set the short name to None. This isn't
+        # recommended, but it's not an error.
+        library.library_registry_short_name = None
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        library = Library.instance(self._db)
+        library.uuid = "uuid"
+        library.name = "The Library"
+        library.short_name = "Short"
+        library.library_registry_short_name = "SHORT"
+        library.library_registry_shared_secret = "secret"
+
+        data = library.explain()
+        eq_(
+            ['UUID: "uuid"',
+             'Name: "The Library"',
+             'Short name: "Short"',
+             'Short name (for library registry): "SHORT"'],
+            data
+        )
+
+        
+        with_secret = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secret
 
 
 class TestCollection(DatabaseTest):
 
+    def test_set_key_value_pair(self):
+        """Test the ability to associate extra key-value pairs with
+        a Collection.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE
+        )
+        eq_([], collection.settings)
+
+        setting = collection.set_setting("website_id", "id1")
+        eq_("website_id", setting.key)
+        eq_("id1", setting.value)
+
+        # Calling set() again updates the key-value pair.
+        eq_([setting], collection.settings)
+        setting2 = collection.set_setting("website_id", "id2")
+        eq_(setting, setting2)
+        eq_("id2", setting2.value)
+
+        eq_(setting2, collection.setting("website_id"))
+
+
+    def test_explain(self):
+        """Test that Collection.explain gives all relevant information
+        about a Library.
+        """
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name="test collection",
+            protocol=Collection.OVERDRIVE,
+        )
+        library = Library.instance(self._db)
+        library.name = "The only library"
+        library.collections.append(collection)
+        
+        collection.external_account_id = "id"
+        collection.url = "url"
+        collection.username = "username"
+        collection.password = "password"
+        setting = collection.set_setting("setting", "value")
+
+        data = collection.explain()
+        eq_(['Name: "test collection"',
+             'Protocol: "Overdrive"',
+             'Used by library: "The only library"',
+             'External account ID: "id"',
+             'URL: "url"',
+             'Username: "username"',
+             'Setting "setting": "value"'
+        ],
+            data
+        )
+
+        with_password = collection.explain(include_password=True)
+        assert 'Password: "password"' in with_password
+
+        # If the collection is the child of another collection,
+        # its parent is mentioned.
+        child = Collection(
+            name="Child", parent=collection, external_account_id="id2"
+        )
+        data = child.explain()
+        eq_(['Name: "Child"',
+             'Parent: test collection',
+             'External account ID: "id2"'],
+            data
+        )
+
+class TestCatalog(DatabaseTest):
+
     def setup(self):
-        super(TestCollection, self).setup()
-        self.collection = self._collection()
+        super(TestCatalog, self).setup()
+        self.catalog = self._catalog()
 
     def test_encrypts_client_secret(self):
-        collection, new = get_one_or_create(
-            self._db, Collection, name=u"Test Collection", client_id=u"test",
+        catalog, new = get_one_or_create(
+            self._db, Catalog, name=u"Test Catalog", client_id=u"test",
             client_secret=u"megatest"
         )
-        assert collection.client_secret != u"megatest"
-        eq_(True, collection.client_secret.startswith("$2a$"))
+        assert catalog.client_secret != u"megatest"
+        eq_(True, catalog.client_secret.startswith("$2a$"))
 
     def test_register(self):
-        collection, plaintext_secret = Collection.register(
+        catalog, plaintext_secret = Catalog.register(
             self._db, u"A Library"
         )
 
-        # It creates client details and a DataSource for the collection
-        assert collection.client_id and collection.client_secret
-        assert get_one(self._db, DataSource, name=collection.name)
+        # It creates client details and a DataSource for the catalog
+        assert catalog.client_id and catalog.client_secret
+        assert get_one(self._db, DataSource, name=catalog.name)
 
         # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+        assert_raises(ValueError, Catalog.register, self._db, u"A Library")
 
     def test_authenticate(self):
 
-        result = Collection.authenticate(self._db, u"abc", u"def")
-        eq_(self.collection, result)
+        result = Catalog.authenticate(self._db, u"abc", u"def")
+        eq_(self.catalog, result)
 
-        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
+        result = Catalog.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
-        result = Collection.authenticate(self._db, u"bad_id", u"def")
+        result = Catalog.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
     def test_catalog_identifier(self):
-        """#catalog_identifier associates an identifier with the collection"""
+        """#catalog_identifier associates an identifier with the catalog"""
 
         identifier = self._identifier()
-        self.collection.catalog_identifier(self._db, identifier)
-        eq_(1, len(self.collection.catalog))
-        eq_(identifier, self.collection.catalog[0])
+        self.catalog.catalog_identifier(self._db, identifier)
+        eq_(1, len(self.catalog.catalog))
+        eq_(identifier, self.catalog.catalog[0])
 
     def test_works_updated_since(self):
 
@@ -4959,13 +5471,13 @@ class TestCollection(DatabaseTest):
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         timestamp = datetime.datetime.utcnow()
-        # A collection with no catalog returns nothing.
-        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+        # An empty catalog returns nothing.
+        eq_([], self.catalog.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
-        updated_works = self.collection.works_updated_since(self._db, None).all()
+        self.catalog.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.catalog.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.catalog.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))
         assert w1 in updated_works and w2 in updated_works
@@ -4974,7 +5486,7 @@ class TestCollection(DatabaseTest):
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
-        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+        eq_([w1], self.catalog.works_updated_since(self._db, timestamp).all())
 
 
 class TestMaterializedViews(DatabaseTest):

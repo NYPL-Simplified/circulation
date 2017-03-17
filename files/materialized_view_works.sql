@@ -12,7 +12,6 @@ as
     editions.language,
     editions.cover_full_url,
     editions.cover_thumbnail_url,
-    editions.open_access_download_url,
     editions.series,
     editions.series_position,
     datasources.name,
@@ -29,6 +28,7 @@ as
     works.simple_opds_entry,
     works.verbose_opds_entry,
     licensepools.id AS license_pool_id,
+    licensepools.open_access_download_url,
     licensepools.availability_time
 
    FROM works

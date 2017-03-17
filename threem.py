@@ -19,12 +19,15 @@ from coverage import (
     CoverageFailure,
 )
 from model import (
+    get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     Representation,
     Hyperlink,
     Identifier,
+    Library,
     Measurement,
     Edition,
     Subject,
@@ -58,51 +61,53 @@ class ThreeMAPI(object):
 
     MAX_METADATA_AGE = timedelta(days=180)
 
-    log = logging.getLogger("3M API")
+    log = logging.getLogger("Bibliotheca API")
 
-    def __init__(self, _db, base_url = "https://partner.yourcloudlibrary.com/",
-                 version="2.0", testing=False):
+    DEFAULT_VERSION = "2.0"
+    DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
+    
+    def __init__(self, _db, collection):
+        if collection.protocol != collection.BIBLIOTHECA:
+            raise ValueError(
+                "Collection protocol is %s, but passed into BibliothecaAPI!" %
+                collection.protocol
+            )
+
         self._db = _db
-        self.version = version
-        self.base_url = base_url
+        self.version = (
+            collection.setting('version').value or self.DEFAULT_VERSION
+        )
+        self.account_id = collection.username.encode("utf8")
+        self.account_key = collection.password.encode("utf8")
+        self.library_id = collection.external_account_id.encode("utf8")
+        self.base_url = collection.url or self.DEFAULT_BASE_URL
+        
+        if not self.account_id or not self.account_key or not self.library_id:
+            raise CannotLoadConfiguration(
+                "Bibliotheca configuration is incomplete."
+            )
+
         self.item_list_parser = ItemListParser()
-
-        if testing:
-            return
-
-        values = self.environment_values()
-        if len([x for x in values if not x]):
-            raise CannotLoadConfiguration("3M integration has incomplete configuration.")
-        (self.library_id, self.account_id, self.account_key) = values
-
-    @classmethod
-    def environment_values(
-            self, client_key=None, client_secret=None,
-            website_id=None, library_id=None, collection_name=None):
-        value = Configuration.integration('3M')
-        values = []
-        for name in [
-                'library_id',
-                'account_id',
-                'account_key',
-            ]:
-            var = value.get(name)
-            if var:
-                var = var.encode("utf8")
-            values.append(var)
-        return values
 
     @classmethod
     def from_environment(cls, _db):
-        # Make sure all environment values are present. If any are missing,
-        # return None
-        values = cls.environment_values()
-        if len([x for x in values if not x]):
-            cls.log.info(
-                "No 3M client configured."
-            )
+        """Load a ThreeMAPI instance for the 'default' Bibliotheca
+        collection.
+        """
+        library = Library.instance(_db)
+        collections = [x for x in library.collections
+                      if x.protocol == Collection.BIBLIOTHECA]
+        if len(collections) == 0:
+            # There are no Bibliotheca collections configured.
             return None
-        return cls(_db)
+
+        if len(collections) > 1:
+            raise ValueError(
+                "Multiple Bibliotheca collections found for one library. This is not yet supported."
+            )
+        [collection] = collections
+
+        return cls(_db, collection)
 
     @property
     def source(self):
@@ -130,7 +135,7 @@ class ThreeMAPI(object):
         signature_string = "\n".join(signature_components)
         digest = hmac.new(self.account_key, msg=signature_string,
                     digestmod=hashlib.sha256).digest()
-        signature = base64.b64encode(digest)
+        signature = base64.standard_b64encode(digest)
         return signature, now
 
     def full_url(self, path):
@@ -210,15 +215,19 @@ class MockThreeMAPI(ThreeMAPI):
         self.responses = []
         self.requests = []
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['3M'] = {
-                'library_id' : 'a',
-                'account_id' : 'b',
-                'account_key' : 'c',
-            }
-            super(MockThreeMAPI, self).__init__(
-                _db, *args, base_url="http://3m.test", **kwargs
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test Bibliotheca Collection",
+            protocol=Collection.BIBLIOTHECA, create_method_kwargs=dict(
+                username=u'a', password=u'b', external_account_id=u'c',
+                url="http://bibliotheca.test"
             )
+        )
+        library.collections.append(collection)
+        super(MockThreeMAPI, self).__init__(
+            _db, collection, *args, **kwargs
+        )
 
     def now(self):
         """Return an unvarying time in the format 3M expects."""
@@ -417,13 +426,13 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     Then mark the works as presentation-ready.
     """
 
-    def __init__(self, _db, input_identifier_types=None,
-                 metadata_replacement_policy=None, threem_api=None,
-                 **kwargs
+    def __init__(self, _db, metadata_replacement_policy=None, threem_api=None,
+                 input_identifier_types=None, input_identifiers=None, **kwargs
     ):
-        # We ignore the value of input_identifier_types, but it's
-        # passed in by RunCoverageProviderScript, so we accept it as
-        # part of the signature.
+        """
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        """
         threem_api = threem_api or ThreeMAPI(_db)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, threem_api, DataSource.THREEM,

@@ -24,6 +24,7 @@ from util import (
     MoneyUtility,
     TitleProcessor,
     fast_query_count,
+    slugify
 )
 from util.opds_authentication_document import OPDSAuthenticationDocument
 from util.median import median
@@ -548,6 +549,24 @@ class TestFastQueryCount(DatabaseTest):
 
         qu3 = qu.limit(6)
         eq_(qu3.count(), fast_query_count(qu3))
+
+
+class TestSlugify(object):
+
+    def test_slugify(self):
+
+        # text are slugified.
+        eq_('hey-im-a-feed', slugify("Hey! I'm a feed!!"))
+        eq_('you-and-me-n-every_feed', slugify("You & Me n Every_Feed"))
+        eq_('money-honey', slugify("Money $$$       Honey"))
+        eq_('some-title-somewhere', slugify('Some (???) Title Somewhere'))
+        eq_('sly-and-the-family-stone', slugify('sly & the family stone'))
+
+        # The results can be pared down according to length restrictions.
+        eq_('happ', slugify('Happy birthday', length_limit=4))
+
+        # Slugified text isn't altered
+        eq_('already-slugified', slugify('already-slugified'))
 
 
 class TestMoneyUtility(object):

@@ -17,12 +17,23 @@ class ExternalSearchIndex(object):
     work_document_type = 'work-type'
     __client = None
 
+    CURRENT_ALIAS_SUFFIX = '-current'
+    VERSION_RE = re.compile('-v([0-9]+)$')
+
+    @classmethod
+    def reset(cls):
+        """Resets the __client object to None so a new configuration
+        can be applied during object initialization.
+
+        This method is only intended for use in testing.
+        """
+        cls.__client = None
+
     def __init__(self, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
-
-        # By default, assume that there is no search index.
         self.works_index = None
+        self.works_alias = None
 
         if not ExternalSearchIndex.__client:
             if not url or not works_index:
@@ -33,14 +44,16 @@ class ExternalSearchIndex(object):
                 if not works_index:
                     works_index = integration.get(
                         Configuration.ELASTICSEARCH_INDEX_KEY
-                    ) or None
+                    )
 
                 if not url:
                     if not integration:
                         return
                     url = integration[Configuration.URL]
 
-            use_ssl = url and url.startswith('https://')
+            if not url:
+                raise Exception("Cannot connect to Elasticsearch cluster.")
+            use_ssl = url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
                 works_index, url
@@ -48,99 +61,157 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client = Elasticsearch(
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
-            ExternalSearchIndex.__client.works_index = works_index
-            if not url:
-                raise Exception("Cannot connect to Elasticsearch cluster.")
-
-        self.works_index = self.__client.works_index
         self.indices = self.__client.indices
         self.search = self.__client.search
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
+
+        # Sets self.works_index and self.works_alias values.
+        # Document upload runs against the works_index.
+        # Search queries run against works_alias.
+        self.set_works_index_and_alias(works_index)
+
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
-            
+
+    def set_works_index_and_alias(self, current_alias):
+        """Finds or creates the works_index and works_alias based on
+        provided configuration.
+        """
+        index_details = self.indices.get_alias(name=current_alias, ignore=[404])
+        found = not (index_details.get('status')==404 or 'error' in index_details)
+
+        def _set_works_index(name):
+            self.works_index = self.__client.works_index = name
+
+        if found:
+            # We found an index for the alias in configuration. Assume
+            # there is only one.
+            _set_works_index(index_details.keys()[0])
+        else:
+            if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
+                # The alias culled from configuration is intended to be
+                # a current alias, but an index with that alias wasn't
+                # found. Find or create an appropriate index.
+                base_index_name = self.base_index_name(current_alias)
+                new_index = base_index_name+'-'+ExternalSearchIndexVersions.latest()
+                _set_works_index(new_index)
+            else:
+                # Without the CURRENT_ALIAS_SUFFIX, assume the index string
+                # from config is the index itself and needs to be swapped.
+                _set_works_index(current_alias)
+
         if not self.indices.exists(self.works_index):
             self.setup_index()
+        self.setup_current_alias()
 
-    def setup_index(self):
+    def setup_current_alias(self):
+        """Finds or creates a works_alias based on the base works_index
+        name and ending in the expected CURRENT_ALIAS_SUFFIX.
+
+        If the resulting alias exists and is affixed to a different
+        index or if it can't be generated for any reason, the alias will
+        not be created or moved. Instead, the search client will use the
+        the works_index directly for search queries.
         """
-        Create the search index with appropriate mapping.
+
+        base_works_index = self.base_index_name(self.works_index)
+        alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
+        exists = self.indices.exists_alias(name=alias_name)
+
+        def _set_works_alias(name):
+            self.works_alias = self.__client.works_alias = name
+
+        if exists:
+            exists_on_works_index = self.indices.exists_alias(
+                index=self.works_index, name=alias_name
+            )
+            if exists_on_works_index:
+                _set_works_alias(alias_name)
+            else:
+                # The current alias is already set on a different index.
+                # Don't overwrite it. Instead, just use the given index.
+                _set_works_alias(self.works_index)
+            return
+
+        # Create the alias and search against it.
+        response = self.indices.put_alias(
+            index=self.works_index, name=alias_name
+        )
+        if not response.get('acknowledged'):
+            self.log.error("Alias '%s' could not be created", alias_name)
+            # Work against the index instead of an alias.
+            _set_works_alias(self.works_index)
+            return
+        _set_works_alias(alias_name)
+
+    def setup_index(self, new_index=None):
+        """Create the search index with appropriate mapping.
 
         This will destroy the search index, and all works will need
         to be indexed again. In production, don't use this on an
-        existing index. Use it to create a new index, then change the 
+        existing index. Use it to create a new index, then change the
         alias to point to the new index.
         """
+        index = new_index or self.works_index
 
-        if self.works_index:
-            if self.indices.exists(self.works_index):
-                self.indices.delete(self.works_index)
+        if self.indices.exists(index):
+            self.indices.delete(index)
 
-            self.log.info("Creating index %s", self.works_index)
-            self.indices.create(
-                index=self.works_index,
-                body={
-                    "settings": {
-                        "analysis": {
-                            "filter": {
-                                "en_stop_filter": {
-                                    "type": "stop",
-                                    "stopwords": ["_english_"]
-                                },
-                                "en_stem_filter": {
-                                    "type": "stemmer",
-                                    "name": "english"
-                                },
-                                "en_stem_minimal_filter": {
-                                    "type": "stemmer",
-                                    "name": "english"
-                                },
-                            },
-                            "analyzer" : {
-                                "en_analyzer": {
-                                    "type": "custom",
-                                    "char_filter": ["html_strip"],
-                                    "tokenizer": "standard",
-                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                                },
-                                "en_minimal_analyzer": {
-                                    "type": "custom",
-                                    "char_filter": ["html_strip"],
-                                    "tokenizer": "standard",
-                                    "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                                },
-                            }
-                        }
-                    }
-                },
+        self.log.info("Creating index %s", index)
+        body = ExternalSearchIndexVersions.latest_body()
+        self.indices.create(index=index, body=body)
+
+    def transfer_current_alias(self, new_index):
+        """Force -current alias onto a new index"""
+        if not self.indices.exists(index=new_index):
+            raise ValueError(
+                "Index '%s' does not exist on this client." % new_index)
+
+        current_base_name = self.base_index_name(self.works_index)
+        new_base_name = self.base_index_name(new_index)
+
+        if new_base_name != current_base_name:
+            raise ValueError(
+                ("Index '%s' is not in series with current index '%s'. "
+                 "Confirm the base name (without version number) of both indices"
+                 "is the same.") % (new_index, self.works_index))
+
+        self.works_index = self.__client.works_index = new_index
+        alias_name = self.base_index_name(new_index)+self.CURRENT_ALIAS_SUFFIX
+
+        exists = self.indices.exists_alias(name=alias_name)
+        if not exists:
+            self.setup_current_alias()
+            return
+
+        exists_on_works_index = self.indices.get_alias(
+            index=self.works_index, name=alias_name
+        )
+        if not exists_on_works_index:
+            # The alias exists on one or more other indices.
+            # Remove it from them.
+            self.indices.delete_alias(index='_all', name=alias_name)
+            self.indices.put_alias(
+                index=self.works_index, name=alias_name
             )
-        
-            mapping = {"properties": {}}
-            for field in ["title", "series", "subtitle", "summary", "classifications.term"]:
-                mapping["properties"][field] = {
-                    "type": "string",
-                    "analyzer": "en_analyzer",
-                    "fields": {
-                        "minimal": {
-                            "type": "string",
-                            "analyzer": "en_minimal_analyzer"
-                        }
-                    }
-                }
-            self.indices.put_mapping(
-                doc_type=self.work_document_type,
-                body=mapping,
-                index=self.works_index,
-            )
-            
-                
+
+        self.works_alias = self.__client.works_alias = alias_name
+
+    def base_index_name(self, index_or_alias):
+        """Removes version or current suffix from base index name"""
+
+        current_re = re.compile(self.CURRENT_ALIAS_SUFFIX+'$')
+        base_works_index = re.sub(current_re, '', index_or_alias)
+        base_works_index = re.sub(self.VERSION_RE, '', base_works_index)
+
+        return base_works_index
 
     def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
-        if not self.works_index:
+        if not self.works_alias:
             return []
 
         filter = self.make_filter(
@@ -155,7 +226,7 @@ class ExternalSearchIndex(object):
         )
         body = dict(query=q)
         search_args = dict(
-            index=self.works_index,
+            index=self.works_alias,
             body=dict(query=q),
             from_=offset,
             size=size,
@@ -527,6 +598,98 @@ class ExternalSearchIndex(object):
         return successes, failures
 
 
+class ExternalSearchIndexVersions(object):
+
+    VERSIONS = ['v2']
+
+    @classmethod
+    def latest(cls):
+        version_re = re.compile('v(\d+)')
+        versions = [int(re.match(version_re, v).groups()[0]) for v in cls.VERSIONS]
+        latest = sorted(versions)[-1]
+        return 'v%d' % latest
+
+    @classmethod
+    def latest_body(cls):
+        version_method = cls.latest() + '_body'
+        return getattr(cls, version_method)()
+
+    @classmethod
+    def map_fields(cls, fields, field_description):
+        mapping = {"properties": {}}
+        for field in fields:
+            mapping["properties"][field] = field_description
+        return mapping
+
+    @classmethod
+    def v2_body(cls):
+
+        settings = {
+            "analysis": {
+                "filter": {
+                    "en_stop_filter": {
+                        "type": "stop",
+                        "stopwords": ["_english_"]
+                    },
+                    "en_stem_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                    "en_stem_minimal_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                },
+                "analyzer" : {
+                    "en_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                    },
+                    "en_minimal_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                }
+            }
+        }
+
+        mapping = cls.map_fields(
+            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            field_description={
+                "type": "string",
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": "string",
+                        "analyzer": "en_minimal_analyzer"}}}
+        )
+        mappings = { ExternalSearchIndex.work_document_type : mapping }
+
+        return dict(settings=settings, mappings=mappings)
+
+    @classmethod
+    def create_new_version(cls, search_client, base_index_name, version=None):
+        """Creates an index for a new version
+
+        :return: True or False, indicating whether the index was created new.
+        """
+        if not version:
+            version = cls.latest()
+        if not version.startswith('v'):
+            version = 'v%s' % version
+
+        versioned_index = base_index_name+'-'+version
+        if search_client.indices.exists(index=versioned_index):
+            return False
+        else:
+            search_client.setup_index(new_index=versioned_index)
+            return True
+
+
 class DummyExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
@@ -535,6 +698,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.url = url
         self.docs = {}
         self.works_index = "works"
+        self.works_alias = "works-current"
         self.log = logging.getLogger("Dummy external search index")
 
     def _key(self, index, doc_type, id):
