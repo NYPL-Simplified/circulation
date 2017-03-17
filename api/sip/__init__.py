@@ -66,6 +66,12 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.client = client
 
     def remote_authenticate(self, username, password):
+        """Authenticate a patron with the SIP2 server.
+
+        :param username: The patron's username/barcode/card
+            number/authorization identifier.
+        :param password: The patron's password/pin/access code.
+        """
         try:
             info = self.client.patron_information(username, password)
         except IOError, e:
