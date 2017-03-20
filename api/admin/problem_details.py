@@ -121,11 +121,25 @@ NO_PROTOCOL_FOR_NEW_COLLECTION = pd(
     detail=_("The specified collection doesn't exist. You can create it, but you must specify a protocol."),
 )
 
+UNKNOWN_COLLECTION_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/unknown-collection-protocol",
+    status_code=400,
+    title=_("Unknown collection protocol"),
+    detail=_("The protocol is not one of the known protocols."),
+)
+
+CANNOT_CHANGE_COLLECTION_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-collection-protocol",
+    status_code=400,
+    title=_("Cannot change collection protocol"),
+    detail=_("A collection's protocol can't be changed once it has been set."),
+)
+
 NO_SUCH_LIBRARY = pd(
     "http://librarysimplified.org/terms/problem/no-such-library",
     status_code=400,
     title=_("No such library"),
-    detail=_("One of the libraries added to the collection does not exist."),
+    detail=_("One of the libraries you attempted to add the collection to does not exist."),
 )
 
 INCOMPLETE_COLLECTION_CONFIGURATION = pd(

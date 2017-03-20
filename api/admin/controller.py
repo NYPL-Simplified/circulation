@@ -889,46 +889,97 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def collections(self):
+        protocols = []
+        
+        protocols.append({
+            "name": Collection.OPDS_IMPORT,
+            "fields": [
+                { "key": "url", "label": _("URL") },
+            ],
+        })
+
+        protocols.append({
+            "name": Collection.OVERDRIVE,
+            "fields": [
+                { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "website_id", "label": _("Website ID") },
+                { "key": "username", "label": _("Client Key") },
+                { "key": "password", "label": _("Client Secret") },
+            ],
+        })
+
+        protocols.append({
+            "name": Collection.BIBLIOTHECA,
+            "fields": [
+                { "key": "username", "label": _("Account ID") },
+                { "key": "password", "label": _("Account Key") },
+                { "key": "external_account_id", "label": _("Library ID") },
+            ],
+        })
+
+        protocols.append({
+            "name": Collection.AXIS_360,
+            "fields": [
+                { "key": "username", "label": _("Username") },
+                { "key": "password", "label": _("Password") },
+                { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "url", "label": _("Server") },
+            ],
+        })
+
+        protocols.append({
+            "name": Collection.ONE_CLICK,
+            "fields": [
+                { "key": "password", "label": _("Basic Token") },
+                { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "url", "label": _("URL") },
+                { "key": "ebook_loan_length", "label": _("eBook Loan Length") },
+                { "key": "eaudio_loan_length", "label": _("eAudio Loan Length") },
+            ],
+        })
+
         if flask.request.method == 'GET':
-            collections = [
-                dict(
-                    name=collection.name,
-                    protocol=collection.protocol,
-                    libraries=[library.short_name for library in collection.libraries],
-                    external_account_id=collection.external_account_id,
-                    url=collection.url,
-                    username=collection.username,
-                    password=collection.password,
-                    settings={setting.key: setting.value for setting in collection.settings}
+            collections = []
+            for c in self._db.query(Collection).order_by(Collection.name).all():
+                collection = dict(
+                    name=c.name,
+                    protocol=c.protocol,
+                    libraries=[library.short_name for library in c.libraries],
+                    external_account_id=c.external_account_id,
+                    url=c.url,
+                    username=c.username,
+                    password=c.password,
                 )
-                for collection in self._db.query(Collection).order_by(Collection.name).all()
-            ]
+                if c.protocol in [p.get("name") for p in protocols]:
+                    [protocol] = [p for p in protocols if p.get("name") == c.protocol]
+                    for field in protocol.get("fields"):
+                        key = field.get("key")
+                        if key not in collection:
+                            collection[key] = c.setting(key).value
+                collections.append(collection)
 
             return dict(
                 collections=collections,
-                protocols=Collection.PROTOCOLS,
+                protocols=protocols,
             )
 
 
         name = flask.request.form.get("name")
         if not name:
             return MISSING_COLLECTION_NAME
+
         protocol = flask.request.form.get("protocol")
-        external_account_id = flask.request.form.get("external_account_id")
-        url = flask.request.form.get("url")
-        username = flask.request.form.get("username")
-        password = flask.request.form.get("password")
-        settings = {}
-        if flask.request.form.get("settings"):
-            settings = json.loads(flask.request.form.get("settings"))
-        libraries = []
-        if flask.request.form.get("libraries"):
-            libraries = json.loads(flask.request.form.get("libraries"))
+
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_COLLECTION_PROTOCOL
 
         is_new = False
-
         collection = get_one(self._db, Collection, name=name)
-        if not collection:
+        if collection:
+            if protocol != collection.protocol:
+                return CANNOT_CHANGE_COLLECTION_PROTOCOL
+
+        else:
             if protocol:
                 collection, is_new = get_one_or_create(
                     self._db, Collection, name=name, protocol=protocol
@@ -936,56 +987,33 @@ class SettingsController(CirculationManagerController):
             else:
                 return NO_PROTOCOL_FOR_NEW_COLLECTION
 
-        if protocol:
-            collection.protocol = protocol
-        if external_account_id:
-            collection.external_account_id = external_account_id
-        if url:
-            collection.url = url
-        if username:
-            collection.username = username
-        if password:
-            collection.password = password
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        fields = protocol.get("fields")
 
-        for key, value in settings.items():
-            collection.setting(key).value = value
-        for setting in collection.settings:
-            if setting.key not in settings.keys():
-                self._db.delete(setting)
+        for field in fields:
+            key = field.get("key")
+            value = flask.request.form.get(key)
+            if not value:
+                # Roll back any changes to the collection that have already been made.
+                self._db.rollback()
+                return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(
+                    _("The collection configuration is missing a required field: %(field)s",
+                      field=key))
 
+            if key == "external_account_id":
+                collection.external_account_id = value
+            elif key == "username":
+                collection.username = value
+            elif key == "password":
+                collection.password = value
+            elif key == "url":
+                collection.url = value
+            else:
+                collection.setting(key).value = value
 
-        if collection.protocol == Collection.OPDS_IMPORT and not collection.url:
-            self._db.rollback()
-            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An OPDS Import collection must have a url."))
-
-        if (collection.protocol == Collection.OVERDRIVE
-            and (not collection.username
-                 or not collection.password
-                 or not collection.external_account_id
-                 or not collection.setting("website_id").value)):
-            self._db.rollback()
-            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An Overdrive collection must have username, password, external_account_id, and website_id."))
-
-        if (collection.protocol == Collection.BIBLIOTHECA
-            and (not collection.username
-                 or not collection.password
-                 or not collection.external_account_id)):
-            self._db.rollback()
-            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("A Bibliotheca collection must have username, password, and external_account_id."))
-
-        if (collection.protocol == Collection.AXIS_360
-            and (not collection.username
-                 or not collection.password
-                 or not collection.external_account_id)):
-            self._db.rollback()
-            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("An Axis 360 collection must have username, password, and external_account_id."))
-
-        if (collection.protocol == Collection.ONE_CLICK
-            and (not collection.username
-                 or not collection.password
-                 or not collection.external_account_id)):
-            self._db.rollback()
-            return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(_("A OneClick collection must have username, password, and external_account_id."))
+        libraries = []
+        if flask.request.form.get("libraries"):
+            libraries = json.loads(flask.request.form.get("libraries"))
 
         for short_name in libraries:
             library = get_one(self._db, Library, short_name=short_name)

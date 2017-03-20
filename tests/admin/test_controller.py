@@ -1047,7 +1047,9 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
-            eq_(sorted(response.get("protocols")),
+
+            # All the protocols in Collection.PROTOCOLS are supported by the admin interface.
+            eq_(sorted([p.get("name") for p in response.get("protocols")]),
                 sorted(Collection.PROTOCOLS))
 
     def test_collections_get_with_multiple_collections(self):
@@ -1096,6 +1098,28 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection"),
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, UNKNOWN_COLLECTION_PROTOCOL)
+
+        collection, ignore = create(
+            self._db, Collection, name="Collection 1",
+            protocol=Collection.OVERDRIVE
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Collection 1"),
+                ("protocol", "Bibliotheca"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, CANNOT_CHANGE_COLLECTION_PROTOCOL)
+
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "collection"),
                 ("protocol", "OPDS Import"),
                 ("url", "test.com"),
                 ("libraries", json.dumps(["nosuchlibrary"])),
@@ -1113,7 +1137,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("name", "collection1"),
+                ("name", "Collection 1"),
                 ("protocol", "Overdrive"),
                 ("external_account_id", "1234"),
                 ("username", "user"),
@@ -1168,11 +1192,10 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
                 ("libraries", json.dumps(["L1", "L2"])),
-                ("settings", json.dumps(dict(website_id="1234"))),
                 ("external_account_id", "acctid"),
-                ("url", "url"),
                 ("username", "username"),
                 ("password", "password"),
+                ("website_id", "1234"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 201)
@@ -1180,7 +1203,6 @@ class TestSettingsController(AdminControllerTest):
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection)
         eq_("New Collection", collection.name)
-        eq_("url", collection.url)
         eq_("acctid", collection.external_account_id)
         eq_("username", collection.username)
         eq_("password", collection.password)
@@ -1209,46 +1231,45 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 1"),
-                ("url", "foo"),
-                ("protocol", Collection.BIBLIOTHECA),
+                ("protocol", Collection.OVERDRIVE),
                 ("external_account_id", "1234"),
-                ("username", "user"),
+                ("username", "user2"),
                 ("password", "password"),
+                ("website_id", "1234"),
                 ("libraries", json.dumps(["L1"])),
-                ("settings", json.dumps(dict(library_id="1234"))),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
 
         # The collection has been changed.
-        eq_("foo", collection.url)
-        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        eq_("user2", collection.username)
 
         # A library now has access to the collection.
         eq_([collection], l1.collections)
 
         # One CollectionSetting was set on the collection.
         [setting] = collection.settings
-        eq_("library_id", setting.key)
+        eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 1"),
+                ("protocol", Collection.OVERDRIVE),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("website_id", "1234"),
                 ("libraries", json.dumps([])),
-                ("settings", json.dumps({})),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
 
         # The collection is the same.
-        eq_("foo", collection.url)
-        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        eq_("user2", collection.username)
+        eq_(Collection.OVERDRIVE, collection.protocol)
 
         # But the library has been removed.
         eq_([], l1.collections)
-
-        # And the setting has been removed.
-        eq_([], collection.settings)
 
         
