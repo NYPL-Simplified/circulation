@@ -395,7 +395,7 @@ class CoverageProvider(BaseCoverageProvider):
     Turns errors in processing into coverage records with failure flags.
     """
 
-    def __init__(self, service_name, output_source, collection,
+    def __init__(self, service_name, output_source, collection=None,
                  input_identifier_types=None, batch_size=100,
                  cutoff_time=None, operation=None, input_identifiers=None
     ):

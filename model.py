@@ -1375,10 +1375,10 @@ class Identifier(Base):
         "Edition", backref="primary_identifier"
     )
 
-    # One Identifier may serve as the identifier for
-    # a single LicensePool.
+    # One Identifier may serve as the identifier for many
+    # LicensePools, through different Collections.
     licensed_through = relationship(
-        "LicensePool", backref="identifier", uselist=False, lazy='joined',
+        "LicensePool", backref="identifier", lazy='joined',
     )
 
     # One Identifier may have many Links.
@@ -6109,7 +6109,7 @@ class LicensePool(Base):
 
             policy = ReplacementPolicy.from_metadata_source()
             self.presentation_edition, edition_core_changed = metadata.apply(
-                edition, replace=policy
+                edition, collection=self.collection, replace=policy
             )
             changed = changed or edition_core_changed
 
