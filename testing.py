@@ -72,7 +72,7 @@ def package_setup():
 
     # Initialize basic database data needed by the application.
     _db = Session(connection)
-    SessionManager.initialize_data(_db)
+    SessionManager.initialize_data(_db)    
     _db.commit()
     connection.close()
     engine.dispose()
@@ -98,7 +98,7 @@ class DatabaseTest(object):
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
 
         os.environ['TESTING'] = 'true'
-
+        
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -323,7 +323,7 @@ class DatabaseTest(object):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
-            
+        collection = collection or self._default_collection
         pool, ignore = get_one_or_create(
             self._db, LicensePool,
             create_method_kwargs=dict(
@@ -652,7 +652,21 @@ class DatabaseTest(object):
         collection.username = username
         collection.password = password
         return collection
-        
+
+    @property
+    def _default_collection(self):
+        """A Collection that will only be created once throughout
+        a given test.
+
+        For most tests there's no need to create a different
+        Collection for every LicensePool. Using
+        self._default_collection instead of calling self.collection()
+        saves time.
+        """
+        if not hasattr(self, '__default_collection'):
+            self.__default_collection = self._collection()
+        return self.__default_collection
+    
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         return get_one_or_create(

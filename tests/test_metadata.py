@@ -121,7 +121,7 @@ class TestMetadataImporter(DatabaseTest):
         subjects = [SubjectData(type=Subject.TAG, identifier="i will conquer")]
         metadata = Metadata(subjects=subjects, data_source=source2)
         replace = ReplacementPolicy(subjects=True)
-        metadata.apply(edition, replace=replace)
+        metadata.apply(edition, None, replace=replace)
 
         # The old classification from source #2 has been destroyed.
         # The old classification from source #1 is still there.
@@ -136,7 +136,7 @@ class TestMetadataImporter(DatabaseTest):
         l2 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
         metadata = Metadata(links=[l1, l2], 
                             data_source=edition.data_source)
-        metadata.apply(edition)
+        metadata.apply(edition, None)
         [image, description] = sorted(
             edition.primary_identifier.links, key=lambda x:x.rel
         )
@@ -158,7 +158,7 @@ class TestMetadataImporter(DatabaseTest):
         )
         metadata = Metadata(links=[l1, l2], 
                             data_source=edition.data_source)
-        metadata.apply(edition)
+        metadata.apply(edition, None)
         [image, thumbnail] = sorted(
             edition.primary_identifier.links, key=lambda x:x.rel
         )
@@ -201,7 +201,7 @@ class TestMetadataImporter(DatabaseTest):
         # 'mirrored'.
         policy = ReplacementPolicy(mirror=mirror)
         metadata = Metadata(links=[l1, l2], data_source=edition.data_source)
-        metadata.apply(edition, replace=policy)
+        metadata.apply(edition, pool.collection, replace=policy)
 
         # Two Representations were 'mirrored'.
         image, thumbnail = mirror.uploaded
@@ -455,7 +455,7 @@ class TestMetadataImporter(DatabaseTest):
                                       value=100)
         metadata = Metadata(measurements=[measurement],
                             data_source=edition.data_source)
-        metadata.apply(edition)
+        metadata.apply(edition, None)
         [m] = edition.primary_identifier.measurements
         eq_(Measurement.POPULARITY, m.quantity_measured)
         eq_(100, m.value)
@@ -473,7 +473,7 @@ class TestMetadataImporter(DatabaseTest):
 
         m = Metadata(data_source=data_source,
                      title=u"New title", data_source_last_updated=last_update)
-        m.apply(edition)
+        m.apply(edition, None)
         
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(last_update, coverage.timestamp)
@@ -484,13 +484,13 @@ class TestMetadataImporter(DatabaseTest):
                      title=u"Another new title", 
                      data_source_last_updated=older_last_update
         )
-        m.apply(edition)
+        m.apply(edition, None)
         eq_(u"New title", edition.title)
 
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(last_update, coverage.timestamp)
 
-        m.apply(edition, force=True)
+        m.apply(edition, None, force=True)
         eq_(u"Another new title", edition.title)
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(older_last_update, coverage.timestamp)
@@ -628,7 +628,7 @@ class TestMetadata(DatabaseTest):
             issued=datetime.date(1989, 4, 5)
         )
 
-        edition_new, changed = metadata.apply(edition_old)
+        edition_new, changed = metadata.apply(edition_old, pool.collection)
 
         eq_(changed, True)
         eq_(edition_new.title, u"The Harry Otter and the Seaweed of Ages")
@@ -643,7 +643,7 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.published, datetime.date(1987, 5, 4))
         eq_(edition_new.issued, datetime.date(1989, 4, 5))
 
-        edition_new, changed = metadata.apply(edition_new)
+        edition_new, changed = metadata.apply(edition_new, pool.collection)
         eq_(changed, False)
 
     def test_apply_identifier_equivalency(self):
@@ -667,7 +667,7 @@ class TestMetadata(DatabaseTest):
         eq_(3, len(metadata.identifiers))
         assert primary in metadata.identifiers
 
-        metadata.apply(edition)
+        metadata.apply(edition, pool.collection)
         # Neither the primary edition nor the identifier data that represents
         # it have become equivalencies.
         eq_(1, len(primary.equivalencies))
@@ -685,7 +685,7 @@ class TestMetadata(DatabaseTest):
             series_position=NO_NUMBER
         )
 
-        edition_new, changed = metadata.apply(edition_old)
+        edition_new, changed = metadata.apply(edition_old, pool.collection)
 
         eq_(changed, True)
         eq_(edition_new.title, edition_old.title)
@@ -855,10 +855,13 @@ class TestMetadata(DatabaseTest):
 
         metadata.circulation = circulation
 
-        metadata.apply(edition)
+        collection = self._default_collection
+        metadata.apply(edition, collection)
         thumbnail_link = edition.primary_identifier.links[0]
 
-        circulation_pool, is_new = circulation.license_pool(self._db)
+        circulation_pool, is_new = circulation.license_pool(
+            self._db, collection
+        )
         eq_(thumbnail_link.license_pool, circulation_pool)
 
 

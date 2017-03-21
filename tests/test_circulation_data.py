@@ -457,7 +457,7 @@ class TestMetaToModelUtility(DatabaseTest):
         mirror = DummyS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
-
+        
         # Here's a link to the content of the book, which will be mirrored.
         link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
@@ -478,7 +478,7 @@ class TestMetaToModelUtility(DatabaseTest):
         metadata = Metadata(data_source=edition.data_source, 
         	links=[link_mirrored, link_unmirrored],
     	)
-        metadata.apply(edition, replace=policy)
+        metadata.apply(edition, pool.collection, replace=policy)
         # make sure the refactor is done right, and metadata does not upload
         eq_(0, len(mirror.uploaded))
 

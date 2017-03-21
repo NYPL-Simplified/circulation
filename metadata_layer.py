@@ -790,44 +790,34 @@ class CirculationData(MetaToModelUtility):
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
             )
-        license_pool = None
-        is_new = False
         
         identifier_obj, ignore = self.primary_identifier.load(_db)
         data_source = self.data_source(_db)
-        license_pool = get_one(
-            _db, LicensePool, data_source=data_source,
-            identifier=identifier_obj, collection=collection
+        license_pool, is_new = LicensePool.for_foreign_id(
+            _db, data_source=self.data_source_obj,
+            foreign_id_type=identifier_obj.type, 
+            foreign_id=identifier_obj.identifier,
+            collection=collection
         )
-        if not license_pool:
+
+        if is_new:
             last_checked = self.last_checked or datetime.datetime.utcnow()
-            license_pool, is_new = LicensePool.for_foreign_id(
-                _db, data_source=self.data_source_obj,
-                foreign_id_type=self.primary_identifier.type, 
-                foreign_id=self.primary_identifier.identifier,
-                collection=collection
-            )
-
-            if is_new:
-                license_pool.open_access = False
-                license_pool.availability_time = datetime.datetime.utcnow()
-                # This is our first time seeing this LicensePool. Log its
-                # occurence as a separate event.
-                event = get_one_or_create(
-                    _db, CirculationEvent,
-                    type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                    license_pool=license_pool,
-                    create_method_kwargs=dict(
-                        start=last_checked,
-                        delta=1,
-                        end=last_checked,
-                    )
+            license_pool.open_access = self.has_open_access_link
+            license_pool.availability_time = datetime.datetime.utcnow()
+            # This is our first time seeing this LicensePool. Log its
+            # occurence as a separate event.
+            event = get_one_or_create(
+                _db, CirculationEvent,
+                type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                license_pool=license_pool,
+                create_method_kwargs=dict(
+                    start=last_checked,
+                    delta=1,
+                    end=last_checked,
                 )
-                # only set license_pool's last_checked time on creation and update
-                license_pool.last_checked = last_checked
-
-            if self.has_open_access_link:
-                license_pool.open_access = True
+            )
+            # only set license_pool's last_checked time on creation and update
+            license_pool.last_checked = last_checked
 
         return license_pool, is_new
 
