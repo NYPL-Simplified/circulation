@@ -13,8 +13,8 @@ from config import Configuration
 
 from model import (
     Base,
-    Catalog,
     Classification,
+    ClientServer,
     Collection,
     Complaint,
     Contributor,
@@ -650,11 +650,11 @@ class DatabaseTest(object):
         collection.password = password
         return collection
         
-    def _catalog(self, name=u"Faketown Public Library"):
-        source, ignore = get_one_or_create(self._db, DataSource, name=name)
+    def _server(self, name=None):
+        name = name or self._url
         return get_one_or_create(
-            self._db, Catalog, name=name, data_source=source,
-            client_id=u"abc", client_secret=u"def"
+            self._db, ClientServer,
+            name=name, key=u"abc", secret=u"def"
         )[0]
 
     def _subject(self, type, identifier):

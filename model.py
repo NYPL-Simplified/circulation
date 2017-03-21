@@ -8724,145 +8724,92 @@ collections_licensepools = Table(
      UniqueConstraint('collection_id', 'licensepool_id'),
  )
 
-    
-class Catalog(Base):
 
-    """A Catalog is like a Collection, but it doesn't hold any actual
-    LicensePools, it just records Identifiers.
 
-    The Collections associated with a Library in its circulation
-    manager will show up as Catalogs associated with the corresponding
-    Library in the metadata wrangler.
+class ClientServer(Base):
+    """A server that has authenticated access to this application.
+
+    Currently used to represent circulation managers that have access
+    to the metadata wrangler.
     """
-
-    __tablename__ = 'catalogs'
+    __tablename__ = 'servers'
 
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode, unique=True, nullable=False)
-    client_id = Column(Unicode, unique=True, index=True)
-    _client_secret = Column(Unicode, nullable=False)
 
-    # A catalog can have one DataSource
-    data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True
-    )
+    # URL or human readable name to represent the server.
+    name = Column(Unicode)
 
-    # A catalog can include many Identifiers
-    catalog = relationship(
-        "Identifier", secondary=lambda: catalogs_identifiers,
-        backref="catalogs"
-    )
+    # Unique identifier
+    key = Column(Unicode, unique=True, index=True)
 
+    # Encrypted secret
+    _secret = Column(Unicode, nullable=False)
+
+    created = Column(DateTime)
+    last_accessed = Column(DateTime)
 
     def __repr__(self):
-        return "%s ID=%s DATASOURCE_ID=%d" % (
-            self.name, self.id, self.data_source.id
-        )
+        return (u"%s ID=%s" % (self.name, self.id)).encode('utf8')
 
     @hybrid_property
-    def client_secret(self):
-        """Gets encrypted client_secret from database"""
-        return self._client_secret
+    def secret(self):
+        """Gets encrypted client secret from database"""
+        return self._secret
 
-    @client_secret.setter
-    def _set_client_secret(self, plaintext_secret):
+    @secret.setter
+    def _set_secret(self, plaintext_secret):
         """Encrypts client secret string for database"""
-        self._client_secret = unicode(bcrypt.hashpw(
+        self._secret = unicode(bcrypt.hashpw(
             plaintext_secret, bcrypt.gensalt()
         ))
 
     def _correct_secret(self, plaintext_secret):
-        """Determines if a plaintext string is the client_secret"""
-        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
-                == self.client_secret)
+        """Determines if a plaintext string is this client's secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.secret) == self.secret)
 
     @classmethod
     def register(cls, _db, name):
-        """Creates a new catalog with client details and a datasource."""
-
+        """Creates a new server with client details."""
         name = unicode(name)
-        catalog = get_one(_db, cls, name=name)
-        if catalog:
-            raise ValueError(
-                "A catalog with the name '%s' already exists: %r" % (
-                name, catalog)
-            )
 
-        catalog_data_source, ignore = get_one_or_create(
-            _db, DataSource, name=name, offers_licenses=False
-        )
+        key, plaintext_secret = cls._generate_client_details()
+        while get_one(_db, cls, key=key):
+            # Generate a new key if it's not unique initially.
+            key, plaintext_secret = cls._generate_client_details()
 
-        client_id, plaintext_client_secret = cls._generate_client_details()
-        # Generate a new client_id if it's not unique initially.
-        while get_one(_db, cls, client_id=client_id):
-            client_id, plaintext_client_secret = cls._generate_client_details()
-
-        catalog, ignore = get_one_or_create(
-            _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret),
-            data_source=catalog_data_source
+        now = datetime.datetime.utcnow()
+        server, ignore = create(
+            _db, cls, name=name, key=unicode(key),
+            secret=unicode(plaintext_secret), created=now, last_accessed=now
         )
 
         _db.commit()
-        return catalog, plaintext_client_secret
+        return server, plaintext_secret
 
     @classmethod
     def _generate_client_details(cls):
-        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
+        key_chars = ('abcdefghijklmnopqrstuvwxyz'
                            'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                            '0123456789')
-        client_secret_chars = client_id_chars + '!#$%&*+,-._'
+        secret_chars = key_chars + '!#$%&*+,-._'
 
         def make_client_string(chars, length):
             return u"".join([random.choice(chars) for x in range(length)])
-        client_id = make_client_string(client_id_chars, 25)
-        client_secret = make_client_string(client_secret_chars, 40)
+        key = make_client_string(key_chars, 25)
+        secret = make_client_string(secret_chars, 40)
 
-        return client_id, client_secret
+        return key, secret
 
     @classmethod
-    def authenticate(cls, _db, client_id, plaintext_client_secret):
-        catalog = get_one(_db, cls, client_id=unicode(client_id))
-        if (catalog and
-            catalog._correct_secret(plaintext_client_secret)):
-            return catalog
+    def authenticate(cls, _db, key, plaintext_secret):
+        server = get_one(_db, cls, key=unicode(key))
+        if (server and
+            server._correct_secret(plaintext_secret)):
+            server.last_accessed = datetime.datetime.utcnow()
+            _db.flush()
+            return server
         return None
 
-    def catalog_identifier(self, _db, identifier):
-        """Inserts an identifier into a catalog"""
-        if identifier not in self.catalog:
-            self.catalog.append(identifier)
-            _db.commit()
-
-    def works_updated_since(self, _db, timestamp):
-        """Returns all of a catalog's works that have been updated since the
-        last time the catalog was checked"""
-
-        query = _db.query(Work).join(Work.coverage_records)
-        query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.catalogs).filter(
-            Catalog.id==self.id
-        )
-        if timestamp:
-            query = query.filter(
-                WorkCoverageRecord.timestamp > timestamp
-            )
-
-        return query
-
-
-catalogs_identifiers = Table(
-    'catalogsidentifiers', Base.metadata,
-    Column(
-        'catalog_id', Integer, ForeignKey('catalogs.id'),
-        index=True, nullable=False
-    ),
-    Column(
-        'identifier_id', Integer, ForeignKey('identifiers.id'),
-        index=True, nullable=False
-    ),
-    UniqueConstraint('catalog_id', 'identifier_id'),
-)
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

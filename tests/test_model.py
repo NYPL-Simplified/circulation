@@ -39,6 +39,7 @@ from model import (
     Catalog,
     CirculationEvent,
     Classification,
+    ClientServer,
     Collection,
     Complaint,
     Contributor,
