@@ -80,6 +80,7 @@ class TestScript(DatabaseTest):
 class TestCheckContributorNamesInDB(DatabaseTest):
     def test_process_contribution_local(self):
         stdin = MockStdin()
+        cmd_args = []
 
         edition_alice, pool_alice = self._edition(
             data_source_name=DataSource.GUTENBERG,
@@ -121,7 +122,7 @@ class TestCheckContributorNamesInDB(DatabaseTest):
         eq_("Bob Bitshifter", bob.display_name)
         eq_("Bob Rocks", edition_bob.sort_author)
 
-        contributor_fixer = CheckContributorNamesInDB(self._db)
+        contributor_fixer = CheckContributorNamesInDB(self._db, cmd_args)
         contributor_fixer.run()
 
         # Alice got fixed up.

@@ -1610,6 +1610,13 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     COMPLAINT_SOURCE = "CheckContributorNamesInDB"
     COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
 
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(CheckContributorNamesInDB, self).__init__(_db=_db)
+
+        self.parsed_args = self.parse_command_line(_db=self._db, cmd_args=cmd_args)
+
+
     @classmethod
     def make_query(self, _db, identifier_type, identifiers, log=None):
         query = _db.query(Edition)
@@ -1643,10 +1650,9 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 
     def run(self, batch_size=10):
-        param_args = self.parse_command_line(self._db)
         
         self.query = self.make_query(
-            self._db, param_args.identifier_type, param_args.identifiers, self.log
+            self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
         )
 
         editions = True
