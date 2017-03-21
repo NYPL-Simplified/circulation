@@ -1308,7 +1308,7 @@ class Metadata(MetaToModelUtility):
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
-    def apply(self, edition, metadata_client=None, replace=None,
+    def apply(self, edition, collection, metadata_client=None, replace=None,
               replace_identifiers=False,
               replace_subjects=False,
               replace_contributions=False,
@@ -1503,7 +1503,14 @@ class Metadata(MetaToModelUtility):
         # we updated the links.  but does the associated pool know?
         pool = None
         if self.circulation:
-            pool, is_new = self.circulation.license_pool(_db)
+            # TODO: It's possible that there is no collection in
+            # play--that circulation information was gathered as a
+            # side effect of gathering metadata information. In this
+            # case, we should check whether collection is None and
+            # avoid this step altogether. But I haven't written that
+            # code yet because I want to see if it's necessary.
+            
+            pool, is_new = self.circulation.license_pool(_db, collection)
             if pool:
                 self.circulation.apply(pool, replace)
 
