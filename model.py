@@ -8669,8 +8669,23 @@ class Collection(Base):
             )
 
         metadata_identifier = unicode(self.protocol + ':' + account_id)
-
         return base64.b64encode(metadata_identifier, '-_')
+
+    @classmethod
+    def from_metadata_identifier(cls, _db, metadata_identifier):
+        """Finds or creates a Collection on the metadata wrangler, based
+        on its unique metadata_identifier
+        """
+        collection = get_one(_db, Collection, name=metadata_identifier)
+        is_new = False
+
+        if not collection:
+            details = base64.b64decode(metadata_identifier, '-_')
+            protocol = details.split(':', 1)[0]
+            collection, is_new = create(_db, Collection,
+                name=metadata_identifier, protocol=protocol)
+
+        return collection, is_new
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
