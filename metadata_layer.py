@@ -654,6 +654,7 @@ class CirculationData(MetaToModelUtility):
             self, 
             data_source,
             primary_identifier,
+            collection,
             licenses_owned=None,
             licenses_available=None,
             licenses_reserved=None,
@@ -663,7 +664,13 @@ class CirculationData(MetaToModelUtility):
             links=None,
             last_checked=None,
     ):
-        # data_source is where the lending licenses (our ability to actually access the book) are coming from.
+        """Constructor.
+
+        :param data_source: The authority providing the lending licenses.
+        :param primary_identifier: An IdentifierData representing how
+            the lending authority distinguishes this book from others.
+        :param collection: The Collection of which this book is a part.
+        """
         self._data_source = data_source
 
         if isinstance(self._data_source, DataSource):
@@ -672,7 +679,7 @@ class CirculationData(MetaToModelUtility):
         else:
             self.data_source_obj = None
             self.data_source_name = data_source
-
+        self.collection = collection
         self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
@@ -789,7 +796,7 @@ class CirculationData(MetaToModelUtility):
         data_source = self.data_source(_db)
         license_pool = get_one(
             _db, LicensePool, data_source=data_source,
-            identifier=identifier_obj
+            identifier=identifier_obj, collection=self.collection
         )
         if not license_pool:
             last_checked = self.last_checked or datetime.datetime.utcnow()
@@ -797,6 +804,7 @@ class CirculationData(MetaToModelUtility):
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
                 foreign_id=self.primary_identifier.identifier,
+                collection=self.collection
             )
 
             if is_new:
