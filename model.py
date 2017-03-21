@@ -8813,7 +8813,7 @@ class ClientServer(Base):
     id = Column(Integer, primary_key=True)
 
     # URL or human readable name to represent the server.
-    name = Column(Unicode)
+    name = Column(Unicode, unique=True)
 
     # Unique identifier
     key = Column(Unicode, unique=True, index=True)
@@ -8847,6 +8847,10 @@ class ClientServer(Base):
     def register(cls, _db, name):
         """Creates a new server with client details."""
         name = unicode(name)
+        if get_one(_db, cls, name=name):
+            raise ValueError(
+                "A ClientServer for '%s' already exists" % name
+            )
 
         key, plaintext_secret = cls._generate_client_details()
         while get_one(_db, cls, key=key):
@@ -8865,8 +8869,8 @@ class ClientServer(Base):
     @classmethod
     def _generate_client_details(cls):
         key_chars = ('abcdefghijklmnopqrstuvwxyz'
-                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                           '0123456789')
+                     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                     '0123456789')
         secret_chars = key_chars + '!#$%&*+,-._'
 
         def make_client_string(chars, length):
