@@ -88,7 +88,8 @@ class ThreeMAPI(object):
             )
 
         self.item_list_parser = ItemListParser()
-
+        self.collection = collection
+        
     @classmethod
     def from_environment(cls, _db):
         """Load a ThreeMAPI instance for the 'default' Bibliotheca

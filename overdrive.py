@@ -112,6 +112,7 @@ class OverdriveAPI(object):
                 collection.protocol
             )
 
+        self.collection = collection
         self.library_id = collection.external_account_id
         if collection.parent:
             # This is an Overdrive Advantage account.

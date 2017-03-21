@@ -71,7 +71,7 @@ class Axis360API(object):
             )
 
         self._db = _db
-
+        self.collection = collection
         self.library_id = collection.external_account_id.encode("utf8")
         self.username = collection.username.encode("utf8")
         self.password = collection.password.encode("utf8")
@@ -219,7 +219,7 @@ class MockAxis360API(Axis360API):
             self.token = "mock token"
         self.responses = []
         self.requests = []
-
+        
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
