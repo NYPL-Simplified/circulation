@@ -6,8 +6,9 @@ from collections import (
 )
 from lxml import etree
 from nose.tools import set_trace
-import cairosvg
+import base64
 import bisect
+import cairosvg
 import datetime
 import isbnlib
 import json
@@ -857,9 +858,6 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
-    # One DataSource can have many Catalogs.
-    catalogs = relationship("Catalog", backref="data_source")
-    
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -8487,7 +8485,7 @@ class Library(Base):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
         )
-    
+
     @classmethod
     def instance(cls, _db):
         """Find the one and only library."""
@@ -8497,7 +8495,7 @@ class Library(Base):
             )
         )
         return library
-    
+
     @hybrid_property
     def library_registry_short_name(self):
         """Gets library_registry_short_name from database"""
@@ -8542,6 +8540,7 @@ class Library(Base):
                 self.library_registry_shared_secret
             )
         return lines
+
 
 class Admin(Base):
 
@@ -8610,6 +8609,22 @@ class Collection(Base):
     # external_account_id.
     parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
 
+    # A dict capturing the column location of the unique collection
+    # account identifier in the collections table.
+    UNIQUE_IDENTIFIER_BY_PROTOCOL = {
+        # Overdrive 'client_key'
+        OVERDRIVE : username,
+
+        # Bibliotheca 'account_id'
+        BIBLIOTHECA : username,
+
+        # Axis 360 'username'
+        AXIS_360 : username,
+
+        # OPDS_IMPORT 'url'
+        OPDS_IMPORT : url,
+    }
+
     # A collection may have many child collections. For example,
     # An Overdrive collection may have many children corresponding
     # to Overdrive Advantage collections.
@@ -8629,6 +8644,33 @@ class Collection(Base):
         "LicensePool", secondary=lambda: collections_licensepools,
         backref="collections"
     )
+
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
+        backref="collections"
+    )
+
+    @property
+    def metadata_identifier(self):
+        """Identifier based on collection details that uniquely represents
+        this Collection on the metadata wrangler. This identifier is
+        composed of its protocol and its account identifier.
+
+        In the metadata wrangler, this identifier is used as the unique
+        name of the collection.
+        """
+        account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(self.protocol)
+        account_id = getattr(self, account_id_column.name)
+
+        if ':' in self.protocol:
+            # This will break the base64 decoding on the metadata wrangler.
+            raise ValueError(
+                "Identifiers for protocols with ':' cannot be generated."
+            )
+
+        metadata_identifier = unicode(self.protocol + ':' + account_id)
+
+        return base64.b64encode(metadata_identifier, '-_')
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
@@ -8680,6 +8722,28 @@ class Collection(Base):
             lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
+    def catalog_identifier(self, _db, identifier):
+        """Inserts an identifier into a catalog"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.commit()
+
+    def works_updated_since(self, _db, timestamp):
+        """Returns all of a collection's works that have been updated
+        since the last time the catalog was checked
+        """
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if timestamp:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > timestamp
+            )
+
+        return query
+
 
 class CollectionSetting(Base):
     """An extra piece of information associated with a Collection.
@@ -8722,8 +8786,20 @@ collections_licensepools = Table(
          index=True, nullable=False
      ),
      UniqueConstraint('collection_id', 'licensepool_id'),
- )
+)
 
+collections_identifiers = Table(
+    'collectionsidentifiers', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'identifier_id', Integer, ForeignKey('identifiers.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('collection_id', 'identifier_id'),
+)
 
 
 class ClientServer(Base):

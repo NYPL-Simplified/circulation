@@ -1,0 +1,1 @@
+DROP TABLE catalogs CASCADE;
