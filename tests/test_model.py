@@ -36,7 +36,6 @@ from config import (
 from model import (
     Annotation,
     BaseCoverageRecord,
-    Catalog,
     CirculationEvent,
     Classification,
     ClientServer,
@@ -5389,41 +5388,75 @@ class TestCollection(DatabaseTest):
             data
         )
 
-class TestCatalog(DatabaseTest):
+    def test_catalog_identifier(self):
+        """#catalog_identifier associates an identifier with the catalog"""
+        identifier = self._identifier()
+        self.collection.catalog_identifier(self._db, identifier)
+
+        eq_(1, len(self.collection.catalog))
+        eq_(identifier, self.collection.catalog[0])
+
+    def test_works_updated_since(self):
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        timestamp = datetime.datetime.utcnow()
+        # An empty catalog returns nothing.
+        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
+
+        # When no timestamp is passed, all works in the catalog are returned.
+        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.collection.works_updated_since(self._db, None).all()
+
+        eq_(2, len(updated_works))
+        assert w1 in updated_works and w2 in updated_works
+        assert w3 not in updated_works
+
+        # When a timestamp is passed, only works that have been updated
+        # since then will be returned
+        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+
+class TestClientServer(DatabaseTest):
 
     def setup(self):
-        super(TestCatalog, self).setup()
-        self.catalog = self._catalog()
+        super(TestClientServer, self).setup()
+        self.server = self._server()
 
-    def test_encrypts_client_secret(self):
-        catalog, new = get_one_or_create(
-            self._db, Catalog, name=u"Test Catalog", client_id=u"test",
-            client_secret=u"megatest"
+    def test_encrypts_secret(self):
+        server, new = create(
+            self._db, ClientServer, name=u"http://circ-manager.net",
+            key=u"test", secret=u"megatest"
         )
-        assert catalog.client_secret != u"megatest"
-        eq_(True, catalog.client_secret.startswith("$2a$"))
+        assert server.secret != u"megatest"
+        eq_(True, server.secret.startswith("$2a$"))
 
     def test_register(self):
-        catalog, plaintext_secret = Catalog.register(
-            self._db, u"A Library"
-        )
+        now = datetime.datetime.utcnow()
+        server, plaintext_secret = ClientServer.register(self._db, self._url)
 
-        # It creates client details and a DataSource for the catalog
-        assert catalog.client_id and catalog.client_secret
-        assert get_one(self._db, DataSource, name=catalog.name)
+        # It creates client details for the server.
+        assert server.key and server.secret
+        # And sets a timestamp for created & last_accessed.
+        assert server.created and server.last_accessed
+        assert server.created > now
+        eq_(True, isinstance(server.created, datetime.datetime))
+        eq_(server.created, server.last_accessed)
 
-        # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Catalog.register, self._db, u"A Library")
+        # It raises an error if the name is already taken.
+        assert_raises(ValueError, ClientServer.register, self._db, server.name)
 
     def test_authenticate(self):
 
-        result = Catalog.authenticate(self._db, u"abc", u"def")
-        eq_(self.catalog, result)
+        result = ClientServer.authenticate(self._db, u"abc", u"def")
+        eq_(self.server, result)
 
-        result = Catalog.authenticate(self._db, u"abc", u"bad_secret")
+        result = ClientServer.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
-        result = Catalog.authenticate(self._db, u"bad_id", u"def")
+        result = ClientServer.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
 
