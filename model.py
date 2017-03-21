@@ -8741,7 +8741,7 @@ class Collection(Base):
         """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            _db.commit()
+            _db.flush()
 
     def works_updated_since(self, _db, timestamp):
         """Returns all of a collection's works that have been updated
