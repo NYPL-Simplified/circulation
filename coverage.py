@@ -395,26 +395,47 @@ class CoverageProvider(BaseCoverageProvider):
     Turns errors in processing into coverage records with failure flags.
     """
 
-    # Does this CoverageProvider get its data from a source that also
-    # provides licenses for books?
-    CAN_CREATE_LICENSE_POOLS = False
+    def __init__(self, service_name, output_source, collection,
+                 input_identifier_types=None, batch_size=100,
+                 cutoff_time=None, operation=None, input_identifiers=None
+    ):
+        """Constructor.
 
-    def __init__(self, service_name, input_identifier_types, output_source,
-                 batch_size=100, cutoff_time=None, operation=None, input_identifiers=None):
-        """
-        :param input_identifier_types: DataSource types to run coverage operations for.
-        :param input_identifiers: Specific identifier objects to run coverage for.
+        :param service_name: The name of this CoverageProvider, used to
+           distinguish its CoverageRecords from others.
+        :param output_source: The DataSource that provides the information
+           used when providing coverage to this Identifier.
+        :param collection: Optional. If information comes in about a
+           LicensePool associated with an Identifier, the LicensePool
+           will be assumed to belong to this Collection.  You may pass
+           in None for this value, but that means that no circulation
+           information (such as the formats in which a book is
+           available) will be stored as a result of running this
+           CoverageProvider. Only bibliographic information will be
+           stored.
+        :param operation: Optional. The name of the operation or service 
+           this CoverageProvider performs. Used to distinguish between
+           different services provided by the same DataSource.
+        :param input_identifier_types: This CoverageProvider is capable of 
+           providing coverage for Identifiers of these types.
+        :param batch_size: This CoverageProvider will provide coverage to
+           this many Identifiers before committing the database session.
+        :param cutoff_time: An Identifier covered before this time will
+           be treated as though it was not covered at all.
+        :param input_identifiers: This CoverageProvider has been requested
+           to provide coverage for these specific Identifiers.
+
         """
         _db = Session.object_session(output_source)
         super(CoverageProvider, self).__init__(
             _db, service_name, operation, batch_size, cutoff_time
         )
+        self.collection = collection
         if input_identifier_types and not isinstance(input_identifier_types, list):
             input_identifier_types = [input_identifier_types]
         self.input_identifier_types = input_identifier_types
         self.output_source_name = output_source.name
         self.input_identifiers = input_identifiers
-        
 
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
@@ -463,101 +484,18 @@ class CoverageProvider(BaseCoverageProvider):
         """
         return DataSource.lookup(self._db, self.output_source_name)
 
-    def license_pool(self, identifier):
-        """Finds or creates the LicensePool for a given Identifier."""
-        license_pool = identifier.licensed_through
-        if not license_pool:
-            if self.CAN_CREATE_LICENSE_POOLS:
-                # The source of this data also provides license
-                # pools, so it's okay to automatically create
-                # a license pool for this book.
-                license_pool, ignore = LicensePool.for_foreign_id(
-                    self._db, self.output_source, identifier.type, 
-                    identifier.identifier
-                )
-            else:
-                return None
-        return license_pool
-
     def edition(self, identifier):
-        """Finds or creates the Edition for a given Identifier."""
-        license_pool = self.license_pool(identifier)
-        if not license_pool:
-            e = "No license pool available"
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-
+        """Finds or creates an Edition representing this coverage provider's
+        view of a given Identifier.
+        """
         edition, ignore = Edition.for_foreign_id(
-            self._db, license_pool.data_source, identifier.type,
+            self._db, self.output_source, identifier.type,
             identifier.identifier
         )
         return edition
 
-    def work(self, identifier):
-        """Finds or creates the Work for a given Identifier.
-        
-        :return: The Work (if it could be found) or an appropriate
-        CoverageFailure (if not).
-        """
-        license_pool = self.license_pool(identifier)
-        if not license_pool:
-            e = "No license pool available"
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-        work, created = license_pool.calculate_work(even_if_no_author=True)
-        if not work:
-            e = "Work could not be calculated"
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-        return work
-
-
     def set_metadata(self, identifier, metadata, 
                      metadata_replacement_policy=None):
-        return self.set_metadata_and_circulation_data(
-            identifier, metadata, None, metadata_replacement_policy,
-        )
-
-    def set_metadata_and_circulation_data(self, identifier, metadata, circulationdata, 
-        metadata_replacement_policy=None, 
-        circulationdata_replacement_policy=None, 
-    ):
-        """
-        Performs the function of the old set_metadata.  Finds or creates the Edition 
-        and the LicensePool for the passed-in Identifier, updates them, 
-        then finds or creates a Work for them.
-
-        TODO:  Makes assumption of one license pool per identifier.  In a 
-        later branch, this will change.
-        TODO:  Update doc string removing reference to past function.
-
-        :return: The Identifier (if successful) or an appropriate
-        CoverageFailure (if not).
-        """
-
-        if not metadata and not circulationdata:
-            e = "Received neither metadata nor circulation data from input source"
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-
-        if metadata:
-            result = self._set_metadata(identifier, metadata, metadata_replacement_policy)
-            if isinstance(result, CoverageFailure):
-                return result
-
-        if circulationdata:
-            result = self._set_circulationdata(identifier, circulationdata, circulationdata_replacement_policy)
-            if isinstance(result, CoverageFailure):
-                return result
-
-        # now that made sure that have an edition and a pool on the identifier, 
-        # can try to make work
-        work = self.work(identifier)
-        if isinstance(work, CoverageFailure):
-            return work
-
-        return identifier
-
-
-    def _set_metadata(self, identifier, metadata, 
-                     metadata_replacement_policy=None
-    ):
         """Finds or creates the Edition for an Identifier, updates it
         with the given metadata.
 
@@ -578,7 +516,8 @@ class CoverageProvider(BaseCoverageProvider):
 
         try:
             metadata.apply(
-                edition, replace=metadata_replacement_policy,
+                edition, collection=self.collection,
+                replace=metadata_replacement_policy,
             )
         except Exception as e:
             self.log.warn(
@@ -587,53 +526,6 @@ class CoverageProvider(BaseCoverageProvider):
             )
             return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
 
-        return identifier
-
-
-    def _set_circulationdata(self, identifier, circulationdata, 
-                     circulationdata_replacement_policy=None
-    ):
-        """Finds or creates the LicensePool for an Identifier, updates it
-        with the given circulationdata, then creates a Work for the book.
-
-        TODO:  Makes assumption of one license pool per identifier.  In a 
-        later branch, this will change.
-
-        :return: The Identifier (if successful) or an appropriate
-        CoverageFailure (if not).
-        """
-        circulationdata_replacement_policy = circulationdata_replacement_policy or (
-            ReplacementPolicy.from_license_source()
-        )
-
-        pool = self.license_pool(identifier)
-        if isinstance(pool, CoverageFailure):
-            return pool
-
-        if not circulationdata:
-            e = "Did not receive circulationdata from input source"
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
-
-        try:
-            circulationdata.apply(
-                pool, replace=circulationdata_replacement_policy,
-            )
-        except Exception as e:
-            self.log.warn(
-                "Error applying circulationdata to pool %d: %s",
-                pool.id, e, exc_info=e
-            )
-            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
-
-        return identifier
-
-
-    def set_presentation_ready(self, identifier):
-        """Set a Work presentation-ready."""
-        work = self.work(identifier)
-        if isinstance(work, CoverageFailure):
-            return work
-        work.set_presentation_ready()
         return identifier
 
     #
@@ -687,6 +579,223 @@ class CoverageProvider(BaseCoverageProvider):
         )
 
 
+class CollectionCoverageProvider(CoverageProvider):
+    """A CoverageProvider that covers all the titles currently in a
+    Collection.
+
+    You should subclass this CoverageProvider if you want to create
+    Works (as opposed to operating on existing Works) or update the
+    circulation information for LicensePools. You can't use it to
+    create new LicensePools, since it only operates on Identifiers
+    that already have a LicencePool in the given Collection.
+    """
+    
+    def __init__(self, service_name, datasource, collection,
+                 input_identifier_types=None, batch_size=10,
+                 cutoff_time=None):
+        self.collection = collection
+        super(CollectionCoverageProvider, self).__init__(
+            service_name=service_name,
+            input_identifier_types=input_identifier_types,
+            output_source=datasource, batch_size=batch_size,
+            cutoff_time=cutoff_time
+        )
+
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
+        """Find all Identifiers associated with this Collection but lacking
+        coverage through this CoverageProvider.
+        """
+        qu = super(CollectionCoverageProvider, self).items_that_need_coverage(
+            identifiers, **kwargs
+        )
+        qu = qu.join(Identifier.licensed_through).filter(
+            LicencePool.collection_id==self.collection_id
+        )
+        return qu
+        
+    def license_pool(self, identifier):
+        """Finds this Collection's LicensePool for the given Identifier,
+        creating one if necessary.
+        """
+        license_pools = [p for p in identifier.licensed_through
+                         if self.collection==p.collection]
+            
+        if license_pools:
+            # A given Collection must have at most one LicensePool for
+            # a given identifier.
+            return license_pools[0]
+
+        # This Collection has no LicensePool for the given Identifier.
+        # Create one.
+        #
+        # Under normal circumstances, this will never happen, because
+        # CollectionCoverageProvider only operates on Identifiers that
+        # already have a LicensePool in this Collection.
+        license_pool, ignore = LicensePool.for_foreign_id(
+            self._db, self.output_source, identifier.type, 
+            identifier.identifier, collection=self.collection
+        )
+        return license_pool
+
+    def work(self, identifier):
+        """Finds or creates a Work for this Identifier as licensed through
+        this Collection.
+        
+        :return: A Work, if possible. Otherwise, a CoverageFailure explaining
+        why no Work could be created.
+        """
+        pool, ignore = LicensePool.for_foreign_id(
+            self._db, self.output_source, identifier.type, 
+            identifier.identifier, collection=self.collection
+        )
+        work, created = pool.calculate_work(even_if_no_author=True)
+        if not work:
+            error = "Work could not be calculated"
+            return CoverageFailure(
+                identifier, error, data_source=self.output_source,
+                transient=True
+            )
+        return work
+    
+    def set_metadata_and_circulation_data(
+            self, identifier, metadata, circulationdata, 
+            metadata_replacement_policy=None, 
+            circulationdata_replacement_policy=None, 
+    ):
+        """Makes sure that the given Identifier has a Work, Edition (in the
+        context of this Collection), and LicensePool (ditto), and that
+        all the information is up to date.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+
+        if not metadata and not circulationdata:
+            e = "Received neither metadata nor circulation data from input source"
+            return CoverageFailure(
+                identifier, e, data_source=self.output_source, transient=True
+            )
+
+        if metadata:
+            result = self.set_metadata(
+                identifier, metadata, metadata_replacement_policy
+            )
+            if isinstance(result, CoverageFailure):
+                return result
+
+        if circulationdata:
+            result = self._set_circulationdata(
+                identifier, circulationdata, circulationdata_replacement_policy
+            )
+            if isinstance(result, CoverageFailure):
+                return result
+
+        # By this point the Identifier should have an appropriate
+        # Edition and LicensePool. We should now be able to make a
+        # Work.
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+
+        return identifier
+
+    def _set_circulationdata(self, identifier, circulationdata, 
+                     circulationdata_replacement_policy=None
+    ):
+        """Finds or creates a LicensePool for an Identifier, updates it
+        with the given circulationdata, then creates a Work for the book.
+
+        :return: The Identifier (if successful) or an appropriate
+        CoverageFailure (if not).
+        """
+        circulationdata_replacement_policy = circulationdata_replacement_policy or (
+            ReplacementPolicy.from_license_source()
+        )
+
+        pool = self.license_pool(identifier)
+        if isinstance(pool, CoverageFailure):
+            return pool
+
+        if not circulationdata:
+            e = "Did not receive circulationdata from input source"
+            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+
+        try:
+            circulationdata.apply(
+                pool, replace=circulationdata_replacement_policy,
+            )
+        except Exception as e:
+            self.log.warn(
+                "Error applying circulationdata to pool %d: %s",
+                pool.id, e, exc_info=e
+            )
+            return CoverageFailure(identifier, repr(e), data_source=self.output_source, transient=True)
+
+        return identifier
+
+    def set_presentation_ready(self, identifier):
+        """Set a Work presentation-ready."""
+        work = self.work(identifier)
+        if isinstance(work, CoverageFailure):
+            return work
+        work.set_presentation_ready()
+        return identifier
+
+
+class BibliographicCoverageProvider(CollectionCoverageProvider):
+    """Fill in bibliographic metadata for all books in a Collection.
+
+    e.g. ensures that we get Overdrive coverage for all Overdrive IDs
+    in a collection.
+
+    If a book shows up in multiple Collections, the first Collection
+    to process it takes care of it for the others. Any books that were
+    processed through their membership in another Collection will be
+    left alone.
+
+    For this reason it's important that subclasses of this
+    CoverageProvider only deal with circulation information, and never
+    circulation information. (Circulation information includes the
+    links to open-access downloads.)
+    """
+    def __init__(self, _db, api, datasource, batch_size=10,
+                 metadata_replacement_policy=None,
+                 cutoff_time=None
+    ):
+        self._db = _db
+        self.api = api
+        collection = self.api.collection
+        output_source = DataSource.lookup(_db, datasource)
+        input_identifier_types = [output_source.primary_identifier_type]
+        service_name = "%s Bibliographic Coverage Provider" % datasource
+        self.metadata_replacement_policy = (
+            metadata_replacement_policy
+            or ReplacementPolicy.from_metadata_source()
+        )
+
+        super(BibliographicCoverageProvider, self).__init__(
+            collection,
+            service_name,            
+            input_identifier_types, output_source,
+            batch_size=batch_size,
+            cutoff_time=cutoff_time
+        )
+
+    def process_batch(self, identifiers):
+        """Returns a list of successful identifiers and CoverageFailures"""
+        results = []
+        for identifier in identifiers:
+            result = self.process_item(identifier)
+            if not isinstance(result, CoverageFailure):
+                self.handle_success(identifier)
+            results.append(result)
+        return results
+
+    def handle_success(self, identifier):
+        """Once a book has bibliographic coverage, it's presentation ready."""
+        self.set_presentation_ready(identifier)
+
+
 class WorkCoverageProvider(BaseCoverageProvider):
 
     #
@@ -733,54 +842,3 @@ class WorkCoverageProvider(BaseCoverageProvider):
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a WorkCoverageRecord object."""
         return failure.to_work_coverage_record(operation=self.operation)
-
-
-class BibliographicCoverageProvider(CoverageProvider):
-    """Fill in bibliographic metadata for records.
-
-    Ensures that a given DataSource provides coverage for all
-    identifiers of the type primarily used to identify books from that
-    DataSource.
-
-    e.g. ensures that we get Overdrive coverage for all Overdrive IDs.
-    """
-
-    CAN_CREATE_LICENSE_POOLS = True
-
-    def __init__(self, _db, api, datasource, batch_size=10,
-                 metadata_replacement_policy=None, circulationdata_replacement_policy=None, 
-                 cutoff_time=None
-    ):
-        self._db = _db
-        self.api = api
-        output_source = DataSource.lookup(_db, datasource)
-        input_identifier_types = [output_source.primary_identifier_type]
-        service_name = "%s Bibliographic Coverage Provider" % datasource
-        metadata_replacement_policy = (
-            metadata_replacement_policy or ReplacementPolicy.from_metadata_source()
-        )
-        circulationdata_replacement_policy = (
-            circulationdata_replacement_policy or ReplacementPolicy.from_license_source()
-        )
-        self.metadata_replacement_policy = metadata_replacement_policy
-        self.circulationdata_replacement_policy = circulationdata_replacement_policy
-        super(BibliographicCoverageProvider, self).__init__(
-            service_name,
-            input_identifier_types, output_source,
-            batch_size=batch_size,
-            cutoff_time=cutoff_time
-        )
-
-
-    def process_batch(self, identifiers):
-        """Returns a list of successful identifiers and CoverageFailures"""
-        results = []
-        for identifier in identifiers:
-            result = self.process_item(identifier)
-            if not isinstance(result, CoverageFailure):
-                self.handle_success(identifier)
-            results.append(result)
-        return results
-
-    def handle_success(self, identifier):
-        self.set_presentation_ready(identifier)

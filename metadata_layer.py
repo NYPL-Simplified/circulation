@@ -1500,16 +1500,13 @@ class Metadata(MetaToModelUtility):
                 edition.display_author = primary_author.display_name
                 made_core_changes = True
 
-        # we updated the links.  but does the associated pool know?
+        # The Metadata object may include a CirculationData object which
+        # contains information about availability such as open-access
+        # links. If a Collection was passed in to apply(), we can make sure
+        # that that Collection has a LicensePool for this book and that
+        # its information is up-to-date.
         pool = None
-        if self.circulation:
-            # TODO: It's possible that there is no collection in
-            # play--that circulation information was gathered as a
-            # side effect of gathering metadata information. In this
-            # case, we should check whether collection is None and
-            # avoid this step altogether. But I haven't written that
-            # code yet because I want to see if it's necessary.
-            
+        if self.circulation and collection:
             pool, is_new = self.circulation.license_pool(_db, collection)
             if pool:
                 self.circulation.apply(pool, replace)
@@ -1548,6 +1545,9 @@ class Metadata(MetaToModelUtility):
     def make_thumbnail(self, data_source, link, link_obj, pool=None):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
+
+        TODO: pool needs to go away. Many license pools for the
+        same book should be able to use the same thumbnail.
         """
         thumbnail = link.thumbnail
         if not thumbnail:

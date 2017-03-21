@@ -4802,6 +4802,9 @@ class Hyperlink(Base):
 
     # A Resource may also be associated with some LicensePool which
     # controls scarce access to it.
+    #
+    # TODO: This probably needs to go, or at least become a many-to-one
+    # thing.
     license_pool_id = Column(
         Integer, ForeignKey('licensepools.id'), index=True)
 
