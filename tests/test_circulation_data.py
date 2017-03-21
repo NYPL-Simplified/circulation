@@ -36,11 +36,7 @@ from s3 import DummyS3Uploader
 
 
 class TestCirculationData(DatabaseTest):
-
-    def setup(self):
-        super(TestCirculationData, self).setup()
-        self.collection = self._collection()
-        
+       
     def test_circulationdata_can_be_deepcopied(self):
         # Check that we didn't put something in the CirculationData that
         # will prevent it from being copied. (e.g., self.log)
@@ -55,7 +51,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
             licenses_owned=5,
             licenses_available=5,
@@ -90,7 +85,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            collection=self.collection,
             links=links,
         )
 
@@ -114,7 +108,6 @@ class TestCirculationData(DatabaseTest):
             formats=[drm_format],
             data_source=edition.data_source, 
             primary_identifier=edition.primary_identifier,
-            collection=self.collection,
         )
         circulation_data.apply(pool)
 
@@ -160,7 +153,6 @@ class TestCirculationData(DatabaseTest):
             formats=[format],
             data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
-            collection=self.collection,
         )
 
         # If we apply the new CirculationData with formats false in the policy,
@@ -196,13 +188,14 @@ class TestCirculationData(DatabaseTest):
         circulation = CirculationData(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=identifier,
-            collection=self.collection,
             formats=[drm_format],
         )
+        collection = self._collection()
         pool, is_new = circulation.license_pool(
-            self._db,
+            self._db, collection
         )
         eq_(True, is_new)
+        eq_(collection, pool.collection)
 
         # We start with the conservative assumption that we own no
         # licenses for the book.
@@ -233,7 +226,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
             primary_identifier=edition.primary_identifier,
-            collection=self.collection,
             links=[link], 
         )
 
@@ -251,7 +243,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
             primary_identifier=edition.primary_identifier,
-            collection=self.collection,
             links=[]
         )
         replace = ReplacementPolicy(
@@ -278,7 +269,6 @@ class TestCirculationData(DatabaseTest):
             data_source=DataSource.OA_CONTENT_SERVER,
             primary_identifier=identifier,
             default_rights_uri = RightsStatus.CC_BY,
-            collection=self.collection,
             links=[link],
         )
 
@@ -286,7 +276,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -307,7 +299,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.OA_CONTENT_SERVER,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
         )
 
@@ -315,7 +306,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -336,14 +329,15 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
         )
         replace = ReplacementPolicy(
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -370,11 +364,12 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
         )
         
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(RightsStatus.IN_COPYRIGHT,
             pool.delivery_mechanisms[0].rights_status.uri)
@@ -399,14 +394,15 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
         )
         replace = ReplacementPolicy(
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -433,7 +429,6 @@ class TestCirculationData(DatabaseTest):
         circulation_data = CirculationData(
             data_source=DataSource.OVERDRIVE,
             primary_identifier=identifier,
-            collection=self.collection,
             links=[link],
             formats=[format],
         )
@@ -442,7 +437,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._collection()
+        )
         circulation_data.apply(pool, replace)
         eq_(False, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -489,7 +486,6 @@ class TestMetaToModelUtility(DatabaseTest):
         circulation_data = CirculationData(
             data_source=edition.data_source, 
             primary_identifier=edition.primary_identifier,
-            collection=self._collection(),
             links=[link_mirrored, link_unmirrored],
         )
         circulation_data.apply(pool, replace=policy)
@@ -537,7 +533,6 @@ class TestMetaToModelUtility(DatabaseTest):
         circulation_data = CirculationData(
             data_source=edition.data_source, 
             primary_identifier=edition.primary_identifier,
-            collection=self._collection(),
         )
 
         link = LinkData(
@@ -583,7 +578,6 @@ class TestMetaToModelUtility(DatabaseTest):
         circulation_data = CirculationData(
             data_source=edition.data_source, 
             primary_identifier=edition.primary_identifier,
-            collection=self._collection(),
         )
 
         link = LinkData(
@@ -631,7 +625,6 @@ class TestMetaToModelUtility(DatabaseTest):
         circulationdata = CirculationData(
             DataSource.GUTENBERG,
             identifier,
-            collection=self._collection(),
         )
 
         # No links

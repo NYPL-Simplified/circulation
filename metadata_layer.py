@@ -654,7 +654,6 @@ class CirculationData(MetaToModelUtility):
             self, 
             data_source,
             primary_identifier,
-            collection,
             licenses_owned=None,
             licenses_available=None,
             licenses_reserved=None,
@@ -669,7 +668,6 @@ class CirculationData(MetaToModelUtility):
         :param data_source: The authority providing the lending licenses.
         :param primary_identifier: An IdentifierData representing how
             the lending authority distinguishes this book from others.
-        :param collection: The Collection of which this book is a part.
         """
         self._data_source = data_source
 
@@ -679,7 +677,6 @@ class CirculationData(MetaToModelUtility):
         else:
             self.data_source_obj = None
             self.data_source_name = data_source
-        self.collection = collection
         self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
@@ -783,8 +780,12 @@ class CirculationData(MetaToModelUtility):
             self.data_source_obj = obj
         return self.data_source_obj
 
-    def license_pool(self, _db):
-        """Find or create a LicensePool object for this CirculationData."""
+    def license_pool(self, _db, collection):
+        """Find or create a LicensePool object for this CirculationData.
+
+        :param collection: The LicensePool object will be associated with
+            the given Collection.
+        """
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
@@ -796,7 +797,7 @@ class CirculationData(MetaToModelUtility):
         data_source = self.data_source(_db)
         license_pool = get_one(
             _db, LicensePool, data_source=data_source,
-            identifier=identifier_obj, collection=self.collection
+            identifier=identifier_obj, collection=collection
         )
         if not license_pool:
             last_checked = self.last_checked or datetime.datetime.utcnow()
@@ -804,7 +805,7 @@ class CirculationData(MetaToModelUtility):
                 _db, data_source=self.data_source_obj,
                 foreign_id_type=self.primary_identifier.type, 
                 foreign_id=self.primary_identifier.identifier,
-                collection=self.collection
+                collection=collection
             )
 
             if is_new:
