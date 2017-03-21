@@ -5779,6 +5779,10 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
+    # Each LicensePool belongs to one Collection.
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=False)
+    
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
@@ -5854,9 +5858,15 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id, rights_status=None):
+    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
+                       rights_status=None, collection=None):
         """Create a LicensePool for the given foreign ID."""
 
+        if not collection:
+            raise ValueError(
+                "Collection is required."
+            )
+        
         # Get the DataSource.
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
@@ -5885,12 +5895,13 @@ class LicensePool(Base):
             _db, foreign_id_type, foreign_id
             )
 
-        kw = dict(data_source=data_source, identifier=identifier)
+        kw = dict(data_source=data_source, identifier=identifier,
+                  collection=collection)
         if rights_status:
             kw['rights_status'] = rights_status
 
-        # Get the LicensePool that corresponds to the DataSource and
-        # the Identifier.
+        # Get the LicensePool that corresponds to the
+        # DataSource/Identifier/Collection.
         license_pool, was_new = get_one_or_create(
             _db, LicensePool, **kw)
         if was_new and not license_pool.availability_time:
@@ -8625,10 +8636,7 @@ class Collection(Base):
     )
     
     # A Collection can include many LicensePools.
-    licensepools = relationship(
-        "LicensePool", secondary=lambda: collections_licensepools,
-        backref="collections"
-    )
+    licensepools = relationship("LicensePool", backref="collection")
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
@@ -8709,19 +8717,6 @@ collections_libraries = Table(
          index=True, nullable=False
      ),
      UniqueConstraint('collection_id', 'library_id'),
- )
-
-collections_licensepools = Table(
-    'collections_licensepools', Base.metadata,
-     Column(
-         'collection_id', Integer, ForeignKey('collections.id'),
-         index=True, nullable=False
-     ),
-     Column(
-         'licensepool_id', Integer, ForeignKey('licensepools.id'),
-         index=True, nullable=False
-     ),
-     UniqueConstraint('collection_id', 'licensepool_id'),
  )
 
     

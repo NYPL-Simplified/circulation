@@ -318,16 +318,19 @@ class DatabaseTest(object):
     def _licensepool(self, edition, open_access=True, 
                      data_source_name=DataSource.GUTENBERG,
                      with_open_access_download=False, 
-                     set_edition_as_presentation=False):
+                     set_edition_as_presentation=False,
+                     collection=None):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
-
+            
         pool, ignore = get_one_or_create(
             self._db, LicensePool,
             create_method_kwargs=dict(
                 open_access=open_access),
-            identifier=edition.primary_identifier, data_source=source,
+            identifier=edition.primary_identifier,
+            data_source=source,
+            collection=collection,
             availability_time=datetime.utcnow()
         )
 

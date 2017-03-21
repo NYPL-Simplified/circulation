@@ -1141,11 +1141,13 @@ class TestEdition(DatabaseTest):
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
-        """Verify we can get a LicensePool for a data source and an 
-        appropriate work identifier."""
+        """Verify we can get a LicensePool for a data source, an 
+        appropriate work identifier, and a Collection."""
         now = datetime.datetime.utcnow()
         pool, was_new = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=self._collection()
+        )
         assert (pool.availability_time - now).total_seconds() < 2
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
@@ -1156,6 +1158,18 @@ class TestLicensePool(DatabaseTest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
+    def test_for_foreign_id_fails_when_no_collection_provided(self):
+        """We cannot create a LicensePool that is not associated
+        with some Collection.
+        """
+        assert_raises_regexp(
+            ValueError,
+            "Collection is required.",
+            LicensePool.for_foreign_id,
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=None
+        )
+        
     def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
         """OCLC doesn't offer licenses. It only provides metadata. We can get
         a Edition for OCLC's view of a book, but we cannot get a
@@ -1166,25 +1180,35 @@ class TestLicensePool(DatabaseTest):
             'Data source "OCLC Classify" does not offer licenses',
             LicensePool.for_foreign_id,
             self._db, DataSource.OCLC, "1015", 
-            Identifier.OCLC_WORK)
+            Identifier.OCLC_WORK,
+            collection=self._collection()
+        )
 
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
         a book you must identify the book by Overdrive's primary
         identifier, not some other kind of identifier.
         """
+        collection = self._collection()
         assert_raises_regexp(
             ValueError, 
             "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
             LicensePool.for_foreign_id,
-            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}")
+            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
+            collection=collection
+        )
 
     def test_with_no_work(self):
+        collection = self._collection()
         p1, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
 
         p2, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2")
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2",
+            collection=collection
+        )
 
         work = self._work(title="Foo")
         p1.work = work
@@ -2445,9 +2469,11 @@ class TestCirculationEvent(DatabaseTest):
         # Identify which LicensePool the event is talking about.
         foreign_id = data['id']
         identifier_type = source.primary_identifier_type
-
+        collection = data['collection']
+        
         license_pool, was_new = LicensePool.for_foreign_id(
-            _db, source, identifier_type, foreign_id)
+            _db, source, identifier_type, foreign_id, collection=collection
+        )
 
         # Finally, gather some information about the event itself.
         type = data.get("type")
@@ -2471,10 +2497,12 @@ class TestCirculationEvent(DatabaseTest):
     def test_new_title(self):
 
         # Here's a new title.
+        collection = self._collection()
         data = self._event_data(
             source=DataSource.OVERDRIVE,
             id="{1-2-3}",
             type=CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+            collection=collection,
             old_value=0,
             delta=2,
             new_value=2,
@@ -2487,9 +2515,10 @@ class TestCirculationEvent(DatabaseTest):
         eq_(DataSource.OVERDRIVE, event.license_pool.data_source.name)
 
         # The event identifies a work by its ID plus the data source's
-        # primary identifier.
+        # primary identifier and its collection.
         eq_(Identifier.OVERDRIVE_ID, event.license_pool.identifier.type)
         eq_("{1-2-3}", event.license_pool.identifier.identifier)
+        eq_(collection, event.license_pool.collection)
 
         # The number of licenses has not been set to the new value.
         # The creator of a circulation event is responsible for also
@@ -2629,10 +2658,14 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+        collection=self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2652,10 +2685,14 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"bar", work.author)
 
     def test_calculate_work_can_be_forced_to_work_with_no_author(self):
+        collection = self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2674,20 +2711,24 @@ class TestWorkConsolidation(DatabaseTest):
 
         # This work record is unique to the existing work.
         edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
 
         # This work record is shared by the existing work and the new
         # LicensePool.
         edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2",
+        )
 
         # These work records are unique to the new LicensePool.
 
         edition3, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3",
+        )
 
         edition4, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4",
+        )
 
         # Make edition4's primary identifier equivalent to edition3's and edition1's
         # primaries.
@@ -2697,8 +2738,11 @@ class TestWorkConsolidation(DatabaseTest):
                 data_source, make_equivalent.primary_identifier, 1)
         preexisting_work = self._work(presentation_edition=edition1)
 
+        collection = self._collection()
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4",
+            collection=collection
+        )
         self._db.commit()
 
         pool.calculate_work()
