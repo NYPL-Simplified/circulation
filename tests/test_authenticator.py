@@ -289,6 +289,7 @@ class TestPatronData(DatabaseTest):
         patron.authorization_identifier = "1234"
         patron.username = "user"
         patron.last_external_sync = now
+        patron.fines = Money(10, "USD")
         authenticated_by_username = PatronData(
             authorization_identifier="user", complete=False
         )
@@ -306,7 +307,7 @@ class TestPatronData(DatabaseTest):
         authenticated_by_weird_identifier.apply(patron)
         eq_("1234", patron.authorization_identifier)
         eq_(None, patron.last_external_sync)
-        
+
     def test_get_or_create_patron(self):
         config = {
             Configuration.POLICIES: {
