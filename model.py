@@ -8789,7 +8789,7 @@ collections_licensepools = Table(
 )
 
 collections_identifiers = Table(
-    'collectionsidentifiers', Base.metadata,
+    'collections_identifiers', Base.metadata,
     Column(
         'collection_id', Integer, ForeignKey('collections.id'),
         index=True, nullable=False
