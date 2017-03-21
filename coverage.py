@@ -596,8 +596,10 @@ class CollectionCoverageProvider(CoverageProvider):
         self.collection = collection
         super(CollectionCoverageProvider, self).__init__(
             service_name=service_name,
+            output_source=datasource,
+            collection=collection,
             input_identifier_types=input_identifier_types,
-            output_source=datasource, batch_size=batch_size,
+            batch_size=batch_size,
             cutoff_time=cutoff_time
         )
 
