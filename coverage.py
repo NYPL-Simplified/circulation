@@ -776,9 +776,10 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
         )
 
         super(BibliographicCoverageProvider, self).__init__(
-            collection,
-            service_name,            
-            input_identifier_types, output_source,
+            collection=collection,
+            service_name=service_name,            
+            input_identifier_types=input_identifier_types,
+            datasource=output_source,
             batch_size=batch_size,
             cutoff_time=cutoff_time
         )
