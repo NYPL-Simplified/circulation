@@ -650,11 +650,11 @@ class DatabaseTest(object):
         collection.password = password
         return collection
         
-    def _server(self, name=None):
-        name = name or self._url
+    def _server(self, url=None):
+        url = url or self._url
         return get_one_or_create(
             self._db, ClientServer,
-            name=name, key=u"abc", secret=u"def"
+            url=url, key=u"abc", secret=u"def"
         )[0]
 
     def _subject(self, type, identifier):

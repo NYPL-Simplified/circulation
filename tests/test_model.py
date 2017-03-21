@@ -5324,10 +5324,9 @@ class TestCollection(DatabaseTest):
 
     def setup(self):
         super(TestCollection, self).setup()
-        self.collection = get_one_or_create(
-            self._db, Collection, name="test collection",
+        self.collection = self._collection(name="test collection",
             protocol=Collection.OVERDRIVE
-        )[0]
+        )
 
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
@@ -5427,7 +5426,7 @@ class TestClientServer(DatabaseTest):
 
     def test_encrypts_secret(self):
         server, new = create(
-            self._db, ClientServer, name=u"http://circ-manager.net",
+            self._db, ClientServer, url=u"http://circ-manager.net",
             key=u"test", secret=u"megatest"
         )
         assert server.secret != u"megatest"
@@ -5445,8 +5444,8 @@ class TestClientServer(DatabaseTest):
         eq_(True, isinstance(server.created, datetime.datetime))
         eq_(server.created, server.last_accessed)
 
-        # It raises an error if the name is already taken.
-        assert_raises(ValueError, ClientServer.register, self._db, server.name)
+        # It raises an error if the url is already registered.
+        assert_raises(ValueError, ClientServer.register, self._db, server.url)
 
     def test_authenticate(self):
 

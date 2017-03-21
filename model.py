@@ -8812,8 +8812,8 @@ class ClientServer(Base):
 
     id = Column(Integer, primary_key=True)
 
-    # URL or human readable name to represent the server.
-    name = Column(Unicode, unique=True)
+    # URL (or human readable name) to represent the server.
+    url = Column(Unicode, unique=True)
 
     # Unique identifier
     key = Column(Unicode, unique=True, index=True)
@@ -8825,7 +8825,7 @@ class ClientServer(Base):
     last_accessed = Column(DateTime)
 
     def __repr__(self):
-        return (u"%s ID=%s" % (self.name, self.id)).encode('utf8')
+        return (u"<ClientServer: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
     @hybrid_property
     def secret(self):
@@ -8844,12 +8844,12 @@ class ClientServer(Base):
         return (bcrypt.hashpw(plaintext_secret, self.secret) == self.secret)
 
     @classmethod
-    def register(cls, _db, name):
+    def register(cls, _db, url):
         """Creates a new server with client details."""
-        name = unicode(name)
-        if get_one(_db, cls, name=name):
+        url = unicode(url)
+        if get_one(_db, cls, url=url):
             raise ValueError(
-                "A ClientServer for '%s' already exists" % name
+                "A ClientServer for '%s' already exists" % url
             )
 
         key, plaintext_secret = cls._generate_client_details()
@@ -8859,7 +8859,7 @@ class ClientServer(Base):
 
         now = datetime.datetime.utcnow()
         server, ignore = create(
-            _db, cls, name=name, key=unicode(key),
+            _db, cls, url=url, key=unicode(key),
             secret=unicode(plaintext_secret), created=now, last_accessed=now
         )
 
@@ -8883,8 +8883,7 @@ class ClientServer(Base):
     @classmethod
     def authenticate(cls, _db, key, plaintext_secret):
         server = get_one(_db, cls, key=unicode(key))
-        if (server and
-            server._correct_secret(plaintext_secret)):
+        if (server and server._correct_secret(plaintext_secret)):
             server.last_accessed = datetime.datetime.utcnow()
             _db.flush()
             return server
