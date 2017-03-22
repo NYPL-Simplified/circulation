@@ -1024,6 +1024,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         e1 = imported_editions[0]
         e2 = imported_editions[1]
 
+        set_trace()
+        
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
         # image was not requested, since we were going to make our own
@@ -1127,6 +1129,56 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_("I am a new version of 10441.epub.images", s3.content[4])
         eq_(svg, s3.content[5])
         eq_("I am a new version of 10557.epub.images", s3.content[7])
+
+
+    def test_content_resources_not_mirrored_on_import_if_no_collection(self):
+        """If you don't provide a Collection to the OPDSImporter, no
+        LicensePools are created for the book and content resources
+        (like EPUB editions of the book) are not mirrored. Only
+        metadata resources (like the book cover) are mirrored.
+        """
+        
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
+    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+</svg>"""
+
+        http = DummyHTTPClient()
+        # The request to http://root/full-cover-image.png
+        # will result in a 404 error, and the image will not be mirrored.
+        http.queue_response(404, media_type="text/plain")
+        http.queue_response(
+            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+        )
+
+        s3 = DummyS3Uploader()
+
+        importer = OPDSImporter(
+            self._db, collection=None,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
+            mirror=s3, http_get=http.do_get
+        )
+
+        imported_editions, pools, works, failures = (
+            importer.import_from_feed(self.content_server_mini_feed, 
+                                      feed_url='http://root')
+        )
+
+        # No LicensePools were created, since no Collection was
+        # provided.
+        eq_([], pools)
+        
+        # The import process requested each remote resource in the
+        # order they appeared in the OPDS feed. The EPUB resources
+        # were not requested because no Collection was provided to the
+        # importer. The thumbnail image was not requested, since we
+        # were going to make our own thumbnail anyway.
+        eq_(http.requests, [
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
+            'http://root/full-cover-image.png',
+        ])
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
