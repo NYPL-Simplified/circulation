@@ -8861,7 +8861,7 @@ class ClientServer(Base):
     @classmethod
     def register(cls, _db, url):
         """Creates a new server with client details."""
-        url = unicode(url)
+        url = cls.normalize_url(url)
         if get_one(_db, cls, url=url):
             raise ValueError(
                 "A ClientServer for '%s' already exists" % url
@@ -8878,7 +8878,7 @@ class ClientServer(Base):
             secret=unicode(plaintext_secret), created=now, last_accessed=now
         )
 
-        _db.commit()
+        _db.flush()
         return server, plaintext_secret
 
     @classmethod
@@ -8894,6 +8894,14 @@ class ClientServer(Base):
         secret = make_client_string(secret_chars, 40)
 
         return key, secret
+
+    @classmethod
+    def normalize_url(cls, url):
+        url = re.sub(r'^(http://|https://)', '', url)
+        url = re.sub(r'^www\.', '', url)
+        if url.endswith('/'):
+            url = url[:-1]
+        return unicode(url.lower())
 
     @classmethod
     def authenticate(cls, _db, key, plaintext_secret):

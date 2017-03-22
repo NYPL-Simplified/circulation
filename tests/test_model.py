@@ -5458,6 +5458,26 @@ class TestClientServer(DatabaseTest):
         result = ClientServer.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
+    def test_normalize_url(self):
+        # http/https protocol is removed.
+        url = 'https://fake.com'
+        eq_('fake.com', ClientServer.normalize_url(url))
+
+        url = 'http://really-fake.com'
+        eq_('really-fake.com', ClientServer.normalize_url(url))
+
+        # www is removed if it exists, along with any trailing /
+        url = 'https://www.also-fake.net/'
+        eq_('also-fake.net', ClientServer.normalize_url(url))
+
+        # Subdomains and paths are retained.
+        url = 'https://www.super.fake.org/wow/'
+        eq_('super.fake.org/wow', ClientServer.normalize_url(url))
+
+        # URL is lowercased.
+        url = 'http://OMG.soVeryFake.gov'
+        eq_('omg.soveryfake.gov', ClientServer.normalize_url(url))
+
 
 class TestMaterializedViews(DatabaseTest):
 
