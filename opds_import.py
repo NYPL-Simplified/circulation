@@ -1134,7 +1134,7 @@ class OPDSImportMonitor(Monitor):
 
         self.feed_url = feed_url
         self.importer = import_class(
-            _db, collection=self.collection,
+            _db, collection=collection,
             data_source_name=default_data_source
         )
         self.force_reimport = force_reimport

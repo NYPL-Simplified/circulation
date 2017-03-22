@@ -670,7 +670,7 @@ class CirculationData(MetaToModelUtility):
             the lending authority distinguishes this book from others.
         """
         self._data_source = data_source
-
+        
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
             self.data_source_name = self.data_source_obj.name
@@ -861,7 +861,6 @@ class CirculationData(MetaToModelUtility):
 
         _db = Session.object_session(pool)
         data_source = self.data_source(_db)
-
         identifier = pool.identifier
 
         # TODO:  had following comment in metadata.apply.  need to figure out if still relevant.
