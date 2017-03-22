@@ -127,7 +127,9 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_data_source_autocreated(self):
         name = "New data source " + self._str
-        importer = OPDSImporter(self._db, name)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=name
+        )
         source1 = importer.data_source
         eq_(name, source1.name)
         
@@ -137,14 +139,18 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # But we can create a DataSource that does offer licenses.
         name = "New data source " + self._str
-        importer = OPDSImporter(self._db, name,
-                                data_source_offers_licenses=True)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=name,
+            data_source_offers_licenses=True
+        )
         source2 = importer.data_source
         eq_(name, source2.name)
         eq_(True, source2.offers_licenses)
         
     def test_extract_next_links(self):
-        importer = OPDSImporter(self._db, DataSource.NYT)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=DataSource.NYT
+        )
         next_links = importer.extract_next_links(
             self.content_server_mini_feed
         )
@@ -153,7 +159,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("http://localhost:5000/?after=327&size=100", next_links[0])
 
     def test_extract_last_update_dates(self):
-        importer = OPDSImporter(self._db, DataSource.NYT)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=DataSource.NYT
+        )
 
         # This file has two <entry> tags and one <simplified:message> tag.
         # The <entry> tags have their last update dates extracted,
@@ -176,7 +184,9 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
         data_source_name = "Data source name " + self._str
-        importer = OPDSImporter(self._db, data_source_name)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=data_source_name
+        )
         metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
@@ -476,7 +486,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_import_exception_if_unable_to_parse_feed(self):
         feed = "I am not a feed."
-        importer = OPDSImporter(self._db)
+        importer = OPDSImporter(self._db, collection=None)
 
         assert_raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
 
@@ -485,7 +495,7 @@ class TestOPDSImporter(OPDSImporterTest):
         feed = self.content_server_mini_feed
 
         imported_editions, pools, works, failures = (
-            OPDSImporter(self._db).import_from_feed(feed)
+            OPDSImporter(self._db, collection=None).import_from_feed(feed)
         )
 
         [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
@@ -540,13 +550,18 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # If we import the same file again, we get the same list of Editions.
         imported_editions_2, pools_2, works_2, failures_2 = (
-            OPDSImporter(self._db).import_from_feed(feed)
+            OPDSImporter(self._db, collection=None).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
-        # importing with a lendable data source makes license pools and works
+        # importing with a collection and a lendable data source makes
+        # license pools and works.
         imported_editions, pools, works, failures = (
-            OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
+            OPDSImporter(
+                self._db,
+                collection=self._default_collection,
+                data_source_name=DataSource.OA_CONTENT_SERVER
+            ).import_from_feed(feed)
         )
 
         [crow_pool, mouse_pool] = sorted(
@@ -580,11 +595,15 @@ class TestOPDSImporter(OPDSImporterTest):
         # pools and works as well as editions.
         # Tests that the number and contents of error messages are appropriate to the task.
 
-        # will create editions, but not license pools or works, because the 
-        # metadata wrangler data source is not lendable
         feed = self.content_server_mini_feed
 
-        importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
+        # This import will create Editions, but not LicensePools or
+        # Works, because the metadata wrangler data source is not
+        # lendable.
+        importer_mw = OPDSImporter(
+            self._db, collection=self._default_collection,
+            data_source_name=DataSource.METADATA_WRANGLER
+        )
         imported_editions_mw, pools_mw, works_mw, failures_mw = (
             importer_mw.import_from_feed(feed)
         )
@@ -993,7 +1012,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         s3 = DummyS3Uploader()
 
         importer = OPDSImporter(
-            self._db, data_source_name=DataSource.OA_CONTENT_SERVER,
+            self._db, collection=self._default_collection,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
             mirror=s3, http_get=http.do_get
         )
 
@@ -1182,7 +1202,10 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(True, monitor.check_for_new_data(feed))
 
     def test_follow_one_link(self):
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        monitor = OPDSImportMonitor(
+            self._db, feed_url="http://url", collection=None,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
+            import_class=OPDSImporter)
         feed = self.content_server_mini_feed
 
         # If there's new data, follow_one_link extracts the next links.
@@ -1223,7 +1246,11 @@ class TestOPDSImportMonitor(OPDSImporterTest):
     def test_import_one_feed(self):
         # Check coverage records are created.
 
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, DoomedOPDSImporter)
+        monitor = OPDSImportMonitor(
+            self._db, feed_url="http://url", collection=None,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
+            import_class=DoomedOPDSImporter
+        )
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
         feed = self.content_server_mini_feed
@@ -1288,7 +1315,11 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def import_one_feed(self, feed, feed_url):
                 self.imports.append(feed)
 
-        monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        monitor = MockOPDSImportMonitor(
+            self._db, feed_url="http://url", collection=None,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
+            import_class=OPDSImporter
+        )
         
         monitor.queue_response([[], "last page"])
         monitor.queue_response([["second next link"], "second page"])

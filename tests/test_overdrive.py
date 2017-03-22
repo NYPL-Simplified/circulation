@@ -477,7 +477,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         identifier.identifier = '3896665d-9d81-4cac-bd43-ffc5066de1f5'
 
         # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        eq_([], identifier.licensed_through)
 
         # Run it through the OverdriveBibliographicCoverageProvider
         provider = OverdriveBibliographicCoverageProvider(

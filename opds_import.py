@@ -199,12 +199,16 @@ class OPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
+    def __init__(self, _db, collection,
+                 data_source_name=DataSource.METADATA_WRANGLER,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, data_source_offers_licenses=False,
                  content_modifier=None,
     ):
         """
+        :param collection: LicensePools created by this OPDS import
+        will be associated with the given Collection.
+
         :param data_source_name: Name of the source of this OPDS feed.
         If there is no DataSource with this name, one will be created.
 
@@ -215,6 +219,7 @@ class OPDSImporter(object):
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
+        self.collection = collection
         self.data_source_name = data_source_name
         self.data_source_offers_licenses = data_source_offers_licenses
         self.identifier_mapping = identifier_mapping
@@ -317,7 +322,8 @@ class OPDSImporter(object):
             http_get=self.http_get,
         )
         metadata.apply(
-            edition, self.metadata_client, replace=policy
+            edition=edition, collection=self.collection,
+            metadata_client=self.metadata_client, replace=policy
         )
 
         return edition
@@ -419,7 +425,7 @@ class OPDSImporter(object):
                 combined_meta['data_source'] = self.data_source_name
             
             combined_meta['primary_identifier'] = identifier_obj
-
+            
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
             # form the CirculationData that would correspond to this Metadata
@@ -694,16 +700,17 @@ class OPDSImporter(object):
             data_source_last_updated=last_opds_update,
         )
             
-        # Only add circulation data if both the book's distributor *and*
-        # the source of the OPDS feed are lendable data sources.
-        if (circulation_data_source and circulation_data_source.offers_licenses
+        # Only add circulation data if there is a collection, and if
+        # both the book's distributor *and* the source of the OPDS
+        # feed are lendable data sources.
+        if (circulation_data_source
+            and circulation_data_source.offers_licenses
             and metadata_data_source.offers_licenses):
             kwargs_circ = dict(
                 data_source=circulation_data_source.name,
                 links=list(links),
                 default_rights_uri=rights_uri,
             )
-                
             kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
 
@@ -1114,14 +1121,19 @@ class OPDSImportMonitor(Monitor):
     it mentions.
     """
     
-    def __init__(self, _db, feed_url, default_data_source, import_class, 
+    def __init__(self, _db, feed_url, collection, default_data_source,
+                 import_class, 
                  interval_seconds=0, keep_timestamp=False,
                  immediately_presentation_ready=False, force_reimport=False):
 
         self.feed_url = feed_url
-        self.importer = import_class(_db, default_data_source)
+        self.importer = import_class(
+            _db, collection=self.collection,
+            data_source_name=default_data_source
+        )
         self.force_reimport = force_reimport
         self.immediately_presentation_ready = immediately_presentation_ready
+        self.collection = collection
         super(OPDSImportMonitor, self).__init__(
             _db, "OPDS Import %s" % feed_url, interval_seconds,
             keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER

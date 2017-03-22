@@ -7821,6 +7821,7 @@ class Representation(Base):
         try:
             image = self.as_image()
         except Exception, e:
+            set_trace()
             self.scale_exception = traceback.format_exc()
             self.scaled_at = None
             # This most likely indicates an error during the fetch
