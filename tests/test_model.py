@@ -5418,6 +5418,43 @@ class TestCollection(DatabaseTest):
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
 
 
+class TestCollectionForMetadataWrangler(DatabaseTest):
+
+    """Tests that requirements to the metadata wrangler's use of Collection
+    are being met by continued development on the Collection class.
+
+    If any of these tests are failing, development will be required on the
+    metadata wrangler to meet the needs of the new Collection class.
+    """
+
+    def test_all_protocols_have_unique_identifier_defined(self):
+        """Test that all acceptable Collection protocols have a unique
+        identifier defined in the Collection class.
+
+        The unique identifier must be properly set to identify the
+        collection on the metadata wrangler.
+        """
+        eq_(
+            sorted(Collection.PROTOCOLS),
+            sorted(Collection.UNIQUE_IDENTIFIER_BY_PROTOCOL)
+        )
+
+    def test_no_protocols_contain_colon(self):
+        """Test that no protocol names contain a ':', which would break
+        the metadata_identifier decoding process.
+        """
+        eq_([], filter(lambda p: ':' in p, Collection.PROTOCOLS))
+
+    def test_only_name_and_protocol_are_required(self):
+        """Test that only name and protocol are required fields on
+        the Collection class.
+        """
+        collection = create(
+            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+        )[0]
+        eq_(True, isinstance(collection, Collection))
+
+
 class TestClientServer(DatabaseTest):
 
     def setup(self):

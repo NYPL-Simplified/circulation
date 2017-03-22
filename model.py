@@ -8612,17 +8612,20 @@ class Collection(Base):
     # A dict capturing the column location of the unique collection
     # account identifier in the collections table.
     UNIQUE_IDENTIFIER_BY_PROTOCOL = {
-        # Overdrive 'client_key'
-        OVERDRIVE : username,
+        # Axis 360 'username'
+        AXIS_360 : username,
 
         # Bibliotheca 'account_id'
         BIBLIOTHECA : username,
 
-        # Axis 360 'username'
-        AXIS_360 : username,
-
         # OPDS_IMPORT 'url'
         OPDS_IMPORT : url,
+
+        # One Click 'basic_token'
+        ONE_CLICK : password,
+
+        # Overdrive 'client_key'
+        OVERDRIVE : username,
     }
 
     # A collection may have many child collections. For example,
@@ -8654,7 +8657,7 @@ class Collection(Base):
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
         this Collection on the metadata wrangler. This identifier is
-        composed of its protocol and its account identifier.
+        composed of the Collection protocol and account identifier.
 
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
