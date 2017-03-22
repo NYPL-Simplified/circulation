@@ -5604,9 +5604,15 @@ class Classification(Base):
 
     @property
     def comes_from_license_source(self):
+        """Does this Classification come from a data source that also
+        provided a license for this book?
+        """
         if not self.identifier.licensed_through:
             return False
-        return self.identifier.licensed_through.data_source == self.data_source
+        for pool in self.identifier.licensed_through:
+            if self.data_source == pool.data_source:
+                return True
+        return False
 
 
 class WillNotGenerateExpensiveFeed(Exception):
@@ -7821,7 +7827,6 @@ class Representation(Base):
         try:
             image = self.as_image()
         except Exception, e:
-            set_trace()
             self.scale_exception = traceback.format_exc()
             self.scaled_at = None
             # This most likely indicates an error during the fetch

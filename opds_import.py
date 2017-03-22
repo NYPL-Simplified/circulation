@@ -331,10 +331,16 @@ class OPDSImporter(object):
     def update_work_for_edition(self, edition, even_if_no_author=False, immediately_presentation_ready=False):
         work = None
 
-        # Find a pool for this edition. If we have CirculationData, a pool was created
-        # when we imported the edition. If there was already a pool from a different data
-        # source, that's fine too.
-        pool = get_one(self._db, LicensePool, identifier=edition.primary_identifier)
+        # Find a pool for this edition's primary identifier. Any
+        # LicensePool will do--the collection doesn't have to match,
+        # since all LicensePools for a given identifier have the same
+        # Work. If we have CirculationData, a pool was created when we
+        # imported the edition. If there was already a pool from a
+        # different data source or a different collection, that's fine
+        # too.
+        pool = get_one(
+            self._db, LicensePool, identifier=edition.primary_identifier
+        )
 
         if pool:
             # Note: pool.calculate_work will call self.set_presentation_edition(), 

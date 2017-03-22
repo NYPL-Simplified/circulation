@@ -1024,8 +1024,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         e1 = imported_editions[0]
         e2 = imported_editions[1]
 
-        # TODO: I'm pretty sure there should be pools here.
-        set_trace()
+        eq_(2, len(pools))
         
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
