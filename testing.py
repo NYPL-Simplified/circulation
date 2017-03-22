@@ -663,9 +663,9 @@ class DatabaseTest(object):
         self._default_collection instead of calling self.collection()
         saves time.
         """
-        if not hasattr(self, '__default_collection'):
-            self.__default_collection = self._collection()
-        return self.__default_collection
+        if not hasattr(self, '_default__collection'):
+            self._default__collection = self._collection()
+        return self._default__collection
     
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
