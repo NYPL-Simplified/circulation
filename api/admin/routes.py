@@ -46,9 +46,10 @@ def requires_admin(f):
 def requires_csrf_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = app.manager.admin_sign_in_controller.check_csrf_token()
-        if isinstance(token, ProblemDetail):
-            return token
+        if flask.request.method in ["POST", "PUT", "DELETE"]:
+            token = app.manager.admin_sign_in_controller.check_csrf_token()
+            if isinstance(token, ProblemDetail):
+                return token
         return f(*args, **kwargs)
     return decorated
 
@@ -214,6 +215,30 @@ def circulation_events():
 def stats():
     data = app.manager.admin_dashboard_controller.stats()
     if isinstance(data, ProblemDetail):
+        return data
+    return flask.jsonify(**data)
+
+@app.route('/admin/libraries', methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_csrf_token
+@requires_admin
+def libraries():
+    data = app.manager.admin_settings_controller.libraries()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/collections", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_csrf_token
+@requires_admin
+def collections():
+    data = app.manager.admin_settings_controller.collections()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
         return data
     return flask.jsonify(**data)
 
