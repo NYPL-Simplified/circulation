@@ -38,7 +38,6 @@ from model import (
     BaseCoverageRecord,
     CirculationEvent,
     Classification,
-    ClientServer,
     Collection,
     Complaint,
     Contributor,
@@ -53,6 +52,7 @@ from model import (
     Genre,
     Hold,
     Hyperlink,
+    IntegrationClient,
     Library,
     LicensePool,
     Measurement,
@@ -5455,65 +5455,65 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
         eq_(True, isinstance(collection, Collection))
 
 
-class TestClientServer(DatabaseTest):
+class TestIntegrationClient(DatabaseTest):
 
     def setup(self):
-        super(TestClientServer, self).setup()
-        self.server = self._server()
+        super(TestIntegrationClient, self).setup()
+        self.client = self._integration_client()
 
     def test_encrypts_secret(self):
-        server, new = create(
-            self._db, ClientServer, url=u"http://circ-manager.net",
+        client, new = create(
+            self._db, IntegrationClient, url=u"http://circ-manager.net",
             key=u"test", secret=u"megatest"
         )
-        assert server.secret != u"megatest"
-        eq_(True, server.secret.startswith("$2a$"))
+        assert client.secret != u"megatest"
+        eq_(True, client.secret.startswith("$2a$"))
 
     def test_register(self):
         now = datetime.datetime.utcnow()
-        server, plaintext_secret = ClientServer.register(self._db, self._url)
+        client, plaintext_secret = IntegrationClient.register(self._db, self._url)
 
-        # It creates client details for the server.
-        assert server.key and server.secret
+        # It creates client details.
+        assert client.key and client.secret
         # And sets a timestamp for created & last_accessed.
-        assert server.created and server.last_accessed
-        assert server.created > now
-        eq_(True, isinstance(server.created, datetime.datetime))
-        eq_(server.created, server.last_accessed)
+        assert client.created and client.last_accessed
+        assert client.created > now
+        eq_(True, isinstance(client.created, datetime.datetime))
+        eq_(client.created, client.last_accessed)
 
         # It raises an error if the url is already registered.
-        assert_raises(ValueError, ClientServer.register, self._db, server.url)
+        assert_raises(ValueError, IntegrationClient.register, self._db, client.url)
 
     def test_authenticate(self):
 
-        result = ClientServer.authenticate(self._db, u"abc", u"def")
-        eq_(self.server, result)
+        result = IntegrationClient.authenticate(self._db, u"abc", u"def")
+        eq_(self.client, result)
 
-        result = ClientServer.authenticate(self._db, u"abc", u"bad_secret")
+        result = IntegrationClient.authenticate(self._db, u"abc", u"bad_secret")
         eq_(None, result)
 
-        result = ClientServer.authenticate(self._db, u"bad_id", u"def")
+        result = IntegrationClient.authenticate(self._db, u"bad_id", u"def")
         eq_(None, result)
 
     def test_normalize_url(self):
         # http/https protocol is removed.
         url = 'https://fake.com'
-        eq_('fake.com', ClientServer.normalize_url(url))
+        eq_('fake.com', IntegrationClient.normalize_url(url))
 
         url = 'http://really-fake.com'
-        eq_('really-fake.com', ClientServer.normalize_url(url))
+        eq_('really-fake.com', IntegrationClient.normalize_url(url))
 
         # www is removed if it exists, along with any trailing /
         url = 'https://www.also-fake.net/'
-        eq_('also-fake.net', ClientServer.normalize_url(url))
+        eq_('also-fake.net', IntegrationClient.normalize_url(url))
 
         # Subdomains and paths are retained.
         url = 'https://www.super.fake.org/wow/'
-        eq_('super.fake.org/wow', ClientServer.normalize_url(url))
+        eq_('super.fake.org/wow', IntegrationClient.normalize_url(url))
 
         # URL is lowercased.
         url = 'http://OMG.soVeryFake.gov'
-        eq_('omg.soveryfake.gov', ClientServer.normalize_url(url))
+        eq_('omg.soveryfake.gov', IntegrationClient.normalize_url(url))
 
 
 class TestMaterializedViews(DatabaseTest):

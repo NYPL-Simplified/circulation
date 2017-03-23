@@ -8820,13 +8820,13 @@ collections_identifiers = Table(
 )
 
 
-class ClientServer(Base):
-    """A server that has authenticated access to this application.
+class IntegrationClient(Base):
+    """A client that has authenticated access to this application.
 
     Currently used to represent circulation managers that have access
     to the metadata wrangler.
     """
-    __tablename__ = 'servers'
+    __tablename__ = 'integrationclients'
 
     id = Column(Integer, primary_key=True)
 
@@ -8843,7 +8843,7 @@ class ClientServer(Base):
     last_accessed = Column(DateTime)
 
     def __repr__(self):
-        return (u"<ClientServer: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
+        return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
     @hybrid_property
     def secret(self):
@@ -8867,7 +8867,7 @@ class ClientServer(Base):
         url = cls.normalize_url(url)
         if get_one(_db, cls, url=url):
             raise ValueError(
-                "A ClientServer for '%s' already exists" % url
+                "An IntegrationClient for '%s' already exists" % url
             )
 
         key, plaintext_secret = cls._generate_client_details()
