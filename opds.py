@@ -1155,11 +1155,15 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         identifier, work = work
 
         # Most of the time we can use the cached OPDS entry for the
-        # work.  However, that cached OPDS feed is designed around one
+        # Work. However, that cached OPDS feed is designed around one
         # specific LicensePool, and it's possible that the client is
-        # asking for a lookup centered around a different LicensePool.
+        # asking for a lookup centered around a different edition of the
+        # same book.
         default_licensepool = self.annotator.active_licensepool_for(work)
-        active_licensepool = identifier.licensed_through
+        if identifier.licensed_through:
+            active_licensepool = identifier.licensed_through[0]
+        else:
+            active_licensepool = default_licensepool
 
         # In that case, we can't use the cached OPDS entry. We need to
         # create a new one (and not store it in the cache).
@@ -1170,8 +1174,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             error_status = 404
             error_message = "Identifier not found in collection"
             
-        if (identifier.licensed_through and 
-            identifier.licensed_through.work != work):
+        if identifier.work != work:
             error_status = 500
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            
