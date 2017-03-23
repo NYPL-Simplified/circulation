@@ -994,7 +994,10 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_("No license pool available", result.exception)
 
         # Test success.
-        ed, lp = self._edition(with_license_pool=True)
+        ed, lp = self._edition(
+            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
         result = provider.set_presentation_ready(ed.primary_identifier)
         eq_(result, ed.primary_identifier)
 
