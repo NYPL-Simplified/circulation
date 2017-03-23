@@ -8612,20 +8612,20 @@ class Collection(Base):
     # A dict capturing the column location of the unique collection
     # account identifier in the collections table.
     UNIQUE_IDENTIFIER_BY_PROTOCOL = {
-        # Axis 360 'username'
-        AXIS_360 : username,
+        # Axis 360 'library_id'
+        AXIS_360 : external_account_id,
 
-        # Bibliotheca 'account_id'
-        BIBLIOTHECA : username,
+        # Bibliotheca 'library_id'
+        BIBLIOTHECA : external_account_id,
 
         # OPDS_IMPORT 'url'
         OPDS_IMPORT : url,
 
-        # One Click 'basic_token'
-        ONE_CLICK : password,
+        # One Click 'library_id'
+        ONE_CLICK : external_account_id,
 
-        # Overdrive 'client_key'
-        OVERDRIVE : username,
+        # Overdrive 'library_id'
+        OVERDRIVE : external_account_id,
     }
 
     # A collection may have many child collections. For example,
