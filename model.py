@@ -8654,6 +8654,19 @@ class Collection(Base):
     )
 
     @property
+    def unique_account_id(self):
+        """Identifier that uniquely represents this Collection of works"""
+        account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(self.protocol)
+        unique_account_id = getattr(self, account_id_column.name)
+
+        if not unique_account_id:
+            raise ValueError("Unique account identifier not set")
+
+        if self.parent:
+            return self.parent.unique_account_id + '+' + unique_account_id
+        return unique_account_id
+
+    @property
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
         this Collection on the metadata wrangler. This identifier is
@@ -8662,27 +8675,10 @@ class Collection(Base):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        def get_account_id(collection):
-            account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(collection.protocol)
-            return getattr(collection, account_id_column.name)
-
-        collection = self
-        account_ids = list()
-        while collection:
-            account_id = get_account_id(collection)
-            if not account_id:
-                raise ValueError(
-                    "Cannot create metadata_identifier without a unique "
-                    "identifier for the Collection"
-                )
-            account_ids.insert(0, account_id)
-            collection = collection.parent
-
-        collection_identifier = unicode('+'.join(account_ids))
-        collection_identifier = base64.b64encode(collection_identifier, '-_')
-
+        account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
         protocol = base64.b64encode(unicode(self.protocol), '-_')
-        metadata_identifier = protocol + ':' + collection_identifier
+
+        metadata_identifier = protocol + ':' + account_id
         return base64.b64encode(metadata_identifier, '-_')
 
     @classmethod
