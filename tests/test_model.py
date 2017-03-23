@@ -1,5 +1,6 @@
 # encoding: utf-8
 from StringIO import StringIO
+import base64
 import datetime
 import os
 import sys
@@ -5324,8 +5325,8 @@ class TestCollection(DatabaseTest):
 
     def setup(self):
         super(TestCollection, self).setup()
-        self.collection = self._collection(name="test collection",
-            protocol=Collection.OVERDRIVE
+        self.collection = self._collection(
+            name="test collection", protocol=Collection.OVERDRIVE
         )
 
     def test_set_key_value_pair(self):
@@ -5387,6 +5388,52 @@ class TestCollection(DatabaseTest):
             data
         )
 
+    def test_metadata_identifier(self):
+        # If the collection doesn't have its unique identifier, an error
+        # is raised.
+        assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
+
+        def build_expected(protocol, unique_id):
+            encoded = [base64.b64encode(unicode(value), '-_')
+                       for value in [protocol, unique_id]]
+            return base64.b64encode(':'.join(encoded), '-_')
+
+        # With a unique identifier, we get back the expected identifier.
+        self.collection.external_account_id = 'id'
+        expected = build_expected(Collection.OVERDRIVE, 'id')
+        eq_(expected, self.collection.metadata_identifier)
+
+        # If there's a parent, its unique id is incorporated into the result.
+        child = self._collection(
+            name="Child", protocol=Collection.OPDS_IMPORT, url=self._url)
+        child.parent = self.collection
+        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.url)
+        eq_(expected, child.metadata_identifier)
+
+    def test_from_metadata_identifier(self):
+        # If a mirrored collection doesn't exist, it is created.
+        self.collection.external_account_id = 'id'
+        mirror_collection, is_new = Collection.from_metadata_identifier(
+            self._db, self.collection.metadata_identifier
+        )
+        eq_(True, is_new)
+        eq_(self.collection.metadata_identifier, mirror_collection.name)
+        eq_(self.collection.protocol, mirror_collection.protocol)
+
+        # If the mirrored collection already exists, it is returned.
+        collection = self._collection(url=self._url)
+        mirror_collection = create(
+            self._db, Collection,
+            name=collection.metadata_identifier,
+            protocol=collection.protocol
+        )[0]
+
+        result, is_new = Collection.from_metadata_identifier(
+            self._db, collection.metadata_identifier
+        )
+        eq_(False, is_new)
+        eq_(mirror_collection, result)
+
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
         identifier = self._identifier()
@@ -5438,12 +5485,6 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
             sorted(Collection.PROTOCOLS),
             sorted(Collection.UNIQUE_IDENTIFIER_BY_PROTOCOL)
         )
-
-    def test_no_protocols_contain_colon(self):
-        """Test that no protocol names contain a ':', which would break
-        the metadata_identifier decoding process.
-        """
-        eq_([], filter(lambda p: ':' in p, Collection.PROTOCOLS))
 
     def test_only_name_and_protocol_are_required(self):
         """Test that only name and protocol are required fields on

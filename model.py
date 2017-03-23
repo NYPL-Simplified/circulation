@@ -8662,16 +8662,27 @@ class Collection(Base):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(self.protocol)
-        account_id = getattr(self, account_id_column.name)
+        def get_account_id(collection):
+            account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(collection.protocol)
+            return getattr(collection, account_id_column.name)
 
-        if ':' in self.protocol:
-            # This will break the base64 decoding on the metadata wrangler.
-            raise ValueError(
-                "Identifiers for protocols with ':' cannot be generated."
-            )
+        collection = self
+        account_ids = list()
+        while collection:
+            account_id = get_account_id(collection)
+            if not account_id:
+                raise ValueError(
+                    "Cannot create metadata_identifier without a unique "
+                    "identifier for the Collection"
+                )
+            account_ids.insert(0, account_id)
+            collection = collection.parent
 
-        metadata_identifier = unicode(self.protocol + ':' + account_id)
+        collection_identifier = unicode('+'.join(account_ids))
+        collection_identifier = base64.b64encode(collection_identifier, '-_')
+
+        protocol = base64.b64encode(unicode(self.protocol), '-_')
+        metadata_identifier = protocol + ':' + collection_identifier
         return base64.b64encode(metadata_identifier, '-_')
 
     @classmethod
@@ -8684,7 +8695,7 @@ class Collection(Base):
 
         if not collection:
             details = base64.b64decode(metadata_identifier, '-_')
-            protocol = details.split(':', 1)[0]
+            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
             collection, is_new = create(_db, Collection,
                 name=metadata_identifier, protocol=protocol)
 
