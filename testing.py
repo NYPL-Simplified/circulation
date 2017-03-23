@@ -718,9 +718,9 @@ class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
 
-    def __init__(self, _db, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(NeverSuccessfulCoverageProvider, self).__init__(
-            _db, *args, **kwargs
+            *args, **kwargs
         )
         self.transient = kwargs.get('transient') or False
 

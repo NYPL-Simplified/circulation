@@ -73,7 +73,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
         super(TestPresentationReadyMonitor, self).setup()
-        self.gutenberg = Identifier.GUTENBERG_ID
+        self.gutenberg_id = Identifier.GUTENBERG_ID
         self.oclc = DataSource.lookup(self._db, DataSource.OCLC)
         self.overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         self.edition, self.edition_license_pool = self._edition(DataSource.GUTENBERG, with_license_pool=True)
@@ -85,7 +85,10 @@ class TestPresentationReadyMonitor(DatabaseTest):
 
     def test_make_batch_presentation_ready_sets_presentation_ready_on_success(self):
         success = AlwaysSuccessfulCoverageProvider(
-            "Provider 1", self.gutenberg, self.oclc)
+            service_name="Provider 1",
+            input_identifier_types=self.gutenberg_id,
+            output_source=self.oclc
+        )
         monitor = PresentationReadyMonitor(self._db, [success])
         monitor.process_batch([self.work])
         eq_(None, self.work.presentation_ready_exception)
@@ -93,9 +96,15 @@ class TestPresentationReadyMonitor(DatabaseTest):
 
     def test_make_batch_presentation_ready_sets_exception_on_failure(self):
         success = AlwaysSuccessfulCoverageProvider(
-            "Provider 1", self.gutenberg, self.oclc)
+            service_name="Provider 1",
+            input_identifier_types=self.gutenberg_id,
+            output_source=self.oclc
+        )
         failure = NeverSuccessfulCoverageProvider(
-            "Provider 2", self.gutenberg, self.overdrive)
+            service_name="Provider 2",
+            input_identifier_types=self.gutenberg_id,
+            output_source=self.overdrive
+        )
         monitor = PresentationReadyMonitor(self._db, [success, failure])
         monitor.process_batch([self.work])
         eq_(False, self.work.presentation_ready)
@@ -106,9 +115,15 @@ class TestPresentationReadyMonitor(DatabaseTest):
     def test_prepare_returns_failing_providers(self):
 
         success = AlwaysSuccessfulCoverageProvider(
-            "Monitor 1", self.gutenberg, self.oclc)
+            service_name="Monitor 1",
+            output_source=self.oclc,
+            input_identifier_types=self.gutenberg_id,
+        )
         failure = NeverSuccessfulCoverageProvider(
-            "Monitor 2", self.gutenberg, self.overdrive)
+            service_name="Monitor 2",
+            output_source=self.overdrive,
+            input_identifier_types=self.gutenberg_id,
+        )
         monitor = PresentationReadyMonitor(self._db, [success, failure])
         result = monitor.prepare(self.work)
         eq_([failure], result)
@@ -116,9 +131,15 @@ class TestPresentationReadyMonitor(DatabaseTest):
     def test_irrelevant_provider_is_not_called(self):
 
         gutenberg_monitor = AlwaysSuccessfulCoverageProvider(
-            "Gutenberg monitor", self.gutenberg, self.oclc)
+            service_name="Gutenberg monitor",
+            output_source=self.oclc,
+            input_identifier_types=self.gutenberg_id
+        )
         oclc_monitor = NeverSuccessfulCoverageProvider(
-            "OCLC monitor", self.oclc, self.overdrive)
+            service_name="OCLC monitor",
+            output_source=self.oclc,
+            input_identifier_types=Identifier.OCLC_NUMBER
+        )
         monitor = PresentationReadyMonitor(
             self._db, [gutenberg_monitor, oclc_monitor])
         result = monitor.prepare(self.work)
