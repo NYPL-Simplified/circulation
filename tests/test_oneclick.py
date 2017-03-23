@@ -303,7 +303,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         identifier.identifier = '9780307378101'
 
         # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        eq_([], identifier.licensed_through)
 
         # Run it through the OneClickBibliographicCoverageProvider
         provider = OneClickBibliographicCoverageProvider(
@@ -314,7 +314,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
 
         # A LicensePool was created. But we do NOT know how many copies of this
         # book are available, only what formats it's available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_('application/epub+zip (vnd.adobe/adept+xml)', lpdm.delivery_mechanism.name)

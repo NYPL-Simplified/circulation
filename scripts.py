@@ -904,9 +904,9 @@ class AddClassificationScript(IdentifierInputScript):
                     self.subject.identifier, self.subject.name,
                     self.weight
                 )
-                pool = identifier.licensed_through
-                if pool and pool.work:
-                    pool.work.calculate_presentation(policy=policy)
+                for pool in identifier.licensed_through:
+                    if pool.work:
+                        pool.work.calculate_presentation(policy=policy)
         else:
             self.log.warn("Could not locate subject, doing nothing.")
 

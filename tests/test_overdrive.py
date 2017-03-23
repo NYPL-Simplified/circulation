@@ -490,7 +490,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         # about how we've licensed this book, but to have a place to
         # store the information about what formats the book is
         # available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm1, lpdm2] = pool.delivery_mechanisms
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]

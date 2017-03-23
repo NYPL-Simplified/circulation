@@ -450,23 +450,23 @@ class OneClickAPI(object):
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)
             if identifier and not made_new:
                 # Don't delete works from the database.  Set them to "not ours anymore".
-                pool = identifier.licensed_through
-                if not pool:
-                    continue
-                if pool.licenses_owned > 0:
-                    if pool.presentation_edition:
-                        self.log.warn("Removing %s (%s) from circulation",
-                                      pool.presentation_edition.title, pool.presentation_edition.author)
-                    else:
-                        self.log.warn(
-                            "Removing unknown work %s from circulation.",
-                            identifier.identifier
-                        )
-                pool.licenses_owned = 0
-                pool.licenses_available = 0
-                pool.licenses_reserved = 0
-                pool.patrons_in_hold_queue = 0
-                pool.last_checked = today
+                # TODO: This was broken but it didn't cause any test failures,
+                # which means it needs a test.
+                for pool in identifier.licensed_through:
+                    if pool.licenses_owned > 0:
+                        if pool.presentation_edition:
+                            self.log.warn("Removing %s (%s) from circulation",
+                                          pool.presentation_edition.title, pool.presentation_edition.author)
+                        else:
+                            self.log.warn(
+                                "Removing unknown work %s from circulation.",
+                                identifier.identifier
+                            )
+                    pool.licenses_owned = 0
+                    pool.licenses_available = 0
+                    pool.licenses_reserved = 0
+                    pool.patrons_in_hold_queue = 0
+                    pool.last_checked = today
 
                 items_updated += 1
 
@@ -538,6 +538,7 @@ class MockOneClickAPI(OneClickAPI):
                 )
             )
 
+        self.collection = collection
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]

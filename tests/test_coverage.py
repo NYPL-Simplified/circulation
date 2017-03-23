@@ -995,7 +995,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         identifier = pool.identifier
         work.presentation_ready = False
         provider = MockBibliographicCoverageProvider(
-            self._db, pool.collection
+            self._db, pool.collection, data_source=DataSource.GUTENBERG
         )
         [result] = provider.process_batch([identifier])
         eq_(result, identifier)
