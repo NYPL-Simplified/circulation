@@ -243,7 +243,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         identifier.identifier = '0003642860'
 
         # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        eq_([], identifier.licensed_through)
 
         # Run it through the Axis360BibliographicCoverageProvider
         provider = Axis360BibliographicCoverageProvider(
@@ -254,7 +254,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
 
         # A LicensePool was created. We know both how many copies of this
         # book are available, and what formats it's available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(9, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_('application/epub+zip (vnd.adobe/adept+xml)', 
@@ -295,6 +295,6 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         wrong_identifier = Identifier.for_foreign_id(
             self._db, Identifier.AXIS_360_ID, "0003642860"
         )
-        eq_(None, identifier.licensed_through)
+        eq_([], identifier.licensed_through)
         eq_([], identifier.primarily_identifies)
 

@@ -223,8 +223,8 @@ class TestBibliographicCoverageProvider(TestThreeMAPI):
         identifier = self._identifier(identifier_type=Identifier.THREEM_ID)
         identifier.identifier = 'ddf4gr9'
 
-        # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        # This book has no LicensePools.
+        eq_([], identifier.licensed_through)
 
         # Run it through the ThreeMBibliographicCoverageProvider
         provider = ThreeMBibliographicCoverageProvider(
@@ -237,7 +237,7 @@ class TestBibliographicCoverageProvider(TestThreeMAPI):
         # about how we've licensed this book, but to have a place to
         # store the information about what formats the book is
         # available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_(
