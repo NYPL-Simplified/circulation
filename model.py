@@ -1503,6 +1503,17 @@ class Identifier(Base):
             return self.URN_SCHEME_PREFIX + "%s/%s" % (
                 identifier_type, identifier_text)
 
+    @property
+    def work(self):
+        """Find the Work, if any, associated with this Identifier.
+
+        Although one Identifier may be associated with multiple LicensePools,
+        all of them must share a Work.
+        """
+        for lp in self.licensed_through:
+            if lp.work:
+                return lp.work
+        
     class UnresolvableIdentifierException(Exception):
         # Raised when an identifier that can't be resolved into a LicensePool
         # is provided in a context that requires a resolvable identifier
@@ -6352,12 +6363,18 @@ class LicensePool(Base):
             # A LicensePool with no Identifier should never have a Work.
             self.work = None
             return None, False
+       
         if known_edition:
             presentation_edition = known_edition
         else:
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
-
+            
+        if (presentation_edition and
+            presentation_edition.is_presentation_for != self):
+            raise ValueError(
+                "Presentation edition's license pool is not the license pool for which work is being calculated!")           
+                    
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
             # We don't have any information about the identifier
@@ -6369,10 +6386,6 @@ class LicensePool(Base):
             # it was by mistake. Remove it.
             self.work = None
             return None, False
-
-        if presentation_edition.is_presentation_for != self:
-            raise ValueError(
-                "Presentation edition's license pool is not the license pool for which work is being calculated!")
 
         if not presentation_edition.title or not presentation_edition.author:
             presentation_edition.calculate_presentation()
@@ -6435,6 +6448,20 @@ class LicensePool(Base):
             self.work = work
             licensepools_changed = True
 
+        # All LicensePools with a given Identifier must share a work.
+        existing_works = set([x.work for x in self.identifier.licensed_through])
+        if len(existing_works) > 1:
+            logging.warn(
+                "LicensePools for %r have more than one Work between them. Removing them all and starting over."
+            )
+            for lp in self.identifier.licensed_through:
+                lp.work = None
+                if lp.presentation_edition:
+                    lp.presentation_edition.work = None
+        else:
+            # There is a consensus Work for this Identifier.
+            [self.work] = existing_works
+
         if self.work:
             # This pool is already associated with a Work. Use that
             # Work.
@@ -6496,6 +6523,12 @@ class LicensePool(Base):
         # call points first.
         work.calculate_presentation()
 
+        # Ensure that all LicensePools with this Identifier share
+        # the same Work. (We may have wiped out their .work earlier
+        # in this method.)
+        for lp in self.identifier.licensed_through:
+            lp.work = work
+        
         if is_new:
             logging.info("Created a new work: %r", work)
 
