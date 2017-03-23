@@ -646,13 +646,21 @@ class CollectionCoverageProvider(CoverageProvider):
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
         """
+        work = None
+        error = None
         pool, ignore = LicensePool.for_foreign_id(
             self._db, self.output_source, identifier.type, 
-            identifier.identifier, collection=self.collection
+            identifier.identifier, collection=self.collection,
+            autocreate=False
         )
-        work, created = pool.calculate_work(even_if_no_author=True)
-        if not work:
-            error = "Work could not be calculated"
+        if not pool:
+            error = "No license pool available"
+        else:
+            work, created = pool.calculate_work(even_if_no_author=True)
+            if not work:
+                error = "Work could not be calculated"
+
+        if error:
             return CoverageFailure(
                 identifier, error, data_source=self.output_source,
                 transient=True

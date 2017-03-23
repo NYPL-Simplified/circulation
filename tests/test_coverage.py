@@ -878,7 +878,7 @@ class TestBibliographicCoverageProvider(DatabaseTest):
 
     def test_work(self):
         provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
+            self._db, collection=self._default_collection,
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
@@ -891,7 +891,11 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_("No license pool available", result.exception)
 
         # Returns a CoverageFailure if there's no work available.
-        edition, lp = self._edition(with_license_pool=True)
+        edition, lp = self._edition(
+            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+
         # Remove edition so that the work won't be calculated
         lp.identifier.primarily_identifies = []
         result = provider.work(lp.identifier)
@@ -899,7 +903,10 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_("Work could not be calculated", result.exception)
 
         # Returns the work if it can be created or found.
-        ed, lp = self._edition(with_license_pool=True)
+        ed, lp = self._edition(
+            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
         result = provider.work(lp.identifier)
         eq_(result, lp.work)
 
