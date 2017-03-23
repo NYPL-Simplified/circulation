@@ -590,13 +590,13 @@ class CollectionCoverageProvider(CoverageProvider):
     that already have a LicencePool in the given Collection.
     """
     
-    def __init__(self, service_name, datasource, collection,
+    def __init__(self, service_name, data_source, collection,
                  input_identifier_types=None, batch_size=10,
                  cutoff_time=None):
         self.collection = collection
         super(CollectionCoverageProvider, self).__init__(
             service_name=service_name,
-            output_source=datasource,
+            output_source=data_source,
             collection=collection,
             input_identifier_types=input_identifier_types,
             batch_size=batch_size,
@@ -760,16 +760,16 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
     circulation information. (Circulation information includes the
     links to open-access downloads.)
     """
-    def __init__(self, _db, api, datasource, batch_size=10,
+    def __init__(self, _db, api, data_source, batch_size=10,
                  metadata_replacement_policy=None,
                  cutoff_time=None
     ):
         self._db = _db
         self.api = api
         collection = self.api.collection
-        output_source = DataSource.lookup(_db, datasource)
+        output_source = DataSource.lookup(_db, data_source)
         input_identifier_types = [output_source.primary_identifier_type]
-        service_name = "%s Bibliographic Coverage Provider" % datasource
+        service_name = "%s Bibliographic Coverage Provider" % data_source
         self.metadata_replacement_policy = (
             metadata_replacement_policy
             or ReplacementPolicy.from_metadata_source()
@@ -779,7 +779,7 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
             collection=collection,
             service_name=service_name,            
             input_identifier_types=input_identifier_types,
-            datasource=output_source,
+            data_source=output_source,
             batch_size=batch_size,
             cutoff_time=cutoff_time
         )

@@ -41,6 +41,7 @@ from metadata_layer import (
 from s3 import DummyS3Uploader
 from coverage import (
     BibliographicCoverageProvider,
+    CollectionCoverageProvider,
     CoverageProvider,
     CoverageFailure,
 )
@@ -412,14 +413,16 @@ class TestCoverageProvider(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
 
-        # All images and open-access content should be uploaded to
-        # this 'mirror'.
-        mirror = DummyS3Uploader()
+        # All images and open-access content will be fetched through this
+        # 'HTTP client'...
         http = DummyHTTPClient()
         http.queue_response(
             200, content='I am an epub.',
             media_type=Representation.EPUB_MEDIA_TYPE,
         )
+        
+        # ..and will then be uploaded to this 'mirror'.
+        mirror = DummyS3Uploader()
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is
@@ -445,9 +448,10 @@ class TestCoverageProvider(DatabaseTest):
         )
 
         output_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        provider = CoverageProvider(
+        provider = CollectionCoverageProvider(
             "service",
-            output_source=self.output_source,
+            collection=self._default_collection,
+            data_source=output_source,
             input_identifier_types=[identifier.type],
         )
 
@@ -675,8 +679,8 @@ class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
     def __init__(self, _db, collection, **kwargs):
         if not 'api' in kwargs:
             kwargs['api'] = MockGenericAPI(collection)
-        if not 'datasource' in kwargs:
-            kwargs['datasource'] = DataSource.OVERDRIVE
+        if not 'data_source' in kwargs:
+            kwargs['data_source'] = DataSource.OVERDRIVE
         super(MockBibliographicCoverageProvider, self).__init__(
             _db, **kwargs
         )
