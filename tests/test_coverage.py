@@ -963,22 +963,25 @@ class TestBibliographicCoverageProvider(DatabaseTest):
 
 
     def test_autocreate_licensepool(self):
-        provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
+
+        # A coverage provider that does not provide a Collection cannot
+        # create a LicensePool for an Identifier, because the LicensePool
+        # would not belong to any particular Collection.
+        no_collection_provider = MockBibliographicCoverageProvider(
+            self._db, collection=None
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        eq_(None, no_collection_provider.license_pool(identifier))
 
-        # If this constant is set to False, the coverage provider cannot
-        # autocreate LicensePools for identifiers.
-        provider.CAN_CREATE_LICENSE_POOLS = False
-        eq_(None, provider.license_pool(identifier))
-
-        # If it's set to True, the coverage provider can autocreate
-        # LicensePools for identifiers.
-        provider.CAN_CREATE_LICENSE_POOLS = True
-        pool = provider.license_pool(identifier)
+        # If a Collection is provided, the coverage provider can
+        # create a LicensePool for an Identifier.
+        with_collection_provider = MockBibliographicCoverageProvider(
+            self._db, collection=self._default_collection
+        )
+        pool = with_collection_provider.license_pool(identifier)
         eq_(pool.data_source, provider.output_source)
         eq_(pool.identifier, identifier)
+        eq_(pool.collection, self._default_collection)
        
     def test_set_presentation_ready(self):
         provider = MockBibliographicCoverageProvider(
