@@ -781,6 +781,7 @@ class DataSource(Base):
     PRESENTATION_EDITION = u"Presentation edition generator"
     INTERNAL_PROCESSING = u"Library Simplified Internal Process"
     FEEDBOOKS = u"FeedBooks"
+    BIBBLIO = u"Bibblio"
     
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
