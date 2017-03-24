@@ -140,6 +140,13 @@ def production_session():
 class PolicyException(Exception):
     pass
 
+
+class CollectionMissing(Exception):
+    """An operation was attempted that can only happen within the context
+    of a Collection, but there was no Collection available.
+    """
+
+
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
@@ -859,6 +866,9 @@ class DataSource(Base):
 
     # One DataSource can have many Catalogs.
     catalogs = relationship("Catalog", backref="data_source")
+
+    def __repr__(self):
+        return '<DataSource: name="%s">' % (self.name)
     
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
@@ -5879,13 +5889,11 @@ class LicensePool(Base):
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
-                       rights_status=None, collection=None, autocreate=True):
+                       rights_status=None, collection=None):
         """Find or create a LicensePool for the given foreign ID."""
 
         if not collection:
-            raise ValueError(
-                "Collection is required."
-            )
+            raise CollectionMissing()
         
         # Get the DataSource.
         if isinstance(data_source, basestring):
@@ -5922,12 +5930,8 @@ class LicensePool(Base):
 
         # Get the LicensePool that corresponds to the
         # DataSource/Identifier/Collection.
-        if autocreate:
-            license_pool, was_new = get_one_or_create(
-                _db, LicensePool, **kw)
-        else:
-            license_pool = get_one(_db, LicensePool, **kw)
-            was_new = False
+        license_pool, was_new = get_one_or_create(
+            _db, LicensePool, **kw)
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now

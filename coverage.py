@@ -9,6 +9,7 @@ from model import (
     get_one,
     get_one_or_create,
     BaseCoverageRecord,
+    CollectionMissing,
     CoverageRecord,
     DataSource,
     Edition,
@@ -646,16 +647,27 @@ class CollectionCoverageProvider(CoverageProvider):
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
         """
-        work = None
+        work = identifier.work
+        if work:
+            # There is already a Work associated with this Identifier.
+            # Return it.
+            return identifier.work
+
+        # There is no Work associated with this Identifier. This means
+        # we need to create one. Since we can only create a Work from
+        # a LicensePool, beyond this point the CoverageProvider
+        # needs to have a Collection associated with it.
         error = None
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.output_source, identifier.type, 
-            identifier.identifier, collection=self.collection,
-            autocreate=False
-        )
-        if not pool:
-            error = "No license pool available"
-        else:
+        pool = None
+        try:
+            pool, ignore = LicensePool.for_foreign_id(
+                self._db, self.output_source, identifier.type, 
+                identifier.identifier, collection=self.collection
+            )
+        except CollectionMissing, e:
+            error = "Cannot create LicensePool because CoverageProvider does not cover any particular Collection."
+            
+        if pool:
             work, created = pool.calculate_work(even_if_no_author=True)
             if not work:
                 error = "Work could not be calculated"

@@ -28,6 +28,7 @@ from model import (
     Representation,
     Subject,
     Timestamp,
+    Work,
     WorkCoverageRecord,
 )
 from metadata_layer import (
@@ -853,64 +854,77 @@ class TestBibliographicCoverageProvider(DatabaseTest):
     )
 
     def test_edition(self):
+        """Verify that CoverageProvider.edition() returns an appropriate
+        Edition, even when there is no associated Collection.
+        """
+        # This CoverageProvider fetches bibliographic information
+        # from Overdrive. It is not capable of creating LicensePools
+        # because it has no Collection.
         provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
+            self._db, collection=None, data_source=DataSource.OVERDRIVE
         )
-        provider.CAN_CREATE_LICENSE_POOLS = False
+
+        # Here's an Identifier, with no Editions.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        test_metadata = self.BIBLIOGRAPHIC_DATA
+        eq_([], identifier.primarily_identifies)
+        
+        # Calling CoverageProvider.edition() on the Identifier gives
+        # us a container for that Overdrive bibliographic information.
+        # It doesn't matter that there's no Collection, because the
+        # book's bibliographic information is the same across
+        # Collections.
+        edition = provider.edition(identifier)
+        eq_(DataSource.OVERDRIVE, edition.data_source.name)
+        eq_([edition], identifier.primarily_identifies)
 
-        # Returns a CoverageFailure if the identifier doesn't have a
-        # license pool and none can be created.
-        result = provider.work(identifier)
-        assert isinstance(result, CoverageFailure)
-        eq_("No license pool available", result.exception)
-
-        # Returns an Edition otherwise, creating it if necessary.
-        edition, lp = self._edition(with_license_pool=True)
-        identifier = edition.primary_identifier
-        eq_(edition, provider.edition(identifier))
-
-        # The Edition will be created if necessary.
-        lp.identifier.primarily_identifies = []
-        e2 = provider.edition(identifier)
-        assert edition != e2
-        assert isinstance(e2, Edition)
+        # Calling edition() again gives us the same Edition as before.
+        edition2 = provider.edition(identifier)
+        eq_(edition, edition2)
 
     def test_work(self):
-        provider = MockBibliographicCoverageProvider(
+        # Here's an Overdrive ID.
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+
+        # Here's a CoverageProvider that gets information from Overdrive
+        # but isn't associated with any particular Collection.
+        no_collection_provider = MockBibliographicCoverageProvider(
+            self._db, collection=None, data_source=DataSource.OVERDRIVE
+        )
+
+        # This CoverageProvider cannot create a Work for the given
+        # Identifier, because that would require creating a
+        # LicensePool, and a LicensePool must belong to a Collection.
+        result = no_collection_provider.work(identifier)
+        assert isinstance(result, CoverageFailure)
+        eq_("Cannot create LicensePool because CoverageProvider does not cover any particular Collection.", result.exception)
+
+        # Here's a CoverageProvider that _is_ associated with a Collection.
+        provider_with_collection = MockBibliographicCoverageProvider(
             self._db, collection=self._default_collection,
         )
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        test_metadata = self.BIBLIOGRAPHIC_DATA
-        provider.CAN_CREATE_LICENSE_POOLS = False
 
-        # Returns a CoverageFailure if the identifier doesn't have a
-        # license pool.
-        result = provider.work(identifier)
-        assert isinstance(result, CoverageFailure)
-        eq_("No license pool available", result.exception)
-
-        # Returns a CoverageFailure if there's no work available.
-        edition, lp = self._edition(
-            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-
-        # Remove edition so that the work won't be calculated
-        lp.identifier.primarily_identifies = []
-        result = provider.work(lp.identifier)
+        # This CoverageProvider _can_ automatically create a
+        # LicensePool, but since there is no Edition associated with
+        # the LicensePool, it can't create a Work either.
+        result = provider_with_collection.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
 
-        # Returns the work if it can be created or found.
-        ed, lp = self._edition(
-            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-        result = provider.work(lp.identifier)
-        eq_(result, lp.work)
+        # So let's use the Collection-less provider to create an Edition
+        # with minimal bibliographic information...
+        edition = no_collection_provider.edition(identifier)
+        edition.title = u"A title"
+        
+        # ...and then use the Collection-full CoverageProvider to
+        # create a Work.
+        work = provider_with_collection.work(identifier)
+        assert isinstance(work, Work)
+        eq_(u"A title", work.title)
 
+        # Now that there's a Work associated with the Identifier, even
+        # the Collection-less provider can discover it.
+        eq_(work, no_collection_provider.work(identifier))
+        
     def test_set_metadata(self):
         provider = MockBibliographicCoverageProvider(
             self._db, collection=self._default_collection
