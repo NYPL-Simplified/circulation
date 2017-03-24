@@ -1133,18 +1133,12 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         assert isinstance(result, CoverageFailure)
         eq_("Cannot locate LicensePool", result.exception)
 
-        # Once a LicensePool exists, set_presentation_ready
-        # will try create a Work for the item. It won't work,
-        # though, because there's no edition.
+        # Once a LicensePool and a suitable Edition exist,
+        # set_presentation_ready will create a Work for the item and
+        # mark it presentation ready.
         pool = provider.license_pool(identifier)
-        result = provider.set_presentation_ready(identifier)
-        eq_("Work could not be calculated", result.exception)
-        eq_(None, pool.work)
-        
         edition = provider.edition(identifier)
         edition.title = u'A title'
-
-        # Now the Work can be created and set to presentation ready.
         result = provider.set_presentation_ready(identifier)
         eq_(result, identifier)
         eq_(True, pool.work.presentation_ready)
