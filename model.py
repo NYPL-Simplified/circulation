@@ -865,9 +865,6 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
-    # One DataSource can have many Catalogs.
-    catalogs = relationship("Catalog", backref="data_source")
-
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
     
