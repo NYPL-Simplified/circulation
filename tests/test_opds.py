@@ -1310,7 +1310,6 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         work = self._work(title=u"Hello, World!", with_license_pool=False)
         identifier = work.presentation_edition.primary_identifier
         feed, entry = self.entry(identifier, work)
-
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
         isinstance(entry, OPDSMessage)
