@@ -1290,9 +1290,10 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             )
         )
 
-        # Even if the Identifier does have a LicensePool,
-        # if the Works don't match, we get the same error.
+        # Even if the Identifier does have a Work, if the Works don't
+        # match, we get the same error.
         edition, lp = self._edition(with_license_pool=True)
+        work2 = lp.calculate_work()
         feed, entry = self.entry(lp.identifier, work)
         eq_(entry,
             OPDSMessage(
