@@ -634,16 +634,31 @@ class CollectionCoverageProvider(CoverageProvider):
         # Under normal circumstances, this will never happen, because
         # CollectionCoverageProvider only operates on Identifiers that
         # already have a LicensePool in this Collection.
-        license_pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.output_source, identifier.type, 
-            identifier.identifier, collection=self.collection
-        )
+        try:
+            license_pool, ignore = LicensePool.for_foreign_id(
+                self._db, self.output_source, identifier.type, 
+                identifier.identifier, collection=self.collection
+            )
+        except CollectionMissing, e:
+            return CoverageFailure(
+                identifier, "Could not obtain a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
+                data_source=self.output_source, transient=True
+            )
         return license_pool
 
     def work(self, identifier):
         """Finds or creates a Work for this Identifier as licensed through
         this Collection.
+
+        If the given Identifier already has a Work associated with it,
+        that Work will always be used, since an Identifier can only have one
+        Work associated with it.
         
+        However, if there is no current Work, a Work will only be
+        created if the given Identifier already has a LicensePool in
+        the Collection associated with this CoverageProvider. This method
+        will not create new LicensePools.
+
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
         """
@@ -662,16 +677,19 @@ class CollectionCoverageProvider(CoverageProvider):
         try:
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, self.output_source, identifier.type, 
-                identifier.identifier, collection=self.collection
+                identifier.identifier, collection=self.collection,
+                autocreate=False
             )
         except CollectionMissing, e:
-            error = "Cannot create LicensePool because CoverageProvider does not cover any particular Collection."
+            error = "Cannot locate LicensePool because CoverageProvider does not cover any particular Collection."
             
         if pool:
             work, created = pool.calculate_work(even_if_no_author=True)
             if not work:
                 error = "Work could not be calculated"
-
+        else:
+            error = "Cannot locate LicensePool"
+                
         if error:
             return CoverageFailure(
                 identifier, error, data_source=self.output_source,

@@ -5889,7 +5889,7 @@ class LicensePool(Base):
 
     @classmethod
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
-                       rights_status=None, collection=None):
+                       rights_status=None, collection=None, autocreate=True):
         """Find or create a LicensePool for the given foreign ID."""
 
         if not collection:
@@ -5930,8 +5930,12 @@ class LicensePool(Base):
 
         # Get the LicensePool that corresponds to the
         # DataSource/Identifier/Collection.
-        license_pool, was_new = get_one_or_create(
-            _db, LicensePool, **kw)
+        if autocreate:
+            license_pool, was_new = get_one_or_create(_db, LicensePool, **kw)
+        else:
+            license_pool = get_one(_db, LicensePool, **kw)
+            was_new = False
+            
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now

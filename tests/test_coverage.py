@@ -1,6 +1,6 @@
 import datetime
 from nose.tools import (
-    assert_raises_regexp,
+    assert_raises,
     set_trace,
     eq_,
 )
@@ -18,14 +18,17 @@ from testing import (
     TransientFailureWorkCoverageProvider,
 )
 from model import (
+    CollectionMissing,
     Contributor,
     CoverageRecord,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Hyperlink,
     Identifier,
     PresentationCalculationPolicy,
     Representation,
+    RightsStatus,
     Subject,
     Timestamp,
     Work,
@@ -34,6 +37,7 @@ from model import (
 from metadata_layer import (
     Metadata,
     CirculationData,
+    FormatData,
     IdentifierData,
     ContributorData,
     LinkData,
@@ -48,7 +52,39 @@ from coverage import (
     CoverageFailure,
 )
 
-class TestCoverageProvider(DatabaseTest):
+class CoverageProviderTest(DatabaseTest):
+    BIBLIOGRAPHIC_DATA = Metadata(
+        DataSource.OVERDRIVE,
+        publisher=u'Perfection Learning',
+        language='eng',
+        title=u'A Girl Named Disaster',
+        published=datetime.datetime(1998, 3, 1, 0, 0),
+        primary_identifier=IdentifierData(
+            type=Identifier.OVERDRIVE_ID,
+            identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+        ),
+        identifiers = [
+            IdentifierData(
+                    type=Identifier.OVERDRIVE_ID,
+                    identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
+                ),
+            IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
+        ],
+        contributors = [
+            ContributorData(sort_name=u"Nancy Farmer",
+                            roles=[Contributor.PRIMARY_AUTHOR_ROLE])
+        ],
+        subjects = [
+            SubjectData(type=Subject.TOPIC,
+                        identifier=u'Action & Adventure'),
+            SubjectData(type=Subject.FREEFORM_AUDIENCE,
+                        identifier=u'Young Adult'),
+            SubjectData(type=Subject.PLACE, identifier=u'Africa')
+        ],
+    )
+
+
+class TestCoverageProvider(CoverageProviderTest):
 
     def setup(self):
         super(TestCoverageProvider, self).setup()
@@ -406,6 +442,46 @@ class TestCoverageProvider(DatabaseTest):
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Transient failure", timestamp.service)
 
+    def test_set_metadata(self):
+        """Test that set_metadata can create and populate an
+        appropriate Edition.
+        """
+        # Here's a provider that is not associated with any particular
+        # Collection.
+        provider = MockCoverageProvider(self._db)
+        eq_(None, provider.collection)
+        
+        # It can't set circulation data, because it's not a
+        # CollectionCoverageProvider.
+        assert not hasattr(provider, 'set_metadata_and_circulationdata')
+
+        # But it can set metadata.        
+        test_metadata = self.BIBLIOGRAPHIC_DATA
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID, 
+            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
+        )
+        eq_([], identifier.primarily_identifies)
+        provider.set_metadata(identifier, test_metadata)
+
+        # Here's the proof.
+        edition = provider.edition(identifier)
+        eq_("A Girl Named Disaster", edition.title)
+
+        # If no metadata is passed in, a CoverageFailure results.
+        result = provider.set_metadata(identifier, None)
+        assert isinstance(result, CoverageFailure)
+        eq_("Did not receive metadata from input source", result.exception)
+
+        # If there's an exception setting the metadata, a
+        # CoverageFailure results. This call raises a ValueError
+        # because the primary identifier & the edition's primary
+        # identifier don't match.
+        test_metadata.primary_identifier = self._identifier()
+        result = provider.set_metadata(identifier, test_metadata)
+        assert isinstance(result, CoverageFailure)
+        assert "ValueError" in result.exception
+        
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
         set_metadata(), the policy's settings (and those of its
@@ -666,6 +742,33 @@ class TestCoverageProvider(DatabaseTest):
         eq_(self.identifier, result.obj)
         eq_(self.output_source, result.data_source)
 
+    def test_edition(self):
+        """Verify that CoverageProvider.edition() returns an appropriate
+        Edition, even when there is no associated Collection.
+        """
+        # This CoverageProvider fetches bibliographic information
+        # from Overdrive. It is not capable of creating LicensePools
+        # because it has no Collection.
+        provider = MockCoverageProvider(self._db)
+
+        # Here's an Identifier, with no Editions.
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        eq_([], identifier.primarily_identifies)
+        
+        # Calling CoverageProvider.edition() on the Identifier gives
+        # us a container for that Overdrive bibliographic information.
+        # It doesn't matter that there's no Collection, because the
+        # book's bibliographic information is the same across
+        # Collections.
+        edition = provider.edition(identifier)
+        eq_(DataSource.OVERDRIVE, edition.data_source.name)
+        eq_([edition], identifier.primarily_identifies)
+
+        # Calling edition() again gives us the same Edition as before.
+        edition2 = provider.edition(identifier)
+        eq_(edition, edition2)
+
+
 class MockGenericAPI(object):
     """Mock only the features of an API that BibliographicCoverageProvider
     expects.
@@ -675,6 +778,24 @@ class MockGenericAPI(object):
         self.collection = collection
 
 
+class MockCoverageProvider(CoverageProvider):
+    """Simulates a CoverageProvider that's always successful."""
+
+    def __init__(self, _db, *args, **kwargs):
+        if not 'service_name' in kwargs:
+            kwargs['service_name'] = 'Generic provider'
+        if not 'output_source' in kwargs:
+            kwargs['output_source'] = DataSource.lookup(
+                _db, DataSource.OVERDRIVE
+            )
+        super(MockCoverageProvider, self).__init__(
+            *args, **kwargs
+        )
+
+    def process_item(self, identifier):
+        return identifier
+
+    
 class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Simulates a BibliographicCoverageProvider that's always successful."""
 
@@ -816,77 +937,31 @@ class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider
         )
 
 
-class TestBibliographicCoverageProvider(DatabaseTest):
-
-    BIBLIOGRAPHIC_DATA = Metadata(
-        DataSource.OVERDRIVE,
-        publisher=u'Perfection Learning',
-        language='eng',
-        title=u'A Girl Named Disaster',
-        published=datetime.datetime(1998, 3, 1, 0, 0),
-        primary_identifier=IdentifierData(
-            type=Identifier.OVERDRIVE_ID,
-            identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
-        ),
-        identifiers = [
-            IdentifierData(
-                    type=Identifier.OVERDRIVE_ID,
-                    identifier=u'ba9b3419-b0bd-4ca7-a24f-26c4246b6b44'
-                ),
-            IdentifierData(type=Identifier.ISBN, identifier=u'9781402550805')
-        ],
-        contributors = [
-            ContributorData(sort_name=u"Nancy Farmer",
-                            roles=[Contributor.PRIMARY_AUTHOR_ROLE])
-        ],
-        subjects = [
-            SubjectData(type=Subject.TOPIC,
-                        identifier=u'Action & Adventure'),
-            SubjectData(type=Subject.FREEFORM_AUDIENCE,
-                        identifier=u'Young Adult'),
-            SubjectData(type=Subject.PLACE, identifier=u'Africa')
-        ],
-    )
-
+class TestCollectionCoverageProvider(CoverageProviderTest):
+    """Test CollectionCoverageProvider, mainly in terms of its primary
+    subclass, BibliographicCoverageProvider.
+    """
+    
     CIRCULATION_DATA = CirculationData(
         DataSource.OVERDRIVE,
-        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
+        primary_identifier=CoverageProviderTest.BIBLIOGRAPHIC_DATA.primary_identifier,
+        formats = [
+            FormatData(
+                content_type=Representation.EPUB_MEDIA_TYPE,
+                drm_scheme=DeliveryMechanism.NO_DRM,
+                rights_uri=RightsStatus.IN_COPYRIGHT,
+            )
+        ]
     )
 
-    def test_edition(self):
-        """Verify that CoverageProvider.edition() returns an appropriate
-        Edition, even when there is no associated Collection.
-        """
-        # This CoverageProvider fetches bibliographic information
-        # from Overdrive. It is not capable of creating LicensePools
-        # because it has no Collection.
-        provider = MockBibliographicCoverageProvider(
-            self._db, collection=None, data_source=DataSource.OVERDRIVE
-        )
-
-        # Here's an Identifier, with no Editions.
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        eq_([], identifier.primarily_identifies)
-        
-        # Calling CoverageProvider.edition() on the Identifier gives
-        # us a container for that Overdrive bibliographic information.
-        # It doesn't matter that there's no Collection, because the
-        # book's bibliographic information is the same across
-        # Collections.
-        edition = provider.edition(identifier)
-        eq_(DataSource.OVERDRIVE, edition.data_source.name)
-        eq_([edition], identifier.primarily_identifies)
-
-        # Calling edition() again gives us the same Edition as before.
-        edition2 = provider.edition(identifier)
-        eq_(edition, edition2)
-
     def test_work(self):
+        """Verify that a CollectionCoverageProvider can create a Work."""
         # Here's an Overdrive ID.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
 
-        # Here's a CoverageProvider that gets information from Overdrive
-        # but isn't associated with any particular Collection.
+        # Here's a BibliographicCoverageProvider that gets information
+        # from Overdrive but isn't associated with any particular
+        # Collection.
         no_collection_provider = MockBibliographicCoverageProvider(
             self._db, collection=None, data_source=DataSource.OVERDRIVE
         )
@@ -898,7 +973,8 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         assert isinstance(result, CoverageFailure)
         eq_("Cannot create LicensePool because CoverageProvider does not cover any particular Collection.", result.exception)
 
-        # Here's a CoverageProvider that _is_ associated with a Collection.
+        # Here's a BibliographicCoverageProvider that _is_ associated
+        # with a Collection.
         provider_with_collection = MockBibliographicCoverageProvider(
             self._db, collection=self._default_collection,
         )
@@ -925,57 +1001,95 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         # the Collection-less provider can discover it.
         eq_(work, no_collection_provider.work(identifier))
         
-    def test_set_metadata(self):
-        provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
-        )
-        provider.CAN_CREATE_LICENSE_POOLS = False
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+    def test_set_metadata_and_circulationdata(self):
+        """Verify that a CollectionCoverageProvider can set both
+        metadata (on an Edition) and circulation data (on a LicensePool).
+        """
         test_metadata = self.BIBLIOGRAPHIC_DATA
         test_circulationdata = self.CIRCULATION_DATA
 
-        # If there is no LicensePool and it can't be autocreated, a
-        # CoverageRecord results.
-        result = provider.work(identifier)
+        identifier = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
+        )
+        
+        # Here's a BibliographicCoverageProvider that, for whatever reason,
+        # is not associated with a collection.
+        provider = MockBibliographicCoverageProvider(self._db, collection=None)
+
+        # If it were a normal CoverageProvider, it would have no
+        # mechanism to set circulation data. Since it's a
+        # BibliographicCoverageProvider, the mechanism does exist, but
+        # attempting to set circulation data will result in a
+        # CoverageFailure.
+        result = provider.set_metadata_and_circulation_data(
+            identifier, None, test_circulationdata
+        )
         assert isinstance(result, CoverageFailure)
-        eq_("No license pool available", result.exception)
+        eq_(
+            "Could not obtain a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
+            result.exception
+        )
+        
+        # Let's associate a Collection with the
+        # BibliographicCoverageProvider and try again.
+        provider.collection = self._default_collection
 
-        edition, lp = self._edition(data_source_name=DataSource.OVERDRIVE, 
-            identifier_type=Identifier.OVERDRIVE_ID, 
-            identifier_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
-            with_license_pool=True)
-
-        # If no metadata is passed in, a CoverageFailure results.
-        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, None, None)
-
+        # We get a CoverageFailure if we don't pass in any data at all.
+        result = provider.set_metadata_and_circulation_data(
+            identifier, None, None
+        )
         assert isinstance(result, CoverageFailure)
-        eq_("Received neither metadata nor circulation data from input source", result.exception)
+        eq_(
+            "Received neither metadata nor circulation data from input source", 
+            result.exception
+        )
 
-        # If no work can be created (in this case, because there's no title),
-        # a CoverageFailure results.
-        edition.title = None
+        # We get a CoverageFailure if no work can be created. In this
+        # case, that happens because the metadata doesn't provide a
+        # title.
         old_title = test_metadata.title
         test_metadata.title = None
-        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, test_metadata, test_circulationdata)
+        result = provider.set_metadata_and_circulation_data(
+            identifier, test_metadata, test_circulationdata
+        )
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
-        test_metadata.title = old_title        
 
-        # Test success
-        result = provider.set_metadata_and_circulation_data(edition.primary_identifier, test_metadata, test_circulationdata)
-        eq_(result, edition.primary_identifier)
+        # Restore the title and try again. This time it will work.
+        test_metadata.title = old_title        
+        result = provider.set_metadata_and_circulation_data(
+            identifier, test_metadata, test_circulationdata
+        )
+        eq_(result, identifier)
+
+        # An Edition was created to hold the metadata, a LicensePool
+        # was created to hold the circulation data, and a Work
+        # was created to bind everything together.
+        [edition] = identifier.primarily_identifies
+        eq_("A Girl Named Disaster", edition.title)
+        [pool] = identifier.licensed_through
+        work = identifier.work
+        eq_(work, pool.work)
+        
+        # BibliographicCoverageProviders typically don't have
+        # circulation information in the sense of 'how many copies are
+        # in this Collection?', but sometimes they do have circulation
+        # information in the sense of 'what formats are available?'
+        [lpdm] = pool.delivery_mechanisms
+        mechanism = lpdm.delivery_mechanism
+        eq_("application/epub+zip (DRM-free)", mechanism.name)
 
         # If there's an exception setting the metadata, a
-        # CoverageRecord results. This call raises a ValueError
-        # because the primary identifier & the edition's primary
-        # identifier don't match.
-        test_metadata.primary_identifier = self._identifier(
-            identifier_type=Identifier.OVERDRIVE_ID
+        # CovreageFailure results. This call raises a ValueError
+        # because the identifier we're trying to cover doesn't match
+        # the identifier found in the Metadata object.
+        test_metadata.primary_identifier = self._identifier()
+        result = provider.set_metadata_and_circulation_data(
+            identifier, test_metadata, test_circulationdata
         )
-        result = provider.set_metadata_and_circulation_data(lp.identifier, test_metadata, test_circulationdata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
-
 
     def test_autocreate_licensepool(self):
 
@@ -986,9 +1100,8 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             self._db, collection=None
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        assert_raises_regexp(
-            ValueError, "Collection is required.",
-            no_collection_provider.license_pool, identifier
+        assert_raises(
+            CollectionMissing, no_collection_provider.license_pool, identifier
         )
 
         # If a Collection is provided, the coverage provider can
@@ -1002,25 +1115,37 @@ class TestBibliographicCoverageProvider(DatabaseTest):
         eq_(pool.collection, with_collection_provider.collection)
        
     def test_set_presentation_ready(self):
+        """Test that a CollectionCoverageProvider can set a Work
+        as presentation-ready.
+        """
         provider = MockBibliographicCoverageProvider(
             self._db, collection=self._default_collection
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         test_metadata = self.BIBLIOGRAPHIC_DATA
 
-        # If the work can't be found, it can't be made presentation ready.
-        provider.CAN_CREATE_LICENSE_POOLS = False
+        # If there is no LicensePool for the Identifier,
+        # set_presentation_ready will not try to create one,
+        # and so no Work will be created.
         result = provider.set_presentation_ready(identifier)
         assert isinstance(result, CoverageFailure)
-        eq_("No license pool available", result.exception)
+        eq_("Cannot locate LicensePool", result.exception)
 
-        # Test success.
-        ed, lp = self._edition(
-            with_license_pool=True, data_source_name=DataSource.OVERDRIVE,
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-        result = provider.set_presentation_ready(ed.primary_identifier)
-        eq_(result, ed.primary_identifier)
+        # Once a LicensePool exists, set_presentation_ready
+        # will try create a Work for the item. It won't work,
+        # though, because there's no edition.
+        pool = provider.license_pool(identifier)
+        result = provider.set_presentation_ready(identifier)
+        eq_("Work could not be calculated", result.exception)
+        eq_(None, pool.work)
+        
+        edition = provider.edition(identifier)
+        edition.title = u'A title'
+
+        # Now the Work can be created and set to presentation ready.
+        result = provider.set_presentation_ready(identifier)
+        eq_(result, identifier)
+        eq_(True, pool.work.presentation_ready)
 
     def test_process_batch_sets_work_presentation_ready(self):
 
