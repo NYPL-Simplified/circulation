@@ -462,7 +462,7 @@ class TestCoverageProvider(CoverageProviderTest):
             foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
         )
         eq_([], identifier.primarily_identifies)
-        provider.set_metadata(identifier, test_metadata)
+        result = provider.set_metadata(identifier, test_metadata)
 
         # Here's the proof.
         edition = provider.edition(identifier)
@@ -477,10 +477,14 @@ class TestCoverageProvider(CoverageProviderTest):
         # CoverageFailure results. This call raises a ValueError
         # because the primary identifier & the edition's primary
         # identifier don't match.
-        test_metadata.primary_identifier = self._identifier()
+        old_identifier = test_metadata.primary_identifier
+        test_metadata.primary_identifier = IdentifierData(
+            type=Identifier.OVERDRIVE_ID, identifier="abcd"
+        )
         result = provider.set_metadata(identifier, test_metadata)
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
+        test_metadata.primary_identifier = old_identifier
         
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
@@ -1080,16 +1084,20 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         eq_("application/epub+zip (DRM-free)", mechanism.name)
 
         # If there's an exception setting the metadata, a
-        # CovreageFailure results. This call raises a ValueError
+        # CoverageFailure results. This call raises a ValueError
         # because the identifier we're trying to cover doesn't match
         # the identifier found in the Metadata object.
-        test_metadata.primary_identifier = self._identifier()
+        old_identifier = test_metadata.primary_identifier
+        test_metadata.primary_identifier = IdentifierData(
+            type=Identifier.OVERDRIVE_ID, identifier="abcd"
+        )
         result = provider.set_metadata_and_circulation_data(
             identifier, test_metadata, test_circulationdata
         )
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
-
+        test_metadata.primary_identifier = old_identifier
+        
     def test_autocreate_licensepool(self):
 
         # A coverage provider that does not provide a Collection cannot
