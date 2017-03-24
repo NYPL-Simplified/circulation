@@ -803,6 +803,8 @@ class TestOneClickDeltaScript(DatabaseTest):
             }
             cmd_args = ["--mock"]
             # first, load a sample library
+            # TODO: This script needs to know which collection
+            # it's importing into.
             importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
 
             datastr, datadict = self.get_data("response_catalog_all_sample.json")
@@ -810,7 +812,10 @@ class TestOneClickDeltaScript(DatabaseTest):
             importer.run()
 
             # set license numbers on test pool
-            pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+            pool, made_new = LicensePool.for_foreign_id(
+                self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186",
+                collection=self._default_collection
+            )
             eq_(False, made_new)
             pool.licenses_owned = 10
             pool.licenses_available = 9

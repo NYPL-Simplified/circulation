@@ -382,7 +382,9 @@ class OneClickAPI(object):
         catalog_list = self.get_all_catalog()
         items_transmitted = len(catalog_list)
         items_created = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+        coverage_provider = OneClickBibliographicCoverageProvider(
+            _db=self._db, oneclick_api=self
+        )
         # the default policy doesn't update delivery mechanisms, which we do want to do
         metadata_replacement_policy = ReplacementPolicy.from_metadata_source()
         metadata_replacement_policy.formats = True

@@ -40,6 +40,7 @@ from model import (
     CirculationEvent,
     Classification,
     Collection,
+    CollectionMissing,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -1162,9 +1163,8 @@ class TestLicensePool(DatabaseTest):
         """We cannot create a LicensePool that is not associated
         with some Collection.
         """
-        assert_raises_regexp(
-            ValueError,
-            "Collection is required.",
+        assert_raises(
+            CollectionMissing,
             LicensePool.for_foreign_id,
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
             collection=None
