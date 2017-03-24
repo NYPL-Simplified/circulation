@@ -744,9 +744,7 @@ class TestOneClickImportScript(DatabaseTest):
             base_path = os.path.split(__file__)[0]
             api = MockOneClickAPI(self._db, base_path=base_path)
 
-            importer = OneClickImportScript(
-                _db=self._db, api=api
-            )
+            importer = OneClickImportScript(_db=self._db, api=api)
 
             datastr, datadict = self.get_data("response_catalog_all_sample.json")
             importer.api.queue_response(status_code=200, content=datastr)
@@ -811,20 +809,16 @@ class TestOneClickDeltaScript(DatabaseTest):
                 "ebook_loan_length" : '21', 
                 "eaudio_loan_length" : '21'
             }
-            cmd_args = ["--mock"]
             # first, load a sample library
-            # TODO: This script needs to know which collection
-            # it's importing into.
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
-
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
+            base_path = os.path.split(__file__)[0]
+            api = MockOneClickAPI(self._db, base_path=base_path)
+            importer = OneClickImportScript(_db=self._db, api=api)
             importer.run()
 
             # set license numbers on test pool
             pool, made_new = LicensePool.for_foreign_id(
                 self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186",
-                collection=self._default_collection
+                collection=api.collection
             )
             eq_(False, made_new)
             pool.licenses_owned = 10
@@ -833,9 +827,7 @@ class TestOneClickDeltaScript(DatabaseTest):
             pool.patrons_in_hold_queue = 1
 
             # now update that library with a sample delta            
-            cmd_args = ["--mock"]
-            delta_runner = OneClickDeltaScript(_db=self._db, cmd_args=cmd_args)
-
+            delta_runner = OneClickDeltaScript(_db=self._db, api=api)
             datastr, datadict = self.get_data("response_catalog_delta.json")
             delta_runner.api.queue_response(status_code=200, content=datastr)
             delta_runner.run()

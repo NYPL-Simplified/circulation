@@ -423,12 +423,13 @@ class OneClickAPI(object):
         if not delta or len(delta) < 1:
             return None, None
 
-        items_added = delta[0].get("addedTitles", None)
-        items_removed = delta[0].get("removedTitles", None)
-
+        items_added = delta[0].get("addedTitles", 0)
+        items_removed = delta[0].get("removedTitles", 0)
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+        coverage_provider = OneClickBibliographicCoverageProvider(
+            _db=self._db, oneclick_api=self
+        )
         for catalog_item in items_added:
             result = coverage_provider.update_metadata(catalog_item)
             if not isinstance(result, CoverageFailure):

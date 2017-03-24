@@ -1139,15 +1139,10 @@ class OneClickDeltaScript(OneClickImportScript):
     OneClick-subscribed library catalog.
     """
 
-    def __init__(self, _db=None, cmd_args=None):
-        super(OneClickDeltaScript, self).__init__(_db=_db, cmd_args=cmd_args)
-
-
     def do_run(self):
         print "OneClickDeltaScript.do_run"
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
-
 
 
 class OPDSImportScript(Script):
