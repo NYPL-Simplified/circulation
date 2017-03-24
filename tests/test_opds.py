@@ -1276,28 +1276,27 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         """
         work = self._work(with_open_access_download=True)
 
-        # Here's an identifier not associated with any LicensePool.
+        # Here's an identifier not associated with any LicensePool or
+        # Work.
         identifier = self._identifier()
 
+        # It doesn't make sense to make an OPDS feed out of that
+        # Identifier and a totally random Work.
+        expect_error = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
         feed, entry = self.entry(identifier, work)
-
-        # We were not successful at creating an <entry> for this
-        # lookup. We got a OPDSMessage instead of an entry
-        eq_(entry,
-            OPDSMessage(identifier.urn, 404,
-                              "Identifier not found in collection")
+        eq_(
+            entry,OPDSMessage(
+                identifier.urn, 500, expect_error  % identifier.urn
+            )
         )
 
-        # We also get an error if we use an Identifier that is
-        # associated with a LicensePool, but that LicensePool is not
-        # associated with the Work.
+        # Even if the Identifier does have a LicensePool,
+        # if the Works don't match, we get the same error.
         edition, lp = self._edition(with_license_pool=True)
-        identifier = lp.identifier
-        feed, entry = self.entry(identifier, work)
+        feed, entry = self.entry(lp.identifier, work)
         eq_(entry,
             OPDSMessage(
-                identifier.urn, 500,
-                'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
+                lp.identifier.urn, 500, expect_error % lp.identifier.urn
             )
         )
 
