@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 import requests
 import urlparse
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from problem_detail import ProblemDetail as pd
 
 INTEGRATION_ERROR = pd(

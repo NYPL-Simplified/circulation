@@ -66,7 +66,7 @@ from classifier import (
 
 from external_search import DummyExternalSearchIndex
 import xml.etree.ElementTree as ET
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 class TestBaseAnnotator(DatabaseTest):
 

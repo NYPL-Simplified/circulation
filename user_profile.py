@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 import json
 from problem_details import *
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 class ProfileController(object):
     """Implement the User Profile Management Protocol.
