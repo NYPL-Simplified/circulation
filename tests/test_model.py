@@ -1,5 +1,6 @@
 # encoding: utf-8
 from StringIO import StringIO
+import base64
 import datetime
 import os
 import sys
@@ -36,7 +37,6 @@ from config import (
 from model import (
     Annotation,
     BaseCoverageRecord,
-    Catalog,
     CirculationEvent,
     Classification,
     Collection,
@@ -54,6 +54,7 @@ from model import (
     Genre,
     Hold,
     Hyperlink,
+    IntegrationClient,
     Library,
     LicensePool,
     Measurement,
@@ -5366,48 +5367,45 @@ class TestLibrary(DatabaseTest):
 
 class TestCollection(DatabaseTest):
 
+    def setup(self):
+        super(TestCollection, self).setup()
+        self.collection = self._collection(
+            name="test collection", protocol=Collection.OVERDRIVE
+        )
+
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
         a Collection.
         """
-        collection, ignore = get_one_or_create(
-            self._db, Collection, name="test collection",
-            protocol=Collection.OVERDRIVE
-        )
-        eq_([], collection.settings)
+        eq_([], self.collection.settings)
 
-        setting = collection.set_setting("website_id", "id1")
+        setting = self.collection.set_setting("website_id", "id1")
         eq_("website_id", setting.key)
         eq_("id1", setting.value)
 
         # Calling set() again updates the key-value pair.
-        eq_([setting], collection.settings)
-        setting2 = collection.set_setting("website_id", "id2")
+        eq_([setting], self.collection.settings)
+        setting2 = self.collection.set_setting("website_id", "id2")
         eq_(setting, setting2)
         eq_("id2", setting2.value)
 
-        eq_(setting2, collection.setting("website_id"))
-
+        eq_(setting2, self.collection.setting("website_id"))
 
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Library.
         """
-        collection, ignore = get_one_or_create(
-            self._db, Collection, name="test collection",
-            protocol=Collection.OVERDRIVE,
-        )
         library = Library.instance(self._db)
         library.name = "The only library"
-        library.collections.append(collection)
+        library.collections.append(self.collection)
         
-        collection.external_account_id = "id"
-        collection.url = "url"
-        collection.username = "username"
-        collection.password = "password"
-        setting = collection.set_setting("setting", "value")
+        self.collection.external_account_id = "id"
+        self.collection.url = "url"
+        self.collection.username = "username"
+        self.collection.password = "password"
+        setting = self.collection.set_setting("setting", "value")
 
-        data = collection.explain()
+        data = self.collection.explain()
         eq_(['Name: "test collection"',
              'Protocol: "Overdrive"',
              'Used by library: "The only library"',
@@ -5419,13 +5417,13 @@ class TestCollection(DatabaseTest):
             data
         )
 
-        with_password = collection.explain(include_password=True)
+        with_password = self.collection.explain(include_password=True)
         assert 'Password: "password"' in with_password
 
         # If the collection is the child of another collection,
         # its parent is mentioned.
         child = Collection(
-            name="Child", parent=collection, external_account_id="id2"
+            name="Child", parent=self.collection, external_account_id="id2"
         )
         data = child.explain()
         eq_(['Name: "Child"',
@@ -5434,64 +5432,72 @@ class TestCollection(DatabaseTest):
             data
         )
 
-class TestCatalog(DatabaseTest):
+    def test_metadata_identifier(self):
+        # If the collection doesn't have its unique identifier, an error
+        # is raised.
+        assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
-    def setup(self):
-        super(TestCatalog, self).setup()
-        self.catalog = self._catalog()
+        def build_expected(protocol, unique_id):
+            encoded = [base64.b64encode(unicode(value), '-_')
+                       for value in [protocol, unique_id]]
+            return base64.b64encode(':'.join(encoded), '-_')
 
-    def test_encrypts_client_secret(self):
-        catalog, new = get_one_or_create(
-            self._db, Catalog, name=u"Test Catalog", client_id=u"test",
-            client_secret=u"megatest"
+        # With a unique identifier, we get back the expected identifier.
+        self.collection.external_account_id = 'id'
+        expected = build_expected(Collection.OVERDRIVE, 'id')
+        eq_(expected, self.collection.metadata_identifier)
+
+        # If there's a parent, its unique id is incorporated into the result.
+        child = self._collection(
+            name="Child", protocol=Collection.OPDS_IMPORT, url=self._url)
+        child.parent = self.collection
+        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.url)
+        eq_(expected, child.metadata_identifier)
+
+    def test_from_metadata_identifier(self):
+        # If a mirrored collection doesn't exist, it is created.
+        self.collection.external_account_id = 'id'
+        mirror_collection, is_new = Collection.from_metadata_identifier(
+            self._db, self.collection.metadata_identifier
         )
-        assert catalog.client_secret != u"megatest"
-        eq_(True, catalog.client_secret.startswith("$2a$"))
+        eq_(True, is_new)
+        eq_(self.collection.metadata_identifier, mirror_collection.name)
+        eq_(self.collection.protocol, mirror_collection.protocol)
 
-    def test_register(self):
-        catalog, plaintext_secret = Catalog.register(
-            self._db, u"A Library"
+        # If the mirrored collection already exists, it is returned.
+        collection = self._collection(url=self._url)
+        mirror_collection = create(
+            self._db, Collection,
+            name=collection.metadata_identifier,
+            protocol=collection.protocol
+        )[0]
+
+        result, is_new = Collection.from_metadata_identifier(
+            self._db, collection.metadata_identifier
         )
-
-        # It creates client details and a DataSource for the catalog
-        assert catalog.client_id and catalog.client_secret
-        assert get_one(self._db, DataSource, name=catalog.name)
-
-        # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Catalog.register, self._db, u"A Library")
-
-    def test_authenticate(self):
-
-        result = Catalog.authenticate(self._db, u"abc", u"def")
-        eq_(self.catalog, result)
-
-        result = Catalog.authenticate(self._db, u"abc", u"bad_secret")
-        eq_(None, result)
-
-        result = Catalog.authenticate(self._db, u"bad_id", u"def")
-        eq_(None, result)
+        eq_(False, is_new)
+        eq_(mirror_collection, result)
 
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
-
         identifier = self._identifier()
-        self.catalog.catalog_identifier(self._db, identifier)
-        eq_(1, len(self.catalog.catalog))
-        eq_(identifier, self.catalog.catalog[0])
+        self.collection.catalog_identifier(self._db, identifier)
+
+        eq_(1, len(self.collection.catalog))
+        eq_(identifier, self.collection.catalog[0])
 
     def test_works_updated_since(self):
-
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         timestamp = datetime.datetime.utcnow()
         # An empty catalog returns nothing.
-        eq_([], self.catalog.works_updated_since(self._db, timestamp).all())
+        eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.catalog.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.catalog.catalog_identifier(self._db, w2.license_pools[0].identifier)
-        updated_works = self.catalog.works_updated_since(self._db, None).all()
+        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        updated_works = self.collection.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))
         assert w1 in updated_works and w2 in updated_works
@@ -5500,7 +5506,99 @@ class TestCatalog(DatabaseTest):
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
-        eq_([w1], self.catalog.works_updated_since(self._db, timestamp).all())
+        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+
+class TestCollectionForMetadataWrangler(DatabaseTest):
+
+    """Tests that requirements to the metadata wrangler's use of Collection
+    are being met by continued development on the Collection class.
+
+    If any of these tests are failing, development will be required on the
+    metadata wrangler to meet the needs of the new Collection class.
+    """
+
+    def test_all_protocols_have_unique_identifier_defined(self):
+        """Test that all acceptable Collection protocols have a unique
+        identifier defined in the Collection class.
+
+        The unique identifier must be properly set to identify the
+        collection on the metadata wrangler.
+        """
+        eq_(
+            sorted(Collection.PROTOCOLS),
+            sorted(Collection.UNIQUE_IDENTIFIER_BY_PROTOCOL)
+        )
+
+    def test_only_name_and_protocol_are_required(self):
+        """Test that only name and protocol are required fields on
+        the Collection class.
+        """
+        collection = create(
+            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+        )[0]
+        eq_(True, isinstance(collection, Collection))
+
+
+class TestIntegrationClient(DatabaseTest):
+
+    def setup(self):
+        super(TestIntegrationClient, self).setup()
+        self.client = self._integration_client()
+
+    def test_encrypts_secret(self):
+        client, new = create(
+            self._db, IntegrationClient, url=u"http://circ-manager.net",
+            key=u"test", secret=u"megatest"
+        )
+        assert client.secret != u"megatest"
+        eq_(True, client.secret.startswith("$2a$"))
+
+    def test_register(self):
+        now = datetime.datetime.utcnow()
+        client, plaintext_secret = IntegrationClient.register(self._db, self._url)
+
+        # It creates client details.
+        assert client.key and client.secret
+        # And sets a timestamp for created & last_accessed.
+        assert client.created and client.last_accessed
+        assert client.created > now
+        eq_(True, isinstance(client.created, datetime.datetime))
+        eq_(client.created, client.last_accessed)
+
+        # It raises an error if the url is already registered.
+        assert_raises(ValueError, IntegrationClient.register, self._db, client.url)
+
+    def test_authenticate(self):
+
+        result = IntegrationClient.authenticate(self._db, u"abc", u"def")
+        eq_(self.client, result)
+
+        result = IntegrationClient.authenticate(self._db, u"abc", u"bad_secret")
+        eq_(None, result)
+
+        result = IntegrationClient.authenticate(self._db, u"bad_id", u"def")
+        eq_(None, result)
+
+    def test_normalize_url(self):
+        # http/https protocol is removed.
+        url = 'https://fake.com'
+        eq_('fake.com', IntegrationClient.normalize_url(url))
+
+        url = 'http://really-fake.com'
+        eq_('really-fake.com', IntegrationClient.normalize_url(url))
+
+        # www is removed if it exists, along with any trailing /
+        url = 'https://www.also-fake.net/'
+        eq_('also-fake.net', IntegrationClient.normalize_url(url))
+
+        # Subdomains and paths are retained.
+        url = 'https://www.super.fake.org/wow/'
+        eq_('super.fake.org/wow', IntegrationClient.normalize_url(url))
+
+        # URL is lowercased.
+        url = 'http://OMG.soVeryFake.gov'
+        eq_('omg.soveryfake.gov', IntegrationClient.normalize_url(url))
 
 
 class TestMaterializedViews(DatabaseTest):
