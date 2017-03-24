@@ -641,7 +641,7 @@ class CollectionCoverageProvider(CoverageProvider):
             )
         except CollectionMissing, e:
             return CoverageFailure(
-                identifier, "Could not obtain a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
+                identifier, "Could not create a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
                 data_source=self.output_source, transient=True
             )
         return license_pool

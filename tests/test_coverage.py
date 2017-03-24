@@ -959,46 +959,45 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # Here's an Overdrive ID.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
 
-        # Here's a BibliographicCoverageProvider that gets information
-        # from Overdrive but isn't associated with any particular
-        # Collection.
-        no_collection_provider = MockBibliographicCoverageProvider(
-            self._db, collection=None, data_source=DataSource.OVERDRIVE
+        # Here's a BibliographicCoverageProvider that _is_ associated
+        # with a Collection.
+        provider = MockBibliographicCoverageProvider(
+            self._db, collection=self._default_collection,
         )
 
         # This CoverageProvider cannot create a Work for the given
         # Identifier, because that would require creating a
-        # LicensePool, and a LicensePool must belong to a Collection.
-        result = no_collection_provider.work(identifier)
+        # LicensePool, and work() won't create a LicensePool if one
+        # doesn't already exist.
+        result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
-        eq_("Cannot create LicensePool because CoverageProvider does not cover any particular Collection.", result.exception)
-
-        # Here's a BibliographicCoverageProvider that _is_ associated
-        # with a Collection.
-        provider_with_collection = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection,
-        )
-
-        # This CoverageProvider _can_ automatically create a
+        eq_("Cannot locate LicensePool", result.exception)
+        
+        # The CoverageProvider _can_ automatically create a
         # LicensePool, but since there is no Edition associated with
-        # the LicensePool, it can't create a Work either.
-        result = provider_with_collection.work(identifier)
+        # the Identifier, a Work still can't be created.
+        pool = provider.license_pool(identifier)
+        result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("Work could not be calculated", result.exception)
 
-        # So let's use the Collection-less provider to create an Edition
-        # with minimal bibliographic information...
-        edition = no_collection_provider.edition(identifier)
+        # So let's use the CoverageProvider to create an Edition
+        # with minimal bibliographic information.
+        edition = provider.edition(identifier)
         edition.title = u"A title"
         
-        # ...and then use the Collection-full CoverageProvider to
-        # create a Work.
-        work = provider_with_collection.work(identifier)
+        # Now we can create a Work.
+        work = provider.work(identifier)
         assert isinstance(work, Work)
         eq_(u"A title", work.title)
 
         # Now that there's a Work associated with the Identifier, even
-        # the Collection-less provider can discover it.
+        # a CoverageProvider that's not associated with a Collection
+        # can discover it.
+        no_collection_provider = MockBibliographicCoverageProvider(
+            self._db, collection=None, data_source=DataSource.OVERDRIVE
+        )
+        
         eq_(work, no_collection_provider.work(identifier))
         
     def test_set_metadata_and_circulationdata(self):
@@ -1027,7 +1026,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
         assert isinstance(result, CoverageFailure)
         eq_(
-            "Could not obtain a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
+            "Could not create a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
             result.exception
         )
         
@@ -1100,8 +1099,11 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             self._db, collection=None
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        assert_raises(
-            CollectionMissing, no_collection_provider.license_pool, identifier
+        result = no_collection_provider.license_pool(identifier)
+        assert isinstance(result, CoverageFailure)
+        eq_(
+            "Could not create a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
+            result.exception
         )
 
         # If a Collection is provided, the coverage provider can
