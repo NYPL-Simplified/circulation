@@ -1109,7 +1109,7 @@ class OneClickImportScript(Script):
         return parser
 
 
-    def __init__(self, _db=None, cmd_args=None):
+    def __init__(self, _db=None, cmd_args=None, api=None):
         super(OneClickImportScript, self).__init__(_db=_db)
 
         # get database connection passed in from test or establish a prod one
@@ -1119,18 +1119,9 @@ class OneClickImportScript(Script):
             db = self._db
 
         parsed_args = self.parse_command_line(cmd_args=cmd_args)
-        self.mock_mode = parsed_args.mock
-
-        if self.mock_mode:
-            self.log.debug(
-                "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
-            )
-            base_path = os.path.split(__file__)[0]
-            base_path = os.path.join(base_path, "tests")
-            self.api = MockOneClickAPI(_db=db, base_path=base_path)
-        else:
-            self.api = OneClickAPI.from_config(_db=db)
-
+        if not api:
+            api = OneClickAPI.from_config(_db=db)
+        self.api = api
 
     def do_run(self):
         print "OneClickImportScript.do_run"

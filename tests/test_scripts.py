@@ -34,6 +34,7 @@ from model import (
     Timestamp, 
     Work,
 )
+from oneclick import MockOneClickAPI
 from scripts import (
     AddClassificationScript,
     ConfigureCollectionScript,
@@ -740,8 +741,12 @@ class TestOneClickImportScript(DatabaseTest):
                 "ebook_loan_length" : '21', 
                 "eaudio_loan_length" : '21'
             }
-            cmd_args = ["--mock"]
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
+            base_path = os.path.split(__file__)[0]
+            api = MockOneClickAPI(self._db, base_path=base_path)
+
+            importer = OneClickImportScript(
+                _db=self._db, api=api
+            )
 
             datastr, datadict = self.get_data("response_catalog_all_sample.json")
             importer.api.queue_response(status_code=200, content=datastr)
@@ -756,7 +761,6 @@ class TestOneClickImportScript(DatabaseTest):
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 
-
         # make sure we created some Editions
         edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
         assert(edition is not None)
@@ -764,9 +768,15 @@ class TestOneClickImportScript(DatabaseTest):
         assert(edition is not None)
 
         # make sure we created some LicensePools
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9780062231727", collection=api.collection
+        )
         eq_(False, made_new)
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=api.collection
+        )
         eq_(False, made_new)
 
         # make sure there are 8 LicensePools
