@@ -1,5 +1,6 @@
 import datetime
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -971,7 +972,10 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             self._db, collection=None
         )
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        eq_(None, no_collection_provider.license_pool(identifier))
+        assert_raises_regexp(
+            ValueError, "Collection is required.",
+            no_collection_provider.license_pool, identifier
+        )
 
         # If a Collection is provided, the coverage provider can
         # create a LicensePool for an Identifier.
@@ -979,9 +983,9 @@ class TestBibliographicCoverageProvider(DatabaseTest):
             self._db, collection=self._default_collection
         )
         pool = with_collection_provider.license_pool(identifier)
-        eq_(pool.data_source, provider.output_source)
+        eq_(pool.data_source, with_collection_provider.output_source)
         eq_(pool.identifier, identifier)
-        eq_(pool.collection, self._default_collection)
+        eq_(pool.collection, with_collection_provider.collection)
        
     def test_set_presentation_ready(self):
         provider = MockBibliographicCoverageProvider(
