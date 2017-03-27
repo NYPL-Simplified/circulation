@@ -8557,6 +8557,36 @@ class Admin(Base):
         _db.commit()
 
 
+class AuthenticationService(object):
+    """An AuthenticationService contains configuration for a third-party
+    service that can authenticate people. There will be a subclass of
+    AuthenticationService for each type of person that needs to be
+    authenticated.
+    """
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    provider = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'provider' field
+    GOOGLE_OAUTH = 'Google OAuth'
+
+    PROVIDERS = [GOOGLE_OAUTH]
+
+    # Additional provider-specific settings are stored as
+    # stringified JSON in the 'settings' field
+    settings = Column(Unicode)
+
+class AdminAuthenticationService(Base, AuthenticationService):
+    """An AdminAuthenticationService contains configuration for a third-party
+    service that can authenticate admins.
+    """
+
+    __tablename__ = "adminauthenticationservices"
+
+
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
