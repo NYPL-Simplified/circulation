@@ -106,27 +106,6 @@ class OneClickAPI(object):
 
         return identifier_strings
 
-
-    @classmethod
-    def from_config(cls, _db):
-        """Load a OneClickAPI instance for the 'default' OneClick
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                       if x.protocol == Collection.ONE_CLICK]
-        if len(collections) == 0:
-            # There are no OneClick collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple OneClick collections found for one library. This is not yet supported."
-            )
-        [collection] = collections 
-
-        return cls(_db, collection)
-
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.ONECLICK)

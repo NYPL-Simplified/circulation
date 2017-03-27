@@ -138,26 +138,6 @@ class OverdriveAPI(object):
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
         self.collection_token = self.get_library()['collectionToken']
-        
-    @classmethod
-    def from_environment(cls, _db):
-        """Load an OverdriveAPI instance for the 'default' Overdrive
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                      if x.protocol == Collection.OVERDRIVE]
-        if len(collections) == 0:
-            # There are no Overdrive collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple Overdrive collections found for one library. This is not yet supported."
-            )
-        [collection] = collections 
-
-        return cls(_db, collection)
 
     @property
     def source(self):

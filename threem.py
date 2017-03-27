@@ -89,26 +89,6 @@ class ThreeMAPI(object):
 
         self.item_list_parser = ItemListParser()
         self.collection = collection
-        
-    @classmethod
-    def from_environment(cls, _db):
-        """Load a ThreeMAPI instance for the 'default' Bibliotheca
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                      if x.protocol == Collection.BIBLIOTHECA]
-        if len(collections) == 0:
-            # There are no Bibliotheca collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple Bibliotheca collections found for one library. This is not yet supported."
-            )
-        [collection] = collections
-
-        return cls(_db, collection)
 
     @property
     def source(self):

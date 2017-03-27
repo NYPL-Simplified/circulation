@@ -89,26 +89,6 @@ class Axis360API(object):
             )
             
         self.token = None
-
-    @classmethod
-    def from_environment(cls, _db):
-        """Load an Axis360API instance for the 'default' Axis 360
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                      if x.protocol == Collection.AXIS_360]
-        if len(collections) == 0:
-            # There are no Axis 360 collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple Axis 360 collections found for one library. This is not yet supported."
-            )
-        [collection] = collections 
-
-        return cls(_db, collection)
         
     @property
     def source(self):
