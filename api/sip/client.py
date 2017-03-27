@@ -238,15 +238,8 @@ class SIPClient(Constants):
     def connect(self):
         """Create a socket connection to a SIP server."""
         with self.socket_lock:
-            try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            except socket.error, msg:
-                self.log.warn("Error initializing socket: %s", msg[1])
-
-            try:
-                sock.connect((self.target_server, self.target_port))
-            except socket.error, msg:
-                self.log.warn("Error connecting to SIP server: %s", msg)
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((self.target_server, self.target_port))
 
             # Since this is a new socket connection, reset the message count
             # and, potentially, logged_in.
