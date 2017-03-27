@@ -50,8 +50,8 @@ class Monitor(object):
         self.default_start_time = default_start_time
 
     @classmethod
-    def for_protocol(cls, _db, service, protocol, *args, **kwargs):
-        """Yield a sequence of Monitor objects for the given service, one for
+    def for_protocol(cls, _db, protocol, service, *args, **kwargs):
+        """Yield a sequence of Monitor objects for the given service: one for
         every Collection that implements the given protocol.
 
         Monitors that have no Timestamp will be yielded first. After that,

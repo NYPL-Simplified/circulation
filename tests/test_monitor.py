@@ -135,7 +135,7 @@ class TestMonitor(DatabaseTest):
         
         monitors = list(
             Monitor.for_protocol(
-                self._db, service_name, Collection.OPDS_IMPORT,
+                self._db, Collection.OPDS_IMPORT, service_name,
                 interval_seconds=26
             )
         )
@@ -150,7 +150,8 @@ class TestMonitor(DatabaseTest):
         # Monitor constructors.
         for monitor in monitors:
             eq_(26, monitor.interval_seconds)
-        
+
+
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):

@@ -18,6 +18,7 @@ from testing import (
     TransientFailureWorkCoverageProvider,
 )
 from model import (
+    Collection,
     CollectionMissing,
     Contributor,
     CoverageRecord,
@@ -94,6 +95,29 @@ class TestCoverageProvider(CoverageProviderTest):
         self.edition = self._edition(gutenberg.name)
         self.identifier = self.edition.primary_identifier
 
+    def test_for_protocol(self):
+        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
+        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
+        overdrive = self._collection(protocol=Collection.OVERDRIVE)
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+        providers = list(CoverageProvider.for_protocol(
+            self._db, Collection.OPDS_IMPORT, "A Service",
+            data_source, operation="An Operation"
+        ))
+
+        # The providers were returned in a random order, but there's one
+        # for each OPDS Import-type collection.
+        eq_(2, len(providers))
+        collections = set([x.collection for x in providers])
+        eq_(set([opds1, opds2]), collections)
+        
+        for provider in providers:
+            # The arguments passed in to for_protocol() were propagated
+            # to the CoverageProvider constructor.
+            eq_(data_source, provider.output_source)
+            eq_("A Service", provider.service_name)
+            eq_("An Operation", provider.operation)
+        
     def test_ensure_coverage(self):
 
         provider = AlwaysSuccessfulCoverageProvider(

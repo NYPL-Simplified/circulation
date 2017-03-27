@@ -9,6 +9,7 @@ from model import (
     get_one,
     get_one_or_create,
     BaseCoverageRecord,
+    Collection,
     CollectionMissing,
     CoverageRecord,
     DataSource,
@@ -110,7 +111,7 @@ class BaseCoverageProvider(object):
         if not hasattr(self, '_log'):
             self._log = logging.getLogger(self.service_name)
         return self._log        
-
+   
     def run(self):
         self.run_once_and_update_timestamp()
 
@@ -438,6 +439,23 @@ class CoverageProvider(BaseCoverageProvider):
         self.output_source_name = output_source.name
         self.input_identifiers = input_identifiers
 
+    @classmethod
+    def for_protocol(cls, _db, protocol, service_name, output_source,
+                     **kwargs):
+        """Yield a sequence of CoverageProvider objects for the given service
+        and operation: one for every Collection that implements the
+        given protocol.
+
+        CoverageProviders will be yielded in a random order.
+        """
+        collections = _db.query(Collection).filter(
+            Collection.protocol==protocol).order_by(func.random())
+        for collection in collections:
+            yield CoverageProvider(
+                service_name, output_source, collection=collection,
+                **kwargs
+            )        
+        
     def ensure_coverage(self, item, force=False):
         """Ensure coverage for one specific item.
 
