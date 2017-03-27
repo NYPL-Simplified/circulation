@@ -7115,25 +7115,36 @@ class DRMDeviceIdentifier(Base):
 
     
 class Timestamp(Base):
-    """A general-purpose timestamp for external services."""
+    """A general-purpose timestamp for Monitors."""
 
     __tablename__ = 'timestamps'
     service = Column(String(255), primary_key=True)
     timestamp = Column(DateTime)
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=True)
     counter = Column(Integer)
 
     def __repr__(self):
         timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
         if self.counter:
             timestamp += (' %d' % self.counter)
-        return (u"<Timestamp %s: %s>" % (self.service, timestamp)).encode("utf8")
+        if self.collection:
+            collection = self.collection.name
+        else:
+            collection = None
+
+        message = u"<Timestamp %s: collection=%s, timestamp=%s>" % (
+            self.service, collection, timestamp
+        )
+        return message.encode("utf8")
 
     @classmethod
-    def stamp(self, _db, service):
+    def stamp(self, _db, service, collection):
         now = datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
+            collection=collection,
             create_method_kwargs=dict(timestamp=now))
         if not was_new:
             stamp.timestamp = now
@@ -8710,6 +8721,10 @@ class Collection(Base):
     # A Collection can include many LicensePools.
     licensepools = relationship("LicensePool", backref="collection")
 
+    # A Collection can be monitored by many Monitors, each of which
+    # will have its own Timestamp.
+    timestamps = relationship("Timestamp", backref="collection")
+    
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
