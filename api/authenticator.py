@@ -18,6 +18,7 @@ from core.util.problem_detail import (
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
 from core.analytics import Analytics
+from sqlalchemy.ext.hybrid import hybrid_property
 from problem_details import *
 from util.patron import PatronUtility
 
@@ -139,8 +140,6 @@ class PatronData(object):
         self.username = username
         self.authorization_expires = authorization_expires
         self.external_type = external_type
-        if isinstance(fines, Money):
-            fines = fines.amount
         self.fines = fines
         self.block_reason = block_reason
         self.complete = complete
@@ -158,7 +157,20 @@ class PatronData(object):
             self.permanent_id, self.authorization_identifier,
             self.username
         )
-        
+
+    @hybrid_property
+    def fines(self):
+        return self._fines
+
+    @fines.setter
+    def _set_fines(self, value):
+        """When setting patron fines, only store the numeric portion of 
+        a Money object.
+        """
+        if isinstance(value, Money):
+            value = value.amount
+        self._fines = value
+    
     def apply(self, patron):
         """Take the portion of this data that can be stored in the database
         and write it to the given Patron record.
