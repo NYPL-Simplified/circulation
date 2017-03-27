@@ -252,6 +252,10 @@ class SIPClient(Constants):
         :param message_creator: A function that creates the message to send.
         :param parser: A function that parses the response message.
         """
+        if 'fail_on_network_error' in kwargs:
+            fail_on_network_error = kwargs.pop('fail_on_network_error')
+        else:
+            fail_on_network_error = False
         if not self.logged_in and message_creator != self.login_message:
             # The first thing we need to do is log in.
             response = self.login(self.login_user_id, self.login_password,
@@ -264,8 +268,22 @@ class SIPClient(Constants):
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
         while not parsed:
-            self.send(message_with_checksum)
-            response = self.read_message()
+            try:
+                self.send(message_with_checksum)
+                response = self.read_message()
+            except (IOError, socket.error), e:
+                # Most likely there was a problem with the
+                # socket. Create a fresh socket connection and try
+                # again, unless this _is_ the 'try again' phase and
+                # we're still having a problem.
+                if fail_on_network_error:
+                    raise e
+                else:
+                    self.connect()
+                    return self.make_request(
+                        message_creator, parser, 
+                        *args, fail_on_network_error=True, **kwargs
+                    )
             try:
                 parsed = parser(response)
             except RequestResend, e:
@@ -557,14 +575,7 @@ class SIPClient(Constants):
             self.sequence_number = 0
 
         data = data + '\r'
-        try:
-            return self.do_send(data)
-        except IOError, e:
-            # Most likely there was a problem with the socket. Create
-            # a fresh socket connection and try again.  If there is
-            # still a problem, propagate the IOError.
-            self.connect()
-            return self.do_send(data)
+        return self.do_send(data)
             
     def do_send(self, data):
         """Actually send data over the socket.
@@ -655,6 +666,7 @@ class MockSIPClient(SIPClient):
     def connect(self):
         # Since there is no socket, do nothing but reset the sequence
         # number.
+        self.status.append("Creating new socket connection.")
         self.sequence_number = 1
         
     def do_send(self, data):
@@ -667,12 +679,17 @@ class MockSIPClient(SIPClient):
         return response
         
 
-class DoomedMockSIPClient(MockSIPClient):
+class CannotSendMockSIPClient(MockSIPClient):
     """A MockSIPClient that can never send data."""
 
     def do_send(self, data):
-        self.status.append("I was unable to send %r" % data)
+        self.status.append("I was unable to send data.")
         raise IOError("I'm doomed.")
 
-    def connect(self):
-        self.status.append("Creating new socket connection.")
+
+class CannotReceiveMockSIPClient(MockSIPClient):
+    """A MockSIPClient that can send data but never receives any."""
+
+    def read_message(self):
+        self.status.append("I was unable to read data.")
+        raise socket.timeout()
