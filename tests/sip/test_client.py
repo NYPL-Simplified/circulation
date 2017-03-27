@@ -6,6 +6,7 @@ from nose.tools import (
     assert_raises,
 )
 from api.sip.client import (
+    DoomedMockSIPClient,
     MockSIPClient,
 )
 
@@ -58,6 +59,24 @@ class TestBasicProtocol(object):
         eq_({'login_ok': '1', '_status': '94'}, response)
 
 
+class TestNetworkError(object):
+
+    def test_retry_on_initial_ioerror(self):
+        sip = DoomedMockSIPClient()
+
+        # When we try to send any data through the client, we get an
+        # IOError.
+        assert_raises(IOError, sip.send, 'some data')
+
+        # But after the initial failure we created a new socket
+        # connection and sent the data again, so at least we tried.
+        expect = ['Creating new socket connection.',
+                  "I was unable to send 'some data\\r'",
+                  'Creating new socket connection.',
+                  "I was unable to send 'some data\\r'"]
+        eq_(expect, sip.status)
+        
+        
 class TestLogin(object):
        
     def test_login_success(self):

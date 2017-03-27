@@ -31,6 +31,7 @@ from nose.tools import set_trace
 import re
 import socket
 import sys
+import threading
 import time
 
 # SIP2 defines a large number of fields which are used in request and
@@ -190,9 +191,8 @@ class SIPClient(Constants):
         self.location_code = location_code
         self.separator = separator or '|'
 
-        # keeps count of messages sent to ACS
-        self.sequence_number = 1
-        self.socket = self.connect()
+        self.socket_lock = threading.RLock()
+        self.connect()
 
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
@@ -230,15 +230,20 @@ class SIPClient(Constants):
             
     def connect(self):
         """Create a socket connection to a SIP server."""
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        except socket.error, msg:
-            self.log.warn("Error initializing socket: %s", msg[1])
+        with self.socket_lock:
+            try:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            except socket.error, msg:
+                self.log.warn("Error initializing socket: %s", msg[1])
 
-        try:
-            sock.connect((self.target_server, self.target_port))
-        except socket.error, msg:
-            self.log.warn("Error connecting to SIP server: %s", msg)
+            try:
+                sock.connect((self.target_server, self.target_port))
+            except socket.error, msg:
+                self.log.warn("Error connecting to SIP server: %s", msg)
+
+            # Since this is a new socket connection, reset the message count.
+            self.sequence_number = 1
+            self.socket = sock
         return sock
 
     def make_request(self, message_creator, parser, *args, **kwargs):
@@ -551,15 +556,23 @@ class SIPClient(Constants):
         if (reset_sequence):
             self.sequence_number = 0
 
-        self.do_send(data + '\r')
-
+        data = data + '\r'
+        try:
+            return self.do_send(data)
+        except IOError, e:
+            # Most likely there was a problem with the socket. Create
+            # a fresh socket connection and try again.  If there is
+            # still a problem, propagate the IOError.
+            self.connect()
+            return self.do_send(data)
+            
     def do_send(self, data):
         """Actually send data over the socket.
 
         This method exists only to be subclassed by MockSIPClient.
         """
         self.socket.send(data)
-
+            
     def read_message(self, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
 
@@ -628,19 +641,21 @@ class MockSIPClient(SIPClient):
     """
     
     def __init__(self, login_user_id=None, login_password=None, separator="|"):
+        self.status = []
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
             login_password=login_password, separator=separator
         )
         self.requests = []
         self.responses = []
-
+        
     def queue_response(self, response):
         self.responses.append(response)
 
     def connect(self):
-        # No-op.
-        pass
+        # Since there is no socket, do nothing but reset the sequence
+        # number.
+        self.sequence_number = 1
         
     def do_send(self, data):
         self.requests.append(data)
@@ -651,3 +666,13 @@ class MockSIPClient(SIPClient):
         self.responses = self.responses[1:]
         return response
         
+
+class DoomedMockSIPClient(MockSIPClient):
+    """A MockSIPClient that can never send data."""
+
+    def do_send(self, data):
+        self.status.append("I was unable to send %r" % data)
+        raise IOError("I'm doomed.")
+
+    def connect(self):
+        self.status.append("Creating new socket connection.")
