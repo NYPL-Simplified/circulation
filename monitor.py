@@ -32,11 +32,12 @@ class Monitor(object):
     NEVER = object()
 
     def __init__(
-            self, _db, name, interval_seconds=1*60,
+            self, _db, name, collection=None, interval_seconds=1*60,
             default_start_time=None, keep_timestamp=True):
         self._db = _db
         self.service_name = name
         self.interval_seconds = interval_seconds
+        self.collection = collection
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
 
@@ -58,6 +59,7 @@ class Monitor(object):
             self.timestamp, new = get_one_or_create(
                 self._db, Timestamp,
                 service=self.service_name,
+                collection=self.collection,
                 create_method_kwargs=dict(
                     timestamp=self.default_start_time
                 )
@@ -102,7 +104,7 @@ class IdentifierSweepMonitor(Monitor):
     def __init__(self, _db, name, interval_seconds=3600,
                  default_counter=0, batch_size=100):
         super(IdentifierSweepMonitor, self).__init__(
-            _db, name, interval_seconds)
+            _db, name, interval_seconds=interval_seconds)
         self.default_counter = default_counter
         self.batch_size = batch_size
 
@@ -284,7 +286,7 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     def __init__(self, _db, interval_seconds=None,
                  include_verbose_entry=True):
         super(OPDSEntryCacheMonitor, self).__init__(
-            _db, "ODPS Entry Cache Monitor", interval_seconds)
+            _db, "ODPS Entry Cache Monitor", interval_seconds=interval_seconds)
         self.include_verbose_entry=include_verbose_entry
 
     def process_work(self, work):
@@ -293,7 +295,7 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
 class SimpleOPDSEntryCacheMonitor(OPDSEntryCacheMonitor):
     def __init__(self, _db, interval_seconds=None):
         super(SimpleOPDSEntryCacheMonitor, self).__init__(
-            _db, interval_seconds, False)
+            _db, interval_seconds=interval_seconds, keep_timestamp=False)
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
 
@@ -318,7 +320,7 @@ class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(PermanentWorkIDRefreshMonitor, self).__init__(
-            _db, "Permanent Work ID refresh", interval_seconds)
+            _db, "Permanent Work ID refresh", interval_seconds=interval_seconds)
 
     def process_edition(self, edition):
         edition.calculate_permanent_work_id()
@@ -416,7 +418,8 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
     def __init__(self, _db, interval_seconds=3600*24,
                  default_counter=0, batch_size=1000):
         super(WorkRandomnessUpdateMonitor, self).__init__(
-            _db, "Work Randomness Updater", interval_seconds, default_counter, batch_size)
+            _db, "Work Randomness Updater", interval_seconds=interval_seconds,
+            default_counter=default_counter, batch_size=batch_size)
 
     def run_once(self, offset):
         new_offset = offset + self.batch_size
@@ -434,7 +437,8 @@ class CustomListEntryLicensePoolUpdateMonitor(CustomListEntrySweepMonitor):
                  default_counter=0, batch_size=100):
         super(CustomListEntryLicensePoolUpdateMonitor, self).__init__(
             _db, "Custom List Entry License Pool Update Monitor",
-            interval_seconds, default_counter, batch_size
+            interval_seconds=interval_seconds,
+            default_counter=default_counter, batch_size=batch_size
         )
 
     def process_entry(self, entry):

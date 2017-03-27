@@ -28,8 +28,10 @@ from monitor import (
 
 class DummyMonitor(Monitor):
 
-    def __init__(self, _db):
-        super(DummyMonitor, self).__init__(_db, "Dummy monitor for test", 0.1)
+    def __init__(self, _db, collection=None):
+        super(DummyMonitor, self).__init__(
+            _db, "Dummy monitor for test", collection, 0.1
+        )
         self.run_records = []
         self.cleanup_records = []
 
