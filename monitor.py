@@ -14,6 +14,7 @@ from config import Configuration
 from coverage import CoverageFailure
 from model import (
     get_one_or_create,
+    Collection,
     CoverageRecord,
     Edition,
     CustomListEntry,
@@ -48,6 +49,27 @@ class Monitor(object):
             default_start_time = None
         self.default_start_time = default_start_time
 
+    @classmethod
+    def for_protocol(cls, _db, service, protocol, *args, **kwargs):
+        """Yield a sequence of Monitor objects for the given service, one for
+        every Collection that implements the given protocol.
+
+        Monitors that have no Timestamp will be yielded first. After that,
+        Monitors with older Timestamps will be yielded before Monitors with
+        newer timestamps.
+
+        """
+        service_match = or_(Timestamp.service==service, Timestamp.service==None)
+        collections = _db.query(Collection).outerjoin(
+            Collection.timestamps).filter(
+                Collection.protocol==protocol).filter(
+                    service_match).order_by(
+                    Timestamp.timestamp.asc().nullsfirst()
+                )
+        for collection in collections:
+            yield cls(_db, service, collection, *args, **kwargs)
+                
+        
     @property
     def log(self):
         if not hasattr(self, '_log'):

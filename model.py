@@ -7140,15 +7140,15 @@ class Timestamp(Base):
         return message.encode("utf8")
 
     @classmethod
-    def stamp(self, _db, service, collection):
-        now = datetime.datetime.utcnow()
+    def stamp(self, _db, service, collection, date=None):
+        date = date or datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
             collection=collection,
-            create_method_kwargs=dict(timestamp=now))
+            create_method_kwargs=dict(timestamp=date))
         if not was_new:
-            stamp.timestamp = now
+            stamp.timestamp = date
         return stamp
 
     __table_args__ = (

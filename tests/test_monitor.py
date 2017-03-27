@@ -14,6 +14,7 @@ from testing import (
 )
 
 from model import (
+    Collection,
     DataSource,
     Identifier,
     Subject,
@@ -111,7 +112,45 @@ class TestMonitor(DatabaseTest):
         [t2] = c2.timestamps
         assert t2.timestamp > t1.timestamp
 
+    def test_for_protocol(self):
+        service_name = "The Service"
+        
+        # Here we have three OPDS import Collections...
+        o1 = self._collection()
+        o2 = self._collection()
+        o3 = self._collection()
 
+        # ...and a Bibliotheca collection.
+        b1 = self._collection(protocol=Collection.BIBLIOTHECA)
+
+        # o1 just had its Monitor run.
+        Timestamp.stamp(self._db, service_name, o1)
+
+        # o2 and b1 have never had their Monitor run.
+
+        # o3 had its Monitor run an hour ago.
+        now = datetime.datetime.utcnow()
+        an_hour_ago = now - datetime.timedelta(seconds=3600)
+        Timestamp.stamp(self._db, service_name, o3, an_hour_ago)
+        
+        monitors = list(
+            Monitor.for_protocol(
+                self._db, service_name, Collection.OPDS_IMPORT,
+                interval_seconds=26
+            )
+        )
+
+        # The Monitors that need to be run the worst were returned
+        # first in the list. The Monitor that was just run is returned
+        # last. There is no Monitor for the Bibliotheca collection at
+        # all.
+        eq_([o2, o3, o1], [x.collection for x in monitors])
+
+        # The interval_seconds keyword argument was passed on to all the
+        # Monitor constructors.
+        for monitor in monitors:
+            eq_(26, monitor.interval_seconds)
+        
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
