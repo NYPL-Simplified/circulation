@@ -191,15 +191,6 @@ class SIPClient(Constants):
         self.location_code = location_code
         self.separator = separator or '|'
 
-        # socket_lock controls access to the socket connection to the
-        # SIP2 server.
-        #
-        # We need to use an RLock here because both connect() and
-        # make_request() require the lock, and make_request() will end
-        # up calling connect() if there's an error.
-        self.socket_lock = threading.RLock()
-        self.connect()
-
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
         if self.separator in '|.^$*+?{}()[]\\':
@@ -213,11 +204,21 @@ class SIPClient(Constants):
         if login_user_id and login_password:
             # We need to log in before using this server.
             self.logged_in = False
+            self.must_log_in = True
         else:
             # We're implicitly logged in.
             self.logged_in = True
+            self.must_log_in = False
 
-
+        # socket_lock controls access to the socket connection to the
+        # SIP2 server.
+        #
+        # We need to use an RLock here because both connect() and
+        # make_request() require the lock, and make_request() will end
+        # up calling connect() if there's an error.
+        self.socket_lock = threading.RLock()
+        self.connect()
+        
     def login(self, *args, **kwargs):
         """Log in to the SIP server."""
         return self.make_request(
@@ -247,11 +248,22 @@ class SIPClient(Constants):
             except socket.error, msg:
                 self.log.warn("Error connecting to SIP server: %s", msg)
 
-            # Since this is a new socket connection, reset the message count.
-            self.sequence_number = 1
+            # Since this is a new socket connection, reset the message count
+            # and, potentially, logged_in.
+            self.reset_connection_state()
             self.socket = sock
         return sock
 
+    def reset_connection_state(self):
+        """Reset connection-specific state.
+
+        Specifically, the sequence number and the flag that tracks
+        whether we're logged in.
+        """
+        self.sequence_number = 0
+        if self.must_log_in:
+            self.logged_in = False
+    
     def make_request(self, message_creator, parser, *args, **kwargs):
         """Send a request to a SIP server and parse the response.
         
@@ -274,7 +286,8 @@ class SIPClient(Constants):
         else:
             fail_on_network_error = False
 
-        if not self.logged_in and message_creator != self.login_message:
+        if (self.must_log_in and not self.logged_in
+            and message_creator != self.login_message):
             # The first thing we need to do is log in.
             response = self.login(self.login_user_id, self.login_password,
                                   self.location_code)
@@ -587,11 +600,8 @@ class SIPClient(Constants):
             )
         return summary
     
-    def send(self, data, reset_sequence=False):
+    def send(self, data):
         """Send a message over the socket and update the sequence index."""
-        if (reset_sequence):
-            self.sequence_number = 0
-
         data = data + '\r'
         return self.do_send(data)
             
@@ -682,10 +692,10 @@ class MockSIPClient(SIPClient):
         self.responses.append(response)
 
     def connect(self):
-        # Since there is no socket, do nothing but reset the sequence
-        # number.
+        # Since there is no socket, do nothing but reset the local
+        # connection-specific variables.
         self.status.append("Creating new socket connection.")
-        self.sequence_number = 1
+        self.reset_connection_state()
         
     def do_send(self, data):
         self.requests.append(data)
