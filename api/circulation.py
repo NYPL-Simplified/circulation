@@ -809,6 +809,8 @@ class BaseCirculationAPI(object):
         patron's actual authorization identifier. Either way, it's a
         string.
         """
+        if not patron:
+            return None
         identifier = patron.authorization_identifier
         if not self.PSEUDONYM_DATA_SOURCE_NAME:
             return identifier

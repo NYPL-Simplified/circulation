@@ -50,8 +50,26 @@ class ThreeMAPITest(DatabaseTest):
     def sample_data(self, filename):
         return sample_data(filename, 'threem')
 
+    def _patron(self):
+        """Create a Patron object and give them an authorization
+        identifier that will, hopefully, never be revealed to Bibliotheca.
+        """
+        patron = super(ThreeMAPITest, self)._patron()
+        patron.authorization_identifier = 'my secret name'
+        return patron
+
 class TestThreeMAPI(ThreeMAPITest):      
 
+    def assert_previous_request_used_patron_pseudonym(self, patron, api):
+        """Verify that the previous request used the given patron's
+        Bibliotheca pseudonym, not their actual authorization
+        identifier.
+        """
+        request = self.api.requests[-1]
+        url = request[1]
+        assert self.api.patron_identifier(patron) in url
+        assert patron.authorization_identifier not in url        
+    
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")
         self.api.queue_response(200, content=data)
@@ -138,13 +156,14 @@ class TestThreeMAPI(ThreeMAPITest):
         eq_(0, pool.patrons_in_hold_queue)
 
         assert pool.last_checked is not old_last_checked
-
+        
     def test_sync_bookshelf(self):
-        patron = self._patron()        
+        patron = self._patron()
         self.api.queue_response(200, content=self.sample_data("checkouts.xml"))
         circulation = CirculationAPI(self._db, threem=self.api)
         circulation.sync_bookshelf(patron, "dummy pin")
-
+        self.assert_previous_request_used_patron_pseudonym(patron, self.api)
+        
         # The patron should have two loans and two holds.
         l1, l2 = patron.loans
         h1, h2 = patron.holds
@@ -168,9 +187,10 @@ class TestThreeMAPI(ThreeMAPITest):
         eq_(0, h2.position)
 
     def test_place_hold(self):
-        patron = self._patron()        
+        patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(200, content=self.sample_data("successful_hold.xml"))
+        self.assert_last_request_used_patron_pseudonym(patron, self.api)
         response = self.api.place_hold(patron, 'pin', pool)
         eq_(pool.identifier.type, response.identifier_type)
         eq_(pool.identifier.identifier, response.identifier)
@@ -181,7 +201,7 @@ class TestThreeMAPI(ThreeMAPITest):
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
                       patron, 'pin', pool)
-
+        
 # Tests of the various parser classes.
 #
 
