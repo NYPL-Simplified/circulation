@@ -7118,10 +7118,11 @@ class Timestamp(Base):
     """A general-purpose timestamp for Monitors."""
 
     __tablename__ = 'timestamps'
-    service = Column(String(255), primary_key=True)
-    timestamp = Column(DateTime)
+    id = Column(Integer, primary_key=True)
+    service = Column(String(255), index=True)
     collection_id = Column(Integer, ForeignKey('collections.id'),
                            index=True, nullable=True)
+    timestamp = Column(DateTime)
     counter = Column(Integer)
 
     def __repr__(self):
@@ -7150,6 +7151,11 @@ class Timestamp(Base):
             stamp.timestamp = now
         return stamp
 
+    __table_args__ = (
+        UniqueConstraint('service', 'collection_id'),
+    )
+
+    
 class Representation(Base):
     """A cached document obtained from (and possibly mirrored to) the Web
     at large.

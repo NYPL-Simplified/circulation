@@ -71,6 +71,47 @@ class TestMonitor(DatabaseTest):
         # called.
         assert timestamp.timestamp > monitor.original_timestamp
 
+    def test_same_monitor_different_collections(self):
+        """A single Monitor has different Timestamps when run against
+        different Collections.
+        """
+        c1 = self._collection()
+        c2 = self._collection()
+        m1 = DummyMonitor(self._db, c1)
+        m2 = DummyMonitor(self._db, c2)
+
+        # The two Monitors have the same service name but are operating
+        # on different Collections.
+        eq_(m1.service_name, m2.service_name)
+        eq_(c1, m1.collection)
+        eq_(c2, m2.collection)
+        
+        eq_([], c1.timestamps)
+        eq_([], c2.timestamps)
+        
+        # Run the first Monitor.
+        m1.run()
+        [t1] = c1.timestamps
+        eq_(m1.service_name, t1.service)
+        eq_(m1.collection, t1.collection)
+        old_m1_timestamp = m1.timestamp
+
+        # Running the first Monitor did not create a timestamp for the
+        # second Monitor.
+        eq_([], c2.timestamps)
+        
+        # Run the second monitor.
+        m2.run()
+
+        # The timestamp for the first monitor was not updated when
+        # we ran the second monitor.
+        eq_(old_m1_timestamp, m1.timestamp)
+
+        # But the second Monitor now has its own timestamp.
+        [t2] = c2.timestamps
+        assert t2.timestamp > t1.timestamp
+
+
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
