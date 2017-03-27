@@ -191,6 +191,12 @@ class SIPClient(Constants):
         self.location_code = location_code
         self.separator = separator or '|'
 
+        # socket_lock controls access to the socket connection to the
+        # SIP2 server.
+        #
+        # We need to use an RLock here because both connect() and
+        # make_request() require the lock, and make_request() will end
+        # up calling connect() if there's an error.
         self.socket_lock = threading.RLock()
         self.connect()
 
@@ -252,10 +258,22 @@ class SIPClient(Constants):
         :param message_creator: A function that creates the message to send.
         :param parser: A function that parses the response message.
         """
+        with self.socket_lock:
+            return self._make_request(
+                message_creator, parser, *args, **kwargs
+            )
+
+    def _make_request(self, message_creator, parser, *args, **kwargs):
+        """Send a request to a SIP server and parse the response.
+        
+        :param message_creator: A function that creates the message to send.
+        :param parser: A function that parses the response message.
+        """
         if 'fail_on_network_error' in kwargs:
             fail_on_network_error = kwargs.pop('fail_on_network_error')
         else:
             fail_on_network_error = False
+
         if not self.logged_in and message_creator != self.login_message:
             # The first thing we need to do is log in.
             response = self.login(self.login_user_id, self.login_password,
@@ -263,7 +281,7 @@ class SIPClient(Constants):
             if response['login_ok'] != '1':
                 raise IOError("Error logging in: %r" % response)
             self.logged_in = True
-            
+        
         original_message = message_creator(*args, **kwargs)
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
