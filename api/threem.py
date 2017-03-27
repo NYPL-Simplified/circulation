@@ -57,7 +57,8 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
     SET_DELIVERY_MECHANISM_AT = None
 
     SERVICE_NAME = "3M"
-
+    PSEUDONYM_DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
+    
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     adobe_drm = DeliveryMechanism.ADOBE_DRM
@@ -112,7 +113,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         )
 
     def patron_activity(self, patron, pin):
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
         return PatronCirculationParser().process_all(response.content)
@@ -138,7 +139,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         :return: a LoanInfo object
         """
         threem_id = licensepool.identifier.identifier
-        patron_identifier = patron_obj.authorization_identifier
+        patron_identifier = self.patron_identifier(patron_obj)
         args = dict(request_type='CheckoutRequest',
                     item_id=threem_id, patron_id=patron_identifier)
         body = self.TEMPLATE % args 
@@ -169,8 +170,9 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         return loan
 
     def fulfill(self, patron, password, pool, delivery_mechanism):
+        patron_identifier = self.patron_identifier(patron_obj)
         response = self.get_fulfillment_file(
-            patron.authorization_identifier, pool.identifier.identifier)
+            patron_identifier, pool.identifier.identifier)
         return FulfillmentInfo(
             pool.identifier.type,
             pool.identifier.identifier,
@@ -187,7 +189,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         return self.request('GetItemACSM', body, method="PUT")
 
     def checkin(self, patron, pin, licensepool):
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         item_id = licensepool.identifier.identifier
         args = dict(request_type='CheckinRequest',
                    item_id=item_id, patron_id=patron_id)
@@ -200,7 +202,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
         :return: a HoldInfo object.
         """
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         item_id = licensepool.identifier.identifier
         args = dict(request_type='PlaceHoldRequest',
                    item_id=item_id, patron_id=patron_id)
@@ -226,7 +228,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
                 raise CannotHold(error)
 
     def release_hold(self, patron, pin, licensepool):
-        patron_id = patron.authorization_identifier
+        patron_id = self.patron_identifier(patron)
         item_id = licensepool.identifier.identifier        
         args = dict(request_type='CancelHoldRequest',
                    item_id=item_id, patron_id=patron_id)
