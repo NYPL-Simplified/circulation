@@ -1,6 +1,7 @@
 import datetime
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -47,6 +48,7 @@ from metadata_layer import (
 )
 from s3 import DummyS3Uploader
 from coverage import (
+    BaseCoverageProvider,
     BibliographicCoverageProvider,
     CollectionCoverageProvider,
     CoverageFailure,
@@ -133,6 +135,111 @@ class CoverageProviderTest(DatabaseTest):
     )
 
 
+class TestBaseCoverageProvider(CoverageProviderTest):
+
+    def test_instantiation(self):
+        """Verify variable initialization."""
+
+        class ValidMock(BaseCoverageProvider):
+            SERVICE_NAME = "A Service"
+            OPERATION = "An Operation"
+            DEFAULT_BATCH_SIZE = 50
+
+        now = cutoff_time=datetime.datetime.utcnow()
+        provider = ValidMock(self._db, cutoff_time=now)
+    
+        # Class variables defined in subclasses become appropriate
+        # instance variables.
+        eq_("A Service (An Operation)", provider.service_name)
+        eq_("An Operation", provider.operation)
+        eq_(50, provider.batch_size)
+        eq_(now, provider.cutoff_time)
+        
+        # If you pass in an invalid value for batch_size, you get the default.
+        provider = ValidMock(self._db, batch_size=-10)
+        eq_(50, provider.batch_size)
+
+    def test_subclass_must_define_service_name(self):
+        class NoServiceName(BaseCoverageProvider):
+            pass
+
+        assert_raises_regexp(
+            ValueError, "NoServiceName must define SERVICE_NAME",
+            NoServiceName, self._db
+        )
+
+    def test_run_once_and_update_timestamp(self):
+        """Test run_once_and_update_timestamp. It should cover items that have
+        no CoverageRecord at all, then items whose previous coverage
+        attempt resulted in a transient failure.
+
+        This doubles as a test of AlwaysSuccessfulCoverageProvider's
+        ability to always create a CoverageRecord.
+        """
+
+        # We start with no Timestamp and no CoverageRecords..
+        eq_([], self._db.query(CoverageRecord).all())
+        eq_([], self._db.query(Timestamp).all())
+        
+        data_source = DataSource.lookup(
+            self._db, AlwaysSuccessfulCoverageProvider.DATA_SOURCE_NAME
+        )
+
+        # Four identifiers.
+        transient = self._identifier()
+        persistent = self._identifier()
+        uncovered = self._identifier()
+        covered = self._identifier()
+        
+        # We previously tried to cover one of them, but got a
+        # transient failure.
+        self._coverage_record(
+            transient, data_source,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+
+        # Another of the four has a persistent failure.
+        self._coverage_record(
+            persistent, data_source, 
+            status=CoverageRecord.PERSISTENT_FAILURE
+        )        
+
+        # The third one has no coverage record at all.
+
+        # And the fourth one has been successfull covered.
+        self._coverage_record(
+            covered, data_source, status=CoverageRecord.SUCCESS
+        )
+        
+        # Now let's run the coverage provider.
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        provider.run_once_and_update_timestamp()
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Always successful", timestamp.service)
+
+        # The identifier with no coverage and the identifier with a
+        # transient failure now have coverage records that indicate
+        # success.
+
+        [transient_failure_has_gone] = transient.coverage_records
+        eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
+
+        [now_has_coverage] = uncovered.coverage_records
+        eq_(CoverageRecord.SUCCESS, now_has_coverage.status)
+        
+        # The identifier that had the transient failure was processed
+        # second, even though it was created first in the
+        # database. That's because we do the work in two passes: first
+        # we process identifiers where coverage has never been
+        # attempted, then we process identifiers with transient failures.
+        eq_([uncovered, transient], provider.attempts)
+
+        # Nothing happened to the identifier that had a persistent
+        # failure.
+
+    
 class TestCoverageProvider(CoverageProviderTest):
 
     def setup(self):
@@ -142,29 +249,6 @@ class TestCoverageProvider(CoverageProviderTest):
         self.output_source = DataSource.lookup(self._db, DataSource.OCLC)
         self.edition = self._edition(gutenberg.name)
         self.identifier = self.edition.primary_identifier
-
-    def test_for_protocol(self):
-        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
-        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
-        overdrive = self._collection(protocol=Collection.OVERDRIVE)
-        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        providers = list(CoverageProvider.for_protocol(
-            self._db, Collection.OPDS_IMPORT, "A Service",
-            data_source, operation="An Operation"
-        ))
-
-        # The providers were returned in a random order, but there's one
-        # for each OPDS Import-type collection.
-        eq_(2, len(providers))
-        collections = set([x.collection for x in providers])
-        eq_(set([opds1, opds2]), collections)
-        
-        for provider in providers:
-            # The arguments passed in to for_protocol() were propagated
-            # to the CoverageProvider constructor.
-            eq_(data_source, provider.output_source)
-            eq_("A Service", provider.service_name)
-            eq_("An Operation", provider.operation)
         
     def test_ensure_coverage(self):
 
@@ -410,65 +494,6 @@ class TestCoverageProvider(CoverageProviderTest):
         # reflect the failure.
         eq_(records[0], record)
         eq_("What did you expect?", record.exception)
-
-    def test_run_once_and_update_timestamp(self):
-        """Test run_once_and_update_timestamp. It should cover items that have
-        no CoverageRecord at all, then items whose previous coverage
-        attempt resulted in a transient failure.
-
-        This doubles as a test of AlwaysSuccessfulCoverageProvider's
-        ability to always create a CoverageRecord.
-        """
-
-        # We start with no Timestamp.
-        eq_([], self._db.query(CoverageRecord).all())
-
-        # We previously tried to coverage the identifier we normally
-        # use in these tests, but got a transient failure.
-        self._coverage_record(
-            self.identifier, self.output_source, 
-            status=CoverageRecord.TRANSIENT_FAILURE
-        )
-
-        # Here's a new identifier that has no coverage at all.
-        no_coverage = self._identifier()
-
-        # And here's an identifier that has a persistent failure.
-        persistent_failure = self._identifier()
-        self._coverage_record(
-            persistent_failure, self.output_source, 
-            status=CoverageRecord.PERSISTENT_FAILURE
-        )        
-
-        eq_([], self._db.query(Timestamp).all())
-
-        provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful",
-            output_source=self.output_source,
-            input_identifier_types=self.input_identifier_types, 
-        )
-        provider.run()
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
-
-        # The identifier with no coverage and the identifier with a
-        # transient failure now have coverage records that indicate
-        # success.
-
-        [transient_failure_has_gone] = self.identifier.coverage_records
-        eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
-
-        [now_has_coverage] = no_coverage.coverage_records
-        eq_(CoverageRecord.SUCCESS, now_has_coverage.status)
-
-        # The identifier that had the transient failure was processed
-        # second, even though it was created first in the
-        # database. That's because we do the work in two passes: first
-        # we process identifiers where coverage has never been
-        # attempted, then we process identifiers with transient failures.
-        eq_([no_coverage, self.identifier], provider.attempts)
 
     def test_never_successful(self):
 
@@ -845,179 +870,47 @@ class TestCoverageProvider(CoverageProviderTest):
         eq_(edition, edition2)
 
 
-class MockGenericAPI(object):
-    """Mock only the features of an API that BibliographicCoverageProvider
-    expects.
-    """
-    
-    def __init__(self, collection):
-        self.collection = collection
+class MockCollectionCoverageProvider(CollectionCoverageProvider):
 
-
-class MockCoverageProvider(IdentifierCoverageProvider):
-    """Simulates a CoverageProvider that's always successful."""
-
-    def __init__(self, _db, *args, **kwargs):
-        if not 'service_name' in kwargs:
-            kwargs['service_name'] = 'Generic provider'
-        if not 'output_source' in kwargs:
-            kwargs['output_source'] = DataSource.lookup(
-                _db, DataSource.OVERDRIVE
-            )
-        super(MockCoverageProvider, self).__init__(
-            *args, **kwargs
-        )
-
-    def process_item(self, identifier):
-        return identifier
-
-    
-class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Simulates a BibliographicCoverageProvider that's always successful."""
-
-    def __init__(self, _db, collection, **kwargs):
-        if not 'api' in kwargs:
-            kwargs['api'] = MockGenericAPI(collection)
-        if not 'data_source' in kwargs:
-            kwargs['data_source'] = DataSource.OVERDRIVE
-        super(MockBibliographicCoverageProvider, self).__init__(
-            _db, **kwargs
-        )
-
-    def process_item(self, identifier):
-        return identifier
-
-class TestWorkCoverageProvider(DatabaseTest):
-
-    def setup(self):
-        super(TestWorkCoverageProvider, self).setup()
-        self.work = self._work()
-        self.operation = 'the_operation'
-
-    def test_success(self):
-        qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
-        )
-        # We start with no relevant WorkCoverageRecord and no Timestamp.
-        eq_([], qu.all())
-
-        eq_([], self._db.query(Timestamp).all())
-
-        provider = AlwaysSuccessfulWorkCoverageProvider(
-            self._db, "Always successful", operation=self.operation
-        )
-        provider.run()
-
-        # There is now one relevant WorkCoverageRecord.
-        [record] = qu.all()
-        eq_(self.work, record.work)
-        eq_(self.operation, record.operation)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
-
-    def test_transient_failure(self):
-        # We start with no relevant WorkCoverageRecords.
-        qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
-        )
-        eq_([], qu.all())
-
-        provider = TransientFailureWorkCoverageProvider(
-            self._db, "Transient failure", operation=self.operation
-        )
-        provider.run()
-
-        # We have a CoverageRecord for the transient failure.
-        [failure] = [x for x in self.work.coverage_records if 
-                     x.operation==self.operation]
-        eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Transient failure", timestamp.service)
-
-    def test_persistent_failure(self):
-        # We start with no relevant WorkCoverageRecords.
-        qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
-        )
-        eq_([], qu.all())
-
-        provider = NeverSuccessfulWorkCoverageProvider(
-            self._db, "Persistent failure", operation=self.operation
-        )
-        provider.run()
-
-        # We have a WorkCoverageRecord, since the error was persistent.
-        [record] = qu.all()
-        eq_(self.work, record.work)
-        eq_("What did you expect?", record.exception)
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Persistent failure", timestamp.service)
-
-
-    def test_items_that_need_coverage(self):
-        # Here are three works,
-        w1 = self.work
-        w2 = self._work(with_license_pool=True)
-        w3 = self._work(with_license_pool=True)
-        
-        # w2 has coverage, the other two do not.
-        record = self._work_coverage_record(w2, self.operation)
-
-        # Here's a WorkCoverageProvider.
-        provider = AlwaysSuccessfulWorkCoverageProvider(
-            self._db, "Success", operation=self.operation,
-        )
-
-        # By default, items_that_need_coverage returns the two
-        # works that don't have coverage.
-        eq_(set([w1, w3]), set(provider.items_that_need_coverage().all()))
-
-        # If we pass in a list of Identifiers we further restrict
-        # items_that_need_coverage to Works whose LicensePools have an
-        # Identifier in that list.
-        i2 = w2.license_pools[0].identifier
-        i3 = w3.license_pools[0].identifier
-        eq_([w3], provider.items_that_need_coverage([i2, i3]).all())
-
-        # If we set a cutoff_time which is after the time the
-        # WorkCoverageRecord was created, then that work starts
-        # showing up again as needing coverage.
-        provider.cutoff_time = record.timestamp + datetime.timedelta(seconds=1)
-        eq_(set([w2, w3]),
-            set(provider.items_that_need_coverage([i2, i3]).all())
-        )
-
-    def test_failure_for_ignored_item(self):
-        provider = NeverSuccessfulWorkCoverageProvider(
-            self._db, "I'll just ignore you", operation=self.operation
-        )
-        result = provider.failure_for_ignored_item(self.work)
-        assert isinstance(result, CoverageFailure)
-        eq_(True, result.transient)
-        eq_("Was ignored by WorkCoverageProvider.", result.exception)
-        eq_(self.work, result.obj)
-        
-
-class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
-    """Simulates a BibliographicCoverageProvider that's never successful."""
-
-    def process_item(self, identifier):
-        return CoverageFailure(
-            self, identifier, "Bitter failure", transient=True
-        )
-
+    PROTOCOL = Collection.OPDS_IMPORT
+    SERVICE_NAME = "A Service"
+    OPERATION = "An Operation"
+    DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
 
 class TestCollectionCoverageProvider(CoverageProviderTest):
-    """Test CollectionCoverageProvider, mainly in terms of its primary
-    subclass, BibliographicCoverageProvider.
-    """
+
+    def test_class_variables(self):
+        """Verify that class variables become appropriate instance
+        variables.
+        """
+        collection = self._collection(protocol=Collection.OPDS_IMPORT)
+        provider = MockCollectionCoverageProvider(collection)
+        eq_(DataSource.OA_CONTENT_SERVER, provider.data_source.name)
     
+    def test_all(self):
+        """Verify that all() gives a sequence of CollectionCoverageProvider
+        objects, one for each Collection that implements the
+        appropriate protocol.
+        """
+        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
+        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
+        overdrive = self._collection(protocol=Collection.OVERDRIVE)
+        providers = list(
+            MockCollectionCoverageProvider.all(self._db, batch_size=34)
+        )
+
+        # The providers were returned in a random order, but there's one
+        # for each collection that supports the 'OPDS Import' protocol.
+        eq_(2, len(providers))
+        collections = set([x.collection for x in providers])
+        eq_(set([opds1, opds2]), collections)
+
+        # The providers are of the appropriate type and the keyword arguments
+        # passed into all() were propagated to the constructor.
+        for provider in providers:
+            assert isinstance(MockCollectionCoverageProvider, provider)
+            eq_(34, provider.batch_size)
+
     CIRCULATION_DATA = CirculationData(
         DataSource.OVERDRIVE,
         primary_identifier=CoverageProviderTest.BIBLIOGRAPHIC_DATA.primary_identifier,
@@ -1256,3 +1149,171 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         [result] = provider.process_batch([identifier])
         assert isinstance(result, CoverageFailure)
         eq_(False, work.presentation_ready)
+
+        
+class MockGenericAPI(object):
+    """Mock only the features of an API that BibliographicCoverageProvider
+    expects.
+    """
+    
+    def __init__(self, collection):
+        self.collection = collection
+
+
+class MockCoverageProvider(IdentifierCoverageProvider):
+    """Simulates a CoverageProvider that's always successful."""
+
+    def __init__(self, _db, *args, **kwargs):
+        if not 'service_name' in kwargs:
+            kwargs['service_name'] = 'Generic provider'
+        if not 'output_source' in kwargs:
+            kwargs['output_source'] = DataSource.lookup(
+                _db, DataSource.OVERDRIVE
+            )
+        super(MockCoverageProvider, self).__init__(
+            *args, **kwargs
+        )
+
+    def process_item(self, identifier):
+        return identifier
+
+    
+class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's always successful."""
+
+    def __init__(self, _db, collection, **kwargs):
+        if not 'api' in kwargs:
+            kwargs['api'] = MockGenericAPI(collection)
+        if not 'data_source' in kwargs:
+            kwargs['data_source'] = DataSource.OVERDRIVE
+        super(MockBibliographicCoverageProvider, self).__init__(
+            _db, **kwargs
+        )
+
+    def process_item(self, identifier):
+        return identifier
+
+class TestWorkCoverageProvider(DatabaseTest):
+
+    def setup(self):
+        super(TestWorkCoverageProvider, self).setup()
+        self.work = self._work()
+        self.operation = 'the_operation'
+
+    def test_success(self):
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==self.operation
+        )
+        # We start with no relevant WorkCoverageRecord and no Timestamp.
+        eq_([], qu.all())
+
+        eq_([], self._db.query(Timestamp).all())
+
+        provider = AlwaysSuccessfulWorkCoverageProvider(
+            self._db, "Always successful", operation=self.operation
+        )
+        provider.run()
+
+        # There is now one relevant WorkCoverageRecord.
+        [record] = qu.all()
+        eq_(self.work, record.work)
+        eq_(self.operation, record.operation)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Always successful", timestamp.service)
+
+    def test_transient_failure(self):
+        # We start with no relevant WorkCoverageRecords.
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==self.operation
+        )
+        eq_([], qu.all())
+
+        provider = TransientFailureWorkCoverageProvider(
+            self._db, "Transient failure", operation=self.operation
+        )
+        provider.run()
+
+        # We have a CoverageRecord for the transient failure.
+        [failure] = [x for x in self.work.coverage_records if 
+                     x.operation==self.operation]
+        eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Transient failure", timestamp.service)
+
+    def test_persistent_failure(self):
+        # We start with no relevant WorkCoverageRecords.
+        qu = self._db.query(WorkCoverageRecord).filter(
+            WorkCoverageRecord.operation==self.operation
+        )
+        eq_([], qu.all())
+
+        provider = NeverSuccessfulWorkCoverageProvider(
+            self._db, "Persistent failure", operation=self.operation
+        )
+        provider.run()
+
+        # We have a WorkCoverageRecord, since the error was persistent.
+        [record] = qu.all()
+        eq_(self.work, record.work)
+        eq_("What did you expect?", record.exception)
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("Persistent failure", timestamp.service)
+
+
+    def test_items_that_need_coverage(self):
+        # Here are three works,
+        w1 = self.work
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        
+        # w2 has coverage, the other two do not.
+        record = self._work_coverage_record(w2, self.operation)
+
+        # Here's a WorkCoverageProvider.
+        provider = AlwaysSuccessfulWorkCoverageProvider(
+            self._db, "Success", operation=self.operation,
+        )
+
+        # By default, items_that_need_coverage returns the two
+        # works that don't have coverage.
+        eq_(set([w1, w3]), set(provider.items_that_need_coverage().all()))
+
+        # If we pass in a list of Identifiers we further restrict
+        # items_that_need_coverage to Works whose LicensePools have an
+        # Identifier in that list.
+        i2 = w2.license_pools[0].identifier
+        i3 = w3.license_pools[0].identifier
+        eq_([w3], provider.items_that_need_coverage([i2, i3]).all())
+
+        # If we set a cutoff_time which is after the time the
+        # WorkCoverageRecord was created, then that work starts
+        # showing up again as needing coverage.
+        provider.cutoff_time = record.timestamp + datetime.timedelta(seconds=1)
+        eq_(set([w2, w3]),
+            set(provider.items_that_need_coverage([i2, i3]).all())
+        )
+
+    def test_failure_for_ignored_item(self):
+        provider = NeverSuccessfulWorkCoverageProvider(
+            self._db, "I'll just ignore you", operation=self.operation
+        )
+        result = provider.failure_for_ignored_item(self.work)
+        assert isinstance(result, CoverageFailure)
+        eq_(True, result.transient)
+        eq_("Was ignored by WorkCoverageProvider.", result.exception)
+        eq_(self.work, result.obj)
+        
+
+class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's never successful."""
+
+    def process_item(self, identifier):
+        return CoverageFailure(
+            self, identifier, "Bitter failure", transient=True
+        )

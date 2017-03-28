@@ -688,10 +688,18 @@ class DatabaseTest(object):
             data_source=data_source, weight=weight
         )[0]
 
+
 class InstrumentedCoverageProvider(IdentifierCoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
+
+    # Whenever a CoverageRecord is created, the data_source of that
+    # record will be Project Gutenberg.
+    DATA_SOURCE_NAME = DataSource.GUTENBERG
+    
+    # For testing purposes, this CoverageProvider will try to cover
+    # every identifier in the database.
     INPUT_IDENTIFIER_TYPES = None
     
     def __init__(self, *args, **kwargs):
@@ -702,8 +710,9 @@ class InstrumentedCoverageProvider(IdentifierCoverageProvider):
         self.attempts.append(item)
         return item
 
+
 class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
-    """A CoverageProvider that keeps track of every item it tried
+    """A WorkCoverageProvider that keeps track of every item it tried
     to cover.
     """
     def __init__(self, _db, *args, **kwargs):
@@ -714,15 +723,19 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
         self.attempts.append(item)
         return item
 
+
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful"
 
 class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     """A WorkCoverageProvider that does nothing and always succeeds."""
-
+    SERVICE_NAME = "Always successful (works)"
+    
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
-
+    SERVICE_NAME = "Never successful"
+    
     def __init__(self, *args, **kwargs):
         super(NeverSuccessfulCoverageProvider, self).__init__(
             *args, **kwargs
@@ -732,30 +745,35 @@ class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(
-            item, "What did you expect?", self.output_source, self.transient
+            item, "What did you expect?", self.data_source, self.transient
         )
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (works)"
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(item, "What did you expect?", None, False)
 
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Broken"
     def process_item(self, item):
         raise Exception("I'm too broken to even return a CoverageFailure.")
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Never successful (transient)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", self.output_source, True)
+        return CoverageFailure(item, "Oops!", self.data_source, True)
 
 class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (transient, works)"
     def process_item(self, item):
         self.attempts.append(item)
         return CoverageFailure(item, "Oops!", None, True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""
+    SERVICE_NAME = "I ignore all work."
     def process_batch(self, batch):
         return []
 

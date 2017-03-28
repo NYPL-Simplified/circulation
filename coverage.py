@@ -108,8 +108,7 @@ class BaseCoverageProvider(object):
     # doing this.
     DEFAULT_BATCH_SIZE = 100
     
-    def __init__(self, _db, service_name, operation, batch_size=None, 
-                 cutoff_time=None):
+    def __init__(self, _db, batch_size=None, cutoff_time=None):
         """Constructor.
 
         :param service_name: The name of the service that is providing
@@ -125,10 +124,16 @@ class BaseCoverageProvider(object):
         will be treated as though they did not exist.
         """
         self._db = _db
-        if operation:
-            service_name += ' (%s)' % operation
+        if not self.SERVICE_NAME:
+            raise ValueError(
+                "%s must define SERVICE_NAME." % self.__class__.__name__
+            )
+        service_name = self.SERVICE_NAME
+        self.operation = self.OPERATION
+        
+        if self.operation:
+            service_name += ' (%s)' % self.operation
         self.service_name = service_name
-        self.operation = operation
         if not batch_size or batch_size < 0:
             batch_size = self.DEFAULT_BATCH_SIZE
         self.batch_size = batch_size
@@ -420,19 +425,22 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
            requested to provide coverage for these specific
            Identifiers.
         """
-        super(CoverageProvider, self).__init__(
-            _db, service_name=self.SERVICE_NAME, operation=operation, **kwargs
-        )
+        super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
         self.collection = collection
         self.input_identifiers = input_identifiers
 
+        if not self.DATA_SOURCE_NAME:
+            raise ValueError(
+                "%s must define DATA_SOURCE_NAME" % self.__class__.__name__
+            )
+        
         # Get this information immediately so that an error happens immediately
         # if INPUT_IDENTIFIER_TYPES is not set properly.
         self.input_identifier_types = self._input_identifier_types()
 
     @classmethod
-    def _input_identfier_types(cls):
+    def _input_identifier_types(cls):
         """Create a normalized value for `input_identifier_types`
         based on the INPUT_IDENTIFIER_TYPES class variable.
         """
@@ -441,7 +449,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         # Nip in the bud a situation where someone subclassed this
         # class without thinking about a value for
         # INPUT_IDENTIFIER_TYPES.
-        if value is self.NO_SPECIFIED_TYPES:
+        if value is cls.NO_SPECIFIED_TYPES:
             raise ValueError(
                 "%s must define INPUT_IDENTIFIER_TYPES, even if the value is None." % (cls.__name__)
             )
@@ -710,7 +718,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         collections = _db.query(Collection).filter(
             Collection.protocol==cls.PROTOCOL).order_by(func.random())
         for collection in collections:
-            yield cls(_db, collection=collection, **kwargs)
+            yield cls(collection=collection, **kwargs)
         
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Identifiers associated with this Collection but lacking
