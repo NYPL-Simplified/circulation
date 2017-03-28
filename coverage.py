@@ -77,10 +77,10 @@ class CoverageFailure(object):
 class BaseCoverageProvider(object):
 
     """Run certain objects through an algorithm. If the algorithm returns
-    success, add a CoverageRecord for that object, so the object
+    success, add a coverage record for that object, so the object
     doesn't need to be processed again. If the algorithm returns a
     CoverageFailure, that failure may itself be memorialized as a
-    CoverageRecord.
+    coverage record.
 
     Instead of instantiating this class directly, subclass one of its
     subclasses: either IdentifierCoverageProvider or
@@ -214,7 +214,7 @@ class BaseCoverageProvider(object):
         `counts` is a 3-tuple (successes, transient failures,
         persistent_failures).
 
-        `records` is a mixed list of CoverageRecord objects (for
+        `records` is a mixed list of coverage record objects (for
         successes and persistent failures) and CoverageFailure objects
         (for transient failures).
         """
@@ -254,7 +254,7 @@ class BaseCoverageProvider(object):
                     record.status = BaseCoverageRecord.PERSISTENT_FAILURE
                     persistent_failures += 1
             else:
-                # Count this as a success and add a CoverageRecord for
+                # Count this as a success and add a coverage record for
                 # it. It won't show up anymore, on this run or
                 # subsequent runs.
                 if item in unhandled_items:
@@ -292,10 +292,10 @@ class BaseCoverageProvider(object):
         return (successes, transient_failures, persistent_failures), records
 
     def process_batch(self, batch):
-        """Do what it takes to give CoverageRecords to a batch of
+        """Do what it takes to give coverage records to a batch of
         items.
 
-        :return: A mixed list of CoverageRecords and CoverageFailures.
+        :return: A mixed list of coverage records and CoverageFailures.
         """
         results = []
         for item in batch:
@@ -312,18 +312,18 @@ class BaseCoverageProvider(object):
         pass
 
     def should_update(self, coverage_record):
-        """Should we do the work to update the given CoverageRecord?"""
+        """Should we do the work to update the given coverage record?"""
         if coverage_record is None:
-            # An easy decision -- there is no existing CoverageRecord,
+            # An easy decision -- there is no existing coverage record,
             # so we need to do the work.
             return True
 
         if self.cutoff_time is None:
             # An easy decision -- without a cutoff_time, once we
-            # create a CoverageRecord we never update it.
+            # create a coverage record we never update it.
             return False
 
-        # We update a CoverageRecord if it was last updated before
+        # We update a coverage record if it was last updated before
         # cutoff_time.
         return coverage_record.timestamp < self.cutoff_time
 
@@ -351,18 +351,18 @@ class BaseCoverageProvider(object):
         Implemented in CoverageProvider and WorkCoverageProvider.
         """
         raise NotImplementedError()
-
+    
     def add_coverage_record_for(self, item):
         """Add a coverage record for the given item.
 
-        Implemented in CoverageProvider and WorkCoverageProvider.
+        Implemented in IdentifierCoverageProvider and WorkCoverageProvider.
         """
         raise NotImplementedError()
         
     def record_failure_as_coverage_record(self, failure):
         """Convert the given CoverageFailure to a coverage record.
 
-        Implemented in CoverageProvider and WorkCoverageProvider.
+        Implemented in IdentifierCoverageProvider and WorkCoverageProvider.
         """
         raise NotImplementedError()
 
@@ -370,7 +370,8 @@ class BaseCoverageProvider(object):
         """Create a CoverageFailure recording the coverage provider's
         failure to even try to process an item.
 
-        Implemented in CoverageProvider and WorkCoverageProvider.
+        Implemented in IdentifierCoverageProvider and
+        WorkCoverageProvider.
         """
         raise NotImplementedError()
 
@@ -378,8 +379,8 @@ class BaseCoverageProvider(object):
         """Do the work necessary to give coverage to one specific item.
 
         Since this is where the actual work happens, this is not
-        implemented in CoverageProvider or WorkCoverageProvider, and
-        must be handled in a subclass.
+        implemented in IdentifierCoverageProvider or
+        WorkCoverageProvider, and must be handled in a subclass.
         """
         raise NotImplementedError()
 
@@ -532,6 +533,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
            coverage record for this item was created after
            `self.cutoff_time`.
         :return: Either a coverage record or a CoverageFailure.
+
+        TODO: This could be abstracted and moved to BaseCoverageProvider.
         """
         if isinstance(item, Identifier):
             identifier = item
