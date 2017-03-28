@@ -280,8 +280,24 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         
         assert persistent not in provider.attempts
         assert covered not in provider.attempts
-        
-        
+
+        # We can change which identifiers get processed by changing
+        # what counts as 'coverage'.
+        provider.run_once(0, count_as_covered=[CoverageRecord.SUCCESS])
+
+        # That processed the persistent failure, but not the success.
+        assert persistent in provider.attempts
+        assert covered not in provider.attempts
+
+        # Let's call it again and say that we are covering everything
+        # _except_ persistent failures.
+        provider.run_once(0, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE])
+
+        # That got us to cover the identifier that had already been
+        # successfully covered.
+        assert covered in provider.attempts
+
+
 class TestCoverageProvider(CoverageProviderTest):
 
     def setup(self):
