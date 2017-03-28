@@ -168,18 +168,59 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             NoServiceName, self._db
         )
 
+    def test_run(self):
+        """Verify that run() calls run_once_and_update_timestamp()."""
+        class MockCoverageProvider(BaseCoverageProvider):
+            SERVICE_NAME = "I do nothing"
+            was_run = False
+
+            def run_once_and_update_timestamp(self):
+                self.was_run = True
+
+        provider = MockCoverageProvider(self._db)
+        provider.run()
+        eq_(True, provider.was_run)
+        
     def test_run_once_and_update_timestamp(self):
-        """Test run_once_and_update_timestamp. It should cover items that have
-        no CoverageRecord at all, then items whose previous coverage
-        attempt resulted in a transient failure.
-
-        This doubles as a test of AlwaysSuccessfulCoverageProvider's
-        ability to always create a CoverageRecord.
+        """Test that run_once_and_update_timestamp calls run_once twice and
+        then updates a Timestamp.
         """
-
-        # We start with no Timestamp and no CoverageRecords..
-        eq_([], self._db.query(CoverageRecord).all())
+        class MockCoverageProvider(BaseCoverageProvider):
+            SERVICE_NAME = "I do nothing"
+            run_once_calls = []
+            
+            def run_once(self, offset, count_as_covered=None):
+                self.run_once_calls.append(count_as_covered)
+            
+        # We start with no timestamps.
         eq_([], self._db.query(Timestamp).all())
+        
+        # Instantiate the Provider, and call
+        # run_once_and_update_timestamp.
+        provider = MockCoverageProvider(self._db)
+        provider.run_once_and_update_timestamp()
+
+        # The timestamp is now set.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_("I do nothing", timestamp.service)
+
+        # run_once was called twice: once to exclude items that have
+        # any coverage record whatsoever (ALL_STATUSES), and again to
+        # exclude only items that have coverage records that indicate
+        # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
+        eq_([CoverageRecord.ALL_STATUSES,
+             CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
+        
+    def test_run_once(self):
+        """Test run_once, showing how it covers items with different types of
+        CoverageRecord.
+
+        TODO: This could use a bit more work to show what the return
+        value of run_once() means.
+        """
+        
+        # We start with no CoverageRecords.
+        eq_([], self._db.query(CoverageRecord).all())
         
         data_source = DataSource.lookup(
             self._db, AlwaysSuccessfulCoverageProvider.DATA_SOURCE_NAME
@@ -206,56 +247,41 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # The third one has no coverage record at all.
 
-        # And the fourth one has been successfull covered.
+        # And the fourth one has been successfully covered.
         self._coverage_record(
             covered, data_source, status=CoverageRecord.SUCCESS
         )
         
-        # Now let's run the coverage provider.
+        # Now let's run the coverage provider. Every Identifier
+        # that's covered will succeed, so the question is which ones
+        # get covered.
         provider = AlwaysSuccessfulCoverageProvider(self._db)
-        provider.run_once_and_update_timestamp()
-
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
-
-        # The identifier with no coverage and the identifier with a
-        # transient failure now have coverage records that indicate
-        # success.
-
+        provider.run_once(0)
+        
+        # By default, run_once() finds Identifiers that have no coverage
+        # or which have transient failures.
+        
         [transient_failure_has_gone] = transient.coverage_records
         eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
 
         [now_has_coverage] = uncovered.coverage_records
         eq_(CoverageRecord.SUCCESS, now_has_coverage.status)
-        
-        # The identifier that had the transient failure was processed
-        # second, even though it was created first in the
-        # database. That's because we do the work in two passes: first
-        # we process identifiers where coverage has never been
-        # attempted, then we process identifiers with transient failures.
-        eq_([uncovered, transient], provider.attempts)
 
+        assert transient in provider.attempts
+        assert uncovered in provider.attempts
+        
         # Nothing happened to the identifier that had a persistent
         # failure or the identifier that was successfully covered.
 
-        # We now have a Timestamp.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_(provider.service_name, timestamp.service)
+        eq_([CoverageRecord.PERSISTENT_FAILURE],
+            [x.status for x in persistent.coverage_records])
+        eq_([CoverageRecord.SUCCESS],
+            [x.status for x in covered.coverage_records])
         
-    def test_run(self):
-        """Verify that run() calls run_once_and_update_timestamp()."""
-        class MockCoverageProvider(BaseCoverageProvider):
-            SERVICE_NAME = "I do nothing"
-            was_run = False
-
-            def run_once_and_update_timestamp(self):
-                self.was_run = True
-
-        provider = MockCoverageProvider(self._db)
-        provider.run()
-        eq_(True, provider.was_run)
-                
+        assert persistent not in provider.attempts
+        assert covered not in provider.attempts
+        
+        
 class TestCoverageProvider(CoverageProviderTest):
 
     def setup(self):

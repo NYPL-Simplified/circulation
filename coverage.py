@@ -340,7 +340,7 @@ class BaseCoverageProvider(object):
     # Subclasses must implement these virtual methods.
     #
 
-    def items_that_need_coverage(self, identifiers, **kwargs):
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Create a database query returning only those items that
         need coverage.
 
