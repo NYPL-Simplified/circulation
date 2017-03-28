@@ -772,12 +772,12 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_("Never successful (transient)", timestamp.service)
 
     def test_failure_for_ignored_item(self):
-        provider = NeverSuccessfulCoverageProvider(
-            self._db,
-            data_source=self.data_source,
-            input_identifier_types=self.input_identifier_types,
-            operation="i will ignore you"
-            )
+        """Test that failure_for_ignored_item creates an appropriate
+        CoverageFailure.
+        """
+        class MockProvider(NeverSuccessfulCoverageProvider):
+            OPERATION = "I will ignore you"
+        provider = MockProvider(self._db)
         result = provider.failure_for_ignored_item(self.identifier)
         assert isinstance(result, CoverageFailure)
         eq_(True, result.transient)
