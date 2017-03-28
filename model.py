@@ -8557,12 +8557,73 @@ class Admin(Base):
         _db.commit()
 
 
-class AuthenticationService(object):
-    """An AuthenticationService contains configuration for a third-party
-    service that can authenticate people. There will be a subclass of
-    AuthenticationService for each type of person that needs to be
-    authenticated.
+class ExternalIntegration(Base):
+
+    """An external integration contains configuration for connecting
+    to a third-party API.
     """
+
+    __tablename__ = 'externalintegrations'
+    id = Column(Integer, primary_key=True)
+
+    # If there is a special URL to use for access to this API,
+    # put it here. This is most common for OPDS and ODL integrations.
+    url = Column(Unicode, nullable=True)
+
+    # If access requires authentication, these fields represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    username = Column(Unicode, nullable=True)
+    password = Column(Unicode, nullable=True)
+
+    # Any additional configuration information goes into the
+    # externalintegrationsettings table.
+    settings = relationship(
+        "ExternalIntegrationSetting", backref="external_integration"
+    )
+
+    def set_setting(self, key, value):
+        """Create or update a key-value setting for this ExternalIntegration."""
+        setting = self.setting(key)
+        setting.value = value
+        return setting
+    
+    def setting(self, key):
+        """Find or create a ExternalIntegrationSetting on this ExternalIntegration.
+
+        :param key: Name of the setting.
+        :return: A ExternalIntegrationSetting
+        """
+        _db = Session.object_session(self)
+        setting, is_new = get_one_or_create(
+            _db, ExternalIntegrationSetting, external_integration=self, key=key
+        )
+        return setting
+
+class ExternalIntegrationSetting(Base):
+    """An extra piece of information associated with an ExternalIntegration.
+
+    e.g. the "website ID" associated with an Overdrive collection, or the
+    JSON credentials for Google OAuth.
+    """
+    __tablename__ = 'externalintegrationsettings'
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(Integer, ForeignKey('externalintegrations.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
+
+    __table_args__ = (
+        UniqueConstraint('external_integration_id', 'key'),
+    )
+
+
+class AdminAuthenticationService(Base):
+    """An AdminAuthenticationService contains configuration for a third-party
+    service that can authenticate admins.
+    """
+
+    __tablename__ = "adminauthenticationservices"
 
     id = Column(Integer, primary_key=True)
 
@@ -8575,16 +8636,22 @@ class AuthenticationService(object):
 
     PROVIDERS = [GOOGLE_OAUTH]
 
-    # Additional provider-specific settings are stored as
-    # stringified JSON in the 'settings' field
-    settings = Column(Unicode)
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
 
-class AdminAuthenticationService(Base, AuthenticationService):
-    """An AdminAuthenticationService contains configuration for a third-party
-    service that can authenticate admins.
-    """
-
-    __tablename__ = "adminauthenticationservices"
+    @property
+    def external_integration(self):
+        _db = Session.object_session(self)
+        if self.external_integration_id:
+            external_integration = get_one(
+                _db, ExternalIntegration, id=self.external_integration_id,
+            )
+        else:
+            external_integration, ignore = create(
+              _db, ExternalIntegration
+            )
+            self.external_integration_id = external_integration.id
+        return external_integration
 
 
 class Collection(Base):
@@ -8615,22 +8682,11 @@ class Collection(Base):
     # called a "library ID".
     external_account_id = Column(Unicode, nullable=True)
 
-    # If there is a special URL to use for access to this collection,
-    # put it here. This is most common for OPDS and ODL integrations.
-    url = Column(Unicode, nullable=True)
-
-    # If access requires authentication, these fields represent the
-    # username/password or key/secret combination necessary to
-    # authenticate. If there's a secret but no key, it's stored in
-    # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
-
-    # Any additional configuration information goes into the
-    # collectionsettings table.
-    settings = relationship(
-        "CollectionSetting", backref="collection"
-    )
+    # How do we connect to the provider of this collection? Any
+    # url, authentication information, or additional configuration
+    # goes into the external integration.
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
@@ -8638,25 +8694,6 @@ class Collection(Base):
     # secret as the Overdrive collection, but it has a distinct
     # external_account_id.
     parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
-
-    # A dict capturing the column location of the unique collection
-    # account identifier in the collections table.
-    UNIQUE_IDENTIFIER_BY_PROTOCOL = {
-        # Axis 360 'library_id'
-        AXIS_360 : external_account_id,
-
-        # Bibliotheca 'library_id'
-        BIBLIOTHECA : external_account_id,
-
-        # OPDS_IMPORT 'url'
-        OPDS_IMPORT : url,
-
-        # One Click 'library_id'
-        ONE_CLICK : external_account_id,
-
-        # Overdrive 'library_id'
-        OVERDRIVE : external_account_id,
-    }
 
     # A collection may have many child collections. For example,
     # An Overdrive collection may have many children corresponding
@@ -8684,10 +8721,23 @@ class Collection(Base):
     )
 
     @property
+    def external_integration(self):
+        _db = Session.object_session(self)
+        if self.external_integration_id:
+            external_integration = get_one(
+                _db, ExternalIntegration, id=self.external_integration_id,
+            )
+        else:
+            external_integration, ignore = create(
+              _db, ExternalIntegration
+            )
+            self.external_integration_id = external_integration.id
+        return external_integration
+
+    @property
     def unique_account_id(self):
         """Identifier that uniquely represents this Collection of works"""
-        account_id_column = self.UNIQUE_IDENTIFIER_BY_PROTOCOL.get(self.protocol)
-        unique_account_id = getattr(self, account_id_column.name)
+        unique_account_id = self.external_account_id
 
         if not unique_account_id:
             raise ValueError("Unique account identifier not set")
@@ -8727,24 +8777,6 @@ class Collection(Base):
 
         return collection, is_new
 
-    def set_setting(self, key, value):
-        """Create or update a key-value setting for this Collection."""
-        setting = self.setting(key)
-        setting.value = value
-        return setting
-    
-    def setting(self, key):
-        """Find or create a CollectionSetting on this Collection.
-
-        :param key: Name of the setting.
-        :return: A CollectionSetting
-        """
-        _db = Session.object_session(self)
-        setting, is_new = get_one_or_create(
-            _db, CollectionSetting, collection=self, key=key
-        )
-        return setting
-
     def explain(self, include_password=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
@@ -8767,13 +8799,14 @@ class Collection(Base):
             ))
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        if self.url:
-            lines.append('URL: "%s"' % self.url)
-        if self.username:
-            lines.append('Username: "%s"' % self.username)
-        if self.password and include_password:
-            lines.append('Password: "%s"' % self.password)
-        for setting in self.settings:
+        integration = self.external_integration
+        if integration.url:
+            lines.append('URL: "%s"' % integration.url)
+        if integration.username:
+            lines.append('Username: "%s"' % integration.username)
+        if integration.password and include_password:
+            lines.append('Password: "%s"' % integration.password)
+        for setting in integration.settings:
             lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
@@ -8798,23 +8831,6 @@ class Collection(Base):
             )
 
         return query
-
-
-class CollectionSetting(Base):
-    """An extra piece of information associated with a Collection.
-
-    e.g. the "website ID" associated with an Overdrive collection, which
-    does not map onto any of the attributes of Collection.
-    """
-    __tablename__ = 'collectionsettings'
-    id = Column(Integer, primary_key=True)
-    collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
-    key = Column(Unicode, index=True)
-    value = Column(Unicode)
-
-    __table_args__ = (
-        UniqueConstraint('collection_id', 'key'),
-    )
 
 
 collections_libraries = Table(

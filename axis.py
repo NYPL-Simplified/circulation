@@ -73,11 +73,11 @@ class Axis360API(object):
         self._db = _db
 
         self.library_id = collection.external_account_id.encode("utf8")
-        self.username = collection.username.encode("utf8")
-        self.password = collection.password.encode("utf8")
+        self.username = collection.external_integration.username.encode("utf8")
+        self.password = collection.external_integration.password.encode("utf8")
 
         # Convert the nickname for a server into an actual URL.
-        base_url = collection.url or self.PRODUCTION_BASE_URL
+        base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = base_url
@@ -209,10 +209,12 @@ class MockAxis360API(Axis360API):
             _db, Collection,
             name="Test Axis 360 Collection",
             protocol=Collection.AXIS_360, create_method_kwargs=dict(
-                username=u'a', password=u'b', external_account_id=u'c',
-                url=u"http://axis.test/"
+                external_account_id=u'c',
             )
         )
+        collection.external_integration.username = u'a'
+        collection.external_integration.password = u'b'
+        collection.external_integration.url = u"http://axis.test/"
         library.collections.append(collection)
         super(MockAxis360API, self).__init__(_db, collection, *args, **kwargs)
         if with_token:
