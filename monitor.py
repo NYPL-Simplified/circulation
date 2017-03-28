@@ -153,8 +153,8 @@ class CollectionMonitor(Monitor):
             Collection.timestamps).filter(
                 Collection.protocol==cls.PROTOCOL).filter(
                     service_match).order_by(
-                    Timestamp.timestamp.asc().nullsfirst()
-                )
+                        Timestamp.timestamp.asc().nullsfirst()
+                    )
         for collection in collections:
             yield cls(_db=_db, collection=collection, **kwargs)
     

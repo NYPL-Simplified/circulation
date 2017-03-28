@@ -47,11 +47,15 @@ from scripts import (
     OneClickDeltaScript,
     OneClickImportScript, 
     PatronInputScript,
+    RunCollectionMonitorScript,
     RunCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowLibrariesScript,
     WorkProcessingScript,
+)
+from monitor import (
+    CollectionMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -139,6 +143,43 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
+class TestRunCollectionMonitorScript(DatabaseTest):
+
+    def test_all(self):
+        class OPDSCollectionMonitor(CollectionMonitor):
+            SERVICE_NAME = "Test Monitor"
+            PROTOCOL = Collection.OPDS_IMPORT
+
+            def __init__(self, _db, test_argument=None, **kwargs):
+                self.test_argument = test_argument
+                super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
+
+            def run_once(self, start, cutoff):
+                self.collection.ran_with_argument = self.test_argument
+
+        # Here we have three OPDS import Collections...
+        o1 = self._collection()
+        o2 = self._collection()
+        o3 = self._collection()
+
+        # ...and a Bibliotheca collection.
+        b1 = self._collection(protocol=Collection.BIBLIOTHECA)
+
+        script = RunCollectionMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+
+        # Running the script instantiates an OPDSCollectionMonitor for
+        # every Collection and calls run_once() on each one. This
+        # propagates a value sent into the script constructor to the
+        # Collection object.
+        for i in [o1, o2, o3]:
+            eq_("test value", i.ran_with_argument)
+
+        # Nothing happened to the Bibliotheca collection.
+        assert not hasattr(b1, 'ran_with_argument')
+        
 
 class TestPatronInputScript(DatabaseTest):
 

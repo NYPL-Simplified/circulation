@@ -154,12 +154,12 @@ class RunCollectionMonitorScript(Script):
     """Run a CollectionMonitor on every Collection that implements a
     certain protocol.
 
-    TODO: Currently the Monitors are run in order. It should be
-    possible to take a command-line argument that runs all the
+    TODO: Currently the Monitors are run one at a time. It should
+    be possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread.
     """
-    
-    def __init__(self, monitor_class, **kwargs):
+
+    def __init__(self, monitor_class, _db=None, **kwargs):
         """Constructor.
         
         :param monitor_class: A class object that derives from 
@@ -167,6 +167,7 @@ class RunCollectionMonitorScript(Script):
         :param kwargs: Keyword arguments to pass into the `monitor_class`
             constructor each time it's called.
         """
+        super(RunCollectionMonitorScript, self).__init__(_db)
         self.monitor_class = monitor_class
         self.name = self.monitor_class.SERVICE_NAME
         self.kwargs = kwargs
@@ -175,7 +176,7 @@ class RunCollectionMonitorScript(Script):
         """Instantiate a Monitor for every appropriate Collection,
         and run them, in order.
         """
-        for monitor in self.monitor_class.all(self._db, **kwargs):
+        for monitor in self.monitor_class.all(self._db, **self.kwargs):
             monitor.run()
 
 
