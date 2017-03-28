@@ -237,9 +237,25 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_([uncovered, transient], provider.attempts)
 
         # Nothing happened to the identifier that had a persistent
-        # failure.
+        # failure or the identifier that was successfully covered.
 
-    
+        # We now have a Timestamp.
+        [timestamp] = self._db.query(Timestamp).all()
+        eq_(provider.service_name, timestamp.service)
+        
+    def test_run(self):
+        """Verify that run() calls run_once_and_update_timestamp()."""
+        class MockCoverageProvider(BaseCoverageProvider):
+            SERVICE_NAME = "I do nothing"
+            was_run = False
+
+            def run_once_and_update_timestamp(self):
+                self.was_run = True
+
+        provider = MockCoverageProvider(self._db)
+        provider.run()
+        eq_(True, provider.was_run)
+                
 class TestCoverageProvider(CoverageProviderTest):
 
     def setup(self):
