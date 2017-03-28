@@ -18,7 +18,10 @@ class GoogleAuthService(object):
             return DummyGoogleClient()
 
         integration = self.auth_service.external_integration
-        config = json.loads(integration.setting("config").value).get("web")
+        config = dict()
+        config["auth_uri"] = integration.url
+        config["client_id"] = integration.username
+        config["client_secret"] = integration.password
         config['redirect_uri'] = self.redirect_uri
         config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
         return GoogleClient.OAuth2WebServerFlow(**config)
