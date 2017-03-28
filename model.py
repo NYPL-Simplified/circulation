@@ -8567,7 +8567,7 @@ class ExternalIntegration(Base):
     id = Column(Integer, primary_key=True)
 
     # If there is a special URL to use for access to this API,
-    # put it here. This is most common for OPDS and ODL integrations.
+    # put it here.
     url = Column(Unicode, nullable=True)
 
     # If access requires authentication, these fields represent the
