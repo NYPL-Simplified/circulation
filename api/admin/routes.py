@@ -9,7 +9,7 @@ from flask import (
 import os
 
 from api.app import app
-from config import Configuration
+from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
 from core.app_server import returns_problem_detail

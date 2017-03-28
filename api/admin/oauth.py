@@ -2,31 +2,37 @@ import json
 from nose.tools import set_trace
 
 from problem_details import GOOGLE_OAUTH_FAILURE
-from config import Configuration
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
 
 class GoogleAuthService(object):
 
-    def __init__(self, config, redirect_uri, test_mode=False):
-        if test_mode:
-            self.client = DummyGoogleClient()
-        else:
-            config['redirect_uri'] = redirect_uri
-            config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
-            self.client = GoogleClient.OAuth2WebServerFlow(**config)
+    def __init__(self, auth_service, redirect_uri, test_mode=False):
+        self.auth_service = auth_service
+        self.redirect_uri = redirect_uri
+        self.test_mode = test_mode
+
+    @property
+    def client(self):
+        if self.test_mode:
+            return DummyGoogleClient()
+
+        integration = self.auth_service.external_integration
+        config = json.loads(integration.setting("config").value).get("web")
+        config['redirect_uri'] = self.redirect_uri
+        config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
+        return GoogleClient.OAuth2WebServerFlow(**config)
+
+    @property
+    def domains(self):
+        if self.auth_service:
+            integration = self.auth_service.external_integration
+            if integration.setting("domains").value:
+                return json.loads(integration.setting("domains").value)
+        return []
 
     def auth_uri(self, redirect_url):
         return self.client.step1_get_authorize_url(state=redirect_url)
-
-    @classmethod
-    def from_environment(cls, redirect_uri, test_mode=False):
-        if test_mode:
-            return cls('/path', '/callback', test_mode)
-        config = dict(Configuration.integration(
-            Configuration.GOOGLE_OAUTH_INTEGRATION
-        )['web'])
-        return cls(config, redirect_uri, test_mode)
 
     def callback(self, request={}):
         """Google OAuth sign-in flow"""

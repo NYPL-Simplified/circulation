@@ -10,12 +10,13 @@ from werkzeug import ImmutableMultiDict, MultiDict
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.admin.problem_details import *
-from api.admin.config import (
+from api.config import (
     Configuration,
     temp_config,
 )
 from core.model import (
     Admin,
+    AdminAuthenticationService,
     CirculationEvent,
     Classification,
     Collection,
@@ -633,15 +634,17 @@ class TestSignInController(AdminControllerTest):
             eq_("foo", response.headers["Location"])
 
     def test_staff_email(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.ADMIN_AUTH_DOMAIN : "alibrary.org"
-            }
-            with self.app.test_request_context('/admin/sign_in'):
-                staff_email = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
-                interloper_email = self.manager.admin_sign_in_controller.staff_email("rando@gmail.com")
-                eq_(True, staff_email)
-                eq_(False, interloper_email)
+        auth_service, ignore = get_one_or_create(
+            self._db, AdminAuthenticationService,
+            name="Google OAuth", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
+        auth_service.external_integration.set_setting("domains", json.dumps(["alibrary.org"]))
+
+        with self.app.test_request_context('/admin/sign_in'):
+            staff_email = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
+            interloper_email = self.manager.admin_sign_in_controller.staff_email("rando@gmail.com")
+            eq_(True, staff_email)
+            eq_(False, interloper_email)
 
 
 class TestFeedController(AdminControllerTest):
@@ -1057,11 +1060,11 @@ class TestSettingsController(AdminControllerTest):
             self._db, Collection, name="Collection 1", protocol=Collection.OVERDRIVE,
         )
         c1.external_account_id = "1234"
-        c1.password = "a"
+        c1.external_integration.password = "a"
         c2, ignore = create(
             self._db, Collection, name="Collection 2", protocol=Collection.BIBLIOTHECA,
         )
-        c2.password = "b"
+        c2.external_integration.password = "b"
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
@@ -1077,8 +1080,8 @@ class TestSettingsController(AdminControllerTest):
             eq_(c1.external_account_id, collections[0].get("external_account_id"))
             eq_(c2.external_account_id, collections[1].get("external_account_id"))
 
-            eq_(c1.password, collections[0].get("password"))
-            eq_(c2.password, collections[1].get("password"))
+            eq_(c1.external_integration.password, collections[0].get("password"))
+            eq_(c2.external_integration.password, collections[1].get("password"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1121,7 +1124,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
-                ("url", "test.com"),
+                ("external_account_id", "test.com"),
                 ("libraries", json.dumps(["nosuchlibrary"])),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1204,8 +1207,8 @@ class TestSettingsController(AdminControllerTest):
         collection = get_one(self._db, Collection)
         eq_("New Collection", collection.name)
         eq_("acctid", collection.external_account_id)
-        eq_("username", collection.username)
-        eq_("password", collection.password)
+        eq_("username", collection.external_integration.username)
+        eq_("password", collection.external_integration.password)
 
         # Two libraries now have access to the collection.
         eq_([collection], l1.collections)
@@ -1213,7 +1216,7 @@ class TestSettingsController(AdminControllerTest):
         eq_([], l3.collections)
 
         # One CollectionSetting was set on the collection.
-        [setting] = collection.settings
+        [setting] = collection.external_integration.settings
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1242,13 +1245,13 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 200)
 
         # The collection has been changed.
-        eq_("user2", collection.username)
+        eq_("user2", collection.external_integration.username)
 
         # A library now has access to the collection.
         eq_([collection], l1.collections)
 
         # One CollectionSetting was set on the collection.
-        [setting] = collection.settings
+        [setting] = collection.external_integration.settings
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1266,7 +1269,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 200)
 
         # The collection is the same.
-        eq_("user2", collection.username)
+        eq_("user2", collection.external_integration.username)
         eq_(Collection.OVERDRIVE, collection.protocol)
 
         # But the library has been removed.
