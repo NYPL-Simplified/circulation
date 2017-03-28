@@ -695,12 +695,27 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     PROTOCOL = None
     
     def __init__(self, collection, **kwargs):
-        _db = Session.object_session(collection)
         if not collection:
-            raise collectionMissing(
-                "CollectionCoverageProvider must be instantiated with "
-                "a Collection."
+            raise CollectionMissing(
+                "%s must be instantiated with a Collection." % (
+                    self.__class__.__name__
+                )
             )
+        # TODO: It might turn out that PROTOCOL is not always
+        # required, and that what we really want to do is enforce
+        # constraints on behavior *when PROTOCOL is specified*, similar
+        # to INPUT_IDENTIFIER_TYPES.
+        if not self.PROTOCOL:
+            raise ValueError(
+                "%s must define PROTOCOL." % self.__class__.__name__
+            )
+        if collection.protocol != self.PROTOCOL:
+            raise ValueError(
+                "Collection protocol (%s) does not match CoverageProvider protocol (%s)" % (
+                    collection.protocol, self.PROTOCOL
+                )
+            )
+        _db = Session.object_session(collection)
         self.collection = collection
         super(CollectionCoverageProvider, self).__init__(
             _db, collection, **kwargs

@@ -604,6 +604,9 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
     def test_set_metadata(self):
         """Test that set_metadata can create and populate an
         appropriate Edition.
+
+        set_metadata is tested in more detail in
+        TestCollectionCoverageProvider.
         """
         # Here's a provider that is not associated with any particular
         # Collection.
@@ -789,11 +792,13 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
 
 class MockCollectionCoverageProvider(CollectionCoverageProvider):
-
+    """A dummy CollectionCoverageProvider for use in tests."""
+    
     PROTOCOL = Collection.OPDS_IMPORT
     SERVICE_NAME = "A Service"
     OPERATION = "An Operation"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
+
 
 class TestCollectionCoverageProvider(CoverageProviderTest):
 
@@ -801,10 +806,38 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         """Verify that class variables become appropriate instance
         variables.
         """
+        # You must define PROTOCOL.
+        class NoProtocol(MockCollectionCoverageProvider):
+            PROTOCOL = None
+        assert_raises_regexp(
+            ValueError,
+            "NoProtocol must define PROTOCOL",
+            NoProtocol,
+            provider
+        )
+       
         collection = self._collection(protocol=Collection.OPDS_IMPORT)
         provider = MockCollectionCoverageProvider(collection)
         eq_(DataSource.OA_CONTENT_SERVER, provider.data_source.name)
-    
+
+    def test_must_have_collection(self):
+        assert_raises_regexp(
+            CollectionMissing,
+            "MockCollectionCoverageProvider must be instantiated with a Collection.",
+            MockCollectionCoverageProvider,
+            None
+        )
+
+    def test_collection_protocol_must_match_class_protocol(self):
+        collection = self._collection(protocol=Collection.OVERDRIVE)
+        assert_raises_regexp(
+            ValueError,
+            "Collection protocol (Overdrive) does not match CoverageProvider protocol (OPDS Import)",
+            MockCollectionCoverageProvider,
+            collection
+        )
+
+        
     def test_all(self):
         """Verify that all() gives a sequence of CollectionCoverageProvider
         objects, one for each Collection that implements the
