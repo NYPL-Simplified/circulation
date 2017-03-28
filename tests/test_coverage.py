@@ -222,15 +222,15 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # We start with no CoverageRecords.
         eq_([], self._db.query(CoverageRecord).all())
         
-        data_source = DataSource.lookup(
-            self._db, AlwaysSuccessfulCoverageProvider.DATA_SOURCE_NAME
-        )
-
         # Four identifiers.
         transient = self._identifier()
         persistent = self._identifier()
         uncovered = self._identifier()
         covered = self._identifier()
+
+        # This provider will try to cover them.
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        data_source = provider.data_source
         
         # We previously tried to cover one of them, but got a
         # transient failure.
@@ -255,7 +255,6 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        provider = AlwaysSuccessfulCoverageProvider(self._db)
         provider.run_once(0)
         
         # By default, run_once() finds Identifiers that have no coverage
@@ -298,7 +297,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert covered in provider.attempts
 
     def test_process_batch_and_handle_results(self):
-
+        """Test that process_batch_and_handle_results passes the identifiers
+        its given into the appropriate BaseCoverageProvider, and deals
+        correctly with the successes and failures it might return.
+        """
         e1, p1 = self._edition(with_license_pool=True)
         i1 = e1.primary_identifier
 
@@ -375,6 +377,37 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             [x.status for x in results])
         eq_(["i will always fail"] * 2, [x.operation for x in results])
 
+    def test_process_batch(self):
+        """TODO: We're missing this test coverage.
+
+        Among other things, verify that handle_success is called.
+        """
+
+    def test_should_update(self):
+        """Verify that should_update gives the correct answer when we
+        ask if a CoverageRecord needs to be updated.
+        """
+        cutoff = datetime.datetime(2016, 1, 1)
+        provider = AlwaysSuccessfulCoverageProvider(
+            self._db, cutoff_time = cutoff
+        )
+        identifier = self._identifier()
+        
+        # If coverage is missing, we should update.
+        eq_(True, provider.should_update(None))
+
+        # If coverage is outdated, we should update.
+        record, ignore = CoverageRecord.add_for(
+            identifier, provider.data_source
+        )
+        record.timestamp = datetime.datetime(2015, 1, 1)
+        eq_(True, provider.should_update(record))
+
+        # If coverage is up-to-date, we should not update.
+        record.timestamp = cutoff
+        eq_(False, provider.should_update(record))
+
+    
 
 class TestCoverageProvider(CoverageProviderTest):
 
@@ -523,29 +556,6 @@ class TestCoverageProvider(CoverageProviderTest):
         # CoverageRecord we created at the start of the test takes
         # care of it.
         eq_([], provider.items_that_need_coverage().all())
-
-    def test_should_update(self):
-        cutoff = datetime.datetime(2016, 1, 1)
-        provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful",
-            data_source=self.data_source,
-            input_identifier_types=self.input_identifier_types, 
-            cutoff_time = cutoff
-        )
-
-        # If coverage is missing, we should update.
-        eq_(True, provider.should_update(None))
-
-        # If coverage is outdated, we should update.
-        record, ignore = CoverageRecord.add_for(
-            self.identifier, self.data_source
-        )
-        record.timestamp = datetime.datetime(2015, 1, 1)
-        eq_(True, provider.should_update(record))
-
-        # If coverage is up-to-date, we should not update.
-        record.timestamp = cutoff
-        eq_(False, provider.should_update(record))
 
     def test_ensure_coverage_transient_coverage_failure(self):
 
