@@ -419,10 +419,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
     def setup(self):
         super(TestIdentifierCoverageProvider, self).setup()
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        self.input_identifier_types = gutenberg.primary_identifier_type
-        self.edition = self._edition(gutenberg.name)
-        self.identifier = self.edition.primary_identifier
+        self.identifier = self._identifier()
 
     def test_input_identifier_types(self):
         """Test various acceptable and unacceptable values for the class
@@ -486,10 +483,11 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         """Verify that ensure_coverage() works on an Edition by covering
         its primary identifier.
         """        
+        edition = self._edition()
         provider = AlwaysSuccessfulCoverageProvider(self._db)
-        record = provider.ensure_coverage(self.edition)
+        record = provider.ensure_coverage(edition)
         assert isinstance(record, CoverageRecord)
-        eq_(self.identifier, record.identifier)
+        eq_(edition.primary_identifier, record.identifier)
         
     def test_ensure_coverage_respects_operation(self):
         # Two providers with the same output source but different operations.
@@ -521,7 +519,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
     def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(self._db)
-        failure = provider.ensure_coverage(self.edition)
+        failure = provider.ensure_coverage(self.identifier)
 
         # A CoverageRecord has been created to memorialize the
         # persistent failure.
@@ -771,19 +769,23 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Never successful (transient)", timestamp.service)
 
+    def test_add_coverage_record_for(self):
+        """TODO: We need test coverage here."""
+        
+    def test_record_failure_as_coverage_record(self):
+        """TODO: We need test coverage here."""
+        
     def test_failure_for_ignored_item(self):
         """Test that failure_for_ignored_item creates an appropriate
         CoverageFailure.
         """
-        class MockProvider(NeverSuccessfulCoverageProvider):
-            OPERATION = "I will ignore you"
-        provider = MockProvider(self._db)
+        provider = NeverSuccessfulCoverageProvider(self._db)
         result = provider.failure_for_ignored_item(self.identifier)
         assert isinstance(result, CoverageFailure)
         eq_(True, result.transient)
         eq_("Was ignored by CoverageProvider.", result.exception)
         eq_(self.identifier, result.obj)
-        eq_(self.data_source, result.data_source)
+        eq_(provider.data_source, result.data_source)
 
 
 class MockCollectionCoverageProvider(CollectionCoverageProvider):
