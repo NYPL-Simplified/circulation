@@ -297,6 +297,84 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # successfully covered.
         assert covered in provider.attempts
 
+    def test_process_batch_and_handle_results(self):
+
+        e1, p1 = self._edition(with_license_pool=True)
+        i1 = e1.primary_identifier
+
+        e2, p2 = self._edition(with_license_pool=True)
+        i2 = e2.primary_identifier
+
+        class MockProvider(AlwaysSuccessfulCoverageProvider):
+            OPERATION = 'i succeed'
+        
+        success_provider = MockProvider(self._db)
+
+        batch = [i1, i2]
+        counts, successes = success_provider.process_batch_and_handle_results(batch)
+
+        # Two successes.
+        eq_((2, 0, 0), counts)
+        
+        # Each represented with a CoverageRecord with status='success'
+        assert all(isinstance(x, CoverageRecord) for x in successes)
+        eq_([CoverageRecord.SUCCESS] * 2, [x.status for x in successes])
+
+        # Each associated with one of the identifiers...
+        eq_(set([i1, i2]), set([x.identifier for x in successes]))
+
+        # ...and with the coverage provider's operation.
+        eq_(['i succeed'] * 2, [x.operation for x in successes])
+
+        # Now try a different CoverageProvider which creates transient
+        # failures.
+        class MockProvider(TransientFailureCoverageProvider):
+            OPERATION = "i fail transiently"
+            
+        transient_failure_provider = MockProvider(self._db)
+        counts, failures = transient_failure_provider.process_batch_and_handle_results(batch)
+        # Two transient failures.
+        eq_((0, 2, 0), counts)
+
+        # New coverage records were added to track the transient
+        # failures.
+        eq_([CoverageRecord.TRANSIENT_FAILURE] * 2,
+            [x.status for x in failures])
+        eq_(["i fail transiently"] * 2, [x.operation for x in failures])
+
+        # Another way of getting transient failures is to just ignore every
+        # item you're told to process.
+        class MockProvider(TaskIgnoringCoverageProvider):
+            OPERATION = "i ignore"
+        task_ignoring_provider = MockProvider(self._db)
+        counts, records = task_ignoring_provider.process_batch_and_handle_results(batch)
+
+        eq_((0, 2, 0), counts)
+        eq_([CoverageRecord.TRANSIENT_FAILURE] * 2,
+            [x.status for x in records])
+        eq_(["i ignore"] * 2, [x.operation for x in records])
+
+        # If a transient failure becomes a success, the it won't have
+        # an exception anymore.
+        eq_(['Was ignored by CoverageProvider.'] * 2, [x.exception for x in records])
+        records = success_provider.process_batch_and_handle_results(batch)[1]
+        eq_([None, None], [x.exception for x in records])
+
+        # Or you can go really bad and have persistent failures.
+        class MockProvider(NeverSuccessfulCoverageProvider):
+            OPERATION = "i will always fail"
+        persistent_failure_provider = MockProvider(self._db)
+        counts, results = persistent_failure_provider.process_batch_and_handle_results(batch)
+
+        # Two persistent failures.
+        eq_((0, 0, 2), counts)
+        assert all([isinstance(x, CoverageRecord) for x in results])
+        eq_(["What did you expect?", "What did you expect?"],
+            [x.exception for x in results])
+        eq_([CoverageRecord.PERSISTENT_FAILURE] * 2,
+            [x.status for x in results])
+        eq_(["i will always fail"] * 2, [x.operation for x in results])
+
 
 class TestCoverageProvider(CoverageProviderTest):
 
@@ -304,7 +382,7 @@ class TestCoverageProvider(CoverageProviderTest):
         super(TestCoverageProvider, self).setup()
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         self.input_identifier_types = gutenberg.primary_identifier_type
-        self.output_source = DataSource.lookup(self._db, DataSource.OCLC)
+        self.data_source = DataSource.lookup(self._db, DataSource.OCLC)
         self.edition = self._edition(gutenberg.name)
         self.identifier = self.edition.primary_identifier
         
@@ -312,13 +390,13 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         record = provider.ensure_coverage(self.edition)
         assert isinstance(record, CoverageRecord)
         eq_(self.identifier, record.identifier)
-        eq_(self.output_source, record.data_source)
+        eq_(self.data_source, record.data_source)
         eq_(None, record.exception)
 
         # There is now one CoverageRecord -- the one returned by
@@ -334,13 +412,13 @@ class TestCoverageProvider(CoverageProviderTest):
         # Two providers with the same output source but different operations.
         provider1 = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             operation="foo"
         )
         provider2 = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             operation="bar"
         )
@@ -366,7 +444,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         failure = provider.ensure_coverage(self.edition)
@@ -387,12 +465,12 @@ class TestCoverageProvider(CoverageProviderTest):
     def test_items_that_need_coverage(self):
         cutoff_time = datetime.datetime(2016, 1, 1)
         record = CoverageRecord.add_for(
-            self.edition, self.output_source, timestamp=cutoff_time
+            self.edition, self.data_source, timestamp=cutoff_time
         )
 
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             cutoff_time=cutoff_time
         )
@@ -401,7 +479,7 @@ class TestCoverageProvider(CoverageProviderTest):
         one_second_after = cutoff_time + datetime.timedelta(seconds=1)
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             cutoff_time=one_second_after
         )
@@ -410,7 +488,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         eq_([], provider.items_that_need_coverage().all())
@@ -418,13 +496,13 @@ class TestCoverageProvider(CoverageProviderTest):
     def test_items_that_need_coverage_respects_operation(self):
 
         record1 = CoverageRecord.add_for(
-            self.identifier, self.output_source
+            self.identifier, self.data_source
         )
 
         # Here's a provider that carries out the 'foo' operation.
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             operation='foo'
         )
@@ -437,7 +515,7 @@ class TestCoverageProvider(CoverageProviderTest):
         # Here's a provider that has no operation set.
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
 
@@ -450,7 +528,7 @@ class TestCoverageProvider(CoverageProviderTest):
         cutoff = datetime.datetime(2016, 1, 1)
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
             cutoff_time = cutoff
         )
@@ -460,7 +538,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         # If coverage is outdated, we should update.
         record, ignore = CoverageRecord.add_for(
-            self.identifier, self.output_source
+            self.identifier, self.data_source
         )
         record.timestamp = datetime.datetime(2015, 1, 1)
         eq_(True, provider.should_update(record))
@@ -473,7 +551,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = TransientFailureCoverageProvider(
             "Transient failure",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
         )
         failure = provider.ensure_coverage(self.identifier)
@@ -487,7 +565,7 @@ class TestCoverageProvider(CoverageProviderTest):
     def test_run_on_specific_identifiers(self):
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         provider.workset_size = 3
@@ -514,7 +592,7 @@ class TestCoverageProvider(CoverageProviderTest):
         # Once upon a time we successfully added coverage for
         # self.identifier.
         record, ignore = CoverageRecord.add_for(
-            self.identifier, self.output_source
+            self.identifier, self.data_source
         )
         record.timestamp = last_run
 
@@ -522,7 +600,7 @@ class TestCoverageProvider(CoverageProviderTest):
         # coverage provider again we will get a persistent failure.
         provider = NeverSuccessfulCoverageProvider(
             "Persistent failure",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
             cutoff_time=last_run
         )
@@ -561,7 +639,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         provider.run()
@@ -569,7 +647,7 @@ class TestCoverageProvider(CoverageProviderTest):
         # We have a CoverageRecord that signifies failure.
         [record] = self._db.query(CoverageRecord).all()
         eq_(self.identifier, record.identifier)
-        eq_(self.output_source, self.output_source)
+        eq_(self.data_source, self.data_source)
         eq_("What did you expect?", record.exception)
 
         # But the coverage provider did run, and the timestamp is now set.
@@ -584,7 +662,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = TransientFailureCoverageProvider(
             "Transient failure",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types, 
         )
         provider.run()
@@ -684,18 +762,18 @@ class TestCoverageProvider(CoverageProviderTest):
             http_get=http.do_get,
         )
 
-        output_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         provider = CollectionCoverageProvider(
             "service",
             collection=self._default_collection,
-            data_source=output_source,
+            data_source=data_source,
             input_identifier_types=[identifier.type],
         )
 
-        metadata = Metadata(output_source)
+        metadata = Metadata(data_source)
         # We've got a CirculationData object that includes an open-access download.
         link = LinkData(rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://foo.com/")
-        circulationdata = CirculationData(output_source, 
+        circulationdata = CirculationData(data_source, 
             primary_identifier=metadata.primary_identifier, 
             links=[link])
 
@@ -729,17 +807,17 @@ class TestCoverageProvider(CoverageProviderTest):
         """
         always = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
         )
         persistent = NeverSuccessfulCoverageProvider(
             "Persistent failures",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
         )
         transient = TransientFailureCoverageProvider(
             "Persistent failures",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
         )
 
@@ -765,7 +843,7 @@ class TestCoverageProvider(CoverageProviderTest):
     def test_operation_included_in_records(self):
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
             operation=CoverageRecord.SYNC_OPERATION
         )
@@ -778,7 +856,7 @@ class TestCoverageProvider(CoverageProviderTest):
 
         provider = NeverSuccessfulCoverageProvider(
             "Never successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
             operation=CoverageRecord.REAP_OPERATION
         )
@@ -788,101 +866,13 @@ class TestCoverageProvider(CoverageProviderTest):
         [record] = self._db.query(CoverageRecord).all()
         eq_(record.operation, CoverageRecord.REAP_OPERATION)
 
-    def test_process_batch_and_handle_results(self):
-
-        e1, p1 = self._edition(with_license_pool=True)
-        i1 = e1.primary_identifier
-
-        e2, p2 = self._edition(with_license_pool=True)
-        i2 = e2.primary_identifier
-
-        success_provider = AlwaysSuccessfulCoverageProvider(
-            "Success",
-            output_source=self.output_source,
-            input_identifier_types=self.input_identifier_types,
-            operation="i succeed"
-        )
-
-        batch = [i1, i2]
-        counts, successes = success_provider.process_batch_and_handle_results(batch)
-
-        # Two successes.
-        eq_((2, 0, 0), counts)
-        
-        # Each represented with a CoverageRecord with status='success'
-        assert all(isinstance(x, CoverageRecord) for x in successes)
-        eq_([CoverageRecord.SUCCESS] * 2, [x.status for x in successes])
-
-        # Each associated with one of the identifiers...
-        eq_(set([i1, i2]), set([x.identifier for x in successes]))
-
-        # ...and with the coverage provider's operation.
-        eq_(['i succeed'] * 2, [x.operation for x in successes])
-
-        # Now try a different CoverageProvider which creates transient
-        # failures.
-        transient_failure_provider = TransientFailureCoverageProvider(
-            "Transient failure",
-            output_source=self.output_source,
-            input_identifier_types=self.input_identifier_types,
-            operation="i fail transiently"
-        )
-        counts, failures = transient_failure_provider.process_batch_and_handle_results(batch)
-        # Two transient failures.
-        eq_((0, 2, 0), counts)
-
-        # New coverage records were added to track the transient
-        # failures.
-        eq_([CoverageRecord.TRANSIENT_FAILURE] * 2,
-            [x.status for x in failures])
-        eq_(["i fail transiently"] * 2, [x.operation for x in failures])
-
-        # Another way of getting transient failures is to just ignore every
-        # item you're told to process.
-        task_ignoring_provider = TaskIgnoringCoverageProvider(
-            "Ignores all tasks",
-            output_source=self.output_source,
-            input_identifier_types=self.input_identifier_types,
-            operation="i ignore"
-        )
-        counts, records = task_ignoring_provider.process_batch_and_handle_results(batch)
-
-        eq_((0, 2, 0), counts)
-        eq_([CoverageRecord.TRANSIENT_FAILURE] * 2,
-            [x.status for x in records])
-        eq_(["i ignore"] * 2, [x.operation for x in records])
-
-        # If a transient failure becomes a success, the it won't have
-        # an exception anymore.
-        eq_(['Was ignored by CoverageProvider.'] * 2, [x.exception for x in records])
-        records = success_provider.process_batch_and_handle_results(batch)[1]
-        eq_([None, None], [x.exception for x in records])
-
-        # Or you can go really bad and have persistent failures.
-        persistent_failure_provider = NeverSuccessfulCoverageProvider(
-            "Persistent failure",
-            output_source=self.output_source,
-            input_identifier_types=self.input_identifier_types,
-            operation="i will always fail"
-        )
-        counts, results = persistent_failure_provider.process_batch_and_handle_results(batch)
-
-        # Two persistent failures.
-        eq_((0, 0, 2), counts)
-        assert all([isinstance(x, CoverageRecord) for x in results])
-        eq_(["What did you expect?", "What did you expect?"],
-            [x.exception for x in results])
-        eq_([CoverageRecord.PERSISTENT_FAILURE] * 2,
-            [x.status for x in results])
-        eq_(["i will always fail"] * 2, [x.operation for x in results])
-
     def test_no_input_identifier_types(self):
         # It's okay to pass input_identifier_types=None to the
         # constructor--it means you are looking for all identifier
         # types.
         provider = AlwaysSuccessfulCoverageProvider(
             "Always successful",
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=None
         )
         eq_(None, provider.input_identifier_types)
@@ -890,7 +880,7 @@ class TestCoverageProvider(CoverageProviderTest):
     def test_failure_for_ignored_item(self):
         provider = NeverSuccessfulCoverageProvider(
             self._db,
-            output_source=self.output_source,
+            data_source=self.data_source,
             input_identifier_types=self.input_identifier_types,
             operation="i will ignore you"
             )
@@ -899,7 +889,7 @@ class TestCoverageProvider(CoverageProviderTest):
         eq_(True, result.transient)
         eq_("Was ignored by CoverageProvider.", result.exception)
         eq_(self.identifier, result.obj)
-        eq_(self.output_source, result.data_source)
+        eq_(self.data_source, result.data_source)
 
     def test_edition(self):
         """Verify that CoverageProvider.edition() returns an appropriate
@@ -1143,7 +1133,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             self._db, collection=self._default_collection
         )
         pool = with_collection_provider.license_pool(identifier)
-        eq_(pool.data_source, with_collection_provider.output_source)
+        eq_(pool.data_source, with_collection_provider.data_source)
         eq_(pool.identifier, identifier)
         eq_(pool.collection, with_collection_provider.collection)
        
@@ -1224,8 +1214,8 @@ class MockCoverageProvider(IdentifierCoverageProvider):
     def __init__(self, _db, *args, **kwargs):
         if not 'service_name' in kwargs:
             kwargs['service_name'] = 'Generic provider'
-        if not 'output_source' in kwargs:
-            kwargs['output_source'] = DataSource.lookup(
+        if not 'data_source' in kwargs:
+            kwargs['data_source'] = DataSource.lookup(
                 _db, DataSource.OVERDRIVE
             )
         super(MockCoverageProvider, self).__init__(
