@@ -49,9 +49,57 @@ from s3 import DummyS3Uploader
 from coverage import (
     BibliographicCoverageProvider,
     CollectionCoverageProvider,
-    CoverageProvider,
     CoverageFailure,
+    IdentifierCoverageProvider,
 )
+
+class TestCoverageFailure(DatabaseTest):
+    """Test the CoverageFailure class."""
+    
+    def test_to_coverage_record(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = self._identifier()
+
+        transient_failure = CoverageFailure(
+            identifier, "Bah!", data_source=source, transient=True
+        )
+        rec = transient_failure.to_coverage_record(operation="the_operation")
+        assert isinstance(rec, CoverageRecord)
+        eq_(identifier, rec.identifier)
+        eq_(source, rec.data_source)
+        eq_("the_operation", rec.operation)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
+        eq_("Bah!", rec.exception)
+
+        persistent_failure = CoverageFailure(
+            identifier, "Bah forever!", data_source=source, transient=False
+        )
+        rec = persistent_failure.to_coverage_record(operation="the_operation")
+        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
+        eq_("Bah forever!", rec.exception)        
+
+    def test_to_work_coverage_record(self):
+        work = self._work()
+
+        transient_failure = CoverageFailure(
+            work, "Bah!", transient=True
+        )
+        rec = transient_failure.to_work_coverage_record("the_operation")
+        assert isinstance(rec, WorkCoverageRecord)
+        eq_(work, rec.work)
+        eq_("the_operation", rec.operation)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
+        eq_("Bah!", rec.exception)
+
+        persistent_failure = CoverageFailure(
+            work, "Bah forever!", transient=False
+        )
+        rec = persistent_failure.to_work_coverage_record(
+            operation="the_operation"
+        )
+        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
+        eq_("Bah forever!", rec.exception)        
+
 
 class CoverageProviderTest(DatabaseTest):
     BIBLIOGRAPHIC_DATA = Metadata(
@@ -806,7 +854,7 @@ class MockGenericAPI(object):
         self.collection = collection
 
 
-class MockCoverageProvider(CoverageProvider):
+class MockCoverageProvider(IdentifierCoverageProvider):
     """Simulates a CoverageProvider that's always successful."""
 
     def __init__(self, _db, *args, **kwargs):
@@ -1208,50 +1256,3 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         [result] = provider.process_batch([identifier])
         assert isinstance(result, CoverageFailure)
         eq_(False, work.presentation_ready)
-
-
-class TestCoverageFailure(DatabaseTest):
-
-    def test_to_coverage_record(self):
-        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        identifier = self._identifier()
-
-        transient_failure = CoverageFailure(
-            identifier, "Bah!", data_source=source, transient=True
-        )
-        rec = transient_failure.to_coverage_record(operation="the_operation")
-        assert isinstance(rec, CoverageRecord)
-        eq_(identifier, rec.identifier)
-        eq_(source, rec.data_source)
-        eq_("the_operation", rec.operation)
-        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
-        eq_("Bah!", rec.exception)
-
-        persistent_failure = CoverageFailure(
-            identifier, "Bah forever!", data_source=source, transient=False
-        )
-        rec = persistent_failure.to_coverage_record(operation="the_operation")
-        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
-        eq_("Bah forever!", rec.exception)        
-
-    def test_to_work_coverage_record(self):
-        work = self._work()
-
-        transient_failure = CoverageFailure(
-            work, "Bah!", transient=True
-        )
-        rec = transient_failure.to_work_coverage_record("the_operation")
-        assert isinstance(rec, WorkCoverageRecord)
-        eq_(work, rec.work)
-        eq_("the_operation", rec.operation)
-        eq_(CoverageRecord.TRANSIENT_FAILURE, rec.status)
-        eq_("Bah!", rec.exception)
-
-        persistent_failure = CoverageFailure(
-            work, "Bah forever!", transient=False
-        )
-        rec = persistent_failure.to_work_coverage_record(
-            operation="the_operation"
-        )
-        eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
-        eq_("Bah forever!", rec.exception)        

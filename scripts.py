@@ -212,6 +212,14 @@ class RunCoverageProvidersScript(Script):
                 else:
                     offsets[provider] = offset
 
+
+class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
+    """Run the same CoverageProvider code for all Collections that
+    implement a certain protocol.
+    """
+    
+
+                    
 class InputScript(Script):
     @classmethod
     def read_stdin_lines(self, stdin):

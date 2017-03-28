@@ -42,7 +42,7 @@ from model import (
 )
 from classifier import Classifier
 from coverage import (
-    CoverageProvider,
+    IdentifierCoverageProvider,
     CoverageFailure,
     WorkCoverageProvider,
 )
@@ -688,10 +688,12 @@ class DatabaseTest(object):
             data_source=data_source, weight=weight
         )[0]
 
-class InstrumentedCoverageProvider(CoverageProvider):
+class InstrumentedCoverageProvider(IdentifierCoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
+    INPUT_IDENTIFIER_TYPES = None
+    
     def __init__(self, *args, **kwargs):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []

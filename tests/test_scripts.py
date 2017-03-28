@@ -143,6 +143,7 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
+
 class TestRunCollectionMonitorScript(DatabaseTest):
 
     def test_all(self):
