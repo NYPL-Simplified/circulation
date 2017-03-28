@@ -27,14 +27,34 @@ from model import (
 )
 
 class Monitor(object):
+    """A Monitor is responsible for running some piece of code on a regular
+    basis. 
+
+    Running a Monitor will update a Timestamp object with the last time the
+    Monitor was run.
+
+    Although any Monitor may be associated with a Collection, it's
+    most useful to subclass CollectionMonitor if you're writing code
+    that needs to be run on every Collection of a certain type.
+    """    
+
+    # The Monitor code will not run more than once every this number of seconds.
+    #
+    # It's possible to override this by passing in `interval_seconds`
+    # into the constructor, but generally nobody will bother doing
+    # so. It's more common to change this behavior by redefining
+    # DEFAULT_INTERVAL_SECONDS in a subclass.
+    DEFAULT_INTERVAL_SECONDS = 60
 
     ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
     ONE_YEAR_AGO = datetime.timedelta(seconds=60*60*24*365)
     NEVER = object()
-
+    
     def __init__(
-            self, _db, name, collection=None, interval_seconds=1*60,
+            self, _db, name, collection=None, interval_seconds=None,
             default_start_time=None, keep_timestamp=True):
+        if interval_seconds is None:
+            interval_seconds = self.DEFAULT_INTERVAL_SECONDS
         self._db = _db
         self.service_name = name
         self.interval_seconds = interval_seconds
@@ -48,27 +68,6 @@ class Monitor(object):
         if default_start_time is self.NEVER:
             default_start_time = None
         self.default_start_time = default_start_time
-
-    @classmethod
-    def for_protocol(cls, _db, protocol, service, *args, **kwargs):
-        """Yield a sequence of Monitor objects for the given service: one for
-        every Collection that implements the given protocol.
-
-        Monitors that have no Timestamp will be yielded first. After that,
-        Monitors with older Timestamps will be yielded before Monitors with
-        newer timestamps.
-
-        """
-        service_match = or_(Timestamp.service==service, Timestamp.service==None)
-        collections = _db.query(Collection).outerjoin(
-            Collection.timestamps).filter(
-                Collection.protocol==protocol).filter(
-                    service_match).order_by(
-                    Timestamp.timestamp.asc().nullsfirst()
-                )
-        for collection in collections:
-            yield cls(_db, service, collection, *args, **kwargs)
-                
         
     @property
     def log(self):
@@ -117,6 +116,49 @@ class Monitor(object):
         pass
 
 
+class CollectionMonitor(Monitor):
+    """A Monitor that does something for all Collections that implement
+    a certain protocol.
+
+    This class is designed to be subclassed rather than instantiated
+    directly. Subclasses should define SERVICE_NAME and PROTOCOL.
+    """
+
+    # In your subclass, set this to the name of the service,
+    # e.g. "Overdrive Circulation Monitor". All instances of your
+    # subclass will give this as their service name and track their
+    # Timestamps under this name.
+    SERVICE_NAME = None
+
+    # Set this to the name of the protocol managed by this Monitor.
+    PROTOCOL = None
+
+    def __init__(self, _db, **kwargs):
+        super(CollectionMonitor, self).__init__(
+            _db, name=self.SERVICE_NAME, **kwargs
+        )
+        
+    @classmethod
+    def all(cls, _db, **kwargs):
+        """Yield a sequence of CollectionMonitor objects: one for every
+        Collection that implements cls.PROTOCOL.
+
+        Monitors that have no Timestamp will be yielded first. After that,
+        Monitors with older Timestamps will be yielded before Monitors with
+        newer timestamps.
+        """
+        service_match = or_(Timestamp.service==cls.SERVICE_NAME,
+                            Timestamp.service==None)
+        collections = _db.query(Collection).outerjoin(
+            Collection.timestamps).filter(
+                Collection.protocol==cls.PROTOCOL).filter(
+                    service_match).order_by(
+                    Timestamp.timestamp.asc().nullsfirst()
+                )
+        for collection in collections:
+            yield cls(_db=_db, collection=collection, **kwargs)
+    
+    
 class IdentifierSweepMonitor(Monitor):
 
     # The completion of each individual item should be logged at

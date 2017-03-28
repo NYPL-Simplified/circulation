@@ -6,7 +6,7 @@ ALTER TABLE timestamps RENAME TO timestamps_old;
 
 CREATE TABLE timestamps (
     id integer NOT NULL,
-    service character varying(255),
+    service character varying(255) NOT NULL,
     collection_id integer,
     "timestamp" timestamp without time zone,
     counter integer

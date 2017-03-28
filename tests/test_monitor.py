@@ -22,6 +22,7 @@ from model import (
 )
 
 from monitor import (
+    CollectionMonitor,
     Monitor,
     PresentationReadyMonitor,
     SubjectSweepMonitor,
@@ -112,8 +113,13 @@ class TestMonitor(DatabaseTest):
         [t2] = c2.timestamps
         assert t2.timestamp > t1.timestamp
 
-    def test_for_protocol(self):
-        service_name = "The Service"
+class TestCollectionMonitor(DatabaseTest):
+    """Test the special features of CollectionMonitor."""
+       
+    def test_all(self):
+        class OPDSCollectionMonitor(CollectionMonitor):
+            SERVICE_NAME = "Test Monitor"
+            PROTOCOL = Collection.OPDS_IMPORT
         
         # Here we have three OPDS import Collections...
         o1 = self._collection()
@@ -124,31 +130,31 @@ class TestMonitor(DatabaseTest):
         b1 = self._collection(protocol=Collection.BIBLIOTHECA)
 
         # o1 just had its Monitor run.
-        Timestamp.stamp(self._db, service_name, o1)
+        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME, o1)
 
         # o2 and b1 have never had their Monitor run.
 
         # o3 had its Monitor run an hour ago.
         now = datetime.datetime.utcnow()
         an_hour_ago = now - datetime.timedelta(seconds=3600)
-        Timestamp.stamp(self._db, service_name, o3, an_hour_ago)
+        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME,
+                        o3, an_hour_ago)
         
         monitors = list(
-            Monitor.for_protocol(
-                self._db, Collection.OPDS_IMPORT, service_name,
-                interval_seconds=26
-            )
+            OPDSCollectionMonitor.all(self._db, interval_seconds=26)
         )
 
-        # The Monitors that need to be run the worst were returned
-        # first in the list. The Monitor that was just run is returned
-        # last. There is no Monitor for the Bibliotheca collection at
-        # all.
+        # Three OPDSCollectionMonitors were returned, one for each
+        # appropriate collection. The monitor that needs to be run the
+        # worst was returned first in the list. The monitor that was
+        # run most recently is returned last. There is no
+        # OPDSCollectionMonitor for the Bibliotheca collection.
         eq_([o2, o3, o1], [x.collection for x in monitors])
 
-        # The interval_seconds keyword argument was passed on to all the
-        # Monitor constructors.
+        # The `interval_seconds` keyword argument was passed on to all the
+        # OPDSCollectionMonitor constructors.
         for monitor in monitors:
+            eq_(OPDSCollectionMonitor.SERVICE_NAME, monitor.service_name)
             eq_(26, monitor.interval_seconds)
 
 

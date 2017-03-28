@@ -7119,7 +7119,7 @@ class Timestamp(Base):
 
     __tablename__ = 'timestamps'
     id = Column(Integer, primary_key=True)
-    service = Column(String(255), index=True)
+    service = Column(String(255), index=True, nullable=False)
     collection_id = Column(Integer, ForeignKey('collections.id'),
                            index=True, nullable=True)
     timestamp = Column(DateTime)
