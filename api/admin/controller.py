@@ -18,6 +18,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    AdminAuthenticationService,
     CirculationEvent,
     Classification,
     DataSource,
@@ -37,7 +38,7 @@ from core.model import (
 from core.util.problem_detail import ProblemDetail
 from problem_details import *
 
-from config import (
+from api.config import (
     Configuration, 
     CannotLoadConfiguration
 )
@@ -97,8 +98,12 @@ class AdminController(object):
 
     @property
     def google(self):
-        return GoogleAuthService.from_environment(
-            self.url_for('google_auth_callback'), test_mode=self.manager.testing
+        auth_service = get_one(self._db, AdminAuthenticationService,
+                               provider=AdminAuthenticationService.GOOGLE_OAUTH)
+        return GoogleAuthService(
+            auth_service,
+            self.url_for('google_auth_callback'),
+            test_mode=self.manager.testing,
         )
 
     def authenticated_admin_from_request(self):
@@ -173,11 +178,9 @@ class SignInController(AdminController):
         """Checks the domain of an email address against the admin-authorized
         domain"""
 
-        staff_domain = Configuration.policy(
-            Configuration.ADMIN_AUTH_DOMAIN, required=True
-        )
+        staff_domains = self.google.domains
         domain = email[email.index('@')+1:]
-        return domain.lower() == staff_domain.lower()
+        return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
@@ -894,7 +897,7 @@ class SettingsController(CirculationManagerController):
         protocols.append({
             "name": Collection.OPDS_IMPORT,
             "fields": [
-                { "key": "url", "label": _("URL") },
+                { "key": "external_account_id", "label": _("URL") },
             ],
         })
 
@@ -946,16 +949,16 @@ class SettingsController(CirculationManagerController):
                     protocol=c.protocol,
                     libraries=[library.short_name for library in c.libraries],
                     external_account_id=c.external_account_id,
-                    url=c.url,
-                    username=c.username,
-                    password=c.password,
+                    url=c.external_integration.url,
+                    username=c.external_integration.username,
+                    password=c.external_integration.password,
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
                     for field in protocol.get("fields"):
                         key = field.get("key")
                         if key not in collection:
-                            collection[key] = c.setting(key).value
+                            collection[key] = c.external_integration.setting(key).value
                 collections.append(collection)
 
             return dict(
@@ -998,18 +1001,18 @@ class SettingsController(CirculationManagerController):
                 self._db.rollback()
                 return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(
                     _("The collection configuration is missing a required field: %(field)s",
-                      field=key))
+                      field=field.get("label")))
 
             if key == "external_account_id":
                 collection.external_account_id = value
             elif key == "username":
-                collection.username = value
+                collection.external_integration.username = value
             elif key == "password":
-                collection.password = value
+                collection.external_integration.password = value
             elif key == "url":
-                collection.url = value
+                collection.external_integration.url = value
             else:
-                collection.setting(key).value = value
+                collection.external_integration.setting(key).value = value
 
         libraries = []
         if flask.request.form.get("libraries"):
