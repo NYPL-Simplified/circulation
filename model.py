@@ -8642,15 +8642,10 @@ class AdminAuthenticationService(Base):
     @property
     def external_integration(self):
         _db = Session.object_session(self)
-        if self.external_integration_id:
-            external_integration = get_one(
-                _db, ExternalIntegration, id=self.external_integration_id,
-            )
-        else:
-            external_integration, ignore = create(
-              _db, ExternalIntegration
-            )
-            self.external_integration_id = external_integration.id
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
+        )
+        self.external_integration_id = external_integration.id
         return external_integration
 
 
@@ -8723,15 +8718,10 @@ class Collection(Base):
     @property
     def external_integration(self):
         _db = Session.object_session(self)
-        if self.external_integration_id:
-            external_integration = get_one(
-                _db, ExternalIntegration, id=self.external_integration_id,
-            )
-        else:
-            external_integration, ignore = create(
-              _db, ExternalIntegration
-            )
-            self.external_integration_id = external_integration.id
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
+        )
+        self.external_integration_id = external_integration.id
         return external_integration
 
     @property
