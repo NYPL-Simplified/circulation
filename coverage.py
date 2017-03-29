@@ -695,12 +695,20 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     PROTOCOL = None
     
     def __init__(self, collection, **kwargs):
-        if not collection:
+        """Create 
+
+        :param api_or_collection: Either a Collection object, or a
+            protocol-specific API object that contains a specific
+            Collection object as .collection.
+        """
+        if not isinstance(collection, Collection):
             raise CollectionMissing(
                 "%s must be instantiated with a Collection." % (
                     self.__class__.__name__
                 )
             )
+
+
         # TODO: It might turn out that PROTOCOL is not always
         # required, and that what we really want to do is enforce
         # constraints on behavior *when PROTOCOL is specified*, similar
@@ -716,7 +724,6 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 )
             )
         _db = Session.object_session(collection)
-        self.collection = collection
         super(CollectionCoverageProvider, self).__init__(
             _db, collection, **kwargs
         )
@@ -730,6 +737,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
         :param kwargs: Keyword arguments passed into the constructor for
         CollectionCoverageProvider (or, more likely, one of its subclasses).
+
         """
         if not cls.PROTOCOL:
             raise ValueError("%s must define PROTOCOL." % cls.__name__)

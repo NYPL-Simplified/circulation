@@ -173,14 +173,14 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
     def test_run(self):
         """Verify that run() calls run_once_and_update_timestamp()."""
-        class MockCoverageProvider(BaseCoverageProvider):
+        class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I do nothing"
             was_run = False
 
             def run_once_and_update_timestamp(self):
                 self.was_run = True
 
-        provider = MockCoverageProvider(self._db)
+        provider = MockProvider(self._db)
         provider.run()
         eq_(True, provider.was_run)
         
@@ -188,7 +188,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         """Test that run_once_and_update_timestamp calls run_once twice and
         then updates a Timestamp.
         """
-        class MockCoverageProvider(BaseCoverageProvider):
+        class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
             
@@ -200,7 +200,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
-        provider = MockCoverageProvider(self._db)
+        provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
         # The timestamp is now set.
@@ -794,15 +794,6 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(provider.data_source, result.data_source)
 
 
-class MockCollectionCoverageProvider(CollectionCoverageProvider):
-    """A dummy CollectionCoverageProvider for use in tests."""
-    
-    PROTOCOL = Collection.OPDS_IMPORT
-    SERVICE_NAME = "A Service"
-    OPERATION = "An Operation"
-    DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
-
-
 class TestCollectionCoverageProvider(CoverageProviderTest):
 
     # This data is used to test the insertion of circulation data
@@ -830,12 +821,12 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             ValueError,
             "NoProtocol must define PROTOCOL",
             NoProtocol,
-            self._db
+            self._default_collection
         )
        
         collection = self._collection(protocol=Collection.OPDS_IMPORT)
         provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
-        eq_(DataSource.OA_CONTENT_SERVER, provider.data_source.name)
+        eq_(provider.DATA_SOURCE_NAME, provider.data_source.name)
 
     def test_must_have_collection(self):
         assert_raises_regexp(
@@ -849,7 +840,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         collection = self._collection(protocol=Collection.OVERDRIVE)
         assert_raises_regexp(
             ValueError,
-            "Collection protocol (Overdrive) does not match CoverageProvider protocol (OPDS Import)",
+            "Collection protocol \(Overdrive\) does not match CoverageProvider protocol \(OPDS Import\)",
             AlwaysSuccessfulCollectionCoverageProvider,
             collection
         )
@@ -1047,6 +1038,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # about Overdrive because BIBLIOGRAPHIC_DATA and
         # CIRCULATION_DATA are data for an Overdrive book.)
         class OverdriveProvider(AlwaysSuccessfulCollectionCoverageProvider):
+            DATA_SOURCE_NAME = DataSource.OVERDRIVE
             PROTOCOL = Collection.OVERDRIVE
             IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
         collection = self._collection(protocol=Collection.OVERDRIVE)

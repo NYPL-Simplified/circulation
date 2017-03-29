@@ -66,14 +66,15 @@ class ThreeMAPI(object):
     DEFAULT_VERSION = "2.0"
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
     
-    def __init__(self, _db, collection):
+    def __init__(self, collection):
+        
         if collection.protocol != collection.BIBLIOTHECA:
             raise ValueError(
                 "Collection protocol is %s, but passed into BibliothecaAPI!" %
                 collection.protocol
             )
 
-        self._db = _db
+        self._db = Session.object_session(collection)
         self.version = (
             collection.setting('version').value or self.DEFAULT_VERSION
         )
@@ -207,7 +208,7 @@ class MockThreeMAPI(ThreeMAPI):
         )
         library.collections.append(collection)
         super(MockThreeMAPI, self).__init__(
-            _db, collection, *args, **kwargs
+            collection, *args, **kwargs
         )
 
     def now(self):
@@ -406,15 +407,19 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     Then mark the works as presentation-ready.
     """
-
-    def __init__(self, _db, metadata_replacement_policy=None, threem_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs
+    DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
+    PROTOCOL = Collection.BIBLIOTHECA
+    INPUT_IDENTIFIER_TYPES = Identifier.BIBLIOTHECA_ID
+    
+    def __init__(self, _db, collection, metadata_replacement_policy=None,
+                 threem_api_class=ThreeMAPI,
+                 input_identifiers=None, **kwargs
     ):
         """
         :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
         :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
         """
-        threem_api = threem_api or ThreeMAPI(_db)
+        threem_api = threem_api or ThreeMAPI(collection)
         super(ThreeMBibliographicCoverageProvider, self).__init__(
             _db, threem_api, DataSource.THREEM,
             batch_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
