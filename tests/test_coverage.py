@@ -803,66 +803,8 @@ class MockCollectionCoverageProvider(CollectionCoverageProvider):
 
 class TestCollectionCoverageProvider(CoverageProviderTest):
 
-    def test_class_variables(self):
-        """Verify that class variables become appropriate instance
-        variables.
-        """
-        # You must define PROTOCOL.
-        class NoProtocol(MockCollectionCoverageProvider):
-            PROTOCOL = None
-        assert_raises_regexp(
-            ValueError,
-            "NoProtocol must define PROTOCOL",
-            NoProtocol,
-            provider
-        )
-       
-        collection = self._collection(protocol=Collection.OPDS_IMPORT)
-        provider = MockCollectionCoverageProvider(collection)
-        eq_(DataSource.OA_CONTENT_SERVER, provider.data_source.name)
-
-    def test_must_have_collection(self):
-        assert_raises_regexp(
-            CollectionMissing,
-            "MockCollectionCoverageProvider must be instantiated with a Collection.",
-            MockCollectionCoverageProvider,
-            None
-        )
-
-    def test_collection_protocol_must_match_class_protocol(self):
-        collection = self._collection(protocol=Collection.OVERDRIVE)
-        assert_raises_regexp(
-            ValueError,
-            "Collection protocol (Overdrive) does not match CoverageProvider protocol (OPDS Import)",
-            MockCollectionCoverageProvider,
-            collection
-        )
-
-        
-    def test_all(self):
-        """Verify that all() gives a sequence of CollectionCoverageProvider
-        objects, one for each Collection that implements the
-        appropriate protocol.
-        """
-        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
-        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
-        overdrive = self._collection(protocol=Collection.OVERDRIVE)
-        providers = list(
-            MockCollectionCoverageProvider.all(self._db, batch_size=34)
-        )
-
-        # The providers were returned in a random order, but there's one
-        # for each collection that supports the 'OPDS Import' protocol.
-        eq_(2, len(providers))
-        collections = set([x.collection for x in providers])
-        eq_(set([opds1, opds2]), collections)
-
-        # The providers are of the appropriate type and the keyword arguments
-        # passed into all() were propagated to the constructor.
-        for provider in providers:
-            assert isinstance(provider, MockCollectionCoverageProvider)
-            eq_(34, provider.batch_size)
-
+    # This data is used to test the insertion of circulation data
+    # into a Collection.
     CIRCULATION_DATA = CirculationData(
         DataSource.OVERDRIVE,
         primary_identifier=CoverageProviderTest.BIBLIOGRAPHIC_DATA.primary_identifier,
@@ -874,6 +816,65 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             )
         ]
     )
+    
+    def test_class_variables(self):
+        """Verify that class variables become appropriate instance
+        variables.
+        """
+        # You must define PROTOCOL.
+        class NoProtocol(AlwaysSuccessfulCollectionCoverageProvider):
+            PROTOCOL = None
+        assert_raises_regexp(
+            ValueError,
+            "NoProtocol must define PROTOCOL",
+            NoProtocol,
+            self._db
+        )
+       
+        collection = self._collection(protocol=Collection.OPDS_IMPORT)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
+        eq_(DataSource.OA_CONTENT_SERVER, provider.data_source.name)
+
+    def test_must_have_collection(self):
+        assert_raises_regexp(
+            CollectionMissing,
+            "AlwaysSuccessfulCollectionCoverageProvider must be instantiated with a Collection.",
+            AlwaysSuccessfulCollectionCoverageProvider,
+            None
+        )
+
+    def test_collection_protocol_must_match_class_protocol(self):
+        collection = self._collection(protocol=Collection.OVERDRIVE)
+        assert_raises_regexp(
+            ValueError,
+            "Collection protocol (Overdrive) does not match CoverageProvider protocol (OPDS Import)",
+            AlwaysSuccessfulCollectionCoverageProvider,
+            collection
+        )
+        
+    def test_all(self):
+        """Verify that all() gives a sequence of CollectionCoverageProvider
+        objects, one for each Collection that implements the
+        appropriate protocol.
+        """
+        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
+        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
+        overdrive = self._collection(protocol=Collection.OVERDRIVE)
+        providers = list(
+            AlwaysSuccessfulCollectionCoverageProvider.all(self._db, batch_size=34)
+        )
+
+        # The providers were returned in a random order, but there's one
+        # for each collection that supports the 'OPDS Import' protocol.
+        eq_(2, len(providers))
+        collections = set([x.collection for x in providers])
+        eq_(set([opds1, opds2]), collections)
+
+        # The providers are of the appropriate type and the keyword arguments
+        # passed into all() were propagated to the constructor.
+        for provider in providers:
+            assert isinstance(provider, AlwaysSuccessfulCollectionCoverageProvider)
+            eq_(34, provider.batch_size)
 
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
@@ -922,15 +923,18 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             http_get=http.do_get,
         )
 
-        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
 
-        metadata = Metadata(data_source)
+        metadata = Metadata(provider.data_source)
         # We've got a CirculationData object that includes an open-access download.
         link = LinkData(rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://foo.com/")
-        circulationdata = CirculationData(data_source, 
+        circulationdata = CirculationData(
+            provider.data_source, 
             primary_identifier=metadata.primary_identifier, 
-            links=[link])
+            links=[link]
+        )
 
         provider.set_metadata_and_circulation_data(
             identifier, metadata, circulationdata, 
@@ -988,13 +992,14 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
     
     def test_work(self):
         """Verify that a CollectionCoverageProvider can create a Work."""
-        # Here's an Overdrive ID.
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        # Here's an Gutenberg ID.
+        identifier = self._identifier(identifier_type=Identifier.GUTENBERG_ID)
 
         # Here's a CollectionCoverageProvider that is associated
-        # with an Overdrive-type Collection.
-        collection = self._collection(protocol=Collection.OVERDRIVE)
-        provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
+        # with an OPDS import-style Collection.
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
 
         # This CoverageProvider cannot create a Work for the given
         # Identifier, because that would require creating a
@@ -1035,10 +1040,15 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
         )
 
-        # Here's a CollectionCoverageProvider that is associated
-        # with an Overdrive-type Collection.
+        # Here's a CollectionCoverageProvider that is associated with
+        # an Overdrive-type Collection. (We have to subclass and talk
+        # about Overdrive because BIBLIOGRAPHIC_DATA and
+        # CIRCULATION_DATA are data for an Overdrive book.)
+        class OverdriveProvider(AlwaysSuccessfulCollectionCoverageProvider):
+            PROTOCOL = Collection.OVERDRIVE
+            IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
         collection = self._collection(protocol=Collection.OVERDRIVE)
-        provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
+        provider = OverdriveProvider(collection)
 
         # We get a CoverageFailure if we don't pass in any data at all.
         result = provider.set_metadata_and_circulation_data(
@@ -1105,25 +1115,30 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         """A CollectionCoverageProvider can locate (or, if necessary, create)
         a LicensePool for an identifier.
         """
-        # If a Collection is provided, the coverage provider can
-        # create a LicensePool for an Identifier.
-        with_collection_provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
+        identifier = self._identifier()
+        eq_([], identifier.licensed_through)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
         )
-        pool = with_collection_provider.license_pool(identifier)
-        eq_(pool.data_source, with_collection_provider.data_source)
+        pool = provider.license_pool(identifier)
+        eq_([pool], identifier.licensed_through)
+        eq_(pool.data_source, provider.data_source)
         eq_(pool.identifier, identifier)
-        eq_(pool.collection, with_collection_provider.collection)
-       
+        eq_(pool.collection, provider.collection)
+
+        # Calling license_pool again finds the same LicensePool
+        # as before.
+        pool2 = provider.license_pool(identifier)
+        eq_(pool, pool2)
+        
     def test_set_presentation_ready(self):
         """Test that a CollectionCoverageProvider can set a Work
         as presentation-ready.
         """
-        provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection
+        identifier = self._identifier()
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
         )
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        test_metadata = self.BIBLIOGRAPHIC_DATA
 
         # If there is no LicensePool for the Identifier,
         # set_presentation_ready will not try to create one,

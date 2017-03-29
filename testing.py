@@ -727,9 +727,9 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
 class AlwaysSuccessfulCollectionCoverageProvider(CollectionCoverageProvider):
     """A CollectionCoverageProvider that does nothing and always succeeds."""
     SERVICE_NAME = "Always successful (collection)"
-    DATA_SOURCE_NAME = DataSource.OVERDRIVE
-    PROTOCOL = Collection.OVERDRIVE
-    IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
+    DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
+    PROTOCOL = Collection.OPDS_IMPORT
+    IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
     
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
