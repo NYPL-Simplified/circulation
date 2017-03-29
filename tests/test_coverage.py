@@ -1207,23 +1207,22 @@ class TestWorkCoverageProvider(DatabaseTest):
     def setup(self):
         super(TestWorkCoverageProvider, self).setup()
         self.work = self._work()
-        self.operation = 'the_operation'
 
     def test_success(self):
+        class MockProvider(AlwaysSuccessfulWorkCoverageProvider):
+            OPERATION = "the_operation"
+        
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
+            WorkCoverageRecord.operation==MockProvider.OPERATION
         )
         # We start with no relevant WorkCoverageRecord and no Timestamp.
         eq_([], qu.all())
-
         eq_([], self._db.query(Timestamp).all())
 
-        provider = AlwaysSuccessfulWorkCoverageProvider(
-            self._db, "Always successful", operation=self.operation
-        )
+        provider = MockProvider(self._db)
         provider.run()
 
-        # There is now one relevant WorkCoverageRecord.
+        # There is now one relevant WorkCoverageRecord, for our single work.
         [record] = qu.all()
         eq_(self.work, record.work)
         eq_(self.operation, record.operation)
@@ -1233,36 +1232,39 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_("Always successful", timestamp.service)
 
     def test_transient_failure(self):
+        class MockProvider(TransientFailureWorkCoverageProvider):
+            OPERATION = "the_operation"
+        provider = MockProvider(self._db)
+            
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
+            WorkCoverageRecord.operation==provider.operation
         )
         eq_([], qu.all())
 
-        provider = TransientFailureWorkCoverageProvider(
-            self._db, "Transient failure", operation=self.operation
-        )
         provider.run()
 
-        # We have a CoverageRecord for the transient failure.
+        # We now have a CoverageRecord for the transient failure.
         [failure] = [x for x in self.work.coverage_records if 
-                     x.operation==self.operation]
+                     x.operation==provider.operation]
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
-        eq_("Transient failure", timestamp.service)
+        eq_("Never successful (transient, works) (the_operation)",
+            timestamp.service)
 
     def test_persistent_failure(self):
+        class MockProvider(NeverSuccessfulWorkCoverageProvider):
+            OPERATION = "the_operation"
+        provider = MockProvider()
+
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==self.operation
+            WorkCoverageRecord.operation==provider.operation
         )
         eq_([], qu.all())
 
-        provider = NeverSuccessfulWorkCoverageProvider(
-            self._db, "Persistent failure", operation=self.operation
-        )
         provider.run()
 
         # We have a WorkCoverageRecord, since the error was persistent.
@@ -1274,20 +1276,17 @@ class TestWorkCoverageProvider(DatabaseTest):
         [timestamp] = self._db.query(Timestamp).all()
         eq_("Persistent failure", timestamp.service)
 
-
     def test_items_that_need_coverage(self):
+        # Here's a WorkCoverageProvider.
+        provider = AlwaysSuccessfulWorkCoverageProvider(self._db)
+
         # Here are three works,
         w1 = self.work
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         
         # w2 has coverage, the other two do not.
-        record = self._work_coverage_record(w2, self.operation)
-
-        # Here's a WorkCoverageProvider.
-        provider = AlwaysSuccessfulWorkCoverageProvider(
-            self._db, "Success", operation=self.operation,
-        )
+        record = self._work_coverage_record(w2, provider.operation)
 
         # By default, items_that_need_coverage returns the two
         # works that don't have coverage.
@@ -1309,9 +1308,10 @@ class TestWorkCoverageProvider(DatabaseTest):
         )
 
     def test_failure_for_ignored_item(self):
-        provider = NeverSuccessfulWorkCoverageProvider(
-            self._db, "I'll just ignore you", operation=self.operation
-        )
+        class MockProvider(NeverSuccessfulWorkCoverageProvider):
+            OPERATION = "the_operation"
+
+        provider = NeverSuccessfulWorkCoverageProvider(self._db)
         result = provider.failure_for_ignored_item(self.work)
         assert isinstance(result, CoverageFailure)
         eq_(True, result.transient)
