@@ -1225,11 +1225,11 @@ class TestWorkCoverageProvider(DatabaseTest):
         # There is now one relevant WorkCoverageRecord, for our single work.
         [record] = qu.all()
         eq_(self.work, record.work)
-        eq_(self.operation, record.operation)
+        eq_(provider.operation, record.operation)
 
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful", timestamp.service)
+        eq_("Always successful (works) (the_operation)", timestamp.service)
 
     def test_transient_failure(self):
         class MockProvider(TransientFailureWorkCoverageProvider):
@@ -1257,7 +1257,7 @@ class TestWorkCoverageProvider(DatabaseTest):
     def test_persistent_failure(self):
         class MockProvider(NeverSuccessfulWorkCoverageProvider):
             OPERATION = "the_operation"
-        provider = MockProvider()
+        provider = MockProvider(self._db)
 
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
@@ -1274,7 +1274,7 @@ class TestWorkCoverageProvider(DatabaseTest):
 
         # The timestamp is now set.
         [timestamp] = self._db.query(Timestamp).all()
-        eq_("Persistent failure", timestamp.service)
+        eq_("Never successful (works) (the_operation)", timestamp.service)
 
     def test_items_that_need_coverage(self):
         # Here's a WorkCoverageProvider.
