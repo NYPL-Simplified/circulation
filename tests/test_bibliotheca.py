@@ -203,7 +203,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
     
     def test_script_instantiation(self):
         """Test that RunCollectionCoverageProviderScript can instantiate
-        the coverage provider.
+        this coverage provider.
         """
         script = RunCollectionCoverageProviderScript(
             BibliothecaBibliographicCoverageProvider, self._db,

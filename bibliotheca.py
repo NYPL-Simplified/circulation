@@ -211,9 +211,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
     def __init__(self, collection, *args, **kwargs):
         self.responses = []
         self.requests = []
-        super(MockBibliothecaAPI, self).__init__(
-            collection, *args, **kwargs
-        )
+        super(MockBibliothecaAPI, self).__init__(collection, *args, **kwargs)
 
     def now(self):
         """Return an unvarying time in the format Bibliotheca expects."""
@@ -428,12 +426,11 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             rather than instantiating BibliothecaAPI.
         :param input_identifiers: Passed in by RunCoverageProviderScript. 
             A list of specific identifiers to get coverage for.
-
         """
         super(BibliothecaBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = (api_class or BibliothecaAPI)(collection)
+        self.api = api_class(collection)
         
     def process_item(self, identifier):
         # We don't accept a representation from the cache because

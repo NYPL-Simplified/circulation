@@ -8,6 +8,8 @@ import logging
 import urlparse
 import urllib
 import sys
+from sqlalchemy.orm.session import Session
+
 from config import (
     temp_config, 
     Configuration,
@@ -103,16 +105,14 @@ class OverdriveAPI(object):
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
    
-    def __init__(self, _db, collection):
-        self._db = _db
-        
+    def __init__(self, collection):
         if collection.protocol != collection.OVERDRIVE:
             raise ValueError(
                 "Collection protocol is %s, but passed into OverdriveAPI!" %
                 collection.protocol
             )
-
         self.collection = collection
+        self._db = Session.object_session(self.collection)
         self.library_id = collection.external_account_id
         if collection.parent:
             # This is an Overdrive Advantage account.
@@ -383,24 +383,25 @@ class OverdriveAPI(object):
 
 class MockOverdriveAPI(OverdriveAPI):
 
-    def __init__(self, _db, collection=None, *args, **kwargs):
-        self.access_token_requests = []
-        self.requests = []
-        self.responses = []
-
-        if not collection:
-            # OverdriveAPI needs a Collection, but none was provided.
-            # Just create a basic one.
-            library = Library.instance(_db)
-            collection, ignore = get_one_or_create(
-                _db, Collection,
+    @classmethod
+    def mock_collection(self, _db):
+        """Create a mock Overdrive collection for use in tests."""
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
                 name="Test Overdrive Collection",
                 protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
                     username=u'a', password=u'b', external_account_id=u'c'
                 )
             )
-            collection.set_setting('website_id', 'd')
-            library.collections.append(collection)
+        collection.set_setting('website_id', 'd')
+        library.collections.append(collection)
+        return collection
+    
+    def __init__(self, collection, *args, **kwargs):
+        self.access_token_requests = []
+        self.requests = []
+        self.responses = []
         
         # The constructor will always make a request for the collection token.
         self.queue_response(
@@ -409,8 +410,7 @@ class MockOverdriveAPI(OverdriveAPI):
         self.access_token_response = self.mock_access_token_response(
             "bearer token"
         )
-
-        super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
+        super(MockOverdriveAPI, self).__init__(collection, *args, **kwargs)
 
     def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
@@ -1004,20 +1004,23 @@ class OverdriveAdvantageAccount(object):
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records."""
 
-    def __init__(self, _db, metadata_replacement_policy=None, overdrive_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs
-    ):
-        """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
-        """
+    SERVICE_NAME = "Overdrive Bibliographic Coverage Provider"
+    DATA_SOURCE_NAME = DataSource.OVERDRIVE
+    PROTOCOL = Collection.OVERDRIVE
+    INPUT_IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
+    
+    def __init__(self, collection, api_class=OverdriveAPI, **kwargs):
+        """Constructor.
 
-        overdrive_api = overdrive_api or OverdriveAPI(_db)
-
+        :param collection: Provide bibliographic coverage to all
+            Overdrive books in the given Collection.
+        :param api_class: Instantiate this class with the given Collection,
+            rather than instantiating OverdriveAPI.
+        """
         super(OverdriveBibliographicCoverageProvider, self).__init__(
-            _db, overdrive_api, DataSource.OVERDRIVE,
-            batch_size=10, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+            collection, **kwargs
         )
+        self.api = api_class(collection)
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
@@ -1028,7 +1031,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             error = "Invalid Overdrive ID: %s" % identifier.identifier
 
         if error:
-            return CoverageFailure(identifier, error, data_source=self.data_source, transient=False)
+            return self.failure(identifier, error, transient=False)
 
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info
@@ -1036,10 +1039,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         if not metadata:
             e = "Could not extract metadata from Overdrive data: %r" % info
-            return CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
+            return self.failure(identifier, e)
 
-        return self.set_metadata(
-            identifier, metadata, 
-            metadata_replacement_policy=self.metadata_replacement_policy
-        )
+        return self.set_metadata(identifier, metadata)
 

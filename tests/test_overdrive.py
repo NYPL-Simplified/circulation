@@ -31,7 +31,7 @@ from model import (
     Measurement,
     Hyperlink,
 )
-from scripts import RunCoverageProviderScript
+from scripts import RunCollectionCoverageProviderScript
 
 from testing import MockRequestsResponse
 
@@ -47,7 +47,7 @@ class OverdriveTest(DatabaseTest):
 
     def setup(self):
         super(OverdriveTest, self).setup()
-        self.api = MockOverdriveAPI(self._db)
+        self.collection = MockOverdriveAPI.mock_collection(self._db)
         base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "overdrive")
 
@@ -56,8 +56,21 @@ class OverdriveTest(DatabaseTest):
         data = open(path).read()
         return data, json.loads(data)
 
+class OverdriveTestWithAPI(OverdriveTest):
+    """Automatically create a MockOverdriveAPI class during setup.
 
-class TestOverdriveAPI(OverdriveTest):
+    We don't always do this because
+    TestOverdriveBibliographicCoverageProvider needs to create a
+    MockOverdriveAPI during the test, and at the moment the second
+    MockOverdriveAPI request created in a test behaves differently
+    from the first one.
+    """
+    def setup(self):
+        super(OverdriveTestWithAPI, self).setup()
+        self.api = MockOverdriveAPI(self.collection)
+
+
+class TestOverdriveAPI(OverdriveTestWithAPI):
 
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
@@ -176,7 +189,7 @@ class TestOverdriveAPI(OverdriveTest):
         main.setting('website_id').value = '100'
 
         # Here's an Overdrive API client for that collection.
-        overdrive_main = MockOverdriveAPI(self._db, main)
+        overdrive_main = MockOverdriveAPI(main)
         eq_("https://api.overdrive.com/v1/libraries/1",
             overdrive_main._library_endpoint)
 
@@ -186,13 +199,13 @@ class TestOverdriveAPI(OverdriveTest):
             protocol=Collection.OVERDRIVE, external_account_id="2",
         )
         child.parent = main
-        overdrive_child = MockOverdriveAPI(self._db, child)
+        overdrive_child = MockOverdriveAPI(child)
         eq_(
             'https://api.overdrive.com/v1/libraries/1/advantageAccounts/2',
             overdrive_child._library_endpoint
         )
 
-class TestOverdriveRepresentationExtractor(OverdriveTest):
+class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
     def test_availability_info(self):
         data, raw = self.sample_json("overdrive_book_list.json")
@@ -366,7 +379,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTest):
         eq_(1, awards.weight)
 
 
-class TestOverdriveAdvantageAccount(OverdriveTest):
+class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
 
     def test_from_representation(self):
         """Test the creation of OverdriveAdvantageAccount objects
@@ -427,20 +440,27 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
     def setup(self):
         super(TestOverdriveBibliographicCoverageProvider, self).setup()
         self.provider = OverdriveBibliographicCoverageProvider(
-            self._db, overdrive_api=self.api
+            self.collection, api_class=MockOverdriveAPI
         )
 
+        # Unlike with other tests, the old self.api won't do anything,
+        # because the coverage provider is using a newly constructed
+        # API.
+        self.api = self.provider.api
+        
     def test_script_instantiation(self):
         """Test that RunCoverageProviderScript can instantiate
         the coverage provider.
         """
-        script = RunCoverageProviderScript(
-            OverdriveBibliographicCoverageProvider, self._db, [],
-            overdrive_api=self.api
+        script = RunCollectionCoverageProviderScript(
+            OverdriveBibliographicCoverageProvider, self._db,
+            api_class=MockOverdriveAPI
         )
-        assert isinstance(script.provider, 
+        [provider] = script.providers
+        assert isinstance(provider,
                           OverdriveBibliographicCoverageProvider)
-        eq_(script.provider.api, self.api)
+        assert isinstance(provider.api, MockOverdriveAPI)
+        eq_(self.collection, provider.collection)
 
     def test_invalid_or_unrecognized_guid(self):
         """A bad or malformed GUID can't get coverage."""
@@ -469,9 +489,6 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         """Test the normal workflow where we ask Overdrive for data,
         Overdrive provides it, and we create a presentation-ready work.
         """
-        raw, info = self.sample_json("overdrive_metadata.json")
-        self.api.queue_response(200, content=raw)
-
         # Here's the book mentioned in overdrive_metadata.json.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         identifier.identifier = '3896665d-9d81-4cac-bd43-ffc5066de1f5'
@@ -480,10 +497,10 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_([], identifier.licensed_through)
 
         # Run it through the OverdriveBibliographicCoverageProvider
-        provider = OverdriveBibliographicCoverageProvider(
-            self._db, overdrive_api=self.api
-        )
-        [result] = provider.process_batch([identifier])
+        raw, info = self.sample_json("overdrive_metadata.json")
+        self.api.queue_response(200, content=raw)
+
+        [result] = self.provider.process_batch([identifier])
         eq_(identifier, result)
 
         # A LicensePool was created, not because we know anything
