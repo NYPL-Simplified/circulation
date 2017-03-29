@@ -492,7 +492,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         scoped (e.g. the circulation manager).
         """
         return DataSource.lookup(self._db, self.DATA_SOURCE_NAME)
-        
+
+    def failure(self, identifier, error, transient=True):
+        """Create a CoverageFailure object."""
+        return CoverageFailure(
+            identifier, error, data_source=self.data_source, transient=transient
+        )
+    
     def run_on_specific_identifiers(self, identifiers):
         """Split a specific set of Identifiers into batches and process one
         batch at a time.

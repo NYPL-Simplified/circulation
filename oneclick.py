@@ -426,7 +426,7 @@ class OneClickAPI(object):
                 # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
                 # check that re-processing that coverage would generate the work.
                 e = "Could not extract metadata from OneClick data: %r" % catalog_item
-                make_note = CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+                make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
             # convert IdentifierData into Identifier, if can
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)
@@ -831,13 +831,13 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except BadResponseException as error:
-            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, error.message, data_source=self.data_source, transient=True)
         except IOError as error:
-            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, error.message, data_source=self.data_source, transient=True)
 
         if not response_dictionary:
             message = "Cannot find OneClick metadata for %r" % identifier
-            return CoverageFailure(identifier, message, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, message, data_source=self.data_source, transient=True)
 
         result = self.update_metadata(response_dictionary, identifier, self.metadata_replacement_policy)
 
@@ -865,7 +865,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
             # check that re-processing that coverage would generate the work.
             e = "Could not extract metadata from OneClick data: %r" % catalog_item
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
         # convert IdentifierData into Identifier, if can
         if not identifier:
@@ -873,7 +873,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         if not identifier:
             e = "Could not create identifier for OneClick data: %r" % catalog_item
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+            return CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
         result = self.set_metadata(
             identifier, metadata, metadata_replacement_policy=metadata_replacement_policy

@@ -262,7 +262,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
                     self._db, Identifier.AXIS_360_ID, identifier_string
                 )
                 result = CoverageFailure(
-                    identifier, "Book not in collection", data_source=self.output_source, transient=False
+                    identifier, "Book not in collection", data_source=self.data_source, transient=False
                 )
                 batch_results.append(result)
         return batch_results

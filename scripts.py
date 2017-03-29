@@ -61,8 +61,8 @@ from overdrive import (
     OverdriveBibliographicCoverageProvider,
 )
 
-from threem import (
-    ThreeMBibliographicCoverageProvider,
+from bibliotheca import (
+    BibliothecaBibliographicCoverageProvider,
 )
 
 from axis import Axis360BibliographicCoverageProvider
@@ -215,9 +215,12 @@ class RunCoverageProvidersScript(Script):
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
-    implement a certain protocol.
+    implement its protocol.
     """
-    
+    def __init__(self, provider_class, _db=None, **kwargs):
+        _db = _db or self._db
+        providers = list(provider_class.all(_db, **kwargs))
+        super(RunCollectionCoverageProviderScript, self).__init__(providers)
 
                     
 class InputScript(Script):
@@ -541,7 +544,7 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             # so we'll only recalculate OPDS feeds and reindex the work
             # if something actually changes.
             for provider_class in (
-                    ThreeMBibliographicCoverageProvider,
+                    BibliothecaBibliographicCoverageProvider,
                     OverdriveBibliographicCoverageProvider,
                     Axis360BibliographicCoverageProvider
             ):
@@ -568,8 +571,8 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
 
     def refresh_metadata(self, identifier):
         provider = None
-        if identifier.type==Identifier.THREEM_ID:
-            provider = ThreeMBibliographicCoverageProvider
+        if identifier.type==Identifier.BIBLIOTHECA_ID:
+            provider = BibliothecaBibliographicCoverageProvider
         elif identifier.type==Identifier.OVERDRIVE_ID:
             provider = OverdriveBibliographicCoverageProvider
         elif identifier.type==Identifier.AXIS_360_ID:
