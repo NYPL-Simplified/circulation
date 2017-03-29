@@ -704,7 +704,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # TODO: It might turn out that PROTOCOL is not always
         # required, and that what we really want to do is enforce
         # constraints on behavior *when PROTOCOL is specified*, similar
-        # to INPUT_IDENTIFIER_TYPES.
+        # to what we do with INPUT_IDENTIFIER_TYPES.
         if not self.PROTOCOL:
             raise ValueError(
                 "%s must define PROTOCOL." % self.__class__.__name__
@@ -915,7 +915,10 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
 
     TODO: The current BibliographicCoverageProviders deal with
     circulation information, which is now a no-no. I'm not going to
-    address the issue in this branch.
+    address the issue in this branch. We need to figure out a way to
+    split up the work that needs to happen once (getting the book
+    cover) from the work that needs to happen independently for each
+    Collection (getting the available formats).
     """
     def handle_success(self, identifier):
         """Once a book has bibliographic coverage, it can be given a
@@ -926,6 +929,8 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
 
 class WorkCoverageProvider(BaseCoverageProvider):
 
+    """Perform coverage operations on Works rather than Identifiers."""
+    
     #
     # Implementation of BaseCoverageProvider virtual methods.
     #

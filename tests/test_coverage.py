@@ -1318,4 +1318,12 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_("Was ignored by WorkCoverageProvider.", result.exception)
         eq_(self.work, result.obj)
         
+    def test_add_coverage_record_for(self):
+        """TODO: We have coverage of code that calls this method,
+        but not the method itself.
+        """
 
+    def test_record_failure_as_coverage_record(self):
+        """TODO: We have coverage of code that calls this method,
+        but not the method itself.
+        """
