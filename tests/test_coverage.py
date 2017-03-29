@@ -1201,22 +1201,6 @@ class TestBibliographicCoverageProvider(CoverageProviderTest):
         eq_(CoverageRecord.TRANSIENT_FAILURE, result.status)
         eq_(False, self.work.presentation_ready)
 
-        
-class MockGenericAPI(object):
-    """Mock only the features of an API that BibliographicCoverageProvider
-    expects.
-    """
-    
-    def __init__(self, collection):
-        self.collection = collection
-
-
-class MockOverdriveCoverageProvider(AlwaysSuccessfulCoverageProvider):
-    """Simulates a CoverageProvider that gets information from Overdrive
-    and is always successful.
-    """
-    DATA_SOURCE_NAME = DataSource.OVERDRIVE
-    INPUT_IDENTIFIER_TYPES = [Identifier.OVERDRIVE_ID]
 
 class TestWorkCoverageProvider(DatabaseTest):
 
