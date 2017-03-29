@@ -461,6 +461,20 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             MockProvider,
             self._db
         )
+
+    def test_replacement_policy(self):
+        """Unless a different replacement policy is passed in, the
+        default is ReplacementPolicy.from_metadata_source().
+        """
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        eq_(True, provider.replacement_policy.identifiers)
+        eq_(False, provider.replacement_policy.formats)
+        
+        policy = ReplacementPolicy.from_license_source()
+        provider = AlwaysSuccessfulCoverageProvider(
+            self._db, replacement_policy=policy
+        )
+        eq_(policy, provider.replacement_policy)
         
     def test_ensure_coverage(self):
         """Verify that ensure_coverage creates a CoverageRecord for an
@@ -844,6 +858,22 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             AlwaysSuccessfulCollectionCoverageProvider,
             collection
         )
+
+    def test_replacement_policy(self):
+        """Unless a different replacement policy is passed in, the
+        replacement policy is ReplacementPolicy.from_license_source().
+        """
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        eq_(True, provider.replacement_policy.identifiers)
+        eq_(True, provider.replacement_policy.formats)
+        
+        policy = ReplacementPolicy.from_metadata_source()
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection, replacement_policy=policy
+        )
+        eq_(policy, provider.replacement_policy)
         
     def test_all(self):
         """Verify that all() gives a sequence of CollectionCoverageProvider
@@ -904,20 +934,14 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
                 return True
 
         presentation_calculation_policy = Tripwire()
-
-        metadata_replacement_policy = ReplacementPolicy(
+        replacement_policy = ReplacementPolicy(
             mirror=mirror,
             http_get=http.do_get,
             presentation_calculation_policy=presentation_calculation_policy
         )
 
-        circulationdata_replacement_policy = ReplacementPolicy(
-            mirror=mirror,
-            http_get=http.do_get,
-        )
-
         provider = AlwaysSuccessfulCollectionCoverageProvider(
-            self._default_collection
+            self._default_collection, replacement_policy=replacement_policy
         )
 
         metadata = Metadata(provider.data_source)
@@ -930,9 +954,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         provider.set_metadata_and_circulation_data(
-            identifier, metadata, circulationdata, 
-            metadata_replacement_policy=metadata_replacement_policy, 
-            circulationdata_replacement_policy=circulationdata_replacement_policy, 
+            identifier, metadata, circulationdata
         )
 
         # The open-access download was 'downloaded' and 'mirrored'.

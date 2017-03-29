@@ -411,13 +411,12 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
     PROTOCOL = Collection.BIBLIOTHECA
     INPUT_IDENTIFIER_TYPES = Identifier.BIBLIOTHECA_ID
     
-    def __init__(self, _db, collection, metadata_replacement_policy=None,
-                 threem_api_class=ThreeMAPI,
-                 input_identifiers=None, **kwargs
+    def __init__(self, collection, metadata_replacement_policy=None,
+                 input_identifiers=None, api_class=ThreeMAPI, **kwargs
     ):
         """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        :param input_identifiers: Passed in by RunCoverageProviderScript. 
+            A list of specific identifiers to get coverage for.
         """
         threem_api = threem_api or ThreeMAPI(collection)
         super(ThreeMBibliographicCoverageProvider, self).__init__(

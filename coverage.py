@@ -411,7 +411,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     INPUT_IDENTIFIER_TYPES = NO_SPECIFIED_TYPES
     
     def __init__(self, _db, collection=None, input_identifiers=None,
-                 **kwargs):
+                 replacement_policy=None, **kwargs):
         """Constructor.
 
         :param collection: Optional. If information comes in from a
@@ -425,12 +425,17 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         :param input_identifiers: Optional. This CoverageProvider is
            requested to provide coverage for these specific
            Identifiers.
+        :param replacement_policy: Optional. A ReplacementPolicy to use
+           when updating local data with data from the third party.
         """
         super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
         self.collection = collection
         self.input_identifiers = input_identifiers
-
+        self.replacement_policy = (
+            replacement_policy or self._default_replacement_policy
+        )
+        
         if not self.DATA_SOURCE_NAME:
             raise ValueError(
                 "%s must define DATA_SOURCE_NAME" % self.__class__.__name__
@@ -440,6 +445,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         # if INPUT_IDENTIFIER_TYPES is not set properly.
         self.input_identifier_types = self._input_identifier_types()
 
+    @property
+    def _default_replacement_policy(self):
+        """Unless told otherwise, assume that we are getting
+        this data from a reliable metadata source.
+        """
+        return ReplacementPolicy.from_metadata_source()
+        
     @classmethod
     def _input_identifier_types(cls):
         """Create a normalized value for `input_identifier_types`
@@ -569,18 +581,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         )
         return edition
 
-    def set_metadata(self, identifier, metadata, 
-                     metadata_replacement_policy=None):
+    def set_metadata(self, identifier, metadata):
         """Finds or creates the Edition for an Identifier, updates it
         with the given metadata.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
-        metadata_replacement_policy = metadata_replacement_policy or (
-            ReplacementPolicy.from_metadata_source()
-        )
-
         edition = self.edition(identifier)
         if isinstance(edition, CoverageFailure):
             return edition
@@ -594,7 +601,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         try:
             metadata.apply(
                 edition, collection=self.collection,
-                replace=metadata_replacement_policy,
+                replace=self.replacement_policy,
             )
         except Exception as e:
             self.log.warn(
@@ -695,11 +702,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     PROTOCOL = None
     
     def __init__(self, collection, **kwargs):
-        """Create 
+        """Constructor.
 
-        :param api_or_collection: Either a Collection object, or a
-            protocol-specific API object that contains a specific
-            Collection object as .collection.
+        :param collection: Will provide coverage to all Identifiers with
+            a LicensePool licensed to the given Collection.
         """
         if not isinstance(collection, Collection):
             raise CollectionMissing(
@@ -707,7 +713,6 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                     self.__class__.__name__
                 )
             )
-
 
         # TODO: It might turn out that PROTOCOL is not always
         # required, and that what we really want to do is enforce
@@ -728,6 +733,14 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             _db, collection, **kwargs
         )
 
+    @property
+    def _default_replacement_policy(self):
+        """Unless told otherwise, assume that we are getting
+        this data from a reliable source of both metadata and circulation
+        information.
+        """
+        return ReplacementPolicy.from_license_source()
+        
     @classmethod
     def all(cls, _db, **kwargs):
         """Yield a sequence of CollectionCoverageProvider instances, one for
@@ -832,8 +845,6 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     
     def set_metadata_and_circulation_data(
             self, identifier, metadata, circulationdata, 
-            metadata_replacement_policy=None, 
-            circulationdata_replacement_policy=None, 
     ):
         """Makes sure that the given Identifier has a Work, Edition (in the
         context of this Collection), and LicensePool (ditto), and that
@@ -850,16 +861,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             )
 
         if metadata:
-            result = self.set_metadata(
-                identifier, metadata, metadata_replacement_policy
-            )
+            result = self.set_metadata(identifier, metadata)
             if isinstance(result, CoverageFailure):
                 return result
 
         if circulationdata:
-            result = self._set_circulationdata(
-                identifier, circulationdata, circulationdata_replacement_policy
-            )
+            result = self._set_circulationdata(identifier, circulationdata)
             if isinstance(result, CoverageFailure):
                 return result
 
@@ -872,19 +879,13 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
         return identifier
 
-    def _set_circulationdata(self, identifier, circulationdata, 
-                     circulationdata_replacement_policy=None
-    ):
+    def _set_circulationdata(self, identifier, circulationdata):
         """Finds or creates a LicensePool for an Identifier, updates it
         with the given circulationdata, then creates a Work for the book.
 
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
-        circulationdata_replacement_policy = circulationdata_replacement_policy or (
-            ReplacementPolicy.from_license_source()
-        )
-
         pool = self.license_pool(identifier)
         if isinstance(pool, CoverageFailure):
             return pool
@@ -894,9 +895,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
         try:
-            circulationdata.apply(
-                pool, replace=circulationdata_replacement_policy,
-            )
+            circulationdata.apply(pool, replace=self.replacement_policy)
         except Exception as e:
             self.log.warn(
                 "Error applying circulationdata to pool %d: %s",
