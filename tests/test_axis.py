@@ -67,7 +67,7 @@ class TestAxis360API(AxisTestWithAPI):
         self.api.queue_response(500)
         assert_raises_regexp(
             RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
-            api.availability
+            self.api.availability
         )
 
     def test_refresh_bearer_token_after_401(self):
@@ -86,7 +86,7 @@ class TestAxis360API(AxisTestWithAPI):
         """Raise an exception if we don't get a 200 status code when
         refreshing the bearer token.
         """
-        api = MockAxis360API(self._db, with_token=False)
+        api = MockAxis360API(self.collection, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
             RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
@@ -241,11 +241,12 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         the coverage provider.
         """
         script = RunCollectionCoverageProviderScript(
-            Axis360BibliographicCoverageProvider, self._db, MockAxis360API
+            Axis360BibliographicCoverageProvider, self._db,
+            api_class=MockAxis360API
         )
-        assert isinstance(script.provider, 
-                          Axis360BibliographicCoverageProvider)
-        eq_(script.provider.api, api)
+        [provider] = script.providers
+        assert isinstance(provider, Axis360BibliographicCoverageProvider)
+        assert isinstance(provider.api, MockAxis360API)
 
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask Axis for data,
@@ -262,10 +263,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         eq_([], identifier.licensed_through)
 
         # Run it through the Axis360BibliographicCoverageProvider
-        provider = Axis360BibliographicCoverageProvider(
-            self._db, axis_360_api=api
-        )
-        [result] = provider.process_batch([identifier])
+        [result] = self.provider.process_batch([identifier])
         eq_(identifier, result)
 
         # A LicensePool was created. We know both how many copies of this
@@ -284,21 +282,15 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         """Test an unrealistic case where we ask Axis 360 about one book and
         it tells us about a totally different book.
         """
-        api = MockAxis360API(self._db)
-
         # We're going to ask about abcdef
         identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
         identifier.identifier = 'abcdef'
 
         # But we're going to get told about 0003642860.
         data = self.get_data("single_item.xml")
-        api.queue_response(200, content=data)
+        self.api.queue_response(200, content=data)
         
-        # Run abcdef through the Axis360BibliographicCoverageProvider.
-        provider = Axis360BibliographicCoverageProvider(
-            self._db, axis_360_api=api
-        )
-        [result] = provider.process_batch([identifier])
+        [result] = self.provider.process_batch([identifier])
 
         # Coverage failed for the book we asked about.
         assert isinstance(result, CoverageFailure)
