@@ -173,71 +173,77 @@ class TestPresentationReadyMonitor(DatabaseTest):
         self.work.presentation_ready = False
 
     def test_make_batch_presentation_ready_sets_presentation_ready_on_success(self):
-        success = AlwaysSuccessfulCoverageProvider(
-            service_name="Provider 1",
-            input_identifier_types=self.gutenberg_id,
-            output_source=self.oclc
-        )
-        monitor = PresentationReadyMonitor(self._db, [success])
+        class MockProvider(AlwaysSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 1"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID,
+            DATA_SOURCE_NAME = DataSource.OCLC
+        provider = MockProvider(self._db)
+        monitor = PresentationReadyMonitor(self._db, [])
         monitor.process_batch([self.work])
         eq_(None, self.work.presentation_ready_exception)
         eq_(True, self.work.presentation_ready)
 
     def test_make_batch_presentation_ready_sets_exception_on_failure(self):
-        success = AlwaysSuccessfulCoverageProvider(
-            service_name="Provider 1",
-            input_identifier_types=self.gutenberg_id,
-            output_source=self.oclc
-        )
-        failure = NeverSuccessfulCoverageProvider(
-            service_name="Provider 2",
-            input_identifier_types=self.gutenberg_id,
-            output_source=self.overdrive
-        )
+        class MockProvider1(AlwaysSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 1"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OCLC
+        success = MockProvider1(self._db)
+
+        class MockProvider2(NeverSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 2"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OVERDRIVE
+        failure = MockProvider2(self._db)
+
         monitor = PresentationReadyMonitor(self._db, [success, failure])
         monitor.process_batch([self.work])
         eq_(False, self.work.presentation_ready)
         eq_(
             "Provider(s) failed: Provider 2",
             self.work.presentation_ready_exception)
-
+        
     def test_prepare_returns_failing_providers(self):
+        class MockProvider1(AlwaysSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 1"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OCLC
+        success = MockProvider1(self._db)
 
-        success = AlwaysSuccessfulCoverageProvider(
-            service_name="Monitor 1",
-            output_source=self.oclc,
-            input_identifier_types=self.gutenberg_id,
-        )
-        failure = NeverSuccessfulCoverageProvider(
-            service_name="Monitor 2",
-            output_source=self.overdrive,
-            input_identifier_types=self.gutenberg_id,
-        )
+        class MockProvider2(NeverSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 2"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OVERDRIVE
+        failure = MockProvider2(self._db)
         monitor = PresentationReadyMonitor(self._db, [success, failure])
         result = monitor.prepare(self.work)
         eq_([failure], result)
-
+        
     def test_irrelevant_provider_is_not_called(self):
 
-        gutenberg_monitor = AlwaysSuccessfulCoverageProvider(
-            service_name="Gutenberg monitor",
-            output_source=self.oclc,
-            input_identifier_types=self.gutenberg_id
-        )
-        oclc_monitor = NeverSuccessfulCoverageProvider(
-            service_name="OCLC monitor",
-            output_source=self.oclc,
-            input_identifier_types=Identifier.OCLC_NUMBER
-        )
+        class GutenbergProvider(AlwaysSuccessfulCoverageProvider):
+            SERVICE_NAME = "Gutenberg monitor"
+            DATA_SOURCE_NAME = DataSource.OCLC
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+        gutenberg_monitor = GutenbergProvider(self._db)
+            
+        class OCLCProvider(NeverSuccessfulCoverageProvider):
+            SERVICE_NAME = "OCLC monitor"
+            DATA_SOURCE_NAME = DataSource.OCLC
+            INPUT_IDENTIFIER_TYPES = Identifier.OCLC_NUMBER
+        oclc_monitor = OCLCProvider(self._db)
+            
         monitor = PresentationReadyMonitor(
-            self._db, [gutenberg_monitor, oclc_monitor])
+            self._db, [gutenberg_monitor, oclc_monitor]
+        )
         result = monitor.prepare(self.work)
 
         # There were no failures.
         eq_([], result)
 
         # The monitor that takes Gutenberg identifiers as input ran.
-        eq_([self.work.presentation_edition.primary_identifier], gutenberg_monitor.attempts)
+        eq_([self.work.presentation_edition.primary_identifier],
+            gutenberg_monitor.attempts)
 
         # The monitor that takes OCLC editions as input did not.
         # (If it had, it would have failed.)
