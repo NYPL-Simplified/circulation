@@ -917,16 +917,6 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
     circulation information, which is now a no-no. I'm not going to
     address the issue in this branch.
     """
-    def __init__(self, collection, metadata_replacement_policy=None, **kwargs):
-        self.metadata_replacement_policy = (
-            metadata_replacement_policy
-            or ReplacementPolicy.from_metadata_source()
-        )
-
-        super(BibliographicCoverageProvider, self).__init__(
-            collection, **kwargs
-        )
-
     def handle_success(self, identifier):
         """Once a book has bibliographic coverage, it can be given a
         work and made presentation ready.

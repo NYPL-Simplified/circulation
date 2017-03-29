@@ -9,11 +9,13 @@ from . import (
     DatabaseTest
 )
 from testing import (
+    AlwaysSuccessfulBibliographicCoverageProvider,
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
     DummyHTTPClient,
     TaskIgnoringCoverageProvider,
+    NeverSuccessfulBibliographicCoverageProvider,
     NeverSuccessfulWorkCoverageProvider,
     NeverSuccessfulCoverageProvider,
     TransientFailureCoverageProvider,
@@ -1157,39 +1159,47 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         eq_(result, identifier)
         eq_(True, pool.work.presentation_ready)
 
-    def test_process_batch_sets_work_presentation_ready(self):
 
-        work = self._work(with_license_pool=True, 
-                          with_open_access_download=True)
-        pool = work.license_pools[0]
-        identifier = pool.identifier
-        work.presentation_ready = False
-        provider = MockBibliographicCoverageProvider(
-            self._db, pool.collection, data_source=DataSource.GUTENBERG
+class TestBibliographicCoverageProvider(CoverageProviderTest):
+    """Test the features specific to BibliographicCoverageProvider."""
+
+    def setup(self):
+        super(TestBibliographicCoverageProvider, self).setup()
+        self.work = self._work(
+            with_license_pool=True, with_open_access_download=True
         )
-        [result] = provider.process_batch([identifier])
-        eq_(result, identifier)
-        eq_(True, work.presentation_ready)
+        self.work.presentation_ready = False
+        [self.pool] = self.work.license_pools
+        self.identifier = self.pool.identifier
+        
+    def test_work_set_presentation_ready_on_success(self):
+        """When a Work is successfully run through a
+        BibliographicCoverageProvider, it's set as presentation-ready.
+        """
+        provider = AlwaysSuccessfulBibliographicCoverageProvider(
+            self.pool.collection
+        )
+        [result] = provider.process_batch([self.identifier])
+        eq_(result, self.identifier)
+        eq_(True, self.work.presentation_ready)
 
         # ensure_coverage does the same thing.
-        work.presentation_ready = False
-        result = provider.ensure_coverage(identifier)
+        self.work.presentation_ready = False
+        result = provider.ensure_coverage(self.identifier)
         assert isinstance(result, CoverageRecord)
-        eq_(result.identifier, identifier)
-        eq_(True, work.presentation_ready)
+        eq_(result.identifier, self.identifier)
+        eq_(True, self.work.presentation_ready)
 
     def test_failure_does_not_set_work_presentation_ready(self):
-        work = self._work(with_license_pool=True, 
-                          with_open_access_download=True)
-        identifier = work.license_pools[0].identifier
-        work.presentation_ready = False
-        [pool] = work.license_pools
-        provider = MockFailureBibliographicCoverageProvider(
-            self._db, pool.collection
+        """A Work is not set as presentation-ready except on success.
+        """
+
+        provider = NeverSuccessfulBibliographicCoverageProvider(
+            self.pool.collection
         )
-        [result] = provider.process_batch([identifier])
-        assert isinstance(result, CoverageFailure)
-        eq_(False, work.presentation_ready)
+        result = provider.ensure_coverage(self.identifier)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, result.status)
+        eq_(False, self.work.presentation_ready)
 
         
 class MockGenericAPI(object):
@@ -1207,22 +1217,6 @@ class MockOverdriveCoverageProvider(AlwaysSuccessfulCoverageProvider):
     """
     DATA_SOURCE_NAME = DataSource.OVERDRIVE
     INPUT_IDENTIFIER_TYPES = [Identifier.OVERDRIVE_ID]
-
-    
-class MockBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Simulates a BibliographicCoverageProvider that's always successful."""
-
-    def __init__(self, _db, collection, **kwargs):
-        if not 'api' in kwargs:
-            kwargs['api'] = MockGenericAPI(collection)
-        if not 'data_source' in kwargs:
-            kwargs['data_source'] = DataSource.OVERDRIVE
-        super(MockBibliographicCoverageProvider, self).__init__(
-            _db, **kwargs
-        )
-
-    def process_item(self, identifier):
-        return identifier
 
 class TestWorkCoverageProvider(DatabaseTest):
 
@@ -1341,10 +1335,3 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_(self.work, result.obj)
         
 
-class MockFailureBibliographicCoverageProvider(MockBibliographicCoverageProvider):
-    """Simulates a BibliographicCoverageProvider that's never successful."""
-
-    def process_item(self, identifier):
-        return CoverageFailure(
-            self, identifier, "Bitter failure", transient=True
-        )

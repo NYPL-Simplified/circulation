@@ -42,6 +42,7 @@ from model import (
 )
 from classifier import Classifier
 from coverage import (
+    BibliographicCoverageProvider,
     CollectionCoverageProvider,
     IdentifierCoverageProvider,
     CoverageFailure,
@@ -690,11 +691,10 @@ class DatabaseTest(object):
         )[0]
 
 
-class InstrumentedCoverageProvider(IdentifierCoverageProvider):
-    """A CoverageProvider that keeps track of every item it tried
-    to cover.
-    """
-
+class MockCoverageProvider(object):
+    """Mixin class for mock CoverageProviders that defines common constants."""
+    SERVICE_NAME = "Generic mock CoverageProvider"
+    
     # Whenever a CoverageRecord is created, the data_source of that
     # record will be Project Gutenberg.
     DATA_SOURCE_NAME = DataSource.GUTENBERG
@@ -702,6 +702,17 @@ class InstrumentedCoverageProvider(IdentifierCoverageProvider):
     # For testing purposes, this CoverageProvider will try to cover
     # every identifier in the database.
     INPUT_IDENTIFIER_TYPES = None
+
+    # This CoverageProvider can work with any Collection that supports
+    # the OPDS import protocol (e.g. DatabaseTest._default_collection).
+    PROTOCOL = Collection.OPDS_IMPORT
+
+
+class InstrumentedCoverageProvider(MockCoverageProvider,
+                                   IdentifierCoverageProvider):
+    """A CoverageProvider that keeps track of every item it tried
+    to cover.
+    """
     
     def __init__(self, *args, **kwargs):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
@@ -712,7 +723,8 @@ class InstrumentedCoverageProvider(IdentifierCoverageProvider):
         return item
 
 
-class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
+class InstrumentedWorkCoverageProvider(MockCoverageProvider,
+                                       WorkCoverageProvider):
     """A WorkCoverageProvider that keeps track of every item it tried
     to cover.
     """
@@ -724,12 +736,10 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
         self.attempts.append(item)
         return item
 
-class AlwaysSuccessfulCollectionCoverageProvider(CollectionCoverageProvider):
+class AlwaysSuccessfulCollectionCoverageProvider(MockCoverageProvider,
+                                                 CollectionCoverageProvider):
     """A CollectionCoverageProvider that does nothing and always succeeds."""
     SERVICE_NAME = "Always successful (collection)"
-    DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
-    PROTOCOL = Collection.OPDS_IMPORT
-    IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
     
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
@@ -738,7 +748,23 @@ class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
 class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     """A WorkCoverageProvider that does nothing and always succeeds."""
     SERVICE_NAME = "Always successful (works)"
+
+
+class AlwaysSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider):
+    """A BibliographicCoverageProvider that does nothing and is always
+    successful.
+
+    Note that this only works if you've put a working Edition and
+    LicensePool in place beforehand. Otherwise the process will fail
+    during handle_success().
+    """
+    SERVICE_NAME = "Always successful (bibliographic)"
     
+    def process_item(self, identifier):
+        return identifier
+
+
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
     SERVICE_NAME = "Never successful"
@@ -761,6 +787,19 @@ class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
         self.attempts.append(item)
         return CoverageFailure(item, "What did you expect?", None, False)
 
+class NeverSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider
+):
+    """Simulates a BibliographicCoverageProvider that's never successful."""
+
+    SERVICE_NAME = "Never successful (bibliographic)"
+
+    def process_item(self, identifier):
+        return CoverageFailure(
+            identifier, "Bitter failure", self.data_source, transient=True
+        )
+
+    
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
     SERVICE_NAME = "Broken"
     def process_item(self, item):
