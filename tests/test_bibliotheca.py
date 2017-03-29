@@ -16,7 +16,7 @@ from model import (
     Measurement,
     Work,
 )
-from threem import (
+from bibliotheca import (
     ItemListParser,
     MockBibliothecaAPI,
     BibliothecaBibliographicCoverageProvider,
@@ -40,7 +40,8 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
 
     def setup(self):
         super(TestBibliothecaAPI, self).setup()
-        self.api = MockBibliothecaAPI(self._db)
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        self.api = MockBibliothecaAPI(self.collection)
 
     def test_full_path(self):
         id = self.api.library_id
@@ -199,26 +200,24 @@ class TestItemListParser(BaseBibliothecaTest):
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
     """Test the code that looks up bibliographic information from 3M."""
-
+    
     def test_script_instantiation(self):
         """Test that RunCollectionCoverageProviderScript can instantiate
         the coverage provider.
         """
         script = RunCollectionCoverageProviderScript(
-            BibliothecaBibliographicCoverageProvider, self._db
+            BibliothecaBibliographicCoverageProvider, self._db,
+            api_class=MockBibliothecaAPI
         )
-        assert isinstance(script.provider, 
+        [provider] = script.providers
+        assert isinstance(provider,
                           BibliothecaBibliographicCoverageProvider)
-        eq_(script.provider.api, self.api)
+        assert isinstance(provider.api, MockBibliothecaAPI)
 
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask 3M for data,
         3M provides it, and we create a presentation-ready work.
         """
-
-        data = self.get_data("item_metadata_single.xml")
-        self.api.queue_response(200, content=data)
-
         identifier = self._identifier(identifier_type=Identifier.THREEM_ID)
         identifier.identifier = 'ddf4gr9'
 
@@ -227,8 +226,14 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
         # Run it through the BibliothecaBibliographicCoverageProvider
         provider = BibliothecaBibliographicCoverageProvider(
-            self._db, threem_api=self.api
+            self.collection, api_class=MockBibliothecaAPI
         )
+        data = self.get_data("item_metadata_single.xml")
+
+        # We can't use self.api because that's not the same object
+        # as the one created by the coverage provider.
+        provider.api.queue_response(200, content=data)
+
         [result] = provider.process_batch([identifier])
         eq_(identifier, result)
 

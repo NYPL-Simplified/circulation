@@ -193,10 +193,9 @@ class BibliothecaAPI(object):
 
 class MockBibliothecaAPI(BibliothecaAPI):
 
-    def __init__(self, _db, *args, **kwargs):
-        self.responses = []
-        self.requests = []
-
+    @classmethod
+    def mock_collection(self, _db):
+        """Create a mock Bibliotheca collection for use in tests."""
         library = Library.instance(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
@@ -207,12 +206,17 @@ class MockBibliothecaAPI(BibliothecaAPI):
             )
         )
         library.collections.append(collection)
+        return collection
+        
+    def __init__(self, collection, *args, **kwargs):
+        self.responses = []
+        self.requests = []
         super(MockBibliothecaAPI, self).__init__(
             collection, *args, **kwargs
         )
 
     def now(self):
-        """Return an unvarying time in the format 3M expects."""
+        """Return an unvarying time in the format Bibliotheca expects."""
         return datetime.strftime(
             datetime(2016, 1, 1), self.AUTH_TIME_FORMAT
         )
@@ -407,6 +411,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     Then mark the works as presentation-ready.
     """
+    SERVICE_NAME = "Bibliotheca Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
     PROTOCOL = Collection.BIBLIOTHECA
     INPUT_IDENTIFIER_TYPES = Identifier.BIBLIOTHECA_ID

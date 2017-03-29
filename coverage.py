@@ -124,11 +124,11 @@ class BaseCoverageProvider(object):
         will be treated as though they did not exist.
         """
         self._db = _db
-        if not self.SERVICE_NAME:
+        if not self.__class__.SERVICE_NAME:
             raise ValueError(
                 "%s must define SERVICE_NAME." % self.__class__.__name__
             )
-        service_name = self.SERVICE_NAME
+        service_name = self.__class__.SERVICE_NAME
         self.operation = self.OPERATION
         
         if self.operation:
