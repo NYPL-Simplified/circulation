@@ -412,7 +412,7 @@ class OneClickAPI(object):
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
         coverage_provider = OneClickBibliographicCoverageProvider(
-            _db=self._db, oneclick_api=self
+            collection=self.collection, api_class=self
         )
         for catalog_item in items_added:
             result = coverage_provider.update_metadata(catalog_item)

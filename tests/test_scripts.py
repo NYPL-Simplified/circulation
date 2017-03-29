@@ -817,39 +817,34 @@ class TestOneClickDeltaScript(DatabaseTest):
 
 
     def test_delta(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            # first, load a sample library
-            base_path = os.path.split(__file__)[0]
-            api = MockOneClickAPI(self._db, base_path=base_path)
-            importer = OneClickImportScript(_db=self._db, api=api)
-            importer.run()
+        # First, load a collection.
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
-            # set license numbers on test pool
-            pool, made_new = LicensePool.for_foreign_id(
-                self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186",
-                collection=api.collection
-            )
-            eq_(False, made_new)
-            pool.licenses_owned = 10
-            pool.licenses_available = 9
-            pool.licenses_reserved = 2
-            pool.patrons_in_hold_queue = 1
+        # set license numbers on test pool
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=collection
+        )
+        eq_(False, made_new)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 2
+        pool.patrons_in_hold_queue = 1
 
-            # now update that library with a sample delta            
-            delta_runner = OneClickDeltaScript(_db=self._db, api=api)
-            datastr, datadict = self.get_data("response_catalog_delta.json")
-            delta_runner.api.queue_response(status_code=200, content=datastr)
-            delta_runner.run()
+        # now update that library with a sample delta            
+        delta_runner = OneClickDeltaScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        delta_runner.api.queue_response(status_code=200, content=datastr)
+        delta_runner.run()
 
         # "Tricks" did not get deleted, but did get its pools set to "nope".
         # "Emperor Mage: The Immortals" got new metadata.
