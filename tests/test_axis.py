@@ -33,18 +33,29 @@ from util.http import (
 )
 
 from . import DatabaseTest
-from scripts import RunCoverageProviderScript
+from scripts import RunCollectionCoverageProviderScript
 from testing import MockRequestsResponse
 
 class AxisTest(DatabaseTest):
-
+    """Test against a mock Axis 360 Collection."""
+    def setup(self):
+        super(AxisTest, self).setup()
+        self.collection = MockAxis360API.mock_collection(self._db)
+    
     def get_data(self, filename):
         path = os.path.join(
             os.path.split(__file__)[0], "files/axis/", filename)
         return open(path).read()
 
 
-class TestAxis360API(AxisTest):
+class AxisTestWithAPI(AxisTest):
+    """Test against a mock Axis 360 Collection using a MockAxis360API."""
+    def setup(self):
+        super(AxisTestWithAPI, self).setup()
+        self.api = MockAxis360API(self.collection)
+
+
+class TestAxis360API(AxisTestWithAPI):
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
@@ -52,8 +63,8 @@ class TestAxis360API(AxisTest):
         eq_(["foo", identifier.identifier], values)
 
     def test_availability_exception(self):
-        api = MockAxis360API(self._db)
-        api.queue_response(500)
+
+        self.api.queue_response(500)
         assert_raises_regexp(
             RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
             api.availability
@@ -63,11 +74,12 @@ class TestAxis360API(AxisTest):
         """If we get a 401, we will fetch a new bearer token and try the
         request again.
         """
-        api = MockAxis360API(self._db)
-        api.queue_response(401)
-        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
-        api.queue_response(200, content="The data")
-        response = api.request("http://url/")
+        self.api.queue_response(401)
+        self.api.queue_response(
+            200, content=json.dumps(dict(access_token="foo"))
+        )
+        self.api.queue_response(200, content="The data")
+        response = self.api.request("http://url/")
         eq_("The data", response.content)
 
     def test_refresh_bearer_token_error(self):
@@ -85,21 +97,23 @@ class TestAxis360API(AxisTest):
         """If we get a 401 immediately after refreshing the token, we will
         raise an exception.
         """
-        api = MockAxis360API(self._db)
-        api.queue_response(401)
-        api.queue_response(200, content=json.dumps(dict(access_token="foo")))
-        api.queue_response(401)
+        self.api.queue_response(401)
+        self.api.queue_response(
+            200, content=json.dumps(dict(access_token="foo"))
+        )
+        self.api.queue_response(401)
 
-        api.queue_response(301)
+        self.api.queue_response(301)
 
         assert_raises_regexp(
             RemoteIntegrationException,
             ".*Got status code 401 from external server, cannot continue.",
-            api.request, "http://url/"
+            self.api.request, "http://url/"
         )
 
         # The fourth request never got made.
-        eq_([301], [x.status_code for x in api.responses])
+        eq_([301], [x.status_code for x in self.api.responses])
+
 
 class TestParsers(AxisTest):
 
@@ -167,7 +181,6 @@ class TestParsers(AxisTest):
         eq_([], bib2.formats)
         '''
 
-
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
         author = "Dyssegaard, Elisabeth Kallick (TRN)"
@@ -216,27 +229,30 @@ class TestParsers(AxisTest):
 class TestAxis360BibliographicCoverageProvider(AxisTest):
     """Test the code that looks up bibliographic information from Axis 360."""
 
+    def setup(self):
+        super(TestAxis360BibliographicCoverageProvider, self).setup()
+        self.provider = Axis360BibliographicCoverageProvider(
+            self.collection, api_class=MockAxis360API
+        )
+        self.api = self.provider.api
+        
     def test_script_instantiation(self):
         """Test that RunCoverageProviderScript can instantiate
         the coverage provider.
         """
-        api = MockAxis360API(self._db)
-        script = RunCoverageProviderScript(
-            Axis360BibliographicCoverageProvider, self._db, [],
-            axis_360_api=api
+        script = RunCollectionCoverageProviderScript(
+            Axis360BibliographicCoverageProvider, self._db, MockAxis360API
         )
         assert isinstance(script.provider, 
                           Axis360BibliographicCoverageProvider)
         eq_(script.provider.api, api)
 
-
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask Axis for data,
         Axis provides it, and we create a presentation-ready work.
         """
-        api = MockAxis360API(self._db)
         data = self.get_data("single_item.xml")
-        api.queue_response(200, content=data)
+        self.api.queue_response(200, content=data)
         
         # Here's the book mentioned in single_item.xml.
         identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)

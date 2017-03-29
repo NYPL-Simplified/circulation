@@ -442,10 +442,6 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         self.provider = OverdriveBibliographicCoverageProvider(
             self.collection, api_class=MockOverdriveAPI
         )
-
-        # Unlike with other tests, the old self.api won't do anything,
-        # because the coverage provider is using a newly constructed
-        # API.
         self.api = self.provider.api
         
     def test_script_instantiation(self):
