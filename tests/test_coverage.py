@@ -9,6 +9,7 @@ from . import (
     DatabaseTest
 )
 from testing import (
+    AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
     DummyHTTPClient,
@@ -859,7 +860,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # The providers are of the appropriate type and the keyword arguments
         # passed into all() were propagated to the constructor.
         for provider in providers:
-            assert isinstance(MockCollectionCoverageProvider, provider)
+            assert isinstance(provider, MockCollectionCoverageProvider)
             eq_(34, provider.batch_size)
 
     CIRCULATION_DATA = CirculationData(
@@ -955,46 +956,45 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         eq_(True, presentation_calculation_policy.tripped)
         
     def test_items_that_need_coverage(self):
+        # Here's an Identifier that was covered on 01/01/2016.
+        identifier = self._identifier()
         cutoff_time = datetime.datetime(2016, 1, 1)
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
         record = CoverageRecord.add_for(
-            self.edition, self.data_source, timestamp=cutoff_time
+            identifier, provider.data_source, timestamp=cutoff_time
         )
 
-        provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful",
-            data_source=self.data_source,
-            input_identifier_types=self.input_identifier_types, 
-            cutoff_time=cutoff_time
-        )
+        # Since the Identifier was covered, it doesn't show up in
+        # items_that_need_coverage.
         eq_([], provider.items_that_need_coverage().all())
 
+        # If we set the CoverageProvider's cutoff_time to the time of
+        # coverage, the Identifier is still treated as covered.
+        provider = AlwaysSuccessfulCoverageProvider(
+            self._db, cutoff_time=cutoff_time
+        )
+        eq_([], provider.items_that_need_coverage().all())
+        
+        # But if we set the cutoff time to immediately after the time
+        # the Identifier was covered...
         one_second_after = cutoff_time + datetime.timedelta(seconds=1)
         provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful",
-            data_source=self.data_source,
-            input_identifier_types=self.input_identifier_types, 
-            cutoff_time=one_second_after
+            self._db, cutoff_time=one_second_after
         )
-        eq_([self.identifier], 
-            provider.items_that_need_coverage().all())
 
-        provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful",
-            data_source=self.data_source,
-            input_identifier_types=self.input_identifier_types, 
-        )
-        eq_([], provider.items_that_need_coverage().all())
+        # The identifier is treated as lacking coverage.
+        eq_([identifier], 
+            provider.items_that_need_coverage().all())
     
     def test_work(self):
         """Verify that a CollectionCoverageProvider can create a Work."""
         # Here's an Overdrive ID.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
 
-        # Here's a BibliographicCoverageProvider that _is_ associated
-        # with a Collection.
-        provider = MockBibliographicCoverageProvider(
-            self._db, collection=self._default_collection,
-        )
+        # Here's a CollectionCoverageProvider that is associated
+        # with an Overdrive-type Collection.
+        collection = self._collection(protocol=Collection.OVERDRIVE)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
 
         # This CoverageProvider cannot create a Work for the given
         # Identifier, because that would require creating a
@@ -1021,15 +1021,6 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         work = provider.work(identifier)
         assert isinstance(work, Work)
         eq_(u"A title", work.title)
-
-        # Now that there's a Work associated with the Identifier, even
-        # a CoverageProvider that's not associated with a Collection
-        # can discover it.
-        no_collection_provider = MockBibliographicCoverageProvider(
-            self._db, collection=None, data_source=DataSource.OVERDRIVE
-        )
-        
-        eq_(work, no_collection_provider.work(identifier))
         
     def test_set_metadata_and_circulationdata(self):
         """Verify that a CollectionCoverageProvider can set both
@@ -1038,32 +1029,16 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         test_metadata = self.BIBLIOGRAPHIC_DATA
         test_circulationdata = self.CIRCULATION_DATA
 
+        # Here's an Overdrive Identifier to work with.
         identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
             foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
         )
-        
-        # Here's a BibliographicCoverageProvider that, for whatever reason,
-        # is not associated with a collection.
-        provider = MockBibliographicCoverageProvider(self._db, collection=None)
 
-        # If it were a normal CoverageProvider, it would have no
-        # mechanism to set circulation data. Since it's a
-        # BibliographicCoverageProvider, the mechanism does exist, but
-        # attempting to set circulation data will result in a
-        # CoverageFailure.
-        result = provider.set_metadata_and_circulation_data(
-            identifier, None, test_circulationdata
-        )
-        assert isinstance(result, CoverageFailure)
-        eq_(
-            "Could not create a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
-            result.exception
-        )
-        
-        # Let's associate a Collection with the
-        # BibliographicCoverageProvider and try again.
-        provider.collection = self._default_collection
+        # Here's a CollectionCoverageProvider that is associated
+        # with an Overdrive-type Collection.
+        collection = self._collection(protocol=Collection.OVERDRIVE)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
 
         # We get a CoverageFailure if we don't pass in any data at all.
         result = provider.set_metadata_and_circulation_data(
@@ -1102,10 +1077,11 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         work = identifier.work
         eq_(work, pool.work)
         
-        # BibliographicCoverageProviders typically don't have
-        # circulation information in the sense of 'how many copies are
-        # in this Collection?', but sometimes they do have circulation
-        # information in the sense of 'what formats are available?'
+        # CoverageProviders that offer bibliographic information
+        # typically don't have circulation information in the sense of
+        # 'how many copies are in this Collection?', but sometimes
+        # they do have circulation information in the sense of 'what
+        # formats are available?'
         [lpdm] = pool.delivery_mechanisms
         mechanism = lpdm.delivery_mechanism
         eq_("application/epub+zip (DRM-free)", mechanism.name)
@@ -1126,21 +1102,9 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         test_metadata.primary_identifier = old_identifier
         
     def test_autocreate_licensepool(self):
-
-        # A coverage provider that does not provide a Collection cannot
-        # create a LicensePool for an Identifier, because the LicensePool
-        # would not belong to any particular Collection.
-        no_collection_provider = MockBibliographicCoverageProvider(
-            self._db, collection=None
-        )
-        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
-        result = no_collection_provider.license_pool(identifier)
-        assert isinstance(result, CoverageFailure)
-        eq_(
-            "Could not create a LicensePool for this identifier because the CoverageProvider has no associated Collection.",
-            result.exception
-        )
-
+        """A CollectionCoverageProvider can locate (or, if necessary, create)
+        a LicensePool for an identifier.
+        """
         # If a Collection is provided, the coverage provider can
         # create a LicensePool for an Identifier.
         with_collection_provider = MockBibliographicCoverageProvider(
