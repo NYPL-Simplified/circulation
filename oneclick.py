@@ -361,15 +361,20 @@ class OneClickAPI(object):
         catalog_list = self.get_all_catalog()
         items_transmitted = len(catalog_list)
         items_created = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(
-            _db=self._db, oneclick_api=self
-        )
+
         # the default policy doesn't update delivery mechanisms, which we do want to do
         metadata_replacement_policy = ReplacementPolicy.from_metadata_source()
         metadata_replacement_policy.formats = True
 
+        coverage_provider = OneClickBibliographicCoverageProvider(
+            self.collection, api_class=self,
+            replacement_policy=metadata_replacement_policy
+        )
+
         for catalog_item in catalog_list:
-            result = coverage_provider.update_metadata(catalog_item=catalog_item, metadata_replacement_policy=metadata_replacement_policy)
+            result = coverage_provider.update_metadata(
+                catalog_item=catalog_item
+            )
             if not isinstance(result, CoverageFailure):
                 items_created += 1
 
@@ -507,7 +512,7 @@ class OneClickAPI(object):
 class MockOneClickAPI(OneClickAPI):
 
     @classmethod
-    def collection(self, _db):
+    def mock_collection(self, _db):
         library = Library.instance(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
@@ -819,7 +824,21 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         super(OneClickBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = api_class(collection, **api_class_kwargs)
+        if isinstance(api_class, OneClickAPI):
+            # We were passed in a specific API object. This is not
+            # generally the done thing, but it is necessary when a
+            # OneClickAPI object itself wants a
+            # OneClickBibliographicCoverageProvider.
+            if api_class.collection != collection:
+                raise ValueError(
+                    "Coverage provider and its API are scoped to different collections! (%s vs. %s)" % (
+                        api_class.collection.name, collection.name
+                    )
+                )
+            else:
+                self.api = api_class
+        else:
+            self.api = api_class(collection, **api_class_kwargs)
 
     def process_item(self, identifier):
         """ OneClick availability information is served separately from 

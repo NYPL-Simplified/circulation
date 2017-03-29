@@ -762,35 +762,15 @@ class TestOneClickImportScript(DatabaseTest):
         data = open(path).read()
         return data, json.loads(data)
 
-
-    def test_parse_command_line(self):
-        cmd_args = ["--mock"]
-        parsed = OneClickImportScript.parse_command_line(
-            _db=self._db, cmd_args=cmd_args
-        )
-        eq_(True, parsed.mock)
-
-
     def test_import(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            base_path = os.path.split(__file__)[0]
-            api = MockOneClickAPI(self._db, base_path=base_path)
-
-            importer = OneClickImportScript(_db=self._db, api=api)
-
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
-            importer.run()
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
         # verify that we created Works, Editions, LicensePools
         works = self._db.query(Work).all()
@@ -810,21 +790,18 @@ class TestOneClickImportScript(DatabaseTest):
         # make sure we created some LicensePools
         pool, made_new = LicensePool.for_foreign_id(
             self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
-            "9780062231727", collection=api.collection
+            "9780062231727", collection=collection
         )
         eq_(False, made_new)
         pool, made_new = LicensePool.for_foreign_id(
             self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
-            "9781615730186", collection=api.collection
+            "9781615730186", collection=collection
         )
         eq_(False, made_new)
 
         # make sure there are 8 LicensePools
         pools = self._db.query(LicensePool).all()
         eq_(8, len(pools))
-
-        # make sure we created some Identifiers
-
 
 
 class TestOneClickDeltaScript(DatabaseTest):

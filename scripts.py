@@ -1139,30 +1139,11 @@ class CustomListManagementScript(Script):
 class OneClickImportScript(Script):
     """Import all books from a OneClick-subscribed library catalog."""
 
-    @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--mock', 
-            help='If turned on, will use the MockOneClickAPI client.', 
-            action='store_true'
-        )
-        return parser
-
-
-    def __init__(self, _db=None, cmd_args=None, api=None):
+    def __init__(self, collection=None, api_class=OneClickAPI,
+                 **api_class_kwargs):
+        _db = Session.object_session(collection)
         super(OneClickImportScript, self).__init__(_db=_db)
-
-        # get database connection passed in from test or establish a prod one
-        if _db:
-            db = _db
-        else:
-            db = self._db
-
-        parsed_args = self.parse_command_line(cmd_args=cmd_args)
-        if not api:
-            api = OneClickAPI.from_config(_db=db)
-        self.api = api
+        self.api = api_class(collection, **api_class_kwargs)
 
     def do_run(self):
         print "OneClickImportScript.do_run"
@@ -1171,8 +1152,6 @@ class OneClickImportScript(Script):
         result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
         print result_string
         self.log.info(result_string)
-
-
 
 
 class OneClickDeltaScript(OneClickImportScript):
