@@ -111,12 +111,6 @@ class BaseCoverageProvider(object):
     def __init__(self, _db, batch_size=None, cutoff_time=None):
         """Constructor.
 
-        :param service_name: The name of the service that is providing
-        coverage. Used in log messages and Timestamp objects.
-
-        :param operation: An optional operation being performed by the
-        service. This lets one service perform multiple operations.
-
         :batch_size: The maximum number of objects that will be processed
         at once.
 
@@ -138,14 +132,23 @@ class BaseCoverageProvider(object):
             batch_size = self.DEFAULT_BATCH_SIZE
         self.batch_size = batch_size
         self.cutoff_time = cutoff_time
-        self.collection = None
+        self.collection_id = None
         
     @property
     def log(self):
         if not hasattr(self, '_log'):
             self._log = logging.getLogger(self.service_name)
         return self._log        
-   
+
+    @property
+    def collection(self):
+        """Retrieve the Collection object associated with this
+        CoverageProvider.
+        """
+        if not self.collection_id:
+            return None
+        return get_one(self._db, Collection, id=self.collection_id)
+    
     def run(self):
         self.run_once_and_update_timestamp()
 
@@ -430,7 +433,10 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """
         super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
-        self.collection = collection
+        # We store the collection ID rather than the Collection to
+        # avoid breakage if an app server with a scoped session ever
+        # uses a IdentifierCoverageProvider.
+        self.collection_id = collection.id
         self.input_identifiers = input_identifiers
         self.replacement_policy = (
             replacement_policy or self._default_replacement_policy
