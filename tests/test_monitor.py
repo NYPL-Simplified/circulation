@@ -30,10 +30,10 @@ from monitor import (
 
 class DummyMonitor(Monitor):
 
+    SERVICE_NAME = "Dummy monitor for test"
+    
     def __init__(self, _db, collection=None):
-        super(DummyMonitor, self).__init__(
-            _db, "Dummy monitor for test", collection, 0.1
-        )
+        super(DummyMonitor, self).__init__(_db, collection, 0.1)
         self.run_records = []
         self.cleanup_records = []
 
@@ -47,6 +47,18 @@ class DummyMonitor(Monitor):
 
 class TestMonitor(DatabaseTest):
 
+    def test_must_define_service_name(self):
+
+        class Mock(DummyMonitor):
+            SERVICE_NAME = None
+
+        assert_raises_regexp(
+            ValueError,
+            "Mock must define SERVICE_NAME.",
+            Mock,
+            self._db
+        )
+    
     def test_monitor_lifecycle(self):
         monitor = DummyMonitor(self._db)
 
@@ -263,18 +275,14 @@ class TestSubjectSweepMonitor(DatabaseTest):
             self._db, Subject.TAG, None, "100 Years of Solitude"
         )
 
-        dewey_monitor = SubjectSweepMonitor(
-            self._db, "Test Monitor", Subject.DDC
-        )
+        dewey_monitor = SubjectSweepMonitor(self._db, Subject.DDC)
         eq_([s1], dewey_monitor.subject_query().all())
 
-        one_hundred_monitor = SubjectSweepMonitor(
-            self._db, "Test Monitor", None, "100"
-        )
+        one_hundred_monitor = SubjectSweepMonitor(self._db, None, "100")
         eq_([s1, s2], one_hundred_monitor.subject_query().all())
 
         specific_tag_monitor = SubjectSweepMonitor(
-            self._db, "Test Monitor", Subject.TAG, "Years"
+            self._db, Subject.TAG, "Years"
         )
         eq_([s2], specific_tag_monitor.subject_query().all())
         

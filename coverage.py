@@ -436,7 +436,9 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         # We store the collection ID rather than the Collection to
         # avoid breakage if an app server with a scoped session ever
         # uses a IdentifierCoverageProvider.
-        self.collection_id = collection.id
+        self.collection_id = None
+        if collection:
+            self.collection_id = collection.id
         self.input_identifiers = input_identifiers
         self.replacement_policy = (
             replacement_policy or self._default_replacement_policy

@@ -13,6 +13,7 @@ import log # This sets the appropriate log format and level.
 from config import Configuration
 from coverage import CoverageFailure
 from model import (
+    get_one,
     get_one_or_create,
     Collection,
     CoverageRecord,
@@ -33,11 +34,19 @@ class Monitor(object):
     Running a Monitor will update a Timestamp object with the last time the
     Monitor was run.
 
+    This class is designed to be subclassed rather than instantiated
+    directly. Subclasses should define SERVICE_NAME and PROTOCOL.
+
     Although any Monitor may be associated with a Collection, it's
     most useful to subclass CollectionMonitor if you're writing code
     that needs to be run on every Collection of a certain type.
     """    
-
+    # In your subclass, set this to the name of the service,
+    # e.g. "Overdrive Circulation Monitor". All instances of your
+    # subclass will give this as their service name and track their
+    # Timestamps under this name.
+    SERVICE_NAME = None
+    
     # The Monitor code will not run more than once every this number of seconds.
     #
     # It's possible to override this by passing in `interval_seconds`
@@ -51,14 +60,26 @@ class Monitor(object):
     NEVER = object()
     
     def __init__(
-            self, _db, name, collection=None, interval_seconds=None,
-            default_start_time=None, keep_timestamp=True):
-        if interval_seconds is None:
-            interval_seconds = self.DEFAULT_INTERVAL_SECONDS
+            self, _db, collection=None, interval_seconds=None,
+            default_start_time=None, keep_timestamp=True
+    ):
         self._db = _db
-        self.service_name = name
+        if not self.__class__.SERVICE_NAME:
+            raise ValueError(
+                "%s must define SERVICE_NAME." % self.__class__.__name__
+            )
+        self.service_name = self.__class__.SERVICE_NAME
+
+        if interval_seconds is None or interval_seconds < 0:
+            interval_seconds = self.DEFAULT_INTERVAL_SECONDS
         self.interval_seconds = interval_seconds
-        self.collection = collection
+
+        # We store the collection ID rather than the Collection to
+        # avoid breakage if an app server with a scoped session ever
+        # uses a Monitor.
+        self.collection_id = None
+        if collection:
+            self.collection_id = collection.id
         self.stop_running = False
         self.keep_timestamp = keep_timestamp
 
@@ -75,6 +96,15 @@ class Monitor(object):
             self._log = logging.getLogger(self.service_name)
         return self._log        
 
+    @property
+    def collection(self):
+        """Retrieve the Collection object associated with this
+        CoverageProvider.
+        """
+        if not self.collection_id:
+            return None
+        return get_one(self._db, Collection, id=self.collection_id)
+    
     def run(self):        
         if self.keep_timestamp:
             self.timestamp, new = get_one_or_create(
@@ -124,19 +154,8 @@ class CollectionMonitor(Monitor):
     directly. Subclasses should define SERVICE_NAME and PROTOCOL.
     """
 
-    # In your subclass, set this to the name of the service,
-    # e.g. "Overdrive Circulation Monitor". All instances of your
-    # subclass will give this as their service name and track their
-    # Timestamps under this name.
-    SERVICE_NAME = None
-
     # Set this to the name of the protocol managed by this Monitor.
     PROTOCOL = None
-
-    def __init__(self, _db, **kwargs):
-        super(CollectionMonitor, self).__init__(
-            _db, name=self.SERVICE_NAME, **kwargs
-        )
         
     @classmethod
     def all(cls, _db, **kwargs):
@@ -165,10 +184,10 @@ class IdentifierSweepMonitor(Monitor):
     # this log level.
     COMPLETION_LOG_LEVEL = logging.INFO
 
-    def __init__(self, _db, name, interval_seconds=3600,
+    def __init__(self, _db, interval_seconds=3600,
                  default_counter=0, batch_size=100):
         super(IdentifierSweepMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds)
+            _db, interval_seconds=interval_seconds)
         self.default_counter = default_counter
         self.batch_size = batch_size
 
@@ -233,11 +252,11 @@ class IdentifierSweepMonitor(Monitor):
 
 class SubjectSweepMonitor(IdentifierSweepMonitor):
 
-    def __init__(self, _db, name, subject_type=None, filter_string=None,
+    SERVICE_NAME = "Subject Sweep Monitor"
+    
+    def __init__(self, _db, subject_type=None, filter_string=None,
                  batch_size=500):
-        super(SubjectSweepMonitor, self).__init__(
-            _db, name, batch_size=batch_size
-        )
+        super(SubjectSweepMonitor, self).__init__(_db, batch_size=batch_size)
         self.subject_type = subject_type
         self.filter_string = filter_string
 
@@ -397,10 +416,10 @@ class PresentationReadyMonitor(WorkSweepMonitor):
     the ensure_coverage() calls succeed, presentation of the work is
     calculated and the work is marked presentation ready.
     """
+    SERVICE_NAME = "Make Works Presentation Ready" 
     def __init__(self, _db, coverage_providers,
                  calculate_work_even_if_no_author=False):
-        super(PresentationReadyMonitor, self).__init__(
-            _db, "Make Works Presentation Ready")
+        super(PresentationReadyMonitor, self).__init__(_db)
         self.coverage_providers = coverage_providers
         self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
 
