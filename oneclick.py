@@ -19,6 +19,7 @@ from coverage import BibliographicCoverageProvider, CoverageFailure
 from model import (
     Collection,
     Contributor,
+    get_one,
     get_one_or_create,
     DataSource,
     DeliveryMechanism,
@@ -78,8 +79,8 @@ class OneClickAPI(object):
                 "Collection protocol is %s, but passed into OneClickAPI!" %
                 collection.protocol
             )
-        self.collection = collection
-        self._db = Session.object_session(self.collection)
+        self._db = Session.object_session(collection)
+        self.collection_id = collection.id
         self.library_id = collection.external_account_id.encode("utf8")
         self.token = collection.password.encode("utf8")
 
@@ -110,6 +111,9 @@ class OneClickAPI(object):
     def source(self):
         return DataSource.lookup(self._db, DataSource.ONECLICK)
 
+    @property
+    def collection(self):
+        return get_one(self._db, Collection, id=self.collection_id)
 
     @property
     def authorization_headers(self):
@@ -526,13 +530,20 @@ class MockOneClickAPI(OneClickAPI):
         return collection
     
     def __init__(self, collection, base_path=None, **kwargs):
-        self.collection = collection
+        self._collection = collection
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
         return super(MockOneClickAPI, self).__init__(collection, **kwargs)
 
+    @property
+    def collection(self):
+        """We can store the actual Collection object with the API,
+        so there's no need to store the ID and do lookups.]
+        """
+        return self._collection
+    
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
@@ -829,10 +840,10 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             # generally the done thing, but it is necessary when a
             # OneClickAPI object itself wants a
             # OneClickBibliographicCoverageProvider.
-            if api_class.collection != collection:
+            if api_class.collection_id != collection.id:
                 raise ValueError(
                     "Coverage provider and its API are scoped to different collections! (%s vs. %s)" % (
-                        api_class.collection.name, collection.name
+                        api_class.collection_id, collection._id
                     )
                 )
             else:
