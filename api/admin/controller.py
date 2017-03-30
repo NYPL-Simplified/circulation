@@ -97,22 +97,25 @@ class AdminController(object):
         self.cdn_url_for = self.manager.cdn_url_for
 
     @property
-    def google(self):
-        auth_service = get_one(self._db, AdminAuthenticationService,
-                               provider=AdminAuthenticationService.GOOGLE_OAUTH)
-        return GoogleAuthService(
-            auth_service,
-            self.url_for('google_auth_callback'),
-            test_mode=self.manager.testing,
-        )
+    def auth(self):
+        auth_service = get_one(self._db, AdminAuthenticationService)
+        if auth_service and auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
+            return GoogleAuthService(
+                auth_service,
+                self.url_for('google_auth_callback'),
+                test_mode=self.manager.testing,
+            )
+        return None
 
     def authenticated_admin_from_request(self):
         """Returns an authenticated admin or begins the Google OAuth flow"""
+        if not self.auth:
+            return ADMIN_AUTH_NOT_CONFIGURED
 
         access_token = flask.session.get("admin_access_token")
         if access_token:
             admin = get_one(self._db, Admin, access_token=access_token)
-            if admin and self.google.active_credentials(admin):
+            if admin and self.auth.active_credentials(admin):
                 return admin
         return INVALID_ADMIN_CREDENTIALS
 
@@ -150,19 +153,24 @@ class SignInController(AdminController):
 
     def sign_in(self):
         """Redirects admin if they're signed in."""
+        if not self.auth:
+            return ADMIN_AUTH_NOT_CONFIGURED
+
         admin = self.authenticated_admin_from_request()
 
         if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.args.get("redirect")
-            return redirect(self.google.auth_uri(redirect_url), Response=Response)
+            return redirect(self.auth.auth_uri(redirect_url), Response=Response)
         elif admin:
             return redirect(flask.request.args.get("redirect"), Response=Response)
 
     def redirect_after_sign_in(self):
         """Uses the Google OAuth client to determine admin details upon
         callback. Barring error, redirects to the provided redirect url.."""
+        if not self.auth:
+            return ADMIN_AUTH_NOT_CONFIGURED
 
-        admin_details, redirect_url = self.google.callback(flask.request.args)
+        admin_details, redirect_url = self.auth.callback(flask.request.args)
         if isinstance(admin_details, ProblemDetail):
             return self.error_response(admin_details)
 
@@ -177,8 +185,10 @@ class SignInController(AdminController):
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
         domain"""
+        if not self.auth:
+            return False
 
-        staff_domains = self.google.domains
+        staff_domains = self.auth.domains
         domain = email[email.index('@')+1:]
         return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
 
@@ -1027,6 +1037,84 @@ class SettingsController(CirculationManagerController):
         for library in collection.libraries:
             if library.short_name not in libraries:
                 library.collections.remove(collection)
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def admin_auth_services(self):
+        if flask.request.method == 'GET':
+            auth_services = []
+            auth_service = get_one(self._db, AdminAuthenticationService)
+            if auth_service and auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
+                auth_services = [
+                    dict(
+                        name=auth_service.name,
+                        provider=auth_service.provider,
+                        url=auth_service.external_integration.url,
+                        username=auth_service.external_integration.username,
+                        password=auth_service.external_integration.password,
+                        domains=json.loads(auth_service.external_integration.setting("domains").value),
+                    )
+                ]
+
+            return dict(
+                admin_auth_services=auth_services,
+                providers=AdminAuthenticationService.PROVIDERS,
+            )
+
+        name = flask.request.form.get("name")
+        if not name:
+            return MISSING_ADMIN_AUTH_SERVICE_NAME
+
+        provider = flask.request.form.get("provider")
+
+        if provider and provider not in AdminAuthenticationService.PROVIDERS:
+            return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
+
+        is_new = False
+        auth_service = get_one(self._db, AdminAuthenticationService)
+        if auth_service:
+            # Currently there can only be one admin auth service, and one already exists.
+            if name != auth_service.name:
+                return ADMIN_AUTH_SERVICE_NOT_FOUND
+
+            if provider != auth_service.provider:
+                return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
+
+        else:
+            if provider:
+                auth_service, is_new = get_one_or_create(
+                    self._db, AdminAuthenticationService, name=name, provider=provider
+                )
+            else:
+                return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
+
+        # Only Google OAuth is supported for now.
+        url = flask.request.form.get("url")
+        username = flask.request.form.get("username")
+        password = flask.request.form.get("password")
+        domains = flask.request.form.get("domains")
+        
+        if not url or not username or not password or not domains:
+            # If an admin auth service was created, make sure it
+            # isn't saved in a incomplete state.
+            self._db.rollback()
+            return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
+
+        # Also make sure the domain list is valid JSON.
+        try:
+            json.loads(domains)
+        except Exception:
+            self._db.rollback()
+            return INVALID_ADMIN_AUTH_DOMAIN_LIST
+
+        integration = auth_service.external_integration
+        integration.url = url
+        integration.username = username
+        integration.password = password
+        integration.set_setting("domains", domains)
 
         if is_new:
             return Response(unicode(_("Success")), 201)
