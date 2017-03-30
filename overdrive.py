@@ -110,8 +110,7 @@ class OverdriveAPI(object):
                 "Collection protocol is %s, but passed into OverdriveAPI!" %
                 collection.protocol
             )
-        self.collection = collection
-        self._db = Session.object_session(self.collection)
+        self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id
         if collection.parent:
             # This is an Overdrive Advantage account.

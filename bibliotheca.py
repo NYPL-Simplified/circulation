@@ -89,7 +89,6 @@ class BibliothecaAPI(object):
             )
 
         self.item_list_parser = ItemListParser()
-        self.collection = collection
 
     @property
     def source(self):

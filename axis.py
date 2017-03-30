@@ -70,8 +70,7 @@ class Axis360API(object):
                 "Collection protocol is %s, but passed into Axis360API!" %
                 collection.protocol
             )
-        self.collection = collection
-        self._db = Session.object_session(self.collection)
+        self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id.encode("utf8")
         self.username = collection.username.encode("utf8")
         self.password = collection.password.encode("utf8")
