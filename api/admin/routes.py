@@ -312,7 +312,7 @@ def admin_view(collection=None, book=None, **kwargs):
     else:
         csrf_token = None
     show_circ_events_download = (
-        "core.local_analytics_provider" in Configuration.policy("analytics") or []
+        "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
     )
     return flask.render_template_string(
         admin_template,
