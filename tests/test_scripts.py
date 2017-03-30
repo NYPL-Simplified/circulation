@@ -652,11 +652,11 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         assert_raises(RuntimeError, self.script.do_run)
 
     def test_error_not_raised_when_timestamp_forced(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         self.script.do_run(['-f'])
         self.assert_matches_latest_migration()
 

@@ -1579,7 +1579,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     "%s timestamp already exists: %r. Use --force to update." %
                     (self.name, existing_timestamp))
 
-        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        timestamp = existing_timestamp or Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         if last_run_date:
             submitted_time = self.parse_time(last_run_date)
             timestamp.timestamp = submitted_time
@@ -1590,7 +1592,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
 
-        initial_timestamp = Timestamp.stamp(self._db, self.name)
+        initial_timestamp = Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
