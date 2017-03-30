@@ -192,9 +192,11 @@ class DatabaseTest(object):
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
     def _edition(self, data_source_name=DataSource.GUTENBERG,
-                    identifier_type=Identifier.GUTENBERG_ID,
-                    with_license_pool=False, with_open_access_download=False,
-                    title=None, language="eng", authors=None, identifier_id=None):
+                 identifier_type=Identifier.GUTENBERG_ID,
+                 with_license_pool=False, with_open_access_download=False,
+                 title=None, language="eng", authors=None, identifier_id=None,
+                 collection=None
+    ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
@@ -215,8 +217,11 @@ class DatabaseTest(object):
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
-            pool = self._licensepool(wr, data_source_name=data_source_name,
-                                     with_open_access_download=with_open_access_download)  
+            pool = self._licensepool(
+                wr, data_source_name=data_source_name,
+                with_open_access_download=with_open_access_download,
+                collection=collection
+            )
 
             pool.set_presentation_edition()
             return wr, pool

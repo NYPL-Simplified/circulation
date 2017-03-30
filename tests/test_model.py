@@ -1199,16 +1199,57 @@ class TestLicensePool(DatabaseTest):
             collection=collection
         )
 
+    def test_licensepools_for_same_identifier_have_same_presentation_edition(self):
+        """Two LicensePools for the same Identifier will get the same
+        presentation edition.
+        """
+        identifier = self._identifier()
+        edition1, pool1 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.GUTENBERG,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        edition2, pool2 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        pool1.set_presentation_edition()
+        pool2.set_presentation_edition()
+        eq_(pool1.presentation_edition, pool2.presentation_edition)
+        
+    def test_collection_datasource_identifier_must_be_unique(self):
+        """You can't have two LicensePools with the same Collection,
+        DataSource, and Identifier.
+        """
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = self._identifier()
+        collection = self._default_collection
+        pool = create(
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )
+
+        assert_raises(
+            IntegrityError,
+            create,
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )        
+        
     def test_with_no_work(self):
-        collection = self._collection()
         p1, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-            collection=collection
+            collection=self._default_collection
         )
 
         p2, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2",
-            collection=collection
+            collection=self._default_collection
         )
 
         work = self._work(title="Foo")
@@ -2705,49 +2746,47 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"foo", work.title)
         eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
-    def test_calculate_work_for_new_work(self):
-        # TODO: This test doesn't actually test
-        # anything. calculate_work() is too complicated and needs to
-        # be refactored.
+    def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
-        # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        # Here's a LicensePool with an Edition.
+        edition1, pool = self._edition(
+            data_source_name=DataSource.GUTENBERG, with_license_pool=True
         )
+        
+        # Here's a second Edition that's talking about a different Identifier
+        # altogether, and has no LicensePool.
+        edition2 = self._edition()
+        assert edition1.primary_identifier != edition2.primary_identifier
 
-        # This work record is shared by the existing work and the new
+        # Here's a third Edition that's tied to a totally different
         # LicensePool.
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2",
+        edition3, pool2 = self._edition(with_license_pool=True)
+        assert edition1.primary_identifier != edition3.primary_identifier
+        
+        # When we calculate a Work for a LicensePool, we can pass in
+        # any Edition as the presentation edition, so long as that
+        # Edition's primary identifier matches the LicensePool's
+        # identifier.
+        work, is_new = pool.calculate_work(known_edition=edition1)
+
+        # But we can't pass in an Edition that is not the presentation
+        # edition for any LicensePool.
+        assert_raises_regexp(
+            ValueError,
+            "Alleged presentation edition is not the presentation edition for any particular license pool!",
+            pool.calculate_work,
+            known_edition=edition2
         )
 
-        # These work records are unique to the new LicensePool.
-
-        edition3, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3",
+        # And we can't pass in an Edition that's the presentation
+        # edition for a LicensePool with a totally different Identifier.
+        assert_raises_regexp(
+            ValueError,
+            "Presentation edition's license pool has a different identifier than the license pool for which work is being calculated!",
+            pool.calculate_work,
+            known_edition=edition3
         )
-
-        edition4, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4",
-        )
-
-        # Make edition4's primary identifier equivalent to edition3's and edition1's
-        # primaries.
-        data_source = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        for make_equivalent in edition3, edition1:
-            edition4.primary_identifier.equivalent_to(
-                data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(presentation_edition=edition1)
-
-        collection = self._collection()
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4",
-            collection=collection
-        )
-        self._db.commit()
-
-        pool.calculate_work()
-
+        
     def test_open_access_pools_grouped_together(self):
 
         # We have four editions with exactly the same title and author.
@@ -2791,7 +2830,41 @@ class TestWorkConsolidation(DatabaseTest):
         # Each restricted-access pool is completely isolated.
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
+       
+    def test_all_licensepools_with_same_identifier_get_same_work(self):
 
+        # Here are two LicensePools for the same Identifier and
+        # DataSource, but different Collections.
+        edition1, pool1 = self._edition(with_license_pool=True)
+        identifier = pool1.identifier
+        collection2 = self._collection()
+
+        edition2, pool2 = self._edition(
+            with_license_pool=True,
+            identifier_type=identifier.type,
+            identifier_id=identifier.identifier,
+            collection=collection2
+        )
+
+        eq_(pool1.identifier, pool2.identifier)
+        eq_(pool1.data_source, pool2.data_source)
+        eq_(self._default_collection, pool1.collection)
+        eq_(collection2, pool2.collection)
+
+        # The two LicensePools have the same Edition (since a given
+        # DataSource has only one opinion about an Identifier's
+        # bibliographic information).
+        eq_(edition1, edition2)
+
+        # Because the two LicensePools have the same Identifier, they
+        # have the same Work.
+        work1, is_new_1 = pool1.calculate_work()
+        work2, is_new_2 = pool2.calculate_work()
+        eq_(work1, work2)
+        eq_(True, is_new_1)
+        eq_(False, is_new_2)
+        eq_(edition1, work1.presentation_edition)
+        
     def test_calculate_work_fixes_work_in_invalid_state(self):
         # Here's a Work with a commercial edition of "abcd".
         work = self._work(with_license_pool=True)

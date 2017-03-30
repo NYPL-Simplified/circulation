@@ -5869,9 +5869,10 @@ class LicensePool(Base):
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
     
-    # A Identifier should have at most one LicensePool.
+    # A Collection can not have more than one LicensePool for a given
+    # Identifier from a given DataSource.
     __table_args__ = (
-        UniqueConstraint('identifier_id'),
+        UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
     def __repr__(self):
@@ -6380,10 +6381,16 @@ class LicensePool(Base):
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
             
-        if (presentation_edition and
-            presentation_edition.is_presentation_for != self):
-            raise ValueError(
-                "Presentation edition's license pool is not the license pool for which work is being calculated!")           
+        if presentation_edition:
+            if not presentation_edition.is_presentation_for:
+                raise ValueError(
+                    "Alleged presentation edition is not the presentation edition for any particular license pool!"
+                )
+            elif (presentation_edition.is_presentation_for.identifier
+                  != self.identifier):
+                raise ValueError(
+                    "Presentation edition's license pool has a different identifier than the license pool for which work is being calculated!"
+                )
                     
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
@@ -6677,7 +6684,7 @@ class LicensePool(Base):
         return lpdm
 
 
-Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
+Index("ix_licensepools_data_source_id_identifier_id_collection_id", LicensePool.collection_id, LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
 
 class RightsStatus(Base):
