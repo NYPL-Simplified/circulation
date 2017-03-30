@@ -45,7 +45,6 @@ from metadata_layer import (
 
 from coverage import (
     BibliographicCoverageProvider,
-    CoverageFailure,
 )
 
 from config import (

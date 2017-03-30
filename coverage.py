@@ -600,9 +600,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
         if not metadata:
             e = "Did not receive metadata from input source"
-            return CoverageFailure(
-                identifier, e, data_source=self.data_source, transient=True
-            )
+            return self.failure(identifier, e, transient=True)
 
         try:
             metadata.apply(
@@ -614,10 +612,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
                 "Error applying metadata to edition %d: %s",
                 edition.id, e, exc_info=e
             )
-            return CoverageFailure(
-                identifier, repr(e), data_source=self.data_source,
-                transient=True
-            )
+            return self.failure(identifier, repr(e), transient=True)
 
         return identifier
 
@@ -667,9 +662,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """Create a CoverageFailure recording the CoverageProvider's
         failure to even try to process an item.
         """
-        return CoverageFailure(
-            item, "Was ignored by CoverageProvider.", 
-            data_source=self.data_source, transient=True
+        return self.failure(
+            item, "Was ignored by CoverageProvider.", transient=True
         )
 
 
@@ -843,10 +837,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             error = "Cannot locate LicensePool"
                 
         if error:
-            return CoverageFailure(
-                identifier, error, data_source=self.data_source,
-                transient=True
-            )
+            return self.failure(identifier, error, transient=True)
         return work
     
     def set_metadata_and_circulation_data(
@@ -862,9 +853,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
         if not metadata and not circulationdata:
             e = "Received neither metadata nor circulation data from input source"
-            return CoverageFailure(
-                identifier, e, data_source=self.data_source, transient=True
-            )
+            return self.failure(identifier, e, transient=True)
 
         if metadata:
             result = self.set_metadata(identifier, metadata)
@@ -898,7 +887,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
         if not circulationdata:
             e = "Did not receive circulationdata from input source"
-            return CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
+            return self.failure(identifier, e, transient=True)
 
         try:
             circulationdata.apply(pool, replace=self.replacement_policy)
@@ -907,7 +896,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 "Error applying circulationdata to pool %d: %s",
                 pool.id, e, exc_info=e
             )
-            return CoverageFailure(identifier, repr(e), data_source=self.data_source, transient=True)
+            return self.failure(identifier, repr(e), transient=True)
 
         return identifier
 

@@ -782,15 +782,13 @@ class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
 
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(
-            item, "What did you expect?", self.data_source, self.transient
-        )
+        return self.failure(item, "What did you expect?", self.transient)
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     SERVICE_NAME = "Never successful (works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "What did you expect?", None, False)
+        return self.failure(item, "What did you expect?", False)
 
 class NeverSuccessfulBibliographicCoverageProvider(
         MockCoverageProvider, BibliographicCoverageProvider
@@ -800,9 +798,7 @@ class NeverSuccessfulBibliographicCoverageProvider(
     SERVICE_NAME = "Never successful (bibliographic)"
 
     def process_item(self, identifier):
-        return CoverageFailure(
-            identifier, "Bitter failure", self.data_source, transient=True
-        )
+        return self.failure(identifier, "Bitter failure", transient=True)
 
     
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
@@ -814,13 +810,13 @@ class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     SERVICE_NAME = "Never successful (transient)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", self.data_source, True)
+        return self.failure(item, "Oops!", True)
 
 class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     SERVICE_NAME = "Never successful (transient, works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", None, True)
+        return self.failure(item, "Oops!", True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""
