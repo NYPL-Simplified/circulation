@@ -2431,7 +2431,7 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        "LicensePool", uselist=False, backref="presentation_edition"
+        "LicensePool", backref="presentation_edition"
     )
 
     title = Column(Unicode, index=True)
@@ -3756,9 +3756,10 @@ class Work(Base):
 
         self.presentation_edition = new_presentation_edition
 
-        # if the edition has a license pool, let the pool know it has a work.
-        if self.presentation_edition.is_presentation_for:
-            self.presentation_edition.is_presentation_for.work = self
+        # if the edition is the presentation edition for any license
+        # pools, let them know they have a Work.
+        for pool in self.presentation_edition.is_presentation_for:
+            pool.work = self
 
     def calculate_presentation_edition(self, policy=None):
         """ Which of this Work's Editions should be used as the default?
@@ -6369,6 +6370,11 @@ class LicensePool(Base):
         or author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
+
+        TODO: I think known_edition is mostly useless. We should
+        either remove it or replace it with a boolean that stops us
+        from calling set_presentation_edition() and assumes we've
+        already done that work.
         """
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
@@ -6382,14 +6388,9 @@ class LicensePool(Base):
             presentation_edition = self.presentation_edition
             
         if presentation_edition:
-            if not presentation_edition.is_presentation_for:
+            if self not in presentation_edition.is_presentation_for:
                 raise ValueError(
-                    "Alleged presentation edition is not the presentation edition for any particular license pool!"
-                )
-            elif (presentation_edition.is_presentation_for.identifier
-                  != self.identifier):
-                raise ValueError(
-                    "Presentation edition's license pool has a different identifier than the license pool for which work is being calculated!"
+                    "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!"
                 )
                     
         logging.info("Calculating work for %r", presentation_edition)

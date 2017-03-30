@@ -2769,23 +2769,15 @@ class TestWorkConsolidation(DatabaseTest):
         # identifier.
         work, is_new = pool.calculate_work(known_edition=edition1)
 
-        # But we can't pass in an Edition that is not the presentation
-        # edition for any LicensePool.
-        assert_raises_regexp(
-            ValueError,
-            "Alleged presentation edition is not the presentation edition for any particular license pool!",
-            pool.calculate_work,
-            known_edition=edition2
-        )
-
-        # And we can't pass in an Edition that's the presentation
+        # But we can't pass in an Edition that's the presentation
         # edition for a LicensePool with a totally different Identifier.
-        assert_raises_regexp(
-            ValueError,
-            "Presentation edition's license pool has a different identifier than the license pool for which work is being calculated!",
-            pool.calculate_work,
-            known_edition=edition3
-        )
+        for edition in (edition2, edition3):
+            assert_raises_regexp(
+                ValueError,
+                "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!",
+                pool.calculate_work,
+                known_edition=edition
+            )
         
     def test_open_access_pools_grouped_together(self):
 
