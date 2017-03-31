@@ -28,40 +28,41 @@ from monitor import (
     SubjectSweepMonitor,
 )
 
-class DummyMonitor(Monitor):
+class MockMonitor(Monitor):
 
     SERVICE_NAME = "Dummy monitor for test"
     
     def __init__(self, _db, collection=None):
-        super(DummyMonitor, self).__init__(_db, collection, 0.1)
+        super(MockMonitor, self).__init__(_db, collection)
         self.run_records = []
         self.cleanup_records = []
 
     def run_once(self, start, cutoff):
         self.original_timestamp = start
         self.run_records.append(True)
-        self.stop_running = True
 
     def cleanup(self):
         self.cleanup_records.append(True)
+
 
 class TestMonitor(DatabaseTest):
 
     def test_must_define_service_name(self):
 
-        class Mock(DummyMonitor):
+        class NoServiceName(MockMonitor):
             SERVICE_NAME = None
 
         assert_raises_regexp(
             ValueError,
-            "Mock must define SERVICE_NAME.",
-            Mock,
+            "NoServiceName must define SERVICE_NAME.",
+            NoServiceName,
             self._db
         )
     
     def test_monitor_lifecycle(self):
-        monitor = DummyMonitor(self._db)
-
+        monitor = MockMonitor(self._db, self._default_collection)
+        eq_(self._default_collection, monitor.collection)
+        
         # There is no timestamp for this monitor.
         eq_([], self._db.query(Timestamp).filter(
             Timestamp.service==monitor.service_name).all())
@@ -91,8 +92,8 @@ class TestMonitor(DatabaseTest):
         """
         c1 = self._collection()
         c2 = self._collection()
-        m1 = DummyMonitor(self._db, c1)
-        m2 = DummyMonitor(self._db, c2)
+        m1 = MockMonitor(self._db, c1)
+        m2 = MockMonitor(self._db, c2)
 
         # The two Monitors have the same service name but are operating
         # on different Collections.

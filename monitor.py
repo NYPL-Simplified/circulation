@@ -67,7 +67,7 @@ class Monitor(object):
     INTERVAL_SECONDS = 60
 
     # Some useful relative constants for DEFAULT_START_TIME (below).
-    ONE_MINUTE_AGO =datetime.timedelta(seconds=60)
+    ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
     ONE_YEAR_AGO = datetime.timedelta(seconds=60*60*24*365)
     NEVER = object()
 
@@ -81,7 +81,7 @@ class Monitor(object):
     # This is only used by the SweepMonitor subclass.
     DEFAULT_COUNTER = None
     
-    def __init__(self, _db, collection=None)
+    def __init__(self, _db, collection=None):
         self._db = _db
         cls = self.__class__
         if not cls.SERVICE_NAME:
@@ -92,6 +92,10 @@ class Monitor(object):
         default_start_time = cls.DEFAULT_START_TIME
         if default_start_time is self.NEVER:
             default_start_time = None
+        if isinstance(default_start_time, datetime.timedelta):
+            default_start_time = (
+                datetime.datetime.utcnow() - default_start_time
+            )
         self.default_start_time = default_start_time
         self.default_counter = cls.DEFAULT_COUNTER
         
@@ -145,8 +149,11 @@ class Monitor(object):
         new_timestamp_value = self.run_once(start, cutoff) or cutoff
         duration = datetime.datetime.utcnow() - cutoff
         self.cleanup()
-        self.log.info("Ran %s monitor in %.2f sec.", duration)
-        if keep_timestamp:
+        self.log.info(
+            "Ran %s monitor in %.2f sec.", self.service_name,
+            duration.total_seconds()
+        )
+        if self.keep_timestamp:
             # Update the Timestamp value.
             timestamp.timestamp = new_timestamp_value
         self._db.commit()
@@ -388,7 +395,7 @@ class CustomListEntrySweepMonitor(SweepMonitor):
         Work is in the given Collection.
         """
         return qu.join(CustomListEntry.work).join(Work.license_pools).filter(
-            LicensePool.collection=collection
+            LicensePool.collection==collection
         )
 
 
@@ -402,7 +409,7 @@ class EditionSweepMonitor(SweepMonitor):
         """
         return qu.join(Edition.primary_identifier).join(
             Identifier.licensed_through).filter(
-                LicensePool.collection=collection
+                LicensePool.collection==collection
             )
 
 
@@ -416,7 +423,7 @@ class WorkSweepMonitor(IdentifierSweepMonitor):
         """
         return qu.join(Edition.primary_identifier).join(
             Identifier.licensed_through).filter(
-                LicensePool.collection=collection
+                LicensePool.collection==collection
             )
 
 
