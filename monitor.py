@@ -595,6 +595,10 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
     DEFAULT_BATCH_SIZE = 1000
     
     def process_batch(self, offset):
+        """Unlike other Monitors, this one leaves process_item() undefined
+        because it works on a large number of Works at once using raw
+        SQL.
+        """
         new_offset = offset + self.batch_size
         text = "update works set random=random() where id >= :offset and id < :new_offset;"
         self._db.execute(text, dict(offset=offset, new_offset=new_offset))
@@ -606,6 +610,7 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
 
 
 class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
+
     """Set or reset the Work associated with each custom list entry."""
     SERVICE_NAME = "Update Works for custom list entries"
     INTERVAL_SECONDS = 3600 * 24

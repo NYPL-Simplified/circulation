@@ -21,6 +21,7 @@ from model import (
     Identifier,
     Subject,
     Timestamp,
+    Work,
 )
 
 from monitor import (
@@ -646,9 +647,19 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
 
 class TestWorkRandomnessUpdateMonitor(DatabaseTest):
 
-    def test_process_item(self):
-        """This Monitor assigns Subjects to Genres."""
+    def test_process_batch(self):
+        """This Monitor sets Work.random to a random value.
+        """
         work = self._work()
-        work.random = None
-        WorkRandomnessUpdateMonitor(self._db).process_item(work)
-        assert work.random >= 0
+        old_random = work.random
+        monitor = WorkRandomnessUpdateMonitor(self._db)
+        value = monitor.process_batch(work.id)
+        # Since there's only one work, a single batch finishes the job.
+        eq_(0, value)
+
+        # This is normally called by run().
+        self._db.commit()
+
+        # This could fail once, spuriously but the odds are much
+        # higher that the code has broken and it's failing reliably.
+        assert work.random != old_random
