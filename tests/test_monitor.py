@@ -159,6 +159,11 @@ class TestCollectionMonitor(DatabaseTest):
             "Collection protocol \(Bibliotheca\) does not match Monitor protocol \(Overdrive\)",
             OverdriveMonitor, self._db, c2
         )
+        assert_raises_regexp(
+            ValueError,
+            "Collection protocol \(Bibliotheca\) does not match Monitor protocol \(Overdrive\)",
+            OverdriveMonitor, self._db, None
+        )
         
     def test_all(self):
         """Test that we can create a list of Monitors"""
