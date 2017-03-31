@@ -663,3 +663,21 @@ class TestWorkRandomnessUpdateMonitor(DatabaseTest):
         # This could fail once, spuriously but the odds are much
         # higher that the code has broken and it's failing reliably.
         assert work.random != old_random
+
+
+class TestCustomListEntryWorkUpdateMonitor(DatabaseTest):
+
+    def test_set_item(self):
+
+        # Create a CustomListEntry.
+        list1, [edition1] = self._customlist(num_entries=1)
+        [entry] = list1.entries
+        
+        # Pretend that its CustomListEntry's work was never set.
+        old_work = entry.work
+        entry.work = None
+
+        # Running process_item resets it to the same value.
+        monitor = CustomListEntryWorkUpdateMonitor(self._db)
+        monitor.process_item(entry)
+        eq_(old_work, entry.work)
