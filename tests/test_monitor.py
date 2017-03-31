@@ -337,7 +337,32 @@ class TestSweepMonitor(DatabaseTest):
         # cleanup() is only called when the sweep completes successfully.
         eq_([], monitor.cleanup_called)
 
-        
+
+class TestIdentifierSweepMonitor(DatabaseTest):
+
+    def test_scope_to_collection(self):
+        # Two Collections, each with a LicensePool.
+        c1 = self._collection()
+        c2 = self._collection()
+        e1, p1 = self._edition(with_license_pool=True, collection=c1)
+        e2, p2 = self._edition(with_license_pool=True, collection=c2)
+
+        # A Random Identifier not associated with any Collection.
+        i3 = self._identifier()
+
+        class Mock(IdentifierSweepMonitor):
+            SERVICE_NAME = "Mock"
+
+        # With a Collection, we only process items that are licensed through
+        # that collection.
+        monitor = Mock(self._db, c1)
+        eq_([p1.identifier], monitor.item_query().all())
+            
+        # With no Collection, we process all items.
+        monitor = Mock(self._db, None)
+        eq_([p1.identifier, p2.identifier, i3], monitor.item_query().all())
+
+
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
