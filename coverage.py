@@ -966,6 +966,10 @@ class WorkCoverageProvider(BaseCoverageProvider):
             )
         return qu
 
+    def failure(self, work, error, transient=True):
+        """Create a CoverageFailure object."""
+        return CoverageFailure(work, error, transient=transient)
+   
     def failure_for_ignored_item(self, work):
         """Create a CoverageFailure recording the WorkCoverageProvider's
         failure to even try to process a Work.

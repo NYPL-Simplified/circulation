@@ -791,12 +791,11 @@ class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
         return self.failure(item, "What did you expect?", False)
 
 class NeverSuccessfulBibliographicCoverageProvider(
-        MockCoverageProvider, BibliographicCoverageProvider
-):
+        MockCoverageProvider, BibliographicCoverageProvider):
     """Simulates a BibliographicCoverageProvider that's never successful."""
 
     SERVICE_NAME = "Never successful (bibliographic)"
-
+    
     def process_item(self, identifier):
         return self.failure(identifier, "Bitter failure", transient=True)
 
