@@ -447,6 +447,21 @@ class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
                 Work.presentation_ready==True
             )
 
+class NotPresentationReadyWorkSweepMonitor(WorkSweepMonitor):
+    """A Monitor that does something to every Work that is not 
+    presentation-ready.
+    """
+    
+    def item_query(self):
+        not_presentation_ready = or_(
+            Work.presentation_ready==False,
+            Work.presentation_ready==None
+        )
+        return super(
+            NotPresentationReadyWorkSweepMonitor, self).item_query().filter(
+                not_presentation_ready
+            )
+    
 # Beneath this point are SweepMonitors that do something specific,
 # usually for repair purposes.
 
@@ -456,12 +471,8 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     """
     SERVICE_NAME = "ODPS Entry Cache Monitor"
     
-    def __init__(self, _db, collection=None, include_verbose_entry=True):
-        super(OPDSEntryCacheMonitor, self).__init__(_db, collection)
-        self.include_verbose_entry=include_verbose_entry
-
     def process_item(self, work):
-        work.calculate_opds_entries(verbose=self.include_verbose_entry)
+        work.calculate_opds_entries()
 
 
 class SubjectAssignmentMonitor(SubjectSweepMonitor):
@@ -482,7 +493,7 @@ class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
         edition.calculate_permanent_work_id()
 
 
-class PresentationReadyMonitor(WorkSweepMonitor):
+class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
     """A monitor that makes works presentation ready.
 
     By default this works by passing the work's active edition into
@@ -500,15 +511,6 @@ class PresentationReadyMonitor(WorkSweepMonitor):
         self.policy = PresentationCalculationPolicy(
             choose_edition=False
         )
-
-    def item_query(self):
-        """Only operate on Works that are not presentation-ready.
-        """
-        not_presentation_ready = or_(
-            Work.presentation_ready==False,
-            Work.presentation_ready==None
-        )
-        return self._db.query(Work).filter(not_presentation_ready)
 
     def run(self):
         """Before doing anything, consolidate works."""

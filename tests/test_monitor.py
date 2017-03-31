@@ -29,10 +29,11 @@ from monitor import (
     CustomListEntryWorkUpdateMonitor,
     EditionSweepMonitor,
     IdentifierSweepMonitor,
+    MakePresentationReadyMonitor,
     Monitor,
+    NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
     PermanentWorkIDRefreshMonitor,
-    PresentationReadyMonitor,
     PresentationReadyWorkSweepMonitor,
     SubjectAssignmentMonitor,
     SubjectSweepMonitor,
@@ -467,9 +468,10 @@ class TestEditionSweepMonitor(DatabaseTest):
         eq_([e2], monitor.item_query().all())
 
 
-class TestWorkSweepMonitor(DatabaseTest):
-    """This class tests both WorkSweepMonitor and
-    PresentationReadyWorkSweepMonitor.
+class TestWorkSweepMonitors(DatabaseTest):
+    """To reduce setup costs, this class tests WorkSweepMonitor,
+    PresentationReadyWorkSweepMonitor, and
+    NotPresentationReadyWorkSweepMonitor at once.
     """
 
     def test_item_query(self):
@@ -486,7 +488,7 @@ class TestWorkSweepMonitor(DatabaseTest):
         w4.presentation_ready = True
         
         w2.presentation_ready = False
-        w3.presentation_ready = False
+        w3.presentation_ready = None
         
         # Two Collections, each with one book.
         c1 = self._collection()
@@ -512,12 +514,61 @@ class TestWorkSweepMonitor(DatabaseTest):
         eq_([w1, w4], Mock(self._db).item_query().all())
         eq_([w1], Mock(self._db, collection=c1).item_query().all())
         eq_([], Mock(self._db, collection=c2).item_query().all())
+
+        # NotPresentationReadyWorkSweepMonitor is the same, but it _only_
+        # includes works that are not presentation ready.
+        class Mock(NotPresentationReadyWorkSweepMonitor):
+            SERVICE_NAME = "Mock"
+        eq_([w2, w3], Mock(self._db).item_query().all())
+        eq_([], Mock(self._db, collection=c1).item_query().all())
+        eq_([w2], Mock(self._db, collection=c2).item_query().all())
+
         
         
-class TestPresentationReadyMonitor(DatabaseTest):
+class TestOPDSEntryCacheMonitor(DatabaseTest):
+
+    def test_process_item(self):
+        """This Monitor calculates OPDS entries for works."""
+        class Mock(OPDSEntryCacheMonitor):
+            SERVICE_NAME = "Mock"
+        monitor = Mock(self._db)
+        work = self._work()
+        eq_(None, work.simple_opds_entry)
+        eq_(None, work.verbose_opds_entry)
+
+        monitor.process_item(work)
+        assert work.simple_opds_entry != None
+        assert work.verbose_opds_entry != None
+
+
+class TestSubjectAssignmentMonitor(DatabaseTest):
+
+    def test_process_item(self):
+        """This Monitor assigns Subjects to Genres."""
+        class Mock(SubjectAssignmentMonitor):
+            SERVICE_NAME = "Mock"
+
+        subject = self._subject(Subject.TAG, "Science Fiction")
+        eq_(None, subject.genre)
+        Mock(self._db).process_item(subject)
+        eq_("Science Fiction", subject.genre.name)
+
+class TestPermanentWorkIDRefresh(DatabaseTest):
+
+    def test_process_item(self):
+        """This Monitor calculates an Editions' permanent work ID."""
+        class Mock(PermanentWorkIDRefreshMonitor):
+            SERVICE_NAME = "Mock"
+        edition = self._edition()
+        eq_(None, edition.permanent_work_id)
+        Mock(self._db).process_item(edition)
+        assert edition.permanent_work_id != None
+        
+        
+class TestMakePresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
-        super(TestPresentationReadyMonitor, self).setup()
+        super(TestMakePresentationReadyMonitor, self).setup()
         self.gutenberg_id = Identifier.GUTENBERG_ID
         self.oclc = DataSource.lookup(self._db, DataSource.OCLC)
         self.overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -534,7 +585,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
             INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID,
             DATA_SOURCE_NAME = DataSource.OCLC
         provider = MockProvider(self._db)
-        monitor = PresentationReadyMonitor(self._db, [])
+        monitor = MakePresentationReadyMonitor(self._db, [])
         monitor.process_batch([self.work])
         eq_(None, self.work.presentation_ready_exception)
         eq_(True, self.work.presentation_ready)
@@ -552,7 +603,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
             DATA_SOURCE_NAME = DataSource.OVERDRIVE
         failure = MockProvider2(self._db)
 
-        monitor = PresentationReadyMonitor(self._db, [success, failure])
+        monitor = MakePresentationReadyMonitor(self._db, [success, failure])
         monitor.process_batch([self.work])
         eq_(False, self.work.presentation_ready)
         eq_(
@@ -571,7 +622,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
             INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
             DATA_SOURCE_NAME = DataSource.OVERDRIVE
         failure = MockProvider2(self._db)
-        monitor = PresentationReadyMonitor(self._db, [success, failure])
+        monitor = MakePresentationReadyMonitor(self._db, [success, failure])
         result = monitor.prepare(self.work)
         eq_([failure], result)
         
@@ -589,7 +640,7 @@ class TestPresentationReadyMonitor(DatabaseTest):
             INPUT_IDENTIFIER_TYPES = Identifier.OCLC_NUMBER
         oclc_monitor = OCLCProvider(self._db)
             
-        monitor = PresentationReadyMonitor(
+        monitor = MakePresentationReadyMonitor(
             self._db, [gutenberg_monitor, oclc_monitor]
         )
         result = monitor.prepare(self.work)
