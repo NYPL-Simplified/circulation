@@ -126,10 +126,38 @@ class TestMonitor(DatabaseTest):
         [t2] = c2.timestamps
         assert t2.timestamp > t1.timestamp
 
+
 class TestCollectionMonitor(DatabaseTest):
     """Test the special features of CollectionMonitor."""
-       
+
+    def test_protocol_enforcement(self):
+
+        class NoProtocolMonitor(CollectionMonitor):
+            SERVICE_NAME = "Test Monitor 1"
+            PROTOCOL = None
+
+        class OverdriveMonitor(CollectionMonitor):
+            SERVICE_NAME = "Test Monitor 2"
+            PROTOCOL = Collection.OVERDRIVE
+
+        # Two collections.
+        c1 = self._collection(protocol=Collection.OVERDRIVE)
+        c2 = self._collection(protocol=Collection.BIBLIOTHECA)
+
+        # The NoProtocolMonitor can be instantiated with either one.
+        NoProtocolMonitor(self._db, c1)
+        NoProtocolMonitor(self._db, c2)
+
+        # The OverdriveMonitor can only be instantiated with the first one.
+        OverdriveMonitor(self._db, c1)
+        assert_raises_regexp(
+            ValueError,
+            "Collection protocol \(Bibliotheca\) does not match Monitor protocol \(Overdrive\)",
+            OverdriveMonitor, self._db, c2
+        )
+        
     def test_all(self):
+        """Test that we can create a list of Monitors"""
         class OPDSCollectionMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor"
             PROTOCOL = Collection.OPDS_IMPORT
@@ -153,9 +181,7 @@ class TestCollectionMonitor(DatabaseTest):
         Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME,
                         o3, an_hour_ago)
         
-        monitors = list(
-            OPDSCollectionMonitor.all(self._db, interval_seconds=26)
-        )
+        monitors = list(OPDSCollectionMonitor.all(self._db))
 
         # Three OPDSCollectionMonitors were returned, one for each
         # appropriate collection. The monitor that needs to be run the
@@ -163,12 +189,6 @@ class TestCollectionMonitor(DatabaseTest):
         # run most recently is returned last. There is no
         # OPDSCollectionMonitor for the Bibliotheca collection.
         eq_([o2, o3, o1], [x.collection for x in monitors])
-
-        # The `interval_seconds` keyword argument was passed on to all the
-        # OPDSCollectionMonitor constructors.
-        for monitor in monitors:
-            eq_(OPDSCollectionMonitor.SERVICE_NAME, monitor.service_name)
-            eq_(26, monitor.interval_seconds)
 
 
 class TestPresentationReadyMonitor(DatabaseTest):

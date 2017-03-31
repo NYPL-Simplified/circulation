@@ -185,17 +185,26 @@ class CollectionMonitor(Monitor):
     KEEP_TIMESTAMP, INTERVAL_SECONDS, and DEFAULT_START_TIME.
     """
 
-    # Set this to the name of the protocol managed by this Monitor. It
-    # can only be run on Collections that implement this protocol.
+    # Set this to the name of the protocol managed by this Monitor. If
+    # this value is set, the CollectionMonitor can only be
+    # instantiated with Collections that implement this protocol. If this is
+    # unset, the CollectionMonitor can be instantiated with any Collection,
+    # or with no Collection at all.
     PROTOCOL = None
 
     def __init__(self, _db, collection):
-        if collection is None:
-            raise CollectionMissing()
         cls = self.__class__
-        if not cls.PROTOCOL:
-            raise ValueError("%s must define PROTOCOL." % cls.__name__)
         self.protocol = cls.PROTOCOL
+        if self.protocol:
+            if collection is None:
+                raise CollectionMissing()
+        if self.protocol and collection.protocol != self.protocol:
+            raise ValueError(
+                "Collection protocol (%s) does not match Monitor protocol (%s)" % (
+                    collection.protocol, cls.PROTOCOL
+                )
+            )
+
         super(CollectionMonitor, self).__init__(_db, collection)
     
     @classmethod
