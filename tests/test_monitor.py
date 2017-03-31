@@ -25,6 +25,7 @@ from model import (
 
 from monitor import (
     CollectionMonitor,
+    CoverageProvidersFailed,
     CustomListEntrySweepMonitor,
     CustomListEntryWorkUpdateMonitor,
     EditionSweepMonitor,
@@ -569,93 +570,75 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
         super(TestMakePresentationReadyMonitor, self).setup()
-        self.gutenberg_id = Identifier.GUTENBERG_ID
-        self.oclc = DataSource.lookup(self._db, DataSource.OCLC)
-        self.overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        self.edition, self.edition_license_pool = self._edition(DataSource.GUTENBERG, with_license_pool=True)
+
+        # This CoverageProvider will always succeed.
+        class MockProvider1(AlwaysSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 1"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OCLC
+            
+        # This CoverageProvider will always fail.
+        class MockProvider2(NeverSuccessfulCoverageProvider):
+            SERVICE_NAME = "Provider 2"
+            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
+            DATA_SOURCE_NAME = DataSource.OVERDRIVE
+            
+        self.success = MockProvider1(self._db)
+        self.failure = MockProvider2(self._db)
+        
         self.work = self._work(
             DataSource.GUTENBERG, with_license_pool=True)
         # Don't fake that the work is presentation ready, as we usually do,
         # because presentation readiness is what we're trying to test.
         self.work.presentation_ready = False
 
-    def test_make_batch_presentation_ready_sets_presentation_ready_on_success(self):
-        class MockProvider(AlwaysSuccessfulCoverageProvider):
-            SERVICE_NAME = "Provider 1"
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID,
-            DATA_SOURCE_NAME = DataSource.OCLC
-        provider = MockProvider(self._db)
+    def test_process_item_sets_presentation_ready_on_success(self):
+        # Create a monitor that doesn't need to do anything.
         monitor = MakePresentationReadyMonitor(self._db, [])
-        monitor.process_batch([self.work])
+        monitor.process_item(self.work)
+
+        # When it's done doing nothing, it sets the work as
+        # presentation-ready.
         eq_(None, self.work.presentation_ready_exception)
         eq_(True, self.work.presentation_ready)
 
-    def test_make_batch_presentation_ready_sets_exception_on_failure(self):
-        class MockProvider1(AlwaysSuccessfulCoverageProvider):
-            SERVICE_NAME = "Provider 1"
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
-            DATA_SOURCE_NAME = DataSource.OCLC
-        success = MockProvider1(self._db)
-
-        class MockProvider2(NeverSuccessfulCoverageProvider):
-            SERVICE_NAME = "Provider 2"
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
-            DATA_SOURCE_NAME = DataSource.OVERDRIVE
-        failure = MockProvider2(self._db)
-
-        monitor = MakePresentationReadyMonitor(self._db, [success, failure])
-        monitor.process_batch([self.work])
-        eq_(False, self.work.presentation_ready)
-        eq_(
-            "Provider(s) failed: Provider 2",
-            self.work.presentation_ready_exception)
-        
-    def test_prepare_returns_failing_providers(self):
-        class MockProvider1(AlwaysSuccessfulCoverageProvider):
-            SERVICE_NAME = "Provider 1"
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
-            DATA_SOURCE_NAME = DataSource.OCLC
-        success = MockProvider1(self._db)
-
-        class MockProvider2(NeverSuccessfulCoverageProvider):
-            SERVICE_NAME = "Provider 2"
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
-            DATA_SOURCE_NAME = DataSource.OVERDRIVE
-        failure = MockProvider2(self._db)
-        monitor = MakePresentationReadyMonitor(self._db, [success, failure])
-        result = monitor.prepare(self.work)
-        eq_([failure], result)
-        
-    def test_irrelevant_provider_is_not_called(self):
-
-        class GutenbergProvider(AlwaysSuccessfulCoverageProvider):
-            SERVICE_NAME = "Gutenberg monitor"
-            DATA_SOURCE_NAME = DataSource.OCLC
-            INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
-        gutenberg_monitor = GutenbergProvider(self._db)
-            
-        class OCLCProvider(NeverSuccessfulCoverageProvider):
-            SERVICE_NAME = "OCLC monitor"
-            DATA_SOURCE_NAME = DataSource.OCLC
-            INPUT_IDENTIFIER_TYPES = Identifier.OCLC_NUMBER
-        oclc_monitor = OCLCProvider(self._db)
-            
+    def test_process_item_sets_exception_on_failure(self):
         monitor = MakePresentationReadyMonitor(
-            self._db, [gutenberg_monitor, oclc_monitor]
+            self._db, [self.success, self.failure]
         )
+        monitor.process_item(self.work)
+        eq_(
+            "Provider(s) failed: %s" % self.failure.SERVICE_NAME,
+            self.work.presentation_ready_exception
+        )
+        eq_(False, self.work.presentation_ready)
+        
+    def test_prepare_raises_exception_with_failing_providers(self):
+        monitor = MakePresentationReadyMonitor(
+            self._db, [self.success, self.failure]
+        )
+        assert_raises_regexp(
+            CoverageProvidersFailed,
+            self.failure.service_name,
+            monitor.prepare, self.work
+        )
+        
+    def test_prepare_does_not_call_irrelevant_provider(self):
+            
+        monitor = MakePresentationReadyMonitor(self._db, [self.success])
         result = monitor.prepare(self.work)
 
         # There were no failures.
         eq_([], result)
 
-        # The monitor that takes Gutenberg identifiers as input ran.
+        # The 'success' monitor ran.
         eq_([self.work.presentation_edition.primary_identifier],
-            gutenberg_monitor.attempts)
+            self.success.attempts)
 
-        # The monitor that takes OCLC editions as input did not.
-        # (If it had, it would have failed.)
-        eq_([], oclc_monitor.attempts)
+        # The 'failure' monitor did not. (If it had, it would have
+        # failed.)
+        eq_([], self.failure.attempts)
 
         # The work has not been set to presentation ready--that's
-        # handled elsewhere.
+        # handled in process_item().
         eq_(False, self.work.presentation_ready)

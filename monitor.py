@@ -503,9 +503,9 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
     """
     SERVICE_NAME = "Make Works Presentation Ready" 
 
-    def __init__(self, _db, collection, coverage_providers,
+    def __init__(self, _db, coverage_providers, collection=None,
                  calculate_work_even_if_no_author=False):
-        super(PresentationReadyMonitor, self).__init__(_db, collection)
+        super(MakePresentationReadyMonitor, self).__init__(_db, collection)
         self.coverage_providers = coverage_providers
         self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
         self.policy = PresentationCalculationPolicy(
@@ -518,7 +518,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
             self._db,
             calculate_work_even_if_no_author=self.calculate_work_even_if_no_author
         )
-        return super(PresentationReadyMonitor, self).run()
+        return super(MakePresentationReadyMonitor, self).run()
 
     def process_item(self, work):
         """Do the work necessary to make one Work presentation-ready,
@@ -529,10 +529,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
         try:
             self.prepare(work)
         except CoverageProvidersFailed, e:
-            provider_names = ", ".join(
-                [x.service_name for x in e.failed_providers]
-            )
-            exception = "Provider(s) failed: %s" % provider_names
+            exception = "Provider(s) failed: %s" % e
         except Exception, e:
             self.log.error(
                 "Exception processing work %r", work, exc_info=e
@@ -573,6 +570,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
                     failures.append(provider)
         if failures:
             raise CoverageProvidersFailed(failures)
+        return failures
 
 
 class CoverageProvidersFailed(Exception):
@@ -581,6 +579,9 @@ class CoverageProvidersFailed(Exception):
     """
     def __init__(self, failed_providers):
         self.failed_providers = failed_providers
+        super(CoverageProvidersFailed, self).__init__(
+            ", ".join([x.service_name for x in failed_providers])
+        )
 
 
 class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
