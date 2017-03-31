@@ -642,3 +642,13 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
         # The work has not been set to presentation ready--that's
         # handled in process_item().
         eq_(False, self.work.presentation_ready)
+
+
+class TestWorkRandomnessUpdateMonitor(DatabaseTest):
+
+    def test_process_item(self):
+        """This Monitor assigns Subjects to Genres."""
+        work = self._work()
+        work.random = None
+        WorkRandomnessUpdateMonitor(self._db).process_item(work)
+        assert work.random >= 0
