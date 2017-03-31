@@ -363,6 +363,45 @@ class TestIdentifierSweepMonitor(DatabaseTest):
         eq_([p1.identifier, p2.identifier, i3], monitor.item_query().all())
 
 
+class TestSubjectSweepMonitor(DatabaseTest):
+
+    def test_item_query(self):
+
+        s1, ignore = Subject.lookup(self._db, Subject.DDC, "100", None)
+        s2, ignore = Subject.lookup(
+            self._db, Subject.TAG, None, "100 Years of Solitude"
+        )
+
+        # By default, SubjectSweepMonitor handles every Subject
+        # in the database, whether or not a collection is provided.
+        everything = SubjectSweepMonitor(self._db, collection=None)
+        eq_([s1, s2], everything.item_query().all())
+        everything = SubjectSweepMonitor(
+            self._db, collection=self._default_collection
+        )
+        eq_([s1, s2], everything.item_query().all())
+
+        # But you can tell SubjectSweepMonitor to handle only Subjects
+        # of a certain type.
+        dewey_monitor = SubjectSweepMonitor(
+            self._db, collection=None, subject_type=Subject.DDC
+        )
+        eq_([s1], dewey_monitor.item_query().all())
+
+        # You can also SubjectSweepMonitor to handle only Subjects
+        # whose names or identifiers match a certain string.
+        one_hundred_monitor = SubjectSweepMonitor(
+            self._db, collection=None, filter_string="100"
+        )
+        eq_([s1, s2], one_hundred_monitor.item_query().all())
+
+        specific_tag_monitor = SubjectSweepMonitor(
+            self._db, collection=None, subject_type=Subject.TAG,
+            filter_string="Years"
+        )
+        eq_([s2], specific_tag_monitor.item_query().all())
+
+
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
@@ -457,25 +496,3 @@ class TestPresentationReadyMonitor(DatabaseTest):
         # The work has not been set to presentation ready--that's
         # handled elsewhere.
         eq_(False, self.work.presentation_ready)
-
-
-
-class TestSubjectSweepMonitor(DatabaseTest):
-
-    def test_subject_query(self):
-        s1, ignore = Subject.lookup(self._db, Subject.DDC, "100", None)
-        s2, ignore = Subject.lookup(
-            self._db, Subject.TAG, None, "100 Years of Solitude"
-        )
-
-        dewey_monitor = SubjectSweepMonitor(self._db, Subject.DDC)
-        eq_([s1], dewey_monitor.subject_query().all())
-
-        one_hundred_monitor = SubjectSweepMonitor(self._db, None, "100")
-        eq_([s1, s2], one_hundred_monitor.subject_query().all())
-
-        specific_tag_monitor = SubjectSweepMonitor(
-            self._db, Subject.TAG, "Years"
-        )
-        eq_([s2], specific_tag_monitor.subject_query().all())
-        
