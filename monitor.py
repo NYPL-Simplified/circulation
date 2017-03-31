@@ -327,6 +327,7 @@ class SweepMonitor(CollectionMonitor):
             # Restrict to only those items associated with self.collection
             # somehow.
             qu = self.scope_to_collection(qu, self.collection)
+        qu = qu.order_by(self.model_class.id)
         return qu
 
     def scope_to_collection(self, qu, collection):
@@ -432,10 +433,9 @@ class WorkSweepMonitor(IdentifierSweepMonitor):
         """Restrict the query to only find Works found in the given
         Collection.
         """
-        return qu.join(Edition.primary_identifier).join(
-            Identifier.licensed_through).filter(
-                LicensePool.collection==collection
-            )
+        return qu.join(Work.license_pools).filter(
+            LicensePool.collection==collection
+        )
 
 
 class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):

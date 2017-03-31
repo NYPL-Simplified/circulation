@@ -438,6 +438,82 @@ class TestCustomListEntrySweepMonitor(DatabaseTest):
         eq_([entry2], monitor.item_query().all())
 
 
+class TestEditionSweepMonitor(DatabaseTest):
+
+    def test_item_query(self):
+        class Mock(EditionSweepMonitor):
+            SERVICE_NAME = "Mock"
+
+        # Three Editions, two of which have LicensePools.
+        e1, p1 = self._edition(with_license_pool=True)
+        e2, p2 = self._edition(with_license_pool=True)
+        e3 = self._edition(with_license_pool=False)
+
+        # Two Collections, each with one book.
+        c1 = self._collection()
+        c1.licensepools.append(e1.license_pool)
+        
+        c2 = self._collection()
+        c2.licensepools.append(e2.license_pool)
+        
+        # If we don't pass in a Collection to EditionSweepMonitor, we
+        # get all three Editions, in their order of creation.
+        monitor = Mock(self._db)
+        eq_([e1, e2, e3], monitor.item_query().all())
+
+        # If we pass in a Collection to EditionSweepMonitor, we get
+        # only the Edition whose work is licensed to that collection.
+        monitor = Mock(self._db, collection=c2)
+        eq_([e2], monitor.item_query().all())
+
+
+class TestWorkSweepMonitor(DatabaseTest):
+    """This class tests both WorkSweepMonitor and
+    PresentationReadyWorkSweepMonitor.
+    """
+
+    def test_item_query(self):
+        class Mock(WorkSweepMonitor):
+            SERVICE_NAME = "Mock"
+
+        # Three Works with LicensePools. Only one is presentation
+        # ready.
+        w1, w2, w3 = [self._work(with_license_pool=True) for i in range(3)]
+
+        # Another Work that's presentation ready but has no
+        # LicensePool.
+        w4 = self._work()
+        w4.presentation_ready = True
+        
+        w2.presentation_ready = False
+        w3.presentation_ready = False
+        
+        # Two Collections, each with one book.
+        c1 = self._collection()
+        c1.licensepools.append(w1.license_pools[0])
+        
+        c2 = self._collection()
+        c2.licensepools.append(w2.license_pools[0])
+        
+        # If we don't pass in a Collection to WorkSweepMonitor, we
+        # get all four Works, in their order of creation.
+        monitor = Mock(self._db)
+        eq_([w1, w2, w3, w4], monitor.item_query().all())
+
+        # If we pass in a Collection to EditionSweepMonitor, we get
+        # only the Work licensed to that collection.
+        monitor = Mock(self._db, collection=c2)
+        eq_([w2], monitor.item_query().all())
+
+        # PresentationReadyWorkSweepMonitor is the same, but it excludes
+        # works that are not presentation ready.
+        class Mock(PresentationReadyWorkSweepMonitor):
+            SERVICE_NAME = "Mock"
+        eq_([w1, w4], Mock(self._db).item_query().all())
+        eq_([w1], Mock(self._db, collection=c1).item_query().all())
+        eq_([], Mock(self._db, collection=c2).item_query().all())
+        
+        
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
