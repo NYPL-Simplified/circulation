@@ -403,6 +403,41 @@ class TestSubjectSweepMonitor(DatabaseTest):
         eq_([s2], specific_tag_monitor.item_query().all())
 
 
+class TestCustomListEntrySweepMonitor(DatabaseTest):
+
+    def test_item_query(self):
+        class Mock(CustomListEntrySweepMonitor):
+            SERVICE_NAME = "Mock"
+
+        # Three CustomLists, each containing one book.
+        list1, [edition1] = self._customlist(num_entries=1)
+        list2, [edition2] = self._customlist(num_entries=1)
+        list3, [edition3] = self._customlist(num_entries=1)
+
+        [entry1] = list1.entries
+        [entry2] = list2.entries
+        [entry3] = list3.entries
+        
+        # Two Collections, each with one book from one of the lists.
+        c1 = self._collection()
+        c1.licensepools.append(edition1.license_pool)
+        
+        c2 = self._collection()
+        c2.licensepools.append(edition2.license_pool)
+
+        # If we don't pass in a Collection to
+        # CustomListEntrySweepMonitor, we get all three
+        # CustomListEntries, in their order of creation.
+        monitor = Mock(self._db)
+        eq_([entry1, entry2, entry3], monitor.item_query().all())
+
+        # If we pass in a Collection to CustomListEntrySweepMonitor,
+        # we get only the CustomListEntry whose work is licensed
+        # to that collection.
+        monitor = Mock(self._db, collection=c2)
+        eq_([entry2], monitor.item_query().all())
+
+
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
