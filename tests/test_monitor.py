@@ -131,7 +131,9 @@ class TestCollectionMonitor(DatabaseTest):
     """Test the special features of CollectionMonitor."""
 
     def test_protocol_enforcement(self):
-
+        """A CollectionMonitor can require that it be instantiated
+        with a Collection that implements a certain protocol.
+        """
         class NoProtocolMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor 1"
             PROTOCOL = None
@@ -144,9 +146,11 @@ class TestCollectionMonitor(DatabaseTest):
         c1 = self._collection(protocol=Collection.OVERDRIVE)
         c2 = self._collection(protocol=Collection.BIBLIOTHECA)
 
-        # The NoProtocolMonitor can be instantiated with either one.
+        # The NoProtocolMonitor can be instantiated with either one,
+        # or with no Collection at all.
         NoProtocolMonitor(self._db, c1)
         NoProtocolMonitor(self._db, c2)
+        NoProtocolMonitor(self._db, None)
 
         # The OverdriveMonitor can only be instantiated with the first one.
         OverdriveMonitor(self._db, c1)
