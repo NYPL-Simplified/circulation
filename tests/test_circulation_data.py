@@ -190,7 +190,7 @@ class TestCirculationData(DatabaseTest):
             primary_identifier=identifier,
             formats=[drm_format],
         )
-        collection = self._collection()
+        collection = self._default_collection
         pool, is_new = circulation.license_pool(
             self._db, collection
         )
@@ -277,7 +277,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
@@ -307,7 +307,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
@@ -336,7 +336,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
@@ -368,7 +368,7 @@ class TestCirculationData(DatabaseTest):
         )
         
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(RightsStatus.IN_COPYRIGHT,
@@ -401,7 +401,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
@@ -438,7 +438,7 @@ class TestCirculationData(DatabaseTest):
         )
 
         pool, ignore = circulation_data.license_pool(
-            self._db, self._collection()
+            self._db, self._default_collection
         )
         circulation_data.apply(pool, replace)
         eq_(False, pool.open_access)
