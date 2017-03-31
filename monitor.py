@@ -115,7 +115,7 @@ class Monitor(object):
     @property
     def collection(self):
         """Retrieve the Collection object associated with this
-        CoverageProvider.
+        Monitor.
         """
         if not self.collection_id:
             return None
@@ -123,12 +123,15 @@ class Monitor(object):
 
     def timestamp(self):
         """Find or create the Timestamp for this Monitor."""
+        initial_timestamp = (
+            self.default_start_time or datetime.datetime.utcnow()
+        )
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,
             collection=self.collection,
             create_method_kwargs=dict(
-                timestamp=self.default_start_time,
+                timestamp=initial_timestamp,
                 counter=self.default_counter,
             )
         )

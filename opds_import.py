@@ -14,7 +14,7 @@ from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
 
-from monitor import Monitor
+from monitor import CollectionMonitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import (
@@ -1121,29 +1121,47 @@ class OPDSImporter(object):
             return None
 
 
-class OPDSImportMonitor(Monitor):
+class OPDSImportMonitor(CollectionMonitor):
 
-    """Periodically monitor an OPDS archive feed and import every edition
-    it mentions.
+    """Periodically monitor a Collection's OPDS archive feed and import
+    every title it mentions.
     """
+    SERVICE_NAME = "OPDS Import Monitor"
     
-    def __init__(self, _db, feed_url, collection, default_data_source,
-                 import_class, 
-                 interval_seconds=0, keep_timestamp=False,
-                 immediately_presentation_ready=False, force_reimport=False):
+    # This Monitor will do its work every time it's invoked.
+    INTERVAL_SECONDS = 0
 
-        self.feed_url = feed_url
-        self.importer = import_class(
-            _db, collection=collection,
-            data_source_name=default_data_source
+    # The first time this Monitor is invoked we want to get the
+    # entire OPDS feed.
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
+
+    def __init__(self, _db, collection, import_class,
+                 force_reimport=False, **import_class_kwargs):
+        if collection.protocol != Collection.OPDS_IMPORT:
+            raise ValueError(
+                "Collection %s is configured for protocol %s, not OPDS import." % (
+                    collection.protocol
+                )
+            )
+
+        data_source_name = collection.setting('data_source_name')
+        if not data_source_name:
+            raise ValueError(
+                "Collection %s has no data_source_name setting."
+            )
+        
+        # Create the DataSource for data_source_name if it doesn't
+        # already exist.
+        data_source = DataSource.lookup(
+            _db, import_class_kwargs['data_source_name'], autocreate=True
         )
+        
+        self.feed_url = collection.external_account_id
         self.force_reimport = force_reimport
-        self.immediately_presentation_ready = immediately_presentation_ready
-        self.collection = collection
-        super(OPDSImportMonitor, self).__init__(
-            _db, "OPDS Import %s" % feed_url, interval_seconds,
-            keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER
+        self.importer = import_class(
+            _db, collection=collection, **import_class_kwargs
         )
+        super(OPDSImportMonitor, self).__init__(_db, collection)
     
     def _get(self, url, headers):
         """Make the sort of HTTP request that's normal for an OPDS feed.
@@ -1163,86 +1181,108 @@ class OPDSImportMonitor(Monitor):
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
-    def check_for_new_data(self, feed):
-        """Check if the feed contains any entries that haven't been imported
-        yet. If force_import is set, every entry in the feed is
-        treated as new.
+    def feed_contains_new_data(self, feed):
+        """Does the given feed contain any entries that haven't been imported
+        yet?
         """
-
-        # If force_reimport is set, we don't even need to check. Always
-        # treat the feed as though it contained new data.
         if self.force_reimport:
+            # We don't even need to check. Always treat the feed as
+            # though it contained new data.
             return True
 
+        # For every item in the last page of the feed, check when that
+        # item was last updated.
         last_update_dates = self.importer.extract_last_update_dates(feed)
 
         new_data = False
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = self.importer.data_source
-            record = None
-
-            if identifier:
-                record = CoverageRecord.lookup(
-                    identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
-                )
-
-            # If there was a transient failure last time we tried to
-            # import this book, try again regardless of whether the
-            # feed has changed.
-            if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
-                new_data = True
+            if not identifier:
+                # Maybe this is new, maybe not, but we can't associate
+                # the information with an Identifier, so we can't do
+                # anything about it.
                 self.log.info(
-                    "Counting %s as new because previous attempt resulted in transient failure: %s", 
-                    record.identifier, record.exception
-                )
+                    "Ignoring %s because unable to turn into an Identifier."
+                )                
+                continue
+
+            if self.identifier_needs_import(identifier, remote_updated):
+                new_data = True
                 break
 
-            # If our last attempt was a success or a persistent
-            # failure, we only want to import again if something
-            # changed since then.
+    def identifier_needs_import(self, identifier, last_updated_remote):
+        """Does the remote side have new information about this Identifier?
 
-            if record and record.timestamp:
-                # We've imported this entry before, so don't import it
-                # again unless it's changed.
+        :param identifier: An Identifier.
+        :param last_update_remote: The last time the remote side updated
+            the OPDS entry for this Identifier.
+        """
+        if not identifier:
+            return False
+        
+        record = CoverageRecord.lookup(
+            identifier, self.importer.data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
 
-                if not remote_updated:
-                    # The remote isn't telling us whether the entry
-                    # has been updated. Import it again to be safe.
-                    new_data = True
-                    self.log.info(
-                        "Counting %s as new because remote has no information about when it was updated.", 
-                        record.identifier
-                    )
-                    break
+        if not record:
+            # We have no record of importing this Identifier. Import
+            # it now.
+            self.log.info(
+                "Counting %s as new because it has no CoverageRecord.", 
+                identifier
+            )
+            return True
+            
+        # If there was a transient failure last time we tried to
+        # import this book, try again regardless of whether the
+        # feed has changed.
+        if record.status == CoverageRecord.TRANSIENT_FAILURE:
+            self.log.info(
+                "Counting %s as new because previous attempt resulted in transient failure: %s", 
+                identifier, record.exception
+            )
+            return True
 
-                if remote_updated >= record.timestamp:
-                    # This book has been updated.
-                    self.log.info(
-                        "Counting %s as new because its coverage date is %s and remote has %s.", 
-                        record.identifier, record.timestamp, remote_updated
-                    )
+        # If our last attempt was a success or a persistent
+        # failure, we only want to import again if something
+        # changed since then.
+        
+        if record.timestamp:
+            # We've imported this entry before, so don't import it
+            # again unless it's changed.
 
-                    new_data = True
-                    break
-
-            else:
-                # There's no record of an attempt to import this book.
+            if not remote_updated:
+                # The remote isn't telling us whether the entry
+                # has been updated. Import it again to be safe.
                 self.log.info(
-                    "Counting %s as new because it has no CoverageRecord.", 
+                    "Counting %s as new because remote has no information about when it was updated.", 
                     identifier
                 )
-                new_data = True
-                break
-        return new_data
+                return True
 
-    def follow_one_link(self, link, do_get=None):
+            if remote_updated >= record.timestamp:
+                # This book has been updated.
+                self.log.info(
+                    "Counting %s as new because its coverage date is %s and remote has %s.", 
+                    identifier, record.timestamp, remote_updated
+                )
+                return True
+
+    def follow_one_link(self, url, do_get=None):
+        """Download a representation of a URL and extract the useful
+        information.
+
+        :return: A 2-tuple (next_links, feed). `next_links` is a list of 
+            additional links that need to be followed. `feed` is the content
+            that needs to be imported.
+        """
         self.log.info("Following next link: %s", link)
         get = do_get or self._get
-        status_code, content_type, feed = get(link, None)
+        status_code, content_type, feed = get(url, None)
 
-        new_data = self.check_for_new_data(feed)
+        new_data = self.feed_contains_new_data(feed)
 
         if new_data:
             # There's something new on this page, so we need to check
@@ -1255,27 +1295,31 @@ class OPDSImportMonitor(Monitor):
             self.log.info("No new data.")
             return [], None
 
-    def import_one_feed(self, feed, feed_url=None):
+    def import_one_feed(self, feed):
+        """Import every book mentioned in an OPDS feed."""
+        
+        # Because we are importing into a Collection, we will immediately
+        # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
-            immediately_presentation_ready = self.immediately_presentation_ready,
-            feed_url=feed_url
+            immediately_presentation_ready = True
         )
 
-        data_source = self.importer.data_source
-        
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:
             record = CoverageRecord.add_for(
-                edition, data_source, CoverageRecord.IMPORT_OPERATION,
+                edition, self.importer.data_source,
+                CoverageRecord.IMPORT_OPERATION,
                 status=CoverageRecord.SUCCESS
             )
 
         # Create CoverageRecords for the failures.
         for urn, failure in failures.items():
-            failure.to_coverage_record(operation=CoverageRecord.IMPORT_OPERATION)
+            failure.to_coverage_record(
+                operation=CoverageRecord.IMPORT_OPERATION
+            )
         
-    def run_once(self, ignore1, ignore2):
+    def run_once(self, start_ignore, cutoff_ignore):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])

@@ -1234,7 +1234,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
-
+        
     def test_check_for_new_data(self):
         feed = self.content_server_mini_feed
 
@@ -1243,32 +1243,31 @@ class TestOPDSImportMonitor(OPDSImporterTest):
                 return 200, {}, feed
 
         monitor = OPDSImportMonitor(
-            self._db,
-            feed_url="http://url",
-            collection=self._default_collection,
-            default_data_source=DataSource.OA_CONTENT_SERVER,
-            import_class=OPDSImporter
+            self._db, self._default_collection,
+            import_class=OPDSImporter,
+            data_source_name=DataSource.OA_CONTENT_SERVER
         )
-
+        timestamp = monitor.timestamp()
+        
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.check_for_new_data(feed))
-
+        eq_(None, timestamp.timestamp)
+        
         # Now import the editions.
         monitor = MockOPDSImportMonitor(
             self._db,
-            feed_url="http://url",
             collection=self._default_collection,
-            default_data_source=DataSource.OA_CONTENT_SERVER,
-            import_class=OPDSImporter
+            import_class=OPDSImporter,
+            data_source_name=DataSource.OA_CONTENT_SERVER
         )
         monitor.run_once("http://url", None)
 
         # Editions have been imported.
         eq_(2, self._db.query(Edition).count())
 
-        # Note that unlike many other Monitors, OPDSImportMonitor
-        # doesn't store a Timestamp.
-        assert not hasattr(monitor, 'timestamp')
+        # The timestamp has been updated, although unlike most
+        # Monitors the timestamp is purely informational.
+        assert timestamp.timestamp != None
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
