@@ -1,6 +1,7 @@
 from nose.tools import (
     eq_, 
     set_trace,
+    assert_raises,
     assert_raises_regexp,
 )
 import datetime
@@ -15,6 +16,7 @@ from testing import (
 
 from model import (
     Collection,
+    CollectionMissing,
     DataSource,
     Identifier,
     Subject,
@@ -23,9 +25,20 @@ from model import (
 
 from monitor import (
     CollectionMonitor,
+    CustomListEntrySweepMonitor,
+    CustomListEntryWorkUpdateMonitor,
+    EditionSweepMonitor,
+    IdentifierSweepMonitor,
     Monitor,
+    OPDSEntryCacheMonitor,
+    PermanentWorkIDRefreshMonitor,
     PresentationReadyMonitor,
+    PresentationReadyWorkSweepMonitor,
+    SubjectAssignmentMonitor,
     SubjectSweepMonitor,
+    SweepMonitor,
+    WorkRandomnessUpdateMonitor,
+    WorkSweepMonitor,
 )
 
 class MockMonitor(Monitor):
@@ -159,14 +172,13 @@ class TestCollectionMonitor(DatabaseTest):
             "Collection protocol \(Bibliotheca\) does not match Monitor protocol \(Overdrive\)",
             OverdriveMonitor, self._db, c2
         )
-        assert_raises_regexp(
-            ValueError,
-            "Collection protocol \(Bibliotheca\) does not match Monitor protocol \(Overdrive\)",
+        assert_raises(
+            CollectionMissing,
             OverdriveMonitor, self._db, None
         )
         
     def test_all(self):
-        """Test that we can create a list of Monitors"""
+        """Test that we can create a list of Monitors using all()."""
         class OPDSCollectionMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor"
             PROTOCOL = Collection.OPDS_IMPORT
@@ -200,6 +212,132 @@ class TestCollectionMonitor(DatabaseTest):
         eq_([o2, o3, o1], [x.collection for x in monitors])
 
 
+class MockSweepMonitor(SweepMonitor):
+    """A SweepMonitor that does nothing."""
+    MODEL_CLASS = Identifier
+    SERVICE_NAME = "Sweep Monitor"
+    DEFAULT_BATCH_SIZE = 2
+    
+    def __init__(self, _db, **kwargs):
+        super(MockSweepMonitor, self).__init__(_db, **kwargs)
+        self.cleanup_called = []
+        self.batches = []
+        self.processed = []
+    
+    def scope_to_collection(self, qu, collection):
+        return qu
+
+    def process_batch(self, batch):
+        self.batches.append(batch)
+        return super(MockSweepMonitor, self).process_batch(batch)
+            
+    def process_item(self, item):
+        self.processed.append(item)
+
+    def cleanup(self):
+        self.cleanup_called.append(True)
+
+
+class TestSweepMonitor(DatabaseTest):
+
+    def setup(self):
+        super(TestSweepMonitor, self).setup()
+        self.monitor = MockSweepMonitor(self._db)
+
+    def test_model_class_is_required(self):
+        class NoModelClass(SweepMonitor):
+            MODEL_CLASS = None
+        assert_raises_regexp(
+            ValueError,
+            "NoModelClass must define MODEL_CLASS",
+            NoModelClass, self._db
+        )
+
+    def test_batch_size(self):
+        eq_(MockSweepMonitor.DEFAULT_BATCH_SIZE, self.monitor.batch_size)
+        
+        monitor = MockSweepMonitor(self._db, batch_size=29)
+        eq_(29, monitor.batch_size)
+
+        # If you pass in an invalid value you get the default.
+        monitor = MockSweepMonitor(self._db, batch_size=-1)
+        eq_(MockSweepMonitor.DEFAULT_BATCH_SIZE, monitor.batch_size)
+
+    def test_run_sweeps_entire_table(self):
+        # Three Identifiers -- the batch size is 2.
+        i1, i2, i3 = [self._identifier() for i in range(3)]
+        eq_(2, self.monitor.batch_size)
+        
+        # Run the monitor.
+        self.monitor.run()
+
+        # All three Identifiers, and no other items, were processed.
+        eq_([i1, i2, i3], self.monitor.processed)
+
+        # We ran process_batch() three times: once starting at zero,
+        # once starting at the ID that ended the first batch, and
+        # again starting at the ID that ended the second batch.
+        eq_([0, i2.id, i3.id], self.monitor.batches)
+
+        # The cleanup method was called once.
+        eq_([True], self.monitor.cleanup_called)
+
+    def test_run_starts_at_previous_counter(self):
+        # Two Identifiers.
+        i1, i2 = [self._identifier() for i in range(2)]
+        
+        # The monitor was just run, but it was not able to proceed past
+        # i1.
+        timestamp = Timestamp.stamp(
+            self._db, self.monitor.service_name, self.monitor.collection
+        )
+        timestamp.counter = i1.id
+        
+        # Run the monitor.
+        self.monitor.run()
+
+        # The last item in the table was processed. i1 was not
+        # processed, because it was processed in a previous run.
+        eq_([i2], self.monitor.processed)
+
+        # The monitor's counter has been reset.
+        eq_(0, timestamp.counter)
+
+    def test_exception_interrupts_run(self):
+
+        # Four Identifiers.
+        i1, i2, i3, i4 = [self._identifier() for i in range(4)]
+
+        # This monitor will never be able to process the fourth one.
+        class IHateI4(MockSweepMonitor):
+            def process_item(self, item):
+                if item is i4:
+                    raise Exception("HOW DARE YOU")
+                super(IHateI4, self).process_item(item)
+
+        monitor = IHateI4(self._db)
+        monitor.run()
+
+        # The monitor's counter was updated to the ID of the final
+        # item in the last batch it was able to process. In this case,
+        # this is I2.
+        timestamp = monitor.timestamp()
+        eq_(i2.id, timestamp.counter)
+
+        # I3 was processed, but the batch did not complete, so any
+        # changes wouldn't have been written to the database.
+        eq_([i1, i2, i3], monitor.processed)
+                
+        # Running the monitor again will process I3 again, but the same error
+        # will happen on i4 and the counter will not be updated.
+        monitor.run()
+        eq_([i1, i2, i3, i3], monitor.processed)
+        eq_(i2.id, timestamp.counter)
+
+        # cleanup() is only called when the sweep completes successfully.
+        eq_([], monitor.cleanup_called)
+
+        
 class TestPresentationReadyMonitor(DatabaseTest):
 
     def setup(self):

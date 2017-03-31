@@ -169,8 +169,8 @@ class Monitor(object):
         raise NotImplementedError()
 
     def cleanup(self):
-        """Do any work that needs to be done after the main work has
-        completed successfully.
+        """Do any work that needs to be done at the end, once the main work
+        has completed successfully.
         """
         pass
 
@@ -250,6 +250,8 @@ class SweepMonitor(CollectionMonitor):
 
     INTERVAL_SECONDS = 3600
 
+    DEFAULT_COUNTER = 0
+    
     # The model class corresponding to the database table that this
     # Monitor sweeps over. This class must keep its primary key in the
     # `id` field.
@@ -288,14 +290,14 @@ class SweepMonitor(CollectionMonitor):
                 end_time = time.time()
                 self.log.debug(
                     "%s monitor went from offset %s to %s in %.2f sec",
-                    offset, new_offset, (end_time-start_time)
+                    self.service_name, offset, new_offset,
+                    (end_time-start_time)
                 )
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
+                self.cleanup()
                 break
-        self.cleanup()
-        self._db.commit()
 
     def process_batch(self, offset):
         """Process one batch of work."""
@@ -308,7 +310,7 @@ class SweepMonitor(CollectionMonitor):
                 self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", item)
             # We've completed a batch. Return the ID of the last item
             # in the batch so we don't do this work again.
-            return identifiers[-1].id
+            return items[-1].id
         else:
             # There are no more items in this database table, so we
             # are done with the sweep. Reset the counter.
