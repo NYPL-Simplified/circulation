@@ -133,19 +133,9 @@ class TestOPDSImporter(OPDSImporterTest):
         source1 = importer.data_source
         eq_(name, source1.name)
         
-        # By default, DataSources created through this mechanism do
-        # not offer licenses.
-        eq_(False, source1.offers_licenses)
-
-        # But we can create a DataSource that does offer licenses.
-        name = "New data source " + self._str
-        importer = OPDSImporter(
-            self._db, collection=None, data_source_name=name,
-            data_source_offers_licenses=True
-        )
-        source2 = importer.data_source
-        eq_(name, source2.name)
-        eq_(True, source2.offers_licenses)
+        # By default, DataSources created through this mechanism 
+        # offer licenses.
+        eq_(True, source1.offers_licenses)
         
     def test_extract_next_links(self):
         importer = OPDSImporter(
@@ -591,57 +581,37 @@ class TestOPDSImporter(OPDSImporterTest):
             mech.resource.url)
 
     def test_import_with_lendability(self):
-        # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
-        # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
-        # editions, but not pools or works.  On a lendable data source, should create 
-        # pools and works as well as editions.
-        # Tests that the number and contents of error messages are appropriate to the task.
+        """Test that OPDS import creates Edition, LicensePool, and Work
+        objects, as appropriate.
 
+        For example, when there is no Collection, it is appropriate to
+        create Editions, but not LicensePools or Works.  When there is
+        a Collection, it is appropriate to create all three.
+        """
         feed = self.content_server_mini_feed
 
         # This import will create Editions, but not LicensePools or
-        # Works, because the metadata wrangler data source is not
-        # lendable.
+        # Works, because there is no Collection.
         importer_mw = OPDSImporter(
-            self._db, collection=self._default_collection,
+            self._db, collection=None,
             data_source_name=DataSource.METADATA_WRANGLER
         )
         imported_editions_mw, pools_mw, works_mw, failures_mw = (
             importer_mw.import_from_feed(feed)
         )
 
-        # Both books were imported, because they were new.
+        # Both editions were imported, because they were new.
         eq_(2, len(imported_editions_mw))
-
-        # But pools and works weren't created, because the data source isn't lendable.
-        # 1 error message, because correctly didn't even get to trying to create pools, 
-        # so no messages there, but do have that entry stub at end of sample xml file, 
-        # which should fail with a message.
-        eq_(1, len(failures_mw))
+        
+        # But pools and works weren't created, because there is no Collection.
         eq_(0, len(pools_mw))
         eq_(0, len(works_mw))
 
-        # Try again, with a lendable data source but no collection.
-        importer_g = OPDSImporter(
-            self._db, collection=None,
-            data_source_name=DataSource.OA_CONTENT_SERVER
-        )
-        imported_editions_g, pools_g, works_g, failures_g = (
-            importer_g.import_from_feed(feed)
-        )
-
-        # we made new Editions, because although this is the same
-        # data as before, it came from a different data source.
-        eq_(2, len(imported_editions_g))
-        assert(all([x.data_source.name==DataSource.OA_CONTENT_SERVER
-                    for x in imported_editions_g]))
-
-        # But no LicensePools were created, since no Collection
-        # was provided for them to belong to.
-        eq_([], pools_g)
-        
-        # Try a third time, with a lendable data source and a
-        # Collection to contain the LicensePools.
+        # 1 error message, corresponding to the <simplified:message> tag
+        # at the end of content_server_mini.opds.
+        eq_(1, len(failures_mw))
+                
+        # Try again, with a Collection to contain the LicensePools.
         importer_g = OPDSImporter(
             self._db, collection=self._default_collection,
             data_source_name=DataSource.OA_CONTENT_SERVER
@@ -664,15 +634,9 @@ class TestOPDSImporter(OPDSImporterTest):
         # that the licensing authority is Project Gutenberg. This
         # information was used to correctly set the data sources for
         # the newly created LicensePools.
-
-        # NOTE: This is the behavior I'd expect, but the real behavior
-        # is that the DataSource is set to OA_CONTENT_SERVER. This
-        # behavior antedates the branch I'm working on, so
-        # I'm not going to fix it now.
-        #
-        # for pool in pools_g:
-        #    eq_(pool.data_source.name, DataSource.GUTENBERG)
-
+        for pool in pools_g:
+           eq_(pool.data_source.name, DataSource.GUTENBERG)
+        
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from the open-access content server but the license
         comes from an unrecognized data source. The book is imported and

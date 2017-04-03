@@ -191,9 +191,6 @@ class OPDSImporter(object):
     Should be used when a circulation server asks for data from 
     our internal content server, and also when our content server asks for data 
     from external content servers. 
-
-    :param mirror: Use this MirrorUploader object to mirror all
-    incoming open-access books and cover images.
     """
 
     COULD_NOT_CREATE_LICENSE_POOL = (
@@ -202,26 +199,37 @@ class OPDSImporter(object):
     def __init__(self, _db, collection,
                  data_source_name=DataSource.METADATA_WRANGLER,
                  identifier_mapping=None, mirror=None, http_get=None,
-                 metadata_client=None, data_source_offers_licenses=False,
-                 content_modifier=None,
+                 metadata_client=None, content_modifier=None
     ):
-        """
-        :param collection: LicensePools created by this OPDS import
-        will be associated with the given Collection.
+        """:param collection: LicensePools created by this OPDS import
+        will be associated with the given Collection. If this is None,
+        no LicensePools will be created -- only Editions.
 
         :param data_source_name: Name of the source of this OPDS feed.
         If there is no DataSource with this name, one will be created.
+        All Editions created by this import will be associated with
+        this DataSource. Any LicensePools created by this import will
+        also be associated with this DataSource, _unless_ the OPDS
+        feed uses the <bibframe:distribution> tag to name a different
+        data source.
 
-        :param data_source_offers_licenses: Set to True if you actually
-        expect to get books (as opposed to information about books)
-        from this OPDS feed. This value is only used when it's necessary
-        to create a new DataSource.
+        :param mirror: Use this MirrorUploader object to mirror all
+        incoming open-access books and cover images.
+
+        :param http_get: Use this method to make an HTTP GET request. This
+        can be replaced with a stub method for testing purposes.
+
+        :param metadata_client: A SimplifiedOPDSLookup object that is used
+        to fill in missing metadata.
+
+        :param content_modifier: A function that may modify-in-place
+        representations (such as images and EPUB documents) as they
+        come in from the network.
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.collection = collection
         self.data_source_name = data_source_name
-        self.data_source_offers_licenses = data_source_offers_licenses
         self.identifier_mapping = identifier_mapping
         self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
         self.mirror = mirror
@@ -233,9 +241,10 @@ class OPDSImporter(object):
         """Look up or create a DataSource object representing the
         source of this OPDS feed.
         """
+        offers_licenses = (self.collection is not None)
         return DataSource.lookup(
             self._db, self.data_source_name, autocreate=True,
-            offers_licenses=self.data_source_offers_licenses
+            offers_licenses = offers_licenses
         )
         
     def import_from_feed(self, feed, even_if_no_author=False, 
@@ -383,9 +392,6 @@ class OPDSImporter(object):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
-        # This is one of these cases where we want to create a
-        # DataSource if it doesn't already exist. This way you don't have
-        # to predefine a DataSource for every source of OPDS feeds.
         data_source = self.data_source
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
@@ -434,10 +440,14 @@ class OPDSImporter(object):
             
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
-            # form the CirculationData that would correspond to this Metadata
-            c_circulation_dict = m_data_dict.get('circulation')
-            xml_circulation_dict = xml_data_dict.get('circulation', {})
-            c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
+            # Form the CirculationData that would correspond to this Metadata,
+            # assuming there is a Collection to hold the LicensePool that
+            # would result.
+            c_data_dict = None 
+            if self.collection:
+                c_circulation_dict = m_data_dict.get('circulation')
+                xml_circulation_dict = xml_data_dict.get('circulation', {})
+                c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -705,19 +715,16 @@ class OPDSImporter(object):
             # refers to when was updated in opds feed, not our db
             data_source_last_updated=last_opds_update,
         )
-            
-        # Only add circulation data if there is a collection, and if
-        # both the book's distributor *and* the source of the OPDS
-        # feed are lendable data sources.
-        if (circulation_data_source
-            and circulation_data_source.offers_licenses
-            and metadata_data_source.offers_licenses):
-            kwargs_circ = dict(
-                data_source=circulation_data_source.name,
-                links=list(links),
-                default_rights_uri=rights_uri,
-            )
-            kwargs_meta['circulation'] = kwargs_circ
+
+        # Although we always provide the CirculationData, it will only
+        # be used if the OPDSImporter has a Collection to hold the
+        # LicensePool that will result from importing it.
+        kwargs_circ = dict(
+            data_source=circulation_data_source.name,
+            links=list(links),
+            default_rights_uri=rights_uri,
+        )
+        kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
 
     @classmethod
