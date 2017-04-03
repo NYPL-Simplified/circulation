@@ -1170,20 +1170,6 @@ class TestLicensePool(DatabaseTest):
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
             collection=None
         )
-        
-    def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
-        """OCLC doesn't offer licenses. It only provides metadata. We can get
-        a Edition for OCLC's view of a book, but we cannot get a
-        LicensePool for OCLC's view of a book.
-        """
-        assert_raises_regexp(
-            ValueError, 
-            'Data source "OCLC Classify" does not offer licenses',
-            LicensePool.for_foreign_id,
-            self._db, DataSource.OCLC, "1015", 
-            Identifier.OCLC_WORK,
-            collection=self._collection()
-        )
 
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
