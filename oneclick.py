@@ -843,7 +843,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             if api_class.collection_id != collection.id:
                 raise ValueError(
                     "Coverage provider and its API are scoped to different collections! (%s vs. %s)" % (
-                        api_class.collection_id, collection._id
+                        api_class.collection_id, collection.id
                     )
                 )
             else:
