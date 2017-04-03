@@ -1324,15 +1324,16 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # Check coverage records are created.
 
         monitor = OPDSImportMonitor(
-            self._db, feed_url="http://url", collection=None,
-            default_data_source=DataSource.OA_CONTENT_SERVER,
+            self._db, collection=self._default_collection,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
             import_class=DoomedOPDSImporter
         )
+        self._default_collection.external_account_id = "http://root-url/index.xml"
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
         feed = self.content_server_mini_feed
-
-        monitor.import_one_feed(feed, "http://root-url/")
+        
+        monitor.import_one_feed(feed)
         
         editions = self._db.query(Edition).all()
         
@@ -1349,8 +1350,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(None, record.exception)
 
         # The edition's primary identifier has a cover link whose
-        # relative URL has been resolved relative to the URL we passed
-        # into import_one_feed.
+        # relative URL has been resolved relative to the Collection's
+        # external_account_id.
         [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
                     if x.rel==Hyperlink.IMAGE]
         eq_("http://root-url/full-cover-image.png", cover)

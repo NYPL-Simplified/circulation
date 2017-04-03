@@ -33,6 +33,7 @@ from metadata_layer import (
 )
 from model import (
     get_one,
+    Collection,
     CoverageRecord,
     DataSource,
     Edition,
@@ -1144,6 +1145,11 @@ class OPDSImportMonitor(CollectionMonitor):
 
     def __init__(self, _db, collection, import_class,
                  force_reimport=False, **import_class_kwargs):
+        if not collection:
+            raise ValueError(
+                "OPDSImportMonitor can only be run in the context of a Collection."
+            )
+        
         if collection.protocol != Collection.OPDS_IMPORT:
             raise ValueError(
                 "Collection %s is configured for protocol %s, not OPDS import." % (
@@ -1309,7 +1315,8 @@ class OPDSImportMonitor(CollectionMonitor):
         # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
-            immediately_presentation_ready = True
+            immediately_presentation_ready = True,
+            feed_url=self.collection.external_account_id
         )
 
         # Create CoverageRecords for the successful imports.
