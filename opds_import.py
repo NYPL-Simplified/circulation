@@ -207,12 +207,12 @@ class OPDSImporter(object):
         no LicensePools will be created -- only Editions.
 
         :param data_source_name: Name of the source of this OPDS feed.
-        If there is no DataSource with this name, one will be created.
-        All Editions created by this import will be associated with
-        this DataSource. Any LicensePools created by this import will
-        also be associated with this DataSource, _unless_ the OPDS
-        feed uses the <bibframe:distribution> tag to name a different
-        data source.
+        If `collection` is provided, its .data_source will take
+        precedence over any value provided here. This is only for use
+        when you are importing OPDS metadata without any particular
+        Collection in mind. All Editions created by this import will
+        be associated with this DataSource.  If there is no DataSource
+        with this name, one will be created.
 
         :param mirror: Use this MirrorUploader object to mirror all
         incoming open-access books and cover images.
@@ -226,10 +226,19 @@ class OPDSImporter(object):
         :param content_modifier: A function that may modify-in-place
         representations (such as images and EPUB documents) as they
         come in from the network.
+ 
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.collection = collection
+        if self.collection:
+            data_source = self.collection.data_source
+            if data_source:
+                data_source_name = data_source.name
+            else:
+                raise ValueError(
+                    "Cannot perform an OPDS import on a Collection that has no associated DataSource!"
+                )
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
         self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()

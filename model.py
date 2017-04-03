@@ -8663,7 +8663,18 @@ class Collection(Base):
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
+    # Some protocols imply that the data and licenses come from a
+    # specific data source.
+    DATA_SOURCE_FOR_PROTOCOL = {
+        OVERDRIVE : DataSource.OVERDRIVE,
+        BIBLIOTHECA : DataSource.BIBLIOTHECA,
+        AXIS_360 : DataSource.AXIS_360,
+        ONE_CLICK : DataSource.ONECLICK
+    }
+    
     PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
+
+    DATA_SOURCE_NAME_SETTING = 'data_source'
     
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
@@ -8750,8 +8761,31 @@ class Collection(Base):
 
         if self.parent:
             return self.parent.unique_account_id + '+' + unique_account_id
-        return unique_account_id
+        return unique_account_id        
+    
+    @property
+    def data_source(self):
+        """Find the data source associated with this Collection.
 
+        Bibliographic metadata obtained through the collection
+        protocol is recorded as coming from this data source. A
+        LicensePool inserted into this collection will be associated
+        with this data source, unless its bibliographic metadata
+        indicates some other data source.
+
+        For most Collections, the protocol sets the data source.  For
+        collections that use the OPDS import protocol, the data source
+        is a Collection-specific setting.
+        """
+        data_source = None
+        name = Collection.DATA_SOURCE_FOR_PROTOCOL.get(self.protocol)
+        if not name:
+            name = self.setting(Collection.DATA_SOURCE_NAME_SETTING).value
+        _db = Session.object_session(self)
+        if name:
+            data_source = DataSource.lookup(_db, name, autocreate=True)
+        return data_source
+    
     @property
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
