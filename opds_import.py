@@ -1223,7 +1223,8 @@ class OPDSImportMonitor(CollectionMonitor):
             if self.identifier_needs_import(identifier, remote_updated):
                 new_data = True
                 break
-
+        return new_data
+            
     def identifier_needs_import(self, identifier, last_updated_remote):
         """Does the remote side have new information about this Identifier?
 

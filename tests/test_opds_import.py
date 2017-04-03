@@ -1199,7 +1199,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 class TestOPDSImportMonitor(OPDSImporterTest):
         
-    def test_check_for_new_data(self):
+    def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed
 
         class MockOPDSImportMonitor(OPDSImportMonitor):
@@ -1214,7 +1214,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         timestamp = monitor.timestamp()
         
         # Nothing has been imported yet, so all data is new.
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
         eq_(None, timestamp.timestamp)
         
         # Now import the editions.
@@ -1248,18 +1248,18 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
 
-        eq_(False, monitor.check_for_new_data(feed))
+        eq_(False, monitor.feed_contains_new_data(feed))
 
         # If the monitor is set up to force reimport, it doesn't
         # matter that there's nothing new--we act as though there is.
         monitor.force_reimport = True
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
         monitor.force_reimport = False
 
         # If an entry was updated after the date given in that entry's
         # CoverageRecord, there's new data.
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
         # If a CoverageRecord is a transient failure, we try again
         # regardless of whether it's been updated.
@@ -1267,22 +1267,24 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
             r.exception = "Failure!"
             r.status = CoverageRecord.TRANSIENT_FAILURE
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
         # If a CoverageRecord is a persistent failure, we don't try again...
         for r in [record, record2]:
             r.status = CoverageRecord.PERSISTENT_FAILURE
-        eq_(False, monitor.check_for_new_data(feed))
+        eq_(False, monitor.feed_contains_new_data(feed))
 
         # ...unless the feed updates.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(
-            self._db, feed_url="http://url", collection=None,
+            self._db, feed_url="http://url",
+            collection=self._default_collection,
             default_data_source=DataSource.OA_CONTENT_SERVER,
-            import_class=OPDSImporter)
+            import_class=OPDSImporter
+        )
         feed = self.content_server_mini_feed
 
         # If there's new data, follow_one_link extracts the next links.
@@ -1390,12 +1392,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def follow_one_link(self, link, cutoff_date=None, do_get=None):
                 return self.responses.pop()
 
-            def import_one_feed(self, feed, feed_url):
+            def import_one_feed(self, feed):
                 self.imports.append(feed)
 
         monitor = MockOPDSImportMonitor(
-            self._db, feed_url="http://url", collection=None,
-            default_data_source=DataSource.OA_CONTENT_SERVER,
+            self._db, collection=self._default_collection,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
             import_class=OPDSImporter
         )
         
