@@ -529,7 +529,6 @@ class OPDSImporter(object):
                 # That's bad. Can't make an item-specific error message, but write to 
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
-
         return values, failures
 
 
@@ -1267,7 +1266,7 @@ class OPDSImportMonitor(CollectionMonitor):
             # We've imported this entry before, so don't import it
             # again unless it's changed.
 
-            if not remote_updated:
+            if not last_updated_remote:
                 # The remote isn't telling us whether the entry
                 # has been updated. Import it again to be safe.
                 self.log.info(
@@ -1276,11 +1275,11 @@ class OPDSImportMonitor(CollectionMonitor):
                 )
                 return True
 
-            if remote_updated >= record.timestamp:
+            if last_updated_remote >= record.timestamp:
                 # This book has been updated.
                 self.log.info(
                     "Counting %s as new because its coverage date is %s and remote has %s.", 
-                    identifier, record.timestamp, remote_updated
+                    identifier, record.timestamp, last_updated_remote
                 )
                 return True
 
@@ -1292,7 +1291,7 @@ class OPDSImportMonitor(CollectionMonitor):
             additional links that need to be followed. `feed` is the content
             that needs to be imported.
         """
-        self.log.info("Following next link: %s", link)
+        self.log.info("Following next link: %s", url)
         get = do_get or self._get
         status_code, content_type, feed = get(url, None)
 
@@ -1359,7 +1358,7 @@ class OPDSImportMonitor(CollectionMonitor):
         # pick up where we left off.
         for link, feed in reversed(feeds):
             self.log.info("Importing next feed: %s", link)
-            self.import_one_feed(feed, link)
+            self.import_one_feed(feed)
             self._db.commit()
 
 

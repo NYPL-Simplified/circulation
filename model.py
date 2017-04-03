@@ -5899,11 +5899,6 @@ class LicensePool(Base):
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
 
-        # The data source must be one that offers licenses.
-        if not data_source.offers_licenses:
-            raise ValueError(
-                'Data source "%s" does not offer licenses.' % data_source.name)
-
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
         if (data_source.primary_identifier_type and 
@@ -8787,7 +8782,7 @@ class Collection(Base):
                 name=metadata_identifier, protocol=protocol)
 
         return collection, is_new
-
+    
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
         setting = self.setting(key)

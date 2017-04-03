@@ -90,8 +90,6 @@ class Monitor(object):
         self.interval_seconds = cls.INTERVAL_SECONDS
         self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
-        if default_start_time is self.NEVER:
-            default_start_time = None
         if isinstance(default_start_time, datetime.timedelta):
             default_start_time = (
                 datetime.datetime.utcnow() - default_start_time
@@ -123,9 +121,12 @@ class Monitor(object):
 
     def timestamp(self):
         """Find or create the Timestamp for this Monitor."""
-        initial_timestamp = (
-            self.default_start_time or datetime.datetime.utcnow()
-        )
+        if self.default_start_time is self.NEVER:
+            initial_timestamp = None
+        elif not self.default_start_time:
+            initial_timestamp = datetime.datetime.utcnow()
+        else:
+            initial_timestamp = self.default_start_time
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,

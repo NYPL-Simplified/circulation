@@ -773,8 +773,6 @@ class CirculationData(MetaToModelUtility):
                 obj = DataSource.lookup(_db, self._data_source)
                 if not obj:
                     raise ValueError("Data source %s not found!" % self._data_source)
-                if not obj.offers_licenses:
-                    raise ValueError("Data source %s does not offer licenses and cannot be used as a CirculationData data source." % self._data_source)
             else:
                 obj = None
             self.data_source_obj = obj

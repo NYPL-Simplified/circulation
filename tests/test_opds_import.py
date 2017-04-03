@@ -132,11 +132,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         source1 = importer.data_source
         eq_(name, source1.name)
-        
-        # By default, DataSources created through this mechanism 
-        # offer licenses.
-        eq_(True, source1.offers_licenses)
-        
+
     def test_extract_next_links(self):
         importer = OPDSImporter(
             self._db, collection=None, data_source_name=DataSource.NYT
@@ -584,9 +580,9 @@ class TestOPDSImporter(OPDSImporterTest):
         """Test that OPDS import creates Edition, LicensePool, and Work
         objects, as appropriate.
 
-        For example, when there is no Collection, it is appropriate to
-        create Editions, but not LicensePools or Works.  When there is
-        a Collection, it is appropriate to create all three.
+        When there is no Collection, it is appropriate to create
+        Editions, but not LicensePools or Works.  When there is a
+        Collection, it is appropriate to create all three.
         """
         feed = self.content_server_mini_feed
 
@@ -634,8 +630,10 @@ class TestOPDSImporter(OPDSImporterTest):
         # that the licensing authority is Project Gutenberg. This
         # information was used to correctly set the data sources for
         # the newly created LicensePools.
-        for pool in pools_g:
-           eq_(pool.data_source.name, DataSource.GUTENBERG)
+        sources = [pool.data_source.name for pool in pools_g]
+        eq_([DataSource.GUTENBERG, self.
+        set_trace()
+        pass
         
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from the open-access content server but the license
@@ -1224,7 +1222,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             import_class=OPDSImporter,
             data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        monitor.run_once("http://url", None)
+        monitor.run()
 
         # Editions have been imported.
         eq_(2, self._db.query(Edition).count())
@@ -1280,9 +1278,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(
-            self._db, feed_url="http://url",
-            collection=self._default_collection,
-            default_data_source=DataSource.OA_CONTENT_SERVER,
+            self._db, collection=self._default_collection,
+            data_source_name=DataSource.OA_CONTENT_SERVER,
             import_class=OPDSImporter
         )
         feed = self.content_server_mini_feed
