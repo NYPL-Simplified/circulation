@@ -625,15 +625,14 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(set(["The Green Mouse", "Johnny Crow's Party"]),
             set([x.presentation_edition.title for x in pools_g]))
         
-        # Although the OPDS feed came from the open-access content
-        # server, the information used to create the LicensePools said
-        # that the licensing authority is Project Gutenberg. This
-        # information was used to correctly set the data sources for
-        # the newly created LicensePools.
+        # The information used to create the first LicensePool said
+        # that the licensing authority is Project Gutenberg, so that's used
+        # as the DataSource for the first LicensePool. The information used
+        # to create the second LicensePool didn't include a data source,
+        # so the source of the OPDS feed (the open-access content server)
+        # was used.
         sources = [pool.data_source.name for pool in pools_g]
-        eq_([DataSource.GUTENBERG, self.
-        set_trace()
-        pass
+        eq_([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER], sources)
         
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from the open-access content server but the license
