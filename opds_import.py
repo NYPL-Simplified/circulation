@@ -1165,18 +1165,10 @@ class OPDSImportMonitor(CollectionMonitor):
                 )
             )
 
-        data_source_name = collection.setting('data_source_name')
-        if not data_source_name:
-            raise ValueError(
-                "Collection %s has no data_source_name setting."
-            )
-        
-        # Create the DataSource for data_source_name if it doesn't
-        # already exist.
-        data_source = DataSource.lookup(
-            _db, import_class_kwargs['data_source_name'], autocreate=True
-        )
-        
+        data_source = collection.data_source
+        if not data_source:
+            raise ValueError("Collection %s has no associated data source.")
+
         self.feed_url = collection.external_account_id
         self.force_reimport = force_reimport
         self.importer = import_class(
