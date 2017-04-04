@@ -4728,9 +4728,13 @@ class Measurement(Base):
 
 
 class LicensePoolDeliveryMechanism(Base):
-    """A mechanism for delivering a specific book.
+    """A mechanism for delivering a specific book from a specific
+    distributor.
 
-    This is mostly an association class between LicensePool and
+    It's presumed that all LicensePools for a given DataSource and
+    Identifier have the same set of LicensePoolDeliveryMechanisms.
+
+    This is mostly an association class between DataSource, Identifier and
     DeliveryMechanism, but it also may incorporate a specific Resource
     (i.e. a static link to a downloadable file) which explains exactly
     where to go for delivery.
@@ -4739,11 +4743,14 @@ class LicensePoolDeliveryMechanism(Base):
 
     id = Column(Integer, primary_key=True)
 
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True,
-        nullable=False
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, nullable=False
     )
 
+    identifier_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, nullable=False
+    )
+    
     delivery_mechanism_id = Column(
         Integer, ForeignKey('deliverymechanisms.id'), 
         index=True,
@@ -4782,6 +4789,19 @@ class LicensePoolDeliveryMechanism(Base):
     def __repr__(self):
         return "%r %r" % (self.license_pool, self.delivery_mechanism)
 
+    __table_args__ = (
+        UniqueConstraint('data_source_id', 'identifier_id',
+                         'delivery_mechanism_id'),
+    )
+
+Index(
+    "ix_licensepooldeliveries_data_source_identifier_delivery_mechanism",
+    LicensePoolDeliveryMechanism.data_source_id,
+    LicensePoolDeliveryMechanism.identifier,
+    LicensePoolDeliveryMechanism.delivery_mechanism_id,
+)
+
+    
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
