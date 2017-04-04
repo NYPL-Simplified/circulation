@@ -12,7 +12,8 @@ admin = """
     var circulationWeb = new CirculationWeb({
         csrfToken: \"{{ csrf_token }}\",
         homeUrl: \"{{ home_url }}\",
-        showCircEventsDownload: {{ "true" if show_circ_events_download else "false" }}
+        showCircEventsDownload: {{ "true" if show_circ_events_download else "false" }},
+        settingUp: {{ "true" if setting_up else "false" }}
     });
   </script>
 </body>

@@ -2,6 +2,13 @@ from core.util.problem_detail import ProblemDetail as pd
 from api.problem_details import *
 from flask.ext.babel import lazy_gettext as _
 
+ADMIN_AUTH_NOT_CONFIGURED = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-not-configured",
+    500,
+    _("Admin auth not configured"),
+    _("This circulation manager has not been configured to authenticate admins."),
+)
+
 INVALID_ADMIN_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/admin-credentials-invalid",
       401,
@@ -147,4 +154,53 @@ INCOMPLETE_COLLECTION_CONFIGURATION = pd(
     status_code=400,
     title=_("Incomplete collection configuration"),
     detail=_("The collection's configuration is missing a required field."),
+)
+
+MISSING_ADMIN_AUTH_SERVICE_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-admin-auth-service-name",
+    status_code=400,
+    title=_("Missing admin authentication service name."),
+    detail=_("You must identify the admin authentication service by its name."),
+)
+
+UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER = pd(
+    "http://librarysimplified.org/terms/problem/unknown-admin-auth-service-provider",
+    status_code=400,
+    title=_("Unknown admin authentication service provider"),
+    detail=_("The provider is not one of the known admin authentication service providers."),
+)
+
+ADMIN_AUTH_SERVICE_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-service-not-found",
+    status_code=400,
+    title=_("Admin authentication service not found."),
+    detail=_("Currently there can only be one admin authentication service, and the request does not match the existing one."),
+)
+
+NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-provider-for-new-admin-auth-service",
+    status_code=400,
+    title=_("No provider for new admin authentication service"),
+    detail=_("The specified admin authentication service doesn't exist. You can create it, but you must specify a provider."),
+)
+
+CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-admin-auth-service-provider",
+    status_code=400,
+    title=_("Cannot change admin authentication service provider"),
+    detail=_("An admin authentication service's provider can't be changed once it has been set."),
+)
+
+INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-admin-auth-service-configuration",
+    status_code=400,
+    title=_("Incomplete admin authentication service configuration"),
+    detail=_("The admin authentication service's configuration is missing a required field."),
+)
+
+INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
+    "http://librarysimplified.org/terms/problem/invalid-admin-auth-domain-list",
+    status_code=400,
+    title=_("Invalid admin authentication domain list"),
+    detail=_("The admin authentication domain list isn't in a valid format."),
 )

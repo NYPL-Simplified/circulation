@@ -591,6 +591,17 @@ class TestSignInController(AdminControllerTest):
         )
 
     def test_authenticated_admin_from_request(self):
+        # Returns an error if there's no admin auth service.
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_access_token'] = self.admin.access_token
+            response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
+            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+
+        # Works once the admin auth service exists.
+        create(
+            self._db, AdminAuthenticationService,
+            name="Google OAuth", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
         with self.app.test_request_context('/admin'):
             flask.session['admin_access_token'] = self.admin.access_token
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
@@ -627,6 +638,16 @@ class TestSignInController(AdminControllerTest):
         eq_('b-a-n-a-n-a-s', self.admin.credential)
 
     def test_admin_signin(self):
+        # Returns an error if there's no admin auth service.
+        with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            flask.session['admin_access_token'] = self.admin.access_token
+            response = self.manager.admin_sign_in_controller.sign_in()
+            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+
+        create(
+            self._db, AdminAuthenticationService,
+            name="Google OAuth", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.session['admin_access_token'] = self.admin.access_token
             response = self.manager.admin_sign_in_controller.sign_in()
@@ -634,7 +655,12 @@ class TestSignInController(AdminControllerTest):
             eq_("foo", response.headers["Location"])
 
     def test_staff_email(self):
-        auth_service, ignore = get_one_or_create(
+        # Returns false if there's no admin auth service.
+        with self.app.test_request_context('/admin/sign_in'):
+            result = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
+            eq_(False, result)
+
+        auth_service, ignore = create(
             self._db, AdminAuthenticationService,
             name="Google OAuth", provider=AdminAuthenticationService.GOOGLE_OAUTH,
         )
@@ -1275,4 +1301,148 @@ class TestSettingsController(AdminControllerTest):
         # But the library has been removed.
         eq_([], l1.collections)
 
+    def test_admin_auth_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response.get("admin_auth_services"), [])
+
+            # All the providers in AdminAuthenticationService.PROVIDERS are supported by the admin interface.
+            eq_(sorted([p for p in response.get("providers")]),
+                sorted(AdminAuthenticationService.PROVIDERS))
         
+    def test_admin_auth_services_get_with_one_service(self):
+        auth_service, ignore = create(
+            self._db, AdminAuthenticationService,
+            name="Google OAuth", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
+        auth_service.external_integration.url = "http://oauth.test"
+        auth_service.external_integration.username = "user"
+        auth_service.external_integration.password = "pass"
+        auth_service.external_integration.set_setting("domains", json.dumps(["nypl.org"]))
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            [service] = response.get("admin_auth_services")
+
+            eq_(auth_service.name, service.get("name"))
+            eq_(auth_service.provider, service.get("provider"))
+            eq_(auth_service.external_integration.url, service.get("url"))
+            eq_(auth_service.external_integration.username, service.get("username"))
+            eq_(auth_service.external_integration.password, service.get("password"))
+            eq_(["nypl.org"], service.get("domains"))
+
+    def test_admin_auth_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, MISSING_ADMIN_AUTH_SERVICE_NAME)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+                ("provider", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE)
+
+        auth_service, ignore = create(
+            self._db, AdminAuthenticationService, name="auth service",
+            provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "other auth service"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, ADMIN_AUTH_SERVICE_NOT_FOUND)
+        
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+                ("provider", "Google OAuth"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response.uri, INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION.uri)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+                ("provider", "Google OAuth"),
+                ("url", "url"),
+                ("username", "username"),
+                ("password", "password"),
+                ("domains", "not json"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, INVALID_ADMIN_AUTH_DOMAIN_LIST)
+
+    def test_admin_auth_services_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "new auth service"),
+                ("provider", "Google OAuth"),
+                ("url", "url"),
+                ("username", "username"),
+                ("password", "password"),
+                ("domains", json.dumps(["nypl.org", "gmail.com"])),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response.status_code, 201)
+
+        # The auth service was created and configured properly.
+        auth_service = get_one(self._db, AdminAuthenticationService)
+        eq_("new auth service", auth_service.name)
+        eq_("url", auth_service.external_integration.url)
+        eq_("username", auth_service.external_integration.username)
+        eq_("password", auth_service.external_integration.password)
+
+        [setting] = auth_service.external_integration.settings
+        eq_("domains", setting.key)
+        eq_(["nypl.org", "gmail.com"], json.loads(setting.value))
+
+    def test_admin_auth_services_post_edit(self):
+        # The auth service exists.
+        auth_service, ignore = create(
+            self._db, AdminAuthenticationService, name="auth service",
+            provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        )
+        auth_service.external_integration.url = "url"
+        auth_service.external_integration.username = "user"
+        auth_service.external_integration.password = "pass"
+        auth_service.external_integration.set_setting("domains", json.dumps(["library1.org"]))
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "auth service"),
+                ("provider", "Google OAuth"),
+                ("url", "url2"),
+                ("username", "user2"),
+                ("password", "pass2"),
+                ("domains", json.dumps(["library2.org"])),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response.status_code, 200)
+
+        eq_("url2", auth_service.external_integration.url)
+        eq_("user2", auth_service.external_integration.username)
+        [setting] = auth_service.external_integration.settings
+        eq_("domains", setting.key)
+        eq_(["library2.org"], json.loads(setting.value))
+
+
