@@ -1676,7 +1676,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
         
-        eq_(2, len(pool.delivery_mechanisms))
+        eq_(2, pool.delivery_mechanisms.count())
 
         # Now the pool is open access again
         eq_(True, pool.open_access)

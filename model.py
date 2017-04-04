@@ -4779,18 +4779,6 @@ class LicensePoolDeliveryMechanism(Base):
     rightsstatus_id = Column(
         Integer, ForeignKey('rightsstatus.id'), index=True)
 
-    # One DeliveryMechanism may have multiple LicensePools, and vice
-    # versa. They're not directly connected; rather, all LicensePools
-    # for a given data_source_id and identifier_id share a set of
-    # DeliveryMechanisms.
-    license_pools = relationship(
-        "LicensePool",
-        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
-        uselist=True,
-        foreign_keys=lambda:[LicensePoolDeliveryMechanism.data_source_id, LicensePoolDeliveryMechanism.identifier_id],
-        back_populates='delivery_mechanisms',
-    )
-
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
@@ -4810,6 +4798,15 @@ class LicensePoolDeliveryMechanism(Base):
                         break
         return status
 
+    @property
+    def license_pools(self):
+        """Find all LicensePools for this LicensePoolDeliveryMechanism.
+        """
+        _db = Session.object_session(self)
+        return _db.query(LicensePool).filter(
+            LicensePool.data_source==self.data_source).filter(
+                LicensePool.identifier==self.identifier)
+    
     def __repr__(self):
         return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
 
@@ -5895,18 +5892,6 @@ class LicensePool(Base):
     # This lets us cache the work of figuring out the best open access
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
-
-    # One LicensePool may have multiple DeliveryMechanisms, and vice
-    # versa. They're not directly connected; rather, all LicensePools
-    # for a given data_source_id and identifier_id share a set of
-    # DeliveryMechanisms.
-    delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism",
-        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
-        foreign_keys=lambda:[LicensePool.data_source_id, LicensePool.identifier_id],
-        uselist=True,
-        back_populates='license_pools',
-    )
     
     # A Collection can not have more than one LicensePool for a given
     # Identifier from a given DataSource.
@@ -5914,6 +5899,16 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
+    @property
+    def delivery_mechanisms(self):
+        """Find all LicensePoolDeliveryMechanisms for this LicensePool.        
+        """
+        _db = Session.object_session(self)
+        LPDM = LicensePoolDeliveryMechanism
+        return _db.query(LPDM).filter(
+            LPDM.data_source==self.data_source).filter(
+                LPDM.identifier==self.identifier)
+    
     def __repr__(self):
         if self.identifier:
             identifier = "%s/%s" % (self.identifier.type, 
