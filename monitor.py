@@ -367,14 +367,8 @@ class SubjectSweepMonitor(SweepMonitor):
     # large.
     DEFAULT_BATCH_SIZE = 500
     
-    def __init__(self, _db, collection=None, subject_type=None,
-                 filter_string=None):
+    def __init__(self, _db, subject_type=None, filter_string=None):
         """Constructor.
-
-        :param collection: This value is ignored. There's no way
-            to run a SubjectSweepMonitor on a specific collection,
-            because there's no obvious connection between a Subject
-            and a Collection.
         :param subject_type: Only process Subjects of this type.
         :param filter_string: Only process Subjects whose .identifier
            or .name contain this string.

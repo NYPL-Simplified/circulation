@@ -402,29 +402,22 @@ class TestSubjectSweepMonitor(DatabaseTest):
         )
 
         # By default, SubjectSweepMonitor handles every Subject
-        # in the database, whether or not a collection is provided.
-        everything = Mock(self._db, collection=None)
-        eq_([s1, s2], everything.item_query().all())
-        everything = Mock(self._db, collection=self._default_collection)
+        # in the database.
+        everything = Mock(self._db)
         eq_([s1, s2], everything.item_query().all())
 
         # But you can tell SubjectSweepMonitor to handle only Subjects
         # of a certain type.
-        dewey_monitor = Mock(
-            self._db, collection=None, subject_type=Subject.DDC
-        )
+        dewey_monitor = Mock(self._db, subject_type=Subject.DDC)
         eq_([s1], dewey_monitor.item_query().all())
 
         # You can also SubjectSweepMonitor to handle only Subjects
         # whose names or identifiers match a certain string.
-        one_hundred_monitor = Mock(
-            self._db, collection=None, filter_string="100"
-        )
+        one_hundred_monitor = Mock(self._db, filter_string="100")
         eq_([s1, s2], one_hundred_monitor.item_query().all())
 
         specific_tag_monitor = Mock(
-            self._db, collection=None, subject_type=Subject.TAG,
-            filter_string="Years"
+            self._db, subject_type=Subject.TAG, filter_string="Years"
         )
         eq_([s2], specific_tag_monitor.item_query().all())
 
