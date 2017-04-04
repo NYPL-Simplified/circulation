@@ -84,6 +84,7 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     Index,
     Numeric,
@@ -865,6 +866,12 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have provide many LicensePoolDeliveryMechanisms.
+    licensepool_deliveries = relationship(
+        "LicensePoolDeliveryMechanism", backref="data_source",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.data_source_id]
+    )
+    
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
     
@@ -1409,6 +1416,12 @@ class Identifier(Base):
         "Annotation", backref="identifier"
     )
 
+    # One Identifier can have have many LicensePoolDeliveryMechanisms.
+    licensepool_deliveries = relationship(
+        "LicensePoolDeliveryMechanism", backref="identifier",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.identifier_id]
+    )
+    
     # Type + identifier is unique.
     __table_args__ = (
         UniqueConstraint('type', 'identifier'),
@@ -4748,7 +4761,7 @@ class LicensePoolDeliveryMechanism(Base):
     )
 
     identifier_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True, nullable=False
+        Integer, ForeignKey('identifiers.id'), index=True, nullable=False
     )
     
     delivery_mechanism_id = Column(
@@ -4766,28 +4779,45 @@ class LicensePoolDeliveryMechanism(Base):
     rightsstatus_id = Column(
         Integer, ForeignKey('rightsstatus.id'), index=True)
 
+    # One DeliveryMechanism may have multiple LicensePools, and vice
+    # versa. They're not directly connected; rather, all LicensePools
+    # for a given data_source_id and identifier_id share a set of
+    # DeliveryMechanisms.
+    license_pools = relationship(
+        "LicensePool",
+        uselist=True,
+        back_populates='delivery_mechanisms'
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            [data_source_id, identifier_id],
+            [LicensePool.data_source_id, LicensePool.identifier_id]
+        )
+    )
+
 
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
         self.rights_status = status
-        if status.uri in RightsStatus.OPEN_ACCESS:
-            self.license_pool.open_access = True
-        elif self.license_pool.open_access:
-            # If we're setting the rights status to
-            # non-open access, we might have removed
-            # the last open-access delivery mechanism
-            # for the pool. We need to check all of them
-            # to see if there's an open-access one.
-            self.license_pool.open_access = False
-            for lpdm in self.license_pool.delivery_mechanisms:
-                if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-                    self.license_pool.open_access = True
-                    break
+        for pool in self.license_pools:
+            if status.uri in RightsStatus.OPEN_ACCESS:
+                pool.open_access = True
+            elif pool.open_access:
+                # If we're setting the rights status to non-open
+                # access, we might have removed the last open-access
+                # delivery mechanism for the pool. We need to check
+                # all of them to see if there's an open-access one.
+                pool.open_access = False
+                for lpdm in pool.delivery_mechanisms:
+                    if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                        pool.open_access = True
+                        break
         return status
 
     def __repr__(self):
-        return "%r %r" % (self.license_pool, self.delivery_mechanism)
+        return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'identifier_id',
@@ -5843,16 +5873,6 @@ class LicensePool(Base):
     # The date this LicensePool was first created in our db
     # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
-
-    # One LicensePool may have multiple DeliveryMechanisms, and vice
-    # versa. They're not directly connected; rather, all LicensePools
-    # for a given data_source_id and identifier_id share a set of
-    # DeliveryMechanisms.
-    delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism",
-        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
-        backref="license_pools"
-    )
 
     # One LicensePool may have multiple CachedFeeds.
     cached_feeds = relationship('CachedFeed', backref='license_pool')
