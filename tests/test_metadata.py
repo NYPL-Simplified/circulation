@@ -834,37 +834,6 @@ class TestMetadata(DatabaseTest):
         eq_([link2, link5, link4, link3], filtered_links)
 
 
-    def test_make_thumbnail_assigns_pool(self):
-        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
-        #identifier = self._identifier()
-        #identifier = IdentifierData(type=Identifier.GUTENBERG_ID, identifier=edition.primary_identifier)
-        edition = self._edition(identifier_id=identifier.identifier)
-
-        link = LinkData(
-            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://thumbnail.com/",
-            media_type=Representation.JPEG_MEDIA_TYPE,
-        )
-
-        metadata = Metadata(data_source=edition.data_source, 
-            primary_identifier=identifier,
-            links=[link], 
-        )
-
-        circulation = CirculationData(data_source=edition.data_source, 
-            primary_identifier=identifier)
-
-        metadata.circulation = circulation
-
-        collection = self._default_collection
-        metadata.apply(edition, collection)
-        thumbnail_link = edition.primary_identifier.links[0]
-
-        circulation_pool, is_new = circulation.license_pool(
-            self._db, collection
-        )
-        eq_(thumbnail_link.license_pool, circulation_pool)
-
-
 class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
 
     def test_success(self):
