@@ -796,12 +796,14 @@ class ConfigureCollectionScript(Script):
             collection.protocol = protocol
         if args.external_account_id:
             collection.external_account_id = args.external_account_id
+
+        integration = collection.external_integration
         if args.url:
-            collection.url = args.url
+            integration.url = args.url
         if args.username:
-            collection.username = args.username
+            integration.username = args.username
         if args.password:
-            collection.password = args.password
+            integration.password = args.password
         if args.setting:
             for setting in args.setting:
                 if not '=' in setting:
@@ -810,7 +812,8 @@ class ConfigureCollectionScript(Script):
                         % setting
                     )
                 key, value = setting.split('=', 1)
-                collection.setting(key).value = value
+                integration.setting(key).value = value
+
         if hasattr(args, 'library'):
             for name in args.library:
                 library = get_one(_db, Library, short_name=name)

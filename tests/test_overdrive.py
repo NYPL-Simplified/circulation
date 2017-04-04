@@ -171,9 +171,10 @@ class TestOverdriveAPI(OverdriveTest):
         # Here's an Overdrive collection.
         main = self._collection(
             protocol=Collection.OVERDRIVE, external_account_id="1",
-            username="user", password="password"
         )
-        main.setting('website_id').value = '100'
+        main.external_integration.username = "user"
+        main.external_integration.password = "password"
+        main.external_integration.setting('website_id').value = '100'
 
         # Here's an Overdrive API client for that collection.
         overdrive_main = MockOverdriveAPI(self._db, main)

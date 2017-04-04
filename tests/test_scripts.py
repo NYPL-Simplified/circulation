@@ -1101,10 +1101,10 @@ class TestConfigureCollectionScript(DatabaseTest):
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection)
         eq_("New Collection", collection.name)
-        eq_("url", collection.url)
+        eq_("url", collection.external_integration.url)
         eq_("acctid", collection.external_account_id)
-        eq_("username", collection.username)
-        eq_("password", collection.password)
+        eq_("username", collection.external_integration.username)
+        eq_("password", collection.external_integration.password)
 
         # Two libraries now have access to the collection.
         eq_([collection], l1.collections)
@@ -1112,7 +1112,7 @@ class TestConfigureCollectionScript(DatabaseTest):
         eq_([], l3.collections)
 
         # One CollectionSetting was set on the collection.
-        [setting] = collection.settings
+        [setting] = collection.external_integration.settings
         eq_("library_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1141,7 +1141,7 @@ class TestConfigureCollectionScript(DatabaseTest):
         )
 
         # The collection has been changed.
-        eq_("foo", collection.url)
+        eq_("foo", collection.external_integration.url)
         eq_(Collection.BIBLIOTHECA, collection.protocol)
         
         expect = ("Configuration settings stored.\n"
