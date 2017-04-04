@@ -4791,13 +4791,13 @@ class LicensePoolDeliveryMechanism(Base):
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'identifier_id',
-                         'delivery_mechanism_id'),
+                         'delivery_mechanism_id', 'resource_id'),
     )
 
 Index(
-    "ix_licensepooldeliveries_data_source_identifier_delivery_mechanism",
+    "ix_licensepooldeliveries_datasource_identifier_mechanism",
     LicensePoolDeliveryMechanism.data_source_id,
-    LicensePoolDeliveryMechanism.identifier,
+    LicensePoolDeliveryMechanism.identifier_id,
     LicensePoolDeliveryMechanism.delivery_mechanism_id,
 )
 
@@ -5845,9 +5845,13 @@ class LicensePool(Base):
     availability_time = Column(DateTime, index=True)
 
     # One LicensePool may have multiple DeliveryMechanisms, and vice
-    # versa.
+    # versa. They're not directly connected; rather, all LicensePools
+    # for a given data_source_id and identifier_id share a set of
+    # DeliveryMechanisms.
     delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism", backref="license_pool"
+        "LicensePoolDeliveryMechanism",
+        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
+        backref="license_pools"
     )
 
     # One LicensePool may have multiple CachedFeeds.
@@ -6660,31 +6664,31 @@ class LicensePool(Base):
 
     def set_delivery_mechanism(
             self, content_type, drm_scheme, rights_uri, resource):
-        """
-        Additive, unless have more than one version of a book, in the same format, 
-        on the same license (ex.:  book with images and book without images in Gutenberg, 
-        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
-
-        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
-        so long as they have different resources.
+        """Ensure that this LicensePool (and any other LicensePools for the same
+        book) have a LicensePoolDeliveryMechanism for this media type,
+        DRM scheme, rights status, and resource.
         """
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
-            _db, content_type, drm_scheme)
+            _db, content_type, drm_scheme
+        )
         rights_status = RightsStatus.lookup(_db, rights_uri)
         lpdm, ignore = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
-            license_pool=self,
+            identifier=self.identifier,
+            data_source=self.data_source,
             delivery_mechanism=delivery_mechanism,
-            rights_status=rights_status,
+            resource=resource
         )
-        lpdm.resource = resource
-        # If we're adding an open access lpdm, it makes the pool
-        # open access. If we're adding a non-open access lpdm, it
-        # doesn't change anything because the pool might have another
-        # lpdm that is open access.
+        lpdm.rights_status = rights_status
+
+        # Adding an open access LPDM makes all LicensePools that use
+        # it open access. Adding a non-open access LPDM doesn't change
+        # anything because the book might have another LPDM that is
+        # open access.
         if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-            self.open_access = True
+            for pool in lpdm.license_pools:
+                pool.open_access = True
         return lpdm
 
 
