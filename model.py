@@ -6682,7 +6682,6 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
-
     def set_delivery_mechanism(
             self, content_type, drm_scheme, rights_uri, resource):
         """Ensure that this LicensePool (and any other LicensePools for the same

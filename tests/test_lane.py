@@ -1128,9 +1128,21 @@ class TestFilters(DatabaseTest):
         w7.license_pools[0].licenses_owned = 9
         w7.license_pools[0].licenses_available = 5
 
+        # w8 has a delivery mechanism that can't be rendered by the
+        # default client.
+        w8 = self._work(with_license_pool=True)
+        w8.presentation_edition.title = "I have a weird delivery mechanism"
+        [pool] = w8.license_pools
+        for dm in pool.delivery_mechanisms:
+            self._db.delete(dm)
+        pool.set_delivery_mechanism(
+            "weird content type", "weird DRM scheme", "weird rights URI",
+            None
+        )
+        
         # A normal query against Work/LicensePool finds all works.
         orig_q = self._db.query(Work).join(Work.license_pools)
-        eq_(7, orig_q.count())
+        eq_(8, orig_q.count())
 
         # only_show_ready_deliverable_works filters out everything but
         # w1 (owned licenses), w6 (open-access), and w7 (available
