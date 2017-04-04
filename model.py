@@ -4786,13 +4786,13 @@ class LicensePoolDeliveryMechanism(Base):
     license_pools = relationship(
         "LicensePool",
         uselist=True,
-        back_populates='delivery_mechanisms'
+        backref="delivery_mechanisms"
     )
 
     __table_args__ = (
         ForeignKeyConstraint(
             [data_source_id, identifier_id],
-            [LicensePool.data_source_id, LicensePool.identifier_id]
+            ['licensepools.data_source_id', 'licensepools.identifier_id']
         )
     )
 
@@ -5901,7 +5901,7 @@ class LicensePool(Base):
     # This lets us cache the work of figuring out the best open access
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
-    
+
     # A Collection can not have more than one LicensePool for a given
     # Identifier from a given DataSource.
     __table_args__ = (
