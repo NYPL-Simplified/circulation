@@ -5,7 +5,8 @@ from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,
-    assert_raises
+    assert_raises,
+    assert_raises_regexp
 )
 import feedparser
 
@@ -35,6 +36,7 @@ from metadata_layer import (
     LinkData
 )
 from model import (
+    Collection,
     Contributor,
     CoverageRecord,
     DataSource,
@@ -1201,6 +1203,37 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
 
 class TestOPDSImportMonitor(OPDSImporterTest):
+
+    def test_constructor(self):
+        assert_raises_regexp(
+            ValueError,
+            "OPDSImportMonitor can only be run in the context of a Collection.",
+            OPDSImportMonitor,
+            self._db,
+            None,
+            OPDSImporter,
+        )
+
+        self._default_collection.protocol = Collection.OVERDRIVE
+        assert_raises_regexp(
+            ValueError,
+            "Collection .* is configured for protocol Overdrive, not OPDS import.",
+            OPDSImportMonitor,
+            self._db,
+            self._default_collection,
+            OPDSImporter,
+        )
+
+        self._default_collection.protocol = Collection.OPDS_IMPORT
+        self._default_collection.setting('data_source').value = None
+        assert_raises_regexp(
+            ValueError,
+            "Collection .* has no associated data source.",
+            OPDSImportMonitor,
+            self._db,
+            self._default_collection,
+            OPDSImporter,
+        )
         
     def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed

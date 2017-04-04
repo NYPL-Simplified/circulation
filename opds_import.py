@@ -207,12 +207,12 @@ class OPDSImporter(object):
         no LicensePools will be created -- only Editions.
 
         :param data_source_name: Name of the source of this OPDS feed.
-        If `collection` is provided, its .data_source will take
-        precedence over any value provided here. This is only for use
-        when you are importing OPDS metadata without any particular
-        Collection in mind. All Editions created by this import will
-        be associated with this DataSource.  If there is no DataSource
-        with this name, one will be created.
+        All Editions created by this import will be associated with
+        this DataSource. If there is no DataSource with this name, one
+        will be created. NOTE: If `collection` is provided, its
+        .data_source will take precedence over any value provided
+        here. This is only for use when you are importing OPDS
+        metadata without any particular Collection in mind.
 
         :param mirror: Use this MirrorUploader object to mirror all
         incoming open-access books and cover images.
@@ -226,7 +226,7 @@ class OPDSImporter(object):
         :param content_modifier: A function that may modify-in-place
         representations (such as images and EPUB documents) as they
         come in from the network.
- 
+
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
@@ -1161,13 +1161,15 @@ class OPDSImportMonitor(CollectionMonitor):
         if collection.protocol != Collection.OPDS_IMPORT:
             raise ValueError(
                 "Collection %s is configured for protocol %s, not OPDS import." % (
-                    collection.protocol
+                    collection.name, collection.protocol
                 )
             )
 
         data_source = collection.data_source
         if not data_source:
-            raise ValueError("Collection %s has no associated data source.")
+            raise ValueError(
+                "Collection %s has no associated data source." % collection.name
+            )
 
         self.feed_url = collection.external_account_id
         self.force_reimport = force_reimport

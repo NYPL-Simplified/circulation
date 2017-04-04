@@ -7129,7 +7129,10 @@ class Timestamp(Base):
     counter = Column(Integer)
 
     def __repr__(self):
-        timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        if self.timestamp:
+            timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        else:
+            timestamp = None
         if self.counter:
             timestamp += (' %d' % self.counter)
         if self.collection:

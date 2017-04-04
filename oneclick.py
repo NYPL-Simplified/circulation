@@ -539,8 +539,8 @@ class MockOneClickAPI(OneClickAPI):
 
     @property
     def collection(self):
-        """We can store the actual Collection object with the API,
-        so there's no need to store the ID and do lookups.]
+        """We can store the actual Collection object with a mock API,
+        so there's no need to store the ID and do lookups.
         """
         return self._collection
     

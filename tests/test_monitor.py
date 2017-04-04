@@ -74,10 +74,15 @@ class TestMonitor(DatabaseTest):
             NoServiceName,
             self._db
         )
-    
-    def test_monitor_lifecycle(self):
+
+    def test_collection(self):
         monitor = MockMonitor(self._db, self._default_collection)
         eq_(self._default_collection, monitor.collection)
+        monitor.collection_id = None
+        eq_(None, monitor.collection)
+        
+    def test_monitor_lifecycle(self):
+        monitor = MockMonitor(self._db, self._default_collection)
         
         # There is no timestamp for this monitor.
         eq_([], self._db.query(Timestamp).filter(
@@ -102,6 +107,24 @@ class TestMonitor(DatabaseTest):
         # called.
         assert timestamp.timestamp > monitor.original_timestamp
 
+    def test_initial_timestamp(self):
+        class NeverRunMonitor(MockMonitor):
+            SERVICE_NAME = "Never run"
+            DEFAULT_START_TIME = MockMonitor.NEVER
+
+        # The Timestamp object is created, but its .timestamp is None.
+        m = NeverRunMonitor(self._db, self._default_collection)
+        eq_(None, m.timestamp().timestamp)
+
+        class RunLongAgoMonitor(MockMonitor):
+            SERVICE_NAME = "Run long ago"
+            DEFAULT_START_TIME = MockMonitor.ONE_YEAR_AGO
+        # The Timestamp object is created, and its .timestamp is long ago.
+        m = RunLongAgoMonitor(self._db, self._default_collection)
+        timestamp = m.timestamp().timestamp
+        now = datetime.datetime.utcnow()
+        assert timestamp < now
+        
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
         different Collections.
