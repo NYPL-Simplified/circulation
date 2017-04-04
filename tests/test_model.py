@@ -5424,6 +5424,21 @@ class TestCollection(DatabaseTest):
             name="test collection", protocol=Collection.OVERDRIVE
         )
 
+    def test_data_source(self):
+        # For most collections, the protocol determines the
+        # data source.
+        eq_(DataSource.OVERDRIVE, self.collection.data_source.name)
+
+        # For OPDS Import collections, data source is a setting which
+        # might not be present.
+        eq_(None, self._default_collection.data_source)
+
+        # data source will be automatically created if necessary.
+        self._default_collection.setting(
+            Collection.DATA_SOURCE_NAME_SETTING
+        ).value = "New Data Source"
+        eq_("New Data Source", self._default_collection.data_source.name)
+        
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
         a Collection.
