@@ -1669,7 +1669,6 @@ class Identifier(Base):
         link, new_link = get_one_or_create(
             _db, Hyperlink, rel=rel, data_source=data_source,
             identifier=self, resource=resource,
-            create_method_kwargs=dict(license_pool=license_pool)
         )
 
         if content or content_path:
@@ -4820,14 +4819,6 @@ class Hyperlink(Base):
     data_source_id = Column(
         Integer, ForeignKey('datasources.id'), index=True, nullable=False)
 
-    # A Resource may also be associated with some LicensePool which
-    # controls scarce access to it.
-    #
-    # TODO: This probably needs to go, or at least become a many-to-one
-    # thing.
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True)
-
     # The link relation between the Identifier and the Resource.
     rel = Column(Unicode, index=True, nullable=False)
 
@@ -5825,9 +5816,6 @@ class LicensePool(Base):
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
-
-    # One LicensePool may have many associated Hyperlinks.
-    links = relationship("Hyperlink", backref="license_pool")
 
     # One LicensePool can be associated with many Complaints.
     complaints = relationship('Complaint', backref='license_pool')

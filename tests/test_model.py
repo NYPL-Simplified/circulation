@@ -3658,7 +3658,6 @@ class TestHyperlink(DatabaseTest):
         eq_("text/plain", rep.media_type)
         eq_("The content", rep.content)
         eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
-        eq_(pool, hyperlink.license_pool)
         eq_(identifier, hyperlink.identifier)
 
     def test_add_link_fails_if_license_pool_and_identifier_dont_match(self):

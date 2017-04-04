@@ -1498,11 +1498,6 @@ class Metadata(MetaToModelUtility):
             if pool:
                 self.circulation.apply(pool, replace)
 
-            # we updated the pool.  but do the associated links know?
-            for link in self.links:
-                link_obj = link_objects[link]
-                link_obj.license_pool = pool
-
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
             link_obj = link_objects[link]
