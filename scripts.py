@@ -61,8 +61,8 @@ from overdrive import (
     OverdriveBibliographicCoverageProvider,
 )
 
-from threem import (
-    ThreeMBibliographicCoverageProvider,
+from bibliotheca import (
+    BibliothecaBibliographicCoverageProvider,
 )
 
 from axis import Axis360BibliographicCoverageProvider
@@ -150,6 +150,36 @@ class RunMonitorScript(Script):
         self.monitor.run()
 
 
+class RunCollectionMonitorScript(Script):
+    """Run a CollectionMonitor on every Collection that implements a
+    certain protocol.
+
+    TODO: Currently the Monitors are run one at a time. It should
+    be possible to take a command-line argument that runs all the
+    Monitors in batches, each in its own thread.
+    """
+
+    def __init__(self, monitor_class, _db=None, **kwargs):
+        """Constructor.
+        
+        :param monitor_class: A class object that derives from 
+            CollectionMonitor.
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db)
+        self.monitor_class = monitor_class
+        self.name = self.monitor_class.SERVICE_NAME
+        self.kwargs = kwargs
+        
+    def do_run(self):
+        """Instantiate a Monitor for every appropriate Collection,
+        and run them, in order.
+        """
+        for monitor in self.monitor_class.all(self._db, **self.kwargs):
+            monitor.run()
+
+
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
     def __init__(self, providers):
@@ -182,6 +212,17 @@ class RunCoverageProvidersScript(Script):
                 else:
                     offsets[provider] = offset
 
+
+class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
+    """Run the same CoverageProvider code for all Collections that
+    implement its protocol.
+    """
+    def __init__(self, provider_class, _db=None, **kwargs):
+        _db = _db or self._db
+        providers = list(provider_class.all(_db, **kwargs))
+        super(RunCollectionCoverageProviderScript, self).__init__(providers)
+
+                    
 class InputScript(Script):
     @classmethod
     def read_stdin_lines(self, stdin):
@@ -503,7 +544,7 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             # so we'll only recalculate OPDS feeds and reindex the work
             # if something actually changes.
             for provider_class in (
-                    ThreeMBibliographicCoverageProvider,
+                    BibliothecaBibliographicCoverageProvider,
                     OverdriveBibliographicCoverageProvider,
                     Axis360BibliographicCoverageProvider
             ):
@@ -530,8 +571,8 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
 
     def refresh_metadata(self, identifier):
         provider = None
-        if identifier.type==Identifier.THREEM_ID:
-            provider = ThreeMBibliographicCoverageProvider
+        if identifier.type==Identifier.BIBLIOTHECA_ID:
+            provider = BibliothecaBibliographicCoverageProvider
         elif identifier.type==Identifier.OVERDRIVE_ID:
             provider = OverdriveBibliographicCoverageProvider
         elif identifier.type==Identifier.AXIS_360_ID:
@@ -904,9 +945,9 @@ class AddClassificationScript(IdentifierInputScript):
                     self.subject.identifier, self.subject.name,
                     self.weight
                 )
-                pool = identifier.licensed_through
-                if pool and pool.work:
-                    pool.work.calculate_presentation(policy=policy)
+                work = identifier.work
+                if work:
+                    work.calculate_presentation(policy=policy)
         else:
             self.log.warn("Could not locate subject, doing nothing.")
 
@@ -1098,39 +1139,11 @@ class CustomListManagementScript(Script):
 class OneClickImportScript(Script):
     """Import all books from a OneClick-subscribed library catalog."""
 
-    @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--mock', 
-            help='If turned on, will use the MockOneClickAPI client.', 
-            action='store_true'
-        )
-        return parser
-
-
-    def __init__(self, _db=None, cmd_args=None):
+    def __init__(self, collection=None, api_class=OneClickAPI,
+                 **api_class_kwargs):
+        _db = Session.object_session(collection)
         super(OneClickImportScript, self).__init__(_db=_db)
-
-        # get database connection passed in from test or establish a prod one
-        if _db:
-            db = _db
-        else:
-            db = self._db
-
-        parsed_args = self.parse_command_line(cmd_args=cmd_args)
-        self.mock_mode = parsed_args.mock
-
-        if self.mock_mode:
-            self.log.debug(
-                "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
-            )
-            base_path = os.path.split(__file__)[0]
-            base_path = os.path.join(base_path, "tests")
-            self.api = MockOneClickAPI(_db=db, base_path=base_path)
-        else:
-            self.api = OneClickAPI.from_config(_db=db)
-
+        self.api = api_class(collection, **api_class_kwargs)
 
     def do_run(self):
         print "OneClickImportScript.do_run"
@@ -1141,22 +1154,15 @@ class OneClickImportScript(Script):
         self.log.info(result_string)
 
 
-
-
 class OneClickDeltaScript(OneClickImportScript):
     """Import book deletions, additions, and metadata changes for a 
     OneClick-subscribed library catalog.
     """
 
-    def __init__(self, _db=None, cmd_args=None):
-        super(OneClickDeltaScript, self).__init__(_db=_db, cmd_args=cmd_args)
-
-
     def do_run(self):
         print "OneClickDeltaScript.do_run"
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
-
 
 
 class OPDSImportScript(Script):
@@ -1573,7 +1579,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     "%s timestamp already exists: %r. Use --force to update." %
                     (self.name, existing_timestamp))
 
-        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        timestamp = existing_timestamp or Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         if last_run_date:
             submitted_time = self.parse_time(last_run_date)
             timestamp.timestamp = submitted_time
@@ -1584,7 +1592,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
 
-        initial_timestamp = Timestamp.stamp(self._db, self.name)
+        initial_timestamp = Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 

@@ -6,6 +6,7 @@ import os
 import json
 import logging
 import re
+from sqlalchemy.orm.session import Session
 
 from config import (
     Configuration, 
@@ -63,15 +64,13 @@ class Axis360API(object):
 
     log = logging.getLogger("Axis 360 API")
 
-    def __init__(self, _db, collection):
+    def __init__(self, collection):
         if collection.protocol != collection.AXIS_360:
             raise ValueError(
                 "Collection protocol is %s, but passed into Axis360API!" %
                 collection.protocol
             )
-
-        self._db = _db
-
+        self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id.encode("utf8")
         self.username = collection.username.encode("utf8")
         self.password = collection.password.encode("utf8")
@@ -89,26 +88,6 @@ class Axis360API(object):
             )
             
         self.token = None
-
-    @classmethod
-    def from_environment(cls, _db):
-        """Load an Axis360API instance for the 'default' Axis 360
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                      if x.protocol == Collection.AXIS_360]
-        if len(collections) == 0:
-            # There are no Axis 360 collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple Axis 360 collections found for one library. This is not yet supported."
-            )
-        [collection] = collections 
-
-        return cls(_db, collection)
         
     @property
     def source(self):
@@ -203,7 +182,9 @@ class Axis360API(object):
 
 class MockAxis360API(Axis360API):
 
-    def __init__(self, _db, with_token=True, *args, **kwargs):
+    @classmethod
+    def mock_collection(self, _db):
+        """Create a mock Axis 360 collection for use in tests."""
         library = Library.instance(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
@@ -214,12 +195,24 @@ class MockAxis360API(Axis360API):
             )
         )
         library.collections.append(collection)
-        super(MockAxis360API, self).__init__(_db, collection, *args, **kwargs)
+        return collection
+
+    def __init__(self, collection, with_token=True, **kwargs):
+        """Constructor.
+
+        :param collection: Get Axis 360 credentials from this
+            Collection.
+
+        :param with_token: If True, this class will assume that
+            it already has a valid token, and will not go through
+            the motions of negotiating one with the mock server.
+        """
+        super(MockAxis360API, self).__init__(collection, **kwargs)
         if with_token:
             self.token = "mock token"
         self.responses = []
         self.requests = []
-
+        
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
@@ -242,19 +235,26 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     not normally necessary because the Axis 360 API combines
     bibliographic and availability data.
     """
-    def __init__(self, _db, metadata_replacement_policy=None, axis_360_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs):
+
+    SERVICE_NAME = "Axis 360 Bibliographic Coverage Provider"
+    DATA_SOURCE_NAME = DataSource.AXIS_360
+    PROTOCOL = Collection.AXIS_360
+    INPUT_IDENTIFIER_TYPES = Identifier.AXIS_360_ID
+    DEFAULT_BATCH_SIZE = 25
+    
+    def __init__(self, collection, api_class=Axis360API, **kwargs):
+        """Constructor.
+
+        :param collection: Provide bibliographic coverage to all
+            Axis 360 books in the given Collection.
+        :param api_class: Instantiate this class with the given Collection,
+            rather than instantiating Axis360API.
         """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
-        """
-        self.parser = BibliographicParser()
         super(Axis360BibliographicCoverageProvider, self).__init__(
-            _db, axis_360_api, DataSource.AXIS_360,
-            batch_size=25, 
-            metadata_replacement_policy=metadata_replacement_policy,
-            **kwargs
+            collection, **kwargs
         )
+        self.api = api_class(collection)
+        self.parser = BibliographicParser()
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
@@ -281,8 +281,8 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
                 identifier, ignore = Identifier.for_foreign_id(
                     self._db, Identifier.AXIS_360_ID, identifier_string
                 )
-                result = CoverageFailure(
-                    identifier, "Book not in collection", data_source=self.output_source, transient=False
+                result = self.failure(
+                    identifier, "Book not in collection", transient=False
                 )
                 batch_results.append(result)
         return batch_results

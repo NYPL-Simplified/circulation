@@ -42,7 +42,9 @@ from model import (
 )
 from classifier import Classifier
 from coverage import (
-    CoverageProvider,
+    BibliographicCoverageProvider,
+    CollectionCoverageProvider,
+    IdentifierCoverageProvider,
     CoverageFailure,
     WorkCoverageProvider,
 )
@@ -72,7 +74,7 @@ def package_setup():
 
     # Initialize basic database data needed by the application.
     _db = Session(connection)
-    SessionManager.initialize_data(_db)
+    SessionManager.initialize_data(_db)    
     _db.commit()
     connection.close()
     engine.dispose()
@@ -98,7 +100,7 @@ class DatabaseTest(object):
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
 
         os.environ['TESTING'] = 'true'
-
+        
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -190,9 +192,11 @@ class DatabaseTest(object):
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
     def _edition(self, data_source_name=DataSource.GUTENBERG,
-                    identifier_type=Identifier.GUTENBERG_ID,
-                    with_license_pool=False, with_open_access_download=False,
-                    title=None, language="eng", authors=None, identifier_id=None):
+                 identifier_type=Identifier.GUTENBERG_ID,
+                 with_license_pool=False, with_open_access_download=False,
+                 title=None, language="eng", authors=None, identifier_id=None,
+                 collection=None
+    ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
@@ -213,8 +217,11 @@ class DatabaseTest(object):
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
             
         if with_license_pool or with_open_access_download:
-            pool = self._licensepool(wr, data_source_name=data_source_name,
-                                     with_open_access_download=with_open_access_download)  
+            pool = self._licensepool(
+                wr, data_source_name=data_source_name,
+                with_open_access_download=with_open_access_download,
+                collection=collection
+            )
 
             pool.set_presentation_edition()
             return wr, pool
@@ -318,16 +325,19 @@ class DatabaseTest(object):
     def _licensepool(self, edition, open_access=True, 
                      data_source_name=DataSource.GUTENBERG,
                      with_open_access_download=False, 
-                     set_edition_as_presentation=False):
+                     set_edition_as_presentation=False,
+                     collection=None):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
-
+        collection = collection or self._default_collection
         pool, ignore = get_one_or_create(
             self._db, LicensePool,
             create_method_kwargs=dict(
                 open_access=open_access),
-            identifier=edition.primary_identifier, data_source=source,
+            identifier=edition.primary_identifier,
+            data_source=source,
+            collection=collection,
             availability_time=datetime.utcnow()
         )
 
@@ -649,6 +659,23 @@ class DatabaseTest(object):
         collection.username = username
         collection.password = password
         return collection
+
+    @property
+    def _default_collection(self):
+        """A Collection that will only be created once throughout
+        a given test.
+
+        For most tests there's no need to create a different
+        Collection for every LicensePool. Using
+        self._default_collection instead of calling self.collection()
+        saves time.
+        """
+        if not hasattr(self, '_default__collection'):
+            self._default__collection = self._collection()
+        return self._default__collection
+    
+    def _catalog(self, name=u"Faketown Public Library"):
+        source, ignore = get_one_or_create(self._db, DataSource, name=name)
         
     def _integration_client(self, url=None):
         url = url or self._url
@@ -668,10 +695,30 @@ class DatabaseTest(object):
             data_source=data_source, weight=weight
         )[0]
 
-class InstrumentedCoverageProvider(CoverageProvider):
+
+class MockCoverageProvider(object):
+    """Mixin class for mock CoverageProviders that defines common constants."""
+    SERVICE_NAME = "Generic mock CoverageProvider"
+    
+    # Whenever a CoverageRecord is created, the data_source of that
+    # record will be Project Gutenberg.
+    DATA_SOURCE_NAME = DataSource.GUTENBERG
+    
+    # For testing purposes, this CoverageProvider will try to cover
+    # every identifier in the database.
+    INPUT_IDENTIFIER_TYPES = None
+
+    # This CoverageProvider can work with any Collection that supports
+    # the OPDS import protocol (e.g. DatabaseTest._default_collection).
+    PROTOCOL = Collection.OPDS_IMPORT
+
+
+class InstrumentedCoverageProvider(MockCoverageProvider,
+                                   IdentifierCoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
+    
     def __init__(self, *args, **kwargs):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
@@ -680,8 +727,10 @@ class InstrumentedCoverageProvider(CoverageProvider):
         self.attempts.append(item)
         return item
 
-class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
-    """A CoverageProvider that keeps track of every item it tried
+
+class InstrumentedWorkCoverageProvider(MockCoverageProvider,
+                                       WorkCoverageProvider):
+    """A WorkCoverageProvider that keeps track of every item it tried
     to cover.
     """
     def __init__(self, _db, *args, **kwargs):
@@ -692,48 +741,85 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
         self.attempts.append(item)
         return item
 
+class AlwaysSuccessfulCollectionCoverageProvider(MockCoverageProvider,
+                                                 CollectionCoverageProvider):
+    """A CollectionCoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful (collection)"
+    
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful"
 
 class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     """A WorkCoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful (works)"
+
+
+class AlwaysSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider):
+    """A BibliographicCoverageProvider that does nothing and is always
+    successful.
+
+    Note that this only works if you've put a working Edition and
+    LicensePool in place beforehand. Otherwise the process will fail
+    during handle_success().
+    """
+    SERVICE_NAME = "Always successful (bibliographic)"
+    
+    def process_item(self, identifier):
+        return identifier
+
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
-
-    def __init__(self, _db, *args, **kwargs):
+    SERVICE_NAME = "Never successful"
+    
+    def __init__(self, *args, **kwargs):
         super(NeverSuccessfulCoverageProvider, self).__init__(
-            _db, *args, **kwargs
+            *args, **kwargs
         )
         self.transient = kwargs.get('transient') or False
 
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(
-            item, "What did you expect?", self.output_source, self.transient
-        )
+        return self.failure(item, "What did you expect?", self.transient)
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "What did you expect?", None, False)
+        return self.failure(item, "What did you expect?", False)
 
+class NeverSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's never successful."""
+
+    SERVICE_NAME = "Never successful (bibliographic)"
+    
+    def process_item(self, identifier):
+        return self.failure(identifier, "Bitter failure", transient=True)
+
+    
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Broken"
     def process_item(self, item):
         raise Exception("I'm too broken to even return a CoverageFailure.")
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Never successful (transient)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", self.output_source, True)
+        return self.failure(item, "Oops!", True)
 
 class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (transient, works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", None, True)
+        return self.failure(item, "Oops!", True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""
+    SERVICE_NAME = "I ignore all work."
     def process_batch(self, batch):
         return []
 

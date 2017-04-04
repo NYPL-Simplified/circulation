@@ -141,6 +141,13 @@ def production_session():
 class PolicyException(Exception):
     pass
 
+
+class CollectionMissing(Exception):
+    """An operation was attempted that can only happen within the context
+    of a Collection, but there was no Collection available.
+    """
+
+
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
@@ -858,6 +865,9 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    def __repr__(self):
+        return '<DataSource: name="%s">' % (self.name)
+    
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -1373,10 +1383,10 @@ class Identifier(Base):
         "Edition", backref="primary_identifier"
     )
 
-    # One Identifier may serve as the identifier for
-    # a single LicensePool.
+    # One Identifier may serve as the identifier for many
+    # LicensePools, through different Collections.
     licensed_through = relationship(
-        "LicensePool", backref="identifier", uselist=False, lazy='joined',
+        "LicensePool", backref="identifier", lazy='joined',
     )
 
     # One Identifier may have many Links.
@@ -1501,6 +1511,17 @@ class Identifier(Base):
             return self.URN_SCHEME_PREFIX + "%s/%s" % (
                 identifier_type, identifier_text)
 
+    @property
+    def work(self):
+        """Find the Work, if any, associated with this Identifier.
+
+        Although one Identifier may be associated with multiple LicensePools,
+        all of them must share a Work.
+        """
+        for lp in self.licensed_through:
+            if lp.work:
+                return lp.work
+        
     class UnresolvableIdentifierException(Exception):
         # Raised when an identifier that can't be resolved into a LicensePool
         # is provided in a context that requires a resolvable identifier
@@ -2410,7 +2431,7 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        "LicensePool", uselist=False, backref="presentation_edition"
+        "LicensePool", backref="presentation_edition"
     )
 
     title = Column(Unicode, index=True)
@@ -3735,9 +3756,10 @@ class Work(Base):
 
         self.presentation_edition = new_presentation_edition
 
-        # if the edition has a license pool, let the pool know it has a work.
-        if self.presentation_edition.is_presentation_for:
-            self.presentation_edition.is_presentation_for.work = self
+        # if the edition is the presentation edition for any license
+        # pools, let them know they have a Work.
+        for pool in self.presentation_edition.is_presentation_for:
+            pool.work = self
 
     def calculate_presentation_edition(self, policy=None):
         """ Which of this Work's Editions should be used as the default?
@@ -4800,6 +4822,9 @@ class Hyperlink(Base):
 
     # A Resource may also be associated with some LicensePool which
     # controls scarce access to it.
+    #
+    # TODO: This probably needs to go, or at least become a many-to-one
+    # thing.
     license_pool_id = Column(
         Integer, ForeignKey('licensepools.id'), index=True)
 
@@ -5599,9 +5624,15 @@ class Classification(Base):
 
     @property
     def comes_from_license_source(self):
+        """Does this Classification come from a data source that also
+        provided a license for this book?
+        """
         if not self.identifier.licensed_through:
             return False
-        return self.identifier.licensed_through.data_source == self.data_source
+        for pool in self.identifier.licensed_through:
+            if self.data_source == pool.data_source:
+                return True
+        return False
 
 
 class WillNotGenerateExpensiveFeed(Exception):
@@ -5777,6 +5808,10 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
+    # Each LicensePool belongs to one Collection.
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=False)
+    
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
@@ -5835,9 +5870,10 @@ class LicensePool(Base):
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
     
-    # A Identifier should have at most one LicensePool.
+    # A Collection can not have more than one LicensePool for a given
+    # Identifier from a given DataSource.
     __table_args__ = (
-        UniqueConstraint('identifier_id'),
+        UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
     def __repr__(self):
@@ -5852,17 +5888,16 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id, rights_status=None):
-        """Create a LicensePool for the given foreign ID."""
+    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
+                       rights_status=None, collection=None, autocreate=True):
+        """Find or create a LicensePool for the given foreign ID."""
 
+        if not collection:
+            raise CollectionMissing()
+        
         # Get the DataSource.
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
-
-        # The data source must be one that offers licenses.
-        if not data_source.offers_licenses:
-            raise ValueError(
-                'Data source "%s" does not offer licenses.' % data_source.name)
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
@@ -5883,14 +5918,19 @@ class LicensePool(Base):
             _db, foreign_id_type, foreign_id
             )
 
-        kw = dict(data_source=data_source, identifier=identifier)
+        kw = dict(data_source=data_source, identifier=identifier,
+                  collection=collection)
         if rights_status:
             kw['rights_status'] = rights_status
 
-        # Get the LicensePool that corresponds to the DataSource and
-        # the Identifier.
-        license_pool, was_new = get_one_or_create(
-            _db, LicensePool, **kw)
+        # Get the LicensePool that corresponds to the
+        # DataSource/Identifier/Collection.
+        if autocreate:
+            license_pool, was_new = get_one_or_create(_db, LicensePool, **kw)
+        else:
+            license_pool = get_one(_db, LicensePool, **kw)
+            was_new = False
+            
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
@@ -6093,7 +6133,7 @@ class LicensePool(Base):
 
             policy = ReplacementPolicy.from_metadata_source()
             self.presentation_edition, edition_core_changed = metadata.apply(
-                edition, replace=policy
+                edition, collection=self.collection, replace=policy
             )
             changed = changed or edition_core_changed
 
@@ -6325,17 +6365,29 @@ class LicensePool(Base):
         or author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
+
+        TODO: I think known_edition is mostly useless. We should
+        either remove it or replace it with a boolean that stops us
+        from calling set_presentation_edition() and assumes we've
+        already done that work.
         """
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
             self.work = None
             return None, False
+       
         if known_edition:
             presentation_edition = known_edition
         else:
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
-
+            
+        if presentation_edition:
+            if self not in presentation_edition.is_presentation_for:
+                raise ValueError(
+                    "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!"
+                )
+                    
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
             # We don't have any information about the identifier
@@ -6347,10 +6399,6 @@ class LicensePool(Base):
             # it was by mistake. Remove it.
             self.work = None
             return None, False
-
-        if presentation_edition.is_presentation_for != self:
-            raise ValueError(
-                "Presentation edition's license pool is not the license pool for which work is being calculated!")
 
         if not presentation_edition.title or not presentation_edition.author:
             presentation_edition.calculate_presentation()
@@ -6413,6 +6461,20 @@ class LicensePool(Base):
             self.work = work
             licensepools_changed = True
 
+        # All LicensePools with a given Identifier must share a work.
+        existing_works = set([x.work for x in self.identifier.licensed_through])
+        if len(existing_works) > 1:
+            logging.warn(
+                "LicensePools for %r have more than one Work between them. Removing them all and starting over."
+            )
+            for lp in self.identifier.licensed_through:
+                lp.work = None
+                if lp.presentation_edition:
+                    lp.presentation_edition.work = None
+        else:
+            # There is a consensus Work for this Identifier.
+            [self.work] = existing_works
+
         if self.work:
             # This pool is already associated with a Work. Use that
             # Work.
@@ -6474,6 +6536,12 @@ class LicensePool(Base):
         # call points first.
         work.calculate_presentation()
 
+        # Ensure that all LicensePools with this Identifier share
+        # the same Work. (We may have wiped out their .work earlier
+        # in this method.)
+        for lp in self.identifier.licensed_through:
+            lp.work = work
+        
         if is_new:
             logging.info("Created a new work: %r", work)
 
@@ -6612,7 +6680,7 @@ class LicensePool(Base):
         return lpdm
 
 
-Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
+Index("ix_licensepools_data_source_id_identifier_id_collection_id", LicensePool.collection_id, LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
 
 class RightsStatus(Base):
@@ -7050,30 +7118,50 @@ class DRMDeviceIdentifier(Base):
 
     
 class Timestamp(Base):
-    """A general-purpose timestamp for external services."""
+    """A general-purpose timestamp for Monitors."""
 
     __tablename__ = 'timestamps'
-    service = Column(String(255), primary_key=True)
+    id = Column(Integer, primary_key=True)
+    service = Column(String(255), index=True, nullable=False)
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=True)
     timestamp = Column(DateTime)
     counter = Column(Integer)
 
     def __repr__(self):
-        timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        if self.timestamp:
+            timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        else:
+            timestamp = None
         if self.counter:
             timestamp += (' %d' % self.counter)
-        return (u"<Timestamp %s: %s>" % (self.service, timestamp)).encode("utf8")
+        if self.collection:
+            collection = self.collection.name
+        else:
+            collection = None
+
+        message = u"<Timestamp %s: collection=%s, timestamp=%s>" % (
+            self.service, collection, timestamp
+        )
+        return message.encode("utf8")
 
     @classmethod
-    def stamp(self, _db, service):
-        now = datetime.datetime.utcnow()
+    def stamp(self, _db, service, collection, date=None):
+        date = date or datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
-            create_method_kwargs=dict(timestamp=now))
+            collection=collection,
+            create_method_kwargs=dict(timestamp=date))
         if not was_new:
-            stamp.timestamp = now
+            stamp.timestamp = date
         return stamp
 
+    __table_args__ = (
+        UniqueConstraint('service', 'collection_id'),
+    )
+
+    
 class Representation(Base):
     """A cached document obtained from (and possibly mirrored to) the Web
     at large.
@@ -8578,7 +8666,18 @@ class Collection(Base):
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
+    # Some protocols imply that the data and licenses come from a
+    # specific data source.
+    DATA_SOURCE_FOR_PROTOCOL = {
+        OVERDRIVE : DataSource.OVERDRIVE,
+        BIBLIOTHECA : DataSource.BIBLIOTHECA,
+        AXIS_360 : DataSource.AXIS_360,
+        ONE_CLICK : DataSource.ONECLICK
+    }
+    
     PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
+
+    DATA_SOURCE_NAME_SETTING = 'data_source'
     
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
@@ -8643,11 +8742,12 @@ class Collection(Base):
     )
     
     # A Collection can include many LicensePools.
-    licensepools = relationship(
-        "LicensePool", secondary=lambda: collections_licensepools,
-        backref="collections"
-    )
+    licensepools = relationship("LicensePool", backref="collection")
 
+    # A Collection can be monitored by many Monitors, each of which
+    # will have its own Timestamp.
+    timestamps = relationship("Timestamp", backref="collection")
+    
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
@@ -8664,8 +8764,31 @@ class Collection(Base):
 
         if self.parent:
             return self.parent.unique_account_id + '+' + unique_account_id
-        return unique_account_id
+        return unique_account_id        
+    
+    @property
+    def data_source(self):
+        """Find the data source associated with this Collection.
 
+        Bibliographic metadata obtained through the collection
+        protocol is recorded as coming from this data source. A
+        LicensePool inserted into this collection will be associated
+        with this data source, unless its bibliographic metadata
+        indicates some other data source.
+
+        For most Collections, the protocol sets the data source.  For
+        collections that use the OPDS import protocol, the data source
+        is a Collection-specific setting.
+        """
+        data_source = None
+        name = Collection.DATA_SOURCE_FOR_PROTOCOL.get(self.protocol)
+        if not name:
+            name = self.setting(Collection.DATA_SOURCE_NAME_SETTING).value
+        _db = Session.object_session(self)
+        if name:
+            data_source = DataSource.lookup(_db, name, autocreate=True)
+        return data_source
+    
     @property
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
@@ -8696,7 +8819,7 @@ class Collection(Base):
                 name=metadata_identifier, protocol=protocol)
 
         return collection, is_new
-
+    
     def set_setting(self, key, value):
         """Create or update a key-value setting for this Collection."""
         setting = self.setting(key)
@@ -8800,6 +8923,7 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
+    
 collections_licensepools = Table(
     'collections_licensepools', Base.metadata,
      Column(

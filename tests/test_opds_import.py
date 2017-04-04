@@ -5,7 +5,8 @@ from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,
-    assert_raises
+    assert_raises,
+    assert_raises_regexp
 )
 import feedparser
 
@@ -35,6 +36,7 @@ from metadata_layer import (
     LinkData
 )
 from model import (
+    Collection,
     Contributor,
     CoverageRecord,
     DataSource,
@@ -121,30 +123,25 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server.opds")).read()
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
-
+        self._default_collection.setting('data_source').value = (
+            DataSource.OA_CONTENT_SERVER
+        )
+        
 
 class TestOPDSImporter(OPDSImporterTest):
 
     def test_data_source_autocreated(self):
         name = "New data source " + self._str
-        importer = OPDSImporter(self._db, name)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=name
+        )
         source1 = importer.data_source
         eq_(name, source1.name)
-        
-        # By default, DataSources created through this mechanism do
-        # not offer licenses.
-        eq_(False, source1.offers_licenses)
 
-        # But we can create a DataSource that does offer licenses.
-        name = "New data source " + self._str
-        importer = OPDSImporter(self._db, name,
-                                data_source_offers_licenses=True)
-        source2 = importer.data_source
-        eq_(name, source2.name)
-        eq_(True, source2.offers_licenses)
-        
     def test_extract_next_links(self):
-        importer = OPDSImporter(self._db, DataSource.NYT)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=DataSource.NYT
+        )
         next_links = importer.extract_next_links(
             self.content_server_mini_feed
         )
@@ -153,7 +150,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("http://localhost:5000/?after=327&size=100", next_links[0])
 
     def test_extract_last_update_dates(self):
-        importer = OPDSImporter(self._db, DataSource.NYT)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=DataSource.NYT
+        )
 
         # This file has two <entry> tags and one <simplified:message> tag.
         # The <entry> tags have their last update dates extracted,
@@ -176,7 +175,9 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_extract_metadata(self):
         data_source_name = "Data source name " + self._str
-        importer = OPDSImporter(self._db, data_source_name)
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=data_source_name
+        )
         metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
@@ -476,7 +477,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
     def test_import_exception_if_unable_to_parse_feed(self):
         feed = "I am not a feed."
-        importer = OPDSImporter(self._db)
+        importer = OPDSImporter(self._db, collection=None)
 
         assert_raises(etree.XMLSyntaxError, importer.import_from_feed, feed)
 
@@ -485,7 +486,7 @@ class TestOPDSImporter(OPDSImporterTest):
         feed = self.content_server_mini_feed
 
         imported_editions, pools, works, failures = (
-            OPDSImporter(self._db).import_from_feed(feed)
+            OPDSImporter(self._db, collection=None).import_from_feed(feed)
         )
 
         [crow, mouse] = sorted(imported_editions, key=lambda x: x.title)
@@ -540,19 +541,26 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # If we import the same file again, we get the same list of Editions.
         imported_editions_2, pools_2, works_2, failures_2 = (
-            OPDSImporter(self._db).import_from_feed(feed)
+            OPDSImporter(self._db, collection=None).import_from_feed(feed)
         )
         eq_(imported_editions_2, imported_editions)
 
-        # importing with a lendable data source makes license pools and works
+        # importing with a collection and a lendable data source makes
+        # license pools and works.
         imported_editions, pools, works, failures = (
-            OPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER).import_from_feed(feed)
+            OPDSImporter(
+                self._db,
+                collection=self._default_collection,
+                data_source_name=DataSource.OA_CONTENT_SERVER
+            ).import_from_feed(feed)
         )
 
         [crow_pool, mouse_pool] = sorted(
             pools, key=lambda x: x.presentation_edition.title
         )
-
+        eq_(self._default_collection, crow_pool.collection)
+        eq_(self._default_collection, mouse_pool.collection)
+        
         # Work was created for both books.
         assert crow_pool.work is not None
         eq_(Edition.BOOK_MEDIUM, crow_pool.presentation_edition.medium)
@@ -574,72 +582,85 @@ class TestOPDSImporter(OPDSImporterTest):
             mech.resource.url)
 
     def test_import_with_lendability(self):
-        # Tests that will create Edition, LicensePool, and Work objects, when appropriate.
-        # For example, on a Metadata_Wrangler data source, it is only appropriate to create 
-        # editions, but not pools or works.  On a lendable data source, should create 
-        # pools and works as well as editions.
-        # Tests that the number and contents of error messages are appropriate to the task.
+        """Test that OPDS import creates Edition, LicensePool, and Work
+        objects, as appropriate.
 
-        # will create editions, but not license pools or works, because the 
-        # metadata wrangler data source is not lendable
+        When there is no Collection, it is appropriate to create
+        Editions, but not LicensePools or Works.  When there is a
+        Collection, it is appropriate to create all three.
+        """
         feed = self.content_server_mini_feed
 
-        importer_mw = OPDSImporter(self._db, data_source_name=DataSource.METADATA_WRANGLER)
+        # This import will create Editions, but not LicensePools or
+        # Works, because there is no Collection.
+        importer_mw = OPDSImporter(
+            self._db, collection=None,
+            data_source_name=DataSource.METADATA_WRANGLER
+        )
         imported_editions_mw, pools_mw, works_mw, failures_mw = (
             importer_mw.import_from_feed(feed)
         )
 
-        # Both books were imported, because they were new.
+        # Both editions were imported, because they were new.
         eq_(2, len(imported_editions_mw))
-
-        # But pools and works weren't created, because the data source isn't lendable.
-        # 1 error message, because correctly didn't even get to trying to create pools, 
-        # so no messages there, but do have that entry stub at end of sample xml file, 
-        # which should fail with a message.
-        eq_(1, len(failures_mw))
+        
+        # But pools and works weren't created, because there is no Collection.
         eq_(0, len(pools_mw))
         eq_(0, len(works_mw))
 
-        # try again, with a license pool-acceptable data source
-        importer_g = OPDSImporter(self._db, data_source_name=DataSource.GUTENBERG)
+        # 1 error message, corresponding to the <simplified:message> tag
+        # at the end of content_server_mini.opds.
+        eq_(1, len(failures_mw))
+                
+        # Try again, with a Collection to contain the LicensePools.
+        importer_g = OPDSImporter(
+            self._db, collection=self._default_collection,
+        )
         imported_editions_g, pools_g, works_g, failures_g = (
             importer_g.import_from_feed(feed)
         )
-
-        # we made new editions, because we're now creating edition per data source, not overwriting
-        eq_(2, len(imported_editions_g))
-        # TODO: and we also created presentation editions, with author and title set
 
         # now pools and works are in, too
         eq_(1, len(failures_g))
         eq_(2, len(pools_g))
         eq_(2, len(works_g))        
 
-        # assert that bibframe datasource from feed was correctly overwritten
-        # with data source I passed into the importer.
-        for pool in pools_g:
-            eq_(pool.data_source.name, DataSource.GUTENBERG)
-
+        # The pools have presentation editions.
+        eq_(set(["The Green Mouse", "Johnny Crow's Party"]),
+            set([x.presentation_edition.title for x in pools_g]))
+        
+        # The information used to create the first LicensePool said
+        # that the licensing authority is Project Gutenberg, so that's used
+        # as the DataSource for the first LicensePool. The information used
+        # to create the second LicensePool didn't include a data source,
+        # so the source of the OPDS feed (the open-access content server)
+        # was used.
+        sources = [pool.data_source.name for pool in pools_g]
+        eq_([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER], sources)
+        
     def test_import_with_unrecognized_distributor_creates_distributor(self):
-        """We get a book from the open-access content server but the license
-        comes from an unrecognized data source. The book is imported and
-        we create a DataSource to record its provenance accurately.
+        """We get a book from a previously unknown data source, with a license
+        that comes from a second previously unknown data source. The
+        book is imported and both DataSources are created.
         """
         feed = open(
             os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
+        self._default_collection.setting('data_source').value = (
+            "some new source"
+        )
         importer = OPDSImporter(
-            self._db, 
-            data_source_name=DataSource.OA_CONTENT_SERVER
+            self._db,
+            collection=self._default_collection,
         )
         imported_editions, pools, works, failures = (
             importer.import_from_feed(feed)
         )
         eq_({}, failures)
-
+       
         # We imported an Edition because there was metadata.
         [edition] = imported_editions
         new_data_source = edition.data_source
-        eq_(DataSource.OA_CONTENT_SERVER, new_data_source.name)
+        eq_("some new source", new_data_source.name)
 
         # We imported a LicensePool because there was an open-access
         # link, even though the ultimate source of the link was one
@@ -665,14 +686,22 @@ class TestOPDSImporter(OPDSImporterTest):
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
+        self._default_collection.setting('data_source').value = (
+            DataSource.OVERDRIVE
+        )
         imported_editions, imported_pools, imported_works, failures = (
-            OPDSImporter(self._db, data_source_name=DataSource.OVERDRIVE).import_from_feed(feed)
+            OPDSImporter(
+                self._db,
+                collection=self._default_collection,
+            ).import_from_feed(feed)
         )
 
         # The edition we created has had its metadata updated.
-        eq_(imported_editions[0], edition)
-        eq_("The Green Mouse", imported_editions[0].title)
-
+        [new_edition] = imported_editions
+        eq_(new_edition, edition)
+        eq_("The Green Mouse", new_edition.title)
+        eq_(DataSource.OVERDRIVE, new_edition.data_source.name)
+        
         # But the license pools have not changed.
         eq_(edition.license_pool, old_license_pool)
         eq_(work.license_pools, [old_license_pool])
@@ -684,9 +713,10 @@ class TestOPDSImporter(OPDSImporterTest):
         # open-access content server.
         feed = self.content_server_mini_feed
         importer = OPDSImporter(
-            self._db, data_source_name=DataSource.OA_CONTENT_SERVER
+            self._db,
+            collection=self._default_collection,
         )
-
+        
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
@@ -735,7 +765,9 @@ class TestOPDSImporter(OPDSImporterTest):
         # as soon as they're imported.
         feed = self.content_server_mini_feed
         importer = OPDSImporter(
-            self._db, data_source_name=DataSource.OA_CONTENT_SERVER
+            self._db,
+            collection=self._default_collection,
+            data_source_name=DataSource.OA_CONTENT_SERVER
         )
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed, immediately_presentation_ready=True)
@@ -752,7 +784,9 @@ class TestOPDSImporter(OPDSImporterTest):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")
         feed = open(path).read()
         imported_editions, imported_pools, imported_works, failures = (
-            OPDSImporter(self._db).import_from_feed(feed)
+            OPDSImporter(
+                self._db, collection=self._default_collection
+            ).import_from_feed(feed)
         )
 
         [failure] = failures.values()
@@ -766,9 +800,11 @@ class TestOPDSImporter(OPDSImporterTest):
         # meaningful error message.
 
         feed = self.content_server_mini_feed
-
         imported_editions, pools, works, failures = (
-            DoomedOPDSImporter(self._db).import_from_feed(feed)
+            DoomedOPDSImporter(
+                self._db,
+                collection=self._default_collection,
+            ).import_from_feed(feed)
         )
 
         # Only one book was imported, the other failed.
@@ -785,7 +821,13 @@ class TestOPDSImporter(OPDSImporterTest):
         # imported edition generates a meaningful error message.
 
         feed = self.content_server_mini_feed
-        importer = DoomedWorkOPDSImporter(self._db, data_source_name=DataSource.OA_CONTENT_SERVER)
+        self._default_collection.setting('data_source').value = (
+            DataSource.OA_CONTENT_SERVER
+        )
+        importer = DoomedWorkOPDSImporter(
+            self._db,
+            collection=self._default_collection
+        )
 
         imported_editions, pools, works, failures = (
             importer.import_from_feed(feed)
@@ -849,7 +891,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_import_book_that_offers_no_license(self):
         path = os.path.join(self.resource_path, "book_without_license.opds")
         feed = open(path).read()
-        importer = OPDSImporter(self._db, DataSource.OA_CONTENT_SERVER)
+        importer = OPDSImporter(self._db, self._default_collection)
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
@@ -993,7 +1035,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         s3 = DummyS3Uploader()
 
         importer = OPDSImporter(
-            self._db, data_source_name=DataSource.OA_CONTENT_SERVER,
+            self._db, collection=self._default_collection,
             mirror=s3, http_get=http.do_get
         )
 
@@ -1004,6 +1046,8 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         e1 = imported_editions[0]
         e2 = imported_editions[1]
 
+        eq_(2, len(pools))
+        
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
         # image was not requested, since we were going to make our own
@@ -1109,32 +1153,119 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         eq_("I am a new version of 10557.epub.images", s3.content[7])
 
 
+    def test_content_resources_not_mirrored_on_import_if_no_collection(self):
+        """If you don't provide a Collection to the OPDSImporter, no
+        LicensePools are created for the book and content resources
+        (like EPUB editions of the book) are not mirrored. Only
+        metadata resources (like the book cover) are mirrored.
+        """
+        
+        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="500">
+    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
+</svg>"""
+
+        http = DummyHTTPClient()
+        # The request to http://root/full-cover-image.png
+        # will result in a 404 error, and the image will not be mirrored.
+        http.queue_response(404, media_type="text/plain")
+        http.queue_response(
+            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+        )
+
+        s3 = DummyS3Uploader()
+
+        importer = OPDSImporter(
+            self._db, collection=None,
+            mirror=s3, http_get=http.do_get
+        )
+
+        imported_editions, pools, works, failures = (
+            importer.import_from_feed(self.content_server_mini_feed, 
+                                      feed_url='http://root')
+        )
+
+        # No LicensePools were created, since no Collection was
+        # provided.
+        eq_([], pools)
+        
+        # The import process requested each remote resource in the
+        # order they appeared in the OPDS feed. The EPUB resources
+        # were not requested because no Collection was provided to the
+        # importer. The thumbnail image was not requested, since we
+        # were going to make our own thumbnail anyway.
+        eq_(http.requests, [
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
+            'http://root/full-cover-image.png',
+        ])
+
+
 class TestOPDSImportMonitor(OPDSImporterTest):
 
-    def test_check_for_new_data(self):
+    def test_constructor(self):
+        assert_raises_regexp(
+            ValueError,
+            "OPDSImportMonitor can only be run in the context of a Collection.",
+            OPDSImportMonitor,
+            self._db,
+            None,
+            OPDSImporter,
+        )
+
+        self._default_collection.protocol = Collection.OVERDRIVE
+        assert_raises_regexp(
+            ValueError,
+            "Collection .* is configured for protocol Overdrive, not OPDS import.",
+            OPDSImportMonitor,
+            self._db,
+            self._default_collection,
+            OPDSImporter,
+        )
+
+        self._default_collection.protocol = Collection.OPDS_IMPORT
+        self._default_collection.setting('data_source').value = None
+        assert_raises_regexp(
+            ValueError,
+            "Collection .* has no associated data source.",
+            OPDSImportMonitor,
+            self._db,
+            self._default_collection,
+            OPDSImporter,
+        )
+        
+    def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed
 
         class MockOPDSImportMonitor(OPDSImportMonitor):
             def _get(self, url, headers):
                 return 200, {}, feed
 
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
-
+        monitor = OPDSImportMonitor(
+            self._db, self._default_collection,
+            import_class=OPDSImporter,
+        )
+        timestamp = monitor.timestamp()
+        
         # Nothing has been imported yet, so all data is new.
-        eq_(True, monitor.check_for_new_data(feed))
-
+        eq_(True, monitor.feed_contains_new_data(feed))
+        eq_(None, timestamp.timestamp)
+        
         # Now import the editions.
         monitor = MockOPDSImportMonitor(
-            self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter
+            self._db,
+            collection=self._default_collection,
+            import_class=OPDSImporter,
         )
-        monitor.run_once("http://url", None)
+        monitor.run()
 
         # Editions have been imported.
         eq_(2, self._db.query(Edition).count())
 
-        # Note that unlike many other Monitors, OPDSImportMonitor
-        # doesn't store a Timestamp.
-        assert not hasattr(monitor, 'timestamp')
+        # The timestamp has been updated, although unlike most
+        # Monitors the timestamp is purely informational.
+        assert timestamp.timestamp != None
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -1151,18 +1282,18 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         record2.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
 
-        eq_(False, monitor.check_for_new_data(feed))
+        eq_(False, monitor.feed_contains_new_data(feed))
 
         # If the monitor is set up to force reimport, it doesn't
         # matter that there's nothing new--we act as though there is.
         monitor.force_reimport = True
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
         monitor.force_reimport = False
 
         # If an entry was updated after the date given in that entry's
         # CoverageRecord, there's new data.
         record2.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
         # If a CoverageRecord is a transient failure, we try again
         # regardless of whether it's been updated.
@@ -1170,19 +1301,22 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             r.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
             r.exception = "Failure!"
             r.status = CoverageRecord.TRANSIENT_FAILURE
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
         # If a CoverageRecord is a persistent failure, we don't try again...
         for r in [record, record2]:
             r.status = CoverageRecord.PERSISTENT_FAILURE
-        eq_(False, monitor.check_for_new_data(feed))
+        eq_(False, monitor.feed_contains_new_data(feed))
 
         # ...unless the feed updates.
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
-        eq_(True, monitor.check_for_new_data(feed))
+        eq_(True, monitor.feed_contains_new_data(feed))
 
     def test_follow_one_link(self):
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        monitor = OPDSImportMonitor(
+            self._db, collection=self._default_collection,
+            import_class=OPDSImporter
+        )
         feed = self.content_server_mini_feed
 
         # If there's new data, follow_one_link extracts the next links.
@@ -1223,12 +1357,16 @@ class TestOPDSImportMonitor(OPDSImporterTest):
     def test_import_one_feed(self):
         # Check coverage records are created.
 
-        monitor = OPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, DoomedOPDSImporter)
+        monitor = OPDSImportMonitor(
+            self._db, collection=self._default_collection,
+            import_class=DoomedOPDSImporter
+        )
+        self._default_collection.external_account_id = "http://root-url/index.xml"
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
         feed = self.content_server_mini_feed
-
-        monitor.import_one_feed(feed, "http://root-url/")
+        
+        monitor.import_one_feed(feed)
         
         editions = self._db.query(Edition).all()
         
@@ -1245,8 +1383,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(None, record.exception)
 
         # The edition's primary identifier has a cover link whose
-        # relative URL has been resolved relative to the URL we passed
-        # into import_one_feed.
+        # relative URL has been resolved relative to the Collection's
+        # external_account_id.
         [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
                     if x.rel==Hyperlink.IMAGE]
         eq_("http://root-url/full-cover-image.png", cover)
@@ -1285,10 +1423,13 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             def follow_one_link(self, link, cutoff_date=None, do_get=None):
                 return self.responses.pop()
 
-            def import_one_feed(self, feed, feed_url):
+            def import_one_feed(self, feed):
                 self.imports.append(feed)
 
-        monitor = MockOPDSImportMonitor(self._db, "http://url", DataSource.OA_CONTENT_SERVER, OPDSImporter)
+        monitor = MockOPDSImportMonitor(
+            self._db, collection=self._default_collection,
+            import_class=OPDSImporter
+        )
         
         monitor.queue_response([[], "last page"])
         monitor.queue_response([["second next link"], "second page"])

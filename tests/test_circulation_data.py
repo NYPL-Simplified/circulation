@@ -36,7 +36,7 @@ from s3 import DummyS3Uploader
 
 
 class TestCirculationData(DatabaseTest):
-
+       
     def test_circulationdata_can_be_deepcopied(self):
         # Check that we didn't put something in the CirculationData that
         # will prevent it from being copied. (e.g., self.log)
@@ -104,9 +104,11 @@ class TestCirculationData(DatabaseTest):
             drm_scheme=DeliveryMechanism.ADOBE_DRM,
         )
 
-        circulation_data = CirculationData(formats=[drm_format],
-                            data_source=edition.data_source, 
-                            primary_identifier=edition.primary_identifier)
+        circulation_data = CirculationData(
+            formats=[drm_format],
+            data_source=edition.data_source, 
+            primary_identifier=edition.primary_identifier,
+        )
         circulation_data.apply(pool)
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
@@ -147,9 +149,11 @@ class TestCirculationData(DatabaseTest):
             content_type=Representation.EPUB_MEDIA_TYPE,
             drm_scheme=DeliveryMechanism.ADOBE_DRM,
         )
-        circulation_data = CirculationData(formats=[format],
-                                           data_source=edition.data_source,
-                                           primary_identifier=edition.primary_identifier)
+        circulation_data = CirculationData(
+            formats=[format],
+            data_source=edition.data_source,
+            primary_identifier=edition.primary_identifier,
+        )
 
         # If we apply the new CirculationData with formats false in the policy,
         # we'll add the new format, but keep the old one as well.
@@ -186,10 +190,12 @@ class TestCirculationData(DatabaseTest):
             primary_identifier=identifier,
             formats=[drm_format],
         )
+        collection = self._default_collection
         pool, is_new = circulation.license_pool(
-            self._db,
+            self._db, collection
         )
         eq_(True, is_new)
+        eq_(collection, pool.collection)
 
         # We start with the conservative assumption that we own no
         # licenses for the book.
@@ -219,7 +225,7 @@ class TestCirculationData(DatabaseTest):
         )
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
-            primary_identifier=edition.primary_identifier, 
+            primary_identifier=edition.primary_identifier,
             links=[link], 
         )
 
@@ -236,7 +242,7 @@ class TestCirculationData(DatabaseTest):
 
         circulation_data = CirculationData(
             data_source=DataSource.GUTENBERG, 
-            primary_identifier=edition.primary_identifier, 
+            primary_identifier=edition.primary_identifier,
             links=[]
         )
         replace = ReplacementPolicy(
@@ -270,7 +276,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -298,7 +306,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -325,7 +335,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -355,7 +367,9 @@ class TestCirculationData(DatabaseTest):
             links=[link],
         )
         
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(RightsStatus.IN_COPYRIGHT,
             pool.delivery_mechanisms[0].rights_status.uri)
@@ -386,7 +400,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(True, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -421,7 +437,9 @@ class TestCirculationData(DatabaseTest):
             formats=True,
         )
 
-        pool, ignore = circulation_data.license_pool(self._db)
+        pool, ignore = circulation_data.license_pool(
+            self._db, self._default_collection
+        )
         circulation_data.apply(pool, replace)
         eq_(False, pool.open_access)
         eq_(1, len(pool.delivery_mechanisms))
@@ -439,7 +457,7 @@ class TestMetaToModelUtility(DatabaseTest):
         mirror = DummyS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
-
+        
         # Here's a link to the content of the book, which will be mirrored.
         link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
@@ -460,15 +478,15 @@ class TestMetaToModelUtility(DatabaseTest):
         metadata = Metadata(data_source=edition.data_source, 
         	links=[link_mirrored, link_unmirrored],
     	)
-        metadata.apply(edition, replace=policy)
+        metadata.apply(edition, pool.collection, replace=policy)
         # make sure the refactor is done right, and metadata does not upload
         eq_(0, len(mirror.uploaded))
 
 
         circulation_data = CirculationData(
-        	data_source=edition.data_source, 
-        	primary_identifier=edition.primary_identifier,
-        	links=[link_mirrored, link_unmirrored],
+            data_source=edition.data_source, 
+            primary_identifier=edition.primary_identifier,
+            links=[link_mirrored, link_unmirrored],
         )
         circulation_data.apply(pool, replace=policy)
         
@@ -513,8 +531,8 @@ class TestMetaToModelUtility(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
         circulation_data = CirculationData(
-        	data_source=edition.data_source, 
-        	primary_identifier=edition.primary_identifier,
+            data_source=edition.data_source, 
+            primary_identifier=edition.primary_identifier,
         )
 
         link = LinkData(
@@ -558,8 +576,8 @@ class TestMetaToModelUtility(DatabaseTest):
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
         circulation_data = CirculationData(
-        	data_source=edition.data_source, 
-        	primary_identifier=edition.primary_identifier,
+            data_source=edition.data_source, 
+            primary_identifier=edition.primary_identifier,
         )
 
         link = LinkData(
@@ -604,7 +622,10 @@ class TestMetaToModelUtility(DatabaseTest):
     def test_has_open_access_link(self):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         
-        circulationdata = CirculationData(DataSource.GUTENBERG, identifier)
+        circulationdata = CirculationData(
+            DataSource.GUTENBERG,
+            identifier,
+        )
 
         # No links
         eq_(False, circulationdata.has_open_access_link)

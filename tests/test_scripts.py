@@ -34,6 +34,7 @@ from model import (
     Timestamp, 
     Work,
 )
+from oneclick import MockOneClickAPI
 from scripts import (
     AddClassificationScript,
     ConfigureCollectionScript,
@@ -46,11 +47,15 @@ from scripts import (
     OneClickDeltaScript,
     OneClickImportScript, 
     PatronInputScript,
+    RunCollectionMonitorScript,
     RunCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowLibrariesScript,
     WorkProcessingScript,
+)
+from monitor import (
+    CollectionMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -138,6 +143,44 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, parsed.identifier_type)
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
+
+class TestRunCollectionMonitorScript(DatabaseTest):
+
+    def test_all(self):
+        class OPDSCollectionMonitor(CollectionMonitor):
+            SERVICE_NAME = "Test Monitor"
+            PROTOCOL = Collection.OPDS_IMPORT
+
+            def __init__(self, _db, test_argument=None, **kwargs):
+                self.test_argument = test_argument
+                super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
+
+            def run_once(self, start, cutoff):
+                self.collection.ran_with_argument = self.test_argument
+
+        # Here we have three OPDS import Collections...
+        o1 = self._collection()
+        o2 = self._collection()
+        o3 = self._collection()
+
+        # ...and a Bibliotheca collection.
+        b1 = self._collection(protocol=Collection.BIBLIOTHECA)
+
+        script = RunCollectionMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+
+        # Running the script instantiates an OPDSCollectionMonitor for
+        # every Collection and calls run_once() on each one. This
+        # propagates a value sent into the script constructor to the
+        # Collection object.
+        for i in [o1, o2, o3]:
+            eq_("test value", i.ran_with_argument)
+
+        # Nothing happened to the Bibliotheca collection.
+        assert not hasattr(b1, 'ran_with_argument')
+        
 
 class TestPatronInputScript(DatabaseTest):
 
@@ -609,11 +652,11 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         assert_raises(RuntimeError, self.script.do_run)
 
     def test_error_not_raised_when_timestamp_forced(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         self.script.do_run(['-f'])
         self.assert_matches_latest_migration()
 
@@ -719,33 +762,15 @@ class TestOneClickImportScript(DatabaseTest):
         data = open(path).read()
         return data, json.loads(data)
 
-
-    def test_parse_command_line(self):
-        cmd_args = ["--mock"]
-        parsed = OneClickImportScript.parse_command_line(
-            _db=self._db, cmd_args=cmd_args
-        )
-        eq_(True, parsed.mock)
-
-
     def test_import(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            cmd_args = ["--mock"]
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
-
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
-            importer.run()
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
         # verify that we created Works, Editions, LicensePools
         works = self._db.query(Work).all()
@@ -756,7 +781,6 @@ class TestOneClickImportScript(DatabaseTest):
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 
-
         # make sure we created some Editions
         edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
         assert(edition is not None)
@@ -764,17 +788,20 @@ class TestOneClickImportScript(DatabaseTest):
         assert(edition is not None)
 
         # make sure we created some LicensePools
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9780062231727", collection=collection
+        )
         eq_(False, made_new)
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=collection
+        )
         eq_(False, made_new)
 
         # make sure there are 8 LicensePools
         pools = self._db.query(LicensePool).all()
         eq_(8, len(pools))
-
-        # make sure we created some Identifiers
-
 
 
 class TestOneClickDeltaScript(DatabaseTest):
@@ -790,40 +817,34 @@ class TestOneClickDeltaScript(DatabaseTest):
 
 
     def test_delta(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            cmd_args = ["--mock"]
-            # first, load a sample library
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
+        # First, load a collection.
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
-            importer.run()
+        # set license numbers on test pool
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=collection
+        )
+        eq_(False, made_new)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 2
+        pool.patrons_in_hold_queue = 1
 
-            # set license numbers on test pool
-            pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
-            eq_(False, made_new)
-            pool.licenses_owned = 10
-            pool.licenses_available = 9
-            pool.licenses_reserved = 2
-            pool.patrons_in_hold_queue = 1
-
-            # now update that library with a sample delta            
-            cmd_args = ["--mock"]
-            delta_runner = OneClickDeltaScript(_db=self._db, cmd_args=cmd_args)
-
-            datastr, datadict = self.get_data("response_catalog_delta.json")
-            delta_runner.api.queue_response(status_code=200, content=datastr)
-            delta_runner.run()
+        # now update that library with a sample delta            
+        delta_runner = OneClickDeltaScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        delta_runner.api.queue_response(status_code=200, content=datastr)
+        delta_runner.run()
 
         # "Tricks" did not get deleted, but did get its pools set to "nope".
         # "Emperor Mage: The Immortals" got new metadata.

@@ -243,6 +243,7 @@ class TitleFromExternalList(object):
             )
         self.metadata.apply(
             edition=edition, 
+            collection=None,
             metadata_client=metadata_client,
             replace=policy,
         )

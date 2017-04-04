@@ -8,6 +8,7 @@ import os
 import re
 import logging
 from datetime import datetime, timedelta
+from sqlalchemy.orm.session import Session
 
 from config import (
     Configuration,
@@ -15,8 +16,7 @@ from config import (
     temp_config,
 )
 from coverage import (
-    BibliographicCoverageProvider,
-    CoverageFailure,
+    BibliographicCoverageProvider
 )
 from model import (
     get_one_or_create,
@@ -47,7 +47,7 @@ from metadata_layer import (
 from util.http import HTTP
 from util.xmlparser import XMLParser
 
-class ThreeMAPI(object):
+class BibliothecaAPI(object):
 
     # TODO: %a and %b are localized per system, but 3M requires
     # English.
@@ -66,14 +66,15 @@ class ThreeMAPI(object):
     DEFAULT_VERSION = "2.0"
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
     
-    def __init__(self, _db, collection):
+    def __init__(self, collection):
+        
         if collection.protocol != collection.BIBLIOTHECA:
             raise ValueError(
                 "Collection protocol is %s, but passed into BibliothecaAPI!" %
                 collection.protocol
             )
 
-        self._db = _db
+        self._db = Session.object_session(collection)
         self.version = (
             collection.setting('version').value or self.DEFAULT_VERSION
         )
@@ -89,29 +90,9 @@ class ThreeMAPI(object):
 
         self.item_list_parser = ItemListParser()
 
-    @classmethod
-    def from_environment(cls, _db):
-        """Load a ThreeMAPI instance for the 'default' Bibliotheca
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                      if x.protocol == Collection.BIBLIOTHECA]
-        if len(collections) == 0:
-            # There are no Bibliotheca collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple Bibliotheca collections found for one library. This is not yet supported."
-            )
-        [collection] = collections
-
-        return cls(_db, collection)
-
     @property
     def source(self):
-        return DataSource.lookup(self._db, DataSource.THREEM)
+        return DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
 
     def now(self):
         """Return the current GMT time in the format 3M expects."""
@@ -201,20 +182,19 @@ class ThreeMAPI(object):
         return metadata
 
     def _request_with_timeout(self, method, url, *args, **kwargs):
-        """This will be overridden in MockThreeMAPI."""
+        """This will be overridden in MockBibliothecaAPI."""
         return HTTP.request_with_timeout(method, url, *args, **kwargs)
 
     def _simple_http_get(self, url, headers, *args, **kwargs):
-        """This will be overridden in MockThreeMAPI."""
+        """This will be overridden in MockBibliothecaAPI."""
         return Representation.simple_http_get(url, headers, *args, **kwargs)
 
 
-class MockThreeMAPI(ThreeMAPI):
+class MockBibliothecaAPI(BibliothecaAPI):
 
-    def __init__(self, _db, *args, **kwargs):
-        self.responses = []
-        self.requests = []
-
+    @classmethod
+    def mock_collection(self, _db):
+        """Create a mock Bibliotheca collection for use in tests."""
         library = Library.instance(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
@@ -225,12 +205,15 @@ class MockThreeMAPI(ThreeMAPI):
             )
         )
         library.collections.append(collection)
-        super(MockThreeMAPI, self).__init__(
-            _db, collection, *args, **kwargs
-        )
+        return collection
+        
+    def __init__(self, collection, *args, **kwargs):
+        self.responses = []
+        self.requests = []
+        super(MockBibliothecaAPI, self).__init__(collection, *args, **kwargs)
 
     def now(self):
-        """Return an unvarying time in the format 3M expects."""
+        """Return an unvarying time in the format Bibliotheca expects."""
         return datetime.strftime(
             datetime(2016, 1, 1), self.AUTH_TIME_FORMAT
         )
@@ -305,8 +288,8 @@ class ItemListParser(XMLParser):
         """Turn an <item> tag into a Metadata and an encompassed CirculationData 
         objects, and return the Metadata."""
 
-        def value(threem_key):
-            return self.text_of_optional_subtag(tag, threem_key)
+        def value(bibliotheca_key):
+            return self.text_of_optional_subtag(tag, bibliotheca_key)
 
         links = dict()
         identifiers = dict()
@@ -420,25 +403,34 @@ class ItemListParser(XMLParser):
         return metadata
 
 
-class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for 3M records.
+class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for Bibliotheca records.
 
     Then mark the works as presentation-ready.
     """
+    SERVICE_NAME = "Bibliotheca Bibliographic Coverage Provider"
+    DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
+    PROTOCOL = Collection.BIBLIOTHECA
+    INPUT_IDENTIFIER_TYPES = Identifier.BIBLIOTHECA_ID
 
-    def __init__(self, _db, metadata_replacement_policy=None, threem_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs
-    ):
+    # 25 is the maximum batch size for the Bibliotheca API.
+    DEFAULT_BATCH_SIZE = 25
+    
+    def __init__(self, collection, api_class=BibliothecaAPI, **kwargs):
+        """Constructor.
+
+        :param collection: Provide bibliographic coverage to all
+            Bibliotheca books in the given Collection.
+        :param api_class: Instantiate this class with the given Collection,
+            rather than instantiating BibliothecaAPI.
+        :param input_identifiers: Passed in by RunCoverageProviderScript. 
+            A list of specific identifiers to get coverage for.
         """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
-        """
-        threem_api = threem_api or ThreeMAPI(_db)
-        super(ThreeMBibliographicCoverageProvider, self).__init__(
-            _db, threem_api, DataSource.THREEM,
-            batch_size=25, metadata_replacement_policy=metadata_replacement_policy, **kwargs
+        super(BibliothecaBibliographicCoverageProvider, self).__init__(
+            collection, **kwargs
         )
-
+        self.api = api_class(collection)
+        
     def process_item(self, identifier):
         # We don't accept a representation from the cache because
         # either this is being run for the first time (in which case
@@ -447,8 +439,7 @@ class ThreeMBibliographicCoverageProvider(BibliographicCoverageProvider):
         # in the cache might be wrong).
         metadata = self.api.bibliographic_lookup(identifier, max_age=0)
         if not metadata:
-            return CoverageFailure(
-                identifier, "3M bibliographic lookup failed.",
-                data_source=self.output_source, transient=True
+            return self.failure(
+                identifier, "Bibliotheca bibliographic lookup failed."
             )
         return self.set_metadata(identifier, metadata)

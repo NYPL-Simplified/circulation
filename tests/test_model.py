@@ -40,6 +40,7 @@ from model import (
     CirculationEvent,
     Classification,
     Collection,
+    CollectionMissing,
     Complaint,
     Contributor,
     CoverageRecord,
@@ -1142,11 +1143,13 @@ class TestEdition(DatabaseTest):
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
-        """Verify we can get a LicensePool for a data source and an 
-        appropriate work identifier."""
+        """Verify we can get a LicensePool for a data source, an 
+        appropriate work identifier, and a Collection."""
         now = datetime.datetime.utcnow()
         pool, was_new = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=self._collection()
+        )
         assert (pool.availability_time - now).total_seconds() < 2
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
@@ -1157,35 +1160,83 @@ class TestLicensePool(DatabaseTest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
-    def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
-        """OCLC doesn't offer licenses. It only provides metadata. We can get
-        a Edition for OCLC's view of a book, but we cannot get a
-        LicensePool for OCLC's view of a book.
+    def test_for_foreign_id_fails_when_no_collection_provided(self):
+        """We cannot create a LicensePool that is not associated
+        with some Collection.
         """
-        assert_raises_regexp(
-            ValueError, 
-            'Data source "OCLC Classify" does not offer licenses',
+        assert_raises(
+            CollectionMissing,
             LicensePool.for_foreign_id,
-            self._db, DataSource.OCLC, "1015", 
-            Identifier.OCLC_WORK)
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=None
+        )
 
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
         a book you must identify the book by Overdrive's primary
         identifier, not some other kind of identifier.
         """
+        collection = self._collection()
         assert_raises_regexp(
             ValueError, 
             "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
             LicensePool.for_foreign_id,
-            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}")
+            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
+            collection=collection
+        )
 
+    def test_licensepools_for_same_identifier_have_same_presentation_edition(self):
+        """Two LicensePools for the same Identifier will get the same
+        presentation edition.
+        """
+        identifier = self._identifier()
+        edition1, pool1 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.GUTENBERG,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        edition2, pool2 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        pool1.set_presentation_edition()
+        pool2.set_presentation_edition()
+        eq_(pool1.presentation_edition, pool2.presentation_edition)
+        
+    def test_collection_datasource_identifier_must_be_unique(self):
+        """You can't have two LicensePools with the same Collection,
+        DataSource, and Identifier.
+        """
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = self._identifier()
+        collection = self._default_collection
+        pool = create(
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )
+
+        assert_raises(
+            IntegrityError,
+            create,
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )        
+        
     def test_with_no_work(self):
         p1, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=self._default_collection
+        )
 
         p2, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2")
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2",
+            collection=self._default_collection
+        )
 
         work = self._work(title="Foo")
         p1.work = work
@@ -1517,7 +1568,7 @@ class TestLicensePool(DatabaseTest):
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
-        license_pool = edition_composite.is_presentation_for
+        [license_pool] = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
         # Change the admin interface's opinion about who the author
@@ -2446,9 +2497,11 @@ class TestCirculationEvent(DatabaseTest):
         # Identify which LicensePool the event is talking about.
         foreign_id = data['id']
         identifier_type = source.primary_identifier_type
-
+        collection = data['collection']
+        
         license_pool, was_new = LicensePool.for_foreign_id(
-            _db, source, identifier_type, foreign_id)
+            _db, source, identifier_type, foreign_id, collection=collection
+        )
 
         # Finally, gather some information about the event itself.
         type = data.get("type")
@@ -2472,10 +2525,12 @@ class TestCirculationEvent(DatabaseTest):
     def test_new_title(self):
 
         # Here's a new title.
+        collection = self._collection()
         data = self._event_data(
             source=DataSource.OVERDRIVE,
             id="{1-2-3}",
             type=CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+            collection=collection,
             old_value=0,
             delta=2,
             new_value=2,
@@ -2488,9 +2543,10 @@ class TestCirculationEvent(DatabaseTest):
         eq_(DataSource.OVERDRIVE, event.license_pool.data_source.name)
 
         # The event identifies a work by its ID plus the data source's
-        # primary identifier.
+        # primary identifier and its collection.
         eq_(Identifier.OVERDRIVE_ID, event.license_pool.identifier.type)
         eq_("{1-2-3}", event.license_pool.identifier.identifier)
+        eq_(collection, event.license_pool.collection)
 
         # The number of licenses has not been set to the new value.
         # The creator of a circulation event is responsible for also
@@ -2630,10 +2686,14 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+        collection=self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2653,10 +2713,14 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"bar", work.author)
 
     def test_calculate_work_can_be_forced_to_work_with_no_author(self):
+        collection = self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2668,42 +2732,39 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"foo", work.title)
         eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
-    def test_calculate_work_for_new_work(self):
-        # TODO: This test doesn't actually test
-        # anything. calculate_work() is too complicated and needs to
-        # be refactored.
+    def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
-        # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        # Here's a LicensePool with an Edition.
+        edition1, pool = self._edition(
+            data_source_name=DataSource.GUTENBERG, with_license_pool=True
+        )
+        
+        # Here's a second Edition that's talking about a different Identifier
+        # altogether, and has no LicensePool.
+        edition2 = self._edition()
+        assert edition1.primary_identifier != edition2.primary_identifier
 
-        # This work record is shared by the existing work and the new
+        # Here's a third Edition that's tied to a totally different
         # LicensePool.
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2")
+        edition3, pool2 = self._edition(with_license_pool=True)
+        assert edition1.primary_identifier != edition3.primary_identifier
+        
+        # When we calculate a Work for a LicensePool, we can pass in
+        # any Edition as the presentation edition, so long as that
+        # Edition's primary identifier matches the LicensePool's
+        # identifier.
+        work, is_new = pool.calculate_work(known_edition=edition1)
 
-        # These work records are unique to the new LicensePool.
-
-        edition3, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-
-        edition4, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
-
-        # Make edition4's primary identifier equivalent to edition3's and edition1's
-        # primaries.
-        data_source = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        for make_equivalent in edition3, edition1:
-            edition4.primary_identifier.equivalent_to(
-                data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(presentation_edition=edition1)
-
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
-        self._db.commit()
-
-        pool.calculate_work()
-
+        # But we can't pass in an Edition that's the presentation
+        # edition for a LicensePool with a totally different Identifier.
+        for edition in (edition2, edition3):
+            assert_raises_regexp(
+                ValueError,
+                "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!",
+                pool.calculate_work,
+                known_edition=edition
+            )
+        
     def test_open_access_pools_grouped_together(self):
 
         # We have four editions with exactly the same title and author.
@@ -2747,7 +2808,41 @@ class TestWorkConsolidation(DatabaseTest):
         # Each restricted-access pool is completely isolated.
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
+       
+    def test_all_licensepools_with_same_identifier_get_same_work(self):
 
+        # Here are two LicensePools for the same Identifier and
+        # DataSource, but different Collections.
+        edition1, pool1 = self._edition(with_license_pool=True)
+        identifier = pool1.identifier
+        collection2 = self._collection()
+
+        edition2, pool2 = self._edition(
+            with_license_pool=True,
+            identifier_type=identifier.type,
+            identifier_id=identifier.identifier,
+            collection=collection2
+        )
+
+        eq_(pool1.identifier, pool2.identifier)
+        eq_(pool1.data_source, pool2.data_source)
+        eq_(self._default_collection, pool1.collection)
+        eq_(collection2, pool2.collection)
+
+        # The two LicensePools have the same Edition (since a given
+        # DataSource has only one opinion about an Identifier's
+        # bibliographic information).
+        eq_(edition1, edition2)
+
+        # Because the two LicensePools have the same Identifier, they
+        # have the same Work.
+        work1, is_new_1 = pool1.calculate_work()
+        work2, is_new_2 = pool2.calculate_work()
+        eq_(work1, work2)
+        eq_(True, is_new_1)
+        eq_(False, is_new_2)
+        eq_(edition1, work1.presentation_edition)
+        
     def test_calculate_work_fixes_work_in_invalid_state(self):
         # Here's a Work with a commercial edition of "abcd".
         work = self._work(with_license_pool=True)
@@ -5329,6 +5424,21 @@ class TestCollection(DatabaseTest):
             name="test collection", protocol=Collection.OVERDRIVE
         )
 
+    def test_data_source(self):
+        # For most collections, the protocol determines the
+        # data source.
+        eq_(DataSource.OVERDRIVE, self.collection.data_source.name)
+
+        # For OPDS Import collections, data source is a setting which
+        # might not be present.
+        eq_(None, self._default_collection.data_source)
+
+        # data source will be automatically created if necessary.
+        self._default_collection.setting(
+            Collection.DATA_SOURCE_NAME_SETTING
+        ).value = "New Data Source"
+        eq_("New Data Source", self._default_collection.data_source.name)
+        
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
         a Collection.

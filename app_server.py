@@ -307,13 +307,12 @@ class URNLookupController(object):
             # Identifier that has no associated LicensePool.
             return self.add_message(urn, 404, self.UNRECOGNIZED_IDENTIFIER)
             
-        # If we get to this point, there is a LicensePool for this
-        # identifier.
-        work = identifier.licensed_through.work
+        # If we get to this point, there is at least one LicensePool
+        # for this identifier.
+        work = identifier.work
         if not work:
-            # There is a LicensePool but no Work. 
+            # There are LicensePools but no Work.
             return self.add_message(urn, 202, self.WORK_NOT_CREATED)
-            
         if not work.presentation_ready:
             # There is a work but it's not presentation ready.
             return self.add_message(urn, 202, self.WORK_NOT_PRESENTATION_READY)

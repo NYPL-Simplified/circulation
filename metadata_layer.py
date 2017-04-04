@@ -663,16 +663,20 @@ class CirculationData(MetaToModelUtility):
             links=None,
             last_checked=None,
     ):
-        # data_source is where the lending licenses (our ability to actually access the book) are coming from.
-        self._data_source = data_source
+        """Constructor.
 
+        :param data_source: The authority providing the lending licenses.
+        :param primary_identifier: An IdentifierData representing how
+            the lending authority distinguishes this book from others.
+        """
+        self._data_source = data_source
+        
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
             self.data_source_name = self.data_source_obj.name
         else:
             self.data_source_obj = None
             self.data_source_name = data_source
-
         self.primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
@@ -769,56 +773,49 @@ class CirculationData(MetaToModelUtility):
                 obj = DataSource.lookup(_db, self._data_source)
                 if not obj:
                     raise ValueError("Data source %s not found!" % self._data_source)
-                if not obj.offers_licenses:
-                    raise ValueError("Data source %s does not offer licenses and cannot be used as a CirculationData data source." % self._data_source)
             else:
                 obj = None
             self.data_source_obj = obj
         return self.data_source_obj
 
-    def license_pool(self, _db):
-        """Find or create a LicensePool object for this CirculationData."""
+    def license_pool(self, _db, collection):
+        """Find or create a LicensePool object for this CirculationData.
+
+        :param collection: The LicensePool object will be associated with
+            the given Collection.
+        """
         if not self.primary_identifier:
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
             )
-        license_pool = None
-        is_new = False
         
         identifier_obj, ignore = self.primary_identifier.load(_db)
         data_source = self.data_source(_db)
-        license_pool = get_one(
-            _db, LicensePool, data_source=data_source,
-            identifier=identifier_obj
+        license_pool, is_new = LicensePool.for_foreign_id(
+            _db, data_source=self.data_source_obj,
+            foreign_id_type=identifier_obj.type, 
+            foreign_id=identifier_obj.identifier,
+            collection=collection
         )
-        if not license_pool:
+
+        if is_new:
             last_checked = self.last_checked or datetime.datetime.utcnow()
-            license_pool, is_new = LicensePool.for_foreign_id(
-                _db, data_source=self.data_source_obj,
-                foreign_id_type=self.primary_identifier.type, 
-                foreign_id=self.primary_identifier.identifier,
-            )
-
-            if is_new:
-                license_pool.open_access = False
-                license_pool.availability_time = datetime.datetime.utcnow()
-                # This is our first time seeing this LicensePool. Log its
-                # occurence as a separate event.
-                event = get_one_or_create(
-                    _db, CirculationEvent,
-                    type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                    license_pool=license_pool,
-                    create_method_kwargs=dict(
-                        start=last_checked,
-                        delta=1,
-                        end=last_checked,
-                    )
+            license_pool.open_access = self.has_open_access_link
+            license_pool.availability_time = datetime.datetime.utcnow()
+            # This is our first time seeing this LicensePool. Log its
+            # occurence as a separate event.
+            event = get_one_or_create(
+                _db, CirculationEvent,
+                type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                license_pool=license_pool,
+                create_method_kwargs=dict(
+                    start=last_checked,
+                    delta=1,
+                    end=last_checked,
                 )
-                # only set license_pool's last_checked time on creation and update
-                license_pool.last_checked = last_checked
-
-            if self.has_open_access_link:
-                license_pool.open_access = True
+            )
+            # only set license_pool's last_checked time on creation and update
+            license_pool.last_checked = last_checked
 
         return license_pool, is_new
 
@@ -862,7 +859,6 @@ class CirculationData(MetaToModelUtility):
 
         _db = Session.object_session(pool)
         data_source = self.data_source(_db)
-
         identifier = pool.identifier
 
         # TODO:  had following comment in metadata.apply.  need to figure out if still relevant.
@@ -1299,7 +1295,7 @@ class Metadata(MetaToModelUtility):
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
     # we can get rid of the `replace` arguments.
-    def apply(self, edition, metadata_client=None, replace=None,
+    def apply(self, edition, collection, metadata_client=None, replace=None,
               replace_identifiers=False,
               replace_subjects=False,
               replace_contributions=False,
@@ -1491,10 +1487,14 @@ class Metadata(MetaToModelUtility):
                 edition.display_author = primary_author.display_name
                 made_core_changes = True
 
-        # we updated the links.  but does the associated pool know?
+        # The Metadata object may include a CirculationData object which
+        # contains information about availability such as open-access
+        # links. If a Collection was passed in to apply(), we can make sure
+        # that that Collection has a LicensePool for this book and that
+        # its information is up-to-date.
         pool = None
-        if self.circulation:
-            pool, is_new = self.circulation.license_pool(_db)
+        if self.circulation and collection:
+            pool, is_new = self.circulation.license_pool(_db, collection)
             if pool:
                 self.circulation.apply(pool, replace)
 
@@ -1532,6 +1532,9 @@ class Metadata(MetaToModelUtility):
     def make_thumbnail(self, data_source, link, link_obj, pool=None):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
+
+        TODO: pool needs to go away. Many license pools for the
+        same book should be able to use the same thumbnail.
         """
         thumbnail = link.thumbnail
         if not thumbnail:
