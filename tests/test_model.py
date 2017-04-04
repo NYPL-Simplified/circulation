@@ -1568,7 +1568,7 @@ class TestLicensePool(DatabaseTest):
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
-        license_pool = edition_composite.is_presentation_for
+        [license_pool] = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
         # Change the admin interface's opinion about who the author
