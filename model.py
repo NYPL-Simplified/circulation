@@ -4785,17 +4785,10 @@ class LicensePoolDeliveryMechanism(Base):
     # DeliveryMechanisms.
     license_pools = relationship(
         "LicensePool",
+        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
         uselist=True,
-        backref="delivery_mechanisms"
+        back_populates='delivery_mechanisms',
     )
-
-    __table_args__ = (
-        ForeignKeyConstraint(
-            [data_source_id, identifier_id],
-            ['licensepools.data_source_id', 'licensepools.identifier_id']
-        )
-    )
-
 
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
@@ -5902,6 +5895,17 @@ class LicensePool(Base):
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
 
+    # One LicensePool may have multiple DeliveryMechanisms, and vice
+    # versa. They're not directly connected; rather, all LicensePools
+    # for a given data_source_id and identifier_id share a set of
+    # DeliveryMechanisms.
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism",
+        primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
+        uselist=True,
+        back_populates='license_pools',
+    )
+    
     # A Collection can not have more than one LicensePool for a given
     # Identifier from a given DataSource.
     __table_args__ = (
