@@ -1217,15 +1217,14 @@ class Lane(object):
                 work_model.presentation_ready == True,
             )
 
-        # Only find books the default client can fulfill.
+        # Only find books that have some kind of DeliveryMechanism.
         LPDM = LicensePoolDeliveryMechanism
         exists_clause = exists().where(
             and_(LicensePool.data_source_id==LPDM.data_source_id,
-                and_(LicensePool.identifier_id==LPDM.identifier_id,
-                      DeliveryMechanism.default_client_can_fulfill==True
-        )))
+                and_(LicensePool.identifier_id==LPDM.identifier_id)
+        ))
         query = query.filter(exists_clause)
-        
+            
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)

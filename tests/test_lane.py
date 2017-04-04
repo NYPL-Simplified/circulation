@@ -1092,31 +1092,37 @@ class TestFilters(DatabaseTest):
         # w1 has licenses but no available copies. It's available
         # unless site policy is to hide books like this.
         w1 = self._work(with_license_pool=True)
+        w1.presentation_edition.title = 'I have no available copies'
         w1.license_pools[0].open_access = False
         w1.license_pools[0].licenses_owned = 10
         w1.license_pools[0].licenses_available = 0
 
         # w2 has no delivery mechanisms.
         w2 = self._work(with_license_pool=True, with_open_access_download=False)
+        w2.presentation_edition.title = 'I have no delivery mechanisms'
         for dm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(dm)
 
         # w3 is not presentation ready.
         w3 = self._work(with_license_pool=True)
+        w3.presentation_edition.title = "I'm not presentation ready"
         w3.presentation_ready = False
 
         # w4's only license pool is suppressed.
         w4 = self._work(with_open_access_download=True)
+        w4.presentation_edition.title = "I am suppressed"
         w4.license_pools[0].suppressed = True
 
         # w5 has no licenses.
         w5 = self._work(with_license_pool=True)
+        w5.presentation_edition.title = "I have no owned licenses."
         w5.license_pools[0].open_access = False
         w5.license_pools[0].licenses_owned = 0
 
         # w6 is an open-access book, so it's available even though
         # licenses_owned and licenses_available are zero.
         w6 = self._work(with_open_access_download=True)
+        w6.presentation_edition.title = "I'm open-access."
         w6.license_pools[0].open_access = True
         w6.license_pools[0].licenses_owned = 0
         w6.license_pools[0].licenses_available = 0
@@ -1124,6 +1130,7 @@ class TestFilters(DatabaseTest):
         # w7 is not open-access. We own licenses for it, and there are
         # licenses available right now. It's available.
         w7 = self._work(with_license_pool=True)
+        w7.presentation_edition.title = "I have available licenses."
         w7.license_pools[0].open_access = False
         w7.license_pools[0].licenses_owned = 9
         w7.license_pools[0].licenses_available = 5
@@ -1135,6 +1142,7 @@ class TestFilters(DatabaseTest):
         [pool] = w8.license_pools
         for dm in pool.delivery_mechanisms:
             self._db.delete(dm)
+        self._db.commit()
         pool.set_delivery_mechanism(
             "weird content type", "weird DRM scheme", "weird rights URI",
             None
@@ -1145,16 +1153,16 @@ class TestFilters(DatabaseTest):
         eq_(8, orig_q.count())
 
         # only_show_ready_deliverable_works filters out everything but
-        # w1 (owned licenses), w6 (open-access), and w7 (available
-        # licenses)
+        # w1 (owned licenses), w6 (open-access), w7 (available
+        # licenses), and w8 (available licenses, weird delivery mechanism).
         q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-        eq_(set([w1, w6, w7]), set(q.all()))
+        eq_(set([w1, w6, w7, w8]), set(q.all()))
 
         # If we decide to show suppressed works, w4 shows up as well.
         q = Lane.only_show_ready_deliverable_works(
             orig_q, Work, show_suppressed=True
         )
-        eq_(set([w1, w4, w6, w7]), set(q.all()))
+        eq_(set([w1, w4, w6, w7, w8]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
         with temp_config() as config:
@@ -1167,9 +1175,10 @@ class TestFilters(DatabaseTest):
             # w4 is open-access but it's suppressed, so it still doesn't 
             #  show up.
             # w6 still shows up because it's an open-access work.
-            # w7 shows up because we own licenses and copies are available.
+            # w7 and w8 show up because we own licenses and copies are
+            #  available.
             q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(set([w6, w7]), set(q.all()))
+            eq_(set([w6, w7, w8]), set(q.all()))
 
     def test_lane_subclass_queries(self):
         """Subclasses of Lane can effectively retrieve all of a Work's
