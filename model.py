@@ -4787,6 +4787,7 @@ class LicensePoolDeliveryMechanism(Base):
         "LicensePool",
         primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
         uselist=True,
+        foreign_keys=lambda:[LicensePoolDeliveryMechanism.data_source_id, LicensePoolDeliveryMechanism.identifier_id],
         back_populates='delivery_mechanisms',
     )
 
@@ -5902,6 +5903,7 @@ class LicensePool(Base):
     delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
         primaryjoin="LicensePool.data_source_id==foreign(LicensePoolDeliveryMechanism.data_source_id) and LicensePool.identifier_id==foreign(LicensePoolDeliveryMechanism.identifier_id)",
+        foreign_keys=lambda:[LicensePool.data_source_id, LicensePool.identifier_id],
         uselist=True,
         back_populates='license_pools',
     )
