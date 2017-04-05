@@ -84,7 +84,6 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
-    ForeignKeyConstraint,
     Integer,
     Index,
     Numeric,
