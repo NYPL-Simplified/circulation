@@ -1325,14 +1325,14 @@ class TestLicensePool(DatabaseTest):
         media_type = Representation.EPUB_MEDIA_TYPE
         link2, new = pool.identifier.add_link(
             Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
-            source, pool
+            source, media_type
         )
         oa2 = link2.resource
 
         # And let's add a link that's not an open-access download.
         url = self._url
         image, new = pool.identifier.add_link(
-            Hyperlink.IMAGE, url, source, pool
+            Hyperlink.IMAGE, url, source, Representation.JPEG_MEDIA_TYPE
         )
         self._db.commit()
 
@@ -3658,18 +3658,7 @@ class TestHyperlink(DatabaseTest):
         eq_("text/plain", rep.media_type)
         eq_("The content", rep.content)
         eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
-        eq_(pool, hyperlink.license_pool)
         eq_(identifier, hyperlink.identifier)
-
-    def test_add_link_fails_if_license_pool_and_identifier_dont_match(self):
-        edition, pool = self._edition(with_license_pool=True)
-        data_source = pool.data_source
-        identifier = self._identifier()
-        assert_raises_regexp(
-            ValueError, re.compile("License pool is associated with .*, not .*!"),
-            identifier.add_link,
-            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
-            pool, "text/plain", "The content")
 
     def test_default_filename(self):
         m = Hyperlink._default_filename

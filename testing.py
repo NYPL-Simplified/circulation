@@ -350,11 +350,11 @@ class DatabaseTest(object):
             media_type = Representation.EPUB_MEDIA_TYPE
             link, new = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
-                source, pool)
+                source, media_type)
 
             # Add a DeliveryMechanism for this download
             pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE,
+                media_type,
                 DeliveryMechanism.NO_DRM,
                 RightsStatus.GENERIC_OPEN_ACCESS,
                 link.resource,

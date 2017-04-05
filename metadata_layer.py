@@ -873,7 +873,7 @@ class CirculationData(MetaToModelUtility):
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
-                    license_pool=pool, media_type=link.media_type,
+                    media_type=link.media_type,
                     content=link.content
                 )
                 link_objects[link] = link_obj
@@ -1452,7 +1452,7 @@ class Metadata(MetaToModelUtility):
             if link.rel in Hyperlink.METADATA_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
-                    license_pool=None, media_type=link.media_type,
+                    media_type=link.media_type,
                     content=link.content
                 )
             link_objects[link] = link_obj
@@ -1497,11 +1497,6 @@ class Metadata(MetaToModelUtility):
             pool, is_new = self.circulation.license_pool(_db, collection)
             if pool:
                 self.circulation.apply(pool, replace)
-
-            # we updated the pool.  but do the associated links know?
-            for link in self.links:
-                link_obj = link_objects[link]
-                link_obj.license_pool = pool
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
@@ -1552,7 +1547,7 @@ class Metadata(MetaToModelUtility):
         thumbnail_obj, ignore = link_obj.identifier.add_link(
             rel=thumbnail.rel, href=thumbnail.href, 
             data_source=data_source, 
-            license_pool=pool, media_type=thumbnail.media_type,
+            media_type=thumbnail.media_type,
             content=thumbnail.content
         )
         # And make sure the thumbnail knows it's a thumbnail of the main
