@@ -1221,8 +1221,8 @@ class Lane(object):
         LPDM = LicensePoolDeliveryMechanism
         exists_clause = exists().where(
             and_(LicensePool.data_source_id==LPDM.data_source_id,
-                and_(LicensePool.identifier_id==LPDM.identifier_id)
-        ))
+                LicensePool.identifier_id==LPDM.identifier_id)
+        )
         query = query.filter(exists_clause)
             
         # Only find books with unsuppressed LicensePools.
