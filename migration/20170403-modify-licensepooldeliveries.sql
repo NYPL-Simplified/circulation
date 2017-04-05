@@ -20,7 +20,7 @@ update licensepooldeliveries set
     	   lp.identifier_id as identifier_id,
 	   lp.data_source_id as data_source_id
     from licensepooldeliveries lpdm
-    	 join licensepools lp on lpdm.license_pool_id=lp.id limit 10
+    	 join licensepools lp on lpdm.license_pool_id=lp.id
 ) as subquery where licensepooldeliveries.id=subquery.delivery_id;
 
 -- Now that we have the data, create a unique index.
