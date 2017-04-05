@@ -973,18 +973,16 @@ class CirculationData(MetaToModelUtility):
         # Finally, if we have data for a specific Collection's license
         # for this book, find its LicensePool and update it.
         changed_availability = False
-        if pool:
-            availability_needs_update = self._availability_needs_update(pool)
-            if availability_needs_update:
-                # Update availabily information. This may result in
-                # the issuance of additional circulation events.
-                changed_availability = pool.update_availability(
-                    new_licenses_owned=self.licenses_owned,
-                    new_licenses_available=self.licenses_available,
-                    new_licenses_reserved=self.licenses_reserved,
-                    new_patrons_in_hold_queue=self.patrons_in_hold_queue,
-                    as_of=self.last_checked
-                )
+        if pool and self._availability_needs_update(pool):
+            # Update availabily information. This may result in
+            # the issuance of additional circulation events.
+            changed_availability = pool.update_availability(
+                new_licenses_owned=self.licenses_owned,
+                new_licenses_available=self.licenses_available,
+                new_licenses_reserved=self.licenses_reserved,
+                new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                as_of=self.last_checked
+            )
                     
         made_changes = (made_changes or changed_availability
                         or open_access_status_changed)
