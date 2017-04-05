@@ -418,7 +418,6 @@ class TestCirculationData(DatabaseTest):
         # This will cause the work to be treated as a non-open-access
         # work.
         eq_(False, pool.open_access)
-
         
     def test_rights_status_open_access_link_with_rights(self):
         identifier = IdentifierData(
@@ -685,3 +684,31 @@ class TestMetaToModelUtility(DatabaseTest):
         # Open-access link with consistent rights URI.
         linkdata.rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
         eq_(True, circulationdata.has_open_access_link)
+
+    def test_availability_needs_update(self):
+        """Test the logic that controls whether a LicensePool's availability
+        information should actually be updated.
+        """
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)        
+        recent_data = CirculationData(DataSource.GUTENBERG, identifier)
+        # CirculationData.last_checked defaults to the current time.
+        assert (recent_data.last_checked - now).total_seconds() < 10
+        old_data = CirculationData(
+            DataSource.GUTENBERG, identifier, last_checked=yesterday
+        )
+
+        edition, pool = self._edition(with_license_pool=True)
+
+        # A pool that has never been checked always needs to be updated.
+        pool.last_checked = None
+        eq_(True, recent_data._availability_needs_update(pool))
+        eq_(True, old_data._availability_needs_update(pool))
+
+        # A pool that has been checked before only needs to be updated
+        # if the information is at least as new as what we had before.
+        pool.last_checked = now
+        eq_(True, recent_data._availability_needs_update(pool))
+        eq_(False, old_data._availability_needs_update(pool))
+        

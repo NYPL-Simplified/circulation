@@ -688,7 +688,10 @@ class CirculationData(MetaToModelUtility):
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
         self.patrons_in_hold_queue = patrons_in_hold_queue
-        self.last_checked = last_checked
+
+        # If no 'last checked' data was provided, assume the data was
+        # just gathered.
+        self.last_checked = last_checked or datetime.datetime.utcnow()
 
         # format contains pdf/epub, drm, link
         self.formats = formats or []
@@ -819,9 +822,8 @@ class CirculationData(MetaToModelUtility):
         )
 
         if is_new:
-            last_checked = self.last_checked or datetime.datetime.utcnow()
             license_pool.open_access = self.has_open_access_link
-            license_pool.availability_time = datetime.datetime.utcnow()
+            license_pool.availability_time = self.last_checked
             # This is our first time seeing this LicensePool. Log its
             # occurence as a separate event.
             event = get_one_or_create(
@@ -829,13 +831,12 @@ class CirculationData(MetaToModelUtility):
                 type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                 license_pool=license_pool,
                 create_method_kwargs=dict(
-                    start=last_checked,
+                    start=self.last_checked,
                     delta=1,
-                    end=last_checked,
+                    end=self.last_checked,
                 )
             )
-            # only set license_pool's last_checked time on creation and update
-            license_pool.last_checked = last_checked
+            license_pool.last_checked = self.last_checked
 
         return license_pool, is_new
 
@@ -973,20 +974,7 @@ class CirculationData(MetaToModelUtility):
         # for this book, find its LicensePool and update it.
         changed_availability = False
         if pool:
-            availability_needs_update = False
-            if self.last_checked:
-                # Only update this LicensePool if our circulation
-                # information is more recent than what's already in
-                # there.
-                if (not pool.last_checked
-                    or self.last_checked >= pool.last_checked):
-                    availability_needs_update = True
-            else:
-                # Assume that the information in this CirculationData
-                # object is accurate as of now.
-                last_checked = datetime.datetime.utcnow()
-                availability_needs_update = True
-
+            availability_needs_update = self._availability_needs_update(pool)
             if availability_needs_update:
                 # Update availabily information. This may result in
                 # the issuance of additional circulation events.
@@ -995,7 +983,7 @@ class CirculationData(MetaToModelUtility):
                     new_licenses_available=self.licenses_available,
                     new_licenses_reserved=self.licenses_reserved,
                     new_patrons_in_hold_queue=self.patrons_in_hold_queue,
-                    as_of=last_checked
+                    as_of=self.last_checked
                 )
                     
         made_changes = (made_changes or changed_availability
@@ -1003,7 +991,20 @@ class CirculationData(MetaToModelUtility):
 
         return pool, made_changes
 
-
+    def _availability_needs_update(self, pool):
+        """Does this CirculationData represent information more recent than 
+        what we have for the given LicensePool?
+        """
+        if not self.last_checked:
+            # Assume that our data represents the state of affairs
+            # right now.
+            return True
+        if not pool.last_checked:
+            # It looks like the LicensePool has never been checked.
+            return True
+        return self.last_checked >= pool.last_checked
+        
+        
 class Metadata(MetaToModelUtility):
 
     """A (potentially partial) set of metadata for a published work."""
