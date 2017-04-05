@@ -240,8 +240,9 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         circulationdata = OverdriveRepresentationExtractor.book_info_to_circulation(info)
 
         # Related IDs.
+        identifier = circulationdata.primary_identifier(self._db)
         eq_((Identifier.OVERDRIVE_ID, '2a005d55-a417-4053-b90d-7a38ca6d2065'),
-            (circulationdata.primary_identifier.type, circulationdata.primary_identifier.identifier))
+            (identifier.type, identifier.identifier))
 
 
     def test_book_info_with_metadata(self):
