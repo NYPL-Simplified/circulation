@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -36,7 +37,48 @@ from s3 import DummyS3Uploader
 
 
 class TestCirculationData(DatabaseTest):
-       
+
+    def test_circulationdata_may_require_collection(self):
+        """Depending on the information provided in a CirculationData
+        object, it might or might not be possible to call apply()
+        without providing a Collection.
+        """
+
+        identifier = IdentifierData(Identifier.OVERDRIVE_ID, "1")
+        format = FormatData(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            rights_uri=RightsStatus.IN_COPYRIGHT
+        )
+        circdata = CirculationData(
+            DataSource.OVERDRIVE,
+            primary_identifier=identifier,
+            formats=[format]
+        )
+        circdata.apply(self._db, collection=None)
+
+        # apply() has created a LicensePoolDeliveryMechanism for this
+        # title, even though there are no LicensePools for it.
+        identifier_obj, ignore = identifier.load(self._db)
+        eq_([], identifier_obj.licensed_through)
+        [lpdm] = identifier_obj.delivery_mechanisms
+        eq_(DataSource.OVERDRIVE, lpdm.data_source.name)
+        eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+
+        mechanism = lpdm.delivery_mechanism
+        eq_(Representation.EPUB_MEDIA_TYPE, mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, mechanism.drm_scheme)
+
+        # But if we put some information in the CirculationData
+        # that can only be stored in a LicensePool, there's trouble.
+        circdata.licenses_owned = 0
+        assert_raises_regexp(
+            ValueError,
+            'Cannot store circulation information because no Collection was provided.',
+            circdata.apply,
+            self._db,
+            collection=None
+        )
+        
     def test_circulationdata_can_be_deepcopied(self):
         # Check that we didn't put something in the CirculationData that
         # will prevent it from being copied. (e.g., self.log)
@@ -109,7 +151,7 @@ class TestCirculationData(DatabaseTest):
             data_source=edition.data_source, 
             primary_identifier=edition.primary_identifier,
         )
-        circulation_data.apply(pool)
+        circulation_data.apply(self._db, pool.collection)
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
                              key=lambda x: x.delivery_mechanism.content_type)
@@ -123,7 +165,7 @@ class TestCirculationData(DatabaseTest):
         replace = ReplacementPolicy(
                 formats=True,
             )
-        circulation_data.apply(pool, replace=replace)
+        circulation_data.apply(self._db, pool.collection, replace=replace)
         [pdf] = pool.delivery_mechanisms
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
 
@@ -157,7 +199,7 @@ class TestCirculationData(DatabaseTest):
         # If we apply the new CirculationData with formats false in the policy,
         # we'll add the new format, but keep the old one as well.
         replacement_policy = ReplacementPolicy(formats=False)
-        circulation_data.apply(pool, replacement_policy)
+        circulation_data.apply(self._db, pool.collection, replacement_policy)
         
         eq_(2, pool.delivery_mechanisms.count())
         eq_(set([Representation.PDF_MEDIA_TYPE, Representation.EPUB_MEDIA_TYPE]),
@@ -167,7 +209,7 @@ class TestCirculationData(DatabaseTest):
         # But if we make formats true in the policy, we'll delete the old format
         # and remove it from its loan.
         replacement_policy = ReplacementPolicy(formats=True)
-        circulation_data.apply(pool, replacement_policy)
+        circulation_data.apply(self._db, pool.collection, replacement_policy)
 
         eq_(1, pool.delivery_mechanisms.count())
         eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
@@ -231,7 +273,7 @@ class TestCirculationData(DatabaseTest):
         replace = ReplacementPolicy(
                 formats=True,
             )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
 
         # We destroyed the default delivery format and added a new,
         # open access delivery format.
@@ -248,7 +290,7 @@ class TestCirculationData(DatabaseTest):
                 formats=True,
                 links=True,
             )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
 
         # Now we have no formats at all.
         eq_(0, pool.delivery_mechanisms.count())
@@ -278,7 +320,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
         eq_(1, pool.delivery_mechanisms.count())
         # The rights status is the one that was passed in to CirculationData.
@@ -308,7 +350,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
         eq_(1, pool.delivery_mechanisms.count())
         # The rights status is the default for the OA content server.
@@ -337,7 +379,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
         eq_(1, pool.delivery_mechanisms.count())
 
@@ -369,7 +411,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(RightsStatus.IN_COPYRIGHT,
             pool.delivery_mechanisms[0].rights_status.uri)
 
@@ -402,7 +444,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
         eq_(1, pool.delivery_mechanisms.count())
         eq_(RightsStatus.CC_BY_ND, pool.delivery_mechanisms[0].rights_status.uri)
@@ -439,7 +481,7 @@ class TestCirculationData(DatabaseTest):
         pool, ignore = circulation_data.license_pool(
             self._db, self._default_collection
         )
-        circulation_data.apply(pool, replace)
+        circulation_data.apply(self._db, pool.collection, replace)
         eq_(False, pool.open_access)
         eq_(1, pool.delivery_mechanisms.count())
         eq_(RightsStatus.IN_COPYRIGHT, pool.delivery_mechanisms[0].rights_status.uri)
@@ -487,7 +529,7 @@ class TestMetaToModelUtility(DatabaseTest):
             primary_identifier=edition.primary_identifier,
             links=[link_mirrored, link_unmirrored],
         )
-        circulation_data.apply(pool, replace=policy)
+        circulation_data.apply(self._db, pool.collection, replace=policy)
         
         # make sure the refactor is done right, and circulation does upload 
         eq_(1, len(mirror.uploaded))

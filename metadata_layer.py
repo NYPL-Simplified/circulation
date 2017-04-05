@@ -34,6 +34,7 @@ from model import (
     Hyperlink,
     Identifier,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Subject,
     Hyperlink,
     PresentationCalculationPolicy,
@@ -666,8 +667,9 @@ class CirculationData(MetaToModelUtility):
         """Constructor.
 
         :param data_source: The authority providing the lending licenses.
-        :param primary_identifier: An IdentifierData representing how
-            the lending authority distinguishes this book from others.
+            This may be a DataSource object or the name of the data source.
+        :param primary_identifier: An Identifier or IdentifierData representing 
+            how the lending authority distinguishes this book from others.
         """
         self._data_source = data_source
         
@@ -677,7 +679,11 @@ class CirculationData(MetaToModelUtility):
         else:
             self.data_source_obj = None
             self.data_source_name = data_source
-        self.primary_identifier = primary_identifier
+        if isinstance(primary_identifier, Identifier):
+            self.primary_identifier_obj = primary_identifier
+        else:
+            self.primary_identifier_obj = None
+            self._primary_identifier = primary_identifier
         self.licenses_owned = licenses_owned
         self.licenses_available = licenses_available
         self.licenses_reserved = licenses_reserved
@@ -766,8 +772,8 @@ class CirculationData(MetaToModelUtility):
             
         return description_string % description_data
     
-
     def data_source(self, _db):
+        """Find the DataSource associated with this circulation information."""
         if not self.data_source_obj:
             if self._data_source:
                 obj = DataSource.lookup(_db, self._data_source)
@@ -778,23 +784,37 @@ class CirculationData(MetaToModelUtility):
             self.data_source_obj = obj
         return self.data_source_obj
 
+    def primary_identifier(self, _db):
+        """Find the Identifier associated with this circulation information."""
+        if not self.primary_identifier_obj:
+            if self._primary_identifier:
+                obj, ignore = self._primary_identifier.load(_db)
+            else:
+                obj = None
+            self.primary_identifier_obj = obj
+        return self.primary_identifier_obj
+    
     def license_pool(self, _db, collection):
         """Find or create a LicensePool object for this CirculationData.
 
         :param collection: The LicensePool object will be associated with
             the given Collection.
         """
-        if not self.primary_identifier:
+        if not collection:
+            raise ValueError(
+                "Cannot find license pool: no collection provided."
+            )
+        identifier = self.primary_identifier(_db)
+        if not identifier:
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
             )
         
-        identifier_obj, ignore = self.primary_identifier.load(_db)
         data_source = self.data_source(_db)
         license_pool, is_new = LicensePool.for_foreign_id(
             _db, data_source=self.data_source_obj,
-            foreign_id_type=identifier_obj.type, 
-            foreign_id=identifier_obj.identifier,
+            foreign_id_type=identifier.type, 
+            foreign_id=identifier.identifier,
             collection=collection
         )
 
@@ -846,35 +866,50 @@ class CirculationData(MetaToModelUtility):
             # We still haven't determined rights, so it's unknown.
             self.default_rights_uri = RightsStatus.UNKNOWN
 
-    def apply(self, pool, replace=None):
-        """  Update the passed-in license pool with this CirculationData's information.
-        """
-        made_changes = False
+    def apply(self, _db, collection, replace=None):
+        """Update the title with this CirculationData's information.
         
-        if pool is None:
-            raise ValueError("CirculationData.apply needs a pool.")
-
+        :param collection: A Collection representing actual copies of
+        this title. Availability information (e.g. number of copies)
+        will be associated with a LicensePool in this Collection. If
+        this is not present, only delivery information (e.g. format
+        information and open-access downloads) will be processed.
+        """
+        # Immediately raise an exception if there is information that
+        # can only be stored in a LicensePool, but we have no
+        # Collection to tell us which LicensePool to use. This is
+        # indicative of an error in programming.
+        if not collection and (self.licenses_owned is not None
+                               or self.licenses_available is not None
+                               or self.licenses_reserved is not None
+                               or self.patrons_in_hold_queue is not None):
+            raise ValueError(
+                "Cannot store circulation information because no "
+                "Collection was provided."
+            )
+        
+        made_changes = False
         if replace is None:
             replace = ReplacementPolicy()
 
-        _db = Session.object_session(pool)
+        pool = None
+        if collection:
+            pool, ignore = self.license_pool(_db, collection)
+            
         data_source = self.data_source(_db)
-        identifier = pool.identifier
-
-        # TODO:  had following comment in metadata.apply.  need to figure out if still relevant.
-        # now that pool uses a composite edition, we must create that edition before 
-        # calculating any links
-        # TODO:  if we do call pool.set_presentation_edition from here, watch out for circular logic.
-
-        # TODO: be able to handle the case where the URL to a link changes or a link disappears.
+        identifier = self.primary_identifier(_db)
+        
+        # First, make sure all links in self.links are mirrored (if necessary)
+        # and associated with the book's identifier.
+        
+        # TODO: be able to handle the case where the URL to a link changes or
+        # a link disappears.
         link_objects = {}
-
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
-                    media_type=link.media_type,
-                    content=link.content
+                    media_type=link.media_type, content=link.content
                 )
                 link_objects[link] = link_obj
 
@@ -886,7 +921,9 @@ class CirculationData(MetaToModelUtility):
                     # thumbnail may be provided as a side effect.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
 
-        old_lpdms = pool.delivery_mechanisms
+        # Next, make sure the LicensePoolDeliveryMechanisms associated
+        # with the book reflect the formats in self.formats.
+        old_lpdms = identifier.delivery_mechanisms
         new_lpdms = []
 
         for format in self.formats:
@@ -898,12 +935,17 @@ class CirculationData(MetaToModelUtility):
                 resource = link_obj.resource
             else:
                 resource = None
-            lpdm = pool.set_delivery_mechanism(
-                format.content_type, format.drm_scheme, format.rights_uri or self.default_rights_uri, resource
+            lpdm = LicensePoolDeliveryMechanism.set(
+                data_source, identifier, format.content_type,
+                format.drm_scheme,
+                format.rights_uri or self.default_rights_uri,
+                resource
             )
             new_lpdms.append(lpdm)
 
         if replace.formats:
+            # If any LicensePoolDeliveryMechanisms were not mentioned in
+            # self.formats, remove them.
             for lpdm in old_lpdms:
                 if lpdm not in new_lpdms:
                     for loan in lpdm.fulfills:
@@ -911,52 +953,55 @@ class CirculationData(MetaToModelUtility):
                         loan.fulfillment = None
                     _db.delete(lpdm)
 
-        changed_licenses = False
+        # Changes to the delivery mechanisms may have changed the
+        # open-access status of all LicensePools for this work.
+        pools = identifier.licensed_through
+        old_open_access = any(pool.open_access for pool in pools)
+        for lpdm in identifier.delivery_mechanisms:
+            if (lpdm.rights_status
+                and lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS):
+                new_open_access = True
+                break
+        else:
+            new_open_access = False
+        if old_open_access != new_open_access:
+            for pool in pools:
+                pool.open_access = new_open_access
+        open_access_status_changed = (old_open_access != new_open_access)
+                    
+        # Finally, if we have data for a specific Collection's license
+        # for this book, find its LicensePool and update it.
+        changed_availability = False
         if pool:
-            # if we were not passed a last_checked value, then update pool as of now
-            if not self.last_checked: 
-                # Update availabily information. This may result in the issuance
-                # of additional events.
-                changed_licenses = pool.update_availability(
+            availability_needs_update = False
+            if self.last_checked:
+                # Only update this LicensePool if our circulation
+                # information is more recent than what's already in
+                # there.
+                if (not pool.last_checked
+                    or self.last_checked >= pool.last_checked):
+                    availability_needs_update = True
+            else:
+                # Assume that the information in this CirculationData
+                # object is accurate as of now.
+                last_checked = datetime.datetime.utcnow()
+                availability_needs_update = True
+
+            if availability_needs_update:
+                # Update availabily information. This may result in
+                # the issuance of additional circulation events.
+                changed_availability = pool.update_availability(
                     new_licenses_owned=self.licenses_owned,
                     new_licenses_available=self.licenses_available,
                     new_licenses_reserved=self.licenses_reserved,
                     new_patrons_in_hold_queue=self.patrons_in_hold_queue,
-                    as_of=datetime.datetime.utcnow(),
+                    as_of=last_checked
                 )
-            else:
-                # if we were passed a last_checked value, such as when creating the 
-                # CirculationData object in the bibliographic parser for a 3m log, then 
-                # check if that log update value is after the license pool's current knowledge, 
-                # and only update license infos if new information is really new.
-                if (pool.last_checked and (self.last_checked >= pool.last_checked)):
-                    # Update availabily information. This may result in the issuance
-                    # of additional events.
-                    changed_licenses = pool.update_availability(
-                        new_licenses_owned=self.licenses_owned,
-                        new_licenses_available=self.licenses_available,
-                        new_licenses_reserved=self.licenses_reserved,
-                        new_patrons_in_hold_queue=self.patrons_in_hold_queue,
-                        as_of=self.last_checked
-                    )
-
-        # Changes to the delivery mechanisms may have changed the work's
-        # open-access status.
-        old_open_access = pool.open_access                    
-        for lpdm in pool.delivery_mechanisms:
-            if (lpdm.rights_status
-                and lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS):
-                pool.open_access = True
-                break
-        else:
-            pool.open_access = False
-        open_access_status_changed = (old_open_access != pool.open_access)
                     
-        made_changes = (made_changes or changed_licenses
+        made_changes = (made_changes or changed_availability
                         or open_access_status_changed)
 
         return pool, made_changes
-
 
 
 class Metadata(MetaToModelUtility):
