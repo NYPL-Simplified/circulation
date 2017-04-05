@@ -766,7 +766,12 @@ class CirculationData(MetaToModelUtility):
         description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|' 
         description_string += ' links=%(links)r| formats=%(formats)r| data_source=%(data_source)s|>'
 
-        description_data = {'primary_identifier':self.primary_identifier, 'licenses_owned':self.licenses_owned}
+        
+        description_data = {'licenses_owned':self.licenses_owned}
+        if self._primary_identifier:
+            description_data['primary_identifier'] = self._primary_identifier
+        else:
+            description_data['primary_identifier'] = self.primary_identifier_obj
         description_data['licenses_available'] = self.licenses_available
         description_data['default_rights_uri'] = self.default_rights_uri
         description_data['links'] = self.links
