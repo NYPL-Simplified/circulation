@@ -892,12 +892,13 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CoverageFailure (if not).
         """
         error = None
-        if not circulationdata:
+        if circulationdata:
+            primary_identifier = circulationdata.primary_identifier(self._db)
+            if identifier != primary_identifier:
+                error = "Identifier did not match CirculationData's primary identifier."
+        else:
             error = "Did not receive circulationdata from input source"
 
-        primary_identifier = circulationdata.primary_identifier(self._db)
-        if identifier != primary_identifier:
-            error = "Identifier did not match CirculationData's primary identifier."
         if error:
             return self.failure(identifier, error, transient=True)
                                 
@@ -908,7 +909,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         except Exception as e:
             self.log.warn(
                 "Error applying circulationdata to collection %s: %s",
-                collection.name, e, exc_info=e
+                self.collection.name, e, exc_info=e
             )
             return self.failure(identifier, repr(e), transient=True)
 
