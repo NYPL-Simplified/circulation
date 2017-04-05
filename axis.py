@@ -233,7 +233,8 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
 
     Currently this is only used by BibliographicRefreshScript. It's
     not normally necessary because the Axis 360 API combines
-    bibliographic and availability data.
+    bibliographic and availability data. We rely on Monitors to fetch 
+    availability data and fill in the bibliographic data as necessary.
     """
 
     SERVICE_NAME = "Axis 360 Bibliographic Coverage Provider"

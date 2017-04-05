@@ -406,7 +406,9 @@ class ItemListParser(XMLParser):
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Bibliotheca records.
 
-    Then mark the works as presentation-ready.
+    This will occasionally fill in some availability information for a
+    single Collection, but we rely on Monitors to keep availability
+    information up to date for all Collections.
     """
     SERVICE_NAME = "Bibliotheca Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
