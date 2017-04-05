@@ -542,8 +542,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
         link_obj, ignore = edition.primary_identifier.add_link(
             rel=link.rel, href=link.href, data_source=data_source,
-            license_pool=pool, media_type=link.media_type,
-            content=link.content,
+            media_type=link.media_type, content=link.content,
         )
 
         h.queue_response(403)
@@ -587,8 +586,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
         link_obj, ignore = edition.primary_identifier.add_link(
             rel=link.rel, href=link.href, data_source=data_source,
-            license_pool=pool, media_type=link.media_type,
-            content=link.content,
+            media_type=link.media_type, content=link.content
         )
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
