@@ -944,9 +944,24 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             self._default_collection, replacement_policy=replacement_policy
         )
 
-        metadata = Metadata(provider.data_source)
+        metadata = Metadata(provider.data_source, primary_identifier=identifier)
         # We've got a CirculationData object that includes an open-access download.
         link = LinkData(rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://foo.com/")
+
+        # We get an error if the CirculationData's identifier is
+        # doesn't match what we pass in.
+        circulationdata = CirculationData(
+            provider.data_source, 
+            primary_identifier=self._identifier(),
+            links=[link]
+        )
+        failure = provider.set_metadata_and_circulation_data(
+            identifier, metadata, circulationdata
+        )
+        eq_("Identifier did not match CirculationData's primary identifier.",
+            failure.exception)
+
+        # Otherwise, the data is applied.
         circulationdata = CirculationData(
             provider.data_source, 
             primary_identifier=metadata.primary_identifier, 

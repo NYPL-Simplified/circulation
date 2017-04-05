@@ -891,20 +891,24 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
-        pool = self.license_pool(identifier)
-        if isinstance(pool, CoverageFailure):
-            return pool
-
+        error = None
         if not circulationdata:
-            e = "Did not receive circulationdata from input source"
-            return self.failure(identifier, e, transient=True)
+            error = "Did not receive circulationdata from input source"
 
+        primary_identifier = circulationdata.primary_identifier(self._db)
+        if identifier != primary_identifier:
+            error = "Identifier did not match CirculationData's primary identifier."
+        if error:
+            return self.failure(identifier, error, transient=True)
+                                
         try:
-            circulationdata.apply(pool, replace=self.replacement_policy)
+            circulationdata.apply(
+                self._db, self.collection, replace=self.replacement_policy
+            )
         except Exception as e:
             self.log.warn(
-                "Error applying circulationdata to pool %d: %s",
-                pool.id, e, exc_info=e
+                "Error applying circulationdata to collection %s: %s",
+                collection.name, e, exc_info=e
             )
             return self.failure(identifier, repr(e), transient=True)
 

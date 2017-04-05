@@ -220,7 +220,7 @@ class TestParsers(AxisTest):
         eq_(None, bib1)
         eq_(None, bib2)
 
-        eq_("0003642860", av1.primary_identifier.identifier)
+        eq_("0003642860", av1.primary_identifier(self._db).identifier)
         eq_(9, av1.licenses_owned)
         eq_(9, av1.licenses_available)
         eq_(0, av1.patrons_in_hold_queue)
