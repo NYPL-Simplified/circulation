@@ -362,3 +362,6 @@ def loadstorm_verify(code):
     else:
         return Response("", 404)
 
+@app.route('/healthcheck.html')
+def health_check():
+    return Response("", 200)
