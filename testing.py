@@ -355,7 +355,7 @@ class DatabaseTest(object):
 
             # Add a DeliveryMechanism for this download
             pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE,
+                media_type,
                 DeliveryMechanism.NO_DRM,
                 RightsStatus.GENERIC_OPEN_ACCESS,
                 link.resource,
