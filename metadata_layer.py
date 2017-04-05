@@ -1530,14 +1530,11 @@ class Metadata(MetaToModelUtility):
 
         # The Metadata object may include a CirculationData object which
         # contains information about availability such as open-access
-        # links. If a Collection was passed in to apply(), we can make sure
+        # links. Make sure
         # that that Collection has a LicensePool for this book and that
         # its information is up-to-date.
-        pool = None
-        if self.circulation and collection:
-            pool, is_new = self.circulation.license_pool(_db, collection)
-            if pool:
-                self.circulation.apply(pool, replace)
+        if self.circulation:
+            self.circulation.apply(_db, collection, replace)
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
         for link in self.links:
@@ -1554,7 +1551,7 @@ class Metadata(MetaToModelUtility):
                 # We don't need to mirror this image, but we do need
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
-                self.make_thumbnail(data_source, link, link_obj, pool)
+                self.make_thumbnail(data_source, link, link_obj)
 
 
         # Finally, update the coverage record for this edition
@@ -1565,12 +1562,9 @@ class Metadata(MetaToModelUtility):
         return edition, made_core_changes
 
         
-    def make_thumbnail(self, data_source, link, link_obj, pool=None):
+    def make_thumbnail(self, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
-
-        TODO: pool needs to go away. Many license pools for the
-        same book should be able to use the same thumbnail.
         """
         thumbnail = link.thumbnail
         if not thumbnail:
