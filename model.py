@@ -1641,8 +1641,8 @@ class Identifier(Base):
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
 
-    def add_link(self, rel, href, data_source, license_pool=None,
-                 media_type=None, content=None, content_path=None):
+    def add_link(self, rel, href, data_source, media_type=None, content=None,
+                 content_path=None):
         """Create a link between this Identifier and a (potentially new)
         Resource.
 
@@ -1651,11 +1651,6 @@ class Identifier(Base):
         created. It might be good to move that code into here.
         """
         _db = Session.object_session(self)
-
-        if license_pool and license_pool.identifier != self:
-            raise ValueError(
-                "License pool is associated with %r, not %r!" % (
-                    license_pool.identifier, self))
         
         # Find or create the Resource.
         if not href:
@@ -6154,7 +6149,7 @@ class LicensePool(Base):
                representation associated with the resource.
         """
         return self.identifier.add_link(
-            rel, href, data_source, self, media_type, content, content_path)
+            rel, href, data_source, media_type, content, content_path)
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
