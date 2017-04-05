@@ -919,7 +919,14 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         failure = provider._set_circulationdata(identifier, empty)
         eq_("Identifier did not match CirculationData's primary identifier.",
             failure.exception)
-        
+
+        # Here, the data is okay, but the ReplacementPolicy is
+        # going to cause an error the first time we try to use it.
+        correct = CirculationData(provider.data_source,
+                                  identifier)
+        provider.replacement_policy = object()
+        failure = provider._set_circulationdata(identifier, correct)
+        assert isinstance(failure, CoverageFailure)
             
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
