@@ -17,6 +17,8 @@ from classifier import (
 )
 
 from sqlalchemy import (
+    and_,
+    exists,
     or_,
     not_,
 )
@@ -35,6 +37,7 @@ from model import (
     Edition,
     Genre,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Work,
     WorkGenre,
 )
@@ -1214,11 +1217,14 @@ class Lane(object):
                 work_model.presentation_ready == True,
             )
 
-        # Only find books the default client can fulfill.
-        query = query.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
+        # Only find books that have some kind of DeliveryMechanism.
+        LPDM = LicensePoolDeliveryMechanism
+        exists_clause = exists().where(
+            and_(LicensePool.data_source_id==LPDM.data_source_id,
+                LicensePool.identifier_id==LPDM.identifier_id)
         )
-
+        query = query.filter(exists_clause)
+            
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
@@ -1234,7 +1240,6 @@ class Lane(object):
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
-
         return query
 
     @property

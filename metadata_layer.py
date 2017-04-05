@@ -911,9 +911,6 @@ class CirculationData(MetaToModelUtility):
                         loan.fulfillment = None
                     _db.delete(lpdm)
 
-            pool.delivery_mechanisms = new_lpdms
-
-                    
         changed_licenses = False
         if pool:
             # if we were not passed a last_checked value, then update pool as of now

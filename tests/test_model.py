@@ -1632,9 +1632,12 @@ class TestLicensePool(DatabaseTest):
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
     def test_set_rights_status(self):
+        # Here's a non-open-access book.
         edition, pool = self._edition(with_license_pool=True)
         pool.open_access = False
-        lpdm = pool.delivery_mechanisms[0]
+        [lpdm] = pool.delivery_mechanisms
+
+        # We set its rights status to 'in copyright', and nothing changes.
         uri = RightsStatus.IN_COPYRIGHT
         status = lpdm.set_rights_status(uri)
         eq_(status, lpdm.rights_status)
@@ -1642,30 +1645,38 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(RightsStatus.NAMES.get(uri), status.name)
         eq_(False, pool.open_access)
 
+        # Setting it again won't change anything.
         status2 = lpdm.set_rights_status(uri)
         eq_(status, status2)
 
+        # Set the rights status to a different URL, we change to a different
+        # RightsStatus object.
         uri2 = "http://unknown"
         status3 = lpdm.set_rights_status(uri2)
         assert status != status3
         eq_(RightsStatus.UNKNOWN, status3.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status3.name)
 
+        # Set the rights status to a URL that implies open access,
+        # and the status of the LicensePool is changed.
         open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
         open_access_status = lpdm.set_rights_status(open_access_uri)
         eq_(open_access_uri, open_access_status.uri)
         eq_(RightsStatus.NAMES.get(open_access_uri), open_access_status.name)
         eq_(True, pool.open_access)
 
+        # Set it back to a URL that does not imply open access, and
+        # the status of the LicensePool is changed back.
         non_open_access_status = lpdm.set_rights_status(uri)
         eq_(False, pool.open_access)
 
-        # Add a second license pool, so the pool has one open-access
-        # and one commercial delivery mechanism.
+        # Now add a second delivery mechanism, so the pool has one
+        # open-access and one commercial delivery mechanism.
         lpdm2 = pool.set_delivery_mechanism(
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        eq_(2, len(pool.delivery_mechanisms))
+        
+        eq_(2, pool.delivery_mechanisms.count())
 
         # Now the pool is open access again
         eq_(True, pool.open_access)
@@ -1674,6 +1685,30 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # access, the pool won't be open access anymore either.
         lpdm2.set_rights_status(uri)
         eq_(False, pool.open_access)
+
+    def test_uniqueness_constraint(self):
+        # with_open_access_download will create a LPDM
+        # for the open-access download.
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        [lpdm] = pool.delivery_mechanisms
+        
+        # We can create a second LPDM with the same data type and DRM status,
+        # so long as the resource is different.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            pool.data_source, "text/html"
+        )
+        pool.set_delivery_mechanism(
+            lpdm.delivery_mechanism.content_type,
+            lpdm.delivery_mechanism.drm_scheme,
+            lpdm.rights_status.uri,
+            link.resource,
+        )
+        [lpdm2] = [x for x in pool.delivery_mechanisms if x != lpdm]
+        eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
+        assert lpdm2.resource != lpdm.resource
+
 
 class TestWork(DatabaseTest):
 

@@ -865,6 +865,12 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have provide many LicensePoolDeliveryMechanisms.
+    licensepool_deliveries = relationship(
+        "LicensePoolDeliveryMechanism", backref="data_source",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.data_source_id]
+    )
+    
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
     
@@ -1409,6 +1415,12 @@ class Identifier(Base):
         "Annotation", backref="identifier"
     )
 
+    # One Identifier can have have many LicensePoolDeliveryMechanisms.
+    licensepool_deliveries = relationship(
+        "LicensePoolDeliveryMechanism", backref="identifier",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.identifier_id]
+    )
+    
     # Type + identifier is unique.
     __table_args__ = (
         UniqueConstraint('type', 'identifier'),
@@ -4723,9 +4735,13 @@ class Measurement(Base):
 
 
 class LicensePoolDeliveryMechanism(Base):
-    """A mechanism for delivering a specific book.
+    """A mechanism for delivering a specific book from a specific
+    distributor.
 
-    This is mostly an association class between LicensePool and
+    It's presumed that all LicensePools for a given DataSource and
+    Identifier have the same set of LicensePoolDeliveryMechanisms.
+
+    This is mostly an association class between DataSource, Identifier and
     DeliveryMechanism, but it also may incorporate a specific Resource
     (i.e. a static link to a downloadable file) which explains exactly
     where to go for delivery.
@@ -4734,11 +4750,14 @@ class LicensePoolDeliveryMechanism(Base):
 
     id = Column(Integer, primary_key=True)
 
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True,
-        nullable=False
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, nullable=False
     )
 
+    identifier_id = Column(
+        Integer, ForeignKey('identifiers.id'), index=True, nullable=False
+    )
+    
     delivery_mechanism_id = Column(
         Integer, ForeignKey('deliverymechanisms.id'), 
         index=True,
@@ -4754,29 +4773,56 @@ class LicensePoolDeliveryMechanism(Base):
     rightsstatus_id = Column(
         Integer, ForeignKey('rightsstatus.id'), index=True)
 
-
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
         self.rights_status = status
-        if status.uri in RightsStatus.OPEN_ACCESS:
-            self.license_pool.open_access = True
-        elif self.license_pool.open_access:
-            # If we're setting the rights status to
-            # non-open access, we might have removed
-            # the last open-access delivery mechanism
-            # for the pool. We need to check all of them
-            # to see if there's an open-access one.
-            self.license_pool.open_access = False
-            for lpdm in self.license_pool.delivery_mechanisms:
-                if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-                    self.license_pool.open_access = True
-                    break
+        for pool in self.license_pools:
+            if status.uri in RightsStatus.OPEN_ACCESS:
+                pool.open_access = True
+            elif pool.open_access:
+                # If we're setting the rights status to non-open
+                # access, we might have removed the last open-access
+                # delivery mechanism for the pool. We need to check
+                # all of them to see if there's an open-access one.
+                #
+                # TODO: I think this is less efficient than it could
+                # be, given that all LicensePools for an Identifier
+                # are the same book. But this happens so infrequently
+                # that I'm not going to spend time optimizing it.
+                pool.open_access = False
+                for lpdm in pool.delivery_mechanisms:
+                    if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
+                        pool.open_access = True
+                        break
         return status
 
+    @property
+    def license_pools(self):
+        """Find all LicensePools for this LicensePoolDeliveryMechanism.
+        """
+        _db = Session.object_session(self)
+        return _db.query(LicensePool).filter(
+            LicensePool.data_source==self.data_source).filter(
+                LicensePool.identifier==self.identifier)
+    
     def __repr__(self):
-        return "%r %r" % (self.license_pool, self.delivery_mechanism)
+        return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
 
+    __table_args__ = (
+        UniqueConstraint('data_source_id', 'identifier_id',
+                         'delivery_mechanism_id', 'resource_id'),
+    )
+
+Index(
+    "ix_licensepooldeliveries_datasource_identifier_mechanism",
+    LicensePoolDeliveryMechanism.data_source_id,
+    LicensePoolDeliveryMechanism.identifier_id,
+    LicensePoolDeliveryMechanism.delivery_mechanism_id,
+    LicensePoolDeliveryMechanism.resource_id,
+)
+
+    
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
@@ -5819,12 +5865,6 @@ class LicensePool(Base):
     # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
 
-    # One LicensePool may have multiple DeliveryMechanisms, and vice
-    # versa.
-    delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism", backref="license_pool"
-    )
-
     # One LicensePool may have multiple CachedFeeds.
     cached_feeds = relationship('CachedFeed', backref='license_pool')
 
@@ -5859,6 +5899,16 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
+    @property
+    def delivery_mechanisms(self):
+        """Find all LicensePoolDeliveryMechanisms for this LicensePool.        
+        """
+        _db = Session.object_session(self)
+        LPDM = LicensePoolDeliveryMechanism
+        return _db.query(LPDM).filter(
+            LPDM.data_source==self.data_source).filter(
+                LPDM.identifier==self.identifier)
+    
     def __repr__(self):
         if self.identifier:
             identifier = "%s/%s" % (self.identifier.type, 
@@ -6632,34 +6682,33 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
-
     def set_delivery_mechanism(
             self, content_type, drm_scheme, rights_uri, resource):
-        """
-        Additive, unless have more than one version of a book, in the same format, 
-        on the same license (ex.:  book with images and book without images in Gutenberg, 
-        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
-
-        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
-        so long as they have different resources.
+        """Ensure that this LicensePool (and any other LicensePools for the same
+        book) have a LicensePoolDeliveryMechanism for this media type,
+        DRM scheme, rights status, and resource.
         """
         _db = Session.object_session(self)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
-            _db, content_type, drm_scheme)
+            _db, content_type, drm_scheme
+        )
         rights_status = RightsStatus.lookup(_db, rights_uri)
         lpdm, ignore = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
-            license_pool=self,
+            identifier=self.identifier,
+            data_source=self.data_source,
             delivery_mechanism=delivery_mechanism,
-            rights_status=rights_status,
+            resource=resource
         )
-        lpdm.resource = resource
-        # If we're adding an open access lpdm, it makes the pool
-        # open access. If we're adding a non-open access lpdm, it
-        # doesn't change anything because the pool might have another
-        # lpdm that is open access.
+        lpdm.rights_status = rights_status
+
+        # Adding an open access LPDM makes all LicensePools that use
+        # it open access. Adding a non-open access LPDM doesn't change
+        # anything because the book might have another LPDM that is
+        # open access.
         if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-            self.open_access = True
+            for pool in lpdm.license_pools:
+                pool.open_access = True
         return lpdm
 
 
