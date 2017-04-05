@@ -900,20 +900,26 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             eq_(34, provider.batch_size)
 
     def test_set_circulationdata_errors(self):
+        """Verify that errors when setting circulation data
+        are turned into CoverageFailure objects.
+        """
         provider = AlwaysSuccessfulCollectionCoverageProvider(
             self._default_collection
         )
         identifier = self._identifier()
-        
+
+        # No data.
         failure = provider._set_circulationdata(identifier, None)
         eq_("Did not receive circulationdata from input source",
             failure.exception)
 
+        # No identifier in CirculationData.
         empty = CirculationData(provider.data_source, primary_identifier=None)
         failure = provider._set_circulationdata(identifier, empty)
         eq_("Identifier did not match CirculationData's primary identifier.",
             failure.exception)
 
+        # Mismatched identifier in CirculationData.
         wrong = CirculationData(provider.data_source,
                                 primary_identifier=self._identifier())
         failure = provider._set_circulationdata(identifier, empty)
@@ -927,7 +933,13 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         provider.replacement_policy = object()
         failure = provider._set_circulationdata(identifier, correct)
         assert isinstance(failure, CoverageFailure)
-            
+
+        # Verify that the general error handling works whether or not
+        # the provider is associated with a Collection.
+        provider.collection_id = None
+        failure = provider._set_circulationdata(identifier, correct)
+        assert isinstance(failure, CoverageFailure)
+        
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
         set_metadata(), the policy's settings (and those of its

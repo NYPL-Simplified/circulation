@@ -907,9 +907,13 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 self._db, self.collection, replace=self.replacement_policy
             )
         except Exception as e:
+            if self.collection:
+                collection_name = " to collection %s" % self.collection.name
+            else:
+                collection_name = ""
             self.log.warn(
-                "Error applying circulationdata to collection %s: %s",
-                self.collection.name, e, exc_info=e
+                "Error applying circulationdata%s: %s",
+                collection_name, e, exc_info=e
             )
             return self.failure(identifier, repr(e), transient=True)
 
