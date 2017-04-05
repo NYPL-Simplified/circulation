@@ -4791,6 +4791,11 @@ class LicensePoolDeliveryMechanism(Base):
                 # access, we might have removed the last open-access
                 # delivery mechanism for the pool. We need to check
                 # all of them to see if there's an open-access one.
+                #
+                # TODO: I think this is less efficient than it could
+                # be, given that all LicensePools for an Identifier
+                # are the same book. But this happens so infrequently
+                # that I'm not going to spend time optimizing it.
                 pool.open_access = False
                 for lpdm in pool.delivery_mechanisms:
                     if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
@@ -4820,6 +4825,7 @@ Index(
     LicensePoolDeliveryMechanism.data_source_id,
     LicensePoolDeliveryMechanism.identifier_id,
     LicensePoolDeliveryMechanism.delivery_mechanism_id,
+    LicensePoolDeliveryMechanism.resource_id,
 )
 
     

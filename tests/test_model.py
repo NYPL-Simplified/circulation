@@ -1686,6 +1686,29 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         lpdm2.set_rights_status(uri)
         eq_(False, pool.open_access)
 
+    def test_uniqueness_constraint(self):
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+
+        # We can create a second LPDM with the same data type and DRM status,
+        # so long as the resource is different.
+        [lpdm] = pool.delivery_mechanisms
+
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            pool.data_source, "text/html"
+        )
+
+        pool.set_delivery_mechanism(
+                Representation.EPUB_MEDIA_TYPE,
+                DeliveryMechanism.NO_DRM,
+                RightsStatus.GENERIC_OPEN_ACCESS,
+                link.resource,
+            )
+
+        set_trace()
+        pass
+        
 class TestWork(DatabaseTest):
 
     def test_all_identifier_ids(self):
