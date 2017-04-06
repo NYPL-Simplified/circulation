@@ -57,6 +57,7 @@ from model import (
     IntegrationClient,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Measurement,
     Patron,
     PatronProfileStorage,
@@ -1631,6 +1632,42 @@ class TestLicensePool(DatabaseTest):
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
+    def test_lpdm_change_may_change_open_access_status(self):
+        # Here's a book that's not open access.
+        edition, pool = self._edition(with_license_pool=True)
+        eq_(False, pool.open_access)
+
+        # We're going to use LicensePoolDeliveryMechanism.set to
+        # to give it a non-open-access LPDM.
+        data_source = pool.data_source
+        identifier = pool.identifier
+        content_type = Representation.EPUB_MEDIA_TYPE
+        drm_scheme = DeliveryMechanism.NO_DRM
+        LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.IN_COPYRIGHT
+        )
+
+        # Now there's a way to get the book, but it's not open access.
+        eq_(False, pool.open_access)
+
+        # Now give it an open-access LPDM.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            data_source, content_type
+        )
+        oa_lpdm = LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.GENERIC_OPEN_ACCESS, link.resource
+        )
+        
+        # Now it's open access.
+        eq_(True, pool.open_access)
+
+        # Delete the open-access LPDM, and it stops being open access.
+        oa_lpdm.delete()
+        eq_(False, pool.open_access)
+        
     def test_set_rights_status(self):
         # Here's a non-open-access book.
         edition, pool = self._edition(with_license_pool=True)

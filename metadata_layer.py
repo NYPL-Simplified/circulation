@@ -927,10 +927,16 @@ class CirculationData(MetaToModelUtility):
                     # thumbnail may be provided as a side effect.
                     self.mirror_link(pool, data_source, link, link_obj, replace)
 
-        # Next, make sure the LicensePoolDeliveryMechanisms associated
+        # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
-        old_lpdms = identifier.delivery_mechanisms
+        old_lpdms = list(identifier.delivery_mechanisms)
         new_lpdms = []
+
+        # Before setting and unsetting delivery mechanisms, which may
+        # change the open-access status of the work, see what it the
+        # status currently is.
+        pools = identifier.licensed_through
+        old_open_access = any(pool.open_access for pool in pools)
 
         for format in self.formats:
             if format.link:
@@ -941,6 +947,7 @@ class CirculationData(MetaToModelUtility):
                 resource = link_obj.resource
             else:
                 resource = None
+            # This can cause a non-open-access LicensePool to go open-access.
             lpdm = LicensePoolDeliveryMechanism.set(
                 data_source, identifier, format.content_type,
                 format.drm_scheme,
@@ -950,29 +957,19 @@ class CirculationData(MetaToModelUtility):
             new_lpdms.append(lpdm)
 
         if replace.formats:
-            # If any LicensePoolDeliveryMechanisms were not mentioned in
-            # self.formats, remove them.
+            # If any preexisting LicensePoolDeliveryMechanisms were
+            # not mentioned in self.formats, remove the corresponding
+            # LicensePoolDeliveryMechanisms.
             for lpdm in old_lpdms:
                 if lpdm not in new_lpdms:
                     for loan in lpdm.fulfills:
                         self.log.info("Loan %i is associated with a format that is no longer available. Deleting its delivery mechanism." % loan.id)
                         loan.fulfillment = None
-                    _db.delete(lpdm)
+                    # This can cause an open-access LicensePool to go
+                    # non-open-access.
+                    lpdm.delete()
 
-        # Changes to the delivery mechanisms may have changed the
-        # open-access status of all LicensePools for this work.
-        pools = identifier.licensed_through
-        old_open_access = any(pool.open_access for pool in pools)
-        for lpdm in identifier.delivery_mechanisms:
-            if (lpdm.rights_status
-                and lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS):
-                new_open_access = True
-                break
-        else:
-            new_open_access = False
-        if old_open_access != new_open_access:
-            for pool in pools:
-                pool.open_access = new_open_access
+        new_open_access = any(pool.open_access for pool in pools)
         open_access_status_changed = (old_open_access != new_open_access)
                     
         # Finally, if we have data for a specific Collection's license

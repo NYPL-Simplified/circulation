@@ -4803,38 +4803,37 @@ class LicensePoolDeliveryMechanism(Base):
         )
         lpdm.rights_status = rights_status
 
-        # Adding an open access LPDM makes all LicensePools that use
-        # it open access. Adding a non-open access LPDM doesn't change
-        # anything because the book might have another LPDM that is
-        # open access.
-        if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-            for pool in lpdm.license_pools:
-                pool.open_access = True
+        # Creating or modifying a LPDM might change the open-access status
+        # of all LicensePools for that DataSource/Identifier.
+        for pool in lpdm.license_pools:
+            pool.set_open_access_status()
         return lpdm
 
+    @property
+    def is_open_access(self):
+        """Is this an open-access delivery mechanism?"""
+        return (self.rights_status
+                and self.rights_status.uri in RightsStatus.OPEN_ACCESS)
+    
+    def delete(self):
+        """Delete a LicensePoolDeliveryMechanism."""
+        _db = Session.object_session(self)
+        pools = list(self.license_pools)
+        _db.delete(self)        
+        # The deletion of a LicensePoolDeliveryMechanism might affect
+        # the open-access status of its associated LicensePools.
+        for pool in pools:
+            pool.set_open_access_status()
         
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
         self.rights_status = status
+        # A change to a LicensePoolDeliveryMechanism's rights status
+        # might affect the open-access status of its associated
+        # LicensePools.
         for pool in self.license_pools:
-            if status.uri in RightsStatus.OPEN_ACCESS:
-                pool.open_access = True
-            elif pool.open_access:
-                # If we're setting the rights status to non-open
-                # access, we might have removed the last open-access
-                # delivery mechanism for the pool. We need to check
-                # all of them to see if there's an open-access one.
-                #
-                # TODO: I think this is less efficient than it could
-                # be, given that all LicensePools for an Identifier
-                # are the same book. But this happens so infrequently
-                # that I'm not going to spend time optimizing it.
-                pool.open_access = False
-                for lpdm in pool.delivery_mechanisms:
-                    if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-                        pool.open_access = True
-                        break
+            pool.set_open_access_status()
         return status
 
     @property
@@ -6161,6 +6160,16 @@ class LicensePool(Base):
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
+    def set_open_access_status(self):
+        """Set .open_access based on whether there is currently
+        an open-access LicensePoolDeliveryMechanism for this LicensePool.
+        """
+        for dm in self.delivery_mechanisms:
+            if dm.is_open_access:
+                self.open_access = True
+                break
+        else:
+            self.open_access = False
 
     def set_presentation_edition(self):
         """Create or update the presentation Edition for this LicensePool.
