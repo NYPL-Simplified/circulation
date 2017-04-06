@@ -123,7 +123,7 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server.opds")).read()
         self.content_server_mini_feed = open(
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
-        self._default_collection.setting('data_source').value = (
+        self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
         
@@ -645,7 +645,7 @@ class TestOPDSImporter(OPDSImporterTest):
         """
         feed = open(
             os.path.join(self.resource_path, "unrecognized_distributor.opds")).read()
-        self._default_collection.setting('data_source').value = (
+        self._default_collection.external_integration.setting('data_source').value = (
             "some new source"
         )
         importer = OPDSImporter(
@@ -686,7 +686,7 @@ class TestOPDSImporter(OPDSImporterTest):
         old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
-        self._default_collection.setting('data_source').value = (
+        self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OVERDRIVE
         )
         imported_editions, imported_pools, imported_works, failures = (
@@ -821,7 +821,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # imported edition generates a meaningful error message.
 
         feed = self.content_server_mini_feed
-        self._default_collection.setting('data_source').value = (
+        self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
         )
         importer = DoomedWorkOPDSImporter(
@@ -1225,7 +1225,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
 
         self._default_collection.protocol = Collection.OPDS_IMPORT
-        self._default_collection.setting('data_source').value = None
+        self._default_collection.external_integration.setting('data_source').value = None
         assert_raises_regexp(
             ValueError,
             "Collection .* has no associated data source.",

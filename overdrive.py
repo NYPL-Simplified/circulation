@@ -123,9 +123,9 @@ class OverdriveAPI(object):
         else:
             self.parent_library_id = None
             
-        self.client_key = collection.username.encode("utf8")
-        self.client_secret = collection.password.encode("utf8")
-        self.website_id = collection.setting('website_id').value.encode("utf8")
+        self.client_key = collection.external_integration.username.encode("utf8")
+        self.client_secret = collection.external_integration.password.encode("utf8")
+        self.website_id = collection.external_integration.setting('website_id').value.encode("utf8")
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
@@ -389,10 +389,12 @@ class MockOverdriveAPI(OverdriveAPI):
             _db, Collection,
                 name="Test Overdrive Collection",
                 protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
-                    username=u'a', password=u'b', external_account_id=u'c'
+                    external_account_id=u'c'
                 )
             )
-        collection.set_setting('website_id', 'd')
+        collection.external_integration.username = u'a'
+        collection.external_integration.password = u'b'
+        collection.external_integration.set_setting('website_id', 'd')
         library.collections.append(collection)
         return collection
     
