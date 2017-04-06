@@ -160,9 +160,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.ONECLICK_ID, 
     ]
     
-    def __init__(self, lookup_client, **kwargs):
+    def __init__(self, lookup_client, collection, **kwargs):
         super(MetadataWranglerCoverageProvider, self).__init__(
-            lookup_client, **kwargs
+            lookup_client, collection, **kwargs
         )
         if not self.lookup_client.authenticated:
             self.log.warn(
@@ -186,7 +186,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         # stopped having a license.
         reaper_covered = self._db.query(Identifier).\
                 join(Identifier.coverage_records).\
-                filter(CoverageRecord.data_source==self.output_source).\
+                filter(CoverageRecord.data_source==self.data_source).\
                 filter(CoverageRecord.operation==CoverageRecord.REAP_OPERATION)
 
         # But we'll be _including_ items that were reaped and then we
@@ -202,7 +202,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         for identifier in relicensed.all():
             [reaper_coverage_record] = [record
                     for record in identifier.coverage_records
-                    if (record.data_source==self.output_source and
+                    if (record.data_source==self.data_source and
                         record.operation==CoverageRecord.REAP_OPERATION)]
             self._db.delete(reaper_coverage_record)
 
@@ -244,7 +244,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         qu = self._db.query(Identifier).select_from(LicensePool).\
             join(LicensePool.identifier).join(CoverageRecord).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
-            filter(CoverageRecord.data_source==self.output_source).\
+            filter(CoverageRecord.data_source==self.data_source).\
             filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION).\
             filter(CoverageRecord.status==CoverageRecord.SUCCESS)
 
@@ -263,7 +263,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         """        
         self.check_content_type(response)
         importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
-                                data_source_name=self.output_source.name)
+                                data_source_name=self.data_source.name)
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(response.text))
         return importer.extract_messages(parser, root)
@@ -276,11 +276,11 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         """
         qu = self._db.query(Identifier.id).join(Identifier.coverage_records)
         reaper_covered = qu.filter(
-            CoverageRecord.data_source==self.output_source,
+            CoverageRecord.data_source==self.data_source,
             CoverageRecord.operation==CoverageRecord.REAP_OPERATION
         )
         wrangler_covered = qu.filter(
-            CoverageRecord.data_source==self.output_source,
+            CoverageRecord.data_source==self.data_source,
             CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
         )
         # Get the db ids of identifiers that have been both synced and reaped.
@@ -291,7 +291,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
                 join(CoverageRecord.identifier).\
                 join(subquery, Identifier.id.in_(subquery)).\
                 filter(
-                    CoverageRecord.data_source==self.output_source,
+                    CoverageRecord.data_source==self.data_source,
                     CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
                 )
         for record in coverage_records.all():

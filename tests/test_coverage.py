@@ -147,7 +147,6 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # Make the CoverageProvider do its thing.
         fake_batch = [object()]
         success, failure1, failure2 = provider.process_batch(fake_batch)
-        set_trace()
         
         # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
@@ -163,7 +162,6 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # object.
         eq_('OPDS import operation imported LicensePool, but no Edition.',
             failure1.exception)
-        eq_("", failure1.message)
         eq_(pool2.identifier, failure1.obj)
         eq_(True, failure1.transient)
         
@@ -188,17 +186,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            lookup = MockSimplifiedOPDSLookup.from_config()
-            return MetadataWranglerCoverageProvider(self._db, lookup=lookup, **kwargs)
+        collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        lookup = MockSimplifiedOPDSLookup(self._url)
+        return MetadataWranglerCoverageProvider(
+            lookup, collection, **kwargs
+        )
 
     def setup(self):
         super(TestMetadataWranglerCoverageProvider, self).setup()
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.provider = self.create_provider()
+        self.collection = self.provider.collection
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -286,7 +284,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         # Here's a coverage record with a transient failure.
         identifier = self._identifier()
         cr = self._coverage_record(
-            identifier, self.provider.output_source, 
+            identifier, self.provider.data_source, 
             operation=self.provider.operation,
             status=CoverageRecord.TRANSIENT_FAILURE
         )
@@ -312,7 +310,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
         identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         LicensePool.for_foreign_id(
-            self._db, source, identifier.type, identifier.identifier
+            self._db, source, identifier.type, identifier.identifier,
+            collection=self.provider.collection
         )
 
         # Create an ISBN and set it equivalent.
@@ -321,7 +320,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         identifier.equivalent_to(source, isbn, 1)
 
         opds = sample_data('metadata_isbn_response.opds', 'opds')
-        self.provider.lookup.queue_response(
+        self.provider.lookup_client.queue_response(
             200, {'content-type': 'application/atom+xml;profile=opds-catalog;kind=acquisition'}, opds
         )
 
