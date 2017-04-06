@@ -5499,14 +5499,15 @@ class TestExternalIntegration(DatabaseTest):
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
-        eq_(DataSource.OVERDRIVE, self.collection.data_source.name)
+        collection = self._collection(protocol=Collection.OVERDRIVE)
+        eq_(DataSource.OVERDRIVE, collection.data_source.name)
 
         # For OPDS Import collections, data source is a setting which
         # might not be present.
         eq_(None, self._default_collection.data_source)
 
         # data source will be automatically created if necessary.
-        self._default_collection.setting(
+        self._default_collection.external_integration.setting(
             Collection.DATA_SOURCE_NAME_SETTING
         ).value = "New Data Source"
         eq_("New Data Source", self._default_collection.data_source.name)
