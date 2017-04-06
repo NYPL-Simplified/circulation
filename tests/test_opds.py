@@ -691,6 +691,7 @@ class TestOPDS(DatabaseTest):
         work = self._work(title="open access", with_open_access_download=True)
         no_license_pool = self._work(title="no license pool", with_license_pool=False)
         no_download = self._work(title="no download", with_license_pool=True)
+        no_download.license_pools[0].open_access = True
         not_open_access = self._work("not open access", with_license_pool=True)
         not_open_access.license_pools[0].open_access = False
         self._db.commit()
