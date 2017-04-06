@@ -20,6 +20,7 @@ from core.config import (
     temp_config,
 )
 from core.model import (
+    Collection,
     CoverageRecord,
     DataSource,
     Edition,
@@ -52,14 +53,14 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
     def _provider(self, presentation_ready_on_success=True):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
-        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
         return MockOPDSImportCoverageProvider(
-            "mock provider", [], source,
-            presentation_ready_on_success=presentation_ready_on_success
+            collection=self._default_collection
         )
 
     def test_badresponseexception_on_non_opds_feed(self):
-
+        """If the lookup protocol sends something that's not an OPDS
+        feed, refuse to go any further.
+        """
         response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
         
         provider = self._provider()
@@ -76,7 +77,9 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # Unlike other tests in this class, we are using a real
         # implementation of OPDSImportCoverageProvider.process_batch.        
         class TestProvider(OPDSImportCoverageProvider):
-
+            SERVICE_NAME = "Test provider"
+            DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
+            
             # Mock the identifier mapping
             def create_identifier_mapping(self, batch):
                 return self.mapping
@@ -84,10 +87,10 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # This means we need to mock the lookup client instead.
         lookup = MockSimplifiedOPDSLookup(self._url)
 
-        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        provider = TestProvider(
-            "test provider", [], source, lookup=lookup
+        self._default_collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
         )
+        provider = TestProvider(lookup, self._default_collection)
 
         # Create a hard-coded mapping. We use id1 internally, but the
         # foreign data source knows the book as id2.
@@ -109,53 +112,6 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_("Here's your title!", edition.title)
         eq_(id1, edition.primary_identifier)
 
-    def test_finalize_license_pool(self):
-
-        provider_no_presentation_ready = self._provider(presentation_ready_on_success=False)
-        provider_presentation_ready = self._provider(presentation_ready_on_success=True)
-        identifier = self._identifier()
-        license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        # Here's a LicensePool with no presentation edition.
-        pool, is_new = LicensePool.for_foreign_id(
-            self._db, license_source, identifier.type, identifier.identifier
-        )
-        eq_(None, pool.presentation_edition)
-
-        # Calling finalize_license_pool() here won't do much.
-        provider_no_presentation_ready.finalize_license_pool(pool)
-
-        # A presentation edition has been created for the LicensePool,
-        # but it has no title (in fact it has no data at all), so no
-        # Work was created.
-        eq_(None, pool.presentation_edition.title)
-        eq_(0, self._db.query(Work).count())
-
-        # Here's an Edition for the same book as the LicensePool but
-        # from a different data source.
-        edition, is_new = Edition.for_foreign_id(
-            self._db, data_source, identifier.type, identifier.identifier
-        )
-        edition.title = self._str
-
-        # Although Edition and LicensePool share an identifier, they
-        # are not otherwise related.
-        eq_(None, pool.presentation_edition.title)
-
-        # finalize_license_pool() will create a Work and update the
-        # LicensePool's presentation edition, based on the brand-new
-        # Edition.
-        provider_no_presentation_ready.finalize_license_pool(pool)
-        work = pool.work
-        eq_(edition.title, pool.presentation_edition.title)
-        eq_(False, work.presentation_ready)
-
-        # If the provider is configured to do so, finalize_license_pool()
-        # will also set the Work as presentation-ready.
-        provider_presentation_ready.finalize_license_pool(pool)
-        eq_(True, work.presentation_ready)
-
     def test_process_batch(self):
         provider = self._provider()
 
@@ -167,52 +123,66 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         pool, is_new = LicensePool.for_foreign_id(
-            self._db, license_source, identifier.type, identifier.identifier
+            self._db, license_source, identifier.type, identifier.identifier,
+            collection=self._default_collection
         )
         eq_(None, pool.work)
 
-        # Here's a second identifier that's doomed to failure.
+        # Here's a second Edition/LicensePool that's going to cause a
+        # problem: the LicensePool will show up in the results, but
+        # the corresponding Edition will not.
+        edition2, pool2 = self._edition(with_license_pool=True)
+        
+        # Here's an identifier that can't be looked up.
         identifier = self._identifier()
-        messages_by_id = {identifier.urn : CoverageFailure(identifier, "201: try again later")}
+        messages_by_id = {
+            identifier.urn : CoverageFailure(identifier, "201: try again later")
+        }
 
-        provider.queue_import_results([edition], [pool], [], messages_by_id)
+        # When we call CoverageProvider.process_batch(), it's going to
+        # return a matched Edition/LicensePool pair, a mismatched LicensePool,
+        # and an error.
+        provider.queue_import_results([edition], [pool, pool2], [], messages_by_id)
 
+        # Make the CoverageProvider do its thing.
         fake_batch = [object()]
-        success, failure = provider.process_batch(fake_batch)
-
-        # The batch was provided to lookup_and_import_batch.
+        success, failure1, failure2 = provider.process_batch(fake_batch)
+        set_trace()
+        
+        # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
 
-        # The Edition and LicensePool have been knitted together into
-        # a Work.
-        eq_(edition, pool.presentation_edition)
-        assert pool.work != None
-
-        # The license pool was finalized.
+        # The matched Edition/LicensePool pair was returned.
+        eq_(success, edition.primary_identifier)
+        
+        # The LicensePool of that pair was passed into finalize_license_pool.
+        # The mismatched LicensePool was not.
         eq_([pool], provider.finalized)
 
-        # The failure stayed a CoverageFailure object.
-        eq_(identifier, failure.obj)
-        eq_(True, failure.transient)
-
-    def test_process_batch_success_even_if_no_licensepool_created(self):
+        # The mismatched LicensePool turned into a CoverageFailure
+        # object.
+        eq_('OPDS import operation imported LicensePool, but no Edition.',
+            failure1.exception)
+        eq_("", failure1.message)
+        eq_(pool2.identifier, failure1.obj)
+        eq_(True, failure1.transient)
+        
+        # The failure was returned as a CoverageFailure object.
+        eq_(identifier, failure2.obj)
+        eq_(True, failure2.transient)
+        
+    def test_process_batch_success_even_if_no_licensepool_exists(self):
+        """This shouldn't happen since CollectionCoverageProvider
+        only operates on Identifiers that are licensed through a Collection.
+        But if a lookup should return an Edition but no LicensePool,
+        that counts as a success.
+        """
         provider = self._provider()
         edition, pool = self._edition(with_license_pool=True)
         provider.queue_import_results([edition], [], [], {})
         fake_batch = [object()]
         [success] = provider.process_batch(fake_batch)
         eq_(edition.primary_identifier, success)
-
-    def test_process_batch_fails_if_licensepool_created_but_no_edition(self):
-        provider = self._provider()
-        edition, pool = self._edition(with_license_pool=True)
-        provider.queue_import_results([], [pool], [], {})
-        fake_batch = [object()]
-        [failure] = provider.process_batch(fake_batch)
-        eq_('OPDS import operation imported LicensePool, but no Edition.',
-            failure.exception)
-        eq_(pool.identifier, failure.obj)
-        eq_(provider.output_source, failure.data_source)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
@@ -485,6 +455,42 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         assert isinstance(script.provider, 
                           ContentServerBibliographicCoverageProvider)
 
+    def test_finalize_license_pool(self):
+
+        identifier = self._identifier()
+        license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        # Here's a LicensePool with no presentation edition.
+        pool, is_new = LicensePool.for_foreign_id(
+            self._db, license_source, identifier.type, identifier.identifier,
+            collection=self._default_collection
+        )
+        eq_(None, pool.presentation_edition)
+
+        # Here's an Edition for the same book as the LicensePool but
+        # from a different data source.
+        edition, is_new = Edition.for_foreign_id(
+            self._db, data_source, identifier.type, identifier.identifier
+        )
+        edition.title = self._str
+
+        # Although Edition and LicensePool share an identifier, they
+        # are not otherwise related.
+        eq_(None, pool.presentation_edition)
+
+        # finalize_license_pool() will create a Work and update the
+        # LicensePool's presentation edition, based on the brand-new
+        # Edition.
+        lookup = MockSimplifiedOPDSLookup(self._url)        
+        provider = ContentServerBibliographicCoverageProvider(
+            lookup, self._default_collection
+        )
+        provider.finalize_license_pool(pool)
+        work = pool.work
+        eq_(edition.title, pool.presentation_edition.title)
+        eq_(True, work.presentation_ready)
+        
     def test_only_open_access_books_considered(self):
 
         lookup = MockSimplifiedOPDSLookup(self._url)        
