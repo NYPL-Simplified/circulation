@@ -51,6 +51,7 @@ from model import (
     DelegatedPatronIdentifier,
     DeliveryMechanism,
     DRMDeviceIdentifier,
+    ExternalIntegration,
     Genre,
     Hold,
     Hyperlink,
@@ -5489,13 +5490,11 @@ class TestLibrary(DatabaseTest):
         assert 'Shared secret (for library registry): "secret"' in with_secret
 
 
-class TestCollection(DatabaseTest):
+class TestExternalIntegration(DatabaseTest):
 
     def setup(self):
-        super(TestCollection, self).setup()
-        self.collection = self._collection(
-            name="test collection", protocol=Collection.OVERDRIVE
-        )
+        super(TestExternalIntegration, self).setup()
+        self.external_integration, ignore = create(self._db, ExternalIntegration)
 
     def test_data_source(self):
         # For most collections, the protocol determines the
@@ -5514,35 +5513,43 @@ class TestCollection(DatabaseTest):
         
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
-        a Collection.
+        an ExternalIntegration.
         """
-        eq_([], self.collection.settings)
+        eq_([], self.external_integration.settings)
 
-        setting = self.collection.set_setting("website_id", "id1")
+        setting = self.external_integration.set_setting("website_id", "id1")
         eq_("website_id", setting.key)
         eq_("id1", setting.value)
 
         # Calling set() again updates the key-value pair.
-        eq_([setting], self.collection.settings)
-        setting2 = self.collection.set_setting("website_id", "id2")
+        eq_([setting], self.external_integration.settings)
+        setting2 = self.external_integration.set_setting("website_id", "id2")
         eq_(setting, setting2)
         eq_("id2", setting2.value)
 
-        eq_(setting2, self.collection.setting("website_id"))
+        eq_(setting2, self.external_integration.setting("website_id"))
+
+class TestCollection(DatabaseTest):
+
+    def setup(self):
+        super(TestCollection, self).setup()
+        self.collection = self._collection(
+            name="test collection", protocol=Collection.OVERDRIVE
+        )
 
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
-        about a Library.
+        about a Collection.
         """
         library = Library.instance(self._db)
         library.name = "The only library"
         library.collections.append(self.collection)
         
         self.collection.external_account_id = "id"
-        self.collection.url = "url"
-        self.collection.username = "username"
-        self.collection.password = "password"
-        setting = self.collection.set_setting("setting", "value")
+        self.collection.external_integration.url = "url"
+        self.collection.external_integration.username = "username"
+        self.collection.external_integration.password = "password"
+        setting = self.collection.external_integration.set_setting("setting", "value")
 
         data = self.collection.explain()
         eq_(['Name: "test collection"',
@@ -5562,11 +5569,12 @@ class TestCollection(DatabaseTest):
         # If the collection is the child of another collection,
         # its parent is mentioned.
         child = Collection(
-            name="Child", parent=self.collection, external_account_id="id2"
+            name="Child", parent=self.collection, protocol=self.collection.protocol, external_account_id="id2"
         )
         data = child.explain()
         eq_(['Name: "Child"',
              'Parent: test collection',
+             'Protocol: "Overdrive"',
              'External account ID: "id2"'],
             data
         )
@@ -5588,9 +5596,9 @@ class TestCollection(DatabaseTest):
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
-            name="Child", protocol=Collection.OPDS_IMPORT, url=self._url)
+            name="Child", protocol=Collection.OPDS_IMPORT, external_account_id=self._url)
         child.parent = self.collection
-        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.url)
+        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
     def test_from_metadata_identifier(self):
@@ -5604,7 +5612,7 @@ class TestCollection(DatabaseTest):
         eq_(self.collection.protocol, mirror_collection.protocol)
 
         # If the mirrored collection already exists, it is returned.
-        collection = self._collection(url=self._url)
+        collection = self._collection(external_account_id=self._url)
         mirror_collection = create(
             self._db, Collection,
             name=collection.metadata_identifier,
@@ -5656,18 +5664,6 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
     If any of these tests are failing, development will be required on the
     metadata wrangler to meet the needs of the new Collection class.
     """
-
-    def test_all_protocols_have_unique_identifier_defined(self):
-        """Test that all acceptable Collection protocols have a unique
-        identifier defined in the Collection class.
-
-        The unique identifier must be properly set to identify the
-        collection on the metadata wrangler.
-        """
-        eq_(
-            sorted(Collection.PROTOCOLS),
-            sorted(Collection.UNIQUE_IDENTIFIER_BY_PROTOCOL)
-        )
 
     def test_only_name_and_protocol_are_required(self):
         """Test that only name and protocol are required fields on

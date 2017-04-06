@@ -658,9 +658,9 @@ class DatabaseTest(object):
             self._db, Collection, name=name, protocol=protocol
         )
         collection.external_account_id = external_account_id
-        collection.url = url
-        collection.username = username
-        collection.password = password
+        collection.external_integration.url = url
+        collection.external_integration.username = username
+        collection.external_integration.password = password
         return collection
 
     @property
