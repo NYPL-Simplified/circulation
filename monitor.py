@@ -305,9 +305,7 @@ class SweepMonitor(CollectionMonitor):
 
     def process_batch(self, offset):
         """Process one batch of work."""
-        q = self.item_query().filter(self.model_class.id > offset).order_by(
-            self.model_class.id).limit(self.batch_size)
-        items = q.all()
+        items = self.fetch_batch(offset).all()
         if items:
             for item in items:
                 self.process_item(item)
@@ -320,6 +318,12 @@ class SweepMonitor(CollectionMonitor):
             # are done with the sweep. Reset the counter.
             return 0
 
+    def fetch_batch(self, offset):
+        """Retrieve one batch of work from the database."""
+        q = self.item_query().filter(self.model_class.id > offset).order_by(
+            self.model_class.id).limit(self.batch_size)
+        return q
+        
     def item_query(self):
         """Find the items that need to be processed in the sweep.
 
@@ -423,7 +427,7 @@ class EditionSweepMonitor(SweepMonitor):
             )
 
 
-class WorkSweepMonitor(IdentifierSweepMonitor):
+class WorkSweepMonitor(SweepMonitor):
     """A Monitor that does something to every Work."""
     MODEL_CLASS = Work
 
