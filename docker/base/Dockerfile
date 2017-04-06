@@ -2,6 +2,7 @@ FROM python:2.7
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
+ARG tags="t"
 
 # Development libraries we'll need on top of python:2.7
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,8 +16,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www
 RUN git clone https://github.com/NYPL-Simplified/circulation.git
 WORKDIR circulation
-RUN git checkout tags/$version
-RUN /bin/bash -c 'git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git && git submodule update --init --recursive'
+
+# Assume we're building for a tagged commit of circulation, but also
+# allow for branches or straight-up SHAs if --build-args tags=f is used
+# at build time.
+RUN /bin/bash -c 'if [[ "$tags" == "t" ]];\
+        then git checkout tags/"$version";\
+        else git checkout "$version"; fi'
+
+# Use an https link for the server_core submodule to avoid and update
+# the submodule for this version.
+RUN /bin/bash -c 'git config submodule.core.url \
+        https://github.com/NYPL-Simplified/server_core.git \
+        && git submodule update --init --recursive'
+
 COPY post-receive.sample .git/hooks
 
 # Set up the virtual environment and install python libraries
