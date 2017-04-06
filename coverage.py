@@ -691,9 +691,11 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     left alone.
 
     For this reason it's important that subclasses of this
-    CoverageProvider only deal with bibliographic information, and
-    never circulation information. (Circulation information includes
-    formatting information and links to open-access downloads.)
+    CoverageProvider only deal with bibliographic information and
+    format availability information (such as links to open-access
+    downloads). You'll have problems if you try to use
+    CollectionCoverageProvider to keep track of information like the
+    number of licenses available for a book.
 
     In addition to defining the class variables defined by
     CoverageProvider, you must define the class variable PROTOCOL when
@@ -889,20 +891,29 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         :return: The Identifier (if successful) or an appropriate
         CoverageFailure (if not).
         """
-        pool = self.license_pool(identifier)
-        if isinstance(pool, CoverageFailure):
-            return pool
+        error = None
+        if circulationdata:
+            primary_identifier = circulationdata.primary_identifier(self._db)
+            if identifier != primary_identifier:
+                error = "Identifier did not match CirculationData's primary identifier."
+        else:
+            error = "Did not receive circulationdata from input source"
 
-        if not circulationdata:
-            e = "Did not receive circulationdata from input source"
-            return self.failure(identifier, e, transient=True)
-
+        if error:
+            return self.failure(identifier, error, transient=True)
+                                
         try:
-            circulationdata.apply(pool, replace=self.replacement_policy)
+            circulationdata.apply(
+                self._db, self.collection, replace=self.replacement_policy
+            )
         except Exception as e:
+            if self.collection:
+                collection_name = " to collection %s" % self.collection.name
+            else:
+                collection_name = ""
             self.log.warn(
-                "Error applying circulationdata to pool %d: %s",
-                pool.id, e, exc_info=e
+                "Error applying circulationdata%s: %s",
+                collection_name, e, exc_info=e
             )
             return self.failure(identifier, repr(e), transient=True)
 
@@ -923,12 +934,12 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
     e.g. ensures that we get Overdrive coverage for all Overdrive IDs
     in a collection.
 
-    TODO: The current BibliographicCoverageProviders deal with
-    circulation information, which is now a no-no. I'm not going to
-    address the issue in this branch. We need to figure out a way to
-    split up the work that needs to happen once (getting the book
-    cover) from the work that needs to happen independently for each
-    Collection (getting the available formats).
+    Although a BibliographicCoverageProvider may gather
+    CirculationData for a book, it cannot guarantee equal coverage for
+    all Collections that contain that book. CirculationData should be
+    limited to things like formats that don't vary between
+    Collections, and you should use a CollectionMonitor to make sure
+    your circulation information is up-to-date for each Collection.
     """
     def handle_success(self, identifier):
         """Once a book has bibliographic coverage, it can be given a

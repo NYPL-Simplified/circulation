@@ -57,6 +57,7 @@ from model import (
     IntegrationClient,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Measurement,
     Patron,
     PatronProfileStorage,
@@ -1408,6 +1409,7 @@ class TestLicensePool(DatabaseTest):
             data_source_name=DataSource.STANDARD_EBOOKS,
             with_open_access_download=False,
         )
+        no_resource.open_access = True
         eq_(True, better(no_resource, None))
         eq_(False, better(no_resource, gutenberg_1))
 
@@ -1631,6 +1633,42 @@ class TestLicensePool(DatabaseTest):
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
+    def test_lpdm_change_may_change_open_access_status(self):
+        # Here's a book that's not open access.
+        edition, pool = self._edition(with_license_pool=True)
+        eq_(False, pool.open_access)
+
+        # We're going to use LicensePoolDeliveryMechanism.set to
+        # to give it a non-open-access LPDM.
+        data_source = pool.data_source
+        identifier = pool.identifier
+        content_type = Representation.EPUB_MEDIA_TYPE
+        drm_scheme = DeliveryMechanism.NO_DRM
+        LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.IN_COPYRIGHT
+        )
+
+        # Now there's a way to get the book, but it's not open access.
+        eq_(False, pool.open_access)
+
+        # Now give it an open-access LPDM.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            data_source, content_type
+        )
+        oa_lpdm = LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.GENERIC_OPEN_ACCESS, link.resource
+        )
+        
+        # Now it's open access.
+        eq_(True, pool.open_access)
+
+        # Delete the open-access LPDM, and it stops being open access.
+        oa_lpdm.delete()
+        eq_(False, pool.open_access)
+        
     def test_set_rights_status(self):
         # Here's a non-open-access book.
         edition, pool = self._edition(with_license_pool=True)
@@ -2685,8 +2723,14 @@ class TestWorkConsolidation(DatabaseTest):
         edition1, ignore = self._edition(with_license_pool=True)
         edition2, ignore = self._edition(
             title=edition1.title, authors=edition1.author,
-            with_license_pool=True)
+            with_license_pool=True
+        )
 
+        # For purposes of this test, let's pretend these books are
+        # open-access.
+        edition1.license_pool.open_access = True
+        edition2.license_pool.open_access = True
+        
         # Calling calculate_work() on the first edition creates a Work.
         work1, created = edition1.license_pool.calculate_work()
         eq_(created, True)
@@ -2808,6 +2852,8 @@ class TestWorkConsolidation(DatabaseTest):
         author = "Single Author"
         ed1, open1 = self._edition(title=title, authors=author, with_license_pool=True)
         ed2, open2 = self._edition(title=title, authors=author, with_license_pool=True)
+        open1.open_access = True
+        open2.open_access = True
         ed3, restricted3 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True)
@@ -2970,11 +3016,13 @@ class TestWorkConsolidation(DatabaseTest):
         # Here's a Work with an open-access edition of "abcd".
         work = self._work(with_license_pool=True)
         [book] = work.license_pools
+        book.open_access = True
         book.presentation_edition.permanent_work_id = "abcd"
-
+        
         # Due to a earlier error, the Work also contains an
         # open-access _audiobook_ of "abcd".
         edition, audiobook = self._edition(with_license_pool=True)
+        audiobook.open_access = True
         audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
         audiobook.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(audiobook)
@@ -3163,6 +3211,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Here's a LicensePool with no corresponding Work.
         edition, lp = self._edition(with_license_pool=True)
+        lp.open_access = True
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.

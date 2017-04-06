@@ -1000,7 +1000,12 @@ class OverdriveAdvantageAccount(object):
         return parent, child
         
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for Overdrive records."""
+    """Fill in bibliographic metadata for Overdrive records.
+
+    This will occasionally fill in some availability information for a
+    single Collection, but we rely on Monitors to keep availability
+    information up to date for all Collections.
+    """
 
     SERVICE_NAME = "Overdrive Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.OVERDRIVE

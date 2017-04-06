@@ -259,8 +259,6 @@ class DatabaseTest(object):
                 presentation_edition, pool = presentation_edition
         else:
             pool = presentation_edition.license_pool
-        if with_open_access_download:
-            pool.open_access = True
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
@@ -289,6 +287,10 @@ class DatabaseTest(object):
             # fake that the work is presentation ready.
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
+
+        if with_open_access_download:
+            pool.open_access = True
+
         return work
 
     def _coverage_record(self, edition, coverage_source, operation=None,

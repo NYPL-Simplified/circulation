@@ -458,6 +458,12 @@ class OPDSImporter(object):
                 c_circulation_dict = m_data_dict.get('circulation')
                 xml_circulation_dict = xml_data_dict.get('circulation', {})
                 c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
+
+            # Unless there's something useful in c_data_dict, we're
+            # not going to put anything under metadata.circulation,
+            # and any partial data that got added to
+            # metadata.circulation is going to be removed.
+            metadata[internal_identifier.urn].circulation = None
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -480,7 +486,7 @@ class OPDSImporter(object):
                     #
                     # TODO: This will need to be revisited when we add
                     # ODL support.
-                    metadata[internal_identifier.urn].circulation = None
+                    pass
         return metadata, identified_failures
 
     @classmethod
