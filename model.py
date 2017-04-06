@@ -8913,7 +8913,9 @@ class Collection(Base):
         data_source = None
         name = Collection.DATA_SOURCE_FOR_PROTOCOL.get(self.protocol)
         if not name:
-            name = self.setting(Collection.DATA_SOURCE_NAME_SETTING).value
+            name = self.external_integration.setting(
+                Collection.DATA_SOURCE_NAME_SETTING
+            ).value
         _db = Session.object_session(self)
         if name:
             data_source = DataSource.lookup(_db, name, autocreate=True)
