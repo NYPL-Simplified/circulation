@@ -42,7 +42,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
     DEFAULT_BATCH_SIZE = 25
     PROTOCOL = Collection.OPDS_IMPORT
     
-    def __init__(self, lookup_client, collection, **kwargs):
+    def __init__(self, collection, lookup_client, **kwargs):
         """Constructor.
 
         :param lookup_client: A SimplifiedOPDSLookup object.
@@ -159,9 +159,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.ONECLICK_ID, 
     ]
     
-    def __init__(self, lookup_client, collection, **kwargs):
+    def __init__(self, collection, lookup_client, **kwargs):
         super(MetadataWranglerCoverageProvider, self).__init__(
-            lookup_client, collection, **kwargs
+            collection, lookup_client, **kwargs
         )
         if not self.lookup_client.authenticated:
             self.log.warn(
@@ -306,7 +306,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     INPUT_IDENTIFIER_TYPES = None
     
-    def __init__(self, lookup_client, collection, *args, **kwargs):
+    def __init__(self, collection, lookup_client, *args, **kwargs):
         if not lookup_client:
             content_server_url = (
                 Configuration.integration_url(
@@ -342,9 +342,9 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
     SERVICE_NAME = "Mock Provider"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, collection, *args, **kwargs):
         super(MockOPDSImportCoverageProvider, self).__init__(
-            None, *args, **kwargs
+            collection, None, *args, **kwargs
         )
         self.batches = []
         self.finalized = []

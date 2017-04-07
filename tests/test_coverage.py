@@ -54,7 +54,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
     def _provider(self):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
         return MockOPDSImportCoverageProvider(
-            collection=self._default_collection
+            self._default_collection
         )
 
     def test_badresponseexception_on_non_opds_feed(self):
@@ -90,7 +90,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         self._default_collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
         )
-        provider = TestProvider(lookup, self._default_collection)
+        provider = TestProvider(self._default_collection, lookup)
 
         # Create a hard-coded mapping. We use id1 internally, but the
         # foreign data source knows the book as id2.
@@ -212,7 +212,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         collection = self._collection(protocol=Collection.BIBLIOTHECA)
         lookup = MockSimplifiedOPDSLookup(self._url)
         return MetadataWranglerCoverageProvider(
-            lookup, collection, **kwargs
+            collection, lookup, **kwargs
         )
 
     def setup(self):
@@ -506,7 +506,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Edition.
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            lookup, self._default_collection
+            self._default_collection, lookup
         )
         provider.finalize_license_pool(pool)
         work = pool.work
@@ -517,7 +517,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._db, lookup=lookup
+            self._default_collection, lookup
         )
 
         # Here's an open-access work.
