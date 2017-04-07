@@ -186,7 +186,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 join(Identifier.coverage_records).\
                 filter(CoverageRecord.data_source==self.data_source).\
                 filter(CoverageRecord.operation==CoverageRecord.REAP_OPERATION)
-
+        
         # But we'll be _including_ items that were reaped and then we
         # got the license back.
         relicensed = reaper_covered.join(Identifier.licensed_through).\

@@ -209,10 +209,10 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
         lookup = MockSimplifiedOPDSLookup(self._url)
         return MetadataWranglerCoverageProvider(
-            self._db, collection, lookup, **kwargs
+            self._db, self.collection, lookup, **kwargs
         )
 
     def setup(self):
@@ -242,39 +242,54 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(threem, mapping[isbn_threem])
 
     def test_items_that_need_coverage(self):
-        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        source = self.provider.data_source
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         
-        # An item that hasn't been covered by the provider yet
-        cr = self._coverage_record(self._edition(), other_source)
+        # An item that has been covered by some other provider, but not
+        # this one.
+        e1, uncovered = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
+        cr = self._coverage_record(uncovered.identifier, other_source)
         
-        # An item that has been covered by the reaper operation already
+        # We've lost our license to this item and it has been covered
+        # by the reaper operation already.
+        e2, reaped = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
+        reaped.update_availability(0, 0, 0, 0)
         reaper_cr = self._coverage_record(
-            self._edition(), source, operation=CoverageRecord.REAP_OPERATION
+            reaped.identifier, source, operation=CoverageRecord.REAP_OPERATION
         )
         
         # An item that has been covered by the reaper operation, but has
         # had its license repurchased.
-        relicensed_edition, relicensed_licensepool = self._edition(with_license_pool=True)
-        relicensed_coverage_record = self._coverage_record(
-            relicensed_edition, source, operation=CoverageRecord.REAP_OPERATION
+        e3, relicensed = self._edition(
+            with_license_pool=True, collection=self.collection
         )
-        relicensed_licensepool.update_availability(1, 0, 0, 0)
+        relicensed_coverage_record = self._coverage_record(
+            relicensed.identifier, source,
+            operation=CoverageRecord.REAP_OPERATION
+        )
+        relicensed.update_availability(1, 0, 0, 0)
 
         items = self.provider.items_that_need_coverage().all()
+
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
-        assert reaper_cr.identifier not in items
+        assert reaped.identifier not in items
+
         # But it picks up anything that hasn't been covered at all and anything
         # that's been licensed anew even if its already been reaped.
+        assert uncovered.identifier in items
+        assert relicensed.identifier in items
         eq_(2, len(items))
-        assert relicensed_licensepool.identifier in items
-        assert cr.identifier in items
-        # The Wrangler Reaper coverage record is removed from the db
-        # when it's committed.
-        assert relicensed_coverage_record in relicensed_licensepool.identifier.coverage_records
+
+        # The REAP coverage record for the repurchased book has been
+        # deleted, and committing will remove it from the database.
+        assert relicensed_coverage_record in relicensed.identifier.coverage_records
         self._db.commit()
-        assert relicensed_coverage_record not in relicensed_licensepool.identifier.coverage_records
+        assert relicensed_coverage_record not in relicensed.identifier.coverage_records
 
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time
