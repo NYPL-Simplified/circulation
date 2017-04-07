@@ -40,9 +40,8 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
     using the Simplified lookup protocol.
     """
     DEFAULT_BATCH_SIZE = 25
-    PROTOCOL = Collection.OPDS_IMPORT
     
-    def __init__(self, collection, lookup_client, **kwargs):
+    def __init__(self, _db, collection, lookup_client, **kwargs):
         """Constructor.
 
         :param lookup_client: A SimplifiedOPDSLookup object.
@@ -159,9 +158,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.ONECLICK_ID, 
     ]
     
-    def __init__(self, collection, lookup_client, **kwargs):
+    def __init__(self, _db, collection, lookup_client, **kwargs):
         super(MetadataWranglerCoverageProvider, self).__init__(
-            collection, lookup_client, **kwargs
+            _db, collection, lookup_client, **kwargs
         )
         if not self.lookup_client.authenticated:
             self.log.warn(
@@ -261,8 +260,10 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         """Confirms OPDS feed response and extracts messages.
         """        
         self.check_content_type(response)
-        importer = OPDSImporter(self._db, identifier_mapping=id_mapping,
-                                data_source_name=self.data_source.name)
+        importer = OPDSImporter(
+            self._db, self.collection, data_source_name=self.data_source.name,
+            identifier_mapping=id_mapping
+        )
         parser = OPDSXMLParser()
         root = etree.parse(StringIO(response.text))
         return importer.extract_messages(parser, root)
@@ -306,7 +307,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     INPUT_IDENTIFIER_TYPES = None
     
-    def __init__(self, collection, lookup_client, *args, **kwargs):
+    def __init__(self, _db, collection, lookup_client, *args, **kwargs):
         if not lookup_client:
             content_server_url = (
                 Configuration.integration_url(
@@ -315,7 +316,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             )
             lookup_client = SimplifiedOPDSLookup(content_server_url)
         super(ContentServerBibliographicCoverageProvider, self).__init__(
-            lookup_client, collection, *args, **kwargs
+            _db, collection, lookup_client, *args, **kwargs
         )
 
     def finalize_license_pool(self, license_pool):
@@ -342,9 +343,9 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
     SERVICE_NAME = "Mock Provider"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     
-    def __init__(self, collection, *args, **kwargs):
+    def __init__(self, _db, collection, *args, **kwargs):
         super(MockOPDSImportCoverageProvider, self).__init__(
-            collection, None, *args, **kwargs
+            _db, collection, None, *args, **kwargs
         )
         self.batches = []
         self.finalized = []

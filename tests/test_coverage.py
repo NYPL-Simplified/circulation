@@ -54,7 +54,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
     def _provider(self):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
         return MockOPDSImportCoverageProvider(
-            self._default_collection
+            self._db, self._default_collection
         )
 
     def test_badresponseexception_on_non_opds_feed(self):
@@ -90,7 +90,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         self._default_collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
         )
-        provider = TestProvider(self._default_collection, lookup)
+        provider = TestProvider(self._db, self._default_collection, lookup)
 
         # Create a hard-coded mapping. We use id1 internally, but the
         # foreign data source knows the book as id2.
@@ -212,7 +212,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         collection = self._collection(protocol=Collection.BIBLIOTHECA)
         lookup = MockSimplifiedOPDSLookup(self._url)
         return MetadataWranglerCoverageProvider(
-            collection, lookup, **kwargs
+            self._db, collection, lookup, **kwargs
         )
 
     def setup(self):
@@ -368,12 +368,12 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
     def setup(self):
         super(TestMetadataWranglerCollectionReaper, self).setup()
+        lookup = MockSimplifiedOPDSLookup(self._url)
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            self.reaper = MetadataWranglerCollectionReaper(self._db)
+        collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.reaper = MetadataWranglerCollectionReaper(
+            self._db, collection, lookup
+        )
 
     def test_items_that_need_coverage(self):
         """The reaper only returns identifiers with unlicensed license_pools
@@ -472,7 +472,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         """
         script = RunCoverageProviderScript(
             ContentServerBibliographicCoverageProvider, self._db,
-            lookup=object()
+            collection=self._default_collection, lookup_client=object()
         )
         assert isinstance(script.provider, 
                           ContentServerBibliographicCoverageProvider)
@@ -506,7 +506,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Edition.
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._default_collection, lookup
+            self._db, self._default_collection, lookup
         )
         provider.finalize_license_pool(pool)
         work = pool.work
@@ -517,7 +517,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._default_collection, lookup
+            self._db, self._default_collection, lookup
         )
 
         # Here's an open-access work.
