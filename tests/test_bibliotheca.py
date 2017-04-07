@@ -45,22 +45,22 @@ from api.threem import (
     MockThreeMAPI,
     PatronCirculationParser,
     ThreeMAPI,
-    ThreeMEventMonitor,
-    ThreeMParser,
+    BibliothecaEventMonitor,
+    BibliothecaParser,
 )
 
 
-class ThreeMAPITest(DatabaseTest):
+class BibliothecaAPITest(DatabaseTest):
 
     def setup(self):
-        super(ThreeMAPITest,self).setup()
-        self.api = MockThreeMAPI(self._db)
+        super(BibliothecaAPITest,self).setup()
+        self.api = MockBibliothecaAPI(self._db)
 
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'threem')
 
-class TestThreeMAPI(ThreeMAPITest):      
+class TestBibliothecaAPI(BibliothecaAPITest):      
 
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")
@@ -195,10 +195,10 @@ class TestThreeMAPI(ThreeMAPITest):
 # Tests of the various parser classes.
 #
 
-class TestThreeMParser(ThreeMAPITest):
+class TestBibliothecaParser(BibliothecaAPITest):
 
     def test_parse_date(self):
-        parser = ThreeMParser()
+        parser = BibliothecaParser()
         v = parser.parse_date("2016-01-02T12:34:56")
         eq_(datetime.datetime(2016, 1, 2, 12, 34, 56), v)
 
@@ -206,7 +206,7 @@ class TestThreeMParser(ThreeMAPITest):
         eq_(None, parser.parse_date("Some weird value"))
 
 
-class TestEventParser(ThreeMAPITest):
+class TestEventParser(BibliothecaAPITest):
 
     def test_parse_empty_end_date_event(self):
         data = self.sample_data("empty_end_date_event.xml")
@@ -221,7 +221,7 @@ class TestEventParser(ThreeMAPITest):
         eq_('distributor_license_add', internal_event_type)
 
 
-class TestPatronCirculationParser(ThreeMAPITest):
+class TestPatronCirculationParser(BibliothecaAPITest):
 
     def test_parse(self):
         data = self.sample_data("checkouts.xml")
@@ -257,14 +257,14 @@ class TestPatronCirculationParser(ThreeMAPITest):
         eq_(4, h2.hold_position)
 
 
-class TestCheckoutResponseParser(ThreeMAPITest):
+class TestCheckoutResponseParser(BibliothecaAPITest):
     def test_parse(self):
         data = self.sample_data("successful_checkout.xml")
         due_date = CheckoutResponseParser().process_all(data)
         eq_(datetime.datetime(2015, 4, 16, 0, 32, 36), due_date)
 
 
-class TestErrorParser(ThreeMAPITest):
+class TestErrorParser(BibliothecaAPITest):
 
     def test_exceeded_limit(self):
         """The normal case--we get a helpful error message which we turn into
@@ -300,7 +300,7 @@ class TestErrorParser(ThreeMAPITest):
         msg = "The server has encountered an error"
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
-        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_(502, error.status_code)
         eq_(msg, error.message)
         doc = error.as_problem_detail_document()
@@ -312,7 +312,7 @@ class TestErrorParser(ThreeMAPITest):
         msg=self.sample_data("error_unknown.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
-        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
 
     def test_remote_authentication_failed_becomes_remote_initiated_server_error(self):
@@ -323,21 +323,21 @@ class TestErrorParser(ThreeMAPITest):
         msg=self.sample_data("error_authentication_failed.xml")
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
-        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Authentication failed", error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
         msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
-        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
 
     def test_blank_error_message_becomes_remote_initiated_server_error(self):
         msg = """<Error xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Message/></Error>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
-        eq_(ThreeMAPI.SERVICE_NAME, error.service_name)
+        eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
 
 class Test3MEventParser(object):
@@ -526,18 +526,18 @@ class TestErrorParser(object):
         assert isinstance(error, CannotHold)
 
 
-class TestThreeMEventMonitor(DatabaseTest):
+class TestBibliothecaEventMonitor(DatabaseTest):
 
     def test_default_start_time(self):
-        api = MockThreeMAPI(self._db)
-        monitor = ThreeMEventMonitor(self._db, api=api)
+        api = MockBibliothecaAPI(self._db)
+        monitor = BibliothecaEventMonitor(self._db, api=api)
         two_years_ago = datetime.datetime.utcnow() - monitor.TWO_YEARS_AGO
 
         # Returns a date two years ago if the monitor has never been run before.
         default_start_time = monitor.create_default_start_time(self._db, [])
         assert (two_years_ago - default_start_time).total_seconds() <= 1
 
-        # After ThreeM has been initialized, it returns None if no
+        # After Bibliotheca has been initialized, it returns None if no
         # arguments are passed
         Timestamp.stamp(self._db, monitor.service_name)
         eq_(None, monitor.create_default_start_time(self._db, []))

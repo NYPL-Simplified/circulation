@@ -42,15 +42,15 @@ from core.util.http import (
     BadResponseException
 )
 from core.threem import (
-    MockThreeMAPI as BaseMockThreeMAPI,
-    ThreeMAPI as BaseThreeMAPI,
-    ThreeMBibliographicCoverageProvider
+    MockBibliothecaAPI as BaseMockBibliothecaAPI,
+    BibliothecaAPI as BaseBibliothecaAPI,
+    BibliothecaBibliographicCoverageProvider
 )
 
 from circulation_exceptions import *
 from core.analytics import Analytics
 
-class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
+class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
 
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
@@ -107,7 +107,7 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
-        return ThreeMCirculationSweep(self._db, api=self).process_batch(
+        return BibliothecaCirculationSweep(self._db, api=self).process_batch(
             [licensepool.identifier]
         )
 
@@ -261,18 +261,18 @@ class ThreeMAPI(BaseThreeMAPI, BaseCirculationAPI):
         )
 
 
-class DummyThreeMAPIResponse(object):
+class DummyBibliothecaAPIResponse(object):
 
     def __init__(self, response_code, headers, content):
         self.status_code = response_code
         self.headers = headers
         self.content = content
 
-class MockThreeMAPI(BaseMockThreeMAPI, ThreeMAPI):
+class MockBibliothecaAPI(BaseMockBibliothecaAPI, BibliothecaAPI):
     pass
 
 
-class ThreeMParser(XMLParser):
+class BibliothecaParser(XMLParser):
 
     INPUT_TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
@@ -304,7 +304,7 @@ class ThreeMParser(XMLParser):
         return self.parse_date(value)
 
 
-class CirculationParser(ThreeMParser):
+class CirculationParser(BibliothecaParser):
 
     """Parse 3M's circulation XML dialect into something we can apply to a LicensePool."""
 
@@ -355,10 +355,10 @@ class CirculationParser(ThreeMParser):
         return item
 
 
-class ThreeMException(Exception):
+class BibliothecaException(Exception):
     pass
 
-class WorkflowException(ThreeMException):
+class WorkflowException(BibliothecaException):
     def __init__(self, actual_status, statuses_that_would_work):
         self.actual_status = actual_status
         self.statuses_that_would_work = statuses_that_would_work
@@ -367,7 +367,7 @@ class WorkflowException(ThreeMException):
         return "Book status is %s, must be: %s" % (
             self.actual_status, ", ".join(self.statuses_that_would_work))
 
-class ErrorParser(ThreeMParser):
+class ErrorParser(BibliothecaParser):
     """Turn an error document from the 3M web service into a CheckoutException"""
 
     wrong_status = re.compile(
@@ -395,20 +395,20 @@ class ErrorParser(ThreeMParser):
             # The server sent us an error with an incorrect or
             # nonstandard syntax.
             return RemoteInitiatedServerError(
-                string, ThreeMAPI.SERVICE_NAME
+                string, BibliothecaAPI.SERVICE_NAME
             )
 
         # We were not able to interpret the result as an error.
         # The most likely cause is that the 3M app server is down.
         return RemoteInitiatedServerError(
-            "Unknown error", ThreeMAPI.SERVICE_NAME,
+            "Unknown error", BibliothecaAPI.SERVICE_NAME,
         )
 
     def process_one(self, error_tag, namespaces):
         message = self.text_of_optional_subtag(error_tag, "Message")
         if not message:
             return RemoteInitiatedServerError(
-                "Unknown error", ThreeMAPI.SERVICE_NAME,
+                "Unknown error", BibliothecaAPI.SERVICE_NAME,
             )
 
         if message in self.error_mapping:
@@ -424,7 +424,7 @@ class ErrorParser(ThreeMParser):
             # authentication internal to 3M has failed? Anyway, it
             # happens relatively frequently.
             return RemoteInitiatedServerError(
-                message, ThreeMAPI.SERVICE_NAME
+                message, BibliothecaAPI.SERVICE_NAME
             )
 
         m = self.loan_limit_reached.search(message)
@@ -437,7 +437,7 @@ class ErrorParser(ThreeMParser):
 
         m = self.wrong_status.search(message)
         if not m:
-            return ThreeMException(message)
+            return BibliothecaException(message)
         actual, expected = m.groups()
         expected = expected.split(",")
 
@@ -465,9 +465,9 @@ class ErrorParser(ThreeMParser):
         if 'CAN_LOAN' in expected:
             return CannotLoan(message)
 
-        return ThreeMException(message)
+        return BibliothecaException(message)
 
-class PatronCirculationParser(ThreeMParser):
+class PatronCirculationParser(BibliothecaParser):
 
     """Parse 3M's patron circulation status document into a list of
     LoanInfo and HoldInfo objects.
@@ -509,7 +509,7 @@ class PatronCirculationParser(ThreeMParser):
         def datevalue(key):
             value = self.text_of_subtag(tag, key)
             return datetime.datetime.strptime(
-                value, ThreeMAPI.ARGUMENT_TIME_FORMAT)
+                value, BibliothecaAPI.ARGUMENT_TIME_FORMAT)
 
         identifier = self.text_of_subtag(tag, "ItemId")
         start_date = datevalue("EventStartDateInUTC")
@@ -523,7 +523,7 @@ class PatronCirculationParser(ThreeMParser):
             a.append(None)
         return source_class(*a)
 
-class DateResponseParser(ThreeMParser):
+class DateResponseParser(BibliothecaParser):
     """Extract a date from a response."""
     RESULT_TAG_NAME = None
     DATE_TAG_NAME = None
@@ -555,7 +555,7 @@ class HoldResponseParser(DateResponseParser):
     DATE_TAG_NAME = "AvailabilityDateInUTC"
 
 
-class EventParser(ThreeMParser):
+class EventParser(BibliothecaParser):
 
     """Parse 3M's event file format into our native event objects."""
 
@@ -594,7 +594,7 @@ class EventParser(ThreeMParser):
         return (threem_id, isbn, patron_id, start_time, end_time,
                 internal_event_type)
 
-class ThreeMCirculationSweep(IdentifierSweepMonitor):
+class BibliothecaCirculationSweep(IdentifierSweepMonitor):
     """Check on the current circulation status of each 3M book in our
     collection.
 
@@ -604,11 +604,11 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
     view of our 3M circulation, which is more important.
     """
     def __init__(self, _db, api=None):
-        super(ThreeMCirculationSweep, self).__init__(
+        super(BibliothecaCirculationSweep, self).__init__(
             _db, "3M Circulation Sweep", batch_size=25)
         self._db = _db
         if not api:
-            api = ThreeMAPI.from_environment(_db)
+            api = BibliothecaAPI.from_environment(_db)
         self.api = api
         self.data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
@@ -674,7 +674,7 @@ class ThreeMCirculationSweep(IdentifierSweepMonitor):
             pool.last_checked = now
 
 
-class ThreeMEventMonitor(Monitor):
+class BibliothecaEventMonitor(Monitor):
 
     """Register CirculationEvents for 3M titles.
 
@@ -684,11 +684,11 @@ class ThreeMEventMonitor(Monitor):
     But when a new book comes on the scene, this is where we first
     find out about it. When this happens, we create a LicensePool and
     immediately ensure that we get coverage from the
-    ThreeMBibliographicCoverageProvider. 
+    BibliothecaBibliographicCoverageProvider. 
 
     But getting up-to-date circulation data for that new book requires
     either that we process further events, or that we encounter it in
-    the ThreeMCirculationSweep.
+    the BibliothecaCirculationSweep.
     """
 
     TWO_YEARS_AGO = datetime.timedelta(365*2)
@@ -699,12 +699,12 @@ class ThreeMEventMonitor(Monitor):
         self.service_name = "3M Event Monitor"
         if not default_start_time:
             default_start_time = self.create_default_start_time(_db, cli_date)
-        super(ThreeMEventMonitor, self).__init__(
+        super(BibliothecaEventMonitor, self).__init__(
             _db, self.service_name, default_start_time=default_start_time)
         if not api:
-            api = ThreeMAPI.from_environment(self._db)
+            api = BibliothecaAPI.from_environment(self._db)
         self.api = api
-        self.bibliographic_coverage_provider = ThreeMBibliographicCoverageProvider(
+        self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             self._db, threem_api=self.api
         )
 
