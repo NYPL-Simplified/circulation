@@ -18,10 +18,8 @@ from core.model import (
     Collection,
     Contributor,
     DataSource,
-    DataSource,
     Edition,
     Hold,
-    Identifier,
     Identifier,
     LicensePool,
     Loan,
@@ -55,7 +53,7 @@ class BibliothecaAPITest(DatabaseTest):
 
     def setup(self):
         super(BibliothecaAPITest,self).setup()
-        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
         self.api = MockBibliothecaAPI(self.collection)
 
     @classmethod
@@ -528,16 +526,16 @@ class TestErrorParser(object):
         assert isinstance(error, CannotHold)
 
 
-class TestBibliothecaEventMonitor(DatabaseTest):
+class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
     def test_default_start_time(self):
-        api = MockBibliothecaAPI(self._db)
-        monitor = BibliothecaEventMonitor(self._db, api=api)
-        two_years_ago = datetime.datetime.utcnow() - monitor.TWO_YEARS_AGO
+        monitor = BibliothecaEventMonitor(self._db, api=self.api)
+        expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
 
-        # Returns a date two years ago if the monitor has never been run before.
+        # Returns a date long in the past if the monitor has never
+        # been run before.
         default_start_time = monitor.create_default_start_time(self._db, [])
-        assert (two_years_ago - default_start_time).total_seconds() <= 1
+        assert abs((expected-default_start_time).total_seconds()) <= 1
 
         # After Bibliotheca has been initialized, it returns None if no
         # arguments are passed

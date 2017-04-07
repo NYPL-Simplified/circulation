@@ -691,8 +691,8 @@ class BibliothecaEventMonitor(Monitor):
     the BibliothecaCirculationSweep.
     """
 
-    TWO_YEARS_AGO = datetime.timedelta(365*2)
-
+    DEFAULT_START_TIME = datetime.timedelta(365*3)
+    
     def __init__(self, _db, default_start_time=None,
                  account_id=None, library_id=None, account_key=None,
                  cli_date=None, api=None):
