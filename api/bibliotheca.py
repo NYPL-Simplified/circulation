@@ -41,7 +41,7 @@ from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException
 )
-from core.threem import (
+from core.bibliotheca import (
     MockBibliothecaAPI as BaseMockBibliothecaAPI,
     BibliothecaAPI as BaseBibliothecaAPI,
     BibliothecaBibliographicCoverageProvider

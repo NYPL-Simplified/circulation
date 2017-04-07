@@ -15,6 +15,7 @@ from . import (
 
 from core.model import (
     CirculationEvent,
+    Collection,
     Contributor,
     DataSource,
     DataSource,
@@ -37,14 +38,14 @@ from api.circulation import (
     LoanInfo,
 )
 from api.circulation_exceptions import *
-from api.threem import (
+from api.bibliotheca import (
     CheckoutResponseParser,
     CirculationParser,
     ErrorParser,
     EventParser,
-    MockThreeMAPI,
+    MockBibliothecaAPI,
     PatronCirculationParser,
-    ThreeMAPI,
+    BibliothecaAPI,
     BibliothecaEventMonitor,
     BibliothecaParser,
 )
@@ -54,7 +55,8 @@ class BibliothecaAPITest(DatabaseTest):
 
     def setup(self):
         super(BibliothecaAPITest,self).setup()
-        self.api = MockBibliothecaAPI(self._db)
+        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.api = MockBibliothecaAPI(self.collection)
 
     @classmethod
     def sample_data(self, filename):
