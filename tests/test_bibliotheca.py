@@ -1,43 +1,34 @@
 # encoding: utf-8
-from nose.tools import set_trace, eq_
-import datetime
-import pkgutil
-from api.threem import (
-    CirculationParser,
-    EventParser,
-    ErrorParser,
-    ThreeMEventMonitor,
-)
-from core.model import (
-    CirculationEvent,
-    Contributor,
-    DataSource,
-    LicensePool,
-    Resource,
-    Identifier,
-    Edition,
-    Timestamp
-)
-from . import DatabaseTest
-from api.circulation_exceptions import *
-from api.threem import MockThreeMAPI
-
-import datetime
-import os
 from nose.tools import (
     set_trace, 
     eq_,
     assert_raises,
 )
+import datetime
+import os
+import pkgutil
 
-from api.threem import (
-    ThreeMAPI,
-    MockThreeMAPI,
-    ThreeMParser,
-    EventParser,
-    PatronCirculationParser,
-    CheckoutResponseParser,
-    ErrorParser,
+from . import (
+    DatabaseTest,
+    sample_data
+)
+
+from core.model import (
+    CirculationEvent,
+    Contributor,
+    DataSource,
+    DataSource,
+    Edition,
+    Hold,
+    Identifier,
+    Identifier,
+    LicensePool,
+    Loan,
+    Resource,
+    Timestamp
+)
+from core.util.http import (
+    BadResponseException,
 )
 
 from api.circulation import (
@@ -46,22 +37,18 @@ from api.circulation import (
     LoanInfo,
 )
 from api.circulation_exceptions import *
-
-from . import (
-    DatabaseTest,
-    sample_data
+from api.threem import (
+    CheckoutResponseParser,
+    CirculationParser,
+    ErrorParser,
+    EventParser,
+    MockThreeMAPI,
+    PatronCirculationParser,
+    ThreeMAPI,
+    ThreeMEventMonitor,
+    ThreeMParser,
 )
 
-from core.model import (
-    DataSource,
-    Identifier,
-    Loan,
-    Hold,
-)
-
-from core.util.http import (
-    BadResponseException,
-)
 
 class ThreeMAPITest(DatabaseTest):
 
