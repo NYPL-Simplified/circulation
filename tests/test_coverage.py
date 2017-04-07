@@ -305,8 +305,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
         # We have a coverage record already, so this book doesn't show
         # up in items_that_need_coverage
-        #items = self.provider.items_that_need_coverage().all()
-        #eq_([], items)
+        items = self.provider.items_that_need_coverage().all()
+        eq_([], items)
 
         # But if we send a cutoff_time that's later than the time
         # associated with the coverage record...
