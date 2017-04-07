@@ -37,8 +37,7 @@ from core.util.http import BadResponseException
 
 class OPDSImportCoverageProvider(CollectionCoverageProvider):
     """Provide coverage for identifiers by looking them up, in batches,
-    using the Simplified lookup protocol and importing the
-    corresponding OPDS feeds.
+    using the Simplified lookup protocol.
     """
     DEFAULT_BATCH_SIZE = 25
     PROTOCOL = Collection.OPDS_IMPORT

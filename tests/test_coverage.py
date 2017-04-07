@@ -51,7 +51,7 @@ from api.coverage import (
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
 
-    def _provider(self, presentation_ready_on_success=True):
+    def _provider(self):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
         return MockOPDSImportCoverageProvider(
             collection=self._default_collection
@@ -133,16 +133,19 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # the corresponding Edition will not.
         edition2, pool2 = self._edition(with_license_pool=True)
         
-        # Here's an identifier that can't be looked up.
+        # Here's an identifier that can't be looked up at all.
         identifier = self._identifier()
         messages_by_id = {
             identifier.urn : CoverageFailure(identifier, "201: try again later")
         }
 
         # When we call CoverageProvider.process_batch(), it's going to
-        # return a matched Edition/LicensePool pair, a mismatched LicensePool,
-        # and an error.
-        provider.queue_import_results([edition], [pool, pool2], [], messages_by_id)
+        # return the information we just set up: a matched
+        # Edition/LicensePool pair, a mismatched LicensePool, and an
+        # error message.
+        provider.queue_import_results(
+            [edition], [pool, pool2], [], messages_by_id
+        )
 
         # Make the CoverageProvider do its thing.
         fake_batch = [object()]
@@ -160,12 +163,14 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # The mismatched LicensePool turned into a CoverageFailure
         # object.
+        assert isinstance(failure1, CoverageFailure)
         eq_('OPDS import operation imported LicensePool, but no Edition.',
             failure1.exception)
         eq_(pool2.identifier, failure1.obj)
         eq_(True, failure1.transient)
         
         # The failure was returned as a CoverageFailure object.
+        assert isinstance(failure2, CoverageFailure)
         eq_(identifier, failure2.obj)
         eq_(True, failure2.transient)
         
@@ -180,7 +185,25 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         provider.queue_import_results([edition], [], [], {})
         fake_batch = [object()]
         [success] = provider.process_batch(fake_batch)
+
+        # The Edition's primary identifier was returned to indicate
+        # success.
         eq_(edition.primary_identifier, success)
+
+        # However, since there is no LicensePool, nothing was finalized.
+        eq_([], provider.finalized)
+
+    def test_process_item(self):
+        """To process a single item we process a batch containing
+        only that item.
+        """
+        provider = self._provider()
+        edition = self._edition()
+        provider.queue_import_results([edition], [], [], {})
+        item = object()
+        result = provider.process_item(item)
+        eq_(edition.primary_identifier, result)
+        eq_([[item]], provider.batches)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
