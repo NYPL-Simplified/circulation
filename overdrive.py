@@ -1025,7 +1025,12 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = api_class(collection)
+        if isinstance(api_class, OverdriveAPI):
+            # Use a previously instantiated OverdriveAPI instance
+            # rather than creating a new one.
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)
