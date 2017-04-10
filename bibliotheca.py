@@ -433,7 +433,12 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
         super(BibliothecaBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = api_class(collection)
+        if isinstance(api_class, BibliothecaAPI):
+            # This is an already instantiated API object. Use it
+            # instead of creating a new one.
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
         
     def process_item(self, identifier):
         # We don't accept a representation from the cache because

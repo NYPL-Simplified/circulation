@@ -648,7 +648,6 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             count_as_missing_before=self.cutoff_time, operation=self.operation,
             identifiers=self.input_identifiers, **kwargs
         )
-
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
@@ -708,7 +707,8 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     DEFAULT_BATCH_SIZE = 10
 
     # Set this to the name of the protocol managed by this type of
-    # CoverageProvider.
+    # CoverageProvider. If this CoverageProvider can manage collections
+    # for any protocols, leave this as None.
     PROTOCOL = None
     
     def __init__(self, collection, **kwargs):
@@ -724,15 +724,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 )
             )
 
-        # TODO: It might turn out that PROTOCOL is not always
-        # required, and that what we really want to do is enforce
-        # constraints on behavior *when PROTOCOL is specified*, similar
-        # to what we do with INPUT_IDENTIFIER_TYPES.
-        if not self.PROTOCOL:
-            raise ValueError(
-                "%s must define PROTOCOL." % self.__class__.__name__
-            )
-        if collection.protocol != self.PROTOCOL:
+        if self.PROTOCOL and collection.protocol != self.PROTOCOL:
             raise ValueError(
                 "Collection protocol (%s) does not match CoverageProvider protocol (%s)" % (
                     collection.protocol, self.PROTOCOL
@@ -777,7 +769,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             identifiers, **kwargs
         )
         qu = qu.join(Identifier.licensed_through).filter(
-            LicencePool.collection_id==self.collection_id
+            LicensePool.collection_id==self.collection_id
         )
         return qu
         

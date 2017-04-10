@@ -486,7 +486,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             kwargs.update(provider_arguments)
 
             provider = provider(
-                self._db, 
+                self._db,
                 cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
@@ -504,7 +504,6 @@ class RunCoverageProviderScript(IdentifierInputScript):
         (as opposed to WorkCoverageProvider).
         """
         return {
-            "input_identifier_types" : self.identifier_types, 
             "input_identifiers" : self.identifiers, 
         }
 
