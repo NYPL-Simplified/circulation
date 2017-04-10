@@ -450,6 +450,7 @@ class CheckoutResponseParser(ResponseParser):
             content_type=None, content=None, content_expires=None)
         loan_start = datetime.utcnow()
         loan = LoanInfo(
+            # WTH??? Why is identifier None? Is this ever used?
             identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,

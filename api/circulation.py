@@ -12,6 +12,7 @@ from core.analytics import Analytics
 from core.model import (
     get_one,
     CirculationEvent,
+    CollectionMissing,
     Identifier,
     DataSource,
     LicensePoolDeliveryMechanism,
@@ -65,14 +66,19 @@ class FulfillmentInfo(CirculationInfo):
 
 class LoanInfo(CirculationInfo):
 
+    # TODO: Somehow or other this needs to be associated with a
+    # DataSource and a Collection, not just an Identifier. Maybe it
+    # needs to happen in the constructor, maybe it needs to happen in
+    # the code that processes the LoanInfo objects, but it needs to
+    # happen somehow.
     """A record of a loan.
 
-    :param identifier_type Ex.: Identifier.ONECLICK_ID.
-    :param identifier Expected to be the unicode string of the isbn, etc..
-    :param start_date When the patron checked the book out.
-    :param end_date When checked-out book is due.  Expected to be passed in 
-    date, not unicode format.
-    :param fulfillment_info A FulfillmentInfo object.
+    :param identifier_type: The type of the Identifier associated
+        with the LicensePool on loan.
+    :param identifier: The string identifying the LicensePool on Loan.
+    :param start_date: A datetime reflecting when the patron borrowed the book.
+    :param end_date: A datetime reflecting when the checked-out book is due.
+    :param fulfillment_info: A FulfillmentInfo object
     """
 
     def __init__(self, identifier_type, identifier, start_date, end_date,
@@ -695,7 +701,8 @@ class CirculationAPI(object):
             key = (loan.identifier_type, loan.identifier)
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, loan.identifier_type,
-                loan.identifier)
+                loan.identifier, collection=loan.collection
+            )
             start = loan.start_date or now
             end = loan.end_date
             local_loan, new = pool.loan_to(patron, start, end)
@@ -716,7 +723,8 @@ class CirculationAPI(object):
             source = DataSource.lookup(self._db, source_name)
             pool, ignore = LicensePool.for_foreign_id(
                 self._db, source, hold.identifier_type,
-                hold.identifier)
+                hold.identifier, collection=self.collection
+            )
             start = hold.start_date or now
             end = hold.end_date
             position = hold.hold_position

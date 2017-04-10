@@ -106,7 +106,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.THREEM_ID,
             data_source_name=DataSource.THREEM,
-            with_license_pool=True
+            with_license_pool=True,
+            collection=self.collection
         )
 
         # We have never checked the circulation information for this
@@ -529,7 +530,9 @@ class TestErrorParser(object):
 class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
     def test_default_start_time(self):
-        monitor = BibliothecaEventMonitor(self._db, api=self.api)
+        monitor = BibliothecaEventMonitor(
+            self.collection, api_class=MockBibliothecaAPI
+        )
         expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
 
         # Returns a date long in the past if the monitor has never
@@ -539,17 +542,17 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
         # After Bibliotheca has been initialized, it returns None if no
         # arguments are passed
-        Timestamp.stamp(self._db, monitor.service_name)
+        Timestamp.stamp(self._db, monitor.service_name, self.collection)
         eq_(None, monitor.create_default_start_time(self._db, []))
 
-        # Returns a date two years ago if args are formatted improperly or the
-        # monitor has never been run before
+        # Returns a date several years ago if args are formatted
+        # improperly or the monitor has never been run before
         not_date_args = ['initialize']
         too_many_args = ['2013', '04', '02']
         for args in [not_date_args, too_many_args]:
-            default_start_time = monitor.create_default_start_time(self._db, args)
-            eq_(True, isinstance(default_start_time, datetime.datetime))
-            assert (two_years_ago - default_start_time).total_seconds() <= 1
+            actual_default_start_time = monitor.create_default_start_time(self._db, args)
+            eq_(True, isinstance(actual_default_start_time, datetime.datetime))
+            assert (default_start_time - actual_default_start_time).total_seconds() <= 1
 
         # Returns an appropriate date if command line arguments are passed
         # as expected
