@@ -666,7 +666,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # Update book_id now that we know we have new data.
         book_id = book['id']
         license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id,
+            collection=self.collection
+        )
         if is_new:
             # This is the first time we've seen this book. Make sure its
             # identifier has bibliographic coverage.
