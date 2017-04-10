@@ -4019,11 +4019,11 @@ class Work(Base):
         simple = AcquisitionFeed.single_entry(_db, self, Annotator,
                                               force_create=True)
         if simple is not None:
-            self.simple_opds_entry = etree.tostring(simple)
+            self.simple_opds_entry = unicode(etree.tostring(simple))
         verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
                                                force_create=True)
         if verbose is not None:
-            self.verbose_opds_entry = etree.tostring(verbose)
+            self.verbose_opds_entry = unicode(etree.tostring(verbose))
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
