@@ -72,8 +72,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
-    def __init__(self, collection, *args, **kwargs):
-        super(OverdriveAPI, self).__init__(*args, **kwargs)
+    def __init__(self, collection):
+        super(OverdriveAPI, self).__init__(collection)
         self.overdrive_bibliographic_coverage_provider = (
             OverdriveBibliographicCoverageProvider(
                 collection, api_class=self
