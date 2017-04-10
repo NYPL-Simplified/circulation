@@ -221,36 +221,35 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             availability.apply(pool, ReplacementPolicy.from_license_source())
 
 
-class Axis360CirculationMonitor(Monitor):
+class Axis360CirculationMonitor(CollectionMonitor):
 
     """Maintain LicensePools for Axis 360 titles.
     """
-
-    VERY_LONG_AGO = datetime(1970, 1, 1)
+    SERVICE_NAME = "Axis 360 Circulation Monitor"
+    INTERVAL_SECONDS = 60
+    DEFAULT_BATCH_SIZE = 50
+    
+    DEFAULT_START_TIME = datetime(1970, 1, 1)
     FIVE_MINUTES = timedelta(minutes=5)
 
-    def __init__(self, _db, name="Axis 360 Circulation Monitor",
-                 interval_seconds=60, batch_size=50, api=None):
-        super(Axis360CirculationMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds,
-            default_start_time = self.VERY_LONG_AGO
-        )
-        self.batch_size = batch_size
-        metadata_wrangler_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-        )
-        if metadata_wrangler_url:
-            self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
+    def __init__(self, collection, api_class=None, metadata_client=None):
+        super(Axis360CirculationMonitor, self).__init__(collection)
+        if isinstance(api_class, Axis360API):
+            # Use a preexisting Axis360API instance rather than
+            # creating a new one.
+            self.api = api_class
         else:
-            # This should only happen during a test.
-            self.metadata_wrangler = None
-        self.api = api or Axis360API.from_environment(self._db)
+            self.api = api_class(collection)
+        if not metadata_client:
+            metadata_wrangler_url = Configuration.integration_url(
+                Configuration.METADATA_WRANGLER_INTEGRATION
+            )
+            if metadata_wrangler_url:
+                metadata_client = SimplifiedOPDSLookup(metadata_wrangler_url)
+        self.metadata_client = metadata_client
         self.bibliographic_coverage_provider = (
-            Axis360BibliographicCoverageProvider(self._db, axis_360_api=api)
+            Axis360BibliographicCoverageProvider(collection, api_class=self.api)
         )
-
-    def run(self):
-        super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
         # Give us five minutes of overlap because it's very important
@@ -301,24 +300,22 @@ class Axis360CirculationMonitor(Monitor):
 class MockAxis360API(BaseMockAxis360API, Axis360API):
     pass
 
+
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
     Axis 360 collection.
     """
-
-    def __init__(self, _db, interval_seconds=3600*12):
-        super(AxisCollectionReaper, self).__init__(
-            _db, "Axis Collection Reaper", interval_seconds)
-
-    def run(self):
-        self.api = Axis360API.from_environment(self._db)
-        super(AxisCollectionReaper, self).run()
-
-    def identifier_query(self):
-        return self._db.query(Identifier).join(
-            Identifier.licensed_through).filter(
-                Identifier.type==Identifier.AXIS_360_ID).options(
-                    contains_eager(Identifier.licensed_through))
+    SERVICE_NAME = "Axis Collection Reaper"
+    INTERVAL_SECONDS = 3600*12
+    
+    def __init__(self, collection, api_class=Axis360API):
+        super(AxisCollectionReaper, self).__init__(collection)
+        if isinstance(api_class, Axis360API):
+            # Use a preexisting Axis360API instance rather than
+            # creating a new one.
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
 
     def process_batch(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
