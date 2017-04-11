@@ -57,15 +57,19 @@ from api.config import (
 from core.analytics import Analytics
 
 
-class TestAxis360API(DatabaseTest):
+class Axis360Test(DatabaseTest):
 
     def setup(self):
-        super(TestAxis360API,self).setup()
-        self.api = MockAxis360API(self._db)
+        super(Axis360Test,self).setup()
+        self.collection = MockAxis360API.mock_collection(self._db)
+        self.api = MockAxis360API(self.collection)
 
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
+
+        
+class TestAxis360API(Axis360Test):
 
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
@@ -76,7 +80,8 @@ class TestAxis360API(DatabaseTest):
         edition, pool = self._edition(
             identifier_type=Identifier.AXIS_360_ID,
             data_source_name=DataSource.AXIS_360,
-            with_license_pool=True
+            with_license_pool=True,
+            collection=self.collection
         )
 
         # We have never checked the circulation information for this
@@ -125,7 +130,7 @@ class TestAxis360API(DatabaseTest):
             params = request[-1]['params']
             eq_('notifications@example.com', params['email'])
 
-class TestCirculationMonitor(DatabaseTest):
+class TestCirculationMonitor(Axis360Test):
 
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.AXIS_360,
@@ -177,8 +182,9 @@ class TestCirculationMonitor(DatabaseTest):
             Analytics.initialize(
                 ['core.local_analytics_provider'], config
             )
-            api = MockAxis360API(self._db)
-            monitor = Axis360CirculationMonitor(self._db, api=api)
+            monitor = Axis360CirculationMonitor(
+                self.collection, api_class=MockAxis360API
+            )
             edition, license_pool = monitor.process_book(
                 self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
             eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
@@ -249,8 +255,9 @@ class TestCirculationMonitor(DatabaseTest):
             identifier=licensepool.identifier.identifier
         )
         metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
-        api = MockAxis360API(self._db)
-        monitor = Axis360CirculationMonitor(self._db, api=api)
+        monitor = Axis360CirculationMonitor(
+            self.collection, api_class=MockAxis360API
+        )
         edition, licensepool = monitor.process_book(
             metadata, self.AVAILABILITY_DATA
         )

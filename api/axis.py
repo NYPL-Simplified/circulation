@@ -18,7 +18,7 @@ from core.metadata_layer import (
 )
 
 from core.monitor import (
-    Monitor,
+    CollectionMonitor,
     IdentifierSweepMonitor,
 )
 
@@ -37,6 +37,7 @@ from core.model import (
     LicensePool,
     Representation,
     Subject,
+    Session,
 )
 
 from core.coverage import (
@@ -189,8 +190,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = availability.license_pool(self._db)
-            availability.apply(pool)
+            pool, is_new = availability.license_pool(self._db, self.collection)
+            availability.apply(self._db, pool.collection)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -233,7 +234,8 @@ class Axis360CirculationMonitor(CollectionMonitor):
     FIVE_MINUTES = timedelta(minutes=5)
 
     def __init__(self, collection, api_class=None, metadata_client=None):
-        super(Axis360CirculationMonitor, self).__init__(collection)
+        _db = Session.object_session(collection)
+        super(Axis360CirculationMonitor, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
             # Use a preexisting Axis360API instance rather than
             # creating a new one.
@@ -268,7 +270,9 @@ class Axis360CirculationMonitor(CollectionMonitor):
 
     def process_book(self, bibliographic, availability):
         
-        license_pool, new_license_pool = availability.license_pool(self._db)
+        license_pool, new_license_pool = availability.license_pool(
+            self._db, self.collection
+        )
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
         policy = ReplacementPolicy(
@@ -277,12 +281,9 @@ class Axis360CirculationMonitor(CollectionMonitor):
             contributions=True,
             formats=True,
         )
-        availability.apply(
-            pool=license_pool, 
-            replace=policy,
-        )
+        availability.apply(self._db, self.collection, replace=policy)
         if new_edition:
-            bibliographic.apply(edition, replace=policy)
+            bibliographic.apply(edition, self.collection, replace=policy)
 
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by 
