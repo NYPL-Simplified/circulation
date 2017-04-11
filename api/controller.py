@@ -113,7 +113,7 @@ from adobe_vendor_id import (
 )
 from axis import Axis360API
 from overdrive import OverdriveAPI
-from threem import ThreeMAPI
+from bibliotheca import BibliothecaAPI
 from circulation import CirculationAPI
 from novelist import (
     NoveListAPI,
@@ -214,11 +214,11 @@ class CirculationManager(object):
             self.circulation = MockCirculationAPI(self._db)
         else:
             overdrive = OverdriveAPI.from_environment(self._db)
-            threem = ThreeMAPI.from_environment(self._db)
+            bibliotheca = BibliothecaAPI.from_environment(self._db)
             axis = Axis360API.from_environment(self._db)
             self.circulation = CirculationAPI(
                 _db=self._db, 
-                threem=threem, 
+                bibliotheca=bibliotheca, 
                 overdrive=overdrive,
                 axis=axis
             )

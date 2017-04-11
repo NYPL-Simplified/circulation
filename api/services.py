@@ -12,7 +12,7 @@ from core.util.problem_detail import ProblemDetail
 from config import Configuration
 from authenticator import Authenticator
 from overdrive import OverdriveAPI
-from threem import ThreeMAPI
+from bibliotheca import BibliothecaAPI
 from axis import Axis360API
 from circulation import CirculationAPI
 
@@ -23,11 +23,11 @@ class ServiceStatus(object):
 
     SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
-    def __init__(self, _db, auth=None, overdrive=None, threem=None, axis=None):
+    def __init__(self, _db, auth=None, overdrive=None, bibliotheca=None, axis=None):
         self._db = _db
         self.auth = auth or Authenticator.from_config(self._db)
         self.overdrive = overdrive or OverdriveAPI.from_environment(self._db)
-        self.threem = threem or ThreeMAPI.from_environment(self._db)
+        self.bibliotheca = bibliotheca or BibliothecaAPI.from_environment(self._db)
         self.axis = axis or Axis360API.from_environment(self._db)
 
     def loans_status(self, response=False):
@@ -70,7 +70,7 @@ class ServiceStatus(object):
             self.log.error(error)
             status[service] = error
             return status
-        for api in [self.overdrive, self.threem, self.axis]:
+        for api in [self.overdrive, self.bibliotheca, self.axis]:
             if not api:
                 continue
             name = api.source.name
@@ -95,7 +95,7 @@ class ServiceStatus(object):
         status = dict()
         patron, password = self.get_patron()
         api = CirculationAPI(
-            self._db, overdrive=self.overdrive, threem=self.threem,
+            self._db, overdrive=self.overdrive, bibliotheca=self.bibliotheca,
             axis=self.axis
         )
 

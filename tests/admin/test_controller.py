@@ -1230,7 +1230,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         # The collection was created and configured properly.
-        collection = get_one(self._db, Collection)
+        collection = get_one(self._db, Collection, name="New Collection")
         eq_("New Collection", collection.name)
         eq_("acctid", collection.external_account_id)
         eq_("username", collection.external_integration.username)
