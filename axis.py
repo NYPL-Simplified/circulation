@@ -21,6 +21,7 @@ from util.http import (
 )
 from coverage import CoverageFailure
 from model import (
+    get_one,
     get_one_or_create,
     Collection,
     Contributor,
@@ -88,7 +89,12 @@ class Axis360API(object):
             )
             
         self.token = None
-        
+        self.collection_id = collection.id
+
+    @property
+    def collection(self):
+        return get_one(self._db, Collection, id=self.collection_id)
+    
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.AXIS_360)
@@ -256,7 +262,11 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
         super(Axis360BibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = api_class(collection)
+        if isinstance(api_class, Axis360API):
+            # We were given a specific Axis360API instance to use.
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
         self.parser = BibliographicParser()
 
     def process_batch(self, identifiers):
