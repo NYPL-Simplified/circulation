@@ -25,6 +25,38 @@ from core.util.cdn import cdnify
 from config import Configuration
 
 class CirculationInfo(object):
+
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier):
+        """A loan, hold, or whatever.
+
+        :param collection: The Collection that gives us the right to
+        borrow this title. This does not have to be specified in the
+        constructor (the code that instantiates CirculationInfo may
+        not have access to a database connection), but it needs to be
+        present by the time the LoanInfo is connected to a
+        LicensePool.
+
+        :param data_source_name: The name of the data source that provides
+            the LicencePool.
+        :param identifier_type: The type of the Identifier associated
+            with the LicensePool.
+        :param identifier: The string identifying the LicensePool.
+        """
+        self.collection = collection
+        self.data_source_name = data_source_name
+        self.identifier_type = identifier_type
+        self.identifier = identifier
+
+    @property
+    def license_pool(self):
+        """Find the LicensePool model object corresponding to this object."""
+        _db = Session.object_session(self.collection)
+        return LicensePool.for_foreign_id(
+            _db, self.data_source_name, self.identifier_type, self.identifier,
+            collection=self.collection
+        )
+        
     def fd(self, d):
         # Stupid method to format a date
         if not d:
@@ -46,10 +78,12 @@ class FulfillmentInfo(CirculationInfo):
     :param content_expires Download link expiration datetime.
     """
 
-    def __init__(self, identifier_type, identifier, content_link, content_type, 
-                 content, content_expires):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, content_link, content_type, content,
+                 content_expires):
+        super(FulfillmentInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.content_link = content_link
         self.content_type = content_type
         self.content = content
@@ -65,26 +99,23 @@ class FulfillmentInfo(CirculationInfo):
             self.fd(self.content_expires))
 
 class LoanInfo(CirculationInfo):
+    """A record of a loan."""
 
-    # TODO: Somehow or other this needs to be associated with a
-    # DataSource and a Collection, not just an Identifier. Maybe it
-    # needs to happen in the constructor, maybe it needs to happen in
-    # the code that processes the LoanInfo objects, but it needs to
-    # happen somehow.
-    """A record of a loan.
-
-    :param identifier_type: The type of the Identifier associated
-        with the LicensePool on loan.
-    :param identifier: The string identifying the LicensePool on Loan.
-    :param start_date: A datetime reflecting when the patron borrowed the book.
-    :param end_date: A datetime reflecting when the checked-out book is due.
-    :param fulfillment_info: A FulfillmentInfo object
-    """
-
-    def __init__(self, identifier_type, identifier, start_date, end_date,
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, start_date, end_date,
                  fulfillment_info=None):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+        """Constructor.
+
+        :param start_date: A datetime reflecting when the patron borrowed the book.
+        :param end_date: A datetime reflecting when the checked-out book is due.
+        :param fulfillment_info: A FulfillmentInfo object
+        """
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, content_link, content_type, content,
+                 content_expires):
+        super(FulfillmentInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
@@ -114,10 +145,11 @@ class HoldInfo(CirculationInfo):
         When not available, default to be passed is None, which is equivalent to "first in line".
     """
 
-    def __init__(self, identifier_type, identifier, start_date, end_date, 
-                 hold_position):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, start_date, end_date, hold_position):
+        super(FulfillmentInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.start_date = start_date
         self.end_date = end_date
         self.hold_position = hold_position
