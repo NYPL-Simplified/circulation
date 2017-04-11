@@ -563,7 +563,7 @@ class CirculationManagerAnnotator(Annotator):
             return None
             
         fulfill_url = self.url_for(
-            "fulfill", data_source=data_source_name,
+            "fulfill",
             identifier_type=identifier.type,
             identifier=identifier.identifier,
             mechanism_id=delivery_mechanism.id,
