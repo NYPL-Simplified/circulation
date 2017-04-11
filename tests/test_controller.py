@@ -123,7 +123,8 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-
+        self.library = self._default_library
+        
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -197,6 +198,8 @@ class CirculationControllerTest(ControllerTest):
             u"Très Français", "Marianne", language="fre", fiction=False,
             with_open_access_download=True
         )
+        for w in self.english_1, self.english_2, self.french_1:
+            w.license_pools[0].collection = self._default_collection
 
 
 
@@ -526,13 +529,13 @@ class TestLoanController(CirculationControllerTest):
         self.edition = self.pool.presentation_edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
-
+        
     def test_borrow_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
-                self.data_source.name, self.identifier.type, self.identifier.identifier)
+                self.identifier.type, self.identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=self.pool)
@@ -554,7 +557,7 @@ class TestLoanController(CirculationControllerTest):
 
             fulfillable_mechanism = mech2
 
-            expects = [url_for('fulfill', data_source=self.data_source.name,
+            expects = [url_for('fulfill', 
                                identifier_type=self.identifier.type,
                                identifier=self.identifier.identifier, 
                                mechanism_id=mech.delivery_mechanism.id,
@@ -567,7 +570,7 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 fulfillable_mechanism.delivery_mechanism.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
@@ -583,7 +586,7 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.type, self.identifier.identifier, do_get=http.do_get
+                self.identifier.type, self.identifier.identifier, do_get=http.do_get
             )
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
@@ -593,7 +596,7 @@ class TestLoanController(CirculationControllerTest):
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 mech1.delivery_mechanism.id
             )
 
@@ -605,7 +608,7 @@ class TestLoanController(CirculationControllerTest):
                 raise RemoteIntegrationException("fulfill service", "Error!")
 
             response = self.manager.loans.fulfill(
-                self.data_source.name, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 do_get=doomed_get
             )
             assert isinstance(response, ProblemDetail)
@@ -638,7 +641,7 @@ class TestLoanController(CirculationControllerTest):
             )
             with self.temp_config():
                 response = self.manager.loans.borrow(
-                    data_source.name, identifier.type, identifier.identifier)
+                    identifier.type, identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=pool)
@@ -761,7 +764,7 @@ class TestLoanController(CirculationControllerTest):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.loans.borrow(
-                self.data_source.name, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 -100
             )
             eq_(BAD_DELIVERY_MECHANISM, response) 
@@ -796,7 +799,7 @@ class TestLoanController(CirculationControllerTest):
                 )
             )
             response = self.manager.loans.borrow(
-                DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
+                pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
             
             # A hold has been created for this license pool.
@@ -835,7 +838,7 @@ class TestLoanController(CirculationControllerTest):
                 )
             )
             response = self.manager.loans.borrow(
-                DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
+                pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
 
             # A hold has been created for this license pool.
@@ -862,7 +865,7 @@ class TestLoanController(CirculationControllerTest):
                  pool, NotFoundOnRemote()
              )
              response = self.manager.loans.borrow(
-                 DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
+                 pool.identifier.type, pool.identifier.identifier)
              eq_(404, response.status_code)
              eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
 
@@ -913,7 +916,7 @@ class TestLoanController(CirculationControllerTest):
                 pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
-                pool.data_source.name, pool.identifier.type, 
+                pool.identifier.type, 
                 pool.identifier.identifier
             )
             assert isinstance(response, ProblemDetail)
@@ -942,7 +945,7 @@ class TestLoanController(CirculationControllerTest):
                     "/", headers=dict(Authorization=auth)):
                 self.manager.loans.authenticated_patron_from_request()
                 response = self.manager.loans.borrow(
-                    DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
+                    pool.identifier.type, pool.identifier.identifier)
                 
                 eq_(403, response.status_code)
                 eq_(OUTSTANDING_FINES.uri, response.uri)
@@ -967,7 +970,7 @@ class TestLoanController(CirculationControllerTest):
                     )
                 )
                 response = self.manager.loans.borrow(
-                    DataSource.THREEM, pool.identifier.type, pool.identifier.identifier)
+                    pool.identifier.type, pool.identifier.identifier)
                 
                 eq_(201, response.status_code)
 

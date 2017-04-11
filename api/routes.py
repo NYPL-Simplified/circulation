@@ -210,36 +210,36 @@ def annotation_detail(annotation_id):
 def annotations_for_work(identifier_type, identifier):
     return app.manager.annotations.container_for_work(identifier_type, identifier)
 
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
+@app.route('/works/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
+@app.route('/works/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def borrow(data_source, identifier_type, identifier, mechanism_id=None):
-    return app.manager.loans.borrow(data_source, identifier_type, identifier, mechanism_id)
+def borrow(identifier_type, identifier, mechanism_id=None):
+    return app.manager.loans.borrow(identifier_type, identifier, mechanism_id)
 
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill')
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
+@app.route('/works/<identifier_type>/<path:identifier>/fulfill')
+@app.route('/works/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def fulfill(data_source, identifier_type, identifier, mechanism_id=None):
-    return app.manager.loans.fulfill(data_source, identifier_type, identifier, mechanism_id)
+def fulfill(identifier_type, identifier, mechanism_id=None):
+    return app.manager.loans.fulfill(identifier_type, identifier, mechanism_id)
 
-@app.route('/loans/<data_source>/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
+@app.route('/loans/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def revoke_loan_or_hold(data_source, identifier_type, identifier):
-    return app.manager.loans.revoke(data_source, identifier_type, identifier)
+def revoke_loan_or_hold(identifier_type, identifier):
+    return app.manager.loans.revoke(identifier_type, identifier)
 
-@app.route('/loans/<data_source>/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
+@app.route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def loan_or_hold_detail(data_source, identifier_type, identifier):
-    return app.manager.loans.detail(data_source, identifier_type, identifier)
+def loan_or_hold_detail(identifier_type, identifier):
+    return app.manager.loans.detail(identifier_type, identifier)
 
 @dir_route('/works')
 @allows_patron_web()

@@ -329,7 +329,6 @@ class CirculationManagerController(BaseCirculationManagerController):
             ).filter(
                 Library.id==library.id
             ).all()
-
         if not pools:
             return NO_LICENSES.detailed(
                 _("The item you're asking about (%s/%s) isn't in this collection.") % (
@@ -525,39 +524,26 @@ class LoanController(CirculationManagerController):
             self.circulation, patron)
         return feed_response(feed, cache_for=None)
 
-    def borrow(self, data_source, identifier_type, identifier, mechanism_id=None):
+    def borrow(self, identifier_type, identifier, mechanism_id=None):
         """Create a new loan or hold for a book.
 
         Return an OPDS Acquisition feed that includes a link of rel
         "http://opds-spec.org/acquisition", which can be used to fetch the
         book or the license file.
         """
-
-        # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            # Something went wrong.
-            return pool
-
-        # Find the delivery mechanism they asked for, if any.
-        mechanism = None
-        if mechanism_id:
-            mechanism = self.load_licensepooldelivery(pool, mechanism_id)
-            if isinstance(mechanism, ProblemDetail):
-                return mechanism
-
-        if not pool:
-            # I've never heard of this book.
+        patron = flask.request.patron
+        result = self.best_lendable_pool(
+            self.library, patron, identifier_type, identifier, mechanism_id
+        )
+        if not result:
+            # No LicensePools were found and no ProblemDetail
+            # was returned. Send a generic ProblemDetail.
             return NO_LICENSES.detailed(
                 _("I've never heard of this work.")
             )
-
-        patron = flask.request.patron
-        problem_doc = self.apply_borrowing_policy(patron, pool)
-        if problem_doc:
-            # As a matter of policy, the patron is not allowed to check
-            # this book out.
-            return problem_doc
+        if isinstance(result, ProblemDetail):
+            return result
+        pool, mechanism = result
 
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
@@ -629,7 +615,62 @@ class LoanController(CirculationManagerController):
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(content, status_code, headers)
 
-    def fulfill(self, data_source, identifier_type, identifier, mechanism_id=None, do_get=None):
+    def best_lendable_pool(self, library, patron, identifier_type, identifier,
+                           mechanism_id):
+        """Of the available LicensePools for the given Identifier, return the
+        one that's the best candidate for loaning out right now.
+        """
+        # Turn source + identifier into a LicensePool
+        pools = self.load_licensepools(
+            self.library, identifier_type, identifier
+        )
+        if isinstance(pools, ProblemDetail):
+            # Something went wrong.
+            return pools
+
+        best = None
+        mechanism = None
+        problem_doc = None
+        
+        # We found a number of LicensePools. Try to locate one that
+        # we can actually loan to the patron.
+        for pool in pools:
+            problem_doc = self.apply_borrowing_policy(patron, pool)
+            if problem_doc:
+                # As a matter of policy, the patron is not allowed to borrow
+                # this book.
+                continue
+
+            # Beyond this point we know that site policy does not prohibit
+            # us from lending this pool to this patron.
+
+            if mechanism_id:
+                # But the patron has requested a license pool that
+                # supports a specific delivery mechanism. This pool
+                # must offer that mechanism.
+                mechanism = self.load_licensepooldelivery(pool, mechanism_id)
+                if isinstance(mechanism, ProblemDetail):
+                    problem_doc = mechanism
+                    continue
+
+            # Beyond this point we have a license pool that we can
+            # actually loan or put on hold.
+
+            # But there might be many such LicensePools, and we want
+            # to pick the one that will get the book to the patron
+            # with the shortest wait.
+            if (not best
+                or pool.licenses_available > best.licenses_available
+                or pool.patrons_in_hold_queue < best.patrons_in_hold_queue):
+                best = pool
+
+        if not best:
+            # We were unable to find any LicensePool that fit the
+            # criteria.
+            return problem_doc
+        return best, mechanism
+    
+    def fulfill(self, identifier_type, identifier, mechanism_id=None, do_get=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -645,7 +686,7 @@ class LoanController(CirculationManagerController):
         credential = self.manager.auth.get_credential_from_header(header)
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
 
@@ -719,9 +760,9 @@ class LoanController(CirculationManagerController):
 
         return Response(content, status_code, headers)
 
-    def revoke(self, data_source, identifier_type, identifier):
+    def revoke(self, identifier_type, identifier):
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
@@ -767,12 +808,12 @@ class LoanController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def detail(self, data_source, identifier_type, identifier):
+    def detail(self, identifier_type, identifier):
         if flask.request.method=='DELETE':
-            return self.revoke_loan_or_hold(data_source, identifier_type, identifier)
+            return self.revoke_loan_or_hold(identifier_type, identifier)
 
         patron = flask.request.patron
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
@@ -911,7 +952,7 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    def permalink(self, data_source, identifier_type, identifier):
+    def permalink(self, identifier_type, identifier):
         """Serve an entry for a single book.
 
         This does not include any loan or hold-specific information for
@@ -922,7 +963,7 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
         work = pool.work
@@ -931,11 +972,11 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, data_source, identifier_type, identifier,
+    def recommendations(self, identifier_type, identifier,
                         novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
 
@@ -968,11 +1009,11 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    def related(self, data_source, identifier_type, identifier,
+    def related(self, identifier_type, identifier,
                 novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             return pool
 
@@ -1005,11 +1046,11 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    def report(self, data_source, identifier_type, identifier):
+    def report(self, identifier_type, identifier):
         """Report a problem with a book."""
     
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        pool = self.load_licensepool(identifier_type, identifier)
         if isinstance(pool, ProblemDetail):
             # Something went wrong.
             return pool
@@ -1088,9 +1129,9 @@ class ProfileController(CirculationManagerController):
 
 class AnalyticsController(CirculationManagerController):
 
-    def track_event(self, data_source, identifier_type, identifier, event_type):
+    def track_event(self, identifier_type, identifier, event_type):
         if event_type in CirculationEvent.CLIENT_EVENTS:
-            pool = self.load_licensepool(data_source, identifier_type, identifier)
+            pool = self.load_licensepool(identifier_type, identifier)
             Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
