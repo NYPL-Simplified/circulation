@@ -47,16 +47,19 @@ from core.model import (
     Annotation,
     CachedFeed,
     CirculationEvent,
+    Collection,
     Complaint,
     DataSource,
     Hold,
     Identifier,
     Library,
+    LicensePool,
     Loan,
     LicensePoolDeliveryMechanism,
     production_session,
     PatronProfileStorage,
     Representation,
+    Session,
     Work,
 )
 from core.opds import (
@@ -308,30 +311,32 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return lanes[name]
 
-    # TODO: This needs to become load_licensepools, take a Library
-    # plus identifier information, and return a list of LicensePools.
-    # Everything that needs to call this needs to be comfortable with the
-    # idea that there might be more than one LicensePool that matches
-    # an Identifier.
-    def load_licensepool(self, data_source, identifier_type, identifier):
-        """Turn user input into a LicensePool object."""
-        if isinstance(data_source, DataSource):
-            source = data_source
-        else:
-            source = DataSource.lookup(self._db, data_source)
-        if source is None:
-            return INVALID_INPUT.detailed(_("No such data source: %(data_source)s", data_source=data_source))
+    def load_licensepools(self, library, identifier_type, identifier):
+        """Turn user input into one or more LicensePool objects.
 
-        id_obj, ignore = Identifier.for_foreign_id(
-            self._db, identifier_type, identifier, autocreate=False)
-        if not id_obj:
+        :param library: The LicensePools must be associated with one of this
+            Library's Collections.
+        :param identifier_type: A type of identifier, e.g. "ISBN"
+        :param identifier: An identifier string, used with `identifier_type`
+            to look up an Identifier.
+        """
+        _db = Session.object_session(library)
+        pools = _db.query(LicensePool).join(LicensePool.collection).join(
+            LicensePool.identifier).join(Collection.libraries).filter(
+                Identifier.type==identifier_type
+            ).filter(
+                Identifier.identifier==identifier
+            ).filter(
+                Library.id==library.id
+            ).all()
+
+        if not pools:
             return NO_LICENSES.detailed(
                 _("The item you're asking about (%s/%s) isn't in this collection.") % (
                     identifier_type, identifier
                 )
             )
-        pool = id_obj.licensed_through
-        return pool
+        return pools
 
     def load_licensepooldelivery(self, pool, mechanism_id):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 

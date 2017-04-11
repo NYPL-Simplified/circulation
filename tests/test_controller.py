@@ -173,13 +173,17 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-            
+
     
 class CirculationControllerTest(ControllerTest):
 
     def setup(self):
         super(CirculationControllerTest, self).setup()
 
+        # TODO: This is a prime candidate for optimization. A lot of
+        # tests don't need these books, and they take over 1 second to
+        # create.
+        
         # Create two English books and a French book.
         self.english_1 = self._work(
             "Quite British", "John Bull", language="eng", fiction=True,
@@ -277,22 +281,95 @@ class TestBaseController(CirculationControllerTest):
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
 
-    def test_load_licensepool(self):
-        licensepool = self._licensepool(edition=None)
-        loaded_licensepool = self.controller.load_licensepool(
-            licensepool.data_source.name, licensepool.identifier.type, licensepool.identifier.identifier
+    def test_load_licensepools(self):        
+
+        # Here's a Library that has two Collections.
+        library = self._default_library
+        [c1] = library.collections
+        c2 = self._collection()
+        library.collections.append(c2)
+
+        # Here's a Collection not affiliated with any Library.
+        c3 = self._collection()
+
+        # All three Collections have LicensePools for this Identifier,
+        # from various sources.
+        i1 = self._identifier()
+        e1, lp1 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            identifier_type=i1.type,
+            identifier_id=i1.identifier,
+            with_license_pool = True,
+            collection=c1
         )
-        eq_(licensepool, loaded_licensepool)
+        e2, lp2 = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=i1.type,
+            identifier_id=i1.identifier,
+            with_license_pool = True,
+            collection=c2
+        )
+        e3, lp3 = self._edition(
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=i1.type,
+            identifier_id=i1.identifier,
+            with_license_pool = True,
+            collection=c3
+        )
 
-        problem_detail = self.controller.load_licensepool("bad data source", licensepool.identifier.type, licensepool.identifier.identifier)
-        eq_(INVALID_INPUT.uri, problem_detail.uri)
+        # The first collection also has a LicensePool for a totally
+        # different Identifier.
+        e4, lp4 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            with_license_pool=True,
+            collection=c1
+        )
 
-        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, "bad identifier type", licensepool.identifier.identifier)
-        eq_(NO_LICENSES.uri, problem_detail.uri)
-        expect = u"The item you're asking about (bad identifier type/%s) isn't in this collection." % licensepool.identifier.identifier
-        eq_(expect, problem_detail.detail)
+        # Same for the third collection
+        e5, lp5 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            with_license_pool=True,
+            collection=c3
+        )
+
         
-        problem_detail = self.controller.load_licensepool(licensepool.data_source.name, licensepool.identifier.type, "bad identifier")
+        # Now let's try to load LicensePools for the first Identifier
+        # from the default Library.
+        loaded = self.controller.load_licensepools(
+            self._default_library, i1.type, i1.identifier
+        )
+
+        # Two LicensePools were loaded: the LicensePool for the first
+        # Identifier in Collection 1, and the LicensePool for the same
+        # identifier in Collection 2.
+        assert lp1 in loaded
+        assert lp2 in loaded
+        eq_(2, len(loaded))
+        assert all([lp.identifier==i1 for lp in loaded])
+
+        # Note that the LicensePool in c3 was not loaded, even though
+        # the Identifier matches, because that collection is not
+        # associated with this Library.
+
+        # LicensePool l4 was not loaded, even though it's in a Collection
+        # that matches, because the Identifier doesn't match.
+        
+        # Now we test various failures.
+
+        # Try a totally bogus identifier.
+        problem_detail = self.controller.load_licensepools(
+            self._default_library, "bad identifier type", i1.identifier
+        )
+        eq_(NO_LICENSES.uri, problem_detail.uri)
+        expect = u"The item you're asking about (bad identifier type/%s) isn't in this collection." % i1.identifier
+        eq_(expect, problem_detail.detail)
+
+        # Try an identifier that would work except that it's not in a
+        # Collection associated with the given Library.
+        problem_detail = self.controller.load_licensepools(
+            self._default_library, lp5.identifier.type,
+            lp5.identifier.identifier
+        )
         eq_(NO_LICENSES.uri, problem_detail.uri)
 
     def test_load_licensepooldelivery(self):
