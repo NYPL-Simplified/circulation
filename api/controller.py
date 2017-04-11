@@ -308,6 +308,11 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return lanes[name]
 
+    # TODO: This needs to become load_licensepools, take a Library
+    # plus identifier information, and return a list of LicensePools.
+    # Everything that needs to call this needs to be comfortable with the
+    # idea that there might be more than one LicensePool that matches
+    # an Identifier.
     def load_licensepool(self, data_source, identifier_type, identifier):
         """Turn user input into a LicensePool object."""
         if isinstance(data_source, DataSource):
