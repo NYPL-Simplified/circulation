@@ -15,14 +15,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /var/www
 RUN git clone https://github.com/NYPL-Simplified/circulation.git
 WORKDIR circulation
-RUN git checkout tags/$version
-RUN /bin/bash -c 'git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git && git submodule update --init --recursive'
+
+# Build the requested version of the codebase.
+RUN git checkout "$version"
+
+# Use an https link for the server_core submodule to avoid and update
+# the submodule for this version.
+RUN /bin/bash -c 'git config submodule.core.url \
+        https://github.com/NYPL-Simplified/server_core.git \
+        && git submodule update --init --recursive'
+
+# Copy a bit o' code that you might want if you want to deploy via git push.
 COPY post-receive.sample .git/hooks
 
-# Set up the virtual environment and install python libraries
+# Pass the mounted configuration file into the environment.
 RUN virtualenv env && \
     echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/etc/circulation/config.json\"" >> env/bin/activate
-RUN /bin/bash -c 'source env/bin/activate && pip install -r requirements.txt && python -m textblob.download_corpora'
+
+# Install required python libraries.
+RUN /bin/bash -c 'source env/bin/activate && \
+        pip install -r requirements.txt && \
+        python -m textblob.download_corpora'
 RUN mv /root/nltk_data /usr/lib/
 
+# If you launch the container interactively with `docker run -it`,
+# this is where you'll end up:
 ENTRYPOINT ["/bin/bash"]
