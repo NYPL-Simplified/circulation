@@ -136,6 +136,13 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
+    # TODO: Instead of taking a bunch of API objects, this needs to
+    # take a Library object and construct an API for every Collection
+    # associated with that Library.
+    #
+    # It might be even better if this took a Patron object, but
+    # currently Patrons aren't associated with Libraries so that won't
+    # work yet.
     def __init__(self, _db, overdrive=None, threem=None, axis=None):
         self._db = _db
         self.overdrive = overdrive
