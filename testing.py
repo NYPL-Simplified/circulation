@@ -664,6 +664,18 @@ class DatabaseTest(object):
         return collection
 
     @property
+    def _default_library(self):
+        """A Library that will only be created once throughout a given test.
+
+        By default, the `_default_collection` will be associated with
+        the default library.
+        """
+        if not hasattr(self, '_default__library'):
+            self._default__library = Library.instance(self._db)
+            self._default__library.collections.append(_default_collection)
+        return self._default__library
+        
+    @property
     def _default_collection(self):
         """A Collection that will only be created once throughout
         a given test.
