@@ -340,7 +340,8 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_licensepooldelivery(self, pool, mechanism_id):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
-            self._db, LicensePoolDeliveryMechanism, license_pool=pool,
+            self._db, LicensePoolDeliveryMechanism,
+            data_source=pool.data_source, identifier=pool.identifier,
             delivery_mechanism_id=mechanism_id, on_multiple='interchangeable'
         )
         return mechanism or BAD_DELIVERY_MECHANISM
@@ -532,6 +533,10 @@ class LoanController(CirculationManagerController):
         book or the license file.
         """
         patron = flask.request.patron
+
+        # TODO: First make sure the patron does not already have this book
+        # on loan.
+        
         result = self.best_lendable_pool(
             self.library, patron, identifier_type, identifier, mechanism_id
         )
@@ -685,17 +690,25 @@ class LoanController(CirculationManagerController):
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
     
-        # Turn source + identifier into a LicensePool
-        pool = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        # Turn source + identifier into a set of LicensePools.
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
 
-        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
-    
+        # The patron has a loan on one of these LicensePools.
+
+        # TODO: Handle the case where the patron has no loans or more
+        # than one loan.
+        loan = self._db.query(Loan).filter(
+            Loan.patron==patron).filter(
+                Loan.license_pool_id.in_([x.id for x in pools])).one()
+        
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
-            mechanism = self.load_licensepooldelivery(pool, mechanism_id)
+            mechanism = self.load_licensepooldelivery(
+                loan.license_pool, mechanism_id
+            )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
             
@@ -709,7 +722,9 @@ class LoanController(CirculationManagerController):
                 )
     
         try:
-            fulfillment = self.circulation.fulfill(patron, credential, pool, mechanism)
+            fulfillment = self.circulation.fulfill(
+                patron, credential, loan.license_pool, mechanism
+            )
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)
         except NoActiveLoan, e:
