@@ -91,6 +91,19 @@ class TestNameConversions(DatabaseTest):
         eq_(u"Doe, John MD", sort_name)
 
 
+    def test_name_tidy(self):
+        # remove improper comma
+        sort_name = display_name_to_sort_name(u"Bitshifter, Bob,")
+        eq_(u"Bitshifter, Bob", sort_name)
+
+        # remove improper period
+        sort_name = display_name_to_sort_name(u"Bitshifter, Bober.")
+        eq_(u"Bitshifter, Bober", sort_name)
+
+        # retain proper period
+        sort_name = display_name_to_sort_name(u"Bitshifter, B.")
+        eq_(u"Bitshifter, B.", sort_name)
+
 
 
 

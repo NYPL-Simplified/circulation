@@ -1136,11 +1136,9 @@ class OneClickImportScript(Script):
 
 
     def do_run(self):
-        print "OneClickImportScript.do_run"
         self.log.info("OneClickImportScript.do_run().")
         items_transmitted, items_created = self.api.populate_all_catalog()
         result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
-        print result_string
         self.log.info(result_string)
 
 
@@ -1156,7 +1154,6 @@ class OneClickDeltaScript(OneClickImportScript):
 
 
     def do_run(self):
-        print "OneClickDeltaScript.do_run"
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
 
@@ -1674,8 +1671,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         self._db.commit()
 
 
-    @classmethod
-    def process_contribution_local(cls, _db, contribution, log=None):
+    def process_contribution_local(self, _db, contribution, log=None):
         if not contribution or not contribution.edition:
             return
 
@@ -1695,13 +1691,13 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 # are passed as translated into only one of the fields, or when the author has a popular pseudonym. 
                 # best ask a human.
 
-                # if the relative lengths are off than by a stray space or comma, ask a human
+                # if the relative lengths are off by more than a stray space or comma, ask a human
                 # it probably means that a human metadata professional had added an explanation/expansion to the 
                 # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data 
                 # with the "Jones, Bob A." that the auto-algorigthm would generate.
                 length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
                 if abs(length_difference) > 3:
-                    return cls.process_local_mismatch(_db=_db, contribution=contribution,  
+                    return self.process_local_mismatch(_db=_db, contribution=contribution,  
                         computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
 
                 match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
@@ -1709,13 +1705,13 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 if (match_ratio < 40):
                     # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
                     # and is non-trivial to fix.  
-                    cls.process_local_mismatch(_db=_db, contribution=contribution, 
+                    self.process_local_mismatch(_db=_db, contribution=contribution, 
                         computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
                 else:
                     # we can fix it!
                     output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
                     print output.encode("utf8")
-                    cls.set_contributor_sort_name(computed_sort_name_local_new, contribution)
+                    self.set_contributor_sort_name(computed_sort_name_local_new, contribution)
 
 
     @classmethod
@@ -1735,14 +1731,13 @@ class CheckContributorNamesInDB(IdentifierInputScript):
                 contribution.edition.sort_author = sort_name
 
 
-    @classmethod
-    def process_local_mismatch(cls, _db, contribution, computed_sort_name, error_message_detail, log=None):
+    def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
         """
         Determines if a problem is to be investigated further or recorded as a Complaint, 
         to be solved by a human.  In this class, it's always a complaint.  In the overridden 
         method in the child class in metadata_wrangler code, we sometimes go do a web query.
         """ 
-        cls.register_problem(source=cls.COMPLAINT_SOURCE, contribution=contribution, 
+        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution, 
             computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
 
 

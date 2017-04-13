@@ -11,10 +11,15 @@ from permanent_work_id import WorkIDCalculator;
 
 phdFix = re.compile("((. +)|(, ?))P(h|H)\.? *(D|d)(\.| |$){1}")
 mdFix = re.compile("((. +)|(, ?))M\.? *D(\.| |$){1}")
+# omit exclamation point in case it can be part of stage name
+# only match punctuation that's not part of name initials or title.
+# so "Bitshifter, B." is OK, "Bitshifter, Bob Jr.", but "Bitshifter, Robert." is not.
+trailingPunctuation = re.compile("(.*)(\w{4,})([?:.,;]*?)\Z")
 
 
 def replaceMD(match):
     """
+    If the "MD" professional title was matched, make sure it's got no punctuation in it.
     :param match: a regular expression matched to a string
     """
     if not match or len(match.groups()) < 1:
@@ -25,12 +30,25 @@ def replaceMD(match):
 
 def replacePhD(match):
     """
+    If the "PhD" professional title was matched, make sure it's got no punctuation in it.
     :param match: a regular expression matched to a string
     """
     if not match or len(match.groups()) < 1:
         return match
 
     return match.groups()[0] + "PhD"
+
+
+def replaceEndPunctuation(match):
+    """
+    If there was found to be improper punctuation at the end of the name string, 
+    clean it off.
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 3:
+        return match
+
+    return match.groups()[0] + match.groups()[1]
 
 
 def contributor_name_match_ratio(name1, name2, normalize_names=True):
@@ -101,7 +119,6 @@ def display_name_to_sort_name(display_name):
     Uses the HumanName library to try to parse the name into parts, and rearrange the parts into 
     desired order and format.
     """
-
     if not display_name:
         return None
 
@@ -112,15 +129,18 @@ def display_name_to_sort_name(display_name):
         return display_name
 
     # clean up the common PhD and MD suffixes, so HumanName recognizes them better
-    display_name = phdFix.sub(replacePhD, display_name, re.I)
-    display_name = mdFix.sub(replaceMD, display_name, re.I)
-    
+    display_name = name_tidy(display_name)
+
     # name has title, first, middle, last, suffix, nickname
     name = HumanName(display_name)
 
     if name.nickname:
         name.nickname = '(' + name.nickname + ')'
 
+    # Note: When the first and middle names are initials that have come in with a space between them, 
+    # let them keep that space, to be consistent with initials with no periods, which would be more 
+    # easily algorithm-recognized if they were placed separately. So:
+    # 'Classy, A. B.' and 'Classy Abe B.' and 'Classy A. Barney' and 'Classy, Abe Barney' and 'Classy, A B'.
     if not name.last:
         # Examples: 'Pope Francis', 'Prince'.
         sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname])
@@ -137,15 +157,31 @@ def display_name_to_sort_name(display_name):
 
 def name_tidy(name):
     """
-    Convert to NFKD unicode.
-    Strip excessive whitespace.
+    - Converts to NFKD unicode.
+    - Strips excessive whitespace and trailing punctuation.
+    - Normalizes PhD/MD suffixes.
+    - Does not perform any potentially name-altering business logic, such as 
+    running HumanName parser or any other name part reorganization. 
+    - Does not perform any cleaning that would later need to be reversed, 
+    such as lowercasing.
     """
     name = unicodedata.normalize("NFKD", unicode(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
 
     name = name.strip()
-    if name.endswith(','):
-        name = name[:-1]
+    # Check that we don't have illegitimate punctuation.  So in 'Classy, Abe.' 
+    # the period is probably an artifact of dirty data, but in 'Classy, A.' 
+    # the period is a legitimate part of the initials.
+    
+    #TODO removeif name.endswith(',') or name.endswith('.'):  
+    #    name = name[:-1]
+    #name = re.sub(trailingPunctuation, r'\1', name)
+    name = trailingPunctuation.sub(replaceEndPunctuation, name, re.I)
+
+
+    # clean up the common PhD and MD suffixes, so HumanName recognizes them better
+    name = phdFix.sub(replacePhD, name, re.I)
+    name = mdFix.sub(replaceMD, name, re.I)
 
     return name.strip()
 
