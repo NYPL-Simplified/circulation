@@ -19,6 +19,7 @@ from core.model import (
     LicensePool,
     Loan,
     Hold,
+    Session,
 )
 from util.patron import PatronUtility
 from core.util.cdn import cdnify
@@ -52,10 +53,11 @@ class CirculationInfo(object):
     def license_pool(self):
         """Find the LicensePool model object corresponding to this object."""
         _db = Session.object_session(self.collection)
-        return LicensePool.for_foreign_id(
+        pool, is_new = LicensePool.for_foreign_id(
             _db, self.data_source_name, self.identifier_type, self.identifier,
             collection=self.collection
         )
+        return pool
         
     def fd(self, d):
         # Stupid method to format a date
@@ -110,10 +112,7 @@ class LoanInfo(CirculationInfo):
         :param end_date: A datetime reflecting when the checked-out book is due.
         :param fulfillment_info: A FulfillmentInfo object
         """
-    def __init__(self, collection, data_source_name, identifier_type,
-                 identifier, content_link, content_type, content,
-                 content_expires):
-        super(FulfillmentInfo, self).__init__(
+        super(LoanInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier
         )
         self.start_date = start_date
@@ -147,7 +146,7 @@ class HoldInfo(CirculationInfo):
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, start_date, end_date, hold_position):
-        super(FulfillmentInfo, self).__init__(
+        super(HoldInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier
         )
         self.start_date = start_date
@@ -162,23 +161,13 @@ class HoldInfo(CirculationInfo):
         )
 
 
-
 class CirculationAPI(object):
     """Implement basic circulation logic and abstract away the details
     between different circulation APIs behind generic operations like
     'borrow'.
     """
-
-    # When you see a Collection that implements this protocol, create
-    # this API class to handle the protocol.
-    DEFAULT_API_MAP = {
-        Collection.OVERDRIVE : OverdriveAPI,
-        Collection.BIBLIOTHECA : BibliothecaAPI,
-        Collection.AXIS_360 : Axis360API,
-        Collection.ONE_CLICK : OneClickAPI,
-    }
-    
-    def __init__(self, library, api_map=DEFAULT_API_MAP):
+        
+    def __init__(self, library, api_map=None):
         """Constructor.
         
         :param library: A Library object representing the library
@@ -193,6 +182,7 @@ class CirculationAPI(object):
         """
         self._db = Session.object_session(library)
         self.library = library
+        api_map = api_map or self.default_api_map
 
         # Each of the Library's relevant Collections is going to be
         # associated with an API object.
@@ -211,6 +201,22 @@ class CirculationAPI(object):
                 self.collection_ids_for_sync.append(collection.id)
         self.log = logging.getLogger("Circulation API")
 
+    @property
+    def default_api_map(self):
+        """When you see a Collection that implements protocol X, instantiate
+        API class Y to handle that collection.
+        """
+        from overdrive import OverdriveAPI
+        from bibliotheca import BibliothecaAPI
+        from axis import Axis360API
+        from oneclick import OneClickAPI
+        return {
+            Collection.OVERDRIVE : OverdriveAPI,
+            Collection.BIBLIOTHECA : BibliothecaAPI,
+            Collection.AXIS_360 : Axis360API,
+            Collection.ONE_CLICK : OneClickAPI,
+        }
+        
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
         return self.api_for_collection.get(licensepool.collection)

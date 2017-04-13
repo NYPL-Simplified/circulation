@@ -194,6 +194,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 loan = self.get_loan(patron, pin, identifier.identifier)
                 expires = self.extract_expiration_date(loan)
                 return LoanInfo(
+                    licensepool.collection,
+                    licensepool.data_source.name,
                     licensepool.identifier.type,
                     licensepool.identifier.identifier,
                     None,
@@ -210,6 +212,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         # Create the loan info. We don't know the expiration 
         loan = LoanInfo(
+            licensepool.collection,
+            licensepool.data_source.name,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             None,
@@ -284,6 +288,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             raise e
 
         return FulfillmentInfo(
+            licensepool.collection,
+            licensepool.data_source.name,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             content_link=url,
@@ -436,6 +442,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         for checkout in loans.get('checkouts', []):
             loan_info = self.process_checkout_data(checkout)
             if loan_info:
+                loan_info.collection = self.collection
                 yield loan_info
 
         for hold in holds.get('holds', []):
@@ -451,6 +458,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # 0, not whatever position Overdrive had for them.
                 position = 0
             yield HoldInfo(
+                self.collection,
+                DataSource.OVERDRIVE,
                 Identifier.OVERDRIVE_ID,
                 overdrive_identifier,
                 start_date=start,
@@ -501,6 +510,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # not count overdrive-read), put it into fulfillment_info and
         # let the caller make the decision whether or not to show it.
         return LoanInfo(
+            None,
+            DataSource.OVERDRIVE,
             Identifier.OVERDRIVE_ID,
             overdrive_identifier,
             start_date=start,
@@ -553,6 +564,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 position, start_date = self.extract_data_from_hold_response(
                     hold)
                 return HoldInfo(
+                    licensepool.collection,
+                    licensepool.data_source.name,
                     licensepool.identifier.type,
                     licensepool.identifier.identifier,
                     start_date=start_date, 
@@ -573,6 +586,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             position, start_date = self.extract_data_from_hold_response(
                 data)
             return HoldInfo(
+                licensepool.collection,
+                licensepool.data_source.name,
                 licensepool.identifier.type,
                 licensepool.identifier.identifier,
                 start_date=start_date,
@@ -624,10 +639,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             info, include_bibliographic=False, include_formats=True)
         circulation_data = metadata.circulation
 
-        replace = ReplacementPolicy(
-            formats=True,
-        )
-        circulation_data.apply(licensepool, replace)
+        replace = ReplacementPolicy(formats=True)
+        _db = Session.object_session(_db)
+        circulation_data.apply(_db, licensepool.collection, replace)
 
     def update_licensepool(self, book_id):
         """Update availability information for a single book.
@@ -696,7 +710,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
         )
-        license_pool, circulation_changed = circulation.apply(license_pool)
+        license_pool, circulation_changed = circulation.apply(
+            self._db, license_pool.collection
+        )
 
         edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,
