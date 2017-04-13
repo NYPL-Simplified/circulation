@@ -396,7 +396,8 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         pool, was_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, 
-            identifier.type, identifier.identifier
+            identifier.type, identifier.identifier,
+            collection=self.collection
         )
         
         pool, was_new, changed = self.api.update_licensepool_with_book_info(
