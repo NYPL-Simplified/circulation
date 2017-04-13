@@ -640,7 +640,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         circulation_data = metadata.circulation
 
         replace = ReplacementPolicy(formats=True)
-        _db = Session.object_session(_db)
+        _db = Session.object_session(licensepool)
         circulation_data.apply(_db, licensepool.collection, replace)
 
     def update_licensepool(self, book_id):
