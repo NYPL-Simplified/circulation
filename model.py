@@ -48,6 +48,7 @@ from sqlalchemy.orm import (
     lazyload,
     relationship,
     sessionmaker,
+    synonym,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -115,6 +116,7 @@ from util.http import (
     RemoteIntegrationException,
 )
 from util.permanent_work_id import WorkIDCalculator
+from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
 from sqlalchemy.orm.session import Session
@@ -1091,6 +1093,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
+    REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1427,7 +1430,6 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
-
         if not foreign_identifier_type or not foreign_id:
             return None
 
@@ -2011,7 +2013,7 @@ class Contributor(Base):
 
     # This is the name by which this person is known in the original
     # catalog. It is sortable, e.g. "Twain, Mark".
-    sort_name = Column(Unicode, index=True)
+    _sort_name = Column('sort_name', Unicode, index=True)
     aliases = Column(ARRAY(Unicode), default=[])
 
     # This is the name we will display publicly. Ideally it will be
@@ -2170,14 +2172,42 @@ class Contributor(Base):
 
         return contributors, new
 
-    # TODO: Stop using 'name' attribute, everywhere.
-    @property
-    def name(self):
-        return self.sort_name
 
-    @name.setter
-    def name(self, value):
-        self.sort_name = value
+    @property
+    def sort_name(self):
+        return self._sort_name
+
+    @sort_name.setter
+    def sort_name(self, new_sort_name):
+        """ See if the passed-in value is in the prescribed Last, First format.
+        If it is, great, set the self._sprt_name to the new value.  
+
+        If new value is not in correct format, then 
+        attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
+
+        Note: If for any reason you need to force the sort_name to an improper value, 
+        set it like so:  contributor._sort_name="Foo Bar", and you'll avoid further processing. 
+
+        Note: For now, have decided to not automatically update any edition.sort_author 
+        that might have contributions by this Contributor.
+        """
+
+        if not new_sort_name:
+            self._sort_name = None
+            return
+
+        # simplistic test of format, but catches the most frequent problem
+        # where display-style names are put into sort name metadata by third parties.
+        if new_sort_name.find(",") == -1:
+            # auto-magically fix syntax
+            self._sort_name = display_name_to_sort_name(new_sort_name)
+            return
+
+        self._sort_name = new_sort_name
+
+    # tell SQLAlchemy to use the sort_name setter for ort_name, not _sort_name, after all.
+    sort_name = synonym('_sort_name', descriptor=sort_name)
+
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
@@ -2201,6 +2231,8 @@ class Contributor(Base):
             destination,
             destination.viaf
         )
+        
+        # make sure we're not losing any names we know for the contributor
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
@@ -2208,6 +2240,18 @@ class Contributor(Base):
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
             destination.aliases = new_aliases
+
+        if not destination.family_name:
+            destination.family_name = self.family_name
+        if not destination.display_name:
+            destination.display_name = self.display_name
+        # keep sort_name if one of the contributor objects has it.
+        if not destination.sort_name:
+            destination.sort_name = self.sort_name
+        if not destination.wikipedia_name:
+            destination.wikipedia_name = self.wikipedia_name
+
+        # merge non-name-related properties
         for k, v in self.extra.items():
             if not k in destination.extra:
                 destination.extra[k] = v
@@ -2215,13 +2259,6 @@ class Contributor(Base):
             destination.lc = self.lc
         if not destination.viaf:
             destination.viaf = self.viaf
-        if not destination.family_name:
-            destination.family_name = self.family_name
-        if not destination.display_name:
-            destination.display_name = self.display_name
-        if not destination.wikipedia_name:
-            destination.wikipedia_name = self.wikipedia_name
-
         if not destination.biography:
             destination.biography = self.biography
 
