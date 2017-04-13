@@ -81,17 +81,17 @@ class OneClickAPI(object):
             )
         
         self.library_id = collection.external_account_id.encode("utf8")
-        self.token = collection.password.encode("utf8")
+        self.token = collection.external_integration.password.encode("utf8")
 
         # Convert the nickname for a server into an actual URL.
-        base_url = collection.url or self.PRODUCTION_BASE_URL
+        base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = (base_url + self.API_VERSION).encode("utf8")
 
         # expiration defaults are OneClick-general
-        self.ebook_loan_length = collection.setting('ebook_loan_length').value or '21'
-        self.eaudio_loan_length = collection.setting('eaudio_loan_length').value or '21'
+        self.ebook_loan_length = collection.external_integration.setting('ebook_loan_length').value or '21'
+        self.eaudio_loan_length = collection.external_integration.setting('eaudio_loan_length').value or '21'
 
 
     @classmethod
@@ -533,10 +533,10 @@ class MockOneClickAPI(OneClickAPI):
                 _db, Collection,
                 name="Test OneClick Collection",
                 protocol=Collection.ONE_CLICK, create_method_kwargs=dict(
-                    password=u'abcdef123hijklm',
                     external_account_id=u'library_id_123',
                 )
             )
+            collection.external_integration.password = u'abcdef123hijklm'
 
         self.responses = []
         self.requests = []

@@ -6,8 +6,9 @@ from collections import (
 )
 from lxml import etree
 from nose.tools import set_trace
-import cairosvg
+import base64
 import bisect
+import cairosvg
 import datetime
 import isbnlib
 import json
@@ -859,9 +860,6 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
-    # One DataSource can have many Catalogs.
-    catalogs = relationship("Catalog", backref="data_source")
-    
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -4058,11 +4056,11 @@ class Work(Base):
         simple = AcquisitionFeed.single_entry(_db, self, Annotator,
                                               force_create=True)
         if simple is not None:
-            self.simple_opds_entry = etree.tostring(simple)
+            self.simple_opds_entry = unicode(etree.tostring(simple))
         verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
                                                force_create=True)
         if verbose is not None:
-            self.verbose_opds_entry = etree.tostring(verbose)
+            self.verbose_opds_entry = unicode(etree.tostring(verbose))
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
@@ -8524,7 +8522,7 @@ class Library(Base):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
         )
-    
+
     @classmethod
     def instance(cls, _db):
         """Find the one and only library."""
@@ -8534,7 +8532,7 @@ class Library(Base):
             )
         )
         return library
-    
+
     @hybrid_property
     def library_registry_short_name(self):
         """Gets library_registry_short_name from database"""
@@ -8580,6 +8578,7 @@ class Library(Base):
             )
         return lines
 
+
 class Admin(Base):
 
     __tablename__ = 'admins'
@@ -8593,6 +8592,98 @@ class Admin(Base):
         self.access_token = access_token
         self.credential = credential
         _db.commit()
+
+
+class ExternalIntegration(Base):
+
+    """An external integration contains configuration for connecting
+    to a third-party API.
+    """
+
+    __tablename__ = 'externalintegrations'
+    id = Column(Integer, primary_key=True)
+
+    # If there is a special URL to use for access to this API,
+    # put it here.
+    url = Column(Unicode, nullable=True)
+
+    # If access requires authentication, these fields represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    username = Column(Unicode, nullable=True)
+    password = Column(Unicode, nullable=True)
+
+    # Any additional configuration information goes into the
+    # externalintegrationsettings table.
+    settings = relationship(
+        "ExternalIntegrationSetting", backref="external_integration"
+    )
+
+    def set_setting(self, key, value):
+        """Create or update a key-value setting for this ExternalIntegration."""
+        setting = self.setting(key)
+        setting.value = value
+        return setting
+    
+    def setting(self, key):
+        """Find or create a ExternalIntegrationSetting on this ExternalIntegration.
+
+        :param key: Name of the setting.
+        :return: A ExternalIntegrationSetting
+        """
+        _db = Session.object_session(self)
+        setting, is_new = get_one_or_create(
+            _db, ExternalIntegrationSetting, external_integration=self, key=key
+        )
+        return setting
+
+class ExternalIntegrationSetting(Base):
+    """An extra piece of information associated with an ExternalIntegration.
+
+    e.g. the "website ID" associated with an Overdrive collection, or the
+    JSON credentials for Google OAuth.
+    """
+    __tablename__ = 'externalintegrationsettings'
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(Integer, ForeignKey('externalintegrations.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
+
+    __table_args__ = (
+        UniqueConstraint('external_integration_id', 'key'),
+    )
+
+
+class AdminAuthenticationService(Base):
+    """An AdminAuthenticationService contains configuration for a third-party
+    service that can authenticate admins.
+    """
+
+    __tablename__ = "adminauthenticationservices"
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    provider = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'provider' field
+    GOOGLE_OAUTH = 'Google OAuth'
+
+    PROVIDERS = [GOOGLE_OAUTH]
+
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
+
+    @property
+    def external_integration(self):
+        _db = Session.object_session(self)
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
+        )
+        self.external_integration_id = external_integration.id
+        return external_integration
 
 
 class Collection(Base):
@@ -8623,22 +8714,11 @@ class Collection(Base):
     # called a "library ID".
     external_account_id = Column(Unicode, nullable=True)
 
-    # If there is a special URL to use for access to this collection,
-    # put it here. This is most common for OPDS and ODL integrations.
-    url = Column(Unicode, nullable=True)
-
-    # If access requires authentication, these fields represent the
-    # username/password or key/secret combination necessary to
-    # authenticate. If there's a secret but no key, it's stored in
-    # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
-
-    # Any additional configuration information goes into the
-    # collectionsettings table.
-    settings = relationship(
-        "CollectionSetting", backref="collection"
-    )
+    # How do we connect to the provider of this collection? Any
+    # url, authentication information, or additional configuration
+    # goes into the external integration.
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
@@ -8667,23 +8747,62 @@ class Collection(Base):
         backref="collections"
     )
 
-    def set_setting(self, key, value):
-        """Create or update a key-value setting for this Collection."""
-        setting = self.setting(key)
-        setting.value = value
-        return setting
-    
-    def setting(self, key):
-        """Find or create a CollectionSetting on this Collection.
+    catalog = relationship(
+        "Identifier", secondary=lambda: collections_identifiers,
+        backref="collections"
+    )
 
-        :param key: Name of the setting.
-        :return: A CollectionSetting
-        """
+    @property
+    def external_integration(self):
         _db = Session.object_session(self)
-        setting, is_new = get_one_or_create(
-            _db, CollectionSetting, collection=self, key=key
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
         )
-        return setting
+        self.external_integration_id = external_integration.id
+        return external_integration
+
+    @property
+    def unique_account_id(self):
+        """Identifier that uniquely represents this Collection of works"""
+        unique_account_id = self.external_account_id
+
+        if not unique_account_id:
+            raise ValueError("Unique account identifier not set")
+
+        if self.parent:
+            return self.parent.unique_account_id + '+' + unique_account_id
+        return unique_account_id
+
+    @property
+    def metadata_identifier(self):
+        """Identifier based on collection details that uniquely represents
+        this Collection on the metadata wrangler. This identifier is
+        composed of the Collection protocol and account identifier.
+
+        In the metadata wrangler, this identifier is used as the unique
+        name of the collection.
+        """
+        account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
+        protocol = base64.b64encode(unicode(self.protocol), '-_')
+
+        metadata_identifier = protocol + ':' + account_id
+        return base64.b64encode(metadata_identifier, '-_')
+
+    @classmethod
+    def from_metadata_identifier(cls, _db, metadata_identifier):
+        """Finds or creates a Collection on the metadata wrangler, based
+        on its unique metadata_identifier
+        """
+        collection = get_one(_db, Collection, name=metadata_identifier)
+        is_new = False
+
+        if not collection:
+            details = base64.b64decode(metadata_identifier, '-_')
+            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
+            collection, is_new = create(_db, Collection,
+                name=metadata_identifier, protocol=protocol)
+
+        return collection, is_new
 
     def explain(self, include_password=False):
         """Create a series of human-readable strings to explain a collection's
@@ -8707,32 +8826,38 @@ class Collection(Base):
             ))
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        if self.url:
-            lines.append('URL: "%s"' % self.url)
-        if self.username:
-            lines.append('Username: "%s"' % self.username)
-        if self.password and include_password:
-            lines.append('Password: "%s"' % self.password)
-        for setting in self.settings:
+        integration = self.external_integration
+        if integration.url:
+            lines.append('URL: "%s"' % integration.url)
+        if integration.username:
+            lines.append('Username: "%s"' % integration.username)
+        if integration.password and include_password:
+            lines.append('Password: "%s"' % integration.password)
+        for setting in integration.settings:
             lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
+    def catalog_identifier(self, _db, identifier):
+        """Inserts an identifier into a catalog"""
+        if identifier not in self.catalog:
+            self.catalog.append(identifier)
+            _db.flush()
 
-class CollectionSetting(Base):
-    """An extra piece of information associated with a Collection.
+    def works_updated_since(self, _db, timestamp):
+        """Returns all of a collection's works that have been updated
+        since the last time the catalog was checked
+        """
+        query = _db.query(Work).join(Work.coverage_records)
+        query = query.join(Work.license_pools).join(Identifier)
+        query = query.join(Identifier.collections).filter(
+            Collection.id==self.id
+        )
+        if timestamp:
+            query = query.filter(
+                WorkCoverageRecord.timestamp > timestamp
+            )
 
-    e.g. the "website ID" associated with an Overdrive collection, which
-    does not map onto any of the attributes of Collection.
-    """
-    __tablename__ = 'collectionsettings'
-    id = Column(Integer, primary_key=True)
-    collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
-    key = Column(Unicode, index=True)
-    value = Column(Unicode)
-
-    __table_args__ = (
-        UniqueConstraint('collection_id', 'key'),
-    )
+        return query
 
 
 collections_libraries = Table(
@@ -8759,147 +8884,117 @@ collections_licensepools = Table(
          index=True, nullable=False
      ),
      UniqueConstraint('collection_id', 'licensepool_id'),
- )
+)
 
-    
-class Catalog(Base):
-
-    """A Catalog is like a Collection, but it doesn't hold any actual
-    LicensePools, it just records Identifiers.
-
-    The Collections associated with a Library in its circulation
-    manager will show up as Catalogs associated with the corresponding
-    Library in the metadata wrangler.
-    """
-
-    __tablename__ = 'catalogs'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(Unicode, unique=True, nullable=False)
-    client_id = Column(Unicode, unique=True, index=True)
-    _client_secret = Column(Unicode, nullable=False)
-
-    # A catalog can have one DataSource
-    data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True
-    )
-
-    # A catalog can include many Identifiers
-    catalog = relationship(
-        "Identifier", secondary=lambda: catalogs_identifiers,
-        backref="catalogs"
-    )
-
-
-    def __repr__(self):
-        return "%s ID=%s DATASOURCE_ID=%d" % (
-            self.name, self.id, self.data_source.id
-        )
-
-    @hybrid_property
-    def client_secret(self):
-        """Gets encrypted client_secret from database"""
-        return self._client_secret
-
-    @client_secret.setter
-    def _set_client_secret(self, plaintext_secret):
-        """Encrypts client secret string for database"""
-        self._client_secret = unicode(bcrypt.hashpw(
-            plaintext_secret, bcrypt.gensalt()
-        ))
-
-    def _correct_secret(self, plaintext_secret):
-        """Determines if a plaintext string is the client_secret"""
-        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
-                == self.client_secret)
-
-    @classmethod
-    def register(cls, _db, name):
-        """Creates a new catalog with client details and a datasource."""
-
-        name = unicode(name)
-        catalog = get_one(_db, cls, name=name)
-        if catalog:
-            raise ValueError(
-                "A catalog with the name '%s' already exists: %r" % (
-                name, catalog)
-            )
-
-        catalog_data_source, ignore = get_one_or_create(
-            _db, DataSource, name=name, offers_licenses=False
-        )
-
-        client_id, plaintext_client_secret = cls._generate_client_details()
-        # Generate a new client_id if it's not unique initially.
-        while get_one(_db, cls, client_id=client_id):
-            client_id, plaintext_client_secret = cls._generate_client_details()
-
-        catalog, ignore = get_one_or_create(
-            _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret),
-            data_source=catalog_data_source
-        )
-
-        _db.commit()
-        return catalog, plaintext_client_secret
-
-    @classmethod
-    def _generate_client_details(cls):
-        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
-                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                           '0123456789')
-        client_secret_chars = client_id_chars + '!#$%&*+,-._'
-
-        def make_client_string(chars, length):
-            return u"".join([random.choice(chars) for x in range(length)])
-        client_id = make_client_string(client_id_chars, 25)
-        client_secret = make_client_string(client_secret_chars, 40)
-
-        return client_id, client_secret
-
-    @classmethod
-    def authenticate(cls, _db, client_id, plaintext_client_secret):
-        catalog = get_one(_db, cls, client_id=unicode(client_id))
-        if (catalog and
-            catalog._correct_secret(plaintext_client_secret)):
-            return catalog
-        return None
-
-    def catalog_identifier(self, _db, identifier):
-        """Inserts an identifier into a catalog"""
-        if identifier not in self.catalog:
-            self.catalog.append(identifier)
-            _db.commit()
-
-    def works_updated_since(self, _db, timestamp):
-        """Returns all of a catalog's works that have been updated since the
-        last time the catalog was checked"""
-
-        query = _db.query(Work).join(Work.coverage_records)
-        query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.catalogs).filter(
-            Catalog.id==self.id
-        )
-        if timestamp:
-            query = query.filter(
-                WorkCoverageRecord.timestamp > timestamp
-            )
-
-        return query
-
-
-catalogs_identifiers = Table(
-    'catalogsidentifiers', Base.metadata,
+collections_identifiers = Table(
+    'collections_identifiers', Base.metadata,
     Column(
-        'catalog_id', Integer, ForeignKey('catalogs.id'),
+        'collection_id', Integer, ForeignKey('collections.id'),
         index=True, nullable=False
     ),
     Column(
         'identifier_id', Integer, ForeignKey('identifiers.id'),
         index=True, nullable=False
     ),
-    UniqueConstraint('catalog_id', 'identifier_id'),
+    UniqueConstraint('collection_id', 'identifier_id'),
 )
+
+
+class IntegrationClient(Base):
+    """A client that has authenticated access to this application.
+
+    Currently used to represent circulation managers that have access
+    to the metadata wrangler.
+    """
+    __tablename__ = 'integrationclients'
+
+    id = Column(Integer, primary_key=True)
+
+    # URL (or human readable name) to represent the server.
+    url = Column(Unicode, unique=True)
+
+    # Unique identifier
+    key = Column(Unicode, unique=True, index=True)
+
+    # Encrypted secret
+    _secret = Column(Unicode, nullable=False)
+
+    created = Column(DateTime)
+    last_accessed = Column(DateTime)
+
+    def __repr__(self):
+        return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
+
+    @hybrid_property
+    def secret(self):
+        """Gets encrypted client secret from database"""
+        return self._secret
+
+    @secret.setter
+    def _set_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
+        self._secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is this client's secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.secret) == self.secret)
+
+    @classmethod
+    def register(cls, _db, url):
+        """Creates a new server with client details."""
+        url = cls.normalize_url(url)
+        if get_one(_db, cls, url=url):
+            raise ValueError(
+                "An IntegrationClient for '%s' already exists" % url
+            )
+
+        key, plaintext_secret = cls._generate_client_details()
+        while get_one(_db, cls, key=key):
+            # Generate a new key if it's not unique initially.
+            key, plaintext_secret = cls._generate_client_details()
+
+        now = datetime.datetime.utcnow()
+        server, ignore = create(
+            _db, cls, url=url, key=unicode(key),
+            secret=unicode(plaintext_secret), created=now, last_accessed=now
+        )
+
+        _db.flush()
+        return server, plaintext_secret
+
+    @classmethod
+    def _generate_client_details(cls):
+        key_chars = ('abcdefghijklmnopqrstuvwxyz'
+                     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                     '0123456789')
+        secret_chars = key_chars + '!#$%&*+,-._'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        key = make_client_string(key_chars, 25)
+        secret = make_client_string(secret_chars, 40)
+
+        return key, secret
+
+    @classmethod
+    def normalize_url(cls, url):
+        url = re.sub(r'^(http://|https://)', '', url)
+        url = re.sub(r'^www\.', '', url)
+        if url.endswith('/'):
+            url = url[:-1]
+        return unicode(url.lower())
+
+    @classmethod
+    def authenticate(cls, _db, key, plaintext_secret):
+        server = get_one(_db, cls, key=unicode(key))
+        if (server and server._correct_secret(plaintext_secret)):
+            server.last_accessed = datetime.datetime.utcnow()
+            _db.flush()
+            return server
+        return None
+
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

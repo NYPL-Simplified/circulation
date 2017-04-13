@@ -75,12 +75,12 @@ class ThreeMAPI(object):
 
         self._db = _db
         self.version = (
-            collection.setting('version').value or self.DEFAULT_VERSION
+            collection.external_integration.setting('version').value or self.DEFAULT_VERSION
         )
-        self.account_id = collection.username.encode("utf8")
-        self.account_key = collection.password.encode("utf8")
+        self.account_id = collection.external_integration.username.encode("utf8")
+        self.account_key = collection.external_integration.password.encode("utf8")
         self.library_id = collection.external_account_id.encode("utf8")
-        self.base_url = collection.url or self.DEFAULT_BASE_URL
+        self.base_url = collection.external_integration.url or self.DEFAULT_BASE_URL
         
         if not self.account_id or not self.account_key or not self.library_id:
             raise CannotLoadConfiguration(
@@ -220,10 +220,12 @@ class MockThreeMAPI(ThreeMAPI):
             _db, Collection,
             name="Test Bibliotheca Collection",
             protocol=Collection.BIBLIOTHECA, create_method_kwargs=dict(
-                username=u'a', password=u'b', external_account_id=u'c',
-                url="http://bibliotheca.test"
+                external_account_id=u'c',
             )
         )
+        collection.external_integration.username = u'a'
+        collection.external_integration.password = u'b'
+        collection.external_integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         super(MockThreeMAPI, self).__init__(
             _db, collection, *args, **kwargs

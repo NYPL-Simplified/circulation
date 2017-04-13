@@ -13,8 +13,8 @@ from config import Configuration
 
 from model import (
     Base,
-    Catalog,
     Classification,
+    IntegrationClient,
     Collection,
     Complaint,
     Contributor,
@@ -645,16 +645,16 @@ class DatabaseTest(object):
             self._db, Collection, name=name, protocol=protocol
         )
         collection.external_account_id = external_account_id
-        collection.url = url
-        collection.username = username
-        collection.password = password
+        collection.external_integration.url = url
+        collection.external_integration.username = username
+        collection.external_integration.password = password
         return collection
         
-    def _catalog(self, name=u"Faketown Public Library"):
-        source, ignore = get_one_or_create(self._db, DataSource, name=name)
+    def _integration_client(self, url=None):
+        url = url or self._url
         return get_one_or_create(
-            self._db, Catalog, name=name, data_source=source,
-            client_id=u"abc", client_secret=u"def"
+            self._db, IntegrationClient,
+            url=url, key=u"abc", secret=u"def"
         )[0]
 
     def _subject(self, type, identifier):
