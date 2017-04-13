@@ -17,7 +17,7 @@ mdFix = re.compile("((. +)|(, ?))M\.? *D(\.| |$){1}")
 trailingPunctuation = re.compile("(.*)(\w{4,})([?:.,;]*?)\Z")
 
 
-def replaceMD(match):
+def _replace_md(match):
     """
     If the "MD" professional title was matched, make sure it's got no punctuation in it.
     :param match: a regular expression matched to a string
@@ -28,7 +28,7 @@ def replaceMD(match):
     return match.groups()[0] + "MD"
 
 
-def replacePhD(match):
+def _replace_phd(match):
     """
     If the "PhD" professional title was matched, make sure it's got no punctuation in it.
     :param match: a regular expression matched to a string
@@ -39,7 +39,7 @@ def replacePhD(match):
     return match.groups()[0] + "PhD"
 
 
-def replaceEndPunctuation(match):
+def _replace_end_punctuation(match):
     """
     If there was found to be improper punctuation at the end of the name string, 
     clean it off.
@@ -169,19 +169,15 @@ def name_tidy(name):
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
 
     name = name.strip()
+
     # Check that we don't have illegitimate punctuation.  So in 'Classy, Abe.' 
     # the period is probably an artifact of dirty data, but in 'Classy, A.' 
     # the period is a legitimate part of the initials.
-    
-    #TODO removeif name.endswith(',') or name.endswith('.'):  
-    #    name = name[:-1]
-    #name = re.sub(trailingPunctuation, r'\1', name)
-    name = trailingPunctuation.sub(replaceEndPunctuation, name, re.I)
-
+    name = trailingPunctuation.sub(_replace_end_punctuation, name, re.I)
 
     # clean up the common PhD and MD suffixes, so HumanName recognizes them better
-    name = phdFix.sub(replacePhD, name, re.I)
-    name = mdFix.sub(replaceMD, name, re.I)
+    name = phdFix.sub(_replace_phd, name, re.I)
+    name = mdFix.sub(_replace_md, name, re.I)
 
     return name.strip()
 
