@@ -28,6 +28,7 @@ from model import (
     Genre,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
     Patron,
     Representation,
@@ -672,7 +673,7 @@ class DatabaseTest(object):
         """
         if not hasattr(self, '_default__library'):
             self._default__library = Library.instance(self._db)
-            self._default__library.collections.append(_default_collection)
+            self._default__library.collections.append(self._default_collection)
         return self._default__library
         
     @property
