@@ -268,7 +268,8 @@ class TestOverdriveAPI(OverdriveAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.OVERDRIVE_ID,
             data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
+            with_license_pool=True,
+            collection=self.collection
         )
 
         # We have never checked the circulation information for this
@@ -299,7 +300,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         self.api.update_availability(pool)
 
-        # The availability information has been udpated, as has the
+        # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
         eq_(5, pool.licenses_available)
