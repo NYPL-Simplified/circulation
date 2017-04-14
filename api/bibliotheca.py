@@ -107,14 +107,16 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
-        monitor = BibliothecaCirculationSweep(licensepool.collection)
+        monitor = BibliothecaCirculationSweep(
+            licensepool.collection, api_class=self
+        )
         return monitor.process_batch([licensepool.identifier])
 
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
-        return PatronCirculationParser().process_all(response.content)
+        return PatronCirculationParser(self.collection).process_all(response.content)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
@@ -160,6 +162,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         # At this point we know we have a loan.
         loan_expires = CheckoutResponseParser().process_all(response.content)
         loan = LoanInfo(
+            licensepool.collection, DataSource.BIBLIOTHECA,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             start_date=None,
@@ -171,6 +174,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         response = self.get_fulfillment_file(
             patron.authorization_identifier, pool.identifier.identifier)
         return FulfillmentInfo(
+            pool.collection, DataSource.BIBLIOTHECA,
             pool.identifier.type,
             pool.identifier.identifier,
             content_link=None,
@@ -209,6 +213,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             start_date = datetime.datetime.utcnow()
             end_date = HoldResponseParser().process_all(response.content)
             return HoldInfo(
+                licensepool.collection, DataSource.BIBLIOTHECA,
                 licensepool.identifier.type,
                 licensepool.identifier.identifier,
                 start_date=start_date, 
@@ -474,6 +479,10 @@ class PatronCirculationParser(BibliothecaParser):
 
     id_type = Identifier.BIBLIOTHECA_ID
 
+    def __init__(self, collection, *args, **kwargs):
+        super(PatronCirculationParser, self).__init__(*args, **kwargs)
+        self.collection = collection
+    
     def process_all(self, string):
         parser = etree.XMLParser()
         root = etree.parse(StringIO(string), parser)
@@ -513,7 +522,8 @@ class PatronCirculationParser(BibliothecaParser):
         identifier = self.text_of_subtag(tag, "ItemId")
         start_date = datevalue("EventStartDateInUTC")
         end_date = datevalue("EventEndDateInUTC")
-        a = [self.id_type, identifier, start_date, end_date]
+        a = [self.collection, DataSource.BIBLIOTHECA, self.id_type, identifier,
+             start_date, end_date]
         if source_class is HoldInfo:
             hold_position = self.int_of_subtag(tag, "Position")
             a.append(hold_position)
@@ -610,7 +620,10 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         super(BibliothecaCirculationSweep, self).__init__(
             _db, collection, **kwargs
         )
-        self.api = api_class(collection)
+        if isinstance(api_class, BibliothecaAPI):
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
     
     def process_batch(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
@@ -622,28 +635,33 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
         now = datetime.datetime.utcnow()
 
+        collection = self.api.collection
         for circ in self.api.get_circulation_for(bibliotheca_ids):
             if not circ:
                 continue
             bibliotheca_id = circ[Identifier][Identifier.BIBLIOTHECA_ID]
             identifier = identifiers_by_bibliotheca_id[bibliotheca_id]
             identifiers_not_mentioned_by_bibliotheca.remove(identifier)
-
-            pool = identifier.licensed_through
-            if not pool:
+            pools = [lp for lp in identifier.licensed_through
+                     if lp.data_source.name==DataSource.BIBLIOTHECA
+                     and lp.collection == collection]
+            if not pools:
                 # We don't have a license pool for this work. That
                 # shouldn't happen--how did we know about the
                 # identifier?--but it shouldn't be a big deal to
                 # create one.
                 pool, ignore = LicensePool.for_foreign_id(
                     self._db, self.data_source, identifier.type,
-                    identifier.identifier)
+                    identifier.identifier, collection=collection
+                )
 
                 # Bibliotheca books are never open-access.
                 pool.open_access = False
                 Analytics.collect_event(
                     self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
-
+            else:
+                [pool] = pools
+                
             self.api.apply_circulation_information_to_licensepool(circ, pool)
 
         # At this point there may be some license pools left over
@@ -651,23 +669,26 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         # indication that we no longer own any licenses to the
         # book.
         for identifier in identifiers_not_mentioned_by_bibliotheca:
-            pool = identifier.licensed_through
-            if not pool:
+            pools = [lp for lp in identifier.licensed_through
+                     if lp.data_source.name==DataSource.BIBLIOTHECA
+                     and lp.collection == collection]
+            if not pools:
                 continue
-            if pool.licenses_owned > 0:
-                if pool.presentation_edition:
-                    self.log.warn("Removing %s (%s) from circulation",
-                                  pool.presentation_edition.title, pool.presentation_edition.author)
-                else:
-                    self.log.warn(
-                        "Removing unknown work %s from circulation.",
-                        identifier.identifier
-                    )
-            pool.licenses_owned = 0
-            pool.licenses_available = 0
-            pool.licenses_reserved = 0
-            pool.patrons_in_hold_queue = 0
-            pool.last_checked = now
+            for pool in pools:
+                if pool.licenses_owned > 0:
+                    if pool.presentation_edition:
+                        self.log.warn("Removing %s (%s) from circulation",
+                                      pool.presentation_edition.title, pool.presentation_edition.author)
+                    else:
+                        self.log.warn(
+                            "Removing unknown work %s from circulation.",
+                            identifier.identifier
+                        )
+                pool.licenses_owned = 0
+                pool.licenses_available = 0
+                pool.licenses_reserved = 0
+                pool.patrons_in_hold_queue = 0
+                pool.last_checked = now
 
 
 class BibliothecaEventMonitor(Monitor):

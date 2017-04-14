@@ -12,6 +12,7 @@ from core.analytics import Analytics
 from core.model import (
     get_one,
     CirculationEvent,
+    Collection,
     CollectionMissing,
     Identifier,
     DataSource,

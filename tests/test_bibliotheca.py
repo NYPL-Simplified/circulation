@@ -54,6 +54,7 @@ class BibliothecaAPITest(DatabaseTest):
     def setup(self):
         super(BibliothecaAPITest,self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        self._default_library.collections.append(self.collection)
         self.api = MockBibliothecaAPI(self.collection)
 
     @classmethod
@@ -151,9 +152,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert pool.last_checked is not old_last_checked
 
     def test_sync_bookshelf(self):
-        patron = self._patron()        
+        patron = self._patron()
         self.api.queue_response(200, content=self.sample_data("checkouts.xml"))
-        circulation = CirculationAPI(self._db, threem=self.api)
+        circulation = CirculationAPI(self._default_library)
         circulation.sync_bookshelf(patron, "dummy pin")
 
         # The patron should have two loans and two holds.
@@ -226,7 +227,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
 
     def test_parse(self):
         data = self.sample_data("checkouts.xml")
-        loans_and_holds = PatronCirculationParser().process_all(data)
+        collection = object()
+        loans_and_holds = PatronCirculationParser(collection).process_all(data)
         loans = [x for x in loans_and_holds if isinstance(x, LoanInfo)]
         holds = [x for x in loans_and_holds if isinstance(x, HoldInfo)]
         eq_(2, len(loans))
@@ -242,6 +244,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         [h1, h2] = sorted(holds, key=lambda x: x.identifier)
 
         # This is the book on reserve.
+        eq_(collection, h1.collection)
+        eq_(DataSource.BIBLIOTHECA, h1.data_source_name)
         eq_("9wd8", h1.identifier)
         expect_hold_start = datetime.datetime(2015, 5, 25, 17, 5, 34)
         expect_hold_end = datetime.datetime(2015, 5, 27, 17, 5, 34)
@@ -251,6 +255,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
 
         # This is the book on hold.
         eq_("d4o8r9", h2.identifier)
+        eq_(collection, h2.collection)
+        eq_(DataSource.BIBLIOTHECA, h2.data_source_name)
         expect_hold_start = datetime.datetime(2015, 3, 24, 15, 6, 56)
         expect_hold_end = datetime.datetime(2015, 3, 24, 15, 7, 51)
         eq_(expect_hold_start, h2.start_date)
