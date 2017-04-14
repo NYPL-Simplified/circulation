@@ -593,7 +593,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         patron = self._patron()
         overdrive_edition, new = self._edition(
             data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
+            with_license_pool=True, collection=self.collection
         )
         overdrive_loan, new = overdrive_edition.license_pool.loan_to(patron)
         yesterday = datetime.utcnow() - timedelta(days=1)
@@ -650,8 +650,11 @@ class TestSyncBookshelf(OverdriveAPITest):
         holds_data, json_holds = self.sample_json("holds.json")
         
         patron = self._patron()
-        overdrive_edition, new = self._edition(data_source_name=DataSource.OVERDRIVE,
-                                       with_license_pool=True)
+        overdrive_edition, new = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True,
+            collection=self.collection
+        )
         overdrive_hold, new = overdrive_edition.license_pool.on_hold_to(patron)
 
 
@@ -664,20 +667,27 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(holds, patron.holds)
         assert overdrive_hold not in patron.loans
 
-    def test_sync_bookshelf_ignores_holds_from_other_sources(self):
+    def test_sync_bookshelf_ignores_holds_from_other_collections(self):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
 
         patron = self._patron()
-        threem, new = self._edition(data_source_name=DataSource.THREEM,
-                                    with_license_pool=True)
-        threem_hold, new = threem.license_pool.on_hold_to(patron)
+
+        # This patron has an Overdrive book on hold, but it derives
+        # from an Overdrive Collection that's not managed by
+        # self.circulation.
+        overdrive, new = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True,
+            collection=self._collection()
+        )
+        overdrive_hold, new = threem.license_pool.on_hold_to(patron)
    
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
 
-        # Overdrive doesn't know about the 3M hold, but it was
-        # not destroyed, because it came from another source.
+        # self.api doesn't know about the hold, but it was not
+        # destroyed, because it came from a different collection.
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert threem_hold in patron.holds
