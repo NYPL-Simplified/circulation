@@ -3628,6 +3628,11 @@ class Work(Base):
                 if edition.cover_thumbnail_url:
                     cover_urls.append(edition.cover_thumbnail_url)
 
+        if not cover_urls:
+            # All of the target Works have already had their
+            # covers suppressed. Nothing to see here.
+            return
+
         covers = _db.query(Resource).join(Hyperlink.identifier).\
             join(Identifier.licensed_through).filter(
                 Resource.url.in_(cover_urls),
