@@ -85,7 +85,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                     format=internal_format)
         response = self.request(url, data=args, method="POST")
         try:
-            return CheckoutResponseParser().process_all(response.content)
+            return CheckoutResponseParser(
+                licensepool.collection).process_all(response.content)
         except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
@@ -130,7 +131,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        hold_info = HoldResponseParser().process_all(response.content)
+        hold_info = HoldResponseParser(licensepool.collection).process_all(
+            response.content)
         if not hold_info.identifier:
             # The Axis 360 API doesn't return the identifier of the 
             # item that was placed on hold, so we have to fill it in
@@ -147,7 +149,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
         try:
-            HoldReleaseResponseParser().process_all(
+            HoldReleaseResponseParser(licensepool.collection).process_all(
                 response.content)
         except NotOnHold:
             # Fine, it wasn't on hold and now it's still not on hold.
@@ -163,7 +165,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         availability = self.availability(
             patron_id=patron.authorization_identifier, 
             title_ids=title_ids)
-        return list(AvailabilityResponseParser().process_all(
+        return list(AvailabilityResponseParser(self.collection).process_all(
             availability.content))
 
     def update_availability(self, licensepool):
@@ -184,13 +186,14 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser()
+        collection = self.collection
+        parser = BibliographicParser(collection)
         remainder = set(identifiers)
         for bibliographic, availability in parser.process_all(response.content):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = availability.license_pool(self._db, self.collection)
+            pool, is_new = availability.license_pool(self._db, collection)
             availability.apply(self._db, pool.collection)
 
         # We asked Axis about n books. It sent us n-k responses. Those
@@ -261,7 +264,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
         status_code = availability.status_code
         content = availability.content
         count = 0
-        for bibliographic, circulation in BibliographicParser().process_all(
+        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
                 content):
             self.process_book(bibliographic, circulation)
             count += 1
@@ -378,6 +381,18 @@ class ResponseParser(Axis360Parser):
         5000 : RemoteInitiatedServerError,
     }
 
+    def __init__(self, collection):
+        self.collection = collection
+
+    def process_all(self, *args, **kwargs):
+        """Annotate outgoing objects with the correct Collection."""
+        for i in super(ResponseParser, self).process_all(*args, **kwargs):
+            self.post_process(i)
+            yield i
+
+    def post_process(self, i):
+        i.collection = self.collection
+            
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
         condition.
@@ -441,14 +456,17 @@ class CheckoutResponseParser(ResponseParser):
             expiration_date = expiration_date.text
             expiration_date = datetime.strptime(
                 expiration_date, self.FULL_DATE_FORMAT)
-            
+
+        # WTH??? Why is identifier None? Is this ever used?
         fulfillment = FulfillmentInfo(
+            collection=None, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type,
             identifier=None, content_link=fulfillment_url,
-            content_type=None, content=None, content_expires=None)
+            content_type=None, content=None, content_expires=None
+        )
         loan_start = datetime.utcnow()
         loan = LoanInfo(
-            # WTH??? Why is identifier None? Is this ever used?
+            collection=None, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
@@ -483,7 +501,10 @@ class HoldResponseParser(ResponseParser):
                 queue_position = None
 
         hold_start = datetime.utcnow()
+        # NOTE: The caller needs to fill in Collection -- we have no idea
+        # what collection this is.
         hold = HoldInfo(
+            collection=None, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
@@ -495,6 +516,12 @@ class HoldReleaseResponseParser(ResponseParser):
                 string, "//axis:removeholdResult", self.NS):
             return i
 
+    def post_process(self, i):
+        """Unlike other ResponseParser subclasses, we don't return any type of
+        *Info object, so there's no need to do any post-processing.
+        """
+        return i
+        
     def process_one(self, e, namespaces):
         # There's no data to gather here. Either there was an error
         # or we were successful.
@@ -533,6 +560,7 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
+                    collection=None, data_source_name=DataSource.AXIS_360,
                     identifier_type=self.id_type,
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
@@ -540,6 +568,7 @@ class AvailabilityResponseParser(ResponseParser):
             else:
                 fulfillment = None
             info = LoanInfo(
+                collection=None, data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
@@ -549,6 +578,7 @@ class AvailabilityResponseParser(ResponseParser):
             end_date = self._xpath1_date(
                 availability, 'axis:reservedEndDate', ns)
             info = HoldInfo(
+                collection=None, data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, 
@@ -559,6 +589,7 @@ class AvailabilityResponseParser(ResponseParser):
             position = self.int_of_optional_subtag(
                 availability, 'axis:holdsQueuePosition', ns)
             info = HoldInfo(
+                collection=None, data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, end_date=None,
