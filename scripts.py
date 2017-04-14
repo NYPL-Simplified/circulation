@@ -924,8 +924,12 @@ class WorkProcessingScript(IdentifierInputScript):
 
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
-        self.identifiers = args.identifiers
         self.data_source = args.identifier_data_source
+
+        self.identifiers = self.parse_identifier_list(
+            self._db, self.identifier_type, self.data_source,
+            args.identifier_strings
+        )
 
         self.batch_size = batch_size
         self.query = self.make_query(
