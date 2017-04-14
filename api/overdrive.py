@@ -639,6 +639,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             info, include_bibliographic=False, include_formats=True)
         circulation_data = metadata.circulation
 
+        # The identifier in the CirculationData needs to match the
+        # identifier associated with the LicensePool -- otherwise
+        # a new LicensePool will be created.
+        circulation_data._primary_identifier.identifier = licensepool.identifier.identifier
         replace = ReplacementPolicy(formats=True)
         _db = Session.object_session(licensepool)
         circulation_data.apply(_db, licensepool.collection, replace)

@@ -230,6 +230,7 @@ class TestOverdriveAPI(OverdriveAPITest):
     def test_update_formats(self):
         # Create a LicensePool with an inaccurate delivery mechanism.
         edition, pool = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
@@ -266,8 +267,6 @@ class TestOverdriveAPI(OverdriveAPITest):
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
             identifier_type=Identifier.OVERDRIVE_ID,
-            # TODO: If this line is commented out, we get an error later
-            # on which might or might not be worrisome.
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True
         )
