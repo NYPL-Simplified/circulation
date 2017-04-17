@@ -169,7 +169,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
-                _db, lanes=lanes, testing=True
+                self._db, lanes=lanes, testing=True
             )
             self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
@@ -898,7 +898,7 @@ class TestLoanController(CirculationControllerTest):
                  "/", headers=dict(Authorization=self.valid_auth)):
              patron = self.manager.loans.authenticated_patron_from_request()
              response = self.manager.loans.revoke(
-                 "No such data source", "No such identifier type", "No such identifier"
+                 "No such identifier type", "No such identifier"
              )
              assert isinstance(response, ProblemDetail)
              eq_(INVALID_INPUT.uri, response.uri)
@@ -1063,9 +1063,9 @@ class TestLoanController(CirculationControllerTest):
             borrow_link = [x for x in threem_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
             threem_revoke_links = [x for x in threem_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert urllib.quote("%s/%s/%s/fulfill" % (overdrive_pool.data_source.name, overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
-            assert urllib.quote("%s/%s/%s/revoke" % (overdrive_pool.data_source.name, overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
-            assert urllib.quote("%s/%s/%s/borrow" % (threem_pool.data_source.name, threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
+            assert urllib.quote("%s/%s/fulfill" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
+            assert urllib.quote("%s/%s/revoke" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
+            assert urllib.quote("%s/%s/borrow" % (threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
             eq_(0, len(threem_revoke_links))
 
 
@@ -1391,7 +1391,7 @@ class TestWorkController(CirculationControllerTest):
 
     def test_permalink(self):
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.permalink(self.datasource, self.identifier.type, self.identifier.identifier)
+            response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
             annotator = CirculationManagerAnnotator(None, None)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
@@ -1410,7 +1410,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
-        args = [self.datasource, self.identifier.type,
+        args = [self.identifier.type,
                 self.identifier.identifier]
         kwargs = dict(novelist_api=mock_api)
         
@@ -1450,7 +1450,7 @@ class TestWorkController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
         # A feed is returned with the proper recommendation.
@@ -1472,7 +1472,7 @@ class TestWorkController(CirculationControllerTest):
             with self.app.test_request_context('/'):
                 config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
                 response = self.manager.work_controller.recommendations(
-                    self.datasource, self.identifier.type, self.identifier.identifier
+                    self.identifier.type, self.identifier.identifier
                 )
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
@@ -1493,7 +1493,7 @@ class TestWorkController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/?order=title"):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
 
@@ -1512,7 +1512,7 @@ class TestWorkController(CirculationControllerTest):
 
         with self.app.test_request_context("/?order=author"):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
 
@@ -1532,7 +1532,7 @@ class TestWorkController(CirculationControllerTest):
         # Pagination works.
         with self.app.test_request_context("/?size=1&order=title"):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
 
@@ -1550,7 +1550,7 @@ class TestWorkController(CirculationControllerTest):
 
         with self.app.test_request_context("/?after=1&order=title"):
             response = self.manager.work_controller.recommendations(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
 
@@ -1574,7 +1574,7 @@ class TestWorkController(CirculationControllerTest):
 
             with self.app.test_request_context('/'):
                 response = self.manager.work_controller.related(
-                    self.datasource, self.identifier.type, self.identifier.identifier
+                    self.identifier.type, self.identifier.identifier
                 )
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
@@ -1605,7 +1605,7 @@ class TestWorkController(CirculationControllerTest):
         # A grouped feed is returned with all of the related books
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.related(
-                self.datasource, self.identifier.type, self.identifier.identifier,
+                self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
             )
         eq_(200, response.status_code)
@@ -1621,7 +1621,7 @@ class TestWorkController(CirculationControllerTest):
         title, href = collection_link(e1)
 
         eq_("Recommended Books", title)
-        work_url = "/works/%s/%s/%s/" % (self.datasource, self.identifier.type, self.identifier.identifier)
+        work_url = "/works/%s/%s/" % (self.identifier.type, self.identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
         eq_(True, href.endswith(expected))
 
@@ -1658,7 +1658,7 @@ class TestWorkController(CirculationControllerTest):
 
     def test_report_problem_get(self):
         with self.app.test_request_context("/"):
-            response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
+            response = self.manager.work_controller.report(self.identifier.type, self.identifier.identifier)
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
         for i in Complaint.VALID_TYPES:
@@ -1671,7 +1671,7 @@ class TestWorkController(CirculationControllerTest):
                             "detail": "bar"}
         )
         with self.app.test_request_context("/", method="POST", data=data):
-            response = self.manager.work_controller.report(self.datasource, self.identifier.type, self.identifier.identifier)
+            response = self.manager.work_controller.report(self.identifier.type, self.identifier.identifier)
         eq_(201, response.status_code)
         [complaint] = self.lp.complaints
         eq_(error_type, complaint.type)
@@ -1962,12 +1962,12 @@ class TestAnalyticsController(CirculationControllerTest):
             )            
 
             with self.app.test_request_context("/"):
-                response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "invalid_type")
+                response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "invalid_type")
                 eq_(400, response.status_code)
                 eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
             with self.app.test_request_context("/"):
-                response = self.manager.analytics_controller.track_event(self.datasource, self.identifier.type, self.identifier.identifier, "open_book")
+                response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
                 eq_(200, response.status_code)
 
                 circulation_event = get_one(

@@ -129,21 +129,11 @@ class MockRemoteAPI(BaseCirculationAPI):
 
 class MockCirculationAPI(CirculationAPI):
 
-    def __init__(self, _db):
-        super(MockCirculationAPI, self).__init__(_db)
+    def __init__(self, library):
+        super(MockCirculationAPI, self).__init__(library)
         self.responses = defaultdict(list)
         self.remote_loans = []
         self.remote_holds = []
-        self.identifier_type_to_data_source_name = {
-            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
-            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
-            Identifier.THREEM_ID: DataSource.THREEM,
-            Identifier.AXIS_360_ID: DataSource.AXIS_360,
-        }
-        self.data_source_ids_for_sync = [
-            DataSource.lookup(self._db, name).id for name in 
-            self.identifier_type_to_data_source_name.values()
-        ]
         self.remotes = {}
 
     def local_loans(self, patron):

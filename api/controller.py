@@ -212,19 +212,12 @@ class CirculationManager(object):
                 return None
 
     def setup_circulation(self):
-        """Set up distributor APIs and a the Circulation object."""
+        """Set up the Circulation object."""        
         if self.testing:
-            self.circulation = MockCirculationAPI(self._db)
+            cls = MockCirculationAPI
         else:
-            overdrive = OverdriveAPI.from_environment(self._db)
-            bibliotheca = BibliothecaAPI.from_environment(self._db)
-            axis = Axis360API.from_environment(self._db)
-            self.circulation = CirculationAPI(
-                _db=self._db, 
-                bibliotheca=bibliotheca, 
-                overdrive=overdrive,
-                axis=axis
-            )
+            cls = CirculationAPI
+        self.circulation = cls(Library.instance(self._db))
 
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
@@ -1028,16 +1021,19 @@ class WorkController(CirculationManagerController):
                 novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
 
+        work = pools.work
         try:
             lane_name = "Books Related to %s by %s" % (
-                pool.work.title, pool.work.author
+                work.title, work.author
             )
+            # TODO: It should be possible to pass in the Work object
+            # here rather than one of the LicensePools.
             lane = RelatedBooksLane(
-                self._db, pool, lane_name, novelist_api=novelist_api
+                self._db, pools[0], lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1063,10 +1059,14 @@ class WorkController(CirculationManagerController):
 
     def report(self, identifier_type, identifier):
         """Report a problem with a book."""
-    
+
+        # TODO: We don't have a reliable way of knowing whether the
+        # complaing is being lodged against the work or against a
+        # specific LicensePool.
+        
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pool
     
@@ -1145,11 +1145,14 @@ class ProfileController(CirculationManagerController):
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, identifier_type, identifier, event_type):
+        # TODO: It usually doesn't matter, but there should be
+        # a way to distinguish between different LicensePools for the
+        # same book.
         if event_type in CirculationEvent.CLIENT_EVENTS:
-            pool = self.load_licensepool(identifier_type, identifier)
-            if isinstance(pool, ProblemDetail):
-                return pool
-            Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
+            pools = self.load_licensepools(self.library, identifier_type, identifier)
+            if isinstance(pools, ProblemDetail):
+                return pools
+            Analytics.collect_event(self._db, pools[0], event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
