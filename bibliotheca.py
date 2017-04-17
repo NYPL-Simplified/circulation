@@ -90,6 +90,11 @@ class BibliothecaAPI(object):
             )
 
         self.item_list_parser = ItemListParser()
+        self.collection_id = collection.id
+
+    @property
+    def collection(self):
+        return get_one(self._db, Collection, id=self.collection_id)
         
     @property
     def source(self):
