@@ -1147,6 +1147,8 @@ class AnalyticsController(CirculationManagerController):
     def track_event(self, identifier_type, identifier, event_type):
         if event_type in CirculationEvent.CLIENT_EVENTS:
             pool = self.load_licensepool(identifier_type, identifier)
+            if isinstance(pool, ProblemDetail):
+                return pool
             Analytics.collect_event(self._db, pool, event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
