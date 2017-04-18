@@ -9,7 +9,7 @@ import subprocess
 from lxml import etree
 from functools import wraps
 from flask import url_for, make_response
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
