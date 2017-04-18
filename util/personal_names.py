@@ -67,20 +67,35 @@ def contributor_name_match_ratio(name1, name2, normalize_names=True):
 def is_corporate_name(display_name):
     """Does this display name look like a corporate name?"""
 
-    corporations = ['National Geographic', 'Smithsonian Institution', 'Princeton', 
+    corporations = [
+        # magazines and scientific institutions by name
+        'National Geographic', 'Smithsonian Institution', 
 
-        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', 
+        # educational institutions by name
+        'Princeton', 
 
+        # educational institutions, general
+        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', "School of", 
+        'Professors', 
+
+        # publishing houses by name
         'Harper & Brothers', 'Harper Collins', 'HarperCollins', 'Williams & Wilkins', 
         'Estampie', 'Paul Taylor Dance', 'Gallery', 'EMI Televisa', 'Mysterious Traveler', 
 
+        # group names, general
         'Association', 'International', 'National', 'Society', 'Team', 
 
+        # religious institutions
+        "Church of", "Temple of",  
+
+        # subject names
         'History', 'Science', 
 
+        # copyrights and trademarks
         u'\xa9', 'Copyright', '(C)', '&#169;', 
 
-        'Professors', 'Multiple', 'Various',  
+        # performing arts collaborations
+        'Multiple', 'Various',  
         'Full Cast', 'BBC', 'LTD', 'Limited', 'Productions', 'Visual Media', 'Radio Classics'
         ]
 
