@@ -204,16 +204,15 @@ class WorkController(CirculationManagerController):
 
     STAFF_WEIGHT = 1
 
-    def details(self, data_source, identifier_type, identifier):
+    def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
         
         This includes relevant links for editing the book.
         """
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
         annotator = AdminAnnotator(self.circulation)
         return entry_response(
@@ -588,8 +587,11 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def _count_complaints_for_licensepool(self, pool):
-        complaint_types = [complaint.type for complaint in pool.complaints if complaint.resolved == None]
+    def _count_complaints_for_work(self, work):
+        complaint_types = [
+            [complaint.type for complaint in pool.complaints
+             if complaint.resolved == None] for pool in work.license_pools
+        ]
         return Counter(complaint_types)
 
     
