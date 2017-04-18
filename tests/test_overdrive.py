@@ -681,7 +681,7 @@ class TestSyncBookshelf(OverdriveAPITest):
             with_license_pool=True,
             collection=self._collection()
         )
-        overdrive_hold, new = threem.license_pool.on_hold_to(patron)
+        overdrive_hold, new = overdrive.license_pool.on_hold_to(patron)
    
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
@@ -690,4 +690,4 @@ class TestSyncBookshelf(OverdriveAPITest):
         # destroyed, because it came from a different collection.
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
-        assert threem_hold in patron.holds
+        assert overdrive_hold in patron.holds
