@@ -83,7 +83,9 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         pool, is_new = get_one_or_create(
             self._db, LicensePool, 
-            identifier=identifier, data_source=source)
+            identifier=identifier, data_source=source,
+            collection=self._default_collection
+        )
 
         now = datetime.datetime.utcnow()
         ga.collect_event(self._db, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
