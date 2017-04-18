@@ -433,7 +433,8 @@ class TestBaseController(CirculationControllerTest):
             config[Configuration.POLICIES] = {
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
             }
-            work = self._work(with_license_pool=True)
+            work = self._work(with_license_pool=True,
+                              with_open_access_download=True)
             [pool] = work.license_pools
             pool.licenses_available = 0
             
