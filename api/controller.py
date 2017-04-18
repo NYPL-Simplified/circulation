@@ -304,6 +304,15 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return lanes[name]
 
+    def load_work(self, library, identifier_type, identifier):
+        pools = self.load_licensepools(library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pool
+
+        # We know there is at least one LicensePool, and all LicensePools
+        # for an Identifier have the same .work.
+        return pools[0].work
+    
     def load_licensepools(self, library, identifier_type, identifier):
         """Turn user input into one or more LicensePool objects.
 
