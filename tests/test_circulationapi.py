@@ -27,6 +27,7 @@ from api.circulation import (
 from core.analytics import Analytics
 from core.model import (
     CirculationEvent,
+    Collection,
     DataSource,
     DeliveryMechanism,
     Hyperlink,
@@ -39,7 +40,7 @@ from core.mock_analytics_provider import MockAnalyticsProvider
 
 from . import DatabaseTest, sample_data
 from api.testing import MockCirculationAPI
-from api.threem import MockThreeMAPI
+from api.bibliotheca import MockBibliothecaAPI
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -49,12 +50,17 @@ class TestCirculationAPI(DatabaseTest):
 
     def setup(self):
         super(TestCirculationAPI, self).setup()
+        self._default_collection.protocol = Collection.BIBLIOTHECA
         edition, self.pool = self._edition(with_license_pool=True)
         self.pool.open_access = False
         self.identifier = self.pool.identifier
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
         self.patron = self._patron()
-        self.circulation = MockCirculationAPI(self._db)
+        self.circulation = MockCirculationAPI(
+            self._default_library, api_map = {
+                Collection.BIBLIOTHECA : MockBibliothecaAPI
+            }
+        )
         self.remote = self.circulation.api_for_license_pool(self.pool)
 
     def borrow(self):

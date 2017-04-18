@@ -129,8 +129,8 @@ class MockRemoteAPI(BaseCirculationAPI):
 
 class MockCirculationAPI(CirculationAPI):
 
-    def __init__(self, library):
-        super(MockCirculationAPI, self).__init__(library)
+    def __init__(self, *args, **kwargs):
+        super(MockCirculationAPI, self).__init__(*args, **kwargs)
         self.responses = defaultdict(list)
         self.remote_loans = []
         self.remote_holds = []
