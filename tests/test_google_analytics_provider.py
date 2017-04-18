@@ -1,5 +1,6 @@
 from nose.tools import (
-    eq_
+    eq_,
+    set_trace
 )
 from api.config import (
     Configuration,
@@ -14,6 +15,7 @@ from core.model import (
     DataSource,
     LicensePool
 )
+import unicodedata
 import urlparse
 import datetime
 from psycopg2.extras import NumericRange
@@ -43,7 +45,8 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work = self._work(
             title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
             audience="audience", language="lang", 
-            with_license_pool=True, genre="Folklore"
+            with_license_pool=True, genre="Folklore",
+            with_open_access_download=True
         )
         work.presentation_edition.publisher = "publisher"
         work.target_age = NumericRange(10, 15)
@@ -61,8 +64,10 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(str(now), params['cd1'][0])
         eq_(lp.identifier.identifier, params['cd2'][0])
         eq_(lp.identifier.type, params['cd3'][0])
-        eq_(u"pi\u00F1ata".encode('utf8'), params['cd4'][0])
-        eq_(u"chlo\u00E9".encode('utf8'), params['cd5'][0])
+        eq_(unicodedata.normalize("NFKD", u"pi\u00F1ata").encode('utf8'),
+            params['cd4'][0])
+        eq_(unicodedata.normalize("NFKD", u"chlo\u00E9").encode('utf8'),
+            params['cd5'][0])
         eq_("fiction", params['cd6'][0])
         eq_("audience", params['cd7'][0])
         eq_(work.target_age_string, params['cd8'][0])

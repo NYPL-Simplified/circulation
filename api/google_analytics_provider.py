@@ -1,5 +1,6 @@
 from config import Configuration
 import uuid
+import unicodedata
 import urllib
 import re
 from core.util.http import HTTP
@@ -50,7 +51,8 @@ class GoogleAnalyticsProvider(object):
                     'cd12': "true" if license_pool.open_access else "false",
                 })
         # urlencode doesn't like unicode strings so we convert them to utf8
-        fields = {k: unicode(v).encode('utf8') for k, v in fields.iteritems()}
+        fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
+        
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
         self.post("http://www.google-analytics.com/collect", params)
 
