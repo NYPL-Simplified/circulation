@@ -248,3 +248,9 @@ class TestServiceStatusMonitor(DatabaseTest):
             config[Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS] = "a@b"
             response = status.checkout_status(lp.identifier)
         assert 'FAILURE: Doomed to fail!' in response.values()
+
+        # But at least we got through the borrow and fulfill steps.
+        api = status.circulation.api_for_collection[overdrive_collection]
+        eq_(True, api.borrowed)
+        eq_(True, api.fulfilled)
+        eq_(False, api.revoked)
