@@ -1028,27 +1028,29 @@ class TestLoanController(CirculationControllerTest):
         )
         overdrive_pool.open_access = False
 
-        threem_edition, threem_pool = self._edition(
+        bibliotheca_edition, bibliotheca_pool = self._edition(
             with_open_access_download=False,
-            data_source_name=DataSource.THREEM,
-            identifier_type=Identifier.THREEM_ID,
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
             with_license_pool=True,
         )
-        threem_book = self._work(
-            presentation_edition=threem_edition,
+        bibliotheca_book = self._work(
+            presentation_edition=bibliotheca_edition,
         )
-        threem_pool.licenses_available = 0
-        threem_pool.open_access = False
+        bibliotheca_pool.licenses_available = 0
+        bibliotheca_pool.open_access = False
         
         self.manager.circulation.add_remote_loan(
+            overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
         self.manager.circulation.add_remote_hold(
-            threem_pool.identifier.type,
-            threem_pool.identifier.identifier,
+            bibliotheca_pool.collection, bibliotheca_pool.data_source,
+            bibliotheca_pool.identifier.type,
+            bibliotheca_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
             0,
@@ -1064,22 +1066,22 @@ class TestLoanController(CirculationControllerTest):
             entries = feed['entries']
 
             overdrive_entry = [entry for entry in entries if entry['title'] == overdrive_book.title][0]
-            threem_entry = [entry for entry in entries if entry['title'] == threem_book.title][0]
+            bibliotheca_entry = [entry for entry in entries if entry['title'] == bibliotheca_book.title][0]
 
             eq_(overdrive_entry['opds_availability']['status'], 'available')
-            eq_(threem_entry['opds_availability']['status'], 'ready')
+            eq_(bibliotheca_entry['opds_availability']['status'], 'ready')
             
             overdrive_links = overdrive_entry['links']
             fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
             revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
-            threem_links = threem_entry['links']
-            borrow_link = [x for x in threem_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
-            threem_revoke_links = [x for x in threem_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
+            bibliotheca_links = bibliotheca_entry['links']
+            borrow_link = [x for x in bibliotheca_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
+            bibliotheca_revoke_links = [x for x in bibliotheca_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
             assert urllib.quote("%s/%s/fulfill" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
             assert urllib.quote("%s/%s/revoke" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
-            assert urllib.quote("%s/%s/borrow" % (threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
-            eq_(0, len(threem_revoke_links))
+            assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
+            eq_(0, len(bibliotheca_revoke_links))
 
 
 class TestAnnotationController(CirculationControllerTest):
