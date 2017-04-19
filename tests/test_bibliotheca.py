@@ -54,7 +54,6 @@ class BibliothecaAPITest(DatabaseTest):
     def setup(self):
         super(BibliothecaAPITest,self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
-        self._default_library.collections.append(self.collection)
         self.api = MockBibliothecaAPI(self.collection)
 
     @classmethod
@@ -153,8 +152,12 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
     def test_sync_bookshelf(self):
         patron = self._patron()
-        self.api.queue_response(200, content=self.sample_data("checkouts.xml"))
-        circulation = CirculationAPI(self._default_library)
+        circulation = CirculationAPI(self._default_library, api_map={
+            self.collection.protocol : MockBibliothecaAPI
+        })
+
+        api = circulation.api_for_collection[self.collection]
+        api.queue_response(200, content=self.sample_data("checkouts.xml"))
         circulation.sync_bookshelf(patron, "dummy pin")
 
         # The patron should have two loans and two holds.

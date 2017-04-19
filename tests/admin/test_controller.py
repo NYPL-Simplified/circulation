@@ -1073,6 +1073,10 @@ class TestSettingsController(AdminControllerTest):
         int(library.library_registry_shared_secret, 16)
         
     def test_collections_get_with_no_collections(self):
+        # Delete any existing collections created by the test setup.
+        for collection in self._db.query(Collection):
+            self._db.delete(collection)
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
@@ -1082,6 +1086,10 @@ class TestSettingsController(AdminControllerTest):
                 sorted(Collection.PROTOCOLS))
 
     def test_collections_get_with_multiple_collections(self):
+        # Delete any existing collections created by the test setup.
+        for collection in self._db.query(Collection):
+            self._db.delete(collection)
+
         c1, ignore = create(
             self._db, Collection, name="Collection 1", protocol=Collection.OVERDRIVE,
         )

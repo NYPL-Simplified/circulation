@@ -1072,7 +1072,7 @@ class WorkController(CirculationManagerController):
         # TODO: We don't have a reliable way of knowing whether the
         # complaing is being lodged against the work or against a
         # specific LicensePool.
-        
+
         # Turn source + identifier into a LicensePool
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):

@@ -630,6 +630,7 @@ class TestOPDS(WithVendorIDTest):
 
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
+
         patron.username = u'bellhooks'
         patron.authorization_identifier = u'987654321'
         feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(

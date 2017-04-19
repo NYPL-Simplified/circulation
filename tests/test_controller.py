@@ -124,7 +124,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         self.library = self._default_library
-        
+
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -184,7 +184,7 @@ class CirculationControllerTest(ControllerTest):
         # TODO: This is a prime candidate for optimization. A lot of
         # tests don't need these books, and they take over 1 second to
         # create.
-        
+
         # Create two English books and a French book.
         self.english_1 = self._work(
             "Quite British", "John Bull", language="eng", fiction=True,
@@ -284,7 +284,7 @@ class TestBaseController(CirculationControllerTest):
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
 
-    def test_load_licensepools(self):        
+    def test_load_licensepools(self):
 
         # Here's a Library that has two Collections.
         library = self._default_library
@@ -335,7 +335,6 @@ class TestBaseController(CirculationControllerTest):
             collection=c3
         )
 
-        
         # Now let's try to load LicensePools for the first Identifier
         # from the default Library.
         loaded = self.controller.load_licensepools(
@@ -356,7 +355,7 @@ class TestBaseController(CirculationControllerTest):
 
         # LicensePool l4 was not loaded, even though it's in a Collection
         # that matches, because the Identifier doesn't match.
-        
+
         # Now we test various failures.
 
         # Try a totally bogus identifier.
@@ -926,7 +925,7 @@ class TestLoanController(CirculationControllerTest):
                 pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
-                pool.identifier.type, 
+                pool.identifier.type,
                 pool.identifier.identifier
             )
             assert isinstance(response, ProblemDetail)
