@@ -239,8 +239,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # The fulfill link for non-Adobe DRM does not
             # include the drm:licensor tag.
             link = self.annotator.fulfill_link(
-                pool.data_source.name, pool.identifier, pool, loan,
-                other_delivery_mechanism 
+                pool.identifier, pool, loan, other_delivery_mechanism
            )
             for child in link.getchildren():
                 assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
@@ -251,8 +250,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # The fulfill link for Adobe DRM includes information
             # on how to get an Adobe ID in the drm:licensor tag.
             link = self.annotator.fulfill_link(
-                pool.data_source.name, pool.identifier, pool, loan,
-                adobe_delivery_mechanism
+                pool.identifier, pool, loan, adobe_delivery_mechanism
             )
             licensor = link.getchildren()[-1]
             eq_("{http://librarysimplified.org/terms/drm}licensor",
@@ -847,22 +845,18 @@ class TestOPDS(WithVendorIDTest):
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            data_source_name, identifier,
-            None, [])
+            identifier, None, [])
 
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            data_source_name, identifier,
-            None, [kindle_mechanism])
+            identifier, None, [kindle_mechanism])
 
         # If there's a fulfillable mechanism, everything's fine.
-        link = annotator.borrow_link(
-            data_source_name, identifier,
-            None, [epub_mechanism])
+        link = annotator.borrow_link(identifier, None, [epub_mechanism])
         assert link != None
 
         link = annotator.borrow_link(
-            data_source_name, identifier,
-            None, [epub_mechanism, kindle_mechanism])
+            identifier, None, [epub_mechanism, kindle_mechanism]
+        )
         assert link != None

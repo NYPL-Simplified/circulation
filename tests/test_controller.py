@@ -558,7 +558,7 @@ class TestLoanController(CirculationControllerTest):
 
             fulfillable_mechanism = mech2
 
-            expects = [url_for('fulfill', 
+            expects = [url_for('fulfill',
                                identifier_type=self.identifier.type,
                                identifier=self.identifier.identifier, 
                                mechanism_id=mech.delivery_mechanism.id,
@@ -625,7 +625,6 @@ class TestLoanController(CirculationControllerTest):
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
             RightsStatus.IN_COPYRIGHT, None
         )
-        data_source = edition.data_source
         identifier = edition.primary_identifier
 
         with self.app.test_request_context(
@@ -665,7 +664,7 @@ class TestLoanController(CirculationControllerTest):
 
             streaming_mechanism = mech2
 
-            expects = [url_for('fulfill', data_source=data_source.name,
+            expects = [url_for('fulfill',
                                identifier_type=identifier.type,
                                identifier=identifier.identifier, 
                                mechanism_id=mech.delivery_mechanism.id,
@@ -686,7 +685,7 @@ class TestLoanController(CirculationControllerTest):
                 )
             )
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
+                identifier.type, identifier.identifier,
                 streaming_mechanism.delivery_mechanism.id
             )
             
@@ -726,7 +725,7 @@ class TestLoanController(CirculationControllerTest):
                 ),
             )
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
+                identifier.type, identifier.identifier,
                 mech1.delivery_mechanism.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
@@ -749,7 +748,7 @@ class TestLoanController(CirculationControllerTest):
             )
 
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
+                identifier.type, identifier.identifier,
                 streaming_mechanism.delivery_mechanism.id
             )
             eq_(200, response.status_code)
@@ -884,7 +883,9 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_checkin(self.pool, True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(
+                self.pool.identifier.type, self.pool.identifier.identifier
+            )
 
              eq_(200, response.status_code)
              
@@ -896,7 +897,9 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_release_hold(self.pool, True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(
+                self.pool.identifier.type, self.pool.identifier.identifier
+            )
 
              eq_(200, response.status_code)
 
@@ -998,7 +1001,9 @@ class TestLoanController(CirculationControllerTest):
                  "/", headers=dict(Authorization=self.valid_auth)):
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = pool.on_hold_to(patron, position=0)
-             response = self.manager.loans.revoke(pool.data_source.name, pool.identifier.type, pool.identifier.identifier)
+             response = self.manager.loans.revoke(
+                pool.identifier.type, pool.identifier.identifier
+            )
              eq_(400, response.status_code)
              eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
              eq_("Cannot release a hold once it enters reserved state.", response.detail)
@@ -1082,7 +1087,6 @@ class TestAnnotationController(CirculationControllerTest):
         super(TestAnnotationController, self).setup()
         self.pool = self.english_1.license_pools[0]
         self.edition = self.pool.presentation_edition
-        self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
     def test_get_empty_container(self):
@@ -1953,7 +1957,6 @@ class TestAnalyticsController(CirculationControllerTest):
     def setup(self):
         super(TestAnalyticsController, self).setup()
         [self.lp] = self.english_1.license_pools
-        self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
 
     def test_track_event(self):
