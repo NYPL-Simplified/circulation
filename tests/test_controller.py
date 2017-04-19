@@ -634,6 +634,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_checkout(
                 pool,
                 LoanInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -675,6 +676,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
@@ -714,6 +716,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://other-content-link",
@@ -735,6 +738,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
@@ -792,6 +796,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_hold(
                 pool,
                 HoldInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -831,6 +836,7 @@ class TestLoanController(CirculationControllerTest):
             )
             self.manager.circulation.queue_hold(
                 pool, HoldInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -964,6 +970,7 @@ class TestLoanController(CirculationControllerTest):
                 self.manager.circulation.queue_checkout(
                     pool,
                     LoanInfo(
+                        pool.collection, pool.data_source.name,
                         pool.identifier.type,
                         pool.identifier.identifier,
                         datetime.datetime.utcnow(),

@@ -784,6 +784,7 @@ class TestOPDS(WithVendorIDTest):
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
         fulfillment = FulfillmentInfo(
+            pool.collection, pool.data_source.name,
             pool.identifier.type, pool.identifier.identifier,
             "http://streaming_link",
             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
