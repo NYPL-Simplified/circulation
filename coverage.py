@@ -791,6 +791,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # Under normal circumstances, this will never happen, because
         # CollectionCoverageProvider only operates on Identifiers that
         # already have a LicensePool in this Collection.
+        #
+        # However, this does happen in the metadata wrangler,
+        # which typically has to manage information about books it has no
+        # rights to.
         license_pool, ignore = LicensePool.for_foreign_id(
             self._db, self.data_source, identifier.type, 
             identifier.identifier, collection=self.collection
@@ -920,6 +924,27 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         return identifier
 
 
+class CatalogCoverageProvider(CollectionCoverageProvider):
+    """Most CollectionCoverageProviders provide coverage to Identifiers
+    that are licensed through a given Collection.
+
+    A CatalogCoverageProvider provides coverage to Identifiers that
+    are present in a given Collection's catalog.
+    """
+
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
+        """Find all Identifiers in this Collection's catalog but lacking
+        coverage through this CoverageProvider.
+        """
+        qu = super(CollectionCoverageProvider, self).items_that_need_coverage(
+            identifiers, **kwargs
+        )
+        qu = qu.join(Identifier.collections).filter(
+            Collection.id==self.collection_id
+        )
+        return qu
+
+    
 class BibliographicCoverageProvider(CollectionCoverageProvider):
     """Fill in bibliographic metadata for all books in a Collection.
 
