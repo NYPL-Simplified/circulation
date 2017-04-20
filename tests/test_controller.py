@@ -608,8 +608,7 @@ class TestLoanController(CirculationControllerTest):
             fulfillable_mechanism = mech2
 
             expects = [url_for('fulfill',
-                               identifier_type=self.identifier.type,
-                               identifier=self.identifier.identifier, 
+                               license_pool_id=self.pool.id,
                                mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -620,8 +619,8 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                fulfillable_mechanism.delivery_mechanism.id, do_get=http.do_get
+                self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
+                do_get=http.do_get
             )
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
@@ -636,7 +635,7 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier, do_get=http.do_get
+                self.pool.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
@@ -646,8 +645,7 @@ class TestLoanController(CirculationControllerTest):
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                mech1.delivery_mechanism.id
+                self.pool.id, mech1.delivery_mechanism.id
             )
 
             eq_(409, response.status_code)
@@ -658,8 +656,7 @@ class TestLoanController(CirculationControllerTest):
                 raise RemoteIntegrationException("fulfill service", "Error!")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                do_get=doomed_get
+                self.pool.id, do_get=doomed_get
             )
             assert isinstance(response, ProblemDetail)
             eq_(502, response.status_code)
@@ -714,8 +711,7 @@ class TestLoanController(CirculationControllerTest):
             streaming_mechanism = mech2
 
             expects = [url_for('fulfill',
-                               identifier_type=identifier.type,
-                               identifier=identifier.identifier, 
+                               license_pool_id=pool.id,
                                mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -734,8 +730,7 @@ class TestLoanController(CirculationControllerTest):
                 )
             )
             response = self.manager.loans.fulfill(
-                identifier.type, identifier.identifier,
-                streaming_mechanism.delivery_mechanism.id
+                pool.id, streaming_mechanism.delivery_mechanism.id
             )
 
             # We get an OPDS entry.
@@ -774,8 +769,7 @@ class TestLoanController(CirculationControllerTest):
                 ),
             )
             response = self.manager.loans.fulfill(
-                identifier.type, identifier.identifier,
-                mech1.delivery_mechanism.id, do_get=http.do_get
+                pool.id, mech1.delivery_mechanism.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
 
@@ -797,8 +791,7 @@ class TestLoanController(CirculationControllerTest):
             )
 
             response = self.manager.loans.fulfill(
-                identifier.type, identifier.identifier,
-                streaming_mechanism.delivery_mechanism.id
+                pool.id, streaming_mechanism.delivery_mechanism.id
             )
             eq_(200, response.status_code)
             opds_entries = feedparser.parse(response.response[0])['entries']
@@ -933,9 +926,7 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_checkin(self.pool, True)
 
-             response = self.manager.loans.revoke(
-                self.pool.identifier.type, self.pool.identifier.identifier
-            )
+             response = self.manager.loans.revoke(self.pool.id)
 
              eq_(200, response.status_code)
              
@@ -947,21 +938,17 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_release_hold(self.pool, True)
 
-             response = self.manager.loans.revoke(
-                self.pool.identifier.type, self.pool.identifier.identifier
-            )
+             response = self.manager.loans.revoke(self.pool.id)
 
              eq_(200, response.status_code)
 
     def test_revoke_hold_nonexistent_licensepool(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             patron = self.manager.loans.authenticated_patron_from_request()
-             response = self.manager.loans.revoke(
-                 "No such identifier type", "No such identifier"
-             )
-             assert isinstance(response, ProblemDetail)
-             eq_(NO_LICENSES.uri, response.uri)
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.revoke(-10)
+            assert isinstance(response, ProblemDetail)
+            eq_(INVALID_INPUT.uri, response.uri)
 
     def test_hold_fails_when_patron_is_at_hold_limit(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1049,14 +1036,12 @@ class TestLoanController(CirculationControllerTest):
 
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             patron = self.manager.loans.authenticated_patron_from_request()
-             hold, newly_created = pool.on_hold_to(patron, position=0)
-             response = self.manager.loans.revoke(
-                pool.identifier.type, pool.identifier.identifier
-            )
-             eq_(400, response.status_code)
-             eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
-             eq_("Cannot release a hold once it enters reserved state.", response.detail)
+            patron = self.manager.loans.authenticated_patron_from_request()
+            hold, newly_created = pool.on_hold_to(patron, position=0)
+            response = self.manager.loans.revoke(pool.id)
+            eq_(400, response.status_code)
+            eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
+            eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
     def test_active_loans(self):
         with self.app.test_request_context(
@@ -1128,8 +1113,8 @@ class TestLoanController(CirculationControllerTest):
             borrow_link = [x for x in bibliotheca_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
             bibliotheca_revoke_links = [x for x in bibliotheca_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert urllib.quote("%s/%s/fulfill" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
-            assert urllib.quote("%s/%s/revoke" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
+            assert urllib.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
+            assert urllib.quote("%s/revoke" % overdrive_pool.id) in revoke_link
             assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
             eq_(0, len(bibliotheca_revoke_links))
 

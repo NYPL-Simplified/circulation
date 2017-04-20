@@ -219,20 +219,20 @@ def annotations_for_work(identifier_type, identifier):
 def borrow(identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(identifier_type, identifier, mechanism_id)
 
-@app.route('/works/<identifier_type>/<path:identifier>/fulfill')
-@app.route('/works/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
+@app.route('/works/<license_pool_id>/fulfill')
+@app.route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def fulfill(identifier_type, identifier, mechanism_id=None):
-    return app.manager.loans.fulfill(identifier_type, identifier, mechanism_id)
+def fulfill(license_pool_id, mechanism_id=None):
+    return app.manager.loans.fulfill(license_pool_id, mechanism_id)
 
-@app.route('/loans/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
+@app.route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def revoke_loan_or_hold(identifier_type, identifier):
-    return app.manager.loans.revoke(identifier_type, identifier)
+def revoke_loan_or_hold(license_pool_id):
+    return app.manager.loans.revoke(license_pool_id)
 
 @app.route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @allows_patron_web()

@@ -340,6 +340,15 @@ class CirculationManagerController(BaseCirculationManagerController):
             )
         return pools
 
+    def load_licensepool(self, license_pool_id):
+        """Turns user input into a LicensePool"""
+        license_pool = get_one(self._db, LicensePool, id=license_pool_id)
+        if not license_pool:
+            return INVALID_INPUT.detailed(
+                _("License Pool #%d does not exist.") % license_pool_id
+            )
+        return license_pool
+
     def load_licensepooldelivery(self, pool, mechanism_id):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
         mechanism = get_one(
@@ -700,7 +709,7 @@ class LoanController(CirculationManagerController):
             return problem_doc
         return best, mechanism
     
-    def fulfill(self, identifier_type, identifier, mechanism_id=None, do_get=None):
+    def fulfill(self, license_pool_id, mechanism_id=None, do_get=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -716,15 +725,11 @@ class LoanController(CirculationManagerController):
         credential = self.manager.auth.get_credential_from_header(header)
     
         # Turn source + identifier into a set of LicensePools.
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        pool = self.load_licensepool(license_pool_id)
+        if isinstance(pool, ProblemDetail):
+            return pool
 
-        # The patron has a loan on one of these LicensePools.
-
-        # TODO: Handle the case where the patron has no loans or more
-        # than one loan.
-        loan, pool = self.get_patron_loan(patron, pools)
+        loan, _ignore = self.get_patron_loan(patron, [pool])
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
@@ -798,18 +803,18 @@ class LoanController(CirculationManagerController):
 
         return Response(content, status_code, headers)
 
-    def revoke(self, identifier_type, identifier):
+    def revoke(self, license_pool_id):
         patron = flask.request.patron
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        pool = self.load_licensepool(license_pool_id)
+        if isinstance(pool, ProblemDetail):
+            return pool
 
-        loan, pool = self.get_patron_loan(patron, pools)
+        loan, _ignore = self.get_patron_loan(patron, [pool])
 
         if loan:
             hold = None
         else:
-            hold, pool = self.get_patron_hold(patron, pools)
+            hold, _ignore = self.get_patron_hold(patron, [pool])
 
         if not loan and not hold:
             if not pool.work:
