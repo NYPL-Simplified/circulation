@@ -530,7 +530,56 @@ class TestLoanController(CirculationControllerTest):
         self.edition = self.pool.presentation_edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
-        
+
+    def test_patron_circulation_retrieval(self):
+        """The controller can get loans and holds for a patron, even if
+        there are multiple licensepools on the Work.
+        """
+        # Give the Work a second LicensePool.
+        edition, other_pool = self._edition(
+            with_open_access_download=True, with_license_pool=True,
+            data_source_name=DataSource.BIBLIOTHECA,
+            collection=self.pool.collection
+        )
+        other_pool.identifier = self.identifier
+        other_pool.work = self.pool.work
+
+        pools = self.manager.loans.load_licensepools(
+            self._default_library, self.identifier.type, self.identifier.identifier
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+
+            # Without a loan or a hold, nothing is returned.
+            # No loans.
+            result = self.manager.loans.get_patron_loan(
+                self.default_patron, pools
+            )
+            eq_((None, None), result)
+
+            # No holds.
+            result = self.manager.loans.get_patron_hold(
+                self.default_patron, pools
+            )
+            eq_((None, None), result)
+
+            # When there's a loan, we retrieve it.
+            loan, newly_created = self.pool.loan_to(self.default_patron)
+            result = self.manager.loans.get_patron_loan(
+                self.default_patron, pools
+            )
+            eq_((loan, self.pool), result)
+
+            # When there's a hold, we retrieve it.
+            hold, newly_created = other_pool.on_hold_to(self.default_patron)
+            result = self.manager.loans.get_patron_hold(
+                self.default_patron, pools
+            )
+            eq_((hold, other_pool), result)
+
+
     def test_borrow_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -688,7 +737,7 @@ class TestLoanController(CirculationControllerTest):
                 identifier.type, identifier.identifier,
                 streaming_mechanism.delivery_mechanism.id
             )
-            
+
             # We get an OPDS entry.
             eq_(200, response.status_code)
             opds_entries = feedparser.parse(response.response[0])['entries']
@@ -767,6 +816,7 @@ class TestLoanController(CirculationControllerTest):
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier,
                 -100
@@ -911,7 +961,7 @@ class TestLoanController(CirculationControllerTest):
                  "No such identifier type", "No such identifier"
              )
              assert isinstance(response, ProblemDetail)
-             eq_(INVALID_INPUT.uri, response.uri)
+             eq_(NO_LICENSES.uri, response.uri)
 
     def test_hold_fails_when_patron_is_at_hold_limit(self):
         edition, pool = self._edition(with_license_pool=True)

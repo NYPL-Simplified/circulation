@@ -8,6 +8,7 @@ from wsgiref.handlers import format_date_time
 from time import mktime
 
 from lxml import etree
+from sqlalchemy.orm import eagerload
 
 from functools import wraps
 import flask
@@ -504,6 +505,28 @@ class OPDSFeedController(CirculationManagerController):
 
 class LoanController(CirculationManagerController):
 
+    def get_patron_circ_objects(self, object_class, patron, license_pools):
+        pool_ids = [pool.id for pool in license_pools]
+
+        return self._db.query(object_class).filter(
+            object_class.patron_id==patron.id,
+            object_class.license_pool_id.in_(pool_ids)
+        ).options(eagerload(object_class.license_pool)).all()
+
+    def get_patron_loan(self, patron, license_pools):
+        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
+        if loans:
+            loan = loans[0]
+            return loan, loan.license_pool
+        return None, None
+
+    def get_patron_hold(self, patron, license_pools):
+        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
+        if holds:
+            hold = holds[0]
+            return hold, hold.license_pool
+        return None, None
+
     def sync(self):
         if flask.request.method=='HEAD':
             return Response()
@@ -701,9 +724,7 @@ class LoanController(CirculationManagerController):
 
         # TODO: Handle the case where the patron has no loans or more
         # than one loan.
-        loan = self._db.query(Loan).filter(
-            Loan.patron==patron).filter(
-                Loan.license_pool_id.in_([x.id for x in pools])).one()
+        loan, pool = self.get_patron_loan(patron, pools)
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
@@ -779,14 +800,16 @@ class LoanController(CirculationManagerController):
 
     def revoke(self, identifier_type, identifier):
         patron = flask.request.patron
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+
+        loan, pool = self.get_patron_loan(patron, pools)
+
         if loan:
             hold = None
         else:
-            hold = get_one(self._db, Hold, patron=patron, license_pool=pool)
+            hold, pool = self.get_patron_hold(patron, pools)
 
         if not loan and not hold:
             if not pool.work:
@@ -830,14 +853,15 @@ class LoanController(CirculationManagerController):
             return self.revoke_loan_or_hold(identifier_type, identifier)
 
         patron = flask.request.patron
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+
+        loan, pool = self.get_patron_loan(patron, pools)
         if loan:
             hold = None
         else:
-            hold = get_one(self._db, Hold, patron=patron, license_pool=pool)
+            hold, pool = self.get_patron_hold(patron, pools)
 
         if not loan and not hold:
             return NO_ACTIVE_LOAN_OR_HOLD.detailed( 
