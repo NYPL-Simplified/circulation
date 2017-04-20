@@ -334,6 +334,10 @@ class TestOPDS(WithVendorIDTest):
         fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
 
+        # Initialize library with Adobe Vendor ID details
+        self._default_library.library_registry_short_name = "FAKE"
+        self._default_library.library_registry_shared_secret = "s3cr3t5"
+
         # A QueryGeneratedLane to test code that handles it differently.
         self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
 

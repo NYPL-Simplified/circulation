@@ -399,7 +399,8 @@ class TestBaseController(CirculationControllerTest):
         new_lpdm, is_new = create(
             self._db, 
             LicensePoolDeliveryMechanism,
-            license_pool=licensepool, 
+            identifier=licensepool.identifier,
+            data_source=licensepool.data_source,
             delivery_mechanism=lpdm.delivery_mechanism,
         )        
         eq_(True, is_new)
