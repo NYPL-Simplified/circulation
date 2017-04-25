@@ -15,8 +15,10 @@ from requests.exceptions import (
 )
 import sys
 import traceback
+import unicodedata
 
 from collections import defaultdict
+import json
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
@@ -26,6 +28,8 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
+from app_server import ComplaintController
+from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
@@ -33,6 +37,9 @@ from model import (
     get_one_or_create,
     production_session,
     Collection,
+    Complaint, 
+    Contributor, 
+    CoverageRecord, 
     CustomList,
     DataSource,
     Edition,
@@ -47,25 +54,24 @@ from model import (
     WorkCoverageRecord,
     WorkGenre,
 )
-from external_search import (
-    ExternalSearchIndex,
-)
+from external_search import ExternalSearchIndex
+from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from oneclick import OneClickAPI, MockOneClickAPI
+from overdrive import OverdriveBibliographicCoverageProvider
+from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
-
-from monitor import SubjectAssignmentMonitor
-
-from overdrive import (
-    OverdriveBibliographicCoverageProvider,
+from util.personal_names import (
+    contributor_name_match_ratio, 
+    display_name_to_sort_name, 
+    is_corporate_name
 )
 
 from bibliotheca import (
     BibliothecaBibliographicCoverageProvider,
 )
 
-from axis import Axis360BibliographicCoverageProvider
 
 class Script(object):
 
@@ -965,8 +971,12 @@ class WorkProcessingScript(IdentifierInputScript):
 
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
-        self.identifiers = args.identifiers
         self.data_source = args.identifier_data_source
+
+        self.identifiers = self.parse_identifier_list(
+            self._db, self.identifier_type, self.data_source,
+            args.identifier_strings
+        )
 
         self.batch_size = batch_size
         self.query = self.make_query(
@@ -1149,11 +1159,9 @@ class OneClickImportScript(Script):
         self.api = api_class(collection, **api_class_kwargs)
 
     def do_run(self):
-        print "OneClickImportScript.do_run"
         self.log.info("OneClickImportScript.do_run().")
         items_transmitted, items_created = self.api.populate_all_catalog()
         result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
-        print result_string
         self.log.info(result_string)
 
 
@@ -1163,7 +1171,6 @@ class OneClickDeltaScript(OneClickImportScript):
     """
 
     def do_run(self):
-        print "OneClickDeltaScript.do_run"
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
 
@@ -1601,11 +1608,190 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
+
+class CheckContributorNamesInDB(IdentifierInputScript):
+    """ Checks that contributor sort_names are display_names in 
+    "last name, comma, other names" format.  
+
+    Read contributors edition by edition, so that can, if necessary, 
+    restrict db query by passed-in identifiers, and so can find associated 
+    license pools to register author complaints to.
+
+    NOTE:  There's also CheckContributorNamesOnWeb in metadata, 
+    it's a child of this script.  Use it to check our knowledge against 
+    viaf, with the newer better sort_name selection and formatting.
+
+    TODO: make sure don't start at beginning again when interrupt while batch job is running.
+    """
+
+    COMPLAINT_SOURCE = "CheckContributorNamesInDB"
+    COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
+
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(CheckContributorNamesInDB, self).__init__(_db=_db)
+
+        self.parsed_args = self.parse_command_line(_db=self._db, cmd_args=cmd_args)
+
+
+    @classmethod
+    def make_query(self, _db, identifier_type, identifiers, log=None):
+        query = _db.query(Edition)
+        if identifiers or identifier_type:
+            query = query.join(Edition.primary_identifier)
+
+        # we only want to look at editions with license pools, in case we want to make a Complaint
+        query = query.join(Edition.is_presentation_for)
+
+        if identifiers:
+            if log:
+                log.info(
+                    'Restricted to %d specific identifiers.' % len(identifiers)
+                )
+            query = query.filter(
+                Edition.primary_identifier_id.in_([x.id for x in identifiers])
+            )
+        if identifier_type:
+            if log:
+                log.info(
+                    'Restricted to identifier type "%s".' % identifier_type
+                )
+            query = query.filter(Identifier.type==identifier_type)
+
+        if log:
+            log.info(
+                "Processing %d editions.", query.count()
+            )
+
+        return query.order_by(Edition.id)
+
+
+    def run(self, batch_size=10):
+        
+        self.query = self.make_query(
+            self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
+        )
+
+        editions = True
+        offset = 0
+        output = "ContributorID|\tSortName|\tDisplayName|\tComputedSortName|\tResolution|\tComplaintSource"
+        print output.encode("utf8")
+
+        while editions:
+            my_query = self.query.offset(offset).limit(batch_size)
+            editions = my_query.all()
+
+            for edition in editions:
+                if edition.contributions:
+                    for contribution in edition.contributions:
+                        self.process_contribution_local(self._db, contribution, self.log)
+            offset += batch_size
+
+            self._db.commit()
+        self._db.commit()
+
+
+    def process_contribution_local(self, _db, contribution, log=None):
+        if not contribution or not contribution.edition:
+            return
+
+        contributor = contribution.contributor
+
+        identifier = contribution.edition.primary_identifier
+
+        if contributor.sort_name and contributor.display_name:
+            computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
+            # Did HumanName parser produce a differet result from the plain comma replacement?
+            if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
+                error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
+
+                # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced 
+                # suffix, we can fix without asking for human intervention.  if the names are very different, 
+                # there's a chance the sort and display names are different on purpose, s.a. when foreign names 
+                # are passed as translated into only one of the fields, or when the author has a popular pseudonym. 
+                # best ask a human.
+
+                # if the relative lengths are off by more than a stray space or comma, ask a human
+                # it probably means that a human metadata professional had added an explanation/expansion to the 
+                # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data 
+                # with the "Jones, Bob A." that the auto-algorigthm would generate.
+                length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
+                if abs(length_difference) > 3:
+                    return self.process_local_mismatch(_db=_db, contribution=contribution,  
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+
+                match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
+
+                if (match_ratio < 40):
+                    # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
+                    # and is non-trivial to fix.  
+                    self.process_local_mismatch(_db=_db, contribution=contribution, 
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                else:
+                    # we can fix it!
+                    output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
+                    print output.encode("utf8")
+                    self.set_contributor_sort_name(computed_sort_name_local_new, contribution)
+
+
+    @classmethod
+    def set_contributor_sort_name(cls, sort_name, contribution):
+        """ Sets the contributor.sort_name and associated edition.author_name to the passed-in value. """
+        contribution.contributor.sort_name = sort_name
+
+        # also change edition.sort_author, if the author was primary
+        # Note: I considered using contribution.edition.author_contributors, but 
+        # found that it's not impossible to have a messy dataset that doesn't work on.  
+        # For our purpose here, the following logic is cleaner-acting:
+        # If this author appears as Primary Author anywhere on the edition, then change edition.sort_author.
+        edition_contributions = contribution.edition.contributions
+        for edition_contribution in edition_contributions:
+            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and 
+                (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
+                contribution.edition.sort_author = sort_name
+
+
+    def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Determines if a problem is to be investigated further or recorded as a Complaint, 
+        to be solved by a human.  In this class, it's always a complaint.  In the overridden 
+        method in the child class in metadata_wrangler code, we sometimes go do a web query.
+        """ 
+        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution, 
+            computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
+
+
+    @classmethod
+    def register_problem(cls, source, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Make a Complaint in the database, so a human can take a look at this Contributor's name
+        and resolve whatever the complex issue that got us here.
+        """
+        success = True
+        contributor = contribution.contributor
+
+        pool = contribution.edition.is_presentation_for
+        try:
+            complaint, is_new = Complaint.register(pool, cls.COMPLAINT_TYPE, source, error_message_detail)
+            output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
+            print output.encode("utf8")
+        except ValueError, e:
+            # log and move on, don't stop run
+            log.error("Error registering complaint: %r", contributor, exc_info=e)
+            success = False
+
+        return success
+
+
+
+
+
+
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        args = self.parse_command_line(self._db)
-        identifier_ids = [x.id for x in args.identifiers]
+        param_args = self.parse_command_line(self._db)
+        identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
@@ -1617,25 +1803,39 @@ class Explain(IdentifierInputScript):
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):
-        if edition.medium != 'Book':
+        if edition.medium not in ('Book', 'Audio'):
+            # we haven't yet decided what to display for you
             return
+
+        # Tell about the Edition record.
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
         print " Permanent work ID: %s" % edition.permanent_work_id
-        work = edition.work
-        lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+
         seen = set()
         cls.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
+
+        # Find all contributions, and tell about the contributors.
+        if edition.contributions:
+            for contribution in edition.contributions:
+                cls.explain_contribution(contribution)
+
+        # Tell about the LicensePool.
+        lp = edition.license_pool
         if lp:
             cls.explain_license_pool(lp)
         else:
             print " No associated license pool."
+
+        # Tell about the Work.
+        work = edition.work
         if work:
             cls.explain_work(work)
         else:
             print " No associated work."
 
+        # Note:  Can change DB state.
         if work and presentation_calculation_policy is not None:
              print "!!! About to calculate presentation!"
              work.calculate_presentation(policy=presentation_calculation_policy)
@@ -1643,6 +1843,16 @@ class Explain(IdentifierInputScript):
              print
              print "After recalculating presentation:"
              cls.explain_work(work)
+
+
+    @classmethod
+    def explain_contribution(cls, contribution):
+        contributor_id = contribution.contributor.id
+        contributor_sort_name = contribution.contributor.sort_name
+        contributor_display_name = contribution.contributor.display_name
+        output = " Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name)
+        print output.encode("utf8")
+
 
     @classmethod
     def explain_identifier(cls, identifier, primary, seen, strength, level):
@@ -1716,6 +1926,7 @@ class Explain(IdentifierInputScript):
             if not pool.superceded:
                 active = "ACTIVE"
             print "  %s: %r" % (active, pool.identifier)
+
 
 
 class SubjectAssignmentScript(SubjectInputScript):

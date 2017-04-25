@@ -22,6 +22,6 @@ Flask-Babel
 money
 
 # for author name manipulations
-nameparser
+nameparser>=0.5.1
 fuzzywuzzy
 

@@ -22,15 +22,15 @@ logfile=$logdir/$SCRIPT
 # Assume this run file is the Library Simplified directory/core/bin
 # unless the Library Simplified directory has been set as an environment
 # variable $LIBSIMPLE_DIR
-if [ -z "$LIBSIMPLE_DIR" ]; then
+if [[ -z "$LIBSIMPLE_DIR" ]]; then
   LIBSIMPLE_DIR=$(dirname $(dirname $(dirname $0)))
 fi
 
 create_dir () {
   local dir="$1"
 
-  if [ ! -d $dir ]; then
-    if [ $UID -ne 0 ]; then
+  if [[ ! -d $dir ]]; then
+    if [[ $UID -ne 0 ]]; then
       # for non-root users
       sudo mkdir -p $dir && sudo chown $USER $dir
     else
@@ -45,7 +45,7 @@ create_pidfile () {
   local pidfile="$2"
 
   echo $pid > $pidfile
-  if [ $? -ne 0 ]; then
+  if [[ $? -ne 0 ]]; then
     echo "Could not create PID file"
     exit 1
   fi
@@ -56,10 +56,10 @@ create_pidfile () {
 create_dir $piddir
 
 # Confirm that process isn't still running && create PID file
-if [ -f $pidfile ]; then
+if [[ -f $pidfile ]]; then
   pid=$(cat $pidfile)
   ps -p $pid > /dev/null 2>&1
-  if [ $? -eq 0 ]; then
+  if [[ $? -eq 0 ]]; then
     # Last recorded PID was found in running processes
     echo "$SCRIPT is already running"
     exit 1
@@ -74,7 +74,7 @@ fi
 
 # Create a log file for this script if one doesn't exist
 create_dir $logdir
-if [ ! -f $logfile ]; then
+if [[ ! -f $logfile ]]; then
     touch $logfile
 fi
 

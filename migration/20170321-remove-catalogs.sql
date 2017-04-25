@@ -1,2 +1,2 @@
-DROP TABLE catalogsidentifiers CASCADE;
-DROP TABLE catalogs CASCADE;
+DROP TABLE IF EXISTS catalogsidentifiers CASCADE;
+DROP TABLE IF EXISTS catalogs CASCADE;
