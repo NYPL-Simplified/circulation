@@ -1359,6 +1359,7 @@ class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
         [self.lp] = self.english_1.license_pools
+        self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
 
@@ -1369,7 +1370,8 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        name = 'John Bull'
+        contributor = self.edition.contributions[0].contributor
+        contributor.display_name = name = 'John Bull'
         
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
@@ -1397,9 +1399,10 @@ class TestWorkController(CirculationControllerTest):
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(9, len(facet_links))
 
-        another_work = self._work(
-            "Not open access", name, with_license_pool=True)
+        another_work = self._work("Not open access", name, with_license_pool=True)
         another_work.license_pools[0].open_access = False
+        duplicate_contributor = another_work.presentation_edition.contributions[0].contributor
+        duplicate_contributor.display_name = name
 
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
@@ -1616,7 +1619,7 @@ class TestWorkController(CirculationControllerTest):
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
 
             # Remove contribution.
-            [contribution] = self.lp.presentation_edition.contributions
+            [contribution] = self.edition.contributions
             [original, role] = [contribution.contributor, contribution.role]
             self._db.delete(contribution)
             self._db.commit()
@@ -1629,15 +1632,16 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         # Prep book with a contribution, a series, and a recommendation.
-        self.lp.presentation_edition.add_contributor(original, role)
-        original.display_name = original.sort_name
+        self.edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
         )
+        duplicate = same_author.presentation_edition.contributions[0].contributor
+        original.display_name = duplicate.display_name = 'John Bull'
 
-        self.lp.presentation_edition.series = "Around the World"
-        self.lp.presentation_edition.series_position = 1
+        self.edition.series = "Around the World"
+        self.edition.series_position = 1
 
         same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
         same_series.presentation_edition.series = "Around the World"
@@ -1735,7 +1739,7 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         series_name = "Like As If Whatever Mysteries"
-        self.lp.presentation_edition.series = series_name
+        self.edition.series = series_name
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
             response = self.manager.work_controller.series(series_name, None, None)

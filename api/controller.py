@@ -1009,27 +1009,28 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+
+        work = pools[0].work
         annotator = self.manager.annotator(None)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, identifier_type, identifier,
-                        novelist_api=None):
+    def recommendations(self, identifier_type, identifier, novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
 
-        lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
+        work = pools[0].work
+        lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self._db, pool, lane_name, novelist_api=novelist_api
+                self._db, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1055,15 +1056,14 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    def related(self, identifier_type, identifier,
-                novelist_api=None):
+    def related(self, identifier_type, identifier, novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             return pools
 
-        work = pools.work
+        work = pools[0].work
         try:
             lane_name = "Books Related to %s by %s" % (
                 work.title, work.author
@@ -1071,7 +1071,7 @@ class WorkController(CirculationManagerController):
             # TODO: It should be possible to pass in the Work object
             # here rather than one of the LicensePools.
             lane = RelatedBooksLane(
-                self._db, pools[0], lane_name, novelist_api=novelist_api
+                self._db, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1106,7 +1106,7 @@ class WorkController(CirculationManagerController):
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
-            return pool
+            return pools
     
         if flask.request.method == 'GET':
             # Return a list of valid URIs to use as the type of a problem detail
@@ -1116,7 +1116,7 @@ class WorkController(CirculationManagerController):
     
         data = flask.request.data
         controller = ComplaintController()
-        return controller.register(pool, data)
+        return controller.register(pools[0], data)
 
     def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""
