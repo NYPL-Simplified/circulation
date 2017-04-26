@@ -8157,6 +8157,10 @@ class CustomList(Base):
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
 
+    def __repr__(self):
+        return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
+
     @classmethod
     def all_from_data_sources(cls, _db, data_sources):
         """All custom lists from the given data sources."""
@@ -8203,7 +8207,7 @@ class CustomList(Base):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
-        existing = self.entries_for_work(edition)
+        existing = list(self.entries_for_work(edition))
         if existing:
             was_new = False
             entry = existing[0]
@@ -8239,7 +8243,7 @@ class CustomList(Base):
         """
         _db = Session.object_session(self)
 
-        existing_entries = self.entries_for_work(edition)
+        existing_entries = list(self.entries_for_work(edition))
         for entry in existing_entries:
             _db.delete(entry)
 
@@ -8255,8 +8259,11 @@ class CustomList(Base):
         if isinstance(work_or_edition, Work):
             edition = work_or_edition.presentation_edition
 
-        equivalents = edition.equivalent_editions()
-        return [e for e in self.entries if e.edition in equivalents]
+        equivalents = edition.equivalent_editions().all()
+
+        for entry in self.entries:
+            if entry.edition in equivalents:
+                yield entry
 
 
 class CustomListEntry(Base):

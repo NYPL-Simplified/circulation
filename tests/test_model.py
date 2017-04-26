@@ -5161,17 +5161,17 @@ class TestCustomList(DatabaseTest):
         [entry] = [e for e in custom_list.entries if e.edition==edition]
 
         # The entry is returned when you search by Edition.
-        eq_([entry], custom_list.entries_for_work(edition))
+        eq_([entry], list(custom_list.entries_for_work(edition)))
 
         # It's also returned when you search by Work.
-        eq_([entry], custom_list.entries_for_work(edition.work))
+        eq_([entry], list(custom_list.entries_for_work(edition.work)))
 
         # Or when you search with an equivalent Edition
         equivalent = self._edition()
         edition.primary_identifier.equivalent_to(
             equivalent.data_source, equivalent.primary_identifier, 1
         )
-        eq_([entry], custom_list.entries_for_work(equivalent))
+        eq_([entry], list(custom_list.entries_for_work(equivalent)))
 
         # Multiple equivalent entries may be returned, too, if they
         # were added manually or before the editions were set as
@@ -5184,7 +5184,7 @@ class TestCustomList(DatabaseTest):
         )
         eq_(
             sorted([entry, other_entry]),
-            sorted(custom_list.entries_for_work(not_yet_equivalent))
+            sorted(list(custom_list.entries_for_work(not_yet_equivalent)))
         )
 
 
