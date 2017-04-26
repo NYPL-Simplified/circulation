@@ -1629,7 +1629,7 @@ class QueryGeneratedLane(Lane):
         """Find a random sample of books for the feed"""
 
         # Lane.featured_works searches for books along a variety of facets.
-        # Because LicensePoolBasedLanes are created for individual works as
+        # Because WorkBasedLanes are created for individual works as
         # needed (instead of at app start), we need to avoid the relative
         # slowness of those queries.
         #

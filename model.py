@@ -3240,6 +3240,9 @@ class Work(Base):
     # One Work may be associated with many CustomListEntries.
     custom_list_entries = relationship('CustomListEntry', backref='work')
     
+    # One Work may have multiple CachedFeeds.
+    cached_feeds = relationship('CachedFeed', backref='work')
+
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
@@ -5777,8 +5780,14 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
-    # A feed may be associated with a LicensePool.
+    # TODO: After LicensePool-associated feeds have been successfully
+    # migrated to Work-associated feeds, drop this column and remove
+    # its relationship in LicensePool.
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
+        nullable=True, index=True)
+
+    # A feed may be associated with a Work.
+    work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
 
     GROUPS_TYPE = u'groups'
@@ -5802,11 +5811,10 @@ class CachedFeed(Base):
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
-        license_pool = None
+        work = None
         if lane:
             lane_name = unicode(lane.name)
-            if hasattr(lane, 'license_pool'):
-                license_pool = lane.license_pool
+            work = getattr(lane, 'work', None)
         else:
             lane_name = None
 
@@ -5833,7 +5841,7 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_name=lane_name,
-            license_pool=license_pool,
+            work=work,
             type=type,
             languages=languages_key,
             facets=facets_key,
