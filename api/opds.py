@@ -256,7 +256,7 @@ class CirculationManagerAnnotator(Annotator):
             entry.append(tag)
 
         # Add a link for related books if available.
-        if self.related_books_available(active_license_pool):
+        if self.related_books_available(work):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
@@ -283,12 +283,18 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     @classmethod
-    def related_books_available(cls, license_pool):
-        """:return: bool asserting whether related books are available for a
-        particular work
+    def related_books_available(cls, work):
+        """:return: bool asserting whether related books might exist for
+        a particular Work
         """
-        contributions = license_pool.presentation_edition.contributions
-        series = license_pool.presentation_edition.series
+        if isinstance(work, Work):
+            edition = work.presentation_edition
+        else:
+            # This is a MaterializedWork*,
+            edition = work.license_pool.presentation_edition
+
+        contributions = edition.contributions
+        series = edition.series
         return contributions or series or NoveListAPI.is_configured()
 
     def annotate_feed(self, feed, lane):
