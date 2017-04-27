@@ -8909,7 +8909,10 @@ class Collection(Base):
     )
     
     # A Collection can include many LicensePools.
-    licensepools = relationship("LicensePool", backref="collection")
+    licensepools = relationship(
+        "LicensePool", backref="collection",
+        cascade="save-update, merge, delete"
+    )
 
     # A Collection can be monitored by many Monitors, each of which
     # will have its own Timestamp.
@@ -9066,19 +9069,6 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
-    
-collections_licensepools = Table(
-    'collections_licensepools', Base.metadata,
-     Column(
-         'collection_id', Integer, ForeignKey('collections.id'),
-         index=True, nullable=False
-     ),
-     Column(
-         'licensepool_id', Integer, ForeignKey('licensepools.id'),
-         index=True, nullable=False
-     ),
-     UniqueConstraint('collection_id', 'licensepool_id'),
-)
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,
