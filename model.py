@@ -3234,7 +3234,7 @@ class Work(Base):
     # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
-    # One Work may have many asosciated WorkCoverageRecords.
+    # One Work may have many associated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
     # One Work may be associated with many CustomListEntries.
@@ -3406,6 +3406,12 @@ class Work(Base):
     @property
     def has_open_access_license(self):
         return any(x.open_access for x in self.license_pools)
+
+    @property
+    def complaints(self):
+        complaints = list()
+        [complaints.extend(pool.complaints) for pool in self.license_pools]
+        return complaints
 
     def __repr__(self):
         return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
@@ -8577,6 +8583,13 @@ class Complaint(Base):
               ]
     ])
 
+    LICENSE_POOL_TYPES = [
+        'cannot-fulfill-loan',
+        'cannot-issue-loan',
+        'cannot-render',
+        'cannot-return',
+    ]
+
     id = Column(Integer, primary_key=True)
 
     # One LicensePool can have many complaints lodged against it.
@@ -8633,6 +8646,10 @@ class Complaint(Base):
                 resolved=resolved
             )
         return complaint, is_new
+
+    @property
+    def for_license_pool(self):
+        return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
 
     def resolve(self):
         self.resolved = datetime.datetime.utcnow()
