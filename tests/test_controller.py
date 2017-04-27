@@ -169,7 +169,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
-                self._db, lanes=lanes, testing=True
+                _db, lanes=lanes, testing=True
             )
             self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
