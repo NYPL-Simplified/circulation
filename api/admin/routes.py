@@ -81,70 +81,70 @@ def google_auth_callback():
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>', methods=['GET'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_details(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.details(data_source, identifier_type, identifier)
+def work_details(identifier_type, identifier):
+    return app.manager.admin_work_controller.details(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_classifications(data_source, identifier_type, identifier):
-    data = app.manager.admin_work_controller.classifications(data_source, identifier_type, identifier)
+def work_classifications(identifier_type, identifier):
+    data = app.manager.admin_work_controller.classifications(identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
 @returns_problem_detail
 @requires_admin
-def work_complaints(data_source, identifier_type, identifier):
-    data = app.manager.admin_work_controller.complaints(data_source, identifier_type, identifier)
+def work_complaints(identifier_type, identifier):
+    data = app.manager.admin_work_controller.complaints(identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit', methods=['POST'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
 @returns_problem_detail
 @requires_admin
-def edit(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.edit(data_source, identifier_type, identifier)
+def edit(identifier_type, identifier):
+    return app.manager.admin_work_controller.edit(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def suppress(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.suppress(data_source, identifier_type, identifier)
+def suppress(identifier_type, identifier):
+    return app.manager.admin_work_controller.suppress(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def unsuppress(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.unsuppress(data_source, identifier_type, identifier)
+def unsuppress(identifier_type, identifier):
+    return app.manager.admin_work_controller.unsuppress(identifier_type, identifier)
 
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
+@app.route('/works/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
-def refresh(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.refresh_metadata(data_source, identifier_type, identifier)
+def refresh(identifier_type, identifier):
+    return app.manager.admin_work_controller.refresh_metadata(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def resolve_complaints(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.resolve_complaints(data_source, identifier_type, identifier)
+def resolve_complaints(identifier_type, identifier):
+    return app.manager.admin_work_controller.resolve_complaints(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
+@app.route('/admin/works/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def edit_classifications(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.edit_classifications(data_source, identifier_type, identifier)
+def edit_classifications(identifier_type, identifier):
+    return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
 
 @app.route('/admin/complaints')
 @returns_problem_detail
