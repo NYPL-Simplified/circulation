@@ -1086,18 +1086,13 @@ class TestSettingsController(AdminControllerTest):
                 sorted(Collection.PROTOCOLS))
 
     def test_collections_get_with_multiple_collections(self):
-        # Delete any existing collections created by the test setup.
-        for collection in self._db.query(Collection):
-            self._db.delete(collection)
 
-        c1, ignore = create(
-            self._db, Collection, name="Collection 1", protocol=Collection.OVERDRIVE,
-        )
-        c1.external_account_id = "1234"
-        c1.external_integration.password = "a"
+        [c1] = self._default_library.collections
+
         c2, ignore = create(
             self._db, Collection, name="Collection 2", protocol=Collection.BIBLIOTHECA,
         )
+        c2.external_account_id = "1234"
         c2.external_integration.password = "b"
 
         with self.app.test_request_context("/"):
