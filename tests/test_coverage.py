@@ -829,16 +829,6 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         """Verify that class variables become appropriate instance
         variables.
         """
-        # You must define PROTOCOL.
-        class NoProtocol(AlwaysSuccessfulCollectionCoverageProvider):
-            PROTOCOL = None
-        assert_raises_regexp(
-            ValueError,
-            "NoProtocol must define PROTOCOL",
-            NoProtocol,
-            self._default_collection
-        )
-       
         collection = self._collection(protocol=Collection.OPDS_IMPORT)
         provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
         eq_(provider.DATA_SOURCE_NAME, provider.data_source.name)
