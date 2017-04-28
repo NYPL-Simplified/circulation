@@ -21,6 +21,7 @@ from core.model import (
     AdminAuthenticationService,
     CirculationEvent,
     Classification,
+    Complaint,
     DataSource,
     Edition,
     Genre,
@@ -345,10 +346,14 @@ class WorkController(CirculationManagerController):
             # Something went wrong.
             return pools
 
-        # Assume that all of the LicensePools are being unsuppressed.
-        # TODO: 'You know what happens when you assume.' Stop.
         for pool in pools:
-            pool.suppressed = False
+            # Only unsuppress LicensePools that with Work-targetted,
+            # admin-editable complaints. Anything specific to a
+            # LicensePool is ignored until its specific complaints have
+            # been resolved.
+            ignore_pool = any(c.for_license_pool for c in pool.complaints)
+            if not ignore_pool:
+                pool.suppressed = False
         return Response("", 200)
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):

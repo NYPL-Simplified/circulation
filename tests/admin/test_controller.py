@@ -455,12 +455,30 @@ class TestWorkController(AdminControllerTest):
         [lp] = self.english_1.license_pools
         lp.suppressed = True
 
+        broken_lp = self._licensepool(
+            self.english_1.presentation_edition,
+            data_source_name=DataSource.OVERDRIVE
+        )
+        broken_lp.work = self.english_1
+        broken_lp.suppressed = True
+
+        # The broken LicensePool doesn't render properly.
+        Complaint.register(
+            broken_lp,
+            "http://librarysimplified.org/terms/problem/cannot-render",
+            "blah", "blah"
+        )
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.unsuppress(
                 lp.identifier.type, lp.identifier.identifier
             )
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
+
+            # The LicensePool with a LicensePool-specific complaint is
+            # not unsuppressed.
+            eq_(True, broken_lp.suppressed)
 
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
