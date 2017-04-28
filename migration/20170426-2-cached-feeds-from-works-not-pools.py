@@ -21,7 +21,7 @@ _db = production_session()
 
 feeds = _db.query(CachedFeed).join(CachedFeed.license_pool)\
         .filter(CachedFeed.license_pool_id.isnot(None)).all()
-set_trace()
+
 log.info("%d affected CachedFeeds found", len(feeds))
 for feed in feeds:
     feed.work = feed.license_pool.work
@@ -30,7 +30,7 @@ _db.commit()
 remaining_feeds = _db.query(CachedFeed).filter(
     CachedFeed.license_pool_id.isnot(None),
     CachedFeed.work_id.is_(None)).all()
-set_trace()
+
 if remaining_feeds:
     logging.error(
         "ERROR: %d affected CachedFeeds remaining without associated Work",
