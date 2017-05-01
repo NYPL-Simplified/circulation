@@ -9,7 +9,7 @@ from flask import (
 import os
 
 from api.app import app
-from config import Configuration
+from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
 from core.app_server import returns_problem_detail
@@ -32,23 +32,42 @@ def setup_admin():
     if getattr(app, 'manager', None) is not None:
         setup_admin_controllers(app.manager)
 
+def allows_admin_auth_setup(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        setting_up = (app.manager.admin_sign_in_controller.auth == None)
+        return f(*args, setting_up=setting_up, **kwargs)
+    return decorated
+
 def requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
-        if isinstance(admin, ProblemDetail):
-            return app.manager.admin_sign_in_controller.error_response(admin)
-        elif isinstance(admin, Response):
-            return admin
+        if 'setting_up' in kwargs:
+            setting_up = kwargs.pop('setting_up')
+        else:
+            setting_up = False
+
+        if not setting_up:
+            admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+            if isinstance(admin, ProblemDetail):
+                return app.manager.admin_sign_in_controller.error_response(admin)
+            elif isinstance(admin, Response):
+                return admin
+
         return f(*args, **kwargs)
     return decorated
 
 def requires_csrf_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = app.manager.admin_sign_in_controller.check_csrf_token()
-        if isinstance(token, ProblemDetail):
-            return token
+        if 'setting_up' in kwargs:
+            setting_up = kwargs.get('setting_up')
+        else:
+            setting_up = False
+        if not setting_up and flask.request.method in ["POST", "PUT", "DELETE"]:
+            token = app.manager.admin_sign_in_controller.check_csrf_token()
+            if isinstance(token, ProblemDetail):
+                return token
         return f(*args, **kwargs)
     return decorated
 
@@ -217,6 +236,43 @@ def stats():
         return data
     return flask.jsonify(**data)
 
+@app.route('/admin/libraries', methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_csrf_token
+@requires_admin
+def libraries():
+    data = app.manager.admin_settings_controller.libraries()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/collections", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_csrf_token
+@requires_admin
+def collections():
+    data = app.manager.admin_settings_controller.collections()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@allows_admin_auth_setup
+@requires_csrf_token
+@requires_admin
+def admin_auth_services():
+    data = app.manager.admin_settings_controller.admin_auth_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -236,28 +292,34 @@ def admin_sign_in_again():
 @app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
 def admin_view(collection=None, book=None, **kwargs):
-    admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
-    csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
-    if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
-        redirect_url = flask.request.url
-        if (collection):
-            quoted_collection = urllib.quote(collection)
-            redirect_url = redirect_url.replace(
-                quoted_collection,
-                quoted_collection.replace("/", "%2F"))
-        if (book):
-            quoted_book = urllib.quote(book)
-            redirect_url = redirect_url.replace(
-                quoted_book,
-                quoted_book.replace("/", "%2F"))
-        return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+    setting_up = (app.manager.admin_sign_in_controller.auth == None)
+    if not setting_up:
+        admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+        csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
+        if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
+            redirect_url = flask.request.url
+            if (collection):
+                quoted_collection = urllib.quote(collection)
+                redirect_url = redirect_url.replace(
+                    quoted_collection,
+                    quoted_collection.replace("/", "%2F"))
+            if (book):
+                quoted_book = urllib.quote(book)
+                redirect_url = redirect_url.replace(
+                    quoted_book,
+                    quoted_book.replace("/", "%2F"))
+            return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+    else:
+        csrf_token = None
     show_circ_events_download = (
-        "core.local_analytics_provider" in Configuration.policy("analytics")
+        "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
     )
-    return flask.render_template_string(admin_template,
+    return flask.render_template_string(
+        admin_template,
         csrf_token=csrf_token,
         home_url=app.manager.url_for('acquisition_groups'),
-        show_circ_events_download=show_circ_events_download
+        show_circ_events_download=show_circ_events_download,
+        setting_up=setting_up,
     )
 
 @app.route('/admin')
@@ -267,14 +329,12 @@ def admin_base(**kwargs):
 
 @app.route('/admin/static/circulation-web.js')
 @returns_problem_detail
-@requires_admin
 def admin_js():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     return flask.send_from_directory(directory, "circulation-web.js")
 
 @app.route('/admin/static/circulation-web.css')
 @returns_problem_detail
-@requires_admin
 def admin_css():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     return flask.send_from_directory(directory, "circulation-web.css")

@@ -18,6 +18,7 @@ from core.lane import (
 )
 from core.model import (
     DataSource,
+    Library,
     Work,
     Representation,
     DeliveryMechanism,
@@ -79,9 +80,11 @@ class WithVendorIDTest(DatabaseTest):
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
                 Configuration.ADOBE_VENDOR_ID : vendor_id,
                 AuthdataUtility.LIBRARY_URI_KEY : library_uri,
-                AuthdataUtility.LIBRARY_SHORT_NAME_KEY : short_name,
-                AuthdataUtility.AUTHDATA_SECRET_KEY : secret,
             }
+            library = Library.instance(self._db)
+            library.library_registry_short_name = short_name
+            library.library_registry_shared_secret = secret
+
             yield config
 
     
@@ -267,7 +270,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # The drm:licensor tag is the one we get by calling
             # adobe_id_tags() on that identifier.
             [expect] = self.annotator.adobe_id_tags(
-                adobe_id_identifier.credential
+                self._db, adobe_id_identifier.credential
             )
             eq_(etree.tostring(expect), etree.tostring(licensor))
             
@@ -279,7 +282,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             """
             config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {}
             eq_([], self.annotator.adobe_id_tags(
-                "patron identifier")
+                self._db, "patron identifier")
             )
 
     def test_adobe_id_tags_when_vendor_id_configured(self):
@@ -291,7 +294,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
         with self.temp_config() as config:
             patron_identifier = "patron identifier"
             [element] = self.annotator.adobe_id_tags(
-                patron_identifier
+                self._db, patron_identifier
             )
             eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
 
@@ -304,7 +307,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # token.text is a token which we can decode, since we know
             # the secret.
             token = token.text
-            authdata = AuthdataUtility.from_config()
+            authdata = AuthdataUtility.from_config(self._db)
             decoded = authdata.decode_short_client_token(token)
             eq_(("http://a-library/", patron_identifier), decoded)
 
@@ -318,7 +321,9 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             
             # If we call adobe_id_tags again we'll get a distinct tag
             # object that renders to the same XML.
-            [same_tag] = self.annotator.adobe_id_tags(patron_identifier)
+            [same_tag] = self.annotator.adobe_id_tags(
+                self._db, patron_identifier
+            )
             assert same_tag is not element
             eq_(etree.tostring(element), etree.tostring(same_tag))
 
@@ -629,7 +634,6 @@ class TestOPDS(WithVendorIDTest):
         patron = self._patron()
         patron.username = u'bellhooks'
         patron.authorization_identifier = u'987654321'
-
         feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
         raw = unicode(feed_obj)
@@ -812,7 +816,7 @@ class TestOPDS(WithVendorIDTest):
         patron = self._patron()
         with self.temp_config() as config:
             [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
-            [generic_tag] = annotator.adobe_id_tags(patron)
+            [generic_tag] = annotator.adobe_id_tags(self._db, patron)
 
         # The feed-level tag has the drm:scheme attribute set.
         key = '{http://librarysimplified.org/terms/drm}scheme'

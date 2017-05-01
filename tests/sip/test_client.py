@@ -5,7 +5,10 @@ from nose.tools import (
     set_trace,
     assert_raises,
 )
+import socket
 from api.sip.client import (
+    CannotReceiveMockSIPClient,
+    CannotSendMockSIPClient,
     MockSIPClient,
 )
 
@@ -47,8 +50,9 @@ class TestBasicProtocol(object):
 
         # We made two requests for a single login command.
         req1, req2 = sip.requests
-        # The first request includes a sequence ID field, "AY1".
-        eq_('9300CNuser_id|COpassword|AY1AZF555\r', req1)
+        # The first request includes a sequence ID field, "AY", with
+        # the value "0".
+        eq_('9300CNuser_id|COpassword|AY0AZF556\r', req1)
 
         # The second request does not include a sequence ID field. As
         # a consequence its checksum is different.
@@ -56,6 +60,37 @@ class TestBasicProtocol(object):
 
         # The login request eventually succeeded.
         eq_({'login_ok': '1', '_status': '94'}, response)
+
+
+class TestNetworkError(object):
+
+    def test_retry_on_initial_ioerror(self):
+        sip = CannotSendMockSIPClient()
+
+        # When we try to send any data through the client, we get an
+        # IOError.
+        assert_raises(IOError, sip.login, 'username', 'password', 'location')
+        
+        # But after the initial failure we created a new socket
+        # connection and sent the data again, so at least we tried.
+        expect = ['Creating new socket connection.',
+                  "I was unable to send data."] * 2
+        eq_(expect, sip.status)
+        
+    def test_retry_on_initial_timeout(self):
+        sip = CannotReceiveMockSIPClient()
+
+        # When we try to send any data through the client, we get an
+        # exception.
+        assert_raises(
+            socket.timeout, sip.login, 'username', 'password', 'location'
+        )
+
+        # But after the initial failure we created a new socket
+        # connection and sent the data again, so at least we tried.
+        expect = ['Creating new socket connection.',
+                  "I was unable to read data."] * 2
+        eq_(expect, sip.status)
 
 
 class TestLogin(object):
@@ -74,16 +109,30 @@ class TestLogin(object):
 
     def test_login_happens_implicitly_when_user_id_and_password_specified(self):
         sip = MockSIPClient('user_id', 'password')
+        # We're not logged in, and we must log in before sending a real
+        # message.
+        eq_(False, sip.logged_in)
+        eq_(True, sip.must_log_in)
+        
         sip.queue_response('941')
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         response = sip.patron_information('patron_identifier')
 
         # Two requests were made.
         eq_(2, len(sip.requests))
+        eq_(2, sip.sequence_number)
 
+        # We're logged in.
+        eq_(True, sip.logged_in)
+        
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
 
+        # If we reset the connection, we stop being logged in.
+        sip.connect()
+        eq_(False, sip.logged_in)
+        eq_(0, sip.sequence_number)
+        
     def test_login_failure_interrupts_other_request(self):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('940')
@@ -94,15 +143,21 @@ class TestLogin(object):
         
     def test_login_does_not_happen_implicitly_when_user_id_and_password_not_specified(self):
         sip = MockSIPClient()
+
+        # We're implicitly logged in.
+        eq_(False, sip.must_log_in)
+        eq_(True, sip.logged_in)
+
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         response = sip.patron_information('patron_identifier')
 
-        # One request were made.
+        # One request was made.
         eq_(1, len(sip.requests))
-
+        eq_(1, sip.sequence_number)
+        
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
-        
+
         
 class TestPatronResponse(object):
 
