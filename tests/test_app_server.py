@@ -1,6 +1,6 @@
 import json
 from flask import Flask
-from flask.ext.babel import (
+from flask_babel import (
     Babel,
     lazy_gettext as _
 )

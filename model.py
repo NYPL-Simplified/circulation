@@ -790,6 +790,7 @@ class DataSource(Base):
     PRESENTATION_EDITION = u"Presentation edition generator"
     INTERNAL_PROCESSING = u"Library Simplified Internal Process"
     FEEDBOOKS = u"FeedBooks"
+    BIBBLIO = u"Bibblio"
     
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
@@ -1016,7 +1017,8 @@ class DataSource(Base):
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
                 (cls.INTERNAL_PROCESSING, True, False, None, None),
-                (cls.FEEDBOOKS, True, False, Identifier.URI, None)
+                (cls.FEEDBOOKS, True, False, Identifier.URI, None),
+                (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
 
             extra = dict()
@@ -1336,6 +1338,7 @@ class Identifier(Base):
     URI = u"URI"
     DOI = u"DOI"
     UPC = u"UPC"
+    BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID
@@ -3697,6 +3700,11 @@ class Work(Base):
                     cover_urls.append(edition.cover_full_url)
                 if edition.cover_thumbnail_url:
                     cover_urls.append(edition.cover_thumbnail_url)
+
+        if not cover_urls:
+            # All of the target Works have already had their
+            # covers suppressed. Nothing to see here.
+            return
 
         covers = _db.query(Resource).join(Hyperlink.identifier).\
             join(Identifier.licensed_through).filter(

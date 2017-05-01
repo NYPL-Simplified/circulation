@@ -90,6 +90,10 @@ class TestNameConversions(DatabaseTest):
         sort_name = display_name_to_sort_name(u"John Doe, M.D.")
         eq_(u"Doe, John MD", sort_name)
 
+        # corporate name is unchanged
+        sort_name = display_name_to_sort_name(u"Church of Jesus Christ of Latter-day Saints")
+        eq_(u"Church of Jesus Christ of Latter-day Saints", sort_name)        
+
 
     def test_name_tidy(self):
         # remove improper comma
