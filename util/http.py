@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 import requests
 import urlparse
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from problem_detail import ProblemDetail as pd
 
 INTEGRATION_ERROR = pd(
@@ -27,7 +27,8 @@ class RemoteIntegrationException(Exception):
            (e.g. "Overdrive"), or the specific URL that had the problem.
         """
         super(RemoteIntegrationException, self).__init__(message)
-        if any(url_or_service.startswith(x) for x in ('http:', 'https:')):
+        if (url_or_service and
+            any(url_or_service.startswith(x) for x in ('http:', 'https:'))):
             self.url = url_or_service
             self.service = urlparse.urlparse(url_or_service).netloc
         else:

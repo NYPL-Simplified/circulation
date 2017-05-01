@@ -3,17 +3,22 @@ import datetime
 import imp
 import logging
 import os
+import random
 import re
 import requests
+import string
 import time
+import uuid
 from requests.exceptions import (
     ConnectionError, 
     HTTPError,
 )
 import sys
 import traceback
+import unicodedata
 
 from collections import defaultdict
+import json
 from nose.tools import set_trace
 from sqlalchemy import create_engine
 from sqlalchemy.sql.functions import func
@@ -23,16 +28,23 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
+from app_server import ComplaintController
+from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one,
     get_one_or_create,
     production_session,
+    Collection,
+    Complaint, 
+    Contributor, 
+    CoverageRecord, 
     CustomList,
     DataSource,
     Edition,
     Identifier,
+    Library,
     LicensePool,
     Patron,
     PresentationCalculationPolicy,
@@ -42,25 +54,21 @@ from model import (
     WorkCoverageRecord,
     WorkGenre,
 )
-from external_search import (
-    ExternalSearchIndex,
-)
+from external_search import ExternalSearchIndex
+from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from oneclick import OneClickAPI, MockOneClickAPI
+from overdrive import OverdriveBibliographicCoverageProvider
+from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
-
-from monitor import SubjectAssignmentMonitor
-
-from overdrive import (
-    OverdriveBibliographicCoverageProvider,
+from util.personal_names import (
+    contributor_name_match_ratio, 
+    display_name_to_sort_name, 
+    is_corporate_name
 )
 
-from threem import (
-    ThreeMBibliographicCoverageProvider,
-)
 
-from axis import Axis360BibliographicCoverageProvider
 
 class Script(object):
 
@@ -541,6 +549,291 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             provider.ensure_coverage(identifier, force=True)
 
 
+class ShowLibrariesScript(Script):
+    """Show information about the libraries on a server."""
+    
+    name = "List the libraries on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--short-name',
+            help='Only display information for the library with the given short name',
+        )
+        parser.add_argument(
+            '--show-registry-shared-secret',
+            help='Print out the secret shared with the library registry.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.short_name:
+            library = get_one(
+                _db, Library, short_name=args.short_name
+            )
+            libraries = [library]
+        else:
+            libraries = _db.query(Library).order_by(Library.name).all()
+        if not libraries:
+            output.write("No libraries found.\n")
+        for library in libraries:
+            output.write(
+                "\n".join(
+                    library.explain(
+                        include_library_registry_shared_secret=
+                        args.show_registry_shared_secret
+                    )
+                )
+            )
+            output.write("\n")
+
+        
+class ConfigureLibraryScript(Script):
+    """Create a library or change its settings."""
+    name = "Change a library's settings"
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Official name of the library',
+        )
+        parser.add_argument(
+            '--short-name',
+            help='Short name of the library',
+        )
+        parser.add_argument(
+            '--library-registry-short-name',
+            help='Short name of the library, as used on the library registry',
+        )
+        parser.add_argument(
+            '--library-registry-shared-secret',
+            help='Set the library registry shared secret to a specific value.',
+        )
+        parser.add_argument(
+            '--random-library-registry-shared-secret',
+            help='Set the library registry shared secret to a random value.',
+            action='store_true',
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if (args.random_library_registry_shared_secret
+            and args.library_registry_shared_secret):
+            raise ValueError(
+                "You can't set the shared secret to a random value and a specific value at the same time."
+            )
+       
+        if not args.short_name:
+            raise ValueError(
+                "You must identify the library by its short name."
+            )
+
+        # Are we talking about an existing library?
+        libraries = _db.query(Library).all()
+
+        if libraries:
+            # Currently there can only be one library, and one already exists.
+            [library] = libraries
+            if args.short_name and library.short_name != args.short_name:
+                raise ValueError("Could not locate library '%s'" % args.short_name)
+        else:
+            # No existing library. Make one.
+            library, ignore = get_one_or_create(
+                _db, Library, create_method_kwargs=dict(
+                    uuid=str(uuid.uuid4())
+                )
+            )
+
+        if args.random_library_registry_shared_secret:
+            if library.library_registry_shared_secret:
+                raise ValueError(
+                    "Cowardly refusing to overwrite an existing shared secret with a random value."
+                )
+            else:
+                args.library_registry_shared_secret = "".join(
+                    [random.choice('1234567890abcdef') for x in range(32)]
+                )
+            
+        if args.name:
+            library.name = args.name
+        if args.short_name:
+            library.short_name = args.short_name
+        if args.library_registry_short_name:
+            library.library_registry_short_name = args.library_registry_short_name
+        if args.library_registry_shared_secret:
+            library.library_registry_shared_secret = args.library_registry_shared_secret
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(library.explain()))
+        output.write("\n")
+
+
+class ShowCollectionsScript(Script):
+    """Show information about the collections on a server."""
+    
+    name = "List the collections on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Only display information for the collection with the given name',
+        )
+        parser.add_argument(
+            '--show-password',
+            help='Display collection passwords.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.name:
+            collection = get_one(_db, Collection, name=args.name)
+            collections = [collection]
+        else:
+            collections = _db.query(Collection).order_by(Collection.name).all()
+        if not collections:
+            output.write("No collections found.\n")
+        for collection in collections:
+            output.write(
+                "\n".join(
+                    collection.explain(include_password=args.show_password)
+                )
+            )
+            output.write("\n")
+
+
+class ConfigureCollectionScript(Script):
+    """Create a collection or change its settings."""
+    name = "Change a collection's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Name of the collection',
+            required=True
+        )
+        parser.add_argument(
+            '--protocol',
+            help='Protocol used to get licenses. Possible values: "%s"' % (
+                '", "'.join(Collection.PROTOCOLS)
+            )
+        )
+        parser.add_argument(
+            '--external-account-id',
+            help='The ID of this collection according to the license source. Sometimes called a "library ID".',
+        )
+        parser.add_argument(
+            '--url',
+            help='Run the acquisition protocol against this URL.',
+        )
+        parser.add_argument(
+            '--username',
+            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+        )
+        parser.add_argument(
+            '--password',
+            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+        )
+        parser.add_argument(
+            '--setting',
+            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
+            action="append",
+        )
+        library_names = cls._library_names(_db)
+        if library_names:
+            parser.add_argument(
+                '--library',
+                help='Associate this collection with the given library. Possible libraries: %s' % library_names,
+                action="append",
+            )
+        
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the collection
+        protocol = None
+        if args.protocol:
+            protocol = args.protocol
+            
+        collection = get_one(_db, Collection, name=args.name)
+        if not collection:
+            if protocol:
+                collection, is_new = get_one_or_create(
+                    _db, Collection, name=args.name, protocol=protocol
+                )
+            else:
+                raise ValueError(
+                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                )
+        if protocol:
+            collection.protocol = protocol
+        if args.external_account_id:
+            collection.external_account_id = args.external_account_id
+
+        integration = collection.external_integration
+        if args.url:
+            integration.url = args.url
+        if args.username:
+            integration.username = args.username
+        if args.password:
+            integration.password = args.password
+        if args.setting:
+            for setting in args.setting:
+                if not '=' in setting:
+                    raise ValueError(
+                        'Incorrect format for setting: "%s". Should be "key=value"'
+                        % setting
+                    )
+                key, value = setting.split('=', 1)
+                integration.setting(key).value = value
+
+        if hasattr(args, 'library'):
+            for name in args.library:
+                library = get_one(_db, Library, short_name=name)
+                if not library:
+                    library_names = self._library_names(_db)
+                    message = 'No such library: "%s".' % name
+                    if library_names:
+                        message += " I only know about: %s" % library_names
+                    raise ValueError(message)
+                if collection not in library.collections:
+                    library.collections.append(collection)
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(collection.explain()))
+        output.write("\n")
+
+
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
@@ -634,8 +927,12 @@ class WorkProcessingScript(IdentifierInputScript):
 
         args = self.parse_command_line(self._db)
         self.identifier_type = args.identifier_type
-        self.identifiers = args.identifiers
         self.data_source = args.identifier_data_source
+
+        self.identifiers = self.parse_identifier_list(
+            self._db, self.identifier_type, self.data_source,
+            args.identifier_strings
+        )
 
         self.batch_size = batch_size
         self.query = self.make_query(
@@ -846,11 +1143,9 @@ class OneClickImportScript(Script):
 
 
     def do_run(self):
-        print "OneClickImportScript.do_run"
         self.log.info("OneClickImportScript.do_run().")
         items_transmitted, items_created = self.api.populate_all_catalog()
         result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
-        print result_string
         self.log.info(result_string)
 
 
@@ -866,7 +1161,6 @@ class OneClickDeltaScript(OneClickImportScript):
 
 
     def do_run(self):
-        print "OneClickDeltaScript.do_run"
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
 
@@ -1301,11 +1595,190 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
+
+class CheckContributorNamesInDB(IdentifierInputScript):
+    """ Checks that contributor sort_names are display_names in 
+    "last name, comma, other names" format.  
+
+    Read contributors edition by edition, so that can, if necessary, 
+    restrict db query by passed-in identifiers, and so can find associated 
+    license pools to register author complaints to.
+
+    NOTE:  There's also CheckContributorNamesOnWeb in metadata, 
+    it's a child of this script.  Use it to check our knowledge against 
+    viaf, with the newer better sort_name selection and formatting.
+
+    TODO: make sure don't start at beginning again when interrupt while batch job is running.
+    """
+
+    COMPLAINT_SOURCE = "CheckContributorNamesInDB"
+    COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
+
+
+    def __init__(self, _db=None, cmd_args=None):
+        super(CheckContributorNamesInDB, self).__init__(_db=_db)
+
+        self.parsed_args = self.parse_command_line(_db=self._db, cmd_args=cmd_args)
+
+
+    @classmethod
+    def make_query(self, _db, identifier_type, identifiers, log=None):
+        query = _db.query(Edition)
+        if identifiers or identifier_type:
+            query = query.join(Edition.primary_identifier)
+
+        # we only want to look at editions with license pools, in case we want to make a Complaint
+        query = query.join(Edition.is_presentation_for)
+
+        if identifiers:
+            if log:
+                log.info(
+                    'Restricted to %d specific identifiers.' % len(identifiers)
+                )
+            query = query.filter(
+                Edition.primary_identifier_id.in_([x.id for x in identifiers])
+            )
+        if identifier_type:
+            if log:
+                log.info(
+                    'Restricted to identifier type "%s".' % identifier_type
+                )
+            query = query.filter(Identifier.type==identifier_type)
+
+        if log:
+            log.info(
+                "Processing %d editions.", query.count()
+            )
+
+        return query.order_by(Edition.id)
+
+
+    def run(self, batch_size=10):
+        
+        self.query = self.make_query(
+            self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
+        )
+
+        editions = True
+        offset = 0
+        output = "ContributorID|\tSortName|\tDisplayName|\tComputedSortName|\tResolution|\tComplaintSource"
+        print output.encode("utf8")
+
+        while editions:
+            my_query = self.query.offset(offset).limit(batch_size)
+            editions = my_query.all()
+
+            for edition in editions:
+                if edition.contributions:
+                    for contribution in edition.contributions:
+                        self.process_contribution_local(self._db, contribution, self.log)
+            offset += batch_size
+
+            self._db.commit()
+        self._db.commit()
+
+
+    def process_contribution_local(self, _db, contribution, log=None):
+        if not contribution or not contribution.edition:
+            return
+
+        contributor = contribution.contributor
+
+        identifier = contribution.edition.primary_identifier
+
+        if contributor.sort_name and contributor.display_name:
+            computed_sort_name_local_new = unicodedata.normalize("NFKD", unicode(display_name_to_sort_name(contributor.display_name)))
+            # Did HumanName parser produce a differet result from the plain comma replacement?
+            if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
+                error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
+
+                # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced 
+                # suffix, we can fix without asking for human intervention.  if the names are very different, 
+                # there's a chance the sort and display names are different on purpose, s.a. when foreign names 
+                # are passed as translated into only one of the fields, or when the author has a popular pseudonym. 
+                # best ask a human.
+
+                # if the relative lengths are off by more than a stray space or comma, ask a human
+                # it probably means that a human metadata professional had added an explanation/expansion to the 
+                # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data 
+                # with the "Jones, Bob A." that the auto-algorigthm would generate.
+                length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
+                if abs(length_difference) > 3:
+                    return self.process_local_mismatch(_db=_db, contribution=contribution,  
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+
+                match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
+
+                if (match_ratio < 40):
+                    # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
+                    # and is non-trivial to fix.  
+                    self.process_local_mismatch(_db=_db, contribution=contribution, 
+                        computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
+                else:
+                    # we can fix it!
+                    output = "%s|\t%s|\t%s|\t%s|\tlocal_fix" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name_local_new)
+                    print output.encode("utf8")
+                    self.set_contributor_sort_name(computed_sort_name_local_new, contribution)
+
+
+    @classmethod
+    def set_contributor_sort_name(cls, sort_name, contribution):
+        """ Sets the contributor.sort_name and associated edition.author_name to the passed-in value. """
+        contribution.contributor.sort_name = sort_name
+
+        # also change edition.sort_author, if the author was primary
+        # Note: I considered using contribution.edition.author_contributors, but 
+        # found that it's not impossible to have a messy dataset that doesn't work on.  
+        # For our purpose here, the following logic is cleaner-acting:
+        # If this author appears as Primary Author anywhere on the edition, then change edition.sort_author.
+        edition_contributions = contribution.edition.contributions
+        for edition_contribution in edition_contributions:
+            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and 
+                (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
+                contribution.edition.sort_author = sort_name
+
+
+    def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Determines if a problem is to be investigated further or recorded as a Complaint, 
+        to be solved by a human.  In this class, it's always a complaint.  In the overridden 
+        method in the child class in metadata_wrangler code, we sometimes go do a web query.
+        """ 
+        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution, 
+            computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
+
+
+    @classmethod
+    def register_problem(cls, source, contribution, computed_sort_name, error_message_detail, log=None):
+        """
+        Make a Complaint in the database, so a human can take a look at this Contributor's name
+        and resolve whatever the complex issue that got us here.
+        """
+        success = True
+        contributor = contribution.contributor
+
+        pool = contribution.edition.is_presentation_for
+        try:
+            complaint, is_new = Complaint.register(pool, cls.COMPLAINT_TYPE, source, error_message_detail)
+            output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
+            print output.encode("utf8")
+        except ValueError, e:
+            # log and move on, don't stop run
+            log.error("Error registering complaint: %r", contributor, exc_info=e)
+            success = False
+
+        return success
+
+
+
+
+
+
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
     def run(self):
-        args = self.parse_command_line(self._db)
-        identifier_ids = [x.id for x in args.identifiers]
+        param_args = self.parse_command_line(self._db)
+        identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
@@ -1317,25 +1790,39 @@ class Explain(IdentifierInputScript):
 
     @classmethod
     def explain(cls, _db, edition, presentation_calculation_policy=None):
-        if edition.medium != 'Book':
+        if edition.medium not in ('Book', 'Audio'):
+            # we haven't yet decided what to display for you
             return
+
+        # Tell about the Edition record.
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         print output.encode("utf8")
         print " Permanent work ID: %s" % edition.permanent_work_id
-        work = edition.work
-        lp = edition.license_pool
         print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+
         seen = set()
         cls.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
+
+        # Find all contributions, and tell about the contributors.
+        if edition.contributions:
+            for contribution in edition.contributions:
+                cls.explain_contribution(contribution)
+
+        # Tell about the LicensePool.
+        lp = edition.license_pool
         if lp:
             cls.explain_license_pool(lp)
         else:
             print " No associated license pool."
+
+        # Tell about the Work.
+        work = edition.work
         if work:
             cls.explain_work(work)
         else:
             print " No associated work."
 
+        # Note:  Can change DB state.
         if work and presentation_calculation_policy is not None:
              print "!!! About to calculate presentation!"
              work.calculate_presentation(policy=presentation_calculation_policy)
@@ -1343,6 +1830,16 @@ class Explain(IdentifierInputScript):
              print
              print "After recalculating presentation:"
              cls.explain_work(work)
+
+
+    @classmethod
+    def explain_contribution(cls, contribution):
+        contributor_id = contribution.contributor.id
+        contributor_sort_name = contribution.contributor.sort_name
+        contributor_display_name = contribution.contributor.display_name
+        output = " Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name)
+        print output.encode("utf8")
+
 
     @classmethod
     def explain_identifier(cls, identifier, primary, seen, strength, level):
@@ -1416,6 +1913,7 @@ class Explain(IdentifierInputScript):
             if not pool.superceded:
                 active = "ACTIVE"
             print "  %s: %r" % (active, pool.identifier)
+
 
 
 class SubjectAssignmentScript(SubjectInputScript):

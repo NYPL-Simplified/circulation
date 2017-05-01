@@ -9,12 +9,95 @@ from permanent_work_id import WorkIDCalculator;
 
 """Fallback algorithms for dealing with personal names when VIAF fails us."""
 
+phdFix = re.compile("((. +)|(, ?))P(h|H)\.? *(D|d)(\.| |$){1}")
+mdFix = re.compile("((. +)|(, ?))M\.? *D(\.| |$){1}")
+# omit exclamation point in case it can be part of stage name
+# only match punctuation that's not part of name initials or title.
+# so "Bitshifter, B." is OK, "Bitshifter, Bob Jr.", but "Bitshifter, Robert." is not.
+trailingPunctuation = re.compile("(.*)(\w{4,})([?:.,;]*?)\Z")
+
+
+def _replace_md(match):
+    """
+    If the "MD" professional title was matched, make sure it's got no punctuation in it.
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 1:
+        return match
+
+    return match.groups()[0] + "MD"
+
+
+def _replace_phd(match):
+    """
+    If the "PhD" professional title was matched, make sure it's got no punctuation in it.
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 1:
+        return match
+
+    return match.groups()[0] + "PhD"
+
+
+def _replace_end_punctuation(match):
+    """
+    If there was found to be improper punctuation at the end of the name string, 
+    clean it off.
+    :param match: a regular expression matched to a string
+    """
+    if not match or len(match.groups()) < 3:
+        return match
+
+    return match.groups()[0] + match.groups()[1]
+
+
+def contributor_name_match_ratio(name1, name2, normalize_names=True):
+    """
+    Returns a number between 0 and 100, representing the percent 
+    match (Levenshtein Distance) between name1 and name2, 
+    after each has been normalized.
+    """
+    if normalize_names:
+        name1 = normalize_contributor_name_for_matching(name1)
+        name2 = normalize_contributor_name_for_matching(name2)
+    match_ratio = fuzz.ratio(name1, name2)
+    return match_ratio
+
+
 def is_corporate_name(display_name):
     """Does this display name look like a corporate name?"""
-    corporations = ['National Geographic', 'Smithsonian Institution', 
-        'Verlag', 'College', 'University',  
-        'Harper & Brothers', 'Williams & Wilkins', 
-        'Estampie', 'Paul Taylor Dance', 'Gallery']
+
+    corporations = [
+        # magazines and scientific institutions by name
+        'National Geographic', 'Smithsonian Institution', 
+
+        # educational institutions by name
+        'Princeton', 
+
+        # educational institutions, general
+        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', "School of", 
+        'Professors', 
+
+        # publishing houses by name
+        'Harper & Brothers', 'Harper Collins', 'HarperCollins', 'Williams & Wilkins', 
+        'Estampie', 'Paul Taylor Dance', 'Gallery', 'EMI Televisa', 'Mysterious Traveler', 
+
+        # group names, general
+        'Association', 'International', 'National', 'Society', 'Team', 
+
+        # religious institutions
+        "Church of", "Temple of",  
+
+        # subject names
+        'History', 'Science', 
+
+        # copyrights and trademarks
+        u'\xa9', 'Copyright', '(C)', '&#169;', 
+
+        # performing arts collaborations
+        'Multiple', 'Various',  
+        'Full Cast', 'BBC', 'LTD', 'Limited', 'Productions', 'Visual Media', 'Radio Classics'
+        ]
 
     display_name = display_name.lower().replace(".", "").replace(",", "").replace("&amp;", "&")
 
@@ -32,30 +115,86 @@ def is_corporate_name(display_name):
     return False
 
 
+def is_one_name(human_name):
+    """ Examples: 'Pope Francis', 'Prince'. """
+    if name.first and not name.last:
+        return True
+
+    return False
+
+
 def display_name_to_sort_name(display_name):
-    c = display_name.lower()
-    if c.endswith('.'):
-        c = c[:-1]
+    """
+    Take the "First Name Last Name"-formatted display_name, and convert it 
+    to a "Last Name, First Name" format appropriate for searching and sorting by.
+
+    Checks first if the display_name fits what we know of corporate entity business names.
+    If yes, uses the whole name without re-converting it.
+
+    Uses the HumanName library to try to parse the name into parts, and rearrange the parts into 
+    desired order and format.
+    """
+    if not display_name:
+        return None
+
+    # TODO: to humanname: PhD, Ph.D. Sister, Queen are titles and suffixes
+
+    # check if corporate, and if yes, return whole
     if is_corporate_name(display_name):
         return display_name
-    
-    parts = display_name.split(" ")
-    if len(parts) == 1:
-        return parts[0]
+
+    # clean up the common PhD and MD suffixes, so HumanName recognizes them better
+    display_name = name_tidy(display_name)
+
+    # name has title, first, middle, last, suffix, nickname
+    name = HumanName(display_name)
+
+    if name.nickname:
+        name.nickname = '(' + name.nickname + ')'
+
+    # Note: When the first and middle names are initials that have come in with a space between them, 
+    # let them keep that space, to be consistent with initials with no periods, which would be more 
+    # easily algorithm-recognized if they were placed separately. So:
+    # 'Classy, A. B.' and 'Classy Abe B.' and 'Classy A. Barney' and 'Classy, Abe Barney' and 'Classy, A B'.
+    if not name.last:
+        # Examples: 'Pope Francis', 'Prince'.
+        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname])
+        if name.title:
+            sort_name = u''.join([name.title, ", ", sort_name])
     else:
-        return parts[-1] + ", " + " ".join(parts[:-1])
+        sort_name = u' '.join([name.first, name.middle, name.suffix, name.nickname, name.title])
+        sort_name = u''.join([name.last, ", ", sort_name])
+
+    sort_name = name_tidy(sort_name)
+
+    return sort_name
 
 
 def name_tidy(name):
     """
-    Convert to NFKD unicode.
-    Strip excessive whitespace.display_name.
+    - Converts to NFKD unicode.
+    - Strips excessive whitespace and trailing punctuation.
+    - Normalizes PhD/MD suffixes.
+    - Does not perform any potentially name-altering business logic, such as 
+    running HumanName parser or any other name part reorganization. 
+    - Does not perform any cleaning that would later need to be reversed, 
+    such as lowercasing.
     """
     name = unicodedata.normalize("NFKD", unicode(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)
+
     name = name.strip()
 
-    return name
+    # Check that we don't have illegitimate punctuation.  So in 'Classy, Abe.' 
+    # the period is probably an artifact of dirty data, but in 'Classy, A.' 
+    # the period is a legitimate part of the initials.
+    name = trailingPunctuation.sub(_replace_end_punctuation, name, re.I)
+
+    # clean up the common PhD and MD suffixes, so HumanName recognizes them better
+    name = phdFix.sub(_replace_phd, name, re.I)
+    name = mdFix.sub(_replace_md, name, re.I)
+
+    return name.strip()
 
 
 def normalize_contributor_name_for_matching(name):

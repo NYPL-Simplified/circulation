@@ -6,8 +6,9 @@ from collections import (
 )
 from lxml import etree
 from nose.tools import set_trace
-import cairosvg
+import base64
 import bisect
+import cairosvg
 import datetime
 import isbnlib
 import json
@@ -47,6 +48,7 @@ from sqlalchemy.orm import (
     lazyload,
     relationship,
     sessionmaker,
+    synonym,
 )
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -114,6 +116,7 @@ from util.http import (
     RemoteIntegrationException,
 )
 from util.permanent_work_id import WorkIDCalculator
+from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
 from sqlalchemy.orm.session import Session
@@ -780,6 +783,7 @@ class DataSource(Base):
     PRESENTATION_EDITION = u"Presentation edition generator"
     INTERNAL_PROCESSING = u"Library Simplified Internal Process"
     FEEDBOOKS = u"FeedBooks"
+    BIBBLIO = u"Bibblio"
     
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
@@ -856,11 +860,6 @@ class DataSource(Base):
 
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
-
-    # One DataSource can have one Collection.
-    collection = relationship(
-        "Collection", backref="data_source", uselist=False
-    )
 
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
@@ -1002,7 +1001,8 @@ class DataSource(Base):
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
                 (cls.INTERNAL_PROCESSING, True, False, None, None),
-                (cls.FEEDBOOKS, True, False, Identifier.URI, None)
+                (cls.FEEDBOOKS, True, False, Identifier.URI, None),
+                (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
 
             extra = dict()
@@ -1095,6 +1095,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
+    REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1321,6 +1322,7 @@ class Identifier(Base):
     URI = u"URI"
     DOI = u"DOI"
     UPC = u"UPC"
+    BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID
@@ -1431,7 +1433,6 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
-
         if not foreign_identifier_type or not foreign_id:
             return None
 
@@ -2015,7 +2016,7 @@ class Contributor(Base):
 
     # This is the name by which this person is known in the original
     # catalog. It is sortable, e.g. "Twain, Mark".
-    sort_name = Column(Unicode, index=True)
+    _sort_name = Column('sort_name', Unicode, index=True)
     aliases = Column(ARRAY(Unicode), default=[])
 
     # This is the name we will display publicly. Ideally it will be
@@ -2174,14 +2175,42 @@ class Contributor(Base):
 
         return contributors, new
 
-    # TODO: Stop using 'name' attribute, everywhere.
-    @property
-    def name(self):
-        return self.sort_name
 
-    @name.setter
-    def name(self, value):
-        self.sort_name = value
+    @property
+    def sort_name(self):
+        return self._sort_name
+
+    @sort_name.setter
+    def sort_name(self, new_sort_name):
+        """ See if the passed-in value is in the prescribed Last, First format.
+        If it is, great, set the self._sprt_name to the new value.  
+
+        If new value is not in correct format, then 
+        attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
+
+        Note: If for any reason you need to force the sort_name to an improper value, 
+        set it like so:  contributor._sort_name="Foo Bar", and you'll avoid further processing. 
+
+        Note: For now, have decided to not automatically update any edition.sort_author 
+        that might have contributions by this Contributor.
+        """
+
+        if not new_sort_name:
+            self._sort_name = None
+            return
+
+        # simplistic test of format, but catches the most frequent problem
+        # where display-style names are put into sort name metadata by third parties.
+        if new_sort_name.find(",") == -1:
+            # auto-magically fix syntax
+            self._sort_name = display_name_to_sort_name(new_sort_name)
+            return
+
+        self._sort_name = new_sort_name
+
+    # tell SQLAlchemy to use the sort_name setter for ort_name, not _sort_name, after all.
+    sort_name = synonym('_sort_name', descriptor=sort_name)
+
 
     def merge_into(self, destination):
         """Two Contributor records should be the same.
@@ -2205,6 +2234,8 @@ class Contributor(Base):
             destination,
             destination.viaf
         )
+        
+        # make sure we're not losing any names we know for the contributor
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
         for name in [self.sort_name] + self.aliases:
@@ -2212,6 +2243,18 @@ class Contributor(Base):
                 new_aliases.append(name)
         if new_aliases != destination.aliases:
             destination.aliases = new_aliases
+
+        if not destination.family_name:
+            destination.family_name = self.family_name
+        if not destination.display_name:
+            destination.display_name = self.display_name
+        # keep sort_name if one of the contributor objects has it.
+        if not destination.sort_name:
+            destination.sort_name = self.sort_name
+        if not destination.wikipedia_name:
+            destination.wikipedia_name = self.wikipedia_name
+
+        # merge non-name-related properties
         for k, v in self.extra.items():
             if not k in destination.extra:
                 destination.extra[k] = v
@@ -2219,13 +2262,6 @@ class Contributor(Base):
             destination.lc = self.lc
         if not destination.viaf:
             destination.viaf = self.viaf
-        if not destination.family_name:
-            destination.family_name = self.family_name
-        if not destination.display_name:
-            destination.display_name = self.display_name
-        if not destination.wikipedia_name:
-            destination.wikipedia_name = self.wikipedia_name
-
         if not destination.biography:
             destination.biography = self.biography
 
@@ -2481,10 +2517,6 @@ class Edition(Base):
     cover_full_url = Column(Unicode)
     cover_thumbnail_url = Column(Unicode)
     
-    # This lets us avoid a lot of work figuring out the best open
-    # access link for this Edition.
-    open_access_download_url = Column(Unicode)
-
     # An OPDS entry containing all metadata about this entry that
     # would be relevant to display to a library patron.
     simple_opds_entry = Column(Unicode, default=None)
@@ -2716,15 +2748,6 @@ class Edition(Base):
             type = "text"
         return dict(type=type, value=content)
 
-    def set_open_access_link(self):
-        url = None
-        pool = self.license_pool
-        if pool:
-            resource = pool.best_open_access_link
-            if resource and resource.representation:
-                url = resource.representation.mirror_url
-        self.open_access_download_url = url
-
     def set_cover(self, resource):
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
@@ -2947,7 +2970,6 @@ class Edition(Base):
         old_sort_author = self.sort_author
         old_sort_title = self.sort_title
         old_work_id = self.permanent_work_id
-        old_open_access_download_url = self.open_access_download_url
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
 
@@ -2955,7 +2977,6 @@ class Edition(Base):
             self.author, self.sort_author = self.calculate_author()
             self.sort_title = TitleProcessor.sort_title_for(self.title)
             self.calculate_permanent_work_id()
-            self.set_open_access_link()
             CoverageRecord.add_for(
                 self, data_source=self.data_source,
                 operation=CoverageRecord.SET_EDITION_METADATA_OPERATION
@@ -2968,7 +2989,6 @@ class Edition(Base):
             or self.sort_author != old_sort_author
             or self.sort_title != old_sort_title
             or self.permanent_work_id != old_work_id
-            or self.open_access_download_url != old_open_access_download_url
             or self.cover != old_cover
             or self.cover_full_url != old_cover_full_url
         ):
@@ -3193,6 +3213,9 @@ class Work(Base):
     # One Work may have many asosciated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
+    # One Work may be associated with many CustomListEntries.
+    custom_list_entries = relationship('CustomListEntry', backref='work')
+    
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
@@ -3642,6 +3665,11 @@ class Work(Base):
                 if edition.cover_thumbnail_url:
                     cover_urls.append(edition.cover_thumbnail_url)
 
+        if not cover_urls:
+            # All of the target Works have already had their
+            # covers suppressed. Nothing to see here.
+            return
+
         covers = _db.query(Resource).join(Hyperlink.identifier).\
             join(Identifier.licensed_through).filter(
                 Resource.url.in_(cover_urls),
@@ -4036,11 +4064,11 @@ class Work(Base):
         simple = AcquisitionFeed.single_entry(_db, self, Annotator,
                                               force_create=True)
         if simple is not None:
-            self.simple_opds_entry = etree.tostring(simple)
+            self.simple_opds_entry = unicode(etree.tostring(simple))
         verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
                                                force_create=True)
         if verbose is not None:
-            self.verbose_opds_entry = etree.tostring(verbose)
+            self.verbose_opds_entry = unicode(etree.tostring(verbose))
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
@@ -4048,7 +4076,6 @@ class Work(Base):
 
     def update_external_index(self, client, add_coverage_record=True):
         client = client or ExternalSearchIndex()
-
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -5215,10 +5242,10 @@ class Genre(Base):
 
     @property
     def default_fiction(self):
-        if classifier.genres.get(self.name):
-            return classifier.genres[self.name].is_fiction
-        else:
-            return False
+        if self.name not in classifier.genres:
+            return None
+        return classifier.genres[self.name].is_fiction
+
 
 class Subject(Base):
     """A subject under which books might be classified."""
@@ -5812,10 +5839,6 @@ class LicensePool(Base):
     # One LicensePool can have many Holds.
     holds = relationship('Hold', backref='license_pool')
 
-    # One LicensePool can be associated with many CustomListEntries.
-    custom_list_entries = relationship(
-        'CustomListEntry', backref='license_pool')
-
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
@@ -5860,6 +5883,10 @@ class LicensePool(Base):
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
 
+    # This lets us cache the work of figuring out the best open access
+    # link for this LicensePool.
+    _open_access_download_url = Column(Unicode, name="open_access_download_url")
+    
     # A Identifier should have at most one LicensePool.
     __table_args__ = (
         UniqueConstraint('identifier_id'),
@@ -6512,6 +6539,8 @@ class LicensePool(Base):
 
         open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
+        if not self.identifier:
+            return
         q = Identifier.resources_for_identifier_ids(
             _db, [self.identifier.id], open_access
         )
@@ -6519,8 +6548,35 @@ class LicensePool(Base):
             yield resource
 
     @property
+    def open_access_download_url(self):
+        """Alias for best_open_access_link.
+
+        If _open_access_download_url is currently None, this will set
+        to a good value if possible.
+        """
+        return self.best_open_access_link
+        
+    @property
     def best_open_access_link(self):
-        """Find the best open-access Resource provided by this LicensePool."""
+        """Find the best open-access link for this LicensePool.
+
+        Cache it so that the next access will be faster.
+        """
+        if not self.open_access:
+            return None
+        if not self._open_access_download_url:
+            url = None
+            resource = self.best_open_access_resource
+            if resource and resource.representation:
+                url = resource.representation.mirror_url
+            self._open_access_download_url = url
+        return self._open_access_download_url
+
+    @property
+    def best_open_access_resource(self):
+        """Determine the best open-access Resource currently provided by this 
+        LicensePool.
+        """
         best = None
         best_priority = -1
         for resource in self.open_access_links:
@@ -8108,6 +8164,10 @@ class CustomList(Base):
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
 
+    def __repr__(self):
+        return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
+
     @classmethod
     def all_from_data_sources(cls, _db, data_sources):
         """All custom lists from the given data sources."""
@@ -8154,7 +8214,7 @@ class CustomList(Base):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
-        existing = self.entries_for_work(edition)
+        existing = list(self.entries_for_work(edition))
         if existing:
             was_new = False
             entry = existing[0]
@@ -8174,8 +8234,8 @@ class CustomList(Base):
             entry.most_recent_appearance = first_appearance
         if annotation:
             entry.annotation = unicode(annotation)
-        if edition.license_pool and not entry.license_pool:
-            entry.license_pool = edition.license_pool
+        if edition.work and not entry.work:
+            entry.work = edition.work
         if featured is not None:
             entry.featured = featured
 
@@ -8190,7 +8250,7 @@ class CustomList(Base):
         """
         _db = Session.object_session(self)
 
-        existing_entries = self.entries_for_work(edition)
+        existing_entries = list(self.entries_for_work(edition))
         for entry in existing_entries:
             _db.delete(entry)
 
@@ -8206,8 +8266,11 @@ class CustomList(Base):
         if isinstance(work_or_edition, Work):
             edition = work_or_edition.presentation_edition
 
-        equivalents = edition.equivalent_editions()
-        return [e for e in self.entries if e.edition in equivalents]
+        equivalents = edition.equivalent_editions().all()
+
+        for entry in self.entries:
+            if entry.edition in equivalents:
+                yield entry
 
 
 class CustomListEntry(Base):
@@ -8216,7 +8279,7 @@ class CustomListEntry(Base):
     id = Column(Integer, primary_key=True)    
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     featured = Column(Boolean, nullable=False, default=False)
     annotation = Column(Unicode)
 
@@ -8225,22 +8288,19 @@ class CustomListEntry(Base):
     # still relevant.
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
-
-    def set_license_pool(self, metadata=None, metadata_client=None):
-        """If possible, set the best available LicensePool to be used when
-        fulfilling requests for this CustomListEntry.
-
-        'Best' means it has the most copies of the book available
-        right now.
+    
+    def set_work(self, metadata=None, metadata_client=None):
+        """If possible, identify a locally known Work that is the same
+        title as the title identified by this CustomListEntry.
         """
         _db = Session.object_session(self)
         edition = self.edition
         if not self.edition:
-            # This shouldn't happen, but no edition means no license pool.
-            self.license_pool = None
-            return self.license_pool
+            # This shouldn't happen, but no edition means no work
+            self.work = None
+            return self.work
 
-        new_license_pool = None
+        new_work = None
         if not metadata:
             from metadata_layer import Metadata
             metadata = Metadata.from_edition(edition)
@@ -8251,11 +8311,14 @@ class CustomListEntry(Base):
             _db, metadata_client)
         for lp, quality in sorted(
                 potential_license_pools.items(), key=lambda x: -x[1]):
-            if lp.deliverable and quality >= 0.8:
-                new_license_pool = lp
+            if lp.deliverable and lp.work and quality >= 0.8:
+                # This work has at least one deliverable LicensePool
+                # associated with it, so it's likely to be real
+                # data and not leftover junk.
+                new_work = lp.work
                 break
 
-        if not new_license_pool:
+        if not new_work:
             # Try using the less reliable, more expensive method of
             # matching based on equivalent identifiers.
             equivalent_identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
@@ -8265,31 +8328,25 @@ class CustomListEntry(Base):
                     LicensePool.licenses_available.desc(),
                     LicensePool.patrons_in_hold_queue.asc())
             pools = [x for x in pool_q if x.deliverable]
-            if pools:
-                new_license_pool = pools[0]
+            for pool in pools:
+                if pool.deliverable and pool.work:
+                    new_work = pool.work
+                    break
 
-        old_license_pool = self.license_pool
-        if old_license_pool != new_license_pool:
-            if old_license_pool:
-                old_id = old_license_pool.identifier
-            else:
-                old_id = None
-            if new_license_pool:
-                new_id = new_license_pool.identifier
-            else:
-                new_id = None
-            if old_id:
+        old_work = self.work
+        if old_work != new_work:
+            if old_work:
                 logging.info(
-                    "Changing license pool for list entry %r to %r (was %r)", 
-                    self.edition, new_id, old_id
+                    "Changing work for list entry %r to %r (was %r)", 
+                    self.edition, new_work, old_work
                 )
             else:
                 logging.info(
-                    "Setting license pool for list entry %r to %r", 
-                    self.edition, new_id
+                    "Setting work for list entry %r to %r", 
+                    self.edition, new_work
                 )
-        self.license_pool = new_license_pool
-        return self.license_pool
+        self.work = new_work
+        return self.work
 
     def update(self, _db, equivalent_entries=None):
         """Combines any number of equivalent entries into a single entry
@@ -8316,9 +8373,9 @@ class CustomListEntry(Base):
         # And get a Work if one exists.
         works = set([])
         for e in equivalent_entries:
-            license_pool = e.edition.license_pool
-            if license_pool:
-                works.add(license_pool.work)
+            work = e.edition.work
+            if work:
+                works.add(work)
         works = [w for w in works if w]
 
         if works:
@@ -8355,7 +8412,7 @@ class CustomListEntry(Base):
             )
             self.edition = best_edition
 
-        self.set_license_pool()
+        self.set_work()
 
         for entry in equivalent_entries:
             if entry != self:
@@ -8448,6 +8505,102 @@ class Complaint(Base):
         return self.resolved
 
 
+class Library(Base):
+    """A library that uses this circulation manager to authenticate
+    its patrons and manage access to its content.
+
+    Currently, a circulation manager serves only one library,
+    but that will change.
+    """
+    __tablename__ = 'libraries'
+
+    id = Column(Integer, primary_key=True)
+
+    # The human-readable name of this library. Used in the library's
+    # Authentication for OPDS document.
+    name = Column(Unicode, unique=True)
+
+    # A short name of this library, to use when identifying it in
+    # scripts. e.g. "NYPL" for NYPL.
+    short_name = Column(Unicode, unique=True)
+    
+    # A UUID that uniquely identifies the library among all libraries
+    # in the world. This is used to serve the library's Authentication
+    # for OPDS document, and it also goes to the library registry.
+    uuid = Column(Unicode, unique=True)
+
+    # The name of this library to use when signing short client tokens
+    # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
+    # This name must be unique across the library registry.
+    _library_registry_short_name = Column(
+        Unicode, unique=True, name='library_registry_short_name'
+    )
+
+    # The shared secret to use when signing short client tokens for
+    # consumption by the library registry.
+    library_registry_shared_secret = Column(Unicode, unique=True)
+
+    def __repr__(self):
+        return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
+            self.name, self.short_name, self.uuid, self.library_registry_short_name
+        )
+
+    @classmethod
+    def instance(cls, _db):
+        """Find the one and only library."""
+        library, is_new = get_one_or_create(
+            _db, Library, create_method_kwargs=dict(
+                uuid=str(uuid.uuid4())
+            )
+        )
+        return library
+
+    @hybrid_property
+    def library_registry_short_name(self):
+        """Gets library_registry_short_name from database"""
+        return self._library_registry_short_name
+
+    @library_registry_short_name.setter
+    def _set_library_registry_short_name(self, value):
+        """Uppercase the library registry short name on the way in."""
+        if value:
+            value = value.upper()
+            if '|' in value:
+                raise ValueError(
+                    "Library registry short name cannot contain the pipe character."
+                )
+        self._library_registry_short_name = value
+
+    def explain(self, include_library_registry_shared_secret=False):
+        """Create a series of human-readable strings to explain a library's
+        settings.
+
+        :param include_library_registry_shared_secret: For security reasons,
+           the shared secret is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.uuid:
+            lines.append('UUID: "%s"' % self.uuid)
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.short_name:
+            lines.append('Short name: "%s"' % self.short_name)
+        if self.library_registry_short_name:
+            lines.append(
+                'Short name (for library registry): "%s"' %
+                self.library_registry_short_name
+            )
+        if (self.library_registry_shared_secret and
+            include_library_registry_shared_secret):
+            lines.append(
+                'Shared secret (for library registry): "%s"' %
+                self.library_registry_shared_secret
+            )
+        return lines
+
+
 class Admin(Base):
 
     __tablename__ = 'admins'
@@ -8463,111 +8616,259 @@ class Admin(Base):
         _db.commit()
 
 
-class Collection(Base):
+class ExternalIntegration(Base):
 
-    __tablename__ = 'collections'
+    """An external integration contains configuration for connecting
+    to a third-party API.
+    """
 
+    __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode, unique=True, nullable=False)
-    client_id = Column(Unicode, unique=True, index=True)
-    _client_secret = Column(Unicode, nullable=False)
 
-    # A collection can have one DataSource
-    data_source_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True
+    # If there is a special URL to use for access to this API,
+    # put it here.
+    url = Column(Unicode, nullable=True)
+
+    # If access requires authentication, these fields represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    username = Column(Unicode, nullable=True)
+    password = Column(Unicode, nullable=True)
+
+    # Any additional configuration information goes into the
+    # externalintegrationsettings table.
+    settings = relationship(
+        "ExternalIntegrationSetting", backref="external_integration"
     )
 
-    # A collection can include many Identifiers
+    def set_setting(self, key, value):
+        """Create or update a key-value setting for this ExternalIntegration."""
+        setting = self.setting(key)
+        setting.value = value
+        return setting
+    
+    def setting(self, key):
+        """Find or create a ExternalIntegrationSetting on this ExternalIntegration.
+
+        :param key: Name of the setting.
+        :return: A ExternalIntegrationSetting
+        """
+        _db = Session.object_session(self)
+        setting, is_new = get_one_or_create(
+            _db, ExternalIntegrationSetting, external_integration=self, key=key
+        )
+        return setting
+
+class ExternalIntegrationSetting(Base):
+    """An extra piece of information associated with an ExternalIntegration.
+
+    e.g. the "website ID" associated with an Overdrive collection, or the
+    JSON credentials for Google OAuth.
+    """
+    __tablename__ = 'externalintegrationsettings'
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(Integer, ForeignKey('externalintegrations.id'), index=True)
+    key = Column(Unicode, index=True)
+    value = Column(Unicode)
+
+    __table_args__ = (
+        UniqueConstraint('external_integration_id', 'key'),
+    )
+
+
+class AdminAuthenticationService(Base):
+    """An AdminAuthenticationService contains configuration for a third-party
+    service that can authenticate admins.
+    """
+
+    __tablename__ = "adminauthenticationservices"
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    provider = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'provider' field
+    GOOGLE_OAUTH = 'Google OAuth'
+
+    PROVIDERS = [GOOGLE_OAUTH]
+
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
+
+    @property
+    def external_integration(self):
+        _db = Session.object_session(self)
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
+        )
+        self.external_integration_id = external_integration.id
+        return external_integration
+
+
+class Collection(Base):
+
+    """A Collection is a set of LicensePools obtained through some mechanism.
+    """
+
+    __tablename__ = 'collections'
+    id = Column(Integer, primary_key=True)
+
+    name = Column(Unicode, unique=True, nullable=False, index=True)
+
+    # What piece of code do we run to find out about changes to this
+    # collection?
+    protocol = Column(Unicode, nullable=False, index=True)
+
+    # Supported values for the 'protocol' field.
+    OPDS_IMPORT = 'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+
+    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
+    
+    # How does the provider of this collection distinguish it from
+    # other collections it provides? On the other side this is usually
+    # called a "library ID".
+    external_account_id = Column(Unicode, nullable=True)
+
+    # How do we connect to the provider of this collection? Any
+    # url, authentication information, or additional configuration
+    # goes into the external integration.
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True)
+
+    # A Collection may specialize some other Collection. For instance,
+    # an Overdrive Advantage collection is a specialization of an
+    # ordinary Overdrive collection. It uses the same access key and
+    # secret as the Overdrive collection, but it has a distinct
+    # external_account_id.
+    parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
+
+    # A collection may have many child collections. For example,
+    # An Overdrive collection may have many children corresponding
+    # to Overdrive Advantage collections.
+    children = relationship(
+        "Collection", backref=backref("parent", remote_side = [id]),
+        uselist=False
+    )
+    
+    # A Collection can provide books to many Libraries.
+    libraries = relationship(
+        "Library", secondary=lambda: collections_libraries,
+        backref="collections"
+    )
+    
+    # A Collection can include many LicensePools.
+    licensepools = relationship(
+        "LicensePool", secondary=lambda: collections_licensepools,
+        backref="collections"
+    )
+
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
     )
 
-
-    def __repr__(self):
-        return "%s ID=%s DATASOURCE_ID=%d" % (
-            self.name, self.id, self.data_source.id
+    @property
+    def external_integration(self):
+        _db = Session.object_session(self)
+        external_integration, ignore = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
         )
+        self.external_integration_id = external_integration.id
+        return external_integration
 
-    @hybrid_property
-    def client_secret(self):
-        """Gets encrypted client_secret from database"""
-        return self._client_secret
+    @property
+    def unique_account_id(self):
+        """Identifier that uniquely represents this Collection of works"""
+        unique_account_id = self.external_account_id
 
-    @client_secret.setter
-    def _set_client_secret(self, plaintext_secret):
-        """Encrypts client secret string for database"""
-        self._client_secret = unicode(bcrypt.hashpw(
-            plaintext_secret, bcrypt.gensalt()
-        ))
+        if not unique_account_id:
+            raise ValueError("Unique account identifier not set")
 
-    def _correct_secret(self, plaintext_secret):
-        """Determines if a plaintext string is the client_secret"""
-        return (bcrypt.hashpw(plaintext_secret, self.client_secret)
-                == self.client_secret)
+        if self.parent:
+            return self.parent.unique_account_id + '+' + unique_account_id
+        return unique_account_id
+
+    @property
+    def metadata_identifier(self):
+        """Identifier based on collection details that uniquely represents
+        this Collection on the metadata wrangler. This identifier is
+        composed of the Collection protocol and account identifier.
+
+        In the metadata wrangler, this identifier is used as the unique
+        name of the collection.
+        """
+        account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
+        protocol = base64.b64encode(unicode(self.protocol), '-_')
+
+        metadata_identifier = protocol + ':' + account_id
+        return base64.b64encode(metadata_identifier, '-_')
 
     @classmethod
-    def register(cls, _db, name):
-        """Creates a new collection with client details and a datasource."""
+    def from_metadata_identifier(cls, _db, metadata_identifier):
+        """Finds or creates a Collection on the metadata wrangler, based
+        on its unique metadata_identifier
+        """
+        collection = get_one(_db, Collection, name=metadata_identifier)
+        is_new = False
 
-        name = unicode(name)
-        collection = get_one(_db, cls, name=name)
-        if collection:
-            raise ValueError(
-                "A collection with the name '%s' already exists: %r" % (
-                name, collection)
-            )
+        if not collection:
+            details = base64.b64decode(metadata_identifier, '-_')
+            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
+            collection, is_new = create(_db, Collection,
+                name=metadata_identifier, protocol=protocol)
 
-        collection_data_source, ignore = get_one_or_create(
-            _db, DataSource, name=name, offers_licenses=False
-        )
+        return collection, is_new
 
-        client_id, plaintext_client_secret = cls._generate_client_details()
-        # Generate a new client_id if it's not unique initially.
-        while get_one(_db, cls, client_id=client_id):
-            client_id, plaintext_client_secret = cls._generate_client_details()
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain a collection's
+        settings.
 
-        collection, ignore = get_one_or_create(
-            _db, cls, name=name, client_id=unicode(client_id),
-            client_secret=unicode(plaintext_client_secret),
-            data_source=collection_data_source
-        )
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
 
-        _db.commit()
-        return collection, plaintext_client_secret
-
-    @classmethod
-    def _generate_client_details(cls):
-        client_id_chars = ('abcdefghijklmnopqrstuvwxyz'
-                           'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                           '0123456789')
-        client_secret_chars = client_id_chars + '!#$%&*+,-._'
-
-        def make_client_string(chars, length):
-            return u"".join([random.choice(chars) for x in range(length)])
-        client_id = make_client_string(client_id_chars, 25)
-        client_secret = make_client_string(client_secret_chars, 40)
-
-        return client_id, client_secret
-
-    @classmethod
-    def authenticate(cls, _db, client_id, plaintext_client_secret):
-        collection = get_one(_db, cls, client_id=unicode(client_id))
-        if (collection and
-            collection._correct_secret(plaintext_client_secret)):
-            return collection
-        return None
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        if self.name:
+            lines.append('Name: "%s"' % self.name)
+        if self.parent:
+            lines.append('Parent: %s' % self.parent.name)
+        if self.protocol:
+            lines.append('Protocol: "%s"' % self.protocol)
+        for library in self.libraries:
+            lines.append('Used by library: "%s"' % (
+                library.short_name or library.name
+            ))
+        if self.external_account_id:
+            lines.append('External account ID: "%s"' % self.external_account_id)
+        integration = self.external_integration
+        if integration.url:
+            lines.append('URL: "%s"' % integration.url)
+        if integration.username:
+            lines.append('Username: "%s"' % integration.username)
+        if integration.password and include_password:
+            lines.append('Password: "%s"' % integration.password)
+        for setting in integration.settings:
+            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+        return lines
 
     def catalog_identifier(self, _db, identifier):
-        """Catalogs an identifier for a collection"""
+        """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            _db.commit()
+            _db.flush()
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all of a collection's works that have been updated since the
-        last time the collection was checked"""
-
+        """Returns all of a collection's works that have been updated
+        since the last time the catalog was checked
+        """
         query = _db.query(Work).join(Work.coverage_records)
         query = query.join(Work.license_pools).join(Identifier)
         query = query.join(Identifier.collections).filter(
@@ -8581,8 +8882,34 @@ class Collection(Base):
         return query
 
 
+collections_libraries = Table(
+    'collections_libraries', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'library_id'),
+ )
+
+collections_licensepools = Table(
+    'collections_licensepools', Base.metadata,
+     Column(
+         'collection_id', Integer, ForeignKey('collections.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'licensepool_id', Integer, ForeignKey('licensepools.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('collection_id', 'licensepool_id'),
+)
+
 collections_identifiers = Table(
-    'collectionsidentifiers', Base.metadata,
+    'collections_identifiers', Base.metadata,
     Column(
         'collection_id', Integer, ForeignKey('collections.id'),
         index=True, nullable=False
@@ -8593,6 +8920,103 @@ collections_identifiers = Table(
     ),
     UniqueConstraint('collection_id', 'identifier_id'),
 )
+
+
+class IntegrationClient(Base):
+    """A client that has authenticated access to this application.
+
+    Currently used to represent circulation managers that have access
+    to the metadata wrangler.
+    """
+    __tablename__ = 'integrationclients'
+
+    id = Column(Integer, primary_key=True)
+
+    # URL (or human readable name) to represent the server.
+    url = Column(Unicode, unique=True)
+
+    # Unique identifier
+    key = Column(Unicode, unique=True, index=True)
+
+    # Encrypted secret
+    _secret = Column(Unicode, nullable=False)
+
+    created = Column(DateTime)
+    last_accessed = Column(DateTime)
+
+    def __repr__(self):
+        return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
+
+    @hybrid_property
+    def secret(self):
+        """Gets encrypted client secret from database"""
+        return self._secret
+
+    @secret.setter
+    def _set_secret(self, plaintext_secret):
+        """Encrypts client secret string for database"""
+        self._secret = unicode(bcrypt.hashpw(
+            plaintext_secret, bcrypt.gensalt()
+        ))
+
+    def _correct_secret(self, plaintext_secret):
+        """Determines if a plaintext string is this client's secret"""
+        return (bcrypt.hashpw(plaintext_secret, self.secret) == self.secret)
+
+    @classmethod
+    def register(cls, _db, url):
+        """Creates a new server with client details."""
+        url = cls.normalize_url(url)
+        if get_one(_db, cls, url=url):
+            raise ValueError(
+                "An IntegrationClient for '%s' already exists" % url
+            )
+
+        key, plaintext_secret = cls._generate_client_details()
+        while get_one(_db, cls, key=key):
+            # Generate a new key if it's not unique initially.
+            key, plaintext_secret = cls._generate_client_details()
+
+        now = datetime.datetime.utcnow()
+        server, ignore = create(
+            _db, cls, url=url, key=unicode(key),
+            secret=unicode(plaintext_secret), created=now, last_accessed=now
+        )
+
+        _db.flush()
+        return server, plaintext_secret
+
+    @classmethod
+    def _generate_client_details(cls):
+        key_chars = ('abcdefghijklmnopqrstuvwxyz'
+                     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+                     '0123456789')
+        secret_chars = key_chars + '!#$%&*+,-._'
+
+        def make_client_string(chars, length):
+            return u"".join([random.choice(chars) for x in range(length)])
+        key = make_client_string(key_chars, 25)
+        secret = make_client_string(secret_chars, 40)
+
+        return key, secret
+
+    @classmethod
+    def normalize_url(cls, url):
+        url = re.sub(r'^(http://|https://)', '', url)
+        url = re.sub(r'^www\.', '', url)
+        if url.endswith('/'):
+            url = url[:-1]
+        return unicode(url.lower())
+
+    @classmethod
+    def authenticate(cls, _db, key, plaintext_secret):
+        server = get_one(_db, cls, key=unicode(key))
+        if (server and server._correct_secret(plaintext_secret)):
+            server.last_accessed = datetime.datetime.utcnow()
+            _db.flush()
+            return server
+        return None
+
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape

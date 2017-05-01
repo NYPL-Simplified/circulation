@@ -1,5 +1,6 @@
 # encoding: utf-8
 from StringIO import StringIO
+import base64
 import datetime
 import os
 import sys
@@ -49,9 +50,12 @@ from model import (
     DelegatedPatronIdentifier,
     DeliveryMechanism,
     DRMDeviceIdentifier,
+    ExternalIntegration,
     Genre,
     Hold,
     Hyperlink,
+    IntegrationClient,
+    Library,
     LicensePool,
     Measurement,
     Patron,
@@ -582,6 +586,23 @@ class TestIdentifier(DatabaseTest):
         )
 
 
+class TestGenre(DatabaseTest):
+
+    def test_default_fiction(self):
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        nonfiction, ignore = Genre.lookup(self._db, "History")
+        eq_(True, sf.default_fiction)
+        eq_(False, nonfiction.default_fiction)
+
+        # Create a previously unknown genre.
+        genre, ignore = Genre.lookup(
+            self._db, "Some Weird Genre", autocreate=True
+        )
+
+        # We don't know its default fiction status.
+        eq_(None, genre.default_fiction)
+
+        
 class TestSubject(DatabaseTest):
 
     def test_lookup_autocreate(self):
@@ -668,12 +689,12 @@ class TestContributor(DatabaseTest):
         [robert], ignore = Contributor.lookup(self._db, sort_name=u"Robert")
         
         # Here's Bob.
-        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Bob")
+        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
         bob.extra[u'foo'] = u'bar'
         bob.aliases = [u'Bobby']
         bob.viaf = u'viaf'
         bob.lc = u'lc'
-        bob.display_name = u"Bob's display name"
+        bob.display_name = u"Bob Jones"
         bob.family_name = u"Bobb"
         bob.wikipedia_name = u"Bob_(Person)"
 
@@ -695,7 +716,7 @@ class TestContributor(DatabaseTest):
 
         # 'Bob' is now listed as an alias for Robert, as is Bob's
         # alias.
-        eq_([u'Bob', u'Bobby'], robert.aliases)
+        eq_([u'Jones, Bob', u'Bobby'], robert.aliases)
 
         # The extra information associated with Bob is now associated
         # with Robert.
@@ -704,7 +725,8 @@ class TestContributor(DatabaseTest):
         eq_(u"viaf", robert.viaf)
         eq_(u"lc", robert.lc)
         eq_(u"Bobb", robert.family_name)
-        eq_(u"Bob's display name", robert.display_name)
+        eq_(u"Bob Jones", robert.display_name)
+        eq_(u"Robert", robert.sort_name)
         eq_(u"Bob_(Person)", robert.wikipedia_name)
 
         # The standalone 'Bob' record has been removed from the database.
@@ -715,6 +737,14 @@ class TestContributor(DatabaseTest):
         # Bob's book is now associated with 'Robert', not the standalone
         # 'Bob' record.
         eq_([robert], bobs_book.author_contributors)
+
+        # confirm the sort_name is propagated, if not already set in the destination contributor
+        robert.sort_name = None
+        [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
+        bob.merge_into(robert)
+        eq_(u"Jones, Bob", robert.sort_name)
+
+
 
     def _names(self, in_name, out_family, out_display,
                default_display_name=None):
@@ -760,6 +790,27 @@ class TestContributor(DatabaseTest):
         # The easy case.
         self._names("Twain, Mark", "Twain", "Mark Twain")
         self._names("Geering, R. G.", "Geering", "R. G. Geering")
+
+
+    def test_sort_name(self):
+        bob, new = get_one_or_create(self._db, Contributor, sort_name=None)
+        eq_(None, bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bob Bitshifter")
+        bob.sort_name = None
+        eq_(None, bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bob Bitshifter")
+        eq_("Bitshifter, Bob", bob.sort_name)
+
+        bob, ignore = self._contributor(sort_name="Bitshifter, Bob")
+        eq_("Bitshifter, Bob", bob.sort_name)
+
+        # test that human name parser doesn't die badly on foreign names
+        bob, ignore = self._contributor(sort_name=u"Боб  Битшифтер")
+        eq_(u"Битшифтер, Боб", bob.sort_name)
+
+
 
 class TestEdition(DatabaseTest):
 
@@ -5011,7 +5062,7 @@ class TestCustomList(DatabaseTest):
         eq_(True, isinstance(workless_entry, CustomListEntry))
         eq_(workless_edition, workless_entry.edition)
         eq_(True, workless_entry.first_appearance > now)
-        eq_(None, workless_entry.license_pool)
+        eq_(None, workless_entry.work)
         # And the CustomList will be seen as updated.
         eq_(True, custom_list.updated > now)
 
@@ -5071,8 +5122,8 @@ class TestCustomList(DatabaseTest):
         eq_(previous_list_update_time, custom_list.updated)
         # But it will change the edition to the one that's requested.
         eq_(equivalent, workless_entry.edition)
-        # And/or add a license_pool if one is newly available.
-        eq_(lp, equivalent_entry.license_pool)
+        # And/or add a .work if one is newly available.
+        eq_(lp.work, equivalent_entry.work)
 
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=2)
@@ -5110,17 +5161,17 @@ class TestCustomList(DatabaseTest):
         [entry] = [e for e in custom_list.entries if e.edition==edition]
 
         # The entry is returned when you search by Edition.
-        eq_([entry], custom_list.entries_for_work(edition))
+        eq_([entry], list(custom_list.entries_for_work(edition)))
 
         # It's also returned when you search by Work.
-        eq_([entry], custom_list.entries_for_work(edition.work))
+        eq_([entry], list(custom_list.entries_for_work(edition.work)))
 
         # Or when you search with an equivalent Edition
         equivalent = self._edition()
         edition.primary_identifier.equivalent_to(
             equivalent.data_source, equivalent.primary_identifier, 1
         )
-        eq_([entry], custom_list.entries_for_work(equivalent))
+        eq_([entry], list(custom_list.entries_for_work(equivalent)))
 
         # Multiple equivalent entries may be returned, too, if they
         # were added manually or before the editions were set as
@@ -5133,13 +5184,13 @@ class TestCustomList(DatabaseTest):
         )
         eq_(
             sorted([entry, other_entry]),
-            sorted(custom_list.entries_for_work(not_yet_equivalent))
+            sorted(list(custom_list.entries_for_work(not_yet_equivalent)))
         )
 
 
 class TestCustomListEntry(DatabaseTest):
 
-    def test_set_license_pool(self):
+    def test_set_work(self):
 
         # Start with a custom list with no entries
         list, ignore = self._customlist(num_entries=0)
@@ -5153,20 +5204,32 @@ class TestCustomListEntry(DatabaseTest):
         )
 
         eq_(edition, entry.edition)
-        eq_(None, entry.license_pool)
+        eq_(None, entry.work)
 
         # Here's another edition, with a license pool.
         other_edition, lp = self._edition(with_open_access_download=True)
-
+       
         # And its identifier is equivalent to the entry's edition's identifier.
         data_source = DataSource.lookup(self._db, DataSource.OCLC)
         lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
 
-        # If we call set_license_pool, it should find the license pool
-        # from the equivalent identifier.
-        entry.set_license_pool()
+        # If we call set_work, it does nothing, because there is no work
+        # associated with either edition.
+        entry.set_work()
 
-        eq_(lp, entry.license_pool)
+        # But if we assign a Work with the LicensePool, and try again...
+        work, ignore = lp.calculate_work()
+        entry.set_work()
+        eq_(work, other_edition.work)
+        
+        # set_work() traces the line from the CustomListEntry to its
+        # Edition to the equivalent Edition to its Work, and associates
+        # that Work with the CustomListEntry.
+        eq_(work, entry.work)
+
+        # Even though the CustomListEntry's edition is not directly
+        # associated with the Work.
+        eq_(None, edition.work)
 
     def test_update(self):
         custom_list, [edition] = self._customlist(entries_exist_as_works=False)
@@ -5218,7 +5281,7 @@ class TestCustomListEntry(DatabaseTest):
         eq_(u"Whoo, go books!", entry.annotation)
         # The Edition and LicensePool are updated to have a Work.
         eq_(entry.edition, work.presentation_edition)
-        eq_(entry.license_pool, equivalent.license_pool)
+        eq_(entry.work, equivalent.work)
         # The equivalent entry has been deleted.
         eq_([], self._db.query(CustomListEntry).\
                 filter(CustomListEntry.id==equivalent_entry.id).all())
@@ -5236,58 +5299,193 @@ class TestCustomListEntry(DatabaseTest):
         eq_(longwinded_entry.most_recent_appearance, entry.most_recent_appearance)
 
 
+class TestLibrary(DatabaseTest):
+
+    def test_instance(self):
+
+        # There are no Library objects until we call instance().
+        eq_(0, self._db.query(Library).count())
+
+        # In the current release there will only ever be one library.
+        instance = Library.instance(self._db)
+        instance2 = Library.instance(self._db)
+        eq_(instance, instance2)
+
+    def test_library_registry_short_name(self):
+        library = Library.instance(self._db)
+
+        # Short name is always uppercased.
+        library.library_registry_short_name = "foo"
+        eq_("FOO", library.library_registry_short_name)
+
+        # Short name cannot contain a pipe character.
+        def set_to_pipe():
+            library.library_registry_short_name = "foo|bar"
+        assert_raises(ValueError, set_to_pipe)
+
+        # You can set the short name to None. This isn't
+        # recommended, but it's not an error.
+        library.library_registry_short_name = None
+
+    def test_explain(self):
+        """Test that Library.explain gives all relevant information
+        about a Library.
+        """
+        library = Library.instance(self._db)
+        library.uuid = "uuid"
+        library.name = "The Library"
+        library.short_name = "Short"
+        library.library_registry_short_name = "SHORT"
+        library.library_registry_shared_secret = "secret"
+
+        data = library.explain()
+        eq_(
+            ['UUID: "uuid"',
+             'Name: "The Library"',
+             'Short name: "Short"',
+             'Short name (for library registry): "SHORT"'],
+            data
+        )
+
+        
+        with_secret = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secret
+
+
+class TestExternalIntegration(DatabaseTest):
+
+    def setup(self):
+        super(TestExternalIntegration, self).setup()
+        self.external_integration, ignore = create(self._db, ExternalIntegration)
+
+    def test_set_key_value_pair(self):
+        """Test the ability to associate extra key-value pairs with
+        an ExternalIntegration.
+        """
+        eq_([], self.external_integration.settings)
+
+        setting = self.external_integration.set_setting("website_id", "id1")
+        eq_("website_id", setting.key)
+        eq_("id1", setting.value)
+
+        # Calling set() again updates the key-value pair.
+        eq_([setting], self.external_integration.settings)
+        setting2 = self.external_integration.set_setting("website_id", "id2")
+        eq_(setting, setting2)
+        eq_("id2", setting2.value)
+
+        eq_(setting2, self.external_integration.setting("website_id"))
+
 class TestCollection(DatabaseTest):
 
     def setup(self):
         super(TestCollection, self).setup()
-        self.collection = self._collection()
-
-    def test_encrypts_client_secret(self):
-        collection, new = get_one_or_create(
-            self._db, Collection, name=u"Test Collection", client_id=u"test",
-            client_secret=u"megatest"
-        )
-        assert collection.client_secret != u"megatest"
-        eq_(True, collection.client_secret.startswith("$2a$"))
-
-    def test_register(self):
-        collection, plaintext_secret = Collection.register(
-            self._db, u"A Library"
+        self.collection = self._collection(
+            name="test collection", protocol=Collection.OVERDRIVE
         )
 
-        # It creates client details and a DataSource for the collection
-        assert collection.client_id and collection.client_secret
-        assert get_one(self._db, DataSource, name=collection.name)
+    def test_explain(self):
+        """Test that Collection.explain gives all relevant information
+        about a Collection.
+        """
+        library = Library.instance(self._db)
+        library.name = "The only library"
+        library.collections.append(self.collection)
+        
+        self.collection.external_account_id = "id"
+        self.collection.external_integration.url = "url"
+        self.collection.external_integration.username = "username"
+        self.collection.external_integration.password = "password"
+        setting = self.collection.external_integration.set_setting("setting", "value")
 
-        # It returns nothing if the name is already taken.
-        assert_raises(ValueError, Collection.register, self._db, u"A Library")
+        data = self.collection.explain()
+        eq_(['Name: "test collection"',
+             'Protocol: "Overdrive"',
+             'Used by library: "The only library"',
+             'External account ID: "id"',
+             'URL: "url"',
+             'Username: "username"',
+             'Setting "setting": "value"'
+        ],
+            data
+        )
 
-    def test_authenticate(self):
+        with_password = self.collection.explain(include_password=True)
+        assert 'Password: "password"' in with_password
 
-        result = Collection.authenticate(self._db, u"abc", u"def")
-        eq_(self.collection, result)
+        # If the collection is the child of another collection,
+        # its parent is mentioned.
+        child = Collection(
+            name="Child", parent=self.collection, protocol=self.collection.protocol, external_account_id="id2"
+        )
+        data = child.explain()
+        eq_(['Name: "Child"',
+             'Parent: test collection',
+             'Protocol: "Overdrive"',
+             'External account ID: "id2"'],
+            data
+        )
 
-        result = Collection.authenticate(self._db, u"abc", u"bad_secret")
-        eq_(None, result)
+    def test_metadata_identifier(self):
+        # If the collection doesn't have its unique identifier, an error
+        # is raised.
+        assert_raises(ValueError, getattr, self.collection, 'metadata_identifier')
 
-        result = Collection.authenticate(self._db, u"bad_id", u"def")
-        eq_(None, result)
+        def build_expected(protocol, unique_id):
+            encoded = [base64.b64encode(unicode(value), '-_')
+                       for value in [protocol, unique_id]]
+            return base64.b64encode(':'.join(encoded), '-_')
+
+        # With a unique identifier, we get back the expected identifier.
+        self.collection.external_account_id = 'id'
+        expected = build_expected(Collection.OVERDRIVE, 'id')
+        eq_(expected, self.collection.metadata_identifier)
+
+        # If there's a parent, its unique id is incorporated into the result.
+        child = self._collection(
+            name="Child", protocol=Collection.OPDS_IMPORT, external_account_id=self._url)
+        child.parent = self.collection
+        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.external_account_id)
+        eq_(expected, child.metadata_identifier)
+
+    def test_from_metadata_identifier(self):
+        # If a mirrored collection doesn't exist, it is created.
+        self.collection.external_account_id = 'id'
+        mirror_collection, is_new = Collection.from_metadata_identifier(
+            self._db, self.collection.metadata_identifier
+        )
+        eq_(True, is_new)
+        eq_(self.collection.metadata_identifier, mirror_collection.name)
+        eq_(self.collection.protocol, mirror_collection.protocol)
+
+        # If the mirrored collection already exists, it is returned.
+        collection = self._collection(external_account_id=self._url)
+        mirror_collection = create(
+            self._db, Collection,
+            name=collection.metadata_identifier,
+            protocol=collection.protocol
+        )[0]
+
+        result, is_new = Collection.from_metadata_identifier(
+            self._db, collection.metadata_identifier
+        )
+        eq_(False, is_new)
+        eq_(mirror_collection, result)
 
     def test_catalog_identifier(self):
-        """#catalog_identifier associates an identifier with the collection"""
-
+        """#catalog_identifier associates an identifier with the catalog"""
         identifier = self._identifier()
         self.collection.catalog_identifier(self._db, identifier)
+
         eq_(1, len(self.collection.catalog))
         eq_(identifier, self.collection.catalog[0])
 
     def test_works_updated_since(self):
-
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         timestamp = datetime.datetime.utcnow()
-        # A collection with no catalog returns nothing.
+        # An empty catalog returns nothing.
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
@@ -5303,6 +5501,86 @@ class TestCollection(DatabaseTest):
         # since then will be returned
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+
+class TestCollectionForMetadataWrangler(DatabaseTest):
+
+    """Tests that requirements to the metadata wrangler's use of Collection
+    are being met by continued development on the Collection class.
+
+    If any of these tests are failing, development will be required on the
+    metadata wrangler to meet the needs of the new Collection class.
+    """
+
+    def test_only_name_and_protocol_are_required(self):
+        """Test that only name and protocol are required fields on
+        the Collection class.
+        """
+        collection = create(
+            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+        )[0]
+        eq_(True, isinstance(collection, Collection))
+
+
+class TestIntegrationClient(DatabaseTest):
+
+    def setup(self):
+        super(TestIntegrationClient, self).setup()
+        self.client = self._integration_client()
+
+    def test_encrypts_secret(self):
+        client, new = create(
+            self._db, IntegrationClient, url=u"http://circ-manager.net",
+            key=u"test", secret=u"megatest"
+        )
+        assert client.secret != u"megatest"
+        eq_(True, client.secret.startswith("$2a$"))
+
+    def test_register(self):
+        now = datetime.datetime.utcnow()
+        client, plaintext_secret = IntegrationClient.register(self._db, self._url)
+
+        # It creates client details.
+        assert client.key and client.secret
+        # And sets a timestamp for created & last_accessed.
+        assert client.created and client.last_accessed
+        assert client.created > now
+        eq_(True, isinstance(client.created, datetime.datetime))
+        eq_(client.created, client.last_accessed)
+
+        # It raises an error if the url is already registered.
+        assert_raises(ValueError, IntegrationClient.register, self._db, client.url)
+
+    def test_authenticate(self):
+
+        result = IntegrationClient.authenticate(self._db, u"abc", u"def")
+        eq_(self.client, result)
+
+        result = IntegrationClient.authenticate(self._db, u"abc", u"bad_secret")
+        eq_(None, result)
+
+        result = IntegrationClient.authenticate(self._db, u"bad_id", u"def")
+        eq_(None, result)
+
+    def test_normalize_url(self):
+        # http/https protocol is removed.
+        url = 'https://fake.com'
+        eq_('fake.com', IntegrationClient.normalize_url(url))
+
+        url = 'http://really-fake.com'
+        eq_('really-fake.com', IntegrationClient.normalize_url(url))
+
+        # www is removed if it exists, along with any trailing /
+        url = 'https://www.also-fake.net/'
+        eq_('also-fake.net', IntegrationClient.normalize_url(url))
+
+        # Subdomains and paths are retained.
+        url = 'https://www.super.fake.org/wow/'
+        eq_('super.fake.org/wow', IntegrationClient.normalize_url(url))
+
+        # URL is lowercased.
+        url = 'http://OMG.soVeryFake.gov'
+        eq_('omg.soveryfake.gov', IntegrationClient.normalize_url(url))
 
 
 class TestMaterializedViews(DatabaseTest):

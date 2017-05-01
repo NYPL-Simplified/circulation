@@ -291,9 +291,7 @@ class Annotator(object):
                 continue
             edition = p.presentation_edition
             if p.open_access:
-                # Make sure there's a usable link--it might be
-                # audio-only or something.
-                if edition and edition.open_access_download_url:
+                if p.best_open_access_link:
                     active_license_pool = p
                     # We have an unlimited source for this book.
                     # There's no need to keep looking.

@@ -10,10 +10,11 @@ import tempfile
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
-os.environ['TESTING'] = 'true'
+
 from model import (
     Base,
     Classification,
+    IntegrationClient,
     Collection,
     Complaint,
     Contributor,
@@ -253,7 +254,6 @@ class DatabaseTest(object):
             pool = presentation_edition.license_pool
         if with_open_access_download:
             pool.open_access = True
-            presentation_edition.set_open_access_link()
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
@@ -637,11 +637,24 @@ class DatabaseTest(object):
         return
 
 
-    def _collection(self, name=u"Faketown Public Library"):
-        source, ignore = get_one_or_create(self._db, DataSource, name=name)
+    def _collection(self, name=None, protocol=Collection.OPDS_IMPORT,
+                    external_account_id=None, url=None, username=None,
+                    password=None):
+        name = name or self._str
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name=name, protocol=protocol
+        )
+        collection.external_account_id = external_account_id
+        collection.external_integration.url = url
+        collection.external_integration.username = username
+        collection.external_integration.password = password
+        return collection
+        
+    def _integration_client(self, url=None):
+        url = url or self._url
         return get_one_or_create(
-            self._db, Collection, name=name, data_source=source,
-            client_id=u"abc", client_secret=u"def"
+            self._db, IntegrationClient,
+            url=url, key=u"abc", secret=u"def"
         )[0]
 
     def _subject(self, type, identifier):
@@ -784,8 +797,13 @@ class MockRequestsResponse(object):
         self.url = url or "http://url/"
 
     def json(self):
-        return json.loads(self.content)
-
+        content = self.content
+        # The queued content might be a JSON string or it might
+        # just be the object you'd get from loading a JSON string.
+        if isinstance(content, basestring):
+            content = json.loads(self.content)
+        return content
+        
     @property
     def text(self):
         return self.content.decode("utf8")

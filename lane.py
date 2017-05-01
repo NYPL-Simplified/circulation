@@ -1168,7 +1168,11 @@ class Lane(object):
             # add a DISTINCT clause.
             distinct = True
 
-            q = q.join(LicensePool.custom_list_entries)
+            if work_model == Work:
+                clause = CustomListEntry.work_id==work_model.id
+            else:
+                clause = CustomListEntry.work_id==work_model.works_id
+            q = q.join(CustomListEntry, clause)
             if self.list_data_source_id:
                 q = q.join(CustomListEntry.customlist).filter(
                     CustomList.data_source_id==self.list_data_source_id)

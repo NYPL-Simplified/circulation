@@ -4,7 +4,7 @@ As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/
 """
 import json as j
 import logging
-from flask.ext.babel import LazyString
+from flask_babel import LazyString
 
 JSON_MEDIA_TYPE = "application/api-problem+json"
 
