@@ -5198,9 +5198,12 @@ class Genre(Base):
                                cascade="all, delete, delete-orphan")
 
     def __repr__(self):
+        if classifier.genres.get(self.name):
+            length = len(classifier.genres[self.name].subgenres)
+        else:
+            length = 0
         return "<Genre %s (%d subjects, %d works, %d subcategories)>" % (
-            self.name, len(self.subjects), len(self.works),
-            len(classifier.genres[self.name].subgenres))
+            self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
@@ -5218,7 +5221,10 @@ class Genre(Base):
 
     @property
     def genredata(self):
-        return classifier.genres[self.name]
+        if classifier.genres.get(self.name):
+            return classifier.genres[self.name]
+        else:
+            return GenreData(self.name, False)
 
     @property
     def subgenres(self):
@@ -5239,6 +5245,7 @@ class Genre(Base):
         if self.name not in classifier.genres:
             return None
         return classifier.genres[self.name].is_fiction
+
 
 class Subject(Base):
     """A subject under which books might be classified."""
