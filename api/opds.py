@@ -290,7 +290,8 @@ class CirculationManagerAnnotator(Annotator):
         if isinstance(work, Work):
             edition = work.presentation_edition
         else:
-            # This is a MaterializedWork*,
+            # This is a MaterializedWork*, so we're gonna grab the
+            # edition where we can.
             edition = work.license_pool.presentation_edition
 
         contributions = edition.contributions

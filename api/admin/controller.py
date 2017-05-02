@@ -211,10 +211,9 @@ class WorkController(CirculationManagerController):
         This includes relevant links for editing the book.
         """
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
-        work = pools[0].work
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
         annotator = AdminAnnotator(self.circulation)
         return entry_response(
@@ -224,11 +223,10 @@ class WorkController(CirculationManagerController):
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         counter = self._count_complaints_for_work(work)
         response = dict({
             "book": {
@@ -243,10 +241,10 @@ class WorkController(CirculationManagerController):
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
-        work = pools[0].work
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         changed = False
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -361,11 +359,10 @@ class WorkController(CirculationManagerController):
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         identifier = work.presentation_edition.primary_identifier
         try:
             record = provider.ensure_coverage(identifier, force=True)
@@ -388,11 +385,10 @@ class WorkController(CirculationManagerController):
     def resolve_complaints(self, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         resolved = False
         found = False
 
@@ -414,11 +410,10 @@ class WorkController(CirculationManagerController):
     def classifications(self, identifier_type, identifier):
         """Return list of this work's classifications."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         identifier_id = work.presentation_edition.primary_identifier.id
         results = self._db \
             .query(Classification) \
@@ -448,10 +443,10 @@ class WorkController(CirculationManagerController):
     def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
         
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
-        work = pools[0].work
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         # Previous staff classifications

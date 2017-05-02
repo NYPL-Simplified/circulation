@@ -308,10 +308,10 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_work(self, library, identifier_type, identifier):
         pools = self.load_licensepools(library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
-            return pool
+            return pools
 
         # We know there is at least one LicensePool, and all LicensePools
-        # for an Identifier have the same .work.
+        # for an Identifier have the same Work.
         return pools[0].work
     
     def load_licensepools(self, library, identifier_type, identifier):
@@ -729,13 +729,13 @@ class LoanController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
 
-        loan, _ignore = self.get_patron_loan(patron, [pool])
+        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(
-                loan.license_pool, mechanism_id
+                loan_license_pool, mechanism_id
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
@@ -1009,11 +1009,10 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         annotator = self.manager.annotator(None)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
@@ -1022,11 +1021,10 @@ class WorkController(CirculationManagerController):
     def recommendations(self, identifier_type, identifier, novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
@@ -1059,17 +1057,14 @@ class WorkController(CirculationManagerController):
     def related(self, identifier_type, identifier, novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools[0].work
         try:
             lane_name = "Books Related to %s by %s" % (
                 work.title, work.author
             )
-            # TODO: It should be possible to pass in the Work object
-            # here rather than one of the LicensePools.
             lane = RelatedBooksLane(
                 self._db, work, lane_name, novelist_api=novelist_api
             )
