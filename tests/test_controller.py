@@ -1234,6 +1234,10 @@ class TestWorkController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_contributor(self):
+        # Give the Contributor a display_name.
+        [contribution] = self.english_1.presentation_edition.contributions
+        contribution.contributor.display_name = u"John Bull"
+
         # For works without a contributor name, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.contributor('', None, None)
@@ -1271,6 +1275,8 @@ class TestWorkController(CirculationControllerTest):
         another_work = self._work(
             "Not open access", name, with_license_pool=True)
         another_work.license_pools[0].open_access = False
+        duplicate = another_work.presentation_edition.contributions[0].contributor
+        duplicate.display_name = u"John Bull"
 
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
@@ -1501,11 +1507,12 @@ class TestWorkController(CirculationControllerTest):
 
         # Prep book with a contribution, a series, and a recommendation.
         self.lp.presentation_edition.add_contributor(original, role)
-        original.display_name = original.sort_name
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
         )
+        duplicate = same_author.presentation_edition.contributions[0].contributor
+        original.display_name = duplicate.display_name = u"John Bull"
 
         self.lp.presentation_edition.series = "Around the World"
         self.lp.presentation_edition.series_position = 1
