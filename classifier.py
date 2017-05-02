@@ -568,7 +568,6 @@ fiction_genres = [
     u"Adventure",
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    u"Graphic Novels & Comics",
     u"Drama",
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
@@ -683,7 +682,6 @@ nonfiction_genres = [
     dict(name=u"Hobbies & Home", subgenres=[
         u"Antiques & Collectibles",
         u"Crafts & Hobbies",
-        u"Crafts, Cooking & Garden",
         u"Gardening",
         u"Games",
         u"House & Home",
