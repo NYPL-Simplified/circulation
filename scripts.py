@@ -1522,7 +1522,10 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
-                sql = clause.read()
+                # By wrapping the action in a transation, we can avoid
+                # rolling over errors and losing data in files
+                # with multiple interrelated SQL actions.
+                sql = 'BEGIN;\n%s\nCOMMIT;' % clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
