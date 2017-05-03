@@ -25,6 +25,7 @@ from model import (
     DeliveryMechanism,
     DelegatedPatronIdentifier,
     Edition,
+    ExternalIntegration,
     Genre,
     Hyperlink,
     Identifier,
@@ -448,6 +449,16 @@ class DatabaseTest(object):
         )
         return credential
     
+    def _external_integration(self, provider, type=None, **integration_kwargs):
+        service, is_new = get_one_or_create(
+            self._db, ExternalService, provider=provider, type=type
+        )
+
+        integration = service.external_integration
+        for attr, value in integration_kwargs.items():
+            setattr(integration, attr, value)
+        return service
+
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
             identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,

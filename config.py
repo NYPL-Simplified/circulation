@@ -38,7 +38,6 @@ class Configuration(object):
     instance = None
 
     # Logging stuff
-    LOGGING = "logging"
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
     LOG_FORMAT_TEXT = "text"
@@ -116,25 +115,25 @@ class Configuration(object):
     NAME = "name"
     TYPE = "type"
     INTEGRATIONS = "integrations"
-    DATABASE_INTEGRATION = "Postgres"
+    DATABASE_INTEGRATION = u"Postgres"
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    ELASTICSEARCH_INTEGRATION = "Elasticsearch"
-    ELASTICSEARCH_INDEX_KEY = "works_index"
+    ELASTICSEARCH_INTEGRATION = u"Elasticsearch"
+    ELASTICSEARCH_INDEX_KEY = u"works_index"
 
-    METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
-    METADATA_WRANGLER_CLIENT_ID = "client_id"
-    METADATA_WRANGLER_CLIENT_SECRET = "client_secret"
-    CONTENT_SERVER_INTEGRATION = "Content Server"
-    CIRCULATION_MANAGER_INTEGRATION = "Circulation Manager"
+    METADATA_WRANGLER_INTEGRATION = u"Metadata Wrangler"
+    METADATA_WRANGLER_CLIENT_ID = u"client_id"
+    METADATA_WRANGLER_CLIENT_SECRET = u"client_secret"
+    CONTENT_SERVER_INTEGRATION = u"Content Server"
+    CIRCULATION_MANAGER_INTEGRATION = u"Circulation Manager"
 
-    NYT_INTEGRATION = "New York Times"
-    NYT_BEST_SELLERS_API_KEY = "best_sellers_api_key"
+    NYT_INTEGRATION = u"New York Times"
+    NYT_BEST_SELLERS_API_KEY = u"best_sellers_api_key"
 
-    NOVELIST_INTEGRATION = "NoveList Select"
-    NOVELIST_PROFILE = "profile"
-    NOVELIST_PASSWORD = "password"
+    NOVELIST_INTEGRATION = u"NoveList Select"
+    NOVELIST_PROFILE = u"profile"
+    NOVELIST_PASSWORD = u"password"
 
     AXIS_INTEGRATION = "Axis 360"
     ONECLICK_INTEGRATION = "OneClick"
@@ -144,13 +143,13 @@ class Configuration(object):
     MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
     FEATURED_LANE_SIZE = "featured_lane_size"
 
-    S3_INTEGRATION = "S3"
-    S3_ACCESS_KEY = "access_key"
-    S3_SECRET_KEY = "secret_key"
-    S3_OPEN_ACCESS_CONTENT_BUCKET = "open_access_content_bucket"
-    S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
+    S3_INTEGRATION = u"S3"
+    S3_ACCESS_KEY = u"access_key"
+    S3_SECRET_KEY = u"secret_key"
+    S3_OPEN_ACCESS_CONTENT_BUCKET = u"open_access_content_bucket"
+    S3_BOOK_COVERS_BUCKET = u"book_covers_bucket"
 
-    CDN_INTEGRATION = "CDN"
+    CDN_INTEGRATION = u"CDN"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
