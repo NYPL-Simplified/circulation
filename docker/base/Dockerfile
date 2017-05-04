@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         python-nose \
         git \
         libjpeg-dev \
+        logrotate \
     && rm -rf /var/lib/apt/lists/*
 
 # Pull down the LS circulation manager and core submodule.
@@ -27,6 +28,9 @@ RUN /bin/bash -c 'git config submodule.core.url \
 
 # Copy a bit o' code that you might want if you want to deploy via git push.
 COPY post-receive.sample .git/hooks
+# add the logrotate.conf file.
+COPY logrotate.conf /etc/
+COPY default_logrotate /etc/logrotate.d/
 
 # Pass the mounted configuration file into the environment.
 RUN virtualenv env && \
@@ -37,6 +41,9 @@ RUN /bin/bash -c 'source env/bin/activate && \
         pip install -r requirements.txt && \
         python -m textblob.download_corpora'
 RUN mv /root/nltk_data /usr/lib/
+
+# remove logrotate for dpkg as we will do our own in the default_logrotate.
+RUN rm -rf /etc/logrotate.d/dpkg
 
 # If you launch the container interactively with `docker run -it`,
 # this is where you'll end up:
