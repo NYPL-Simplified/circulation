@@ -182,8 +182,8 @@ class CirculationAPI(object):
             api = self.threem
         elif licensepool.data_source.name==DataSource.AXIS_360:
             api = self.axis
-        #elif licensepool.data_source.name==DataSource.ENKI:
-            #api = self.enki
+        elif licensepool.data_source.name==DataSource.ENKI:
+            api = self.enki
         else:
             return None
 

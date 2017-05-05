@@ -14,7 +14,7 @@ from authenticator import Authenticator
 from overdrive import OverdriveAPI
 from threem import ThreeMAPI
 from axis import Axis360API
-#from enki import EnkiAPI
+from enki import EnkiAPI
 from circulation import CirculationAPI
 
 class ServiceStatus(object):
@@ -30,7 +30,7 @@ class ServiceStatus(object):
         self.overdrive = overdrive or OverdriveAPI.from_environment(self._db)
         self.threem = threem or ThreeMAPI.from_environment(self._db)
         self.axis = axis or Axis360API.from_environment(self._db)
-        self.enki = enki #or EnkiAPI.from_environment(self._db)
+        self.enki = enki or EnkiAPI.from_environment(self._db)
 
     def loans_status(self, response=False):
         """Checks the length of request times for patron activity.
