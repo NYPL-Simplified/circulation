@@ -8853,12 +8853,14 @@ class ExternalIntegration(Base):
     )
 
     @classmethod
+    def lookup(cls, _db, provider, type=None):
+        integration = get_one(_db, cls, provider=provider, type=type)
+        return integration
+
+    @classmethod
     def admin_authentication(cls, _db):
-        admin_auth = _db.query(cls).filter(
-            cls.type==cls.ADMIN_AUTH_TYPE).all()
-        if admin_auth:
-            return admin_auth[0]
-        return None
+        admin_auth = get_one(_db, cls, type=cls.ADMIN_AUTH_TYPE)
+        return admin_auth
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this ExternalIntegration."""

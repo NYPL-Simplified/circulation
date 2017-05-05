@@ -18,7 +18,7 @@ from model import (
     production_session,
 )
 
-log = logging.getLogger(name="Configuration import")
+log = logging.getLogger(name="Core configuration import")
 
 def log_import(service_name):
     log.info("Importing configuration for %s" % service_name)

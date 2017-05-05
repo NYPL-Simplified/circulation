@@ -449,15 +449,19 @@ class DatabaseTest(object):
         )
         return credential
     
-    def _external_integration(self, provider, type=None, **integration_kwargs):
-        service, is_new = get_one_or_create(
-            self._db, ExternalService, provider=provider, type=type
+    def _external_integration(self, provider, type=None, settings=None, **kwargs):
+        integration, is_new = get_one_or_create(
+            self._db, ExternalIntegration, provider=provider, type=type
         )
 
-        integration = service.external_integration
-        for attr, value in integration_kwargs.items():
+        for attr, value in kwargs.items():
             setattr(integration, attr, value)
-        return service
+
+        settings = settings or dict()
+        for key, value in settings.items():
+            integration.set_setting(key, value)
+
+        return integration
 
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
