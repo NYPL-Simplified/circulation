@@ -5,7 +5,6 @@ MAINTAINER Library Simplified <info@librarysimplified.org>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx \
-        supervisor \
         nodejs npm
 
 # Set up Nginx & UWSGI
@@ -24,8 +23,7 @@ COPY libsimple_init /usr/local/bin
 RUN chmod +x /usr/local/bin/libsimple_init
 
 # Set up supervisor to run the app
-RUN mkdir -p /var/log/supervisor
-COPY supervisord.conf /etc/supervisor/conf.d/
+COPY libsimple_uwsgi.conf /etc/supervisor/conf.d/
 
 EXPOSE 80
 CMD ["-c", "libsimple_init && supervisord"]

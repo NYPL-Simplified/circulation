@@ -6,7 +6,6 @@ MAINTAINER Library Simplified <info@librarysimplified.org>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cron \
-        supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Switch to local timezone
@@ -22,5 +21,4 @@ WORKDIR bin
 COPY libsimple_init /usr/local/bin
 RUN chmod +x /usr/local/bin/libsimple_init
 
-COPY supervisord.conf /etc/supervisor/conf.d
 CMD ["-c", "libsimple_init && supervisord"]

@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         libjpeg-dev \
         logrotate \
+        supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Pull down the LS circulation manager and core submodule.
@@ -43,6 +44,13 @@ RUN chmod 644 /etc/logrotate.d/libsimple.conf
 # Create the main log directory and mount the logs.
 RUN mkdir /var/log/libsimple
 VOLUME /var/log
+
+# Remove the default supervisor configuration, which
+# has a web interface we don't want, in favor of our
+# own configuration files.
+RUN rm /etc/supervisor/supervisord.conf
+COPY supervisord.conf /etc/supervisor/
+COPY cron.conf /etc/supervisor/conf.d
 
 # Pass the mounted configuration file into the environment.
 RUN virtualenv env && \
