@@ -32,6 +32,18 @@ COPY post-receive.sample .git/hooks
 COPY logrotate.conf /etc/
 COPY default_logrotate /etc/logrotate.d/
 
+# Add a logrotate file for circulation log files.
+COPY libsimple.conf /etc/logrotate.d/
+
+# Limit write access so logrotate will use the config files.
+RUN chmod 644 /etc/logrotate.conf
+RUN chmod 644 /etc/logrotate.d/default_logrotate
+RUN chmod 644 /etc/logrotate.d/libsimple.conf
+
+# Create the main log directory and mount the logs.
+RUN mkdir /var/log/libsimple
+VOLUME /var/log
+
 # Pass the mounted configuration file into the environment.
 RUN virtualenv env && \
     echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/etc/circulation/config.json\"" >> env/bin/activate
