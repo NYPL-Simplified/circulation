@@ -30,9 +30,9 @@ class Configuration(CoreConfiguration):
 
     PRELOADED_CONTENT = "preloaded_content"
 
-    ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
-    ADOBE_VENDOR_ID = "vendor_id"
-    ADOBE_VENDOR_ID_NODE_VALUE = "node_value"
+    ADOBE_VENDOR_ID_INTEGRATION = u"Adobe Vendor ID"
+    ADOBE_VENDOR_ID = u"vendor_id"
+    ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
 
     AUTHENTICATION = "authentication"
     AUTHENTICATION_TEST_USERNAME = "test_username"
@@ -43,10 +43,10 @@ class Configuration(CoreConfiguration):
     OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
     SECRET_KEY = "secret_key"
 
-    MILLENIUM_INTEGRATION = "Millenium"
+    MILLENIUM_INTEGRATION = u"Millenium"
     AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
-    STAFF_PICKS_INTEGRATION = "Staff Picks"
-    PATRON_WEB_CLIENT_INTEGRATION = "Patron Web Client"
+    STAFF_PICKS_INTEGRATION = u"Staff Picks"
+    PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 
     LIST_FIELDS = "fields"
    
