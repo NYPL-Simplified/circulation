@@ -63,7 +63,9 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = False
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.details(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
@@ -77,7 +79,9 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = True
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.details(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.details(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             feed = feedparser.parse(response.get_data())
             [entry] = feed['entries']
@@ -109,7 +113,9 @@ class TestWorkController(AdminControllerTest):
                 ("series_position", "144"),
                 ("summary", "<p>New summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_("New title", self.english_1.title)
             assert "New title" in self.english_1.simple_opds_entry
@@ -132,7 +138,9 @@ class TestWorkController(AdminControllerTest):
                 ("series_position", "144"),
                 ("summary", "abcd")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_("abcd", self.english_1.summary_text)
             assert 'New summary' not in self.english_1.simple_opds_entry
@@ -147,7 +155,9 @@ class TestWorkController(AdminControllerTest):
                 ("series_position", ""),
                 ("summary", "")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_(None, self.english_1.subtitle)
             eq_(None, self.english_1.series)
@@ -168,7 +178,9 @@ class TestWorkController(AdminControllerTest):
                 ("series_position", "169"),
                 ("summary", "<p>Final summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_("Final subtitle", self.english_1.subtitle)
             eq_("Final series", self.english_1.series)
@@ -189,7 +201,9 @@ class TestWorkController(AdminControllerTest):
                 ("series_position", "abc"),
                 ("summary", "<p>Final summary</p>")
             ])
-            response = self.manager.admin_work_controller.edit(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(400, response.status_code)
             eq_(169, self.english_1.series_position)
 
@@ -226,7 +240,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Science Fiction")
             ])
             requested_genres = flask.request.form.getlist("genres")
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response.status_code, 200)
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -255,7 +271,9 @@ class TestWorkController(AdminControllerTest):
                 ("audience", "Adult"),
                 ("fiction", "fiction")
             ])
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response.status_code, 200)
 
         primary_identifier = work.presentation_edition.primary_identifier
@@ -285,7 +303,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Women's Fiction")
             ])
             requested_genres = flask.request.form.getlist("genres")
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response.status_code, 200)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
@@ -305,7 +325,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Urban Fantasy")
             ])
             requested_genres = flask.request.form.getlist("genres")
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response.status_code, 200)
 
         # new_genre_names = self._db.query(WorkGenre).filter(WorkGenre.work_id == work.id).all()
@@ -328,7 +350,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Cooking"),
                 ("genres", "Urban Fantasy")
             ])
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
 
         eq_(response, INCOMPATIBLE_GENRE)
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
@@ -348,7 +372,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Erotica"),
                 ("genres", "Urban Fantasy")
             ])
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response, EROTICA_FOR_ADULTS_ONLY)
 
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
@@ -368,7 +394,9 @@ class TestWorkController(AdminControllerTest):
                 ("fiction", "nonfiction"),
                 ("genres", "Cooking")
             ])
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)        
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(400, response.status_code)
             eq_(INVALID_EDIT.uri, response.uri)
 
@@ -386,7 +414,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Cooking")
             ])
             requested_genres = flask.request.form.getlist("genres")
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
 
         new_genre_names = [work_genre.genre.name for work_genre in lp.work.work_genres]
         eq_(sorted(new_genre_names), sorted(requested_genres))
@@ -403,7 +433,9 @@ class TestWorkController(AdminControllerTest):
                 ("genres", "Cooking")
             ])
             requested_genres = flask.request.form.getlist("genres")
-            response = self.manager.admin_work_controller.edit_classifications(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.edit_classifications(
+                lp.identifier.type, lp.identifier.identifier
+            )
 
         eq_("Adult", work.audience)
         eq_(18, work.target_age.lower)
@@ -413,7 +445,9 @@ class TestWorkController(AdminControllerTest):
         [lp] = self.english_1.license_pools
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.suppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.suppress(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_(True, lp.suppressed)
 
@@ -421,31 +455,53 @@ class TestWorkController(AdminControllerTest):
         [lp] = self.english_1.license_pools
         lp.suppressed = True
 
+        broken_lp = self._licensepool(
+            self.english_1.presentation_edition,
+            data_source_name=DataSource.OVERDRIVE
+        )
+        broken_lp.work = self.english_1
+        broken_lp.suppressed = True
+
+        # The broken LicensePool doesn't render properly.
+        Complaint.register(
+            broken_lp,
+            "http://librarysimplified.org/terms/problem/cannot-render",
+            "blah", "blah"
+        )
+
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.unsuppress(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.unsuppress(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
 
+            # The LicensePool with a LicensePool-specific complaint is
+            # not unsuppressed.
+            eq_(True, broken_lp.suppressed)
+
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        success_provider = AlwaysSuccessfulCoverageProvider(
-            "Always successful", [Identifier.GUTENBERG_ID], wrangler
-        )
-        failure_provider = NeverSuccessfulCoverageProvider(
-            "Never successful", [Identifier.GUTENBERG_ID], wrangler
-        )
+
+        class AlwaysSuccessfulMetadataProvider(AlwaysSuccessfulCoverageProvider):
+            DATA_SOURCE_NAME = wrangler.name
+        success_provider = AlwaysSuccessfulMetadataProvider(self._db)
+
+        class NeverSuccessfulMetadataProvider(NeverSuccessfulCoverageProvider):
+            DATA_SOURCE_NAME = wrangler.name
+        failure_provider = NeverSuccessfulMetadataProvider(self._db)
 
         with self.app.test_request_context('/'):
             [lp] = self.english_1.license_pools
             response = self.manager.admin_work_controller.refresh_metadata(
-                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=success_provider
+                lp.identifier.type, lp.identifier.identifier, provider=success_provider
             )
             eq_(200, response.status_code)
             # Also, the work has a coverage record now for the wrangler.
             assert CoverageRecord.lookup(lp.identifier, wrangler)
 
             response = self.manager.admin_work_controller.refresh_metadata(
-                lp.data_source.name, lp.identifier.type, lp.identifier.identifier, provider=failure_provider
+                lp.identifier.type, lp.identifier.identifier, provider=failure_provider
             )
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
@@ -480,8 +536,9 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_work_controller.complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-            eq_(response['book']['data_source'], lp.data_source.name)
+            response = self.manager.admin_work_controller.complaints(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response['book']['identifier_type'], lp.identifier.type)
             eq_(response['book']['identifier'], lp.identifier.identifier)
             eq_(response['complaints'][type1], 2)
@@ -514,7 +571,9 @@ class TestWorkController(AdminControllerTest):
         # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type2)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.resolve_complaints(
+                lp.identifier.type, lp.identifier.identifier
+            )
             unresolved_complaints = [complaint for complaint in lp.complaints if complaint.resolved == None]
             eq_(response.status_code, 404)
             eq_(len(unresolved_complaints), 2)
@@ -522,15 +581,20 @@ class TestWorkController(AdminControllerTest):
         # then attempt to resolve complaints of the correct type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-            unresolved_complaints = [complaint for complaint in lp.complaints if complaint.resolved == None]
+            response = self.manager.admin_work_controller.resolve_complaints(
+                lp.identifier.type, lp.identifier.identifier
+            )
+            unresolved_complaints = [complaint for complaint in lp.complaints
+                                               if complaint.resolved == None]
             eq_(response.status_code, 200)
             eq_(len(unresolved_complaints), 0)
 
         # then attempt to resolve the already-resolved complaints of the correct type
         with self.app.test_request_context("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            response = self.manager.admin_work_controller.resolve_complaints(lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
+            response = self.manager.admin_work_controller.resolve_complaints(
+                lp.identifier.type, lp.identifier.identifier
+            )
             eq_(response.status_code, 409)
 
     def test_classifications(self):
@@ -560,8 +624,7 @@ class TestWorkController(AdminControllerTest):
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_work_controller.classifications(
-                lp.data_source.name, lp.identifier.type, lp.identifier.identifier)
-            eq_(response['book']['data_source'], lp.data_source.name)
+                lp.identifier.type, lp.identifier.identifier)
             eq_(response['book']['identifier_type'], lp.identifier.type)
             eq_(response['book']['identifier'], lp.identifier.identifier)
 
@@ -1073,6 +1136,10 @@ class TestSettingsController(AdminControllerTest):
         int(library.library_registry_shared_secret, 16)
         
     def test_collections_get_with_no_collections(self):
+        # Delete any existing collections created by the test setup.
+        for collection in self._db.query(Collection):
+            self._db.delete(collection)
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
@@ -1082,14 +1149,13 @@ class TestSettingsController(AdminControllerTest):
                 sorted(Collection.PROTOCOLS))
 
     def test_collections_get_with_multiple_collections(self):
-        c1, ignore = create(
-            self._db, Collection, name="Collection 1", protocol=Collection.OVERDRIVE,
-        )
-        c1.external_account_id = "1234"
-        c1.external_integration.password = "a"
+
+        [c1] = self._default_library.collections
+
         c2, ignore = create(
             self._db, Collection, name="Collection 2", protocol=Collection.BIBLIOTHECA,
         )
+        c2.external_account_id = "1234"
         c2.external_integration.password = "b"
 
         with self.app.test_request_context("/"):

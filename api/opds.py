@@ -256,7 +256,7 @@ class CirculationManagerAnnotator(Annotator):
             entry.append(tag)
 
         # Add a link for related books if available.
-        if self.related_books_available(active_license_pool):
+        if self.related_books_available(work):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
@@ -283,12 +283,19 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     @classmethod
-    def related_books_available(cls, license_pool):
-        """:return: bool asserting whether related books are available for a
-        particular work
+    def related_books_available(cls, work):
+        """:return: bool asserting whether related books might exist for
+        a particular Work
         """
-        contributions = license_pool.presentation_edition.contributions
-        series = license_pool.presentation_edition.series
+        if isinstance(work, Work):
+            edition = work.presentation_edition
+        else:
+            # This is a MaterializedWork*, so we're gonna grab the
+            # edition where we can.
+            edition = work.license_pool.presentation_edition
+
+        contributions = edition.contributions
+        series = edition.series
         return contributions or series or NoveListAPI.is_configured()
 
     def annotate_feed(self, feed, lane):
@@ -388,8 +395,8 @@ class CirculationManagerAnnotator(Annotator):
         if can_revoke:
             url = self.url_for(
                 'revoke_loan_or_hold',
-                identifier_type=identifier.type,
-                identifier=identifier.identifier, _external=True)
+                license_pool_id=active_license_pool.id,
+                _external=True)
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
             revoke_link_tag = OPDSFeed.makeelement("link", **kw)
@@ -466,7 +473,6 @@ class CirculationManagerAnnotator(Annotator):
                     if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
                         fulfill_links.append(
                             self.fulfill_link(
-                                identifier,
                                 active_license_pool,
                                 active_loan,
                                 lpdm.delivery_mechanism
@@ -479,7 +485,6 @@ class CirculationManagerAnnotator(Annotator):
                 for lpdm in active_license_pool.delivery_mechanisms:
                     fulfill_links.append(
                         self.fulfill_link(
-                            identifier,
                             active_license_pool,
                             active_loan,
                             lpdm.delivery_mechanism
@@ -543,8 +548,7 @@ class CirculationManagerAnnotator(Annotator):
         borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
-    def fulfill_link(self, identifier,
-                     license_pool, active_loan, delivery_mechanism):
+    def fulfill_link(self, license_pool, active_loan, delivery_mechanism):
         """Create a new fulfillment link.
 
         This link may include tags from the OPDS Extensions for DRM.
@@ -558,8 +562,7 @@ class CirculationManagerAnnotator(Annotator):
             
         fulfill_url = self.url_for(
             "fulfill",
-            identifier_type=identifier.type,
-            identifier=identifier.identifier,
+            license_pool_id=license_pool.id,
             mechanism_id=delivery_mechanism.id,
             _external=True
         )

@@ -124,7 +124,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         self.app = app
         del os.environ['AUTOINITIALIZE']
         self.library = self._default_library
-        
+
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -169,7 +169,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
-                self._db, lanes=lanes, testing=True
+                _db, lanes=lanes, testing=True
             )
             self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
@@ -184,7 +184,7 @@ class CirculationControllerTest(ControllerTest):
         # TODO: This is a prime candidate for optimization. A lot of
         # tests don't need these books, and they take over 1 second to
         # create.
-        
+
         # Create two English books and a French book.
         self.english_1 = self._work(
             "Quite British", "John Bull", language="eng", fiction=True,
@@ -284,7 +284,7 @@ class TestBaseController(CirculationControllerTest):
         no_such_lane = self.controller.load_lane('eng', 'No such lane')
         eq_("No such lane: No such lane", no_such_lane.detail)
 
-    def test_load_licensepools(self):        
+    def test_load_licensepools(self):
 
         # Here's a Library that has two Collections.
         library = self._default_library
@@ -335,7 +335,6 @@ class TestBaseController(CirculationControllerTest):
             collection=c3
         )
 
-        
         # Now let's try to load LicensePools for the first Identifier
         # from the default Library.
         loaded = self.controller.load_licensepools(
@@ -356,7 +355,7 @@ class TestBaseController(CirculationControllerTest):
 
         # LicensePool l4 was not loaded, even though it's in a Collection
         # that matches, because the Identifier doesn't match.
-        
+
         # Now we test various failures.
 
         # Try a totally bogus identifier.
@@ -400,7 +399,8 @@ class TestBaseController(CirculationControllerTest):
         new_lpdm, is_new = create(
             self._db, 
             LicensePoolDeliveryMechanism,
-            license_pool=licensepool, 
+            identifier=licensepool.identifier,
+            data_source=licensepool.data_source,
             delivery_mechanism=lpdm.delivery_mechanism,
         )        
         eq_(True, is_new)
@@ -530,7 +530,56 @@ class TestLoanController(CirculationControllerTest):
         self.edition = self.pool.presentation_edition
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
-        
+
+    def test_patron_circulation_retrieval(self):
+        """The controller can get loans and holds for a patron, even if
+        there are multiple licensepools on the Work.
+        """
+        # Give the Work a second LicensePool.
+        edition, other_pool = self._edition(
+            with_open_access_download=True, with_license_pool=True,
+            data_source_name=DataSource.BIBLIOTHECA,
+            collection=self.pool.collection
+        )
+        other_pool.identifier = self.identifier
+        other_pool.work = self.pool.work
+
+        pools = self.manager.loans.load_licensepools(
+            self._default_library, self.identifier.type, self.identifier.identifier
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+
+            # Without a loan or a hold, nothing is returned.
+            # No loans.
+            result = self.manager.loans.get_patron_loan(
+                self.default_patron, pools
+            )
+            eq_((None, None), result)
+
+            # No holds.
+            result = self.manager.loans.get_patron_hold(
+                self.default_patron, pools
+            )
+            eq_((None, None), result)
+
+            # When there's a loan, we retrieve it.
+            loan, newly_created = self.pool.loan_to(self.default_patron)
+            result = self.manager.loans.get_patron_loan(
+                self.default_patron, pools
+            )
+            eq_((loan, self.pool), result)
+
+            # When there's a hold, we retrieve it.
+            hold, newly_created = other_pool.on_hold_to(self.default_patron)
+            result = self.manager.loans.get_patron_hold(
+                self.default_patron, pools
+            )
+            eq_((hold, other_pool), result)
+
+
     def test_borrow_success(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -558,9 +607,8 @@ class TestLoanController(CirculationControllerTest):
 
             fulfillable_mechanism = mech2
 
-            expects = [url_for('fulfill', 
-                               identifier_type=self.identifier.type,
-                               identifier=self.identifier.identifier, 
+            expects = [url_for('fulfill',
+                               license_pool_id=self.pool.id,
                                mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -571,8 +619,8 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                fulfillable_mechanism.delivery_mechanism.id, do_get=http.do_get
+                self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
+                do_get=http.do_get
             )
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
@@ -587,7 +635,7 @@ class TestLoanController(CirculationControllerTest):
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier, do_get=http.do_get
+                self.pool.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
@@ -597,8 +645,7 @@ class TestLoanController(CirculationControllerTest):
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                mech1.delivery_mechanism.id
+                self.pool.id, mech1.delivery_mechanism.id
             )
 
             eq_(409, response.status_code)
@@ -609,8 +656,7 @@ class TestLoanController(CirculationControllerTest):
                 raise RemoteIntegrationException("fulfill service", "Error!")
 
             response = self.manager.loans.fulfill(
-                self.identifier.type, self.identifier.identifier,
-                do_get=doomed_get
+                self.pool.id, do_get=doomed_get
             )
             assert isinstance(response, ProblemDetail)
             eq_(502, response.status_code)
@@ -625,7 +671,6 @@ class TestLoanController(CirculationControllerTest):
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
             RightsStatus.IN_COPYRIGHT, None
         )
-        data_source = edition.data_source
         identifier = edition.primary_identifier
 
         with self.app.test_request_context(
@@ -634,6 +679,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_checkout(
                 pool,
                 LoanInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -664,9 +710,8 @@ class TestLoanController(CirculationControllerTest):
 
             streaming_mechanism = mech2
 
-            expects = [url_for('fulfill', data_source=data_source.name,
-                               identifier_type=identifier.type,
-                               identifier=identifier.identifier, 
+            expects = [url_for('fulfill',
+                               license_pool_id=pool.id,
                                mechanism_id=mech.delivery_mechanism.id,
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
@@ -675,6 +720,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
@@ -684,10 +730,9 @@ class TestLoanController(CirculationControllerTest):
                 )
             )
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
-                streaming_mechanism.delivery_mechanism.id
+                pool.id, streaming_mechanism.delivery_mechanism.id
             )
-            
+
             # We get an OPDS entry.
             eq_(200, response.status_code)
             opds_entries = feedparser.parse(response.response[0])['entries']
@@ -714,6 +759,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://other-content-link",
@@ -723,8 +769,7 @@ class TestLoanController(CirculationControllerTest):
                 ),
             )
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
-                mech1.delivery_mechanism.id, do_get=http.do_get
+                pool.id, mech1.delivery_mechanism.id, do_get=http.do_get
             )
             eq_(200, response.status_code)
 
@@ -735,6 +780,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     "http://streaming-content-link",
@@ -745,8 +791,7 @@ class TestLoanController(CirculationControllerTest):
             )
 
             response = self.manager.loans.fulfill(
-                data_source.name, identifier.type, identifier.identifier,
-                streaming_mechanism.delivery_mechanism.id
+                pool.id, streaming_mechanism.delivery_mechanism.id
             )
             eq_(200, response.status_code)
             opds_entries = feedparser.parse(response.response[0])['entries']
@@ -760,10 +805,10 @@ class TestLoanController(CirculationControllerTest):
                 fulfill_links[0]['type'])
             eq_("http://streaming-content-link", fulfill_links[0]['href'])
 
-
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier,
                 -100
@@ -792,6 +837,7 @@ class TestLoanController(CirculationControllerTest):
             self.manager.circulation.queue_hold(
                 pool,
                 HoldInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -831,6 +877,7 @@ class TestLoanController(CirculationControllerTest):
             )
             self.manager.circulation.queue_hold(
                 pool, HoldInfo(
+                    pool.collection, pool.data_source.name,
                     pool.identifier.type,
                     pool.identifier.identifier,
                     datetime.datetime.utcnow(),
@@ -870,6 +917,21 @@ class TestLoanController(CirculationControllerTest):
              eq_(404, response.status_code)
              eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
 
+    def test_borrow_fails_when_work_already_checked_out(self):
+        loan, _ignore = get_one_or_create(
+            self._db, Loan, license_pool=self.pool,
+            patron=self.default_patron
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.borrow(
+                self.identifier.type, self.identifier.identifier)
+
+            eq_(ALREADY_CHECKED_OUT, response)
+
+
     def test_revoke_loan(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
@@ -878,7 +940,7 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_checkin(self.pool, True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(self.pool.id)
 
              eq_(200, response.status_code)
              
@@ -890,19 +952,17 @@ class TestLoanController(CirculationControllerTest):
 
              self.manager.circulation.queue_release_hold(self.pool, True)
 
-             response = self.manager.loans.revoke(self.pool.data_source.name, self.pool.identifier.type, self.pool.identifier.identifier)
+             response = self.manager.loans.revoke(self.pool.id)
 
              eq_(200, response.status_code)
 
     def test_revoke_hold_nonexistent_licensepool(self):
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             patron = self.manager.loans.authenticated_patron_from_request()
-             response = self.manager.loans.revoke(
-                 "No such identifier type", "No such identifier"
-             )
-             assert isinstance(response, ProblemDetail)
-             eq_(INVALID_INPUT.uri, response.uri)
+            patron = self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.revoke(-10)
+            assert isinstance(response, ProblemDetail)
+            eq_(INVALID_INPUT.uri, response.uri)
 
     def test_hold_fails_when_patron_is_at_hold_limit(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -917,7 +977,7 @@ class TestLoanController(CirculationControllerTest):
                 pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
-                pool.identifier.type, 
+                pool.identifier.type,
                 pool.identifier.identifier
             )
             assert isinstance(response, ProblemDetail)
@@ -964,6 +1024,7 @@ class TestLoanController(CirculationControllerTest):
                 self.manager.circulation.queue_checkout(
                     pool,
                     LoanInfo(
+                        pool.collection, pool.data_source.name,
                         pool.identifier.type,
                         pool.identifier.identifier,
                         datetime.datetime.utcnow(),
@@ -989,12 +1050,12 @@ class TestLoanController(CirculationControllerTest):
 
          with self.app.test_request_context(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             patron = self.manager.loans.authenticated_patron_from_request()
-             hold, newly_created = pool.on_hold_to(patron, position=0)
-             response = self.manager.loans.revoke(pool.data_source.name, pool.identifier.type, pool.identifier.identifier)
-             eq_(400, response.status_code)
-             eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
-             eq_("Cannot release a hold once it enters reserved state.", response.detail)
+            patron = self.manager.loans.authenticated_patron_from_request()
+            hold, newly_created = pool.on_hold_to(patron, position=0)
+            response = self.manager.loans.revoke(pool.id)
+            eq_(400, response.status_code)
+            eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
+            eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
     def test_active_loans(self):
         with self.app.test_request_context(
@@ -1016,27 +1077,29 @@ class TestLoanController(CirculationControllerTest):
         )
         overdrive_pool.open_access = False
 
-        threem_edition, threem_pool = self._edition(
+        bibliotheca_edition, bibliotheca_pool = self._edition(
             with_open_access_download=False,
-            data_source_name=DataSource.THREEM,
-            identifier_type=Identifier.THREEM_ID,
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
             with_license_pool=True,
         )
-        threem_book = self._work(
-            presentation_edition=threem_edition,
+        bibliotheca_book = self._work(
+            presentation_edition=bibliotheca_edition,
         )
-        threem_pool.licenses_available = 0
-        threem_pool.open_access = False
+        bibliotheca_pool.licenses_available = 0
+        bibliotheca_pool.open_access = False
         
         self.manager.circulation.add_remote_loan(
+            overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
         self.manager.circulation.add_remote_hold(
-            threem_pool.identifier.type,
-            threem_pool.identifier.identifier,
+            bibliotheca_pool.collection, bibliotheca_pool.data_source,
+            bibliotheca_pool.identifier.type,
+            bibliotheca_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
             0,
@@ -1052,22 +1115,22 @@ class TestLoanController(CirculationControllerTest):
             entries = feed['entries']
 
             overdrive_entry = [entry for entry in entries if entry['title'] == overdrive_book.title][0]
-            threem_entry = [entry for entry in entries if entry['title'] == threem_book.title][0]
+            bibliotheca_entry = [entry for entry in entries if entry['title'] == bibliotheca_book.title][0]
 
             eq_(overdrive_entry['opds_availability']['status'], 'available')
-            eq_(threem_entry['opds_availability']['status'], 'ready')
+            eq_(bibliotheca_entry['opds_availability']['status'], 'ready')
             
             overdrive_links = overdrive_entry['links']
             fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
             revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
-            threem_links = threem_entry['links']
-            borrow_link = [x for x in threem_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
-            threem_revoke_links = [x for x in threem_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
+            bibliotheca_links = bibliotheca_entry['links']
+            borrow_link = [x for x in bibliotheca_links if x['rel'] == 'http://opds-spec.org/acquisition/borrow'][0]['href']
+            bibliotheca_revoke_links = [x for x in bibliotheca_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL]
 
-            assert urllib.quote("%s/%s/fulfill" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in fulfill_link
-            assert urllib.quote("%s/%s/revoke" % (overdrive_pool.identifier.type, overdrive_pool.identifier.identifier)) in revoke_link
-            assert urllib.quote("%s/%s/borrow" % (threem_pool.identifier.type, threem_pool.identifier.identifier)) in borrow_link
-            eq_(0, len(threem_revoke_links))
+            assert urllib.quote("%s/fulfill" % overdrive_pool.id) in fulfill_link
+            assert urllib.quote("%s/revoke" % overdrive_pool.id) in revoke_link
+            assert urllib.quote("%s/%s/borrow" % (bibliotheca_pool.identifier.type, bibliotheca_pool.identifier.identifier)) in borrow_link
+            eq_(0, len(bibliotheca_revoke_links))
 
 
 class TestAnnotationController(CirculationControllerTest):
@@ -1075,7 +1138,6 @@ class TestAnnotationController(CirculationControllerTest):
         super(TestAnnotationController, self).setup()
         self.pool = self.english_1.license_pools[0]
         self.edition = self.pool.presentation_edition
-        self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
     def test_get_empty_container(self):
@@ -1311,6 +1373,7 @@ class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
         [self.lp] = self.english_1.license_pools
+        self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
 
@@ -1321,7 +1384,8 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        name = 'John Bull'
+        contributor = self.edition.contributions[0].contributor
+        contributor.display_name = name = 'John Bull'
         
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
@@ -1349,9 +1413,10 @@ class TestWorkController(CirculationControllerTest):
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(9, len(facet_links))
 
-        another_work = self._work(
-            "Not open access", name, with_license_pool=True)
+        another_work = self._work("Not open access", name, with_license_pool=True)
         another_work.license_pools[0].open_access = False
+        duplicate_contributor = another_work.presentation_edition.contributions[0].contributor
+        duplicate_contributor.display_name = name
 
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
@@ -1568,7 +1633,7 @@ class TestWorkController(CirculationControllerTest):
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
 
             # Remove contribution.
-            [contribution] = self.lp.presentation_edition.contributions
+            [contribution] = self.edition.contributions
             [original, role] = [contribution.contributor, contribution.role]
             self._db.delete(contribution)
             self._db.commit()
@@ -1581,15 +1646,16 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         # Prep book with a contribution, a series, and a recommendation.
-        self.lp.presentation_edition.add_contributor(original, role)
-        original.display_name = original.sort_name
+        self.edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
         )
+        duplicate = same_author.presentation_edition.contributions[0].contributor
+        original.display_name = duplicate.display_name = 'John Bull'
 
-        self.lp.presentation_edition.series = "Around the World"
-        self.lp.presentation_edition.series_position = 1
+        self.edition.series = "Around the World"
+        self.edition.series_position = 1
 
         same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
         same_series.presentation_edition.series = "Around the World"
@@ -1687,7 +1753,7 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         series_name = "Like As If Whatever Mysteries"
-        self.lp.presentation_edition.series = series_name
+        self.edition.series = series_name
         # Similarly if the pagination data is bad.
         with self.app.test_request_context('/?size=abc'):
             response = self.manager.work_controller.series(series_name, None, None)
@@ -1946,7 +2012,6 @@ class TestAnalyticsController(CirculationControllerTest):
     def setup(self):
         super(TestAnalyticsController, self).setup()
         [self.lp] = self.english_1.license_pools
-        self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
 
     def test_track_event(self):
