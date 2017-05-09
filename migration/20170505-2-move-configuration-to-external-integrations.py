@@ -74,8 +74,10 @@ try:
         service, ignore = get_one_or_create(
             _db, ExternalIntegration, provider=ExternalIntegration.ELASTICSEARCH
         )
+
         service.url = unicode(url)
-        service.set_setting(u'works_index', works_index)
+        if works_index:
+            service.set_setting(u'works_index', works_index)
 
     # Import Metadata Wrangler configuration.
     metadata_wrangler_conf = Configuration.integration(

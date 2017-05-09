@@ -8842,7 +8842,7 @@ class ExternalIntegration(Base):
     # externalintegrationsettings table.
     settings = relationship(
         "ExternalIntegrationSetting", backref="external_integration",
-        lazy="joined"
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
 
     __table_args__ = (
