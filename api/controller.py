@@ -217,6 +217,7 @@ class CirculationManager(object):
             overdrive = OverdriveAPI.from_environment(self._db)
             threem = ThreeMAPI.from_environment(self._db)
             axis = Axis360API.from_environment(self._db)
+            enki = EnkiAPI.from_environment(self._db)
             self.circulation = CirculationAPI(
                 _db=self._db, 
                 threem=threem, 
