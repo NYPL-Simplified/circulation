@@ -805,7 +805,6 @@ class TestLoanController(CirculationControllerTest):
                 fulfill_links[0]['type'])
             eq_("http://streaming-content-link", fulfill_links[0]['href'])
 
-
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -917,6 +916,21 @@ class TestLoanController(CirculationControllerTest):
                  pool.identifier.type, pool.identifier.identifier)
              eq_(404, response.status_code)
              eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
+
+    def test_borrow_fails_when_work_already_checked_out(self):
+        loan, _ignore = get_one_or_create(
+            self._db, Loan, license_pool=self.pool,
+            patron=self.default_patron
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.borrow(
+                self.identifier.type, self.identifier.identifier)
+
+            eq_(ALREADY_CHECKED_OUT, response)
+
 
     def test_revoke_loan(self):
          with self.app.test_request_context(
