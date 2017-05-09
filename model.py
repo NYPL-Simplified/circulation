@@ -397,7 +397,7 @@ class Patron(Base):
     # This is not stored as a ForeignIdentifier because it corresponds
     # to the patron's identifier in the library responsible for the
     # Simplified instance, not a third party.
-    external_identifier = Column(Unicode, index=True)
+    external_identifier = Column(Unicode)
 
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
@@ -410,12 +410,12 @@ class Patron(Base):
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
-    authorization_identifier = Column(Unicode, index=True)
+    authorization_identifier = Column(Unicode)
 
     # An identifier used by the patron that authenticates them,
     # but does not give them the authority to borrow books. i.e. their
     # website username.
-    username = Column(Unicode, index=True)
+    username = Column(Unicode)
 
     # The last time this record was synced up with an external library
     # system.
@@ -534,6 +534,11 @@ class Patron(Base):
                 _db.delete(annotation)
         self._synchronize_annotations = value
 
+Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
+Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
+Index("ix_patron_library_id_username", Patron.library_id, Patron.username)
+
+        
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
     Protocol.
