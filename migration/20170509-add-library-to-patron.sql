@@ -8,6 +8,8 @@ DROP INDEX ix_patrons_external_identifier;
 DROP INDEX ix_patrons_username;
 
 ALTER TABLE patrons ADD COLUMN library_id integer;
+ALTER TABLE patrons ADD CONSTRAINT patrons_library_id_fkey FOREIGN KEY (library_id) REFERENCES libraries(id);
+
 
 ALTER TABLE patrons ADD CONSTRAINT patrons_library_id_authorization_identifier_key UNIQUE (library_id, authorization_identifier);
 ALTER TABLE patrons ADD CONSTRAINT patrons_library_id_external_identifier_key UNIQUE (library_id, external_identifier);
