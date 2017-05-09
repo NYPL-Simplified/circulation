@@ -176,10 +176,13 @@ class DatabaseTest(object):
     def _url(self):
         return "http://foo.com/" + self._str
 
-    def _patron(self, external_identifier=None):
+    def _patron(self, external_identifier=None, library=None):
         external_identifier = external_identifier or self._str
+        library = library or self._default_library
         return get_one_or_create(
-            self._db, Patron, external_identifier=external_identifier)[0]
+            self._db, Patron, external_identifier=external_identifier,
+            library=library
+        )[0]
 
     def _contributor(self, sort_name=None, name=None, **kw_args):
         name = sort_name or name or self._str

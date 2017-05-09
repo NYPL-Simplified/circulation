@@ -383,13 +383,21 @@ class Patron(Base):
     __tablename__ = 'patrons'
     id = Column(Integer, primary_key=True)
 
+    # Each patron is the patron _of_ one particular library.  An
+    # individual human being may patronize multiple libraries, but
+    # they will have a different patron account at each one.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True,
+        nullable=False
+    )
+    
     # The patron's permanent unique identifier in an external library
     # system, probably never seen by the patron.
     #
     # This is not stored as a ForeignIdentifier because it corresponds
     # to the patron's identifier in the library responsible for the
     # Simplified instance, not a third party.
-    external_identifier = Column(Unicode, unique=True, index=True)
+    external_identifier = Column(Unicode, index=True)
 
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
@@ -402,12 +410,12 @@ class Patron(Base):
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
-    authorization_identifier = Column(Unicode, unique=True, index=True)
+    authorization_identifier = Column(Unicode, index=True)
 
     # An identifier used by the patron that authenticates them,
     # but does not give them the authority to borrow books. i.e. their
     # website username.
-    username = Column(Unicode, unique=True, index=True)
+    username = Column(Unicode, index=True)
 
     # The last time this record was synced up with an external library
     # system.
@@ -448,6 +456,12 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
+
+    __table_args__ = (
+        UniqueConstraint('library_id', 'username'),
+        UniqueConstraint('library_id', 'authorization_identifier'),
+        UniqueConstraint('library_id', 'external_identifier'),
+    )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
@@ -8699,6 +8713,8 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
+    patrons = relationship('Patron', backref='library')
+    
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
