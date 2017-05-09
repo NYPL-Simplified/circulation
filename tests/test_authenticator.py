@@ -1184,8 +1184,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
         )
-        provider = MockBasic(self._default_library, patrondata)
-        set_trace()
+        provider = MockBasic(self._default_library, patrondata, patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
