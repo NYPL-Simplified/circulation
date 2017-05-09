@@ -823,15 +823,14 @@ class TestAuthenticationProvider(AuthenticatorTest):
     credentials = dict(username='user', password='')
     
     def test_authenticated_patron_passes_on_none(self):
-        provider = MockBasic(library=self._default_library, patrondata=None)
+        provider = self.mock_basic(patrondata=None)
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
         eq_(None, patron)
     
     def test_authenticated_patron_passes_on_problem_detail(self):
-        provider = MockBasic(
-            library=self._default_library,
+        provider = self.mock_basic(
             patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM
         )
         patron = provider.authenticated_patron(
@@ -847,9 +846,10 @@ class TestAuthenticationProvider(AuthenticatorTest):
 
         expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
-        provider = MockBasic(library=self._default_library,
+        provider = self.mock_basic(
                              patrondata=expired,
-                             remote_patron_lookup_patrondata=expired)
+                             remote_patron_lookup_patrondata=expired
+        )
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
@@ -878,8 +878,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
             username=username, complete=True
         )
         
-        provider = MockBasic(
-            library=self._default_library,
+        provider = self.mock_basic(
             patrondata=incomplete_data,
             remote_patron_lookup_patrondata=complete_data
         )
@@ -1140,9 +1139,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     def test_failure_when_remote_authentication_returns_problemdetail(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(
-            self._default_library, UNSUPPORTED_AUTHENTICATION_MECHANISM
-        )
+        provider = self.mock_basic(UNSUPPORTED_AUTHENTICATION_MECHANISM)
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM,
             provider.authenticate(self._db, self.credentials))
 
@@ -1156,8 +1153,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     def test_server_side_validation_runs(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(
-            self._default_library,
+        provider = self.mock_basic(
             patrondata, identifier_regular_expression="foo",
             password_regular_expression="bar"
         )
@@ -1475,7 +1471,7 @@ class TestOAuthController(AuthenticatorTest):
                 return self.token, self.patron, self.patrondata
             
         patron = self._patron()
-        self.basic = MockBasic(library=self._default_library)
+        self.basic = self.mock_basic()
         self.oauth1 = MockOAuthWithExternalAuthenticateURL(
             self._default_library, self._db, "http://oauth1.com/", patron
         )
