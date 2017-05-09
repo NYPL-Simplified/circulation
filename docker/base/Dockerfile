@@ -43,7 +43,7 @@ RUN chmod 644 /etc/logrotate.d/libsimple.conf
 
 # Create the main log directory and mount the logs.
 RUN mkdir /var/log/libsimple
-VOLUME /var/log
+RUN chmod 666 /var/log/
 
 # Remove the default supervisor configuration, which
 # has a web interface we don't want, in favor of our

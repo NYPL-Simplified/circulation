@@ -25,5 +25,9 @@ RUN chmod +x /usr/local/bin/libsimple_init
 # Set up supervisor to run the app
 COPY libsimple_uwsgi.conf /etc/supervisor/conf.d/
 
+# Mount the logs so they can be found even if the
+# container crashes.
+VOLUME /var/log
+
 EXPOSE 80
 CMD ["-c", "libsimple_init && supervisord"]

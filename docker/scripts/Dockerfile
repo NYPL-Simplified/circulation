@@ -21,4 +21,8 @@ WORKDIR bin
 COPY libsimple_init /usr/local/bin
 RUN chmod +x /usr/local/bin/libsimple_init
 
+# Mount the logs so they can be found even if the
+# container crashes.
+VOLUME /var/log
+
 CMD ["-c", "libsimple_init && supervisord"]
