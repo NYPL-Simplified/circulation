@@ -16,3 +16,5 @@ ALTER TABLE patrons ADD CONSTRAINT patrons_library_id_username_key UNIQUE (libra
 CREATE INDEX ix_patron_library_id_authorization_identifier ON patrons USING btree (library_id, authorization_identifier);
 CREATE INDEX ix_patron_library_id_external_identifier ON patrons USING btree (library_id, external_identifier);
 CREATE INDEX ix_patron_library_id_username ON patrons USING btree (library_id, username);
+
+UPDATE patrons set library_id = (select id from libraries limit 1);
