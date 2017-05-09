@@ -654,6 +654,14 @@ class DatabaseTest(object):
         return
 
 
+    def _library(self, name=None, short_name=None):
+        name=name or self._str
+        short_name = short_name or self._str
+        library, ignore = get_one_or_create(
+            self._db, Library, name=name, short_name=short_name
+        )
+        return library
+    
     def _collection(self, name=None, protocol=Collection.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
                     password=None):
