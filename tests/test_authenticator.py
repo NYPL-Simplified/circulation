@@ -139,7 +139,16 @@ class MockOAuth(OAuthAuthenticationProvider):
     def __init__(self, library):
         super(MockOAuth, self).__init__(library, "", "", 20)
 
-class TestPatronData(DatabaseTest):
+class AuthenticatorTest(DatabaseTest):
+
+    def mock_basic(self, *args, **kwargs):
+        """Convenience method to instantiate a MockBasic object with the 
+        default library.
+        """
+        return MockBasic(self._default_library, *args, **kwargs)
+
+        
+class TestPatronData(AuthenticatorTest):
 
     def setup(self):
         super(TestPatronData, self).setup()
@@ -348,7 +357,7 @@ class TestPatronData(DatabaseTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
-class TestAuthenticator(DatabaseTest):
+class TestAuthenticator(AuthenticatorTest):
 
     def test_from_config(self):
         # Only a basic auth provider.
@@ -809,7 +818,7 @@ class TestAuthenticator(DatabaseTest):
                 headers = authenticator.create_authentication_headers()
                 assert 'WWW-Authenticate' not in headers
 
-class TestAuthenticationProvider(DatabaseTest):
+class TestAuthenticationProvider(AuthenticatorTest):
 
     credentials = dict(username='user', password='')
     
@@ -962,7 +971,7 @@ class TestAuthenticationProvider(DatabaseTest):
         eq_(patrondata, provider.remote_patron_lookup(patrondata))
 
 
-class TestBasicAuthenticationProvider(DatabaseTest):
+class TestBasicAuthenticationProvider(AuthenticatorTest):
 
     def test_from_config(self):
 
@@ -1107,7 +1116,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         eq_(provider.PASSWORD_LABEL, password)
 
 
-class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
+class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
 
     # A dummy set of credentials, for use when the exact details of
@@ -1117,7 +1126,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_success(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(self._default_library, patrondata)
+        provider = self.mock_basic(patrondata)
 
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
@@ -1140,7 +1149,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_failure_when_remote_authentication_returns_none(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(self._default_library, None)
+        provider = self.mock_basic(None)
         eq_(None,
             provider.authenticate(self._db, self.credentials))
         
@@ -1167,7 +1176,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         authentication provider. But we handle it.
         """
         patrondata = PatronData(permanent_id=self._str)
-        provider = MockBasic(self._default_library, patrondata)
+        provider = self.mock_basic(patrondata)
 
         # When we call remote_authenticate(), we get patrondata, but
         # there is no corresponding local patron, so we call
@@ -1184,7 +1193,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
         )
-        provider = MockBasic(self._default_library, patrondata, patrondata)
+        provider = self.mock_basic(patrondata, patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
@@ -1220,7 +1229,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(self._default_library, patrondata)
+        provider = self.mock_basic(patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1249,7 +1258,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=username,
         )
 
-        provider = MockBasic(self._default_library, patrondata)
+        provider = self.mock_basic(patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1278,7 +1287,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(self._default_library, patrondata)
+        provider = self.mock_basic(patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1295,7 +1304,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     # appear no different to us than a patron who has never used the
     # circulation manager before.
 
-class TestOAuthAuthenticationProvider(DatabaseTest):
+class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
     def test_from_config(self):
         class ConfigAuthenticationProvider(OAuthAuthenticationProvider):
@@ -1443,7 +1452,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             eq_("http://localhost/oauth_callback",
                 params['oauth_callback_url'])
         
-class TestOAuthController(DatabaseTest):
+class TestOAuthController(AuthenticatorTest):
 
     def setup(self):
         super(TestOAuthController, self).setup()
