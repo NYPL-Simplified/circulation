@@ -52,16 +52,17 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
     
-    def __init__(self, url=None, authorization_identifier_blacklist=[],
+    def __init__(self, library, url=None, authorization_identifier_blacklist=[],
                  verify_certificate=True, **kwargs):
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
 
-        super(MilleniumPatronAPI, self).__init__(**kwargs)
+        super(MilleniumPatronAPI, self).__init__(library, **kwargs)
         if not url.endswith('/'):
             url = url + "/"
+        self.library_id = library.id
         self.root = url
         self.verify_certificate=verify_certificate
         self.parser = etree.HTMLParser()

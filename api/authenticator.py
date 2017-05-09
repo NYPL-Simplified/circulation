@@ -11,6 +11,7 @@ from core.model import (
     DataSource,
     Library,
     Patron,
+    Session,
 )
 from core.util.problem_detail import (
     ProblemDetail,
@@ -240,7 +241,7 @@ class PatronData(object):
             value = None
         setattr(patron, field_name, value)
         
-    def get_or_create_patron(self, _db):
+    def get_or_create_patron(self, _db, library_id):
         """Create a Patron with this information.
 
         TODO: I'm concerned in the general case with race
@@ -262,7 +263,10 @@ class PatronData(object):
         will happen is the second request will fail. But it's very
         important that authorization providers give some unique,
         preferably unchanging way of identifying patrons.
+
+        :param library: The Library of which this Patron is a patron.
         """
+        
         # We must be very careful when checking whether the patron
         # already exists because three different fields might be in use
         # as the patron identifier.
@@ -278,6 +282,7 @@ class PatronData(object):
             raise ValueError(
                 "Cannot create patron without some way of identifying them uniquely."
             )
+        search_by['library_id'] = library_id
         __transaction = _db.begin_nested()
         patron, is_new = get_one_or_create(_db, Patron, **search_by)
 
@@ -334,9 +339,14 @@ class Authenticator(object):
     """    
 
     @classmethod
-    def from_config(cls, _db):
+    def from_config(cls, library):
         """Initialize an Authenticator from site configuration.
-        """       
+        """
+        _db = Session.object_session(library)
+        # Commit just in case this is the first time the Library has
+        # ever been loaded.
+        _db.commit()
+        
         authentication_policy = Configuration.policy("authentication")
         if not authentication_policy:
             raise CannotLoadConfiguration(
@@ -355,11 +365,6 @@ class Authenticator(object):
         if isinstance(providers, dict):
             # There's only one provider.
             providers = [providers]
-
-        library = Library.instance(_db)
-        # Commit just in case that was the first time the Library was
-        # ever loaded.
-        _db.commit()
             
         # Start with an empty list of authenticators.        
         authenticator = cls(
@@ -406,6 +411,8 @@ class Authenticator(object):
         :param bearer_token_signing_secret: The secret to use when
         signing JWTs for use as bearer tokens.
         """
+        self._db = Session.object_session(library)
+        self.library_id = library.id
         self.library_uuid = library.uuid
         self.library_name = library.name
         self.basic_auth_provider = basic_auth_provider
@@ -416,6 +423,10 @@ class Authenticator(object):
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
 
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+        
     def assert_ready_for_oauth(self):
         """If this Authenticator has OAuth providers, ensure that it
         also has a secret it can use to sign bearer tokens.
@@ -443,10 +454,10 @@ class Authenticator(object):
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(config)
+            provider = provider_class.from_config(self.library, config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(config)
+            provider = provider_class.from_config(self.library, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
@@ -798,21 +809,25 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
 
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, library, config):
         """Load a BasicAuthenticationProvider from site configuration."""
-        return cls(**config)
+        return cls(library, **config)
 
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self,
+    def __init__(self, library,
                  identifier_regular_expression=class_default,
                  password_regular_expression=class_default,
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
+
+        :param library: Patrons authenticated through this provider
+            are associated with the given Library.
         """
+        self.library_id = library.id
         if identifier_regular_expression is self.class_default:
             identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
         if identifier_regular_expression:
@@ -911,7 +926,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         if not patron:
             # We have a PatronData from the ILS that does not
             # correspond to any local Patron. Create the local Patron.
-            patron, is_new = patrondata.get_or_create_patron(_db)
+            patron, is_new = patrondata.get_or_create_patron(
+                _db, self.library_id
+            )
             
         # The lookup failed in the first place either because the
         # Patron did not exist on the local side, or because one of
@@ -1020,6 +1037,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         patron = None
         for lookup in lookups:
+            lookup['library_id'] = self.library_id
             patron = get_one(_db, Patron, **lookup)
             if patron:
                 # We found them!
@@ -1102,7 +1120,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
     
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, library, config):
         """Load this OAuthAuthenticationProvider from the site configuration.
         """
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
@@ -1111,11 +1129,13 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
             cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         )
-        return cls(client_id, client_secret, token_expiration_days)
+        return cls(library, client_id, client_secret, token_expiration_days)
     
-    def __init__(self, client_id, client_secret, token_expiration_days):
+    def __init__(self, library, client_id, client_secret, token_expiration_days):
         """Initialize this OAuthAuthenticationProvider.
 
+        :param library: Patrons authenticated through this provider
+            are associated with the given Library.
         :param client_id: An ID given to us by the OAuth provider, used
             to distinguish between us and its other clients.
         :param client_secret: A secret key given to us by the OAuth 
@@ -1124,6 +1144,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             we ask the patron to go through the OAuth validation
             process again.
         """
+        self.library_id = library.id
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
@@ -1228,7 +1249,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             return patrondata
         
         # Convert the PatronData into a Patron object.
-        patron, is_new = patrondata.get_or_create_patron(_db)
+        patron, is_new = patrondata.get_or_create_patron(
+            _db, self.library_id
+        )
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)

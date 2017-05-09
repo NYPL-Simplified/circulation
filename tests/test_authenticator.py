@@ -77,8 +77,9 @@ class MockBasicAuthenticationProvider(
     """A mock basic authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, patron=None, patrondata=None, *args, **kwargs):
-        super(MockBasicAuthenticationProvider, self).__init__(*args, **kwargs)
+    def __init__(self, library, patron=None, patrondata=None, *args, **kwargs):
+        super(MockBasicAuthenticationProvider, self).__init__(
+            library, *args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
 
@@ -96,9 +97,10 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
-    def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
+    def __init__(self, library, patrondata=None,
+                 remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
-        super(MockBasic, self).__init__(*args, **kwargs)
+        super(MockBasic, self).__init__(library, *args, **kwargs)
         self.patrondata = patrondata
         self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
         
@@ -134,8 +136,8 @@ class MockOAuth(OAuthAuthenticationProvider):
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
-    def __init__(self):
-        super(MockOAuth, self).__init__("", "", 20)
+    def __init__(self, library):
+        super(MockOAuth, self).__init__(library, "", "", 20)
 
 class TestPatronData(DatabaseTest):
 
@@ -323,15 +325,20 @@ class TestPatronData(DatabaseTest):
 
             # The patron didn't exist yet, so it was created
             # and an analytics event was sent.
-            patron, is_new = self.data.get_or_create_patron(self._db)
+            patron, is_new = self.data.get_or_create_patron(
+                self._db, self._default_library.id
+            )
             eq_('2', patron.authorization_identifier)
+            eq_(self._default_library, patron.library)
             eq_(True, is_new)
             eq_(CirculationEvent.NEW_PATRON, mock.event_type)
             eq_(1, mock.count)
 
             # The same patron is returned, and no analytics
             # event was sent.
-            patron, is_new = self.data.get_or_create_patron(self._db)
+            patron, is_new = self.data.get_or_create_patron(
+                self._db, self._default_library.id
+            )
             eq_('2', patron.authorization_identifier)
             eq_(False, is_new)
             eq_(1, mock.count)
@@ -354,7 +361,7 @@ class TestAuthenticator(DatabaseTest):
                     ]
                 }
             }
-            auth = Authenticator.from_config(self._db)
+            auth = Authenticator.from_config(self._default_library)
 
             assert auth.basic_auth_provider != None
             assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
@@ -385,7 +392,7 @@ class TestAuthenticator(DatabaseTest):
                 }
             }
 
-            auth = Authenticator.from_config(self._db)
+            auth = Authenticator.from_config(self._default_library)
 
             assert auth.basic_auth_provider != None
             assert isinstance(auth.basic_auth_provider,
@@ -404,7 +411,7 @@ class TestAuthenticator(DatabaseTest):
             }
             assert_raises_regexp(
                 CannotLoadConfiguration, "No authentication policy given.",
-                Authenticator.from_config, self._db
+                Authenticator.from_config, self._default_library
             )
 
     def test_config_fails_when_providers_is_not_a_dictionary(self):
@@ -414,7 +421,7 @@ class TestAuthenticator(DatabaseTest):
             }
             assert_raises_regexp(
                 CannotLoadConfiguration, "Authentication policy must be a dictionary with key 'providers'.",
-                Authenticator.from_config, self._db                
+                Authenticator.from_config, self._default_library
             )        
 
     def test_config_fails_when_provider_is_not_a_dictionary(self):
@@ -426,7 +433,7 @@ class TestAuthenticator(DatabaseTest):
             }
             assert_raises_regexp(
                 CannotLoadConfiguration, "Provider 'api.millenium_patron' is invalid; must be a dictionary.",
-                Authenticator.from_config, self._db                
+                Authenticator.from_config, self._default_library
             )        
 
     def test_config_fails_when_provider_dictionary_does_not_define_module(self):
@@ -440,7 +447,7 @@ class TestAuthenticator(DatabaseTest):
             }
             assert_raises_regexp(
                 CannotLoadConfiguration, "Provider configuration does not define 'module':",
-                Authenticator.from_config, self._db                
+                Authenticator.from_config, self._default_library
             )        
             
     def test_register_provider_basic_auth(self):
@@ -470,7 +477,7 @@ class TestAuthenticator(DatabaseTest):
         assert isinstance(clever, CleverAuthenticationAPI)
             
     def test_oauth_provider_requires_secret(self):
-        basic = MockBasicAuthenticationProvider()
+        basic = MockBasicAuthenticationProvider(self._default_library)
         oauth = MockOAuthAuthenticationProvider("provider1")
 
         # You can create an Authenticator that only uses Basic Auth
@@ -497,7 +504,7 @@ class TestAuthenticator(DatabaseTest):
         )
         
     def test_providers(self):
-        basic = MockBasicAuthenticationProvider()
+        basic = MockBasicAuthenticationProvider(self._default_library)
         oauth1 = MockOAuthAuthenticationProvider("provider1")
         oauth2 = MockOAuthAuthenticationProvider("provider2")
 
@@ -518,8 +525,8 @@ class TestAuthenticator(DatabaseTest):
             library=Library.instance(self._db),
             bearer_token_signing_secret='foo'
         )
-        basic1 = MockBasicAuthenticationProvider()
-        basic2 = MockBasicAuthenticationProvider()
+        basic1 = MockBasicAuthenticationProvider(self._default_library)
+        basic2 = MockBasicAuthenticationProvider(self._default_library)
         oauth1 = MockOAuthAuthenticationProvider("provider1")
         oauth2 = MockOAuthAuthenticationProvider("provider2")
         oauth1_dupe = MockOAuthAuthenticationProvider("provider1")
@@ -546,7 +553,7 @@ class TestAuthenticator(DatabaseTest):
     def test_oauth_provider_lookup(self):
 
         # If there are no OAuth providers we cannot look one up.
-        basic = MockBasicAuthenticationProvider()
+        basic = MockBasicAuthenticationProvider(self._default_library)
         authenticator = Authenticator(
             library=Library.instance(self._db),
             basic_auth_provider=basic
@@ -583,7 +590,7 @@ class TestAuthenticator(DatabaseTest):
             username=patron.username
         )
         basic = MockBasicAuthenticationProvider(
-            patron=patron, patrondata=patrondata
+            self._default_library, patron=patron, patrondata=patrondata
         )
         authenticator = Authenticator(
             library=Library.instance(self._db),
@@ -643,7 +650,7 @@ class TestAuthenticator(DatabaseTest):
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
 
     def test_get_credential_from_header(self):
-        basic = MockBasicAuthenticationProvider()
+        basic = MockBasicAuthenticationProvider(self._default_library)
         oauth = MockOAuthAuthenticationProvider("oauth1")
 
         # We can pull the password out of a Basic Auth credential
@@ -723,7 +730,7 @@ class TestAuthenticator(DatabaseTest):
         eq_(token_value, decoded)
 
     def test_create_authentication_document(self):
-        basic = MockBasicAuthenticationProvider()
+        basic = MockBasicAuthenticationProvider(self._default_library)
         oauth = MockOAuthAuthenticationProvider("oauth")
         oauth.URI = "http://example.org/"
         library = Library.instance(self._db)
@@ -807,14 +814,17 @@ class TestAuthenticationProvider(DatabaseTest):
     credentials = dict(username='user', password='')
     
     def test_authenticated_patron_passes_on_none(self):
-        provider = MockBasic(patrondata=None)
+        provider = MockBasic(library=self._default_library, patrondata=None)
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
         eq_(None, patron)
     
     def test_authenticated_patron_passes_on_problem_detail(self):
-        provider = MockBasic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        provider = MockBasic(
+            library=self._default_library,
+            patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM
+        )
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
@@ -828,7 +838,8 @@ class TestAuthenticationProvider(DatabaseTest):
 
         expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
-        provider = MockBasic(patrondata=expired,
+        provider = MockBasic(library=self._default_library,
+                             patrondata=expired,
                              remote_patron_lookup_patrondata=expired)
         patron = provider.authenticated_patron(
             self._db, self.credentials
@@ -859,6 +870,7 @@ class TestAuthenticationProvider(DatabaseTest):
         )
         
         provider = MockBasic(
+            library=self._default_library,
             patrondata=incomplete_data,
             remote_patron_lookup_patrondata=complete_data
         )
@@ -917,7 +929,9 @@ class TestAuthenticationProvider(DatabaseTest):
         eq_(None, patron.username)
         
         patrondata = PatronData(username="user")
-        provider = MockBasicAuthenticationProvider(patrondata=patrondata)
+        provider = MockBasicAuthenticationProvider(
+            self._default_library, patrondata=patrondata
+        )
         provider.update_patron_metadata(patron)
 
         # The patron's username has been changed.
@@ -929,7 +943,9 @@ class TestAuthenticationProvider(DatabaseTest):
     def test_update_patron_metadata_noop_if_no_remote_metadata(self):
 
         patron = self._patron()
-        provider = MockBasicAuthenticationProvider(patrondata=None)
+        provider = MockBasicAuthenticationProvider(
+            self._default_library, patrondata=None
+        )
         provider.update_patron_metadata(patron)
 
         # We can tell that update_patron_metadata was a no-op because
@@ -938,7 +954,7 @@ class TestAuthenticationProvider(DatabaseTest):
 
     def test_remote_patron_lookup_is_noop(self):
         """The default implementation of remote_patron_lookup is a no-op."""
-        provider = BasicAuthenticationProvider()
+        provider = BasicAuthenticationProvider(self._default_library)
         eq_(None, provider.remote_patron_lookup(None))
         patron = self._patron()
         eq_(patron, provider.remote_patron_lookup(patron))
@@ -959,14 +975,18 @@ class TestBasicAuthenticationProvider(DatabaseTest):
             Configuration.AUTHENTICATION_TEST_USERNAME : "username",
             Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
         }
-        provider = ConfigAuthenticationProvider.from_config(config)
+        provider = ConfigAuthenticationProvider.from_config(
+            self._default_library, config
+        )
         eq_("idre", provider.identifier_re.pattern)
         eq_("pwre", provider.password_re.pattern)
         eq_("username", provider.test_username)
         eq_("pw", provider.test_password)
 
         # Test the defaults.
-        provider = ConfigAuthenticationProvider.from_config({})
+        provider = ConfigAuthenticationProvider.from_config(
+            self._default_library, {}
+        )
         eq_(BasicAuthenticationProvider.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
             provider.identifier_re)
         eq_(None, provider.password_re)
@@ -974,14 +994,15 @@ class TestBasicAuthenticationProvider(DatabaseTest):
     
     def test_testing_patron(self):
         # You don't have to have a testing patron.
-        no_testing_patron = BasicAuthenticationProvider()
+        no_testing_patron = BasicAuthenticationProvider(self._default_library)
         eq_((None, None), no_testing_patron.testing_patron(self._db))
 
         # We configure a testing patron but their username and
         # password don't actually authenticate anyone. We don't crash,
         # but we can't look up the testing patron either.
         missing_patron = MockBasicAuthenticationProvider(
-            patron=None, test_username="1", test_password="2"
+            self._default_library, patron=None, test_username="1",
+            test_password="2"
         )
         value = missing_patron.testing_patron(self._db)
         eq_((None, "2"), value)
@@ -990,13 +1011,15 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         # their username and password.
         patron = self._patron()
         present_patron = MockBasicAuthenticationProvider(
-            patron=patron, test_username="1", test_password="2"
+            self._default_library, patron=patron, test_username="1",
+            test_password="2"
         )
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
 
     def test_server_side_validation(self):
         provider = BasicAuthenticationProvider(
+            self._default_library,
             identifier_regular_expression="foo",
             password_regular_expression="bar"
         )
@@ -1008,6 +1031,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         # It's okay not to provide anything for server side validation.
         # Everything will be considered valid.
         provider = BasicAuthenticationProvider(
+            self._default_library,
             identifier_regular_expression=None,
             password_regular_expression=None
         )
@@ -1024,7 +1048,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         patron2.username = "patron2"
         self._db.commit()
         
-        provider = BasicAuthenticationProvider()
+        provider = BasicAuthenticationProvider(self._default_library)
 
         # If we provide PatronData associated with patron1, we look up
         # patron1, even though we provided the username associated
@@ -1064,13 +1088,13 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         )        
 
     def test_get_credential_from_header(self):
-        provider = BasicAuthenticationProvider()
+        provider = BasicAuthenticationProvider(self._default_library)
         eq_(None, provider.get_credential_from_header("Bearer [some token]"))
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
-        provider = BasicAuthenticationProvider()
+        provider = BasicAuthenticationProvider(self._default_library)
         doc = provider.authentication_provider_document
         eq_(_(provider.DISPLAY_NAME), doc['name'])
         methods = doc['methods']
@@ -1093,7 +1117,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_success(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(patrondata)
+        provider = MockBasic(self._default_library, patrondata)
 
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
@@ -1122,6 +1146,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
         provider = MockBasic(
+            self._default_library,
             patrondata, identifier_regular_expression="foo",
             password_regular_expression="bar"
         )
@@ -1157,7 +1182,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
         )
-        provider = MockBasic(patrondata, patrondata)
+        provider = MockBasic(self._default_library, patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
@@ -1221,7 +1246,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = MockBasic(self._default_library, patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1250,7 +1275,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = MockBasic(self._default_library, patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1278,7 +1303,9 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             Configuration.OAUTH_CLIENT_SECRET : "client_secret",
             Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
         }
-        provider = ConfigAuthenticationProvider.from_config(config)
+        provider = ConfigAuthenticationProvider.from_config(
+            self._default_library, config
+        )
         eq_("client_id", provider.client_id)
         eq_("client_secret", provider.client_secret)
         eq_(20, provider.token_expiration_days)
@@ -1287,12 +1314,12 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         """There is no way to get a credential from a bearer token that can 
         be passed on to a content provider like Overdrive.
         """
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         eq_(None, provider.get_credential_from_header("Bearer abcd"))
             
     def test_create_token(self):
         patron = self._patron()
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         in_twenty_days = (
             datetime.datetime.utcnow() + datetime.timedelta(
                 days=provider.token_expiration_days
@@ -1310,7 +1337,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             
     def test_authenticated_patron_success(self):
         patron = self._patron()
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         data_source = provider.token_data_source(self._db)
 
         # Until we call create_token, this won't work.
@@ -1339,7 +1366,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             def remote_patron_lookup(self, bearer_token):
                 return mock_patrondata
             
-        oauth = CallbackImplementation()
+        oauth = CallbackImplementation(self._default_library)
         credential, patron, patrondata = oauth.oauth_callback(
             self._db, "a code"
         )
@@ -1369,7 +1396,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         with self.app.test_request_context("/"):
             doc = provider.authentication_provider_document
 
@@ -1385,7 +1412,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
     def test_token_data_source_can_create_new_data_source(self):
         class OAuthWithUnusualDataSource(MockOAuth):
             TOKEN_DATA_SOURCE_NAME = "Unusual data source"
-        oauth = OAuthWithUnusualDataSource()
+        oauth = OAuthWithUnusualDataSource(self._default_library)
         source, is_new = oauth.token_data_source(self._db)
         eq_(True, is_new)
         eq_(oauth.TOKEN_DATA_SOURCE_NAME, source.name)
@@ -1400,7 +1427,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         """
         # We're about to call url_for, so we must create an
         # application context.
-        my_api = MockOAuth()
+        my_api = MockOAuth(self._default_library)
         my_api.client_id = "clientid"
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -1418,8 +1445,10 @@ class TestOAuthController(DatabaseTest):
     def setup(self):
         super(TestOAuthController, self).setup()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, _db, external_authenticate_url, patron):
-                super(MockOAuthWithExternalAuthenticateURL, self).__init__()
+            def __init__(self, library, _db, external_authenticate_url, patron):
+                super(MockOAuthWithExternalAuthenticateURL, self).__init__(
+                    library,
+                )
                 self.url = external_authenticate_url
                 self.patron = patron
                 self.token, ignore = self.create_token(
@@ -1434,17 +1463,17 @@ class TestOAuthController(DatabaseTest):
                 return self.token, self.patron, self.patrondata
             
         patron = self._patron()
-        self.basic = MockBasic()           
+        self.basic = MockBasic(library=self._default_library)
         self.oauth1 = MockOAuthWithExternalAuthenticateURL(
-            self._db, "http://oauth1.com/", patron
+            self._default_library, self._db, "http://oauth1.com/", patron
         )
         self.oauth1.NAME = "Mock OAuth 1"
         self.oauth2 = MockOAuthWithExternalAuthenticateURL(
-            self._db, "http://oauth2.org/", patron
+            self._default_library, self._db, "http://oauth2.org/", patron
         )
         self.oauth2.NAME = "Mock OAuth 2"
         self.auth = Authenticator(
-            library = Library.instance(self._db),
+            library = self._default_library,
             basic_auth_provider=self.basic,
             oauth_providers=[self.oauth1, self.oauth2],
             bearer_token_signing_secret="a secret"
