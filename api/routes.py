@@ -219,20 +219,20 @@ def annotations_for_work(identifier_type, identifier):
 def borrow(identifier_type, identifier, mechanism_id=None):
     return app.manager.loans.borrow(identifier_type, identifier, mechanism_id)
 
-@app.route('/works/<identifier_type>/<path:identifier>/fulfill')
-@app.route('/works/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
+@app.route('/works/<license_pool_id>/fulfill')
+@app.route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def fulfill(identifier_type, identifier, mechanism_id=None):
-    return app.manager.loans.fulfill(identifier_type, identifier, mechanism_id)
+def fulfill(license_pool_id, mechanism_id=None):
+    return app.manager.loans.fulfill(license_pool_id, mechanism_id)
 
-@app.route('/loans/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
+@app.route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def revoke_loan_or_hold(identifier_type, identifier):
-    return app.manager.loans.revoke(identifier_type, identifier)
+def revoke_loan_or_hold(license_pool_id):
+    return app.manager.loans.revoke(license_pool_id)
 
 @app.route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @allows_patron_web()
@@ -267,32 +267,32 @@ def series(series_name, languages, audiences):
 @app.route('/works/<identifier_type>/<path:identifier>')
 @allows_patron_web()
 @returns_problem_detail
-def permalink(data_source, identifier_type, identifier):
-    return app.manager.work_controller.permalink(data_source, identifier_type, identifier)
+def permalink(identifier_type, identifier):
+    return app.manager.work_controller.permalink(identifier_type, identifier)
 
 @app.route('/works/<identifier_type>/<path:identifier>/recommendations')
 @allows_patron_web()
 @returns_problem_detail
-def recommendations(data_source, identifier_type, identifier):
-    return app.manager.work_controller.recommendations(data_source, identifier_type, identifier)
+def recommendations(identifier_type, identifier):
+    return app.manager.work_controller.recommendations(identifier_type, identifier)
 
 @app.route('/works/<identifier_type>/<path:identifier>/related_books')
 @allows_patron_web()
 @returns_problem_detail
-def related_books(data_source, identifier_type, identifier):
-    return app.manager.work_controller.related(data_source, identifier_type, identifier)
+def related_books(identifier_type, identifier):
+    return app.manager.work_controller.related(identifier_type, identifier)
 
 @app.route('/works/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
 @allows_patron_web()
 @returns_problem_detail
-def report(data_source, identifier_type, identifier):
-    return app.manager.work_controller.report(data_source, identifier_type, identifier)
+def report(identifier_type, identifier):
+    return app.manager.work_controller.report(identifier_type, identifier)
 
 @app.route('/analytics/<identifier_type>/<path:identifier>/<event_type>')
 @allows_patron_web()
 @returns_problem_detail
-def track_analytics_event(data_source, identifier_type, identifier, event_type):
-    return app.manager.analytics_controller.track_event(data_source, identifier_type, identifier, event_type)
+def track_analytics_event(identifier_type, identifier, event_type):
+    return app.manager.analytics_controller.track_event(identifier_type, identifier, event_type)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')

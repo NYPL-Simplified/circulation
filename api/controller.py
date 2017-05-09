@@ -8,6 +8,7 @@ from wsgiref.handlers import format_date_time
 from time import mktime
 
 from lxml import etree
+from sqlalchemy.orm import eagerload
 
 from functools import wraps
 import flask
@@ -307,10 +308,10 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_work(self, library, identifier_type, identifier):
         pools = self.load_licensepools(library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
-            return pool
+            return pools
 
         # We know there is at least one LicensePool, and all LicensePools
-        # for an Identifier have the same .work.
+        # for an Identifier have the same Work.
         return pools[0].work
     
     def load_licensepools(self, library, identifier_type, identifier):
@@ -338,6 +339,15 @@ class CirculationManagerController(BaseCirculationManagerController):
                 )
             )
         return pools
+
+    def load_licensepool(self, license_pool_id):
+        """Turns user input into a LicensePool"""
+        license_pool = get_one(self._db, LicensePool, id=license_pool_id)
+        if not license_pool:
+            return INVALID_INPUT.detailed(
+                _("License Pool #%d does not exist.") % license_pool_id
+            )
+        return license_pool
 
     def load_licensepooldelivery(self, pool, mechanism_id):
         """Turn user input into a LicensePoolDeliveryMechanism object.""" 
@@ -504,6 +514,28 @@ class OPDSFeedController(CirculationManagerController):
 
 class LoanController(CirculationManagerController):
 
+    def get_patron_circ_objects(self, object_class, patron, license_pools):
+        pool_ids = [pool.id for pool in license_pools]
+
+        return self._db.query(object_class).filter(
+            object_class.patron_id==patron.id,
+            object_class.license_pool_id.in_(pool_ids)
+        ).options(eagerload(object_class.license_pool)).all()
+
+    def get_patron_loan(self, patron, license_pools):
+        loans = self.get_patron_circ_objects(Loan, patron, license_pools)
+        if loans:
+            loan = loans[0]
+            return loan, loan.license_pool
+        return None, None
+
+    def get_patron_hold(self, patron, license_pools):
+        holds = self.get_patron_circ_objects(Hold, patron, license_pools)
+        if holds:
+            hold = holds[0]
+            return hold, hold.license_pool
+        return None, None
+
     def sync(self):
         if flask.request.method=='HEAD':
             return Response()
@@ -535,9 +567,6 @@ class LoanController(CirculationManagerController):
         book or the license file.
         """
         patron = flask.request.patron
-
-        # TODO: First make sure the patron does not already have this book
-        # on loan.
         
         result = self.best_lendable_pool(
             self.library, patron, identifier_type, identifier, mechanism_id
@@ -627,7 +656,7 @@ class LoanController(CirculationManagerController):
         """Of the available LicensePools for the given Identifier, return the
         one that's the best candidate for loaning out right now.
         """
-        # Turn source + identifier into a LicensePool
+        # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
             self.library, identifier_type, identifier
         )
@@ -638,7 +667,14 @@ class LoanController(CirculationManagerController):
         best = None
         mechanism = None
         problem_doc = None
-        
+
+        existing_loans = self._db.query(Loan).filter(
+            Loan.license_pool_id.in_([lp.id for lp in pools]),
+            Loan.patron==patron
+        ).all()
+        if existing_loans:
+            return ALREADY_CHECKED_OUT
+
         # We found a number of LicensePools. Try to locate one that
         # we can actually loan to the patron.
         for pool in pools:
@@ -677,7 +713,7 @@ class LoanController(CirculationManagerController):
             return problem_doc
         return best, mechanism
     
-    def fulfill(self, identifier_type, identifier, mechanism_id=None, do_get=None):
+    def fulfill(self, license_pool_id, mechanism_id=None, do_get=None):
         """Fulfill a book that has already been checked out.
 
         If successful, this will serve the patron a downloadable copy of
@@ -692,24 +728,18 @@ class LoanController(CirculationManagerController):
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
     
-        # Turn source + identifier into a set of LicensePools.
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        # Turn source + identifier into a LicensePool.
+        pool = self.load_licensepool(license_pool_id)
+        if isinstance(pool, ProblemDetail):
+            return pool
 
-        # The patron has a loan on one of these LicensePools.
-
-        # TODO: Handle the case where the patron has no loans or more
-        # than one loan.
-        loan = self._db.query(Loan).filter(
-            Loan.patron==patron).filter(
-                Loan.license_pool_id.in_([x.id for x in pools])).one()
+        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(
-                loan.license_pool, mechanism_id
+                loan_license_pool, mechanism_id
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
@@ -777,16 +807,18 @@ class LoanController(CirculationManagerController):
 
         return Response(content, status_code, headers)
 
-    def revoke(self, identifier_type, identifier):
+    def revoke(self, license_pool_id):
         patron = flask.request.patron
-        pool = self.load_licensepool(identifier_type, identifier)
+        pool = self.load_licensepool(license_pool_id)
         if isinstance(pool, ProblemDetail):
             return pool
-        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+
+        loan, _ignore = self.get_patron_loan(patron, [pool])
+
         if loan:
             hold = None
         else:
-            hold = get_one(self._db, Hold, patron=patron, license_pool=pool)
+            hold, _ignore = self.get_patron_hold(patron, [pool])
 
         if not loan and not hold:
             if not pool.work:
@@ -830,14 +862,15 @@ class LoanController(CirculationManagerController):
             return self.revoke_loan_or_hold(identifier_type, identifier)
 
         patron = flask.request.patron
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        loan = get_one(self._db, Loan, patron=patron, license_pool=pool)
+        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+
+        loan, pool = self.get_patron_loan(patron, pools)
         if loan:
             hold = None
         else:
-            hold = get_one(self._db, Hold, patron=patron, license_pool=pool)
+            hold, pool = self.get_patron_hold(patron, pools)
 
         if not loan and not hold:
             return NO_ACTIVE_LOAN_OR_HOLD.detailed( 
@@ -980,27 +1013,26 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         annotator = self.manager.annotator(None)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, identifier_type, identifier,
-                        novelist_api=None):
+    def recommendations(self, identifier_type, identifier, novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
-        pool = self.load_licensepool(identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        lane_name = "Recommendations for %s by %s" % (pool.work.title, pool.work.author)
+        lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self._db, pool, lane_name, novelist_api=novelist_api
+                self._db, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1026,23 +1058,19 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed.content))
 
-    def related(self, identifier_type, identifier,
-                novelist_api=None):
+    def related(self, identifier_type, identifier, novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
+        work = self.load_work(self.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        work = pools.work
         try:
             lane_name = "Books Related to %s by %s" % (
                 work.title, work.author
             )
-            # TODO: It should be possible to pass in the Work object
-            # here rather than one of the LicensePools.
             lane = RelatedBooksLane(
-                self._db, pools[0], lane_name, novelist_api=novelist_api
+                self._db, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1072,12 +1100,12 @@ class WorkController(CirculationManagerController):
         # TODO: We don't have a reliable way of knowing whether the
         # complaing is being lodged against the work or against a
         # specific LicensePool.
-        
-        # Turn source + identifier into a LicensePool
+
+        # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
-            return pool
+            return pools
     
         if flask.request.method == 'GET':
             # Return a list of valid URIs to use as the type of a problem detail
@@ -1087,7 +1115,7 @@ class WorkController(CirculationManagerController):
     
         data = flask.request.data
         controller = ComplaintController()
-        return controller.register(pool, data)
+        return controller.register(pools[0], data)
 
     def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""

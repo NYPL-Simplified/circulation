@@ -239,8 +239,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # The fulfill link for non-Adobe DRM does not
             # include the drm:licensor tag.
             link = self.annotator.fulfill_link(
-                pool.data_source.name, pool.identifier, pool, loan,
-                other_delivery_mechanism 
+                pool, loan, other_delivery_mechanism
            )
             for child in link.getchildren():
                 assert child.tag != "{http://librarysimplified.org/terms/drm}licensor"
@@ -251,8 +250,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             # The fulfill link for Adobe DRM includes information
             # on how to get an Adobe ID in the drm:licensor tag.
             link = self.annotator.fulfill_link(
-                pool.data_source.name, pool.identifier, pool, loan,
-                adobe_delivery_mechanism
+                pool, loan, adobe_delivery_mechanism
             )
             licensor = link.getchildren()[-1]
             eq_("{http://librarysimplified.org/terms/drm}licensor",
@@ -335,6 +333,10 @@ class TestOPDS(WithVendorIDTest):
         parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
         fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.lane = fantasy_lane
+
+        # Initialize library with Adobe Vendor ID details
+        self._default_library.library_registry_short_name = "FAKE"
+        self._default_library.library_registry_shared_secret = "s3cr3t5"
 
         # A QueryGeneratedLane to test code that handles it differently.
         self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
@@ -632,6 +634,7 @@ class TestOPDS(WithVendorIDTest):
 
     def test_loan_feed_includes_patron(self):
         patron = self._patron()
+
         patron.username = u'bellhooks'
         patron.authorization_identifier = u'987654321'
         feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
@@ -784,6 +787,7 @@ class TestOPDS(WithVendorIDTest):
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
         fulfillment = FulfillmentInfo(
+            pool.collection, pool.data_source.name,
             pool.identifier.type, pool.identifier.identifier,
             "http://streaming_link",
             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
@@ -846,22 +850,18 @@ class TestOPDS(WithVendorIDTest):
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            data_source_name, identifier,
-            None, [])
+            identifier, None, [])
 
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            data_source_name, identifier,
-            None, [kindle_mechanism])
+            identifier, None, [kindle_mechanism])
 
         # If there's a fulfillable mechanism, everything's fine.
-        link = annotator.borrow_link(
-            data_source_name, identifier,
-            None, [epub_mechanism])
+        link = annotator.borrow_link(identifier, None, [epub_mechanism])
         assert link != None
 
         link = annotator.borrow_link(
-            data_source_name, identifier,
-            None, [epub_mechanism, kindle_mechanism])
+            identifier, None, [epub_mechanism, kindle_mechanism]
+        )
         assert link != None

@@ -243,12 +243,17 @@ class TestLoanReaperScript(DatabaseTest):
         current_patron = self._patron()
         
         # We're going to give these patrons some loans and holds.
-        edition = self._edition()
-        open_access = self._licensepool(edition, open_access=True)
-        not_open_access_1 = self._licensepool(edition, open_access=False)
-        not_open_access_2 = self._licensepool(edition, open_access=False)
-        not_open_access_3 = self._licensepool(edition, open_access=False)
-        not_open_access_4 = self._licensepool(edition, open_access=False)
+        edition, open_access = self._edition(
+            with_license_pool=True, with_open_access_download=True)
+
+        not_open_access_1 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.OVERDRIVE)
+        not_open_access_2 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.BIBLIOTHECA)
+        not_open_access_3 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.AXIS_360)
+        not_open_access_4 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.ONECLICK)
 
         now = datetime.datetime.utcnow()
         a_long_time_ago = now - datetime.timedelta(days=1000)

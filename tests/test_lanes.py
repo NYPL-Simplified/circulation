@@ -29,10 +29,10 @@ from api.lanes import (
     lane_for_small_collection,
     lane_for_other_languages,
     ContributorLane,
-    LicensePoolBasedLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
+    WorkBasedLane,
 )
 from api.novelist import MockNoveListAPI
 
@@ -174,26 +174,25 @@ class TestLaneCreation(DatabaseTest):
             )
 
 
-class TestLicensePoolBasedLane(DatabaseTest):
+class TestWorkBasedLane(DatabaseTest):
 
     def test_initialization_sets_appropriate_audiences(self):
         work = self._work(with_license_pool=True)
-        lp = work.license_pools[0]
 
         work.audience = Classifier.AUDIENCE_CHILDREN
-        children_lane = LicensePoolBasedLane(self._db, lp, '')
+        children_lane = WorkBasedLane(self._db, work, '')
         eq_(set([Classifier.AUDIENCE_CHILDREN]), children_lane.audiences)
 
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
-        ya_lane = LicensePoolBasedLane(self._db, lp, '')
+        ya_lane = WorkBasedLane(self._db, work, '')
         eq_(sorted(Classifier.AUDIENCES_JUVENILE), sorted(ya_lane.audiences))
 
         work.audience = Classifier.AUDIENCE_ADULT
-        adult_lane = LicensePoolBasedLane(self._db, lp, '')
+        adult_lane = WorkBasedLane(self._db, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adult_lane.audiences))
 
         work.audience = Classifier.AUDIENCE_ADULTS_ONLY
-        adults_only_lane = LicensePoolBasedLane(self._db, lp, '')
+        adults_only_lane = WorkBasedLane(self._db, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
 
 
@@ -205,7 +204,7 @@ class TestRelatedBooksLane(DatabaseTest):
             with_license_pool=True, audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
         [self.lp] = self.work.license_pools
-        self.edition = self.lp.presentation_edition
+        self.edition = self.work.presentation_edition
 
     def test_initialization(self):
         """Asserts that a RelatedBooksLane won't be initialized for a work
@@ -220,22 +219,22 @@ class TestRelatedBooksLane(DatabaseTest):
             self._db.commit()
 
             assert_raises(
-                ValueError, RelatedBooksLane, self._db, self.lp, ""
+                ValueError, RelatedBooksLane, self._db, self.work, ""
             )
 
             # A book with a contributor initializes a RelatedBooksLane.
             luthor, i = self._contributor('Luthor, Lex')
             self.edition.add_contributor(luthor, [Contributor.EDITOR_ROLE])
 
-            result = RelatedBooksLane(self._db, self.lp, '')
-            eq_(self.lp, result.license_pool)
+            result = RelatedBooksLane(self._db, self.work, '')
+            eq_(self.work, result.work)
             [sublane] = result.sublanes
             eq_(True, isinstance(sublane, ContributorLane))
             eq_(sublane.contributor, luthor)
 
             # As does a book in a series.
             self.edition.series = "All By Myself"
-            result = RelatedBooksLane(self._db, self.lp, "")
+            result = RelatedBooksLane(self._db, self.work, "")
             eq_(2, len(result.sublanes))
             [contributor, series] = result.sublanes
             eq_(True, isinstance(series, SeriesLane))
@@ -249,10 +248,10 @@ class TestRelatedBooksLane(DatabaseTest):
             # a RecommendationLane will be included.
             mock_api = MockNoveListAPI()
             response = Metadata(
-                self.lp.data_source, recommendations=[self._identifier()]
+                self.edition.data_source, recommendations=[self._identifier()]
             )
             mock_api.setup(response)
-            result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
+            result = RelatedBooksLane(self._db, self.work, "", novelist_api=mock_api)
             eq_(3, len(result.sublanes))
 
             # The book's language and audience list is passed down to all sublanes.
@@ -280,7 +279,7 @@ class TestRelatedBooksLane(DatabaseTest):
 
             # Lex Luthor doesn't show up because he's only an editor,
             # and an author is listed.
-            result = RelatedBooksLane(self._db, self.lp, '')
+            result = RelatedBooksLane(self._db, self.work, '')
             eq_(1, len(result.sublanes))
             [sublane] = result.sublanes
             eq_(original, sublane.contributor)
@@ -289,7 +288,7 @@ class TestRelatedBooksLane(DatabaseTest):
         # ContributorLane sublanes.
         lane, i = self._contributor('Lane, Lois')
         self.edition.add_contributor(lane, Contributor.PRIMARY_AUTHOR_ROLE)
-        result = RelatedBooksLane(self._db, self.lp, '')
+        result = RelatedBooksLane(self._db, self.work, '')
         eq_(2, len(result.sublanes))
         sublane_contributors = [c.contributor for c in result.sublanes]
         eq_(set([lane, original]), set(sublane_contributors))
@@ -301,7 +300,7 @@ class TestRelatedBooksLane(DatabaseTest):
                 self._db.delete(contribution)
         self._db.commit()
 
-        result = RelatedBooksLane(self._db, self.lp, '')
+        result = RelatedBooksLane(self._db, self.work, '')
         eq_(1, len(result.sublanes))
         [sublane] = result.sublanes
         eq_(luthor, sublane.contributor)
@@ -309,8 +308,8 @@ class TestRelatedBooksLane(DatabaseTest):
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
 
-        self.work.presentation_edition.series = "All By Myself"
-        lane = RelatedBooksLane(self._db, self.lp, "")
+        self.edition.series = "All By Myself"
+        lane = RelatedBooksLane(self._db, self.work, "")
         eq_(None, lane.works())
         eq_(None, lane.materialized_works())
 
@@ -349,7 +348,7 @@ class TestRecommendationLane(LaneTest):
 
     def setup(self):
         super(TestRecommendationLane, self).setup()
-        self.lp = self._work(with_license_pool=True).license_pools[0]
+        self.work = self._work(with_license_pool=True)
 
     def generate_mock_api(self):
         """Prep an empty NoveList result."""
@@ -365,7 +364,7 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
 
         # With an empty recommendation result, the lane is empty.
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self.work, '', novelist_api=mock_api)
         eq_(None, lane.works())
         eq_(None, lane.materialized_works())
 
@@ -392,12 +391,12 @@ class TestRecommendationLane(LaneTest):
         }
 
         for audience, results in expected.items():
-            self.lp.work.audience = audience
+            self.work.audience = audience
             SessionManager.refresh_materialized_views(self._db)
 
             mock_api = self.generate_mock_api()
             lane = RecommendationLane(
-                self._db, self.lp, '', novelist_api=mock_api
+                self._db, self.work, '', novelist_api=mock_api
             )
             lane.recommendations = recommendations
             self.assert_works_queries(lane, results)
@@ -416,15 +415,15 @@ class TestRecommendationLane(LaneTest):
 
         # But only the work that matches the source work is included.
         mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_queries(lane, [eng])
 
         # It doesn't matter the language.
-        self.lp.presentation_edition.language = 'fre'
+        self.work.presentation_edition.language = 'fre'
         SessionManager.refresh_materialized_views(self._db)
         mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_queries(lane, [fre])
 

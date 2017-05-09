@@ -149,7 +149,7 @@ class MockCirculationAPI(CirculationAPI):
         self.remote_holds.append(HoldInfo(*args, **kwargs))
 
     def patron_activity(self, patron, pin):
-        """Return a 2-tuple (loans, holds)."""
+        """Return a 3-tuple (loans, holds, completeness)."""
         return self.remote_loans, self.remote_holds, True
 
     def queue_checkout(self, licensepool, response):

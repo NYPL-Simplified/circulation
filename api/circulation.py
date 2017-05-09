@@ -167,10 +167,10 @@ class CirculationAPI(object):
     between different circulation APIs behind generic operations like
     'borrow'.
     """
-        
+
     def __init__(self, library, api_map=None):
         """Constructor.
-        
+
         :param library: A Library object representing the library
           whose circulation we're concerned with at the moment. TODO:
           it would be better if this took a Patron, but currently
@@ -194,7 +194,7 @@ class CirculationAPI(object):
         # Collections we manage. We don't need to care about loans
         # from any other Collections.
         self.collection_ids_for_sync = []
-        
+
         for collection in library.collections:
             if collection.protocol in api_map:
                 api = api_map[collection.protocol](collection)
@@ -217,7 +217,7 @@ class CirculationAPI(object):
             Collection.AXIS_360 : Axis360API,
             Collection.ONE_CLICK : OneClickAPI,
         }
-        
+
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
         return self.api_for_collection.get(licensepool.collection)
@@ -323,14 +323,17 @@ class CirculationAPI(object):
             # Just fake it.
             identifier = licensepool.identifier            
             loan_info = LoanInfo(
-                identifier.type, 
-                identifier,
-                start_date=None, 
+                licensepool.collection,
+                licensepool.data_source,
+                identifier.type,
+                identifier.identifier,
+                start_date=None,
                 end_date=now + datetime.timedelta(hours=1)
             )
         except AlreadyOnHold:
             # We're trying to check out a book that we already have on hold.
             hold_info = HoldInfo(
+                licensepool.collection, licensepool.data_source,
                 licensepool.identifier.type, licensepool.identifier.identifier,
                 None, None, None
             )
@@ -396,6 +399,7 @@ class CirculationAPI(object):
                 )
             except AlreadyOnHold, e:
                 hold_info = HoldInfo(
+                    licensepool.collection, licensepool.data_source,
                     licensepool.identifier.type, licensepool.identifier.identifier,
                     None, None, None
                 )
@@ -533,6 +537,7 @@ class CirculationAPI(object):
         content_link = cdnify(rep.url, cdns)
         media_type = rep.media_type
         return FulfillmentInfo(
+            licensepool.collection, licensepool.data_source,
             identifier_type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
@@ -689,7 +694,7 @@ class CirculationAPI(object):
         )
 
     def sync_bookshelf(self, patron, pin):
-        
+
         # Get the external view of the patron's current state.
         remote_loans, remote_holds, complete = self.patron_activity(patron, pin)
 
