@@ -1189,12 +1189,15 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
         )
-        provider = self.mock_basic(patrondata, patrondata)
+
+        library = self._library()
+        
+        provider = MockBasic(library, patrondata, patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
         assert isinstance(patron, Patron)
-        eq_(self._default_library, patron.library)
+        eq_(library, patron.library)
         eq_(patrondata.permanent_id, patron.external_identifier)
         eq_(patrondata.authorization_identifier,
             patron.authorization_identifier)
