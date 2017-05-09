@@ -1189,6 +1189,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
 
         # A server side Patron was created from the PatronData.
         assert isinstance(patron, Patron)
+        eq_(self._default_library, patron.library)
         eq_(patrondata.permanent_id, patron.external_identifier)
         eq_(patrondata.authorization_identifier,
             patron.authorization_identifier)
