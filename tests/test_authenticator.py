@@ -1131,14 +1131,16 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_failure_when_remote_authentication_returns_problemdetail(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        provider = MockBasic(
+            self._default_library, UNSUPPORTED_AUTHENTICATION_MECHANISM
+        )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM,
             provider.authenticate(self._db, self.credentials))
 
     def test_failure_when_remote_authentication_returns_none(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(None)
+        provider = MockBasic(self._default_library, None)
         eq_(None,
             provider.authenticate(self._db, self.credentials))
         
@@ -1165,7 +1167,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         authentication provider. But we handle it.
         """
         patrondata = PatronData(permanent_id=self._str)
-        provider = MockBasic(patrondata)
+        provider = MockBasic(self._default_library, patrondata)
 
         # When we call remote_authenticate(), we get patrondata, but
         # there is no corresponding local patron, so we call
@@ -1183,6 +1185,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             fines=Money(1, "USD"),
         )
         provider = MockBasic(self._default_library, patrondata)
+        set_trace()
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
@@ -1217,7 +1220,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = MockBasic(self._default_library, patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
