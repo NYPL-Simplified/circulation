@@ -171,6 +171,10 @@ class CirculationAPI(object):
     def __init__(self, library, api_map=None):
         """Constructor.
 
+        # TODO: This needs to take a database connection as well so that
+        # we can keep the scoped session. It should only store library_id
+        # or patron_id.
+
         :param library: A Library object representing the library
           whose circulation we're concerned with at the moment. TODO:
           it would be better if this took a Patron, but currently

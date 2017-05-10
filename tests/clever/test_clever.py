@@ -45,7 +45,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
         self.api = MockAPI(
-            self._default_library, 'fake_client_id', 'fake_client_secret', 2
+            self._default_library.id, 'fake_client_id', 'fake_client_secret', 2
         )
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -184,7 +184,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # We're about to call url_for, so we must create an
         # application context.
         my_api = CleverAuthenticationAPI(
-            self._default_library, "key", "secret", 2
+            self._default_library.id, "key", "secret", 2
         )
         with self.app.test_request_context("/"):
             params = my_api.external_authenticate_url("state")

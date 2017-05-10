@@ -332,20 +332,27 @@ class PatronData(object):
             authorization_identifiers = [authorization_identifier]
         self.authorization_identifier = authorization_identifier
         self.authorization_identifiers = authorization_identifiers
-        
+
 class Authenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
     credentials into Patron objects.
     """    
 
     @classmethod
-    def from_config(cls, library):
+    def from_config(cls, _db):
         """Initialize an Authenticator from site configuration.
         """
-        if not isinstance(library, Library):
-            raise Exception("%s passed in where Library expected",
-                            library.__class__)
-        _db = Session.object_session(library)
+        if isinstance(_db, Library):
+            raise Exception("library passed in where database expected")
+
+        if isinstance(_db, int):
+            raise Exception("blah")
+        
+        # TODO: This needs to change to get _all_ libraries
+        # and instantiate an Authenticator for each, or else
+        # a single Authenticator that can handle all of them.
+        library = Library.instance(_db)
+        
         # Commit just in case this is the first time the Library has
         # ever been loaded.
         _db.commit()
@@ -371,7 +378,7 @@ class Authenticator(object):
             
         # Start with an empty list of authenticators.        
         authenticator = cls(
-            library=library,
+            _db=_db, library=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
@@ -397,13 +404,16 @@ class Authenticator(object):
         authenticator.assert_ready_for_oauth()
         return authenticator
 
-    def __init__(self, library, basic_auth_provider=None,
+    def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
                  bearer_token_signing_secret=None):
         """Initialize an Authenticator from a list of AuthenticationProviders.
 
+        :param _db: A database session (probably a scoped session, which is
+            why we can't derive it from `library`)
+
         :param library: The Library to which this Authenticator guards
-        access.
+        access. TODO: This paramater might disappear soon.
 
         :param basic_auth_provider: The AuthenticatonProvider that handles
         HTTP Basic Auth requests.
@@ -414,7 +424,7 @@ class Authenticator(object):
         :param bearer_token_signing_secret: The secret to use when
         signing JWTs for use as bearer tokens.
         """
-        self._db = Session.object_session(library)
+        self._db = _db
         self.library_id = library.id
         self.library_uuid = library.uuid
         self.library_name = library.name
@@ -426,8 +436,9 @@ class Authenticator(object):
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
 
-    def library(self, _db):
-        return get_one(_db, Library, id=self.library_id)
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this Authenticator has OAuth providers, ensure that it
@@ -455,12 +466,12 @@ class Authenticator(object):
         del config['module']
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
-        library = self.library(self._db)
+        library = self.library
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(library, config)
+            provider = provider_class.from_config(library.id, config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(library, config)
+            provider = provider_class.from_config(library.id, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
@@ -674,6 +685,15 @@ class AuthenticationProvider(object):
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     URI = None
+
+    # Each subclass MUST accept a library id in its constructor and
+    # MUST store it as .library_id. This allows the
+    # AuthenticationProvider to remember which library it manages
+    # without having to hold on to a Library object, which would be
+    # associated with a specific database session.
+    
+    def library(self, _db):
+        return get_one(_db, Library, self.library_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
@@ -812,16 +832,16 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
 
     @classmethod
-    def from_config(cls, library, config):
+    def from_config(cls, library_id, config):
         """Load a BasicAuthenticationProvider from site configuration."""
-        return cls(library, **config)
+        return cls(library_id, **config)
 
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self, library,
+    def __init__(self, library_id,
                  identifier_regular_expression=class_default,
                  password_regular_expression=class_default,
                  test_username=None, test_password=None):
@@ -830,7 +850,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         :param library: Patrons authenticated through this provider
             are associated with the given Library.
         """
-        self.library_id = library.id
+        if not isinstance(library_id, int):
+            raise Exception("Expected int, got %r" % library_id)
+        self.library_id = library_id
         if identifier_regular_expression is self.class_default:
             identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
         if identifier_regular_expression:
@@ -850,9 +872,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.test_username = test_username
         self.test_password = test_password
         self.log = logging.getLogger(self.NAME)
-
-    def library(self, _db):
-        return get_one(_db, Library, id=self.library_id)
         
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
@@ -1126,7 +1145,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
     
     @classmethod
-    def from_config(cls, library, config):
+    def from_config(cls, library_id, config):
         """Load this OAuthAuthenticationProvider from the site configuration.
         """
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
@@ -1135,9 +1154,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
             cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         )
-        return cls(library, client_id, client_secret, token_expiration_days)
+        return cls(library_id, client_id, client_secret, token_expiration_days)
     
-    def __init__(self, library, client_id, client_secret, token_expiration_days):
+    def __init__(self, library_id, client_id, client_secret, token_expiration_days):
         """Initialize this OAuthAuthenticationProvider.
 
         :param library: Patrons authenticated through this provider
@@ -1150,14 +1169,11 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             we ask the patron to go through the OAuth validation
             process again.
         """
-        self.library_id = library.id
+        self.library_id = library_id
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
         self.log = logging.getLogger(self.NAME)
-
-    def library(self, _db):
-        return get_one(_db, Library, id=self.library_id)
         
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.

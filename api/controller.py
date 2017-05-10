@@ -130,9 +130,11 @@ from core.analytics import Analytics
 
 class CirculationManager(object):
 
-    def __init__(self, library, lanes=None, testing=False):
+    def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
+        if isinstance(_db, Library):
+            raise Exception("library passed in where database expected")
 
         if not testing:
             try:
@@ -140,12 +142,7 @@ class CirculationManager(object):
             except CannotLoadConfiguration, e:
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
-        if not isinstance(library, Library):
-            raise Exception("%s passed in where Library expected",
-                            library.__class__)
-        _db = Session.object_session(library)
         self._db = _db
-
         self.testing = testing
         if isinstance(lanes, LaneList):
             lanes = lanes
@@ -153,8 +150,8 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.from_config(library)
-        self.setup_circulation(library)
+        self.auth = Authenticator.from_config(self._db)
+        self.setup_circulation(Library.instance(self._db))
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
