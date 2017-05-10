@@ -2306,6 +2306,7 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
+        set_trace()
         super(TestScopedSession, self).setup(_db)
 
     @contextmanager
