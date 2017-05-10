@@ -287,7 +287,7 @@ class LaneSweeperScript(Script):
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
-        app.manager = CirculationManager(Library.instance(_db), testing=testing)
+        app.manager = CirculationManager(_db, testing=testing)
         self.app = app
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
