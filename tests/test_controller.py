@@ -43,6 +43,7 @@ from core.model import (
     Edition,
     Identifier,
     Complaint,
+    Library,
     SessionManager,
     CachedFeed,
     Work,
@@ -123,7 +124,10 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-        self.library = self._default_library
+
+        # We can't use self._default_library, since that Library
+        # might be associated with a different 
+        self.library = Library.instance(_db)
 
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
@@ -136,7 +140,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
             _db, Patron,
-            library=self._default_library,
+            library=self.library,
             authorization_identifier="unittestuser",
             create_method_kwargs=dict(
                 external_identifier="unittestuser"
