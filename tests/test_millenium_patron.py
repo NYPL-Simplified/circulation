@@ -22,8 +22,8 @@ class MockResponse(object):
 
 class MockAPI(MilleniumPatronAPI):
 
-    def __init__(self, url="http://test-url/", *args, **kwargs):
-        super(MockAPI, self).__init__(url, *args, **kwargs)
+    def __init__(self, library, url="http://test-url/", *args, **kwargs):
+        super(MockAPI, self).__init__(library, url, *args, **kwargs)
         self.queue = []
         self.requests_made = []
         
@@ -45,7 +45,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = MockAPI(identifier_regular_expression=None)
+        self.api = MockAPI(
+            self._default_library, identifier_regular_expression=None
+        )
 
     def test_from_config(self):
         api = None
@@ -53,7 +55,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
             Configuration.URL : "http://example.com",
             Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
         }
-        api = MilleniumPatronAPI.from_config(config)
+        api = MilleniumPatronAPI.from_config(self._default_library, config)
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
         
@@ -337,7 +339,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("SECOND_barcode", patrondata.authorization_identifier)
 
-        api = MockAPI(authorization_identifier_blacklist=["second"])
+        api = MockAPI(
+            self._default_library, authorization_identifier_blacklist=["second"]
+        )
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("FIRST_barcode", patrondata.authorization_identifier)
         
@@ -345,7 +349,10 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
         """
-        api = MockAPI(authorization_identifier_blacklist=["barcode"])
+        api = MockAPI(
+            self._default_library,
+            authorization_identifier_blacklist=["barcode"]
+        )
         content = api.sample_data("dump.two_barcodes.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)
@@ -359,7 +366,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         config = {
             Configuration.URL : "http://example.com",
         }
-        api = MilleniumPatronAPI.from_config(config)
+        api = MilleniumPatronAPI.from_config(self._default_library, config)
         eq_(True, api.verify_certificate)
         
         # But we can turn it off.
@@ -367,13 +374,13 @@ class TestMilleniumPatronAPI(DatabaseTest):
             Configuration.URL : "http://example.com",
             MilleniumPatronAPI.VERIFY_CERTIFICATE : False,
         }
-        api = MilleniumPatronAPI.from_config(config)
+        api = MilleniumPatronAPI.from_config(self._default_library, config)
         eq_(False, api.verify_certificate)
 
         # Test that the value of verify_certificate becomes the
         # 'verify' argument when _modify_request_kwargs() is called.
         kwargs = dict(verify=False)
-        api = MockAPI(verify_certificate = "yes please")
+        api = MockAPI(self._default_library, verify_certificate = "yes please")
         api._update_request_kwargs(kwargs)
         eq_("yes please", kwargs['verify'])
 
