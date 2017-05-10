@@ -425,6 +425,9 @@ class Authenticator(object):
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
+
+    def library(self, _db):
+        return get_one(_db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this Authenticator has OAuth providers, ensure that it
@@ -847,6 +850,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.test_username = test_username
         self.test_password = test_password
         self.log = logging.getLogger(self.NAME)
+
+    def library(self, _db):
+        return get_one(_db, Library, id=self.library_id)
         
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
