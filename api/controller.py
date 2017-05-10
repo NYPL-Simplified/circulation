@@ -133,8 +133,6 @@ class CirculationManager(object):
     def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
-        if isinstance(_db, Library):
-            raise Exception("library passed in where database expected")
 
         if not testing:
             try:

@@ -264,7 +264,8 @@ class PatronData(object):
         important that authorization providers give some unique,
         preferably unchanging way of identifying patrons.
 
-        :param library: The Library of which this Patron is a patron.
+        :param library_id: Database ID of the Library with which this
+            patron is associated.
         """
         
         # We must be very careful when checking whether the patron
@@ -342,12 +343,6 @@ class Authenticator(object):
     def from_config(cls, _db):
         """Initialize an Authenticator from site configuration.
         """
-        if isinstance(_db, Library):
-            raise Exception("library passed in where database expected")
-
-        if isinstance(_db, int):
-            raise Exception("blah")
-        
         # TODO: This needs to change to get _all_ libraries
         # and instantiate an Authenticator for each, or else
         # a single Authenticator that can handle all of them.
@@ -378,7 +373,7 @@ class Authenticator(object):
             
         # Start with an empty list of authenticators.        
         authenticator = cls(
-            _db=_db, library=library,
+            _db=_db, library_id=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
@@ -413,7 +408,8 @@ class Authenticator(object):
             why we can't derive it from `library`)
 
         :param library: The Library to which this Authenticator guards
-        access. TODO: This paramater might disappear soon.
+        access. TODO: This paramater will disappear if we decide that
+        an Authenticator guards access to _all_ libraries.
 
         :param basic_auth_provider: The AuthenticatonProvider that handles
         HTTP Basic Auth requests.
@@ -423,6 +419,7 @@ class Authenticator(object):
 
         :param bearer_token_signing_secret: The secret to use when
         signing JWTs for use as bearer tokens.
+
         """
         self._db = _db
         self.library_id = library.id
@@ -466,12 +463,11 @@ class Authenticator(object):
         del config['module']
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
-        library = self.library
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(library.id, config)
+            provider = provider_class.from_config(self.library_id, config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(library.id, config)
+            provider = provider_class.from_config(self.library_id, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
@@ -847,11 +843,15 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                  test_username=None, test_password=None):
         """Create a BasicAuthenticationProvider.
 
-        :param library: Patrons authenticated through this provider
-            are associated with the given Library.
+        :param library_id: Patrons authenticated through this provider
+            are associated with the Library with the given ID. We don't
+            pass the Library object to avoid contaminating with
+            an object from a non-scoped session.
         """
         if not isinstance(library_id, int):
-            raise Exception("Expected int, got %r" % library_id)
+            raise Exception(
+                "Expected library_id to be an integer, got %r" % library_id
+            )
         self.library_id = library_id
         if identifier_regular_expression is self.class_default:
             identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION

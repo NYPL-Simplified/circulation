@@ -171,9 +171,10 @@ class CirculationAPI(object):
     def __init__(self, library, api_map=None):
         """Constructor.
 
-        # TODO: This needs to take a database connection as well so that
-        # we can keep the scoped session. It should only store library_id
-        # or patron_id.
+        # TODO: This needs to take a database connection as well so
+        # that we can keep the scoped session. It should only store
+        # library_id or patron_id. OR, we need to make sure we create
+        # a new CirculationAPI on each request.
 
         :param library: A Library object representing the library
           whose circulation we're concerned with at the moment. TODO:
@@ -184,6 +185,7 @@ class CirculationAPI(object):
            API classes that should be instantiated to deal with these
            protocols. The default map will work fine unless you're a
            unit test.
+
         """
         self._db = Session.object_session(library)
         self.library = library
