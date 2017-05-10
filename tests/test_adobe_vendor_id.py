@@ -58,7 +58,7 @@ class TestVendorIDModel(VendorIDTest):
     def setup(self):
         super(TestVendorIDModel, self).setup()
         self.authenticator = MockAuthenticationProvider(
-            self._default_library,
+            self._default_library.id,
             patrons={"validpatron" : "password" }
         )
         self.model = AdobeVendorIDModel(self._db, self.authenticator,

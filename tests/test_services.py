@@ -68,12 +68,12 @@ class TestServiceStatusMonitor(DatabaseTest):
     def mock_auth(self):
         library = self._default_library
         provider = MockAuthenticationProvider(
-            library,
+            library.id,
             patrons={"user": "pass"},
             test_username="user",
             test_password="pass",
         )
-        return Authenticator(library, provider)
+        return Authenticator(self._db, library, provider)
 
     def test_test_patron(self):
         """Verify that test_patron() returns credentials determined

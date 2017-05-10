@@ -27,7 +27,7 @@ class ServiceStatus(object):
     def __init__(self, library, auth=None, api_map=None):
         self._db = Session.object_session(library)
         self.circulation = CirculationAPI(library, api_map)
-        self.auth = auth or Authenticator.from_config(library)
+        self.auth = auth or Authenticator.from_config(self._db)
 
     @property
     def test_patron(self):
