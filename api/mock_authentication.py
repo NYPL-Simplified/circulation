@@ -23,9 +23,11 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
 
     NAME = "Mock Authentication Provider"
            
-    def __init__(self, patrons=None, expired_patrons=None,
+    def __init__(self, library, patrons=None, expired_patrons=None,
                  patrons_with_fines=None, *args, **kwargs):
-        super(MockAuthenticationProvider, self).__init__(*args, **kwargs)
+        super(MockAuthenticationProvider, self).__init__(
+            library, *args, **kwargs
+        )
         if not patrons:
             self.log.warn(
                 "No patrons configured for mock authentication provider."

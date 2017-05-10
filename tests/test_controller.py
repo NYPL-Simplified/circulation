@@ -135,8 +135,12 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
 
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
-            _db, Patron, authorization_identifier="unittestuser",
-            create_method_kwargs=dict(external_identifier="unittestuser")
+            _db, Patron,
+            library=self._default_library,
+            authorization_identifier="unittestuser",
+            create_method_kwargs=dict(
+                external_identifier="unittestuser"
+            )
         )
 
         self.initialize_library(_db)
@@ -169,7 +173,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             }
             lanes = make_lanes_default(_db)
             self.manager = TestCirculationManager(
-                _db, lanes=lanes, testing=True
+                self._default_library, lanes=lanes, testing=True
             )
             self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager

@@ -1085,7 +1085,7 @@ class TestSettingsController(AdminControllerTest):
         library = get_one(self._db, Library)
         if library:
             self._db.delete(library)
-
+            
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),

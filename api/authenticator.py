@@ -342,6 +342,9 @@ class Authenticator(object):
     def from_config(cls, library):
         """Initialize an Authenticator from site configuration.
         """
+        if not isinstance(library, Library):
+            raise Exception("%s passed in where Library expected",
+                            library.__class__)
         _db = Session.object_session(library)
         # Commit just in case this is the first time the Library has
         # ever been loaded.
@@ -422,10 +425,6 @@ class Authenticator(object):
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
-
-    @property
-    def library(self):
-        return get_one(self._db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this Authenticator has OAuth providers, ensure that it
@@ -1149,6 +1148,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
         self.log = logging.getLogger(self.NAME)
+
+    def library(self, _db):
+        return get_one(_db, Library, id=self.library_id)
         
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.

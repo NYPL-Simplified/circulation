@@ -104,7 +104,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             return patrondata
         
         # Convert the PatronData into a Patron object.
-        patron, is_new = patrondata.get_or_create_patron(_db)
+        patron, is_new = patrondata.get_or_create_patron(_db, self.library_id)
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)

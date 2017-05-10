@@ -130,7 +130,7 @@ from core.analytics import Analytics
 
 class CirculationManager(object):
 
-    def __init__(self, _db, lanes=None, testing=False):
+    def __init__(self, library, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
 
@@ -140,6 +140,10 @@ class CirculationManager(object):
             except CannotLoadConfiguration, e:
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
+        if not isinstance(library, Library):
+            raise Exception("%s passed in where Library expected",
+                            library.__class__)
+        _db = Session.object_session(library)
         self._db = _db
 
         self.testing = testing
@@ -149,8 +153,8 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.from_config(self._db)
-        self.setup_circulation()
+        self.auth = Authenticator.from_config(library)
+        self.setup_circulation(library)
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -212,13 +216,13 @@ class CirculationManager(object):
                 self.log.warn("No external search server configured.")
                 return None
 
-    def setup_circulation(self):
+    def setup_circulation(self, library):
         """Set up the Circulation object."""        
         if self.testing:
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        self.circulation = cls(Library.instance(self._db))
+        self.circulation = cls(library)
 
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
