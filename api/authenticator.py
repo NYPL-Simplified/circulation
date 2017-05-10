@@ -452,11 +452,12 @@ class Authenticator(object):
         del config['module']
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
+        library = self.library(self._db)
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(self.library, config)
+            provider = provider_class.from_config(library, config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(self.library, config)
+            provider = provider_class.from_config(library, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
