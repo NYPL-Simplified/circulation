@@ -8718,7 +8718,9 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
-    patrons = relationship('Patron', backref='library')
+    patrons = relationship(
+        'Patron', backref='library', cascade="all, delete, delete-orphan"
+    )
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
