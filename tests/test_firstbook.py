@@ -38,7 +38,7 @@ class TestFirstBook(DatabaseTest):
             FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
         }
         api = FirstBookAuthenticationAPI.from_config(
-            self._default_library, config
+            self._default_library.id, config
         )
 
         # Verify that the configuration details were stored properly.
@@ -56,7 +56,7 @@ class TestFirstBook(DatabaseTest):
             FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
         }
         api = FirstBookAuthenticationAPI.from_config(
-            self._default_library, config
+            self._default_library.id, config
         )
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
         
