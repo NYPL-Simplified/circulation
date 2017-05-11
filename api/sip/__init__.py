@@ -112,3 +112,5 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         
     # NOTE: It's not necessary to implement remote_patron_lookup
     # because authentication gets patron data as a side effect.
+
+AuthenticationProvider = SIP2AuthenticationProvider
