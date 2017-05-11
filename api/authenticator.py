@@ -373,7 +373,7 @@ class Authenticator(object):
             
         # Start with an empty list of authenticators.        
         authenticator = cls(
-            _db=_db, library_id=library,
+            _db=_db, library=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 

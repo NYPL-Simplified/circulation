@@ -34,6 +34,7 @@ from core.app_server import (
 from core.metadata_layer import Metadata
 from core.model import (
     Annotation,
+    Collection,
     Patron,
     DeliveryMechanism,
     Representation,
@@ -125,10 +126,15 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         self.app = app
         del os.environ['AUTOINITIALIZE']
 
-        # We can't use self._default_library, since that Library
-        # might be associated with a different 
+        # Certain tests can't use self._default_library or
+        # self._default_collection, since they might be associated
+        # with a different database session.
         self.library = Library.instance(_db)
-
+        self.collection, ignore = get_one_or_create(
+            _db, Collection, name=self._str, protocol=Collection.OPDS_IMPORT
+        )
+        self.library.collections.append(self.collection)
+        
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -207,7 +213,7 @@ class CirculationControllerTest(ControllerTest):
             with_open_access_download=True
         )
         for w in self.english_1, self.english_2, self.french_1:
-            w.license_pools[0].collection = self._default_collection
+            w.license_pools[0].collection = self.collection
 
 
 
@@ -295,7 +301,7 @@ class TestBaseController(CirculationControllerTest):
     def test_load_licensepools(self):
 
         # Here's a Library that has two Collections.
-        library = self._default_library
+        library = self.library
         [c1] = library.collections
         c2 = self._collection()
         library.collections.append(c2)
@@ -553,7 +559,7 @@ class TestLoanController(CirculationControllerTest):
         other_pool.work = self.pool.work
 
         pools = self.manager.loans.load_licensepools(
-            self._default_library, self.identifier.type, self.identifier.identifier
+            self.library, self.identifier.type, self.identifier.identifier
         )
 
         with self.app.test_request_context(
