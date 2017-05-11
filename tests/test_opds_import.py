@@ -18,15 +18,15 @@ from . import (
 )
 from config import (
     Configuration,
-    temp_config,
     CannotLoadConfiguration
 )
 from opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
     OPDSXMLParser,
+    SimplifiedOPDSLookup,
 )
 from util.opds_writer import (
     AtomFeed,
@@ -41,6 +41,7 @@ from model import (
     CoverageRecord,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Edition,
@@ -74,43 +75,37 @@ class DoomedWorkOPDSImporter(OPDSImporter):
             # Any other import fails.
             raise Exception("Utter work failure!")
 
-class TestSimplifiedOPDSLookup(object):
+class TestSimplifiedOPDSLookup(DatabaseTest):
 
     def test_authenticates_wrangler_requests(self):
         """Tests that the client_id and client_secret are set for any
         Metadata Wrangler lookups"""
 
-        mw_integration = Configuration.METADATA_WRANGLER_INTEGRATION
-        mw_client_id = Configuration.METADATA_WRANGLER_CLIENT_ID
-        mw_client_secret = Configuration.METADATA_WRANGLER_CLIENT_SECRET
+        wrangler_integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            username='abc', password='def', url="http://localhost"
+        )
+        importer = MetadataWranglerOPDSLookup(self._db)
+        eq_("abc", importer.client_id)
+        eq_("def", importer.client_secret)
 
-        with temp_config() as config:
-            config['integrations'][mw_integration] = {
-                Configuration.URL : "http://localhost",
-                mw_client_id : "abc",
-                mw_client_secret : "def"
-            }
-            importer = SimplifiedOPDSLookup.from_config()
-            eq_("abc", importer.client_id)
-            eq_("def", importer.client_secret)
+        # An error is raised if only one value is set.
+        wrangler_integration.password = None
+        assert_raises(CannotLoadConfiguration)
 
-            # An error is raised if only one value is set.
-            del config['integrations'][mw_integration][mw_client_secret]
-            assert_raises(CannotLoadConfiguration, SimplifiedOPDSLookup.from_config)
+        # The details are None if client configuration isn't set at all.
+        wrangler_integration.username = None
+        importer = MetadataWranglerOPDSLookup(self._db)
+        eq_(None, importer.client_id)
+        eq_(None, importer.client_secret)
 
-            # The details are None if client configuration isn't set at all.
-            del config['integrations'][mw_integration][mw_client_id]
-            importer = SimplifiedOPDSLookup.from_config()
-            eq_(None, importer.client_id)
-            eq_(None, importer.client_secret)
-
-            # For other integrations, the details aren't created at all.
-            config['integrations']["Content Server"] = dict(
-                url = "http://whatevz"
-            )
-            importer = SimplifiedOPDSLookup.from_config("Content Server")
-            eq_(None, importer.client_id)
-            eq_(None, importer.client_secret)
+        # For other integrations, the details aren't created at all.
+        content_integration = self._external_integration(
+            ExternalIntegration.CONTENT_SERVER, url="http://whatevz"
+        )
+        importer = SimplifiedOPDSLookup.from_service_name(self._db, ExternalIntegration.CONTENT_SERVER)
+        eq_(False, hasattr(importer, 'client_id'))
+        eq_(False, hasattr(importer, 'client_secret'))
 
 
 class OPDSImporterTest(DatabaseTest):
@@ -125,6 +120,11 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
+        )
+
+        self.service = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            username='abc', password='def', url="http://localhost"
         )
         
 

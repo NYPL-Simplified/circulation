@@ -18,8 +18,8 @@ from monitor import CollectionMonitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import (
-    Configuration,
     CannotLoadConfiguration,
+    Configuration,
 )
 from metadata_layer import (
     CirculationData,
@@ -37,6 +37,7 @@ from model import (
     CoverageRecord,
     DataSource,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -52,6 +53,7 @@ from util.opds_writer import (
 )
 from s3 import S3Uploader
 
+
 class AccessNotAuthenticated(Exception):
     """No authentication is configured for this service"""
     pass
@@ -61,65 +63,90 @@ class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
-    CANONICALIZE_ENDPOINT = "canonical-author-name"
-    UPDATES_ENDPOINT = "updates"
-    REMOVAL_ENDPOINT = "remove"
 
     @classmethod
-    def from_config(cls, integration='Metadata Wrangler'):
-        url = Configuration.integration_url(integration)
-        if not url:
+    def from_provider(cls, _db, provider):
+        integration = ExternalIntegration.lookup(_db, provider)
+        if not integration or not integration.url:
             return None
-        return cls(url)
+        return cls(integration.url)
 
     def __init__(self, base_url):
         if not base_url.endswith('/'):
             base_url += "/"
         self.base_url = base_url
-        self._set_auth()
 
-    def _set_auth(self):
-        """Sets client authentication details for the Metadata Wrangler"""
+    @property
+    def lookup_endpoint(self):
+        return self.LOOKUP_ENDPOINT
 
-        metadata_wrangler_url = Configuration.integration_url(
-            Configuration.METADATA_WRANGLER_INTEGRATION
+    def _get(self, url, **kwargs):
+        """Make an HTTP request. This method is overridden in the mock class."""
+        kwargs['timeout'] = kwargs.get('timeout', 120)
+        kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
+        kwargs['allowed_response_codes'] += ['2xx', '3xx']
+        return HTTP.get_with_timeout(url, **kwargs)
+
+    def lookup(self, identifiers):
+        """Retrieve an OPDS feed with metadata for the given identifiers."""
+        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
+        url = self.base_url + self.lookup_endpoint + "?" + args
+        logging.info("Lookup URL: %s", url)
+        return self._get(url)
+
+
+class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
+
+    ADD_ENDPOINT = 'add'
+    REMOVAL_ENDPOINT = 'remove'
+    UPDATES_ENDPOINT = 'updates'
+    CANONICALIZE_ENDPOINT = 'canonical-author-name'
+
+    def __init__(self, _db, collection=None):
+        integration = ExternalIntegration.lookup(
+            _db, provider=ExternalIntegration.METADATA_WRANGLER
         )
-        self.client_id = self.client_secret = None
-        if (metadata_wrangler_url
-            and self.base_url.startswith(metadata_wrangler_url)):
-            values = Configuration.integration(Configuration.METADATA_WRANGLER_INTEGRATION)
-            self.client_id = values.get(Configuration.METADATA_WRANGLER_CLIENT_ID)
-            self.client_secret = values.get(Configuration.METADATA_WRANGLER_CLIENT_SECRET)
+        if not integration:
+            raise CannotLoadConfiguration(
+                "No ExternalIntegration found for the Metadata Wrangler.")
 
-            details = [self.client_id, self.client_secret]
-            if len([d for d in details if not d]) == 1:
-                # Raise an error if one is set, but not the other.
-                raise CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+        if not integration.url:
+            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+
+        if ((integration.username or integration.password) and not
+            (integration.username and integration.password)):
+            # We have one portion fo the authentiction details, but not both.
+            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+
+        super(MetadataWranglerOPDSLookup, self).__init__(integration.url)
+        self.client_id = integration.username
+        self.client_secret = integration.password
+        self.collection = collection
 
     @property
     def authenticated(self):
         return bool(self.client_id and self.client_secret)
 
+    @property
+    def lookup_endpoint(self):
+        if not self.authenticated or not self.collection:
+            return self.LOOKUP_ENDPOINT
+        return self.collection.metadata_identifier + '/' + self.LOOKUP_ENDPOINT
+
     def _get(self, url, **kwargs):
-        """Make an HTTP request. This method is overridden in the mock class."""
-        return HTTP.get_with_timeout(url, **kwargs)
-
-    def opds_get(self, url):
-        """Make the sort of HTTP request that's normal for an OPDS feed.
-
-        Long timeout, raise error on anything but 2xx or 3xx.
-        """
-        kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
-        if self.client_id and self.client_secret:
+        if self.authenticated:
             kwargs['auth'] = (self.client_id, self.client_secret)
-        return self._get(url, **kwargs)
+        return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
-    def lookup(self, identifiers):
-        """Retrieve an OPDS feed with metadata for the given identifiers."""
+    def remove(self, identifiers):
+        """Remove items from an authenticated Metadata Wrangler collection"""
+
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
         args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
-        url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
-        logging.info("Lookup URL: %s", url)
-        return self.opds_get(url)
+        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
+        logging.info("Metadata Wrangler Removal URL: %s", url)
+        return self._get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
         """Attempt to find the canonical name for the author of a book.
@@ -131,23 +158,12 @@ class SimplifiedOPDSLookup(object):
         that goes into library records).
         """
         args = "display_name=%s" % (
-            urllib.quote(
-                working_display_name.encode("utf8"))
+            urllib.quote(working_display_name.encode("utf8"))
         )
         if identifier:
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return self._get(url, timeout=120)
-
-    def remove(self, identifiers):
-        """Remove items from an authenticated Metadata Wrangler collection"""
-
-        if not self.authenticated:
-            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
-        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
-        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
-        logging.info("Metadata Wrangler Removal URL: %s", url)
         return self._get(url)
 
 
@@ -169,6 +185,9 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
             url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
         )
+
+class MockMetadataWranglerOPDSLookup(MockSimplifiedOPDSLookup, MetadataWranglerOPDSLookup):
+    pass
 
 
 class OPDSXMLParser(XMLParser):
@@ -241,7 +260,7 @@ class OPDSImporter(object):
                 )
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
+        self.metadata_client = metadata_client or MetadataWranglerOPDSLookup(_db, collection=collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
