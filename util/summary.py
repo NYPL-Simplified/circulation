@@ -1,4 +1,6 @@
+import logging
 from textblob import TextBlob
+from textblob.exceptions import MissingCorpusError
 from collections import Counter
 from nose.tools import set_trace
 from . import (
@@ -53,6 +55,9 @@ class SummaryEvaluator(object):
         re.compile("This is"),
     ])
 
+    _nltk_installed = True
+    log = logging.getLogger("Summary Evaluator")
+
     def __init__(self, optimal_number_of_sentences=4,
                  noun_phrases_to_consider=10, bad_phrases=None):
         self.optimal_number_of_sentences=optimal_number_of_sentences
@@ -76,8 +81,14 @@ class SummaryEvaluator(object):
         blob = TextBlob(summary)
         self.blobs[summary] = blob
         self.summaries.append(summary)
-        for phrase in blob.noun_phrases:
-            self.noun_phrases[phrase] = self.noun_phrases[phrase] + 1
+
+        if self._nltk_installed:
+            try:
+                for phrase in blob.noun_phrases:
+                    self.noun_phrases[phrase] = self.noun_phrases[phrase] + 1
+            except MissingCorpusError as e:
+                self._nltk_installed = False
+                self.log.error("Summary cannot be evaluated: NLTK not installed %r" % e)
 
     def ready(self):
         """We are done adding to the corpus and ready to start evaluating."""
@@ -101,6 +112,10 @@ class SummaryEvaluator(object):
 
     def score(self, summary, apply_language_penalty=True):
         """Score a summary relative to our current view of the dataset."""
+        if not self._nltk_installed:
+            # Without NLTK, there's no need to evaluate the score.
+            return 1
+
         if isinstance(summary, str):
             summary = summary.decode("utf8")
         if summary in self.scores:
