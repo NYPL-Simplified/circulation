@@ -296,7 +296,7 @@ class DatabaseTest(object):
         return work
 
     def _coverage_record(self, edition, coverage_source, operation=None,
-                         status=CoverageRecord.SUCCESS):
+                         status=CoverageRecord.SUCCESS, collection=None):
         if isinstance(edition, Identifier):
             identifier = edition
         else:
@@ -306,6 +306,7 @@ class DatabaseTest(object):
             identifier=identifier,
             data_source=coverage_source,
             operation=operation,
+            collection=collection,
             create_method_kwargs = dict(
                 timestamp=datetime.utcnow(),
                 status=status,

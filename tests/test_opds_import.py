@@ -103,7 +103,7 @@ class TestSimplifiedOPDSLookup(DatabaseTest):
         content_integration = self._external_integration(
             ExternalIntegration.CONTENT_SERVER, url="http://whatevz"
         )
-        importer = SimplifiedOPDSLookup.from_service_name(self._db, ExternalIntegration.CONTENT_SERVER)
+        importer = SimplifiedOPDSLookup.from_provider(self._db, ExternalIntegration.CONTENT_SERVER)
         eq_(False, hasattr(importer, 'client_id'))
         eq_(False, hasattr(importer, 'client_secret'))
 

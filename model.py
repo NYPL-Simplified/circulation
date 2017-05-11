@@ -1116,21 +1116,36 @@ class CoverageRecord(Base, BaseCoverageRecord):
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+
     # If applicable, this is the ID of the data source that took the
     # Identifier as input.
     data_source_id = Column(
         Integer, ForeignKey('datasources.id')
     )
     operation = Column(String(255), default=None)
-        
+
     timestamp = Column(DateTime, index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
     
+    # If applicable, this is the ID of the collection for which
+    # coverage has taken place. This is currently only applicable
+    # for Metadata Wrangler coverage.
+    collection_id = Column(
+        Integer, ForeignKey('collections.id'), nullable=True
+    )
 
     __table_args__ = (
-        UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
+        Index(
+            'ix_identifier_id_data_source_id_operation',
+            identifier_id, data_source_id, operation,
+            unique=True, postgresql_where=collection_id.is_(None)),
+        Index(
+            'ix_identifier_id_data_source_id_operation_collection_id',
+            identifier_id, data_source_id, operation, collection_id,
+            unique=True
+        ),
     )
 
     def __repr__(self):
@@ -1172,7 +1187,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
-                status=BaseCoverageRecord.SUCCESS):
+                status=BaseCoverageRecord.SUCCESS, collection=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -1187,6 +1202,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier=identifier,
             data_source=data_source,
             operation=operation,
+            collection=collection,
             on_multiple='interchangeable'
         )
         coverage_record.status = status
@@ -8849,7 +8865,7 @@ class ExternalIntegration(Base):
         UniqueConstraint('provider', 'type'),
         Index(
             'ix_unique_provider_with_null_type', provider,
-            unique=True, postgresql_where=(type==None))
+            unique=True, postgresql_where=(type.is_(None))),
     )
 
     @classmethod
@@ -8987,6 +9003,13 @@ class Collection(Base):
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
+    )
+
+    # A Collection can be associated with multiple CoverageRecords
+    # for Identifiers in its catalog.
+    coverage_records = relationship(
+        "CoverageRecord", backref="collection",
+        cascade="save-update, merge, delete"
     )
 
     @property
