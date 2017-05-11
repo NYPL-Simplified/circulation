@@ -1131,6 +1131,11 @@ class TestAnnotationController(CirculationControllerTest):
             selector = json.loads(annotation.target).get("http://www.w3.org/ns/oa#hasSelector")[0].get('@id')
             eq_(data['target']['selector'], selector)
 
+            # The response contains the annotation in the db.
+            item = json.loads(response.data)
+            assert str(annotation.id) in item['id']
+            eq_(annotation.motivation, item['motivation'])
+
     def test_detail(self):
         self.pool.loan_to(self.default_patron)
 
