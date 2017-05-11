@@ -823,7 +823,11 @@ class AnnotationController(CirculationManagerController):
         if isinstance(annotation, ProblemDetail):
             return annotation
 
-        return Response(status=200, headers=headers)
+        content = json.dumps(AnnotationWriter.detail(annotation))
+        status_code = 200
+        headers['Link'] = '<http://www.w3.org/ns/ldp#Resource>; rel="type"'
+        headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
+        return Response(content, status_code, headers)
 
     def container_for_work(self, identifier_type, identifier):
         id_obj, ignore = Identifier.for_foreign_id(
