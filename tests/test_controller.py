@@ -197,7 +197,6 @@ class CirculationControllerTest(ControllerTest):
 
     BOOKS = [
         ["english_1", "Quite British", "John Bull", "eng", True],
-        ["english_2", "Totally American", "Uncle Sam", "eng", False],
     ]
     
     def setup(self):
@@ -1520,7 +1519,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        metadata.recommendations = [self.english_1.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -1535,8 +1534,8 @@ class TestWorkController(CirculationControllerTest):
         eq_('Recommended Books', feed['feed']['title'])
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.english_2.title, entry['title'])
-        eq_(self.english_2.author, entry['author'])
+        eq_(self.english_1.title, entry['title'])
+        eq_(self.english_1.author, entry['author'])
 
         # The feed has facet links.
         links = feed['feed']['links']
@@ -1667,16 +1666,16 @@ class TestWorkController(CirculationControllerTest):
         self.edition.series = "Around the World"
         self.edition.series_position = 1
 
-        same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
-        same_series.presentation_edition.series = "Around the World"
-        same_series.presentation_edition.series_position = 0
+        same_series_work = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
+        same_series_work.presentation_edition.series = "Around the World"
+        same_series_work.presentation_edition.series_position = 0
 
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
         mock_api = MockNoveListAPI()
-        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         # A grouped feed is returned with all of the related books
@@ -1693,44 +1692,57 @@ class TestWorkController(CirculationControllerTest):
             [link] = [l for l in entry['links'] if l['rel']=='collection']
             return link['title'], link['href']
 
-        # One book is in the recommendations feed.
-        [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
-        title, href = collection_link(e1)
+        # This feed contains five books: one recommended,
+        # one in the same series, and two by the same author.
+        recommendations = []
+        same_series = []
+        same_contributor = []
+        feeds_with_original_book = []
+        for e in feed['entries']:
+            for link in e['links']:
+                if link['rel'] != 'collection':
+                    continue
+                if link['title'] == 'Recommended Books':
+                    recommendations.append(e)
+                elif link['title'] == 'Around the World':
+                    same_series.append(e)
+                elif link['title'] == 'John Bull':
+                    same_contributor.append(e)
+                if e['title'] == self.english_1.title:
+                    feeds_with_original_book.append(link['title'])
 
-        eq_("Recommended Books", title)
+        [recommendation] = recommendations
+        title, href = collection_link(recommendation)
         work_url = "/works/%s/%s/" % (self.identifier.type, self.identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
         eq_(True, href.endswith(expected))
 
-        # The other book in the series is in the series feed.
-        [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
-        title, href = collection_link(e2)
-        eq_("Around the World", title)
-        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
-        eq_(True, href.endswith(expected_series_link))
+        # All books in the series are in the series feed.
+        for book in same_series:
+            title, href = collection_link(book)
+            expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
+            eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.
-        [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
-        title, href = collection_link(e3)
-        eq_("John Bull", title)
-        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
-        eq_(True, href.endswith(expected_contributor_link))
+        for contributor in same_contributor:
+            title, href = collection_link(contributor)
+            expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
+            eq_(True, href.endswith(expected_contributor_link))
 
-        # The original book is listed in both the series and contributor feeds.
+        # The original book is listed in all three feeds.
         title_to_link_ending = {
             'Around the World' : expected_series_link,
             'John Bull' : expected_contributor_link
         }
-        entries = [e for e in feed['entries'] if e['title']==self.english_1.title]
-        eq_(2, len(entries))
-        for entry in entries:
-            title, href = collection_link(entry)
-            eq_(True, href.endswith(title_to_link_ending[title]))
-            del title_to_link_ending[title]
+
+        # The book for which we got recommendations is itself listed in the
+        # series feed and in the 'books by this author' feed.
+        eq_(set(["John Bull", "Around the World"]),
+            set(feeds_with_original_book))
 
         # The series feed is sorted by series position.
-        [series_e1, series_e2] = [e for e in feed['entries'] if collection_link(e)[0]=="Around the World"]
-        eq_(same_series.title, series_e1['title'])
+        [series_e1, series_e2] = same_series
+        eq_(same_series_work.title, series_e1['title'])
         eq_(self.english_1.title, series_e2['title'])
 
     def test_report_problem_get(self):
@@ -1874,6 +1886,7 @@ class TestWorkController(CirculationControllerTest):
 class TestFeedController(CirculationControllerTest):
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
+        ["english_2", "Totally American", "Uncle Sam", "eng", False],
         ["french_1", u"Très Français", "Marianne", "fre", False],
     ]
     
