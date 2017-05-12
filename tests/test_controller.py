@@ -1727,12 +1727,6 @@ class TestWorkController(CirculationControllerTest):
             expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
             eq_(True, href.endswith(expected_contributor_link))
 
-        # The original book is listed in all three feeds.
-        title_to_link_ending = {
-            'Around the World' : expected_series_link,
-            'John Bull' : expected_contributor_link
-        }
-
         # The book for which we got recommendations is itself listed in the
         # series feed and in the 'books by this author' feed.
         eq_(set(["John Bull", "Around the World"]),
