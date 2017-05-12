@@ -195,29 +195,22 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
 
 class CirculationControllerTest(ControllerTest):
 
+    BOOKS = [
+        ["english_1", "Quite British", "John Bull", "eng", True],
+        ["english_2", "Totally American", "Uncle Sam", "eng", False],
+    ]
+    
     def setup(self):
         super(CirculationControllerTest, self).setup()
 
         # TODO: This is a prime candidate for optimization. A lot of
         # tests don't need these books, and they take over 1 second to
         # create.
-
-        # Create two English books and a French book.
-        self.english_1 = self._work(
-            "Quite British", "John Bull", language="eng", fiction=True,
-            with_open_access_download=True
-        )
-        self.english_2 = self._work(
-            "Totally American", "Uncle Sam", language="eng", fiction=False,
-            with_open_access_download=True
-        )
-        self.french_1 = self._work(
-            u"Très Français", "Marianne", language="fre", fiction=False,
-            with_open_access_download=True
-        )
-        for w in self.english_1, self.english_2, self.french_1:
-            w.license_pools[0].collection = self.collection
-
+        for (variable_name, title, author, language, fiction) in self.BOOKS:
+            work = self._work(title, author, language, fiction=fiction,
+                              with_open_access_download=True)
+            setattr(self, variable_name, work)
+            work.license_pools[0].collection = self.collection
 
 
 class TestBaseController(CirculationControllerTest):
@@ -1880,6 +1873,10 @@ class TestWorkController(CirculationControllerTest):
 
 class TestFeedController(CirculationControllerTest):
 
+    BOOKS = list(CirculationControllerTest.BOOKS) + [
+        ["french_1", u"Très Français", "Marianne", "fre", False],
+    ]
+    
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/"):
