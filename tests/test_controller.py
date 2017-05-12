@@ -195,16 +195,14 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
 
 class CirculationControllerTest(ControllerTest):
 
+    # These tests generally need at least one Work created,
+    # but some need more.
     BOOKS = [
         ["english_1", "Quite British", "John Bull", "eng", True],
     ]
     
     def setup(self):
         super(CirculationControllerTest, self).setup()
-
-        # TODO: This is a prime candidate for optimization. A lot of
-        # tests don't need these books, and they take over 1 second to
-        # create.
         for (variable_name, title, author, language, fiction) in self.BOOKS:
             work = self._work(title, author, language, fiction=fiction,
                               with_open_access_download=True)
