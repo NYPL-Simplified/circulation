@@ -432,10 +432,6 @@ class Authenticator(object):
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
-
-    @property
-    def library(self):
-        return get_one(self._db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this Authenticator has OAuth providers, ensure that it
