@@ -125,15 +125,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-
-        # Certain tests can't use self._default_library or
-        # self._default_collection, since they might be associated
-        # with a different database session.
-        self.library = Library.instance(_db)
-        self.collection, ignore = get_one_or_create(
-            _db, Collection, name=self._str, protocol=Collection.OPDS_IMPORT
-        )
-        self.library.collections.append(self.collection)
         
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
@@ -143,6 +134,12 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        # Most tests can use self._default_library and
+        # self._default_collection, but some can't, because those objects
+        # are associated with the default database session.
+        self.library = self.make_default_library(_db)
+        self.collection = self.make_default_collection(_db, self.library)
+        
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
             _db, Patron,
@@ -189,7 +186,13 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
-    
+    def make_default_library(self, _db):
+        return self._default_library
+
+    def make_default_collection(self, _db, library):
+        return self._default_collection
+
+
 class CirculationControllerTest(ControllerTest):
 
     def setup(self):
@@ -2316,8 +2319,27 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
+
+        # This will call make_default_library and make_default_collection.
         super(TestScopedSession, self).setup(_db)
 
+    def make_default_library(self, _db):
+        """We need to create a new instance of the library that
+        uses the scoped session.
+        """
+        return Library.instance(_db)
+
+    def make_default_collection(self, _db, library):
+        """We need to create a test collection that
+        uses the scoped session.
+        """
+        collection, ignore = get_one_or_create(
+            _db, Collection, name=self._str + " (for scoped session)",
+            protocol=Collection.OPDS_IMPORT
+        )
+        library.collections.append(collection)
+        return collection
+        
     @contextmanager
     def test_request_context_and_transaction(self, *args):
         """Run a simulated Flask request in a transaction that gets rolled
