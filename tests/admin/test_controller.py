@@ -926,11 +926,11 @@ class TestDashboardController(AdminControllerTest):
     def test_stats_inventory(self):
         with self.app.test_request_context("/"):
 
-            # At first, there are 3 open access titles in the database,
+            # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
             inventory_data = response.get('inventory')
-            eq_(3, inventory_data.get('titles'))
+            eq_(1, inventory_data.get('titles'))
             eq_(0, inventory_data.get('licenses'))
             eq_(0, inventory_data.get('available_licenses'))
 
@@ -951,18 +951,18 @@ class TestDashboardController(AdminControllerTest):
 
             response = self.manager.admin_dashboard_controller.stats()
             inventory_data = response.get('inventory')
-            eq_(6, inventory_data.get('titles'))
+            eq_(4, inventory_data.get('titles'))
             eq_(15, inventory_data.get('licenses'))
             eq_(4, inventory_data.get('available_licenses'))
 
     def test_stats_vendors(self):
         with self.app.test_request_context("/"):
 
-            # At first, there are 3 open access titles in the database,
+            # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
             vendor_data = response.get('vendors')
-            eq_(3, vendor_data.get('open_access'))
+            eq_(1, vendor_data.get('open_access'))
             eq_(None, vendor_data.get('overdrive'))
             eq_(None, vendor_data.get('bibliotheca'))
             eq_(None, vendor_data.get('axis360'))
@@ -993,7 +993,7 @@ class TestDashboardController(AdminControllerTest):
 
             response = self.manager.admin_dashboard_controller.stats()
             vendor_data = response.get('vendors')
-            eq_(3, vendor_data.get('open_access'))
+            eq_(1, vendor_data.get('open_access'))
             eq_(1, vendor_data.get('overdrive'))
             eq_(1, vendor_data.get('bibliotheca'))
             eq_(1, vendor_data.get('axis360'))

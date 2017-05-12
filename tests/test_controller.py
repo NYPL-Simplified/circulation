@@ -204,7 +204,7 @@ class CirculationControllerTest(ControllerTest):
     def setup(self):
         super(CirculationControllerTest, self).setup()
         for (variable_name, title, author, language, fiction) in self.BOOKS:
-            work = self._work(title, author, language, fiction=fiction,
+            work = self._work(title, author, language=language, fiction=fiction,
                               with_open_access_download=True)
             setattr(self, variable_name, work)
             work.license_pools[0].collection = self.collection
