@@ -102,7 +102,7 @@ class EnkiCirculationMonitor(Monitor):
         since = start-self.FIVE_MINUTES
 	print "Here is where we try and get availability"
         availability = self.api.availability(since=since)
-        print "The response is: %s" % availability.content
+        #print "The response is: %s" % availability.content
 	status_code = availability.status_code
 	print "The status code is %s" % status_code 
         content = availability.content
