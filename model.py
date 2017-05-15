@@ -5976,9 +5976,6 @@ class LicensePool(Base):
     # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
 
-    # One LicensePool may have multiple CachedFeeds.
-    cached_feeds = relationship('CachedFeed', backref='license_pool')
-
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
     # open-access LicensePool and a better-quality version of the same
