@@ -72,13 +72,14 @@ class SummaryEvaluator(object):
         else:
             self.bad_phrases = bad_phrases
 
-    def add(self, summary):
+    def add(self, summary, parser=None):
+        parser_class = parser or TextBlob
         if isinstance(summary, str):
             summary = summary.decode("utf8")
         if summary in self.blobs:
             # We already evaluated this summary. Don't count it more than once
             return
-        blob = TextBlob(summary)
+        blob = parser_class(summary)
         self.blobs[summary] = blob
         self.summaries.append(summary)
 
