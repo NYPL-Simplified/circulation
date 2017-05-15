@@ -473,12 +473,12 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.unsuppress(
                 lp.identifier.type, lp.identifier.identifier
             )
+
+            # Both LicensePools are unsuppressed, even though one of them
+            # has a LicensePool-specific complaint.            
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
-
-            # The LicensePool with a LicensePool-specific complaint is
-            # not unsuppressed.
-            eq_(True, broken_lp.suppressed)
+            eq_(False, broken_lp.suppressed)
 
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
