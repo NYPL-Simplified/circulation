@@ -50,11 +50,14 @@ class TestCirculationAPI(DatabaseTest):
 
     def setup(self):
         super(TestCirculationAPI, self).setup()
-        self._default_collection.protocol = Collection.BIBLIOTHECA
-        edition, self.pool = self._edition(with_license_pool=True)
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        edition, self.pool = self._edition(
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
+            with_license_pool=True, collection=self.collection
+        )
         self.pool.open_access = False
         self.identifier = self.pool.identifier
-        self.identifier.type = Identifier.BIBLIOTHECA_ID
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
         self.patron = self._patron()
         self.circulation = MockCirculationAPI(
