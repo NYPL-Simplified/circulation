@@ -64,10 +64,8 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(str(now), params['cd1'][0])
         eq_(lp.identifier.identifier, params['cd2'][0])
         eq_(lp.identifier.type, params['cd3'][0])
-        eq_(unicodedata.normalize("NFKD", u"pi\u00F1ata").encode('utf8'),
-            params['cd4'][0])
-        eq_(unicodedata.normalize("NFKD", u"chlo\u00E9").encode('utf8'),
-            params['cd5'][0])
+        eq_(work.title.encode('utf8'), params['cd4'][0])
+        eq_(work.author.encode('utf8'), params['cd5'][0])
         eq_("fiction", params['cd6'][0])
         eq_("audience", params['cd7'][0])
         eq_(work.target_age_string, params['cd8'][0])

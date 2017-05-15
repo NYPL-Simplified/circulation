@@ -1274,6 +1274,11 @@ class TestAnnotationController(CirculationControllerTest):
             selector = json.loads(annotation.target).get("http://www.w3.org/ns/oa#hasSelector")[0].get('@id')
             eq_(data['target']['selector'], selector)
 
+            # The response contains the annotation in the db.
+            item = json.loads(response.data)
+            assert str(annotation.id) in item['id']
+            eq_(annotation.motivation, item['motivation'])
+
     def test_detail(self):
         self.pool.loan_to(self.default_patron)
 
@@ -1378,6 +1383,10 @@ class TestWorkController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_contributor(self):
+        # Give the Contributor a display_name.
+        [contribution] = self.english_1.presentation_edition.contributions
+        contribution.contributor.display_name = u"John Bull"
+
         # For works without a contributor name, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.contributor('', None, None)
@@ -1646,19 +1655,19 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         # Prep book with a contribution, a series, and a recommendation.
-        self.edition.add_contributor(original, role)
+        self.lp.presentation_edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
         )
         duplicate = same_author.presentation_edition.contributions[0].contributor
-        original.display_name = duplicate.display_name = 'John Bull'
+        original.display_name = duplicate.display_name = u"John Bull"
 
-        self.edition.series = "Around the World"
+        self.edition.series = u"Around the World"
         self.edition.series_position = 1
 
         same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
-        same_series.presentation_edition.series = "Around the World"
+        same_series.presentation_edition.series = u"Around the World"
         same_series.presentation_edition.series_position = 0
 
         SessionManager.refresh_materialized_views(self._db)
