@@ -8,7 +8,9 @@ from api.sip.client import MockSIPClient
 from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException
 
-class TestSIP2AuthenticationProvider(object):
+from .. import DatabaseTest
+
+class TestSIP2AuthenticationProvider(DatabaseTest):
 
     # We feed sample data into the MockSIPClient, even though it adds
     # an extra step of indirection, because it lets us use as a
@@ -36,7 +38,8 @@ class TestSIP2AuthenticationProvider(object):
     def test_remote_authenticate(self):
         client = MockSIPClient()
         auth = SIP2AuthenticationProvider(
-            None, None, None, None, None, None, client=client
+            self._default_library.id, None, None, None, None, None, None,
+            client=client
         )
 
         # Some examples taken from a Sierra SIP API.
@@ -121,7 +124,8 @@ class TestSIP2AuthenticationProvider(object):
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",
             SIP2AuthenticationProvider,
-            "server.local", None, None, None, None, client=CannotConnect
+            self._default_library.id, "server.local", None, None, None, None,
+            client=CannotConnect
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -135,7 +139,8 @@ class TestSIP2AuthenticationProvider(object):
         client.target_server = 'server.local'
             
         provider = SIP2AuthenticationProvider(
-            None, None, None, None, None, client=client
+            self._default_library.id, None, None, None, None, None,
+            client=client
         )
         assert_raises_regexp(
             RemoteIntegrationException,

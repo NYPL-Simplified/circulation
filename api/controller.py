@@ -141,7 +141,6 @@ class CirculationManager(object):
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
         self._db = _db
-
         self.testing = testing
         if isinstance(lanes, LaneList):
             lanes = lanes
@@ -150,7 +149,7 @@ class CirculationManager(object):
         self.top_level_lane = self.create_top_level_lane(lanes)
 
         self.auth = Authenticator.from_config(self._db)
-        self.setup_circulation()
+        self.setup_circulation(Library.instance(self._db))
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -212,13 +211,13 @@ class CirculationManager(object):
                 self.log.warn("No external search server configured.")
                 return None
 
-    def setup_circulation(self):
+    def setup_circulation(self, library):
         """Set up the Circulation object."""        
         if self.testing:
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        self.circulation = cls(Library.instance(self._db))
+        self.circulation = cls(library)
 
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""

@@ -223,6 +223,7 @@ class WorkController(CirculationManagerController):
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
+        
         work = self.load_work(self.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work

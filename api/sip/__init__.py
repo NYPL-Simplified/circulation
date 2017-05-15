@@ -14,7 +14,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
-    def __init__(self, server, port, login_user_id,
+    def __init__(self, library_id, server, port, login_user_id,
                  login_password, location_code, field_separator='|',
                  client=None,
                  **kwargs):
@@ -48,7 +48,9 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         object. Only intended for use during testing.
 
         """
-        super(SIP2AuthenticationProvider, self).__init__(**kwargs)
+        super(SIP2AuthenticationProvider, self).__init__(
+            library_id=library_id, **kwargs
+        )
         try:
             if client:
                 if callable(client):

@@ -22,9 +22,13 @@ from api.circulation_exceptions import (
     RemoteInitiatedServerError
 )
 
-class TestFirstBook(object):
+from . import DatabaseTest
+
+
+class TestFirstBook(DatabaseTest):
     
     def setup(self):
+        super(TestFirstBook, self).setup()
         self.api = MockFirstBookAuthenticationAPI(dict(ABCD="1234"))
 
     def test_from_config(self):
@@ -33,7 +37,9 @@ class TestFirstBook(object):
             Configuration.URL : "http://example.com/",
             FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
         }
-        api = FirstBookAuthenticationAPI.from_config(config)
+        api = FirstBookAuthenticationAPI.from_config(
+            self._default_library.id, config
+        )
 
         # Verify that the configuration details were stored properly.
         eq_('http://example.com/?key=the_key', api.root)
@@ -49,7 +55,9 @@ class TestFirstBook(object):
             Configuration.URL : "http://example.com/?foo=bar",
             FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
         }
-        api = FirstBookAuthenticationAPI.from_config(config)
+        api = FirstBookAuthenticationAPI.from_config(
+            self._default_library.id, config
+        )
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
         
     def test_authentication_success(self):
