@@ -1,5 +1,7 @@
 """Test the code that evaluates the quality of summaries."""
 
+from textblob import TextBlob
+from textblob.exceptions import MissingCorpusError
 from util.summary import SummaryEvaluator
 from nose.tools import eq_, set_trace
 
@@ -69,3 +71,18 @@ class TestSummaryEvaluator(object):
         english_language_penalty = evaluator.score(
             english, apply_language_penalty=True)
         eq_(english_language_penalty, english_no_language_penalty)
+
+    def test_missing_corpus_error_ignored(self):
+        class AlwaysErrorBlob(TextBlob):
+            @property
+            def noun_phrases(self):
+                raise MissingCorpusError()
+
+        evaluator = SummaryEvaluator()
+        eq_(evaluator._nltk_installed, True)
+
+        summary = "Yes, this is a summary."
+        evaluator.add(summary, parser=AlwaysErrorBlob)
+        evaluator.add("And another", parser=AlwaysErrorBlob)
+        eq_(evaluator._nltk_installed, False)
+        eq_(1, evaluator.score(summary))

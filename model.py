@@ -5136,7 +5136,6 @@ class Resource(Base):
                 if (champion_media_type_priority is None
                     or (media_priority is not None
                         and media_priority < champion_media_type_priority)):
-                    print "%s beats %s" % (media_priority, champion_media_type_priority)
                     champions = [r]
                     champion_score = r.quality
                     champion_media_type_priority = media_priority
