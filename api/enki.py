@@ -70,7 +70,6 @@ class EnkiCirculationMonitor(Monitor):
 
     def __init__(self, _db, name="Enki Circulation Monitor",
                  interval_seconds=60, batch_size=50, api=None):
-        print "We made it to init in EnkiCircMonitor"
 	super(EnkiCirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds,
             default_start_time = self.VERY_LONG_AGO
@@ -85,26 +84,19 @@ class EnkiCirculationMonitor(Monitor):
             # This should only happen during a test.
             self.metadata_wrangler = None
         self.api = api or EnkiAPI.from_environment(self._db)
-	print "api is %s" % api
-	print "from_environment is %s" % EnkiAPI.from_environment(self._db)
-	print "selfapi is %s" % self.api
         self.bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(self._db, enki_api=api)
         )
 
     def run(self):
-	print "Chris was here at run(self) calling super(CircMon)"
         super(EnkiCirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
-	print "Here is where we try and get availability"
         availability = self.api.availability(since=since)
-        #print "The response is: %s" % availability.content
 	status_code = availability.status_code
-	print "The status code is %s" % status_code 
         content = availability.content
         count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
