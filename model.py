@@ -5813,12 +5813,6 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
-    # TODO: After LicensePool-associated feeds have been successfully
-    # migrated to Work-associated feeds, drop this column and remove
-    # its relationship in LicensePool.
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
-        nullable=True, index=True)
-
     # A feed may be associated with a Work.
     work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
