@@ -682,6 +682,7 @@ class AuthdataUtility(object):
         )
         if not integration:
             return None
+
         vendor_id = integration.get(Configuration.ADOBE_VENDOR_ID)
         library_uri = integration.get(cls.LIBRARY_URI_KEY)
         library = Library.instance(_db)

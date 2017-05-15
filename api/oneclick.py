@@ -38,11 +38,11 @@ from core.model import (
     LicensePool,
     Patron,
     Representation,
+    Session,
 )
 
 from core.monitor import (
-    Monitor,
-    IdentifierSweepMonitor,
+    CollectionMonitor,
 )
 
 from core.util.http import (
@@ -63,7 +63,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         super(OneClickAPI, self).__init__(*args, **kwargs)
         self.bibliographic_coverage_provider = (
             OneClickBibliographicCoverageProvider(
-                self._db, oneclick_api=self
+                self.collection, api_class=self
             )
         )
 
@@ -133,6 +133,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # getting expiration by checking patron's activity, but that 
         # would mean another http call and is not currently merited.
         loan = LoanInfo(
+            self.collection,
+            DataSource.ONECLICK,
             identifier_type=licensepool.identifier.type,
             identifier=item_oneclick_id,
             start_date=today,
@@ -248,6 +250,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         today = datetime.datetime.now()
 
         hold = HoldInfo(
+            self.collection,
+            DataSource.ONECLICK,
             identifier_type=licensepool.identifier.type,
             identifier=item_oneclick_id,
             start_date=today,
@@ -302,7 +306,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # find a license pool to match the isbn, and see if it'll need a metadata update later
         license_pool, is_new_pool = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, isbn)
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, isbn,
+            collection=self.collection
+        )
         if is_new_pool:
             # This is the first time we've seen this book. Make sure its
             # identifier has bibliographic coverage.
@@ -329,7 +335,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             licenses_available=licenses_available)
 
         license_pool, circulation_changed = circulation_data.apply(
-            pool=license_pool, 
+            self._db,
+            self.collection,
             replace=policy,
         )
 
@@ -509,7 +516,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             # TODO: For audio books, the downloads are done by parts, and there are 
             # multiple download urls.  Need to have a mechanism for putting lists of 
             # parts into fulfillment objects.
-            fulfillment_info = FulfillmentInfo(Identifier.ONECLICK_ID, 
+            fulfillment_info = FulfillmentInfo(
+                self.collection,
+                DataSource.ONECLICK,
+                Identifier.ONECLICK_ID, 
                 identifier, 
                 content_link = download_url, 
                 content_type = file_format, 
@@ -518,6 +528,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
 
             loan = LoanInfo(
+                self.collection,
+                DataSource.ONECLICK,
                 Identifier.ONECLICK_ID,
                 isbn,
                 start_date=None,
@@ -573,6 +585,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 continue
 
             hold = HoldInfo(
+                self.collection,
+                DataSource.ONECLICK,
                 Identifier.ONECLICK_ID,
                 isbn,
                 start_date=None,
@@ -738,28 +752,29 @@ class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
 
 
 
-class OneClickCirculationMonitor(Monitor):
+class OneClickCirculationMonitor(CollectionMonitor):
     """Maintain LicensePools for OneClick titles.
 
     Bibliographic data isn't inserted into new LicensePools until
     we hear from the metadata wrangler.
     """
-    VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
-    FIVE_MINUTES = datetime.timedelta(minutes=5)
+    SERVICE_NAME = "OneClick CirculationMonitor"
+    DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
+    INTERVAL_SECONDS = 1200
+    DEFAULT_BATCH_SIZE = 50
+    
+    def __init__(self, collection, batch_size=None, api_class=OneClickAPI,
+                 api_class_kwargs={}):
+        _db = Session.object_session(collection)
+        super(OneClickCirculationMonitor, self).__init__(_db, collection)
+        self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
 
-    def __init__(self, _db, name="OneClick Circulation Monitor",
-                 interval_seconds=1200, batch_size=50):
-        super(OneClickCirculationMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds, 
-            default_start_time = self.VERY_LONG_AGO)
-        self.batch_size = batch_size
-
+        self.api = api_class(self.collection, **api_class_kwargs)
         self.bibliographic_coverage_provider = (
-            OneClickBibliographicCoverageProvider(self._db)
+            OneClickBibliographicCoverageProvider(
+                collection=self.collection, api_class=self.api,
+            )
         )
-
-        self.api = OneClickAPI.from_config(self._db)
-
 
     def process_availability(self, media_type='ebook'):
         # get list of all titles, with availability info

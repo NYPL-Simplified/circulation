@@ -251,7 +251,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         self.novelist.api = MockNoveListAPI()
 
         self.metadata = Metadata(
-            data_source = self.novelist.source,
+            data_source = self.novelist.data_source,
             primary_identifier=self._identifier(
                 identifier_type=Identifier.NOVELIST_ID
             ),
@@ -283,7 +283,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         self.novelist.api.setup(self.metadata)
         eq_(identifier, self.novelist.process_item(identifier))
         novelist_edition = get_one(
-            self._db, Edition, data_source=self.novelist.source,
+            self._db, Edition, data_source=self.novelist.data_source,
             primary_identifier=identifier
         )
         eq_(None, novelist_edition)
@@ -295,7 +295,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         self.novelist.api.setup(self.metadata)
         self.novelist.process_item(identifier)
         novelist_edition = get_one(
-            self._db, Edition, data_source=self.novelist.source,
+            self._db, Edition, data_source=self.novelist.data_source,
             primary_identifier=identifier
         )
         assert novelist_edition

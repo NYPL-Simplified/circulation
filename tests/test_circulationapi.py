@@ -27,6 +27,7 @@ from api.circulation import (
 from core.analytics import Analytics
 from core.model import (
     CirculationEvent,
+    Collection,
     DataSource,
     DeliveryMechanism,
     Hyperlink,
@@ -39,7 +40,7 @@ from core.mock_analytics_provider import MockAnalyticsProvider
 
 from . import DatabaseTest, sample_data
 from api.testing import MockCirculationAPI
-from api.threem import MockThreeMAPI
+from api.bibliotheca import MockBibliothecaAPI
 
 
 class TestCirculationAPI(DatabaseTest):
@@ -49,12 +50,21 @@ class TestCirculationAPI(DatabaseTest):
 
     def setup(self):
         super(TestCirculationAPI, self).setup()
-        edition, self.pool = self._edition(with_license_pool=True)
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        edition, self.pool = self._edition(
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
+            with_license_pool=True, collection=self.collection
+        )
         self.pool.open_access = False
         self.identifier = self.pool.identifier
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
         self.patron = self._patron()
-        self.circulation = MockCirculationAPI(self._db)
+        self.circulation = MockCirculationAPI(
+            self._default_library, api_map = {
+                Collection.BIBLIOTHECA : MockBibliothecaAPI
+            }
+        )
         self.remote = self.circulation.api_for_license_pool(self.pool)
 
     def borrow(self):
@@ -70,6 +80,7 @@ class TestCirculationAPI(DatabaseTest):
     def test_borrow_sends_analytics_event(self):
         now = datetime.utcnow()
         loaninfo = LoanInfo(
+            self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600),
@@ -133,8 +144,8 @@ class TestCirculationAPI(DatabaseTest):
         """
         # Remote loan.
         self.circulation.add_remote_loan(
-            self.identifier.type, self.identifier.identifier, self.YESTERDAY,
-            self.IN_TWO_WEEKS
+            self.pool.collection, self.pool.data_source, self.identifier.type,
+            self.identifier.identifier, self.YESTERDAY, self.IN_TWO_WEEKS
         )
 
         self.remote.queue_checkout(AlreadyCheckedOut())
@@ -161,8 +172,9 @@ class TestCirculationAPI(DatabaseTest):
         """
         # Remote hold.
         self.circulation.add_remote_hold(
-            self.identifier.type, self.identifier.identifier, self.YESTERDAY,
-            self.IN_TWO_WEEKS, 10
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            self.YESTERDAY, self.IN_TWO_WEEKS, 10
         )
 
         self.remote.queue_checkout(AlreadyOnHold())
@@ -193,8 +205,9 @@ class TestCirculationAPI(DatabaseTest):
 
         # Remote loan.
         self.circulation.add_remote_loan(
-            self.identifier.type, self.identifier.identifier, self.YESTERDAY,
-            self.IN_TWO_WEEKS
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            self.YESTERDAY, self.IN_TWO_WEEKS
         )
 
         # This is the expected behavior in most cases--you tried to
@@ -211,8 +224,9 @@ class TestCirculationAPI(DatabaseTest):
 
         # Remote loan.
         self.circulation.add_remote_loan(
-            self.identifier.type, self.identifier.identifier, self.YESTERDAY,
-            self.IN_TWO_WEEKS
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            self.YESTERDAY, self.IN_TWO_WEEKS
         )
 
         # NoAvailableCopies can happen if there are already people
@@ -231,10 +245,12 @@ class TestCirculationAPI(DatabaseTest):
     def test_loan_becomes_hold_if_no_available_copies(self):
         # We want to borrow this book but there are no copies.
         self.remote.queue_checkout(NoAvailableCopies())
-        self.remote.queue_hold(
-            HoldInfo(self.identifier.type, self.identifier.identifier,
-                     None, None, 10)
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            None, None, 10
         )
+        self.remote.queue_hold(holdinfo)
 
         # As such, an attempt to renew our loan results in us actually
         # placing a hold on the book.
@@ -246,8 +262,11 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_hold_sends_analytics_event(self):
         self.remote.queue_checkout(NoAvailableCopies())
-        holdinfo = HoldInfo(self.identifier.type, self.identifier.identifier,
-                            None, None, 10)
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            None, None, 10
+        )
         self.remote.queue_hold(holdinfo)
 
         config = {
@@ -291,10 +310,12 @@ class TestCirculationAPI(DatabaseTest):
         # But no longer! What's more, other patrons have taken all the
         # copies!
         self.remote.queue_checkout(NoAvailableCopies())
-        self.remote.queue_hold(
-            HoldInfo(self.identifier.type, self.identifier.identifier,
-                     None, None, 10)
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            None, None, 10
         )
+        self.remote.queue_hold(holdinfo)
 
         eq_([], self.remote.availability_updated_for)
 
@@ -316,6 +337,7 @@ class TestCirculationAPI(DatabaseTest):
         # This checkout would succeed...
         now = datetime.now()
         loaninfo = LoanInfo(
+            self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600),
@@ -334,6 +356,7 @@ class TestCirculationAPI(DatabaseTest):
         # This checkout would succeed...
         now = datetime.now()
         loaninfo = LoanInfo(
+            self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600),
@@ -355,6 +378,7 @@ class TestCirculationAPI(DatabaseTest):
         # This checkout would succeed...
         now = datetime.now()
         loaninfo = LoanInfo(
+            self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600),
@@ -407,7 +431,7 @@ class TestCirculationAPI(DatabaseTest):
         # type which has an associated Resource.
         link, new = self.pool.identifier.add_link(
             Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
-            self.pool.data_source, self.pool
+            self.pool.data_source
         )
         
         working_lpdm = self.pool.set_delivery_mechanism(
@@ -624,7 +648,9 @@ class TestCirculationAPI(DatabaseTest):
                 # the patron has any loans or holds.
                 return [], [], False
 
-        circulation = IncompleteCirculationAPI(self._db)
+        circulation = IncompleteCirculationAPI(
+            self._default_library,
+            api_map={Collection.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
         # The loan is still in the db, since there was an
@@ -639,7 +665,9 @@ class TestCirculationAPI(DatabaseTest):
                 # now we know the patron has no loans.
                 return [], [], True
 
-        circulation = CompleteCirculationAPI(self._db)
+        circulation = CompleteCirculationAPI(
+            self._default_library,
+            api_map={Collection.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
         # Now the loan is gone.
@@ -647,20 +675,21 @@ class TestCirculationAPI(DatabaseTest):
         eq_([], loans)
 
     def test_patron_activity(self):
-        threem = MockThreeMAPI(self._db)
-
-        circulation = CirculationAPI(self._db, threem=threem)
+        # Get a CirculationAPI that doesn't mock out its API's patron activity.
+        circulation = CirculationAPI(self._default_library, api_map={
+            Collection.BIBLIOTHECA : MockBibliothecaAPI
+        })
+        mock_bibliotheca = circulation.api_for_collection[self.collection]
 
         data = sample_data("checkouts.xml", "threem")
-
-        threem.queue_response(200, content=data)
+        mock_bibliotheca.queue_response(200, content=data)
 
         loans, holds, complete = circulation.patron_activity(self.patron, "1234")
         eq_(2, len(loans))
         eq_(2, len(holds))
         eq_(True, complete)
 
-        threem.queue_response(500, content="Error")
+        mock_bibliotheca.queue_response(500, content="Error")
 
         loans, holds, complete = circulation.patron_activity(self.patron, "1234")
         eq_(0, len(loans))

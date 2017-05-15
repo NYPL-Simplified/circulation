@@ -23,15 +23,6 @@ from sqlalchemy.orm import (
 )
 from psycopg2.extras import NumericRange
 
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel,
-    AuthdataUtility,
-)
-from api.lanes import make_lanes
-from api.controller import CirculationManager
-from api.monitor import SearchIndexMonitor
-from api.threem import ThreeMCirculationSweep
-from api.overdrive import OverdriveAPI
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
@@ -46,6 +37,7 @@ from core.model import (
     Hold,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Loan,
@@ -67,7 +59,6 @@ from core.lane import (
     Pagination,
     Facets,
 )
-from api.config import Configuration
 from core.opds_import import (
     SimplifiedOPDSLookup,
     OPDSImporter,
@@ -81,16 +72,25 @@ from core.util.opds_writer import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
-from api.opds import CirculationManagerAnnotator
 
+from api.config import Configuration
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility,
+)
+from api.lanes import make_lanes
+from api.controller import CirculationManager
+from api.monitor import SearchIndexMonitor
+from api.overdrive import OverdriveAPI
 from api.circulation import CirculationAPI
+from api.opds import CirculationManagerAnnotator
 from api.overdrive import (
     OverdriveAPI,
     OverdriveBibliographicCoverageProvider,
 )
-from api.threem import (
-    ThreeMAPI,
-    ThreeMBibliographicCoverageProvider,
+from api.bibliotheca import (
+    BibliothecaBibliographicCoverageProvider,
+    BibliothecaCirculationSweep
 )
 from api.axis import (
     Axis360API,
@@ -287,7 +287,7 @@ class LaneSweeperScript(Script):
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
-        app.manager = CirculationManager(self._db, testing=testing)
+        app.manager = CirculationManager(_db, testing=testing)
         self.app = app
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
@@ -662,7 +662,7 @@ class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
 
         providers = []
         if Configuration.integration('3M'):
-            providers.append(ThreeMBibliographicCoverageProvider)
+            providers.append(BibliothecaBibliographicCoverageProvider)
         if Configuration.integration('Overdrive'):
             providers.append(OverdriveBibliographicCoverageProvider)
         if Configuration.integration('Axis 360'):
@@ -698,7 +698,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         provider = None
         identifier = identifiers[0]
         if identifier.type==Identifier.THREEM_ID:
-            sweeper = ThreeMCirculationSweep(self._db)
+            sweeper = BibliothecaCirculationSweep(self._db)
             sweeper.process_batch(identifiers)
         elif identifier.type==Identifier.OVERDRIVE_ID:
             api = OverdriveAPI(self._db)

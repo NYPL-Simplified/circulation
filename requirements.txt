@@ -32,7 +32,7 @@ textblob
 
 # Used only by circulation
 oauth2client
-pyjwt
+pyjwt==1.4.2
 flask-cors
 PyLD
 

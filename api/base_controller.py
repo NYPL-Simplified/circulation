@@ -4,6 +4,7 @@ from core.util.problem_detail import ProblemDetail
 from circulation_exceptions import *
 from problem_details import *
 from flask.ext.babel import lazy_gettext as _
+from core.model import Library
 
 class BaseCirculationManagerController(object):
     """Define minimal standards for a circulation manager controller,
@@ -18,6 +19,16 @@ class BaseCirculationManagerController(object):
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 
+    @property
+    def library(self):
+        """Set flask.request.library.
+
+        TODO: This is a stopgap which will need to be modified once
+        we actually support more than one library.
+        """
+        flask.request.library = Library.instance(self._db)
+        return flask.request.library
+        
     def authorization_header(self):
         """Get the authentication header."""
 
@@ -37,6 +48,7 @@ class BaseCirculationManagerController(object):
         if not header:
             # No credentials were provided.
             return self.authenticate()
+
         try:
             patron = self.authenticated_patron(header)
         except RemoteInitiatedServerError,e:

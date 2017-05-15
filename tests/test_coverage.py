@@ -20,6 +20,7 @@ from core.config import (
     temp_config,
 )
 from core.model import (
+    Collection,
     CoverageRecord,
     DataSource,
     Edition,
@@ -50,16 +51,16 @@ from api.coverage import (
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
 
-    def _provider(self, presentation_ready_on_success=True):
+    def _provider(self):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
-        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
         return MockOPDSImportCoverageProvider(
-            "mock provider", [], source,
-            presentation_ready_on_success=presentation_ready_on_success
+            self._db, self._default_collection
         )
 
     def test_badresponseexception_on_non_opds_feed(self):
-
+        """If the lookup protocol sends something that's not an OPDS
+        feed, refuse to go any further.
+        """
         response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
         
         provider = self._provider()
@@ -76,7 +77,9 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # Unlike other tests in this class, we are using a real
         # implementation of OPDSImportCoverageProvider.process_batch.        
         class TestProvider(OPDSImportCoverageProvider):
-
+            SERVICE_NAME = "Test provider"
+            DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
+            
             # Mock the identifier mapping
             def create_identifier_mapping(self, batch):
                 return self.mapping
@@ -84,10 +87,10 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # This means we need to mock the lookup client instead.
         lookup = MockSimplifiedOPDSLookup(self._url)
 
-        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-        provider = TestProvider(
-            "test provider", [], source, lookup=lookup
+        self._default_collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
         )
+        provider = TestProvider(self._db, self._default_collection, lookup)
 
         # Create a hard-coded mapping. We use id1 internally, but the
         # foreign data source knows the book as id2.
@@ -109,53 +112,6 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_("Here's your title!", edition.title)
         eq_(id1, edition.primary_identifier)
 
-    def test_finalize_license_pool(self):
-
-        provider_no_presentation_ready = self._provider(presentation_ready_on_success=False)
-        provider_presentation_ready = self._provider(presentation_ready_on_success=True)
-        identifier = self._identifier()
-        license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        # Here's a LicensePool with no presentation edition.
-        pool, is_new = LicensePool.for_foreign_id(
-            self._db, license_source, identifier.type, identifier.identifier
-        )
-        eq_(None, pool.presentation_edition)
-
-        # Calling finalize_license_pool() here won't do much.
-        provider_no_presentation_ready.finalize_license_pool(pool)
-
-        # A presentation edition has been created for the LicensePool,
-        # but it has no title (in fact it has no data at all), so no
-        # Work was created.
-        eq_(None, pool.presentation_edition.title)
-        eq_(0, self._db.query(Work).count())
-
-        # Here's an Edition for the same book as the LicensePool but
-        # from a different data source.
-        edition, is_new = Edition.for_foreign_id(
-            self._db, data_source, identifier.type, identifier.identifier
-        )
-        edition.title = self._str
-
-        # Although Edition and LicensePool share an identifier, they
-        # are not otherwise related.
-        eq_(None, pool.presentation_edition.title)
-
-        # finalize_license_pool() will create a Work and update the
-        # LicensePool's presentation edition, based on the brand-new
-        # Edition.
-        provider_no_presentation_ready.finalize_license_pool(pool)
-        work = pool.work
-        eq_(edition.title, pool.presentation_edition.title)
-        eq_(False, work.presentation_ready)
-
-        # If the provider is configured to do so, finalize_license_pool()
-        # will also set the Work as presentation-ready.
-        provider_presentation_ready.finalize_license_pool(pool)
-        eq_(True, work.presentation_ready)
-
     def test_process_batch(self):
         provider = self._provider()
 
@@ -167,68 +123,103 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         pool, is_new = LicensePool.for_foreign_id(
-            self._db, license_source, identifier.type, identifier.identifier
+            self._db, license_source, identifier.type, identifier.identifier,
+            collection=self._default_collection
         )
         eq_(None, pool.work)
 
-        # Here's a second identifier that's doomed to failure.
+        # Here's a second Edition/LicensePool that's going to cause a
+        # problem: the LicensePool will show up in the results, but
+        # the corresponding Edition will not.
+        edition2, pool2 = self._edition(with_license_pool=True)
+        
+        # Here's an identifier that can't be looked up at all.
         identifier = self._identifier()
-        messages_by_id = {identifier.urn : CoverageFailure(identifier, "201: try again later")}
+        messages_by_id = {
+            identifier.urn : CoverageFailure(identifier, "201: try again later")
+        }
 
-        provider.queue_import_results([edition], [pool], [], messages_by_id)
+        # When we call CoverageProvider.process_batch(), it's going to
+        # return the information we just set up: a matched
+        # Edition/LicensePool pair, a mismatched LicensePool, and an
+        # error message.
+        provider.queue_import_results(
+            [edition], [pool, pool2], [], messages_by_id
+        )
 
+        # Make the CoverageProvider do its thing.
         fake_batch = [object()]
-        success, failure = provider.process_batch(fake_batch)
-
-        # The batch was provided to lookup_and_import_batch.
+        success, failure1, failure2 = provider.process_batch(fake_batch)
+        
+        # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
 
-        # The Edition and LicensePool have been knitted together into
-        # a Work.
-        eq_(edition, pool.presentation_edition)
-        assert pool.work != None
-
-        # The license pool was finalized.
+        # The matched Edition/LicensePool pair was returned.
+        eq_(success, edition.primary_identifier)
+        
+        # The LicensePool of that pair was passed into finalize_license_pool.
+        # The mismatched LicensePool was not.
         eq_([pool], provider.finalized)
 
-        # The failure stayed a CoverageFailure object.
-        eq_(identifier, failure.obj)
-        eq_(True, failure.transient)
-
-    def test_process_batch_success_even_if_no_licensepool_created(self):
+        # The mismatched LicensePool turned into a CoverageFailure
+        # object.
+        assert isinstance(failure1, CoverageFailure)
+        eq_('OPDS import operation imported LicensePool, but no Edition.',
+            failure1.exception)
+        eq_(pool2.identifier, failure1.obj)
+        eq_(True, failure1.transient)
+        
+        # The failure was returned as a CoverageFailure object.
+        assert isinstance(failure2, CoverageFailure)
+        eq_(identifier, failure2.obj)
+        eq_(True, failure2.transient)
+        
+    def test_process_batch_success_even_if_no_licensepool_exists(self):
+        """This shouldn't happen since CollectionCoverageProvider
+        only operates on Identifiers that are licensed through a Collection.
+        But if a lookup should return an Edition but no LicensePool,
+        that counts as a success.
+        """
         provider = self._provider()
         edition, pool = self._edition(with_license_pool=True)
         provider.queue_import_results([edition], [], [], {})
         fake_batch = [object()]
         [success] = provider.process_batch(fake_batch)
+
+        # The Edition's primary identifier was returned to indicate
+        # success.
         eq_(edition.primary_identifier, success)
 
-    def test_process_batch_fails_if_licensepool_created_but_no_edition(self):
+        # However, since there is no LicensePool, nothing was finalized.
+        eq_([], provider.finalized)
+
+    def test_process_item(self):
+        """To process a single item we process a batch containing
+        only that item.
+        """
         provider = self._provider()
-        edition, pool = self._edition(with_license_pool=True)
-        provider.queue_import_results([], [pool], [], {})
-        fake_batch = [object()]
-        [failure] = provider.process_batch(fake_batch)
-        eq_('OPDS import operation imported LicensePool, but no Edition.',
-            failure.exception)
-        eq_(pool.identifier, failure.obj)
-        eq_(provider.output_source, failure.data_source)
+        edition = self._edition()
+        provider.queue_import_results([edition], [], [], {})
+        item = object()
+        result = provider.process_item(item)
+        eq_(edition.primary_identifier, result)
+        eq_([[item]], provider.batches)
 
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            lookup = MockSimplifiedOPDSLookup.from_config()
-            return MetadataWranglerCoverageProvider(self._db, lookup=lookup, **kwargs)
+        lookup = MockSimplifiedOPDSLookup(self._url)
+        return MetadataWranglerCoverageProvider(
+            self._db, self.collection, lookup, **kwargs
+        )
 
     def setup(self):
         super(TestMetadataWranglerCoverageProvider, self).setup()
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
         self.provider = self.create_provider()
+
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -251,48 +242,66 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(threem, mapping[isbn_threem])
 
     def test_items_that_need_coverage(self):
-        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        source = self.provider.data_source
         other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         
-        # An item that hasn't been covered by the provider yet
-        cr = self._coverage_record(self._edition(), other_source)
+        # An item that has been covered by some other provider, but not
+        # this one.
+        e1, uncovered = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
+        cr = self._coverage_record(uncovered.identifier, other_source)
         
-        # An item that has been covered by the reaper operation already
+        # We've lost our license to this item and it has been covered
+        # by the reaper operation already.
+        e2, reaped = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
+        reaped.update_availability(0, 0, 0, 0)
         reaper_cr = self._coverage_record(
-            self._edition(), source, operation=CoverageRecord.REAP_OPERATION
+            reaped.identifier, source, operation=CoverageRecord.REAP_OPERATION
         )
         
         # An item that has been covered by the reaper operation, but has
         # had its license repurchased.
-        relicensed_edition, relicensed_licensepool = self._edition(with_license_pool=True)
-        relicensed_coverage_record = self._coverage_record(
-            relicensed_edition, source, operation=CoverageRecord.REAP_OPERATION
+        e3, relicensed = self._edition(
+            with_license_pool=True, collection=self.collection
         )
-        relicensed_licensepool.update_availability(1, 0, 0, 0)
+        relicensed_coverage_record = self._coverage_record(
+            relicensed.identifier, source,
+            operation=CoverageRecord.REAP_OPERATION
+        )
+        relicensed.update_availability(1, 0, 0, 0)
 
         items = self.provider.items_that_need_coverage().all()
+
         # Provider ignores anything that has been reaped and doesn't have
         # licenses.
-        assert reaper_cr.identifier not in items
+        assert reaped.identifier not in items
+
         # But it picks up anything that hasn't been covered at all and anything
         # that's been licensed anew even if its already been reaped.
+        assert uncovered.identifier in items
+        assert relicensed.identifier in items
         eq_(2, len(items))
-        assert relicensed_licensepool.identifier in items
-        assert cr.identifier in items
-        # The Wrangler Reaper coverage record is removed from the db
-        # when it's committed.
-        assert relicensed_coverage_record in relicensed_licensepool.identifier.coverage_records
+
+        # The REAP coverage record for the repurchased book has been
+        # deleted, and committing will remove it from the database.
+        assert relicensed_coverage_record in relicensed.identifier.coverage_records
         self._db.commit()
-        assert relicensed_coverage_record not in relicensed_licensepool.identifier.coverage_records
+        assert relicensed_coverage_record not in relicensed.identifier.coverage_records
 
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time
         argument.
         """
 
-        source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        edition = self._edition()
-        cr = self._coverage_record(edition, source, operation='sync')
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source, operation='sync'
+        )
 
         # We have a coverage record already, so this book doesn't show
         # up in items_that_need_coverage
@@ -309,21 +318,23 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
 
         # The book starts showing up in items_that_need_coverage.
-        eq_([edition.primary_identifier], 
+        eq_([pool.identifier], 
             provider_with_cutoff.items_that_need_coverage().all())
 
     def test_items_that_need_coverage_respects_count_as_covered(self):
         # Here's a coverage record with a transient failure.
-        identifier = self._identifier()
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection
+        )
         cr = self._coverage_record(
-            identifier, self.provider.output_source, 
+            pool.identifier, self.provider.data_source, 
             operation=self.provider.operation,
             status=CoverageRecord.TRANSIENT_FAILURE
         )
         
         # Ordinarily, a transient failure does not count as coverage.
         [needs_coverage] = self.provider.items_that_need_coverage().all()
-        eq_(needs_coverage, identifier)
+        eq_(needs_coverage, pool.identifier)
 
         # But if we say that transient failure counts as coverage, it
         # does count.
@@ -342,7 +353,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
         identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         LicensePool.for_foreign_id(
-            self._db, source, identifier.type, identifier.identifier
+            self._db, source, identifier.type, identifier.identifier,
+            collection=self.provider.collection
         )
 
         # Create an ISBN and set it equivalent.
@@ -351,7 +363,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         identifier.equivalent_to(source, isbn, 1)
 
         opds = sample_data('metadata_isbn_response.opds', 'opds')
-        self.provider.lookup.queue_response(
+        self.provider.lookup_client.queue_response(
             200, {'content-type': 'application/atom+xml;profile=opds-catalog;kind=acquisition'}, opds
         )
 
@@ -376,12 +388,12 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
     def setup(self):
         super(TestMetadataWranglerCollectionReaper, self).setup()
+        lookup = MockSimplifiedOPDSLookup(self._url)
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.METADATA_WRANGLER_INTEGRATION] = {
-                Configuration.URL : "http://url.gov"
-            }
-            self.reaper = MetadataWranglerCollectionReaper(self._db)
+        collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.reaper = MetadataWranglerCollectionReaper(
+            self._db, collection, lookup
+        )
 
     def test_items_that_need_coverage(self):
         """The reaper only returns identifiers with unlicensed license_pools
@@ -480,16 +492,52 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         """
         script = RunCoverageProviderScript(
             ContentServerBibliographicCoverageProvider, self._db,
-            lookup=object()
+            collection=self._default_collection, lookup_client=object()
         )
         assert isinstance(script.provider, 
                           ContentServerBibliographicCoverageProvider)
 
+    def test_finalize_license_pool(self):
+
+        identifier = self._identifier()
+        license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        # Here's a LicensePool with no presentation edition.
+        pool, is_new = LicensePool.for_foreign_id(
+            self._db, license_source, identifier.type, identifier.identifier,
+            collection=self._default_collection
+        )
+        eq_(None, pool.presentation_edition)
+
+        # Here's an Edition for the same book as the LicensePool but
+        # from a different data source.
+        edition, is_new = Edition.for_foreign_id(
+            self._db, data_source, identifier.type, identifier.identifier
+        )
+        edition.title = self._str
+
+        # Although Edition and LicensePool share an identifier, they
+        # are not otherwise related.
+        eq_(None, pool.presentation_edition)
+
+        # finalize_license_pool() will create a Work and update the
+        # LicensePool's presentation edition, based on the brand-new
+        # Edition.
+        lookup = MockSimplifiedOPDSLookup(self._url)        
+        provider = ContentServerBibliographicCoverageProvider(
+            self._db, self._default_collection, lookup
+        )
+        provider.finalize_license_pool(pool)
+        work = pool.work
+        eq_(edition.title, pool.presentation_edition.title)
+        eq_(True, work.presentation_ready)
+        
     def test_only_open_access_books_considered(self):
 
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._db, lookup=lookup
+            self._db, self._default_collection, lookup
         )
 
         # Here's an open-access work.

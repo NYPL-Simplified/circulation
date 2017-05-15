@@ -129,21 +129,11 @@ class MockRemoteAPI(BaseCirculationAPI):
 
 class MockCirculationAPI(CirculationAPI):
 
-    def __init__(self, _db):
-        super(MockCirculationAPI, self).__init__(_db)
+    def __init__(self, *args, **kwargs):
+        super(MockCirculationAPI, self).__init__(*args, **kwargs)
         self.responses = defaultdict(list)
         self.remote_loans = []
         self.remote_holds = []
-        self.identifier_type_to_data_source_name = {
-            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
-            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
-            Identifier.THREEM_ID: DataSource.THREEM,
-            Identifier.AXIS_360_ID: DataSource.AXIS_360,
-        }
-        self.data_source_ids_for_sync = [
-            DataSource.lookup(self._db, name).id for name in 
-            self.identifier_type_to_data_source_name.values()
-        ]
         self.remotes = {}
 
     def local_loans(self, patron):
@@ -159,7 +149,7 @@ class MockCirculationAPI(CirculationAPI):
         self.remote_holds.append(HoldInfo(*args, **kwargs))
 
     def patron_activity(self, patron, pin):
-        """Return a 2-tuple (loans, holds)."""
+        """Return a 3-tuple (loans, holds, completeness)."""
         return self.remote_loans, self.remote_holds, True
 
     def queue_checkout(self, licensepool, response):

@@ -111,8 +111,9 @@ class CirculationManagerAnnotator(Annotator):
 
     def permalink_for(self, work, license_pool, identifier):
         return self.url_for(
-            'permalink', data_source=license_pool.data_source.name,
-            identifier_type=identifier.type, identifier=identifier.identifier, _external=True
+            'permalink',
+            identifier_type=identifier.type,
+            identifier=identifier.identifier, _external=True
         )
 
     def groups_url(self, lane):
@@ -223,13 +224,6 @@ class CirculationManagerAnnotator(Annotator):
         active_hold = self.active_holds_by_work.get(work)
         active_fulfillment = self.active_fulfillments_by_work.get(work)
 
-        if isinstance(work, BaseMaterializedWork):
-            data_source_name = work.name
-        else:
-            if not active_license_pool:
-                active_license_pool = identifier.licensed_through
-            data_source_name = active_license_pool.data_source.name
-
         # First, add a permalink.
         feed.add_link_to_entry(
             entry, 
@@ -245,22 +239,24 @@ class CirculationManagerAnnotator(Annotator):
             entry, 
             rel='issues',
             href=self.url_for(
-                'report', data_source=data_source_name,
+                'report',
                 identifier_type=identifier.type,
-                identifier=identifier.identifier, _external=True)
+                identifier=identifier.identifier,
+                _external=True
+            )
         )
 
         # Now we need to generate a <link> tag for every delivery mechanism
         # that has well-defined media types.
         link_tags = self.acquisition_links(
             active_license_pool, active_loan, active_hold, active_fulfillment,
-            feed, data_source_name, identifier
+            feed, identifier
         )
         for tag in link_tags:
             entry.append(tag)
 
         # Add a link for related books if available.
-        if self.related_books_available(active_license_pool):
+        if self.related_books_available(work):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
@@ -268,7 +264,7 @@ class CirculationManagerAnnotator(Annotator):
                 title='Recommended Works',
                 href=self.url_for(
                     'related_books',
-                    data_source=data_source_name, identifier_type=identifier.type,
+                    identifier_type=identifier.type,
                     identifier=identifier.identifier, _external=True
                 )
             )
@@ -287,12 +283,19 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     @classmethod
-    def related_books_available(cls, license_pool):
-        """:return: bool asserting whether related books are available for a
-        particular work
+    def related_books_available(cls, work):
+        """:return: bool asserting whether related books might exist for
+        a particular Work
         """
-        contributions = license_pool.presentation_edition.contributions
-        series = license_pool.presentation_edition.series
+        if isinstance(work, Work):
+            edition = work.presentation_edition
+        else:
+            # This is a MaterializedWork*, so we're gonna grab the
+            # edition where we can.
+            edition = work.license_pool.presentation_edition
+
+        contributions = edition.contributions
+        series = edition.series
         return contributions or series or NoveListAPI.is_configured()
 
     def annotate_feed(self, feed, lane):
@@ -353,7 +356,7 @@ class CirculationManagerAnnotator(Annotator):
                     feed.append(link)
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, data_source_name, identifier):
+                          feed, identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""
 
         can_borrow = False
@@ -391,9 +394,9 @@ class CirculationManagerAnnotator(Annotator):
         revoke_links = []
         if can_revoke:
             url = self.url_for(
-                'revoke_loan_or_hold', data_source=data_source_name,
-                identifier_type=identifier.type,
-                identifier=identifier.identifier, _external=True)
+                'revoke_loan_or_hold',
+                license_pool_id=active_license_pool.id,
+                _external=True)
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
             revoke_link_tag = OPDSFeed.makeelement("link", **kw)
@@ -422,7 +425,7 @@ class CirculationManagerAnnotator(Annotator):
                 for mechanism in active_license_pool.delivery_mechanisms:
                     borrow_links.append(
                         self.borrow_link(
-                            data_source_name, identifier,
+                            identifier,
                             mechanism, [mechanism]
                         )
                     )
@@ -435,7 +438,7 @@ class CirculationManagerAnnotator(Annotator):
                 # will be set at the point of fulfillment.
                 borrow_links.append(
                     self.borrow_link(
-                        data_source_name, identifier,
+                        identifier,
                         None, active_license_pool.delivery_mechanisms
                     )
                 )
@@ -470,8 +473,6 @@ class CirculationManagerAnnotator(Annotator):
                     if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
                         fulfill_links.append(
                             self.fulfill_link(
-                                data_source_name,
-                                identifier,
                                 active_license_pool,
                                 active_loan,
                                 lpdm.delivery_mechanism
@@ -484,8 +485,6 @@ class CirculationManagerAnnotator(Annotator):
                 for lpdm in active_license_pool.delivery_mechanisms:
                     fulfill_links.append(
                         self.fulfill_link(
-                            data_source_name,
-                            identifier,
                             active_license_pool,
                             active_loan,
                             lpdm.delivery_mechanism
@@ -503,7 +502,7 @@ class CirculationManagerAnnotator(Annotator):
         return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
                 if x is not None]
 
-    def borrow_link(self, data_source_name, identifier,
+    def borrow_link(self, identifier,
                     borrow_mechanism, fulfillment_mechanisms):
         if borrow_mechanism:
             # Following this link will both borrow the book and set
@@ -514,7 +513,7 @@ class CirculationManagerAnnotator(Annotator):
             # its delivery mechanism.
             mechanism_id = None
         borrow_url = self.url_for(
-            "borrow", data_source=data_source_name,
+            "borrow", 
             identifier_type=identifier.type,
             identifier=identifier.identifier, 
             mechanism_id=mechanism_id, _external=True)
@@ -549,8 +548,7 @@ class CirculationManagerAnnotator(Annotator):
         borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
-    def fulfill_link(self, data_source_name, identifier,
-                     license_pool, active_loan, delivery_mechanism):
+    def fulfill_link(self, license_pool, active_loan, delivery_mechanism):
         """Create a new fulfillment link.
 
         This link may include tags from the OPDS Extensions for DRM.
@@ -563,9 +561,8 @@ class CirculationManagerAnnotator(Annotator):
             return None
             
         fulfill_url = self.url_for(
-            "fulfill", data_source=data_source_name,
-            identifier_type=identifier.type,
-            identifier=identifier.identifier,
+            "fulfill",
+            license_pool_id=license_pool.id,
             mechanism_id=delivery_mechanism.id,
             _external=True
         )
@@ -733,8 +730,10 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                         test_mode=test_mode)
         identifier = loan.license_pool.identifier
         url = annotator.url_for(
-            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
-            identifier_type=identifier.type, identifier=identifier.identifier, _external=True)
+            'loan_or_hold_detail',
+            identifier_type=identifier.type,
+            identifier=identifier.identifier, _external=True
+        )
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)
@@ -760,8 +759,10 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                         test_mode=test_mode)
         identifier = loan.license_pool.identifier
         url = annotator.url_for(
-            'loan_or_hold_detail', data_source=loan.license_pool.data_source.name,
-            identifier_type=identifier.type, identifier=identifier.identifier, _external=True)
+            'loan_or_hold_detail',
+            identifier_type=identifier.type,
+            identifier=identifier.identifier, _external=True
+        )
         if not work:
             return AcquisitionFeed(
                 db, "Active loan for unknown work", url, [], annotator)

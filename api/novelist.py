@@ -7,7 +7,7 @@ from nose.tools import set_trace
 from core.config import Configuration
 from core.coverage import (
     CoverageFailure,
-    CoverageProvider,
+    IdentifierCoverageProvider,
 )
 from core.metadata_layer import (
     ContributorData,
@@ -367,21 +367,13 @@ class MockNoveListAPI(object):
         return response
 
 
-class NoveListCoverageProvider(CoverageProvider):
+class NoveListCoverageProvider(IdentifierCoverageProvider):
 
-    def __init__(self, _db, cutoff_time=None):
-        self._db = _db
-        self.api = NoveListAPI.from_config(self._db)
-
-        super(NoveListCoverageProvider, self).__init__(
-            "NoveList Coverage Provider", [Identifier.ISBN],
-            self.source, batch_size=25
-        )
-
-    @property
-    def source(self):
-        return DataSource.lookup(self._db, DataSource.NOVELIST)
-
+    SERVICE_NAME = "NoveList CoverageProvider"
+    DATA_SOURCE_NAME = DataSource.NOVELIST
+    DEFAULT_BATCH_SIZE = 25
+    INPUT_IDENTIFIER_TYPES = [Identifier.ISBN]
+    
     def process_item(self, identifier):
         metadata = self.api.lookup(identifier)
         if not metadata:
@@ -391,14 +383,14 @@ class NoveListCoverageProvider(CoverageProvider):
 
         # Set identifier equivalent to its NoveList ID.
         identifier.equivalent_to(
-            self.output_source, metadata.primary_identifier,
+            self.data_source, metadata.primary_identifier,
             strength=1
         )
         # Create an edition with the NoveList metadata & NoveList identifier.
         # This will capture equivalent ISBNs and less appealing metadata in
         # its unfettered state on the NoveList identifier alone.
         edition, ignore = metadata.edition(self._db)
-        metadata.apply(edition)
+        metadata.apply(edition, collection=None)
 
         if edition.series or edition.series_position:
             metadata.primary_identifier = identifier
@@ -410,6 +402,6 @@ class NoveListCoverageProvider(CoverageProvider):
             metadata.identifiers = []
             # Before creating an edition for the original identifier.
             novelist_edition, ignore = metadata.edition(self._db)
-            metadata.apply(novelist_edition)
+            metadata.apply(novelist_edition, collection=None)
 
         return identifier
