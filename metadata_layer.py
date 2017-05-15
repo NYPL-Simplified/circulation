@@ -904,7 +904,6 @@ class CirculationData(MetaToModelUtility):
             
         data_source = self.data_source(_db)
         identifier = self.primary_identifier(_db)
-        
         # First, make sure all links in self.links are mirrored (if necessary)
         # and associated with the book's identifier.
         
@@ -929,8 +928,9 @@ class CirculationData(MetaToModelUtility):
 
         # Next, make sure the DeliveryMechanisms associated
         # with the book reflect the formats in self.formats.
-        old_lpdms = list(identifier.delivery_mechanisms)
-        new_lpdms = []
+        old_lpdms = new_lpdms = []
+        if pool:
+            old_lpdms = list(pool.delivery_mechanisms)
 
         # Before setting and unsetting delivery mechanisms, which may
         # change the open-access status of the work, see what it the

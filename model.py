@@ -383,13 +383,21 @@ class Patron(Base):
     __tablename__ = 'patrons'
     id = Column(Integer, primary_key=True)
 
+    # Each patron is the patron _of_ one particular library.  An
+    # individual human being may patronize multiple libraries, but
+    # they will have a different patron account at each one.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True,
+        nullable=False
+    )
+    
     # The patron's permanent unique identifier in an external library
     # system, probably never seen by the patron.
     #
     # This is not stored as a ForeignIdentifier because it corresponds
     # to the patron's identifier in the library responsible for the
     # Simplified instance, not a third party.
-    external_identifier = Column(Unicode, unique=True, index=True)
+    external_identifier = Column(Unicode)
 
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
@@ -402,12 +410,12 @@ class Patron(Base):
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
-    authorization_identifier = Column(Unicode, unique=True, index=True)
+    authorization_identifier = Column(Unicode)
 
     # An identifier used by the patron that authenticates them,
     # but does not give them the authority to borrow books. i.e. their
     # website username.
-    username = Column(Unicode, unique=True, index=True)
+    username = Column(Unicode)
 
     # The last time this record was synced up with an external library
     # system.
@@ -448,6 +456,12 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
+
+    __table_args__ = (
+        UniqueConstraint('library_id', 'username'),
+        UniqueConstraint('library_id', 'authorization_identifier'),
+        UniqueConstraint('library_id', 'external_identifier'),
+    )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
@@ -520,6 +534,11 @@ class Patron(Base):
                 _db.delete(annotation)
         self._synchronize_annotations = value
 
+Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
+Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
+Index("ix_patron_library_id_username", Patron.library_id, Patron.username)
+
+        
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
     Protocol.
@@ -3237,12 +3256,15 @@ class Work(Base):
     # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
-    # One Work may have many asosciated WorkCoverageRecords.
+    # One Work may have many associated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
     # One Work may be associated with many CustomListEntries.
     custom_list_entries = relationship('CustomListEntry', backref='work')
     
+    # One Work may have multiple CachedFeeds.
+    cached_feeds = relationship('CachedFeed', backref='work')
+
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
@@ -3406,6 +3428,12 @@ class Work(Base):
     @property
     def has_open_access_license(self):
         return any(x.open_access for x in self.license_pools)
+
+    @property
+    def complaints(self):
+        complaints = list()
+        [complaints.extend(pool.complaints) for pool in self.license_pools]
+        return complaints
 
     def __repr__(self):
         return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
@@ -5785,8 +5813,8 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
-    # A feed may be associated with a LicensePool.
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
+    # A feed may be associated with a Work.
+    work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
 
     GROUPS_TYPE = u'groups'
@@ -5810,11 +5838,10 @@ class CachedFeed(Base):
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
-        license_pool = None
+        work = None
         if lane:
             lane_name = unicode(lane.name)
-            if hasattr(lane, 'license_pool'):
-                license_pool = lane.license_pool
+            work = getattr(lane, 'work', None)
         else:
             lane_name = None
 
@@ -5841,7 +5868,7 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_name=lane_name,
-            license_pool=license_pool,
+            work=work,
             type=type,
             languages=languages_key,
             facets=facets_key,
@@ -5948,9 +5975,6 @@ class LicensePool(Base):
     # The date this LicensePool was first created in our db
     # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
-
-    # One LicensePool may have multiple CachedFeeds.
-    cached_feeds = relationship('CachedFeed', backref='license_pool')
 
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
@@ -8577,6 +8601,13 @@ class Complaint(Base):
               ]
     ])
 
+    LICENSE_POOL_TYPES = [
+        'cannot-fulfill-loan',
+        'cannot-issue-loan',
+        'cannot-render',
+        'cannot-return',
+    ]
+
     id = Column(Integer, primary_key=True)
 
     # One LicensePool can have many complaints lodged against it.
@@ -8634,6 +8665,10 @@ class Complaint(Base):
             )
         return complaint, is_new
 
+    @property
+    def for_license_pool(self):
+        return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
+
     def resolve(self):
         self.resolved = datetime.datetime.utcnow()
         return self.resolved
@@ -8674,6 +8709,10 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
+    patrons = relationship(
+        'Patron', backref='library', cascade="all, delete, delete-orphan"
+    )
+    
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
@@ -8909,7 +8948,10 @@ class Collection(Base):
     )
     
     # A Collection can include many LicensePools.
-    licensepools = relationship("LicensePool", backref="collection")
+    licensepools = relationship(
+        "LicensePool", backref="collection",
+        cascade="save-update, merge, delete"
+    )
 
     # A Collection can be monitored by many Monitors, each of which
     # will have its own Timestamp.
@@ -9066,19 +9108,6 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
-    
-collections_licensepools = Table(
-    'collections_licensepools', Base.metadata,
-     Column(
-         'collection_id', Integer, ForeignKey('collections.id'),
-         index=True, nullable=False
-     ),
-     Column(
-         'licensepool_id', Integer, ForeignKey('licensepools.id'),
-         index=True, nullable=False
-     ),
-     UniqueConstraint('collection_id', 'licensepool_id'),
-)
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,

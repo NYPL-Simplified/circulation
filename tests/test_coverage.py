@@ -53,6 +53,7 @@ from s3 import DummyS3Uploader
 from coverage import (
     BaseCoverageProvider,
     BibliographicCoverageProvider,
+    CatalogCoverageProvider,
     CollectionCoverageProvider,
     CoverageFailure,
     IdentifierCoverageProvider,
@@ -828,16 +829,6 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         """Verify that class variables become appropriate instance
         variables.
         """
-        # You must define PROTOCOL.
-        class NoProtocol(AlwaysSuccessfulCollectionCoverageProvider):
-            PROTOCOL = None
-        assert_raises_regexp(
-            ValueError,
-            "NoProtocol must define PROTOCOL",
-            NoProtocol,
-            self._default_collection
-        )
-       
         collection = self._collection(protocol=Collection.OPDS_IMPORT)
         provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
         eq_(provider.DATA_SOURCE_NAME, provider.data_source.name)
@@ -1228,6 +1219,38 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         result = provider.set_presentation_ready(identifier)
         eq_(result, identifier)
         eq_(True, pool.work.presentation_ready)
+
+
+class TestCatalogCoverageProvider(CoverageProviderTest):
+
+    def test_items_that_need_coverage(self):
+
+        c1 = self._collection()
+        c2 = self._collection()
+
+        i1 = self._identifier()
+        c1.catalog_identifier(self._db, i1)
+
+        i2 = self._identifier()
+        c2.catalog_identifier(self._db, i2)
+
+        i3 = self._identifier()
+
+        # This Identifier is licensed through the Collection c1, but
+        # it's not in the catalog--catalogs are used for different
+        # things.
+        edition, lp = self._edition(with_license_pool=True,
+                                    collection=c1)
+        
+        # We have four identifiers, but only i1 shows up, because
+        # it's the only one in c1's catalog.
+        class Provider(CatalogCoverageProvider):
+            SERVICE_NAME = "test"
+            DATA_SOURCE_NAME = DataSource.OVERDRIVE
+            pass
+
+        provider = Provider(c1)
+        eq_([i1], provider.items_that_need_coverage().all())
 
 
 class TestBibliographicCoverageProvider(CoverageProviderTest):

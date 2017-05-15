@@ -60,7 +60,6 @@ from nyt import NYTBestSellerAPI
 from opds_import import OPDSImportMonitor
 from oneclick import OneClickAPI, MockOneClickAPI
 from overdrive import OverdriveBibliographicCoverageProvider
-from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
     contributor_name_match_ratio, 
@@ -492,7 +491,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             kwargs.update(provider_arguments)
 
             provider = provider(
-                self._db, 
+                self._db,
                 cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
@@ -510,7 +509,6 @@ class RunCoverageProviderScript(IdentifierInputScript):
         (as opposed to WorkCoverageProvider).
         """
         return {
-            "input_identifier_types" : self.identifier_types, 
             "input_identifiers" : self.identifiers, 
         }
 
@@ -1770,9 +1768,9 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         success = True
         contributor = contribution.contributor
 
-        pool = contribution.edition.is_presentation_for
+        pools = contribution.edition.is_presentation_for
         try:
-            complaint, is_new = Complaint.register(pool, cls.COMPLAINT_TYPE, source, error_message_detail)
+            complaint, is_new = Complaint.register(pools[0], cls.COMPLAINT_TYPE, source, error_message_detail)
             output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
             print output.encode("utf8")
         except ValueError, e:

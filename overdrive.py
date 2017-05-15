@@ -122,6 +122,8 @@ class OverdriveAPI(object):
             collection = collection.parent
         else:
             self.parent_library_id = None
+
+        self.collection_id = collection.id
             
         self.client_key = collection.external_integration.username.encode("utf8")
         self.client_secret = collection.external_integration.password.encode("utf8")
@@ -137,6 +139,10 @@ class OverdriveAPI(object):
         self.check_creds()
         self.collection_token = self.get_library()['collectionToken']
 
+    @property
+    def collection(self):
+        return get_one(self._db, Collection, id=self.collection_id)
+        
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -411,7 +417,7 @@ class MockOverdriveAPI(OverdriveAPI):
             "bearer token"
         )
         super(MockOverdriveAPI, self).__init__(collection, *args, **kwargs)
-
+        
     def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
 
@@ -1025,7 +1031,12 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
         super(OverdriveBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        self.api = api_class(collection)
+        if isinstance(api_class, OverdriveAPI):
+            # Use a previously instantiated OverdriveAPI instance
+            # rather than creating a new one.
+            self.api = api_class
+        else:
+            self.api = api_class(collection)
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)

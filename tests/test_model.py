@@ -5,6 +5,7 @@ import datetime
 import os
 import sys
 import site
+import random
 import re
 import tempfile
 
@@ -1780,6 +1781,33 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
 
 class TestWork(DatabaseTest):
+
+    def test_complaints(self):
+        work = self._work(with_license_pool=True)
+
+        [lp1] = work.license_pools
+        lp2 = self._licensepool(
+            edition=work.presentation_edition,
+            data_source_name=DataSource.OVERDRIVE
+        )
+        lp2.work = work
+
+        complaint_type = random.choice(list(Complaint.VALID_TYPES))
+        complaint1, ignore = Complaint.register(
+            lp1, complaint_type, "blah", "blah"
+        )
+        complaint2, ignore = Complaint.register(
+            lp2, complaint_type, "blah", "blah"
+        )
+
+        # Create a complaint with no association with the work.
+        _edition, lp3 = self._edition(with_license_pool=True)
+        complaint3, ignore = Complaint.register(
+            lp3, complaint_type, "blah", "blah"
+        )
+
+        eq_([complaint1, complaint2], work.complaints)
+        assert complaint3 not in work.complaints
 
     def test_all_identifier_ids(self):
         work = self._work(with_license_pool=True)
@@ -5080,6 +5108,18 @@ class TestComplaint(DatabaseTest):
         super(TestComplaint, self).setup()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.type = "http://librarysimplified.org/terms/problem/wrong-genre"
+
+    def test_for_license_pool(self):
+        work_complaint, is_new = Complaint.register(
+            self.pool, self.type, "yes", "okay"
+        )
+
+        lp_type = self.type.replace('wrong-genre', 'cannot-render')
+        lp_complaint, is_new = Complaint.register(
+            self.pool, lp_type, "yes", "okay")
+
+        eq_(False, work_complaint.for_license_pool)
+        eq_(True, lp_complaint.for_license_pool)
 
     def test_success(self):
         complaint, is_new = Complaint.register(
