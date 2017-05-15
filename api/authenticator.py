@@ -678,11 +678,17 @@ class AuthenticationProvider(object):
     # different types of authentication.
     URI = None
 
-    # Each subclass MUST accept a library id in its constructor and
-    # MUST store it as .library_id. This allows the
-    # AuthenticationProvider to remember which library it manages
-    # without having to hold on to a Library object, which would be
-    # associated with a specific database session.
+    def __init__(self, library_id):
+        """Basic constructor.
+        
+        :param library_id: The database ID of the Library to be managed 
+        by this AuthenticationProvider.
+        """
+        if not isinstance(library_id, int):
+            raise Exception(
+                "Expected library_id to be an integer, got %r" % library_id
+            )
+        self.library_id = library_id
     
     def library(self, _db):
         return get_one(_db, Library, self.library_id)
@@ -844,11 +850,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             pass the Library object to avoid contaminating with
             an object from a non-scoped session.
         """
-        if not isinstance(library_id, int):
-            raise Exception(
-                "Expected library_id to be an integer, got %r" % library_id
-            )
-        self.library_id = library_id
+        super(BasicAuthenticationProvider, self).__init__(library_id)
         if identifier_regular_expression is self.class_default:
             identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
         if identifier_regular_expression:
@@ -1165,7 +1167,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             we ask the patron to go through the OAuth validation
             process again.
         """
-        self.library_id = library_id
+        super(OAuthAuthenticationProvider, self).__init__(library_id)
         self.client_id = client_id
         self.client_secret = client_secret
         self.token_expiration_days = token_expiration_days
