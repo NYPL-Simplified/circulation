@@ -148,7 +148,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     """
 
     SERVICE_NAME = "Metadata Wrangler Coverage Provider"
-    OPERATION = CoverageRecord.SYNC_OPERATION
+    OPERATION = CoverageRecord.IMPORT_OPERATION
     DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
     INPUT_IDENTIFIER_TYPES = [
         Identifier.OVERDRIVE_ID, 
@@ -168,47 +168,6 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 "is not set up. You can still use the metadata wrangler, but "
                 "it will not know which collection you're asking about."
             )
-
-    def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Returns items that need to have their metadata looked up.
-        """
-
-        # Start with items in this Collection that have never had
-        # metadata coverage.
-        uncovered = super(
-            MetadataWranglerCoverageProvider, self).items_that_need_coverage(
-                identifiers, **kwargs
-            )
-
-        # We'll be excluding items that have been reaped because we
-        # stopped having a license.
-        reaper_covered = self._db.query(Identifier).\
-                join(Identifier.coverage_records).\
-                filter(CoverageRecord.data_source==self.data_source).\
-                filter(CoverageRecord.operation==CoverageRecord.REAP_OPERATION)
-        
-        # But we'll be _including_ items that were reaped and then we
-        # got the license back.
-        relicensed = reaper_covered.join(Identifier.licensed_through).\
-                filter(LicensePool.licenses_owned > 0).\
-                options(contains_eager(Identifier.coverage_records))
-
-        # Remove MetadataWranglerCollectionReaper coverage records from
-        # relicensed identifiers. This ensures that we can get Metadata
-        # Wrangler coverage for books that have had their licenses repurchased
-        # or extended.
-        for identifier in relicensed.all():
-            [reaper_coverage_record] = [record
-                    for record in identifier.coverage_records
-                    if (record.data_source==self.data_source and
-                        record.operation==CoverageRecord.REAP_OPERATION)]
-            self._db.delete(reaper_coverage_record)
-
-        # We want all items that don't have a SYNC coverage record, so
-        # long as they're also missing a REAP coverage record. But if
-        # we have licenses for them, we want them even if they do have
-        # a REAP coverage record.
-        return uncovered.except_(reaper_covered).union(relicensed)
 
     def create_identifier_mapping(self, batch):
         """The metadata wrangler can look up URIs, Gutenberg identifiers,
@@ -230,7 +189,71 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         return mapping
 
 
-class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
+class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
+
+    def add_coverage_record_for(self, item):
+        """Record this CoverageProvider's coverage for the given
+        Edition/Identifier in the known Collection
+        """
+        return CoverageRecord.add_for(
+            item, data_source=self.data_source, operation=self.operation,
+            collection=self.collection
+        )
+
+
+class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
+
+    SERVICE_NAME = "Metadata Wrangler Sync"
+    OPERATION = CoverageRecord.SYNC_OPERATION
+
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
+        """Retrieves items from the Collection that need to be synced
+        with the Metadata Wrangler.
+        """
+
+        # Start with items in this Collection that have not been synced.
+        uncovered = super(
+            MetadataWranglerCoverageProvider, self).items_that_need_coverage(
+                identifiers, **kwargs
+            )
+
+        # We'll be excluding items that have been reaped because we
+        # stopped having a license.
+        reaper_covered = self._db.query(Identifier).\
+                join(Identifier.coverage_records).\
+                filter(
+                    CoverageRecord.data_source==self.data_source,
+                    CoverageRecord.collection_id==self.collection_id,
+                    CoverageRecord.operation==CoverageRecord.REAP_OPERATION
+                )
+
+        # But we'll be _including_ items that were reaped and then we
+        # got the license back.
+        relicensed = reaper_covered.join(Identifier.licensed_through).\
+                filter(LicensePool.licenses_owned > 0).\
+                options(contains_eager(Identifier.coverage_records))
+
+        # Remove MetadataWranglerCollectionReaper coverage records from
+        # relicensed identifiers. This ensures that we can get Metadata
+        # Wrangler coverage for books that have had their licenses repurchased
+        # or extended.
+        for identifier in relicensed.all():
+            for record in identifier.coverage_records:
+                if (record.data_source==self.data_source and
+                    record.collection_id==self.collection_id and
+                    record.operation==CoverageRecord.REAP_OPERATION):
+                    # Delete any reaper CoverageRecord for this Identifier
+                    # in this Collection.
+                    self._db.delete(record)
+
+        # We want all items that don't have a SYNC coverage record, so
+        # long as they're also missing a REAP coverage record (uncovered).
+        # But if we have licenses for them (relicensed), we want them
+        # even if they do have a REAP coverage record.
+        return uncovered.except_(reaper_covered).union(relicensed)
+
+
+class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
     """Removes unlicensed identifiers from the Metadata Wrangler collection"""
 
     SERVICE_NAME = "Metadata Wrangler Reaper"
@@ -241,6 +264,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCoverageProvider):
         """
         qu = self._db.query(Identifier).select_from(LicensePool).\
             join(LicensePool.identifier).join(CoverageRecord).\
+            filter(LicensePool.collection_id==self.collection_id).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
             filter(CoverageRecord.data_source==self.data_source).\
             filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION).\

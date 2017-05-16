@@ -24,6 +24,7 @@ from core.model import (
     CoverageRecord,
     DataSource,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -33,6 +34,7 @@ from core.model import (
 from core.util.opds_writer import OPDSFeed
 from core.opds_import import (
     MockSimplifiedOPDSLookup,
+    MockMetadataWranglerOPDSLookup,
 )
 from core.coverage import (
     CoverageFailure,
@@ -44,6 +46,7 @@ from core.util.opds_writer import OPDSMessage
 from api.coverage import (
     ContentServerBibliographicCoverageProvider,
     MetadataWranglerCoverageProvider,
+    MetadataWranglerCollectionSync,
     MetadataWranglerCollectionReaper,
     OPDSImportCoverageProvider,
     MockOPDSImportCoverageProvider,
@@ -86,6 +89,11 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # This means we need to mock the lookup client instead.
         lookup = MockSimplifiedOPDSLookup(self._url)
+
+        # And create an ExternalIntegration for the metadata_client object.
+        self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER, url=self._url
+        )
 
         self._default_collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
@@ -209,13 +217,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        lookup = MockSimplifiedOPDSLookup(self._url)
+        lookup = MockMetadataWranglerOPDSLookup(self._db)
         return MetadataWranglerCoverageProvider(
             self._db, self.collection, lookup, **kwargs
         )
 
     def setup(self):
         super(TestMetadataWranglerCoverageProvider, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            url=self._url, username=u'abc', password=u'def'
+        )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
         self.provider = self.create_provider()
@@ -241,56 +253,6 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(axis, mapping[isbn_axis])
         eq_(threem, mapping[isbn_threem])
 
-    def test_items_that_need_coverage(self):
-        source = self.provider.data_source
-        other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        
-        # An item that has been covered by some other provider, but not
-        # this one.
-        e1, uncovered = self._edition(
-            with_license_pool=True, collection=self.collection
-        )
-        cr = self._coverage_record(uncovered.identifier, other_source)
-        
-        # We've lost our license to this item and it has been covered
-        # by the reaper operation already.
-        e2, reaped = self._edition(
-            with_license_pool=True, collection=self.collection
-        )
-        reaped.update_availability(0, 0, 0, 0)
-        reaper_cr = self._coverage_record(
-            reaped.identifier, source, operation=CoverageRecord.REAP_OPERATION
-        )
-        
-        # An item that has been covered by the reaper operation, but has
-        # had its license repurchased.
-        e3, relicensed = self._edition(
-            with_license_pool=True, collection=self.collection
-        )
-        relicensed_coverage_record = self._coverage_record(
-            relicensed.identifier, source,
-            operation=CoverageRecord.REAP_OPERATION
-        )
-        relicensed.update_availability(1, 0, 0, 0)
-
-        items = self.provider.items_that_need_coverage().all()
-
-        # Provider ignores anything that has been reaped and doesn't have
-        # licenses.
-        assert reaped.identifier not in items
-
-        # But it picks up anything that hasn't been covered at all and anything
-        # that's been licensed anew even if its already been reaped.
-        assert uncovered.identifier in items
-        assert relicensed.identifier in items
-        eq_(2, len(items))
-
-        # The REAP coverage record for the repurchased book has been
-        # deleted, and committing will remove it from the database.
-        assert relicensed_coverage_record in relicensed.identifier.coverage_records
-        self._db.commit()
-        assert relicensed_coverage_record not in relicensed.identifier.coverage_records
-
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time
         argument.
@@ -300,7 +262,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             with_license_pool=True, collection=self.collection
         )
         cr = self._coverage_record(
-            pool.identifier, self.provider.data_source, operation='sync'
+            pool.identifier, self.provider.data_source,
+            operation=self.provider.OPERATION
         )
 
         # We have a coverage record already, so this book doesn't show
@@ -384,33 +347,118 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(isbn.links, [])
 
 
+class TestMetadataWranglerCollectionSync(DatabaseTest):
+
+    def setup(self):
+        super(TestMetadataWranglerCollectionSync, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            url=self._url, username=u'abc', password=u'def'
+        )
+        self.lookup = MockMetadataWranglerOPDSLookup(self._db)
+        self.provider = MetadataWranglerCollectionSync(
+            self._db, self._default_collection, self.lookup
+        )
+
+    def test_items_that_need_coverage(self):
+        source = self.provider.data_source
+        other_collection = self._collection(protocol=Collection.OVERDRIVE)
+
+        # An item that has been synced for some other Collection, but not
+        # this one.
+        e1, other_covered = self._edition(
+            with_license_pool=True, collection=other_collection
+        )
+        uncovered = self._licensepool(
+            e1, with_open_access_download=True,
+            collection=self.provider.collection
+        )
+        cr = self._coverage_record(
+            uncovered.identifier, source, collection=other_collection
+        )
+
+        # We've lost our license to this item and it has been covered
+        # by the reaper operation already.
+        e2, reaped = self._edition(
+            with_license_pool=True, collection=self.provider.collection,
+        )
+        reaped.update_availability(0, 0, 0, 0)
+        reaper_cr = self._coverage_record(
+            reaped.identifier, source,
+            operation=self.provider.OPERATION,
+            collection=self.provider.collection
+        )
+
+        # An item that has been covered by the reaper operation, but has
+        # had its license repurchased.
+        e3, relicensed = self._edition(
+            with_license_pool=True, collection=self.provider.collection
+        )
+        relicensed_coverage_record = self._coverage_record(
+            relicensed.identifier, source,
+            operation=CoverageRecord.REAP_OPERATION,
+            collection=self.provider.collection
+        )
+        relicensed.update_availability(1, 0, 0, 0)
+
+        items = self.provider.items_that_need_coverage().all()
+
+        # Provider ignores anything that has been reaped and doesn't have
+        # licenses.
+        assert reaped.identifier not in items
+
+        # But it picks up anything that hasn't been covered at all and anything
+        # that's been licensed anew even if its already been reaped.
+        assert uncovered.identifier in items
+        assert relicensed.identifier in items
+        eq_(2, len(items))
+
+        # The REAP coverage record for the repurchased book has been
+        # deleted, and committing will remove it from the database.
+        assert relicensed_coverage_record in relicensed.identifier.coverage_records
+        self._db.commit()
+        assert relicensed_coverage_record not in relicensed.identifier.coverage_records
+
+
 class TestMetadataWranglerCollectionReaper(DatabaseTest):
 
     def setup(self):
         super(TestMetadataWranglerCollectionReaper, self).setup()
-        lookup = MockSimplifiedOPDSLookup(self._url)
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            url=self._url, username=u'abc', password=u'def'
+        )
+        lookup = MockMetadataWranglerOPDSLookup(self._db)
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
         self.reaper = MetadataWranglerCollectionReaper(
-            self._db, collection, lookup
+            self._db, self.collection, lookup
         )
 
     def test_items_that_need_coverage(self):
         """The reaper only returns identifiers with unlicensed license_pools
         that have been synced with the Metadata Wrangler.
         """
-        # A Wrangler-synced item that doesn't have any owned licenses
-        covered_unlicensed_lp = self._licensepool(None, open_access=False, set_edition_as_presentation=True)
+        # Create a Wrangler-synced item that doesn't have any owned licenses
+        covered_unlicensed_lp = self._licensepool(
+            None, open_access=False, set_edition_as_presentation=True,
+            collection=self.collection
+        )
         covered_unlicensed_lp.update_availability(0, 0, 0, 0)
         cr = self._coverage_record(
             covered_unlicensed_lp.presentation_edition, self.source,
-            operation=CoverageRecord.SYNC_OPERATION
+            operation=CoverageRecord.SYNC_OPERATION,
+            collection=self.reaper.collection,
         )
-        # An unsynced item that doesn't have any licenses
+
+        # Create an unsynced item that doesn't have any licenses
         uncovered_unlicensed_lp = self._licensepool(None, open_access=False)
         uncovered_unlicensed_lp.update_availability(0, 0, 0, 0)
+
+        # And an unsynced item that has licenses.
         licensed_lp = self._licensepool(None, open_access=False)
-        # An open access license pool
+
+        # Create an open access license pool
         open_access_lp = self._licensepool(None)
 
         items = self.reaper.items_that_need_coverage().all()
@@ -460,20 +508,24 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
         """
         # Create two identifiers that have been either synced or reaped.
         sync_cr = self._coverage_record(
-            self._edition(), self.source, operation=CoverageRecord.SYNC_OPERATION
+            self._edition(), self.source, operation=CoverageRecord.SYNC_OPERATION,
+            collection=self.reaper.collection
         )
         reaped_cr = self._coverage_record(
-            self._edition(), self.source, operation=CoverageRecord.REAP_OPERATION
+            self._edition(), self.source, operation=CoverageRecord.REAP_OPERATION,
+            collection=self.reaper.collection
         )
 
         # Create coverage records for an Identifier that has been both synced
         # and reaped.
         doubly_covered = self._edition()
         doubly_sync_record = self._coverage_record(
-            doubly_covered, self.source, operation=CoverageRecord.SYNC_OPERATION
+            doubly_covered, self.source, operation=CoverageRecord.SYNC_OPERATION,
+            collection=self.reaper.collection
         )
         doubly_reap_record = self._coverage_record(
-            doubly_covered, self.source, operation=CoverageRecord.REAP_OPERATION
+            doubly_covered, self.source, operation=CoverageRecord.REAP_OPERATION,
+            collection=self.reaper.collection,
         )
 
         self.reaper.finalize_batch()
