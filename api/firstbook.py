@@ -1,8 +1,15 @@
 from nose.tools import set_trace
+from flask.ext.babel import lazy_gettext as _
 import requests
 import logging
-from authenticator import Authenticator
-from config import Configuration
+from authenticator import (
+    BasicAuthenticationProvider,
+    PatronData,
+)
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from circulation_exceptions import RemoteInitiatedServerError
 import urlparse
 import urllib
@@ -11,104 +18,126 @@ from core.model import (
     Patron,
 )
 
-class FirstBookAuthenticationAPI(Authenticator):
+class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
+    NAME = 'First Book'
+
+    LOGIN_LABEL = _("Access Code")
+
+    # If FirstBook sends this message it means they accepted the
+    # patron's credentials.
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
 
     SECRET_KEY = 'key'
-    FIRSTBOOK = 'First Book'
 
+    # Server-side validation happens before the identifier
+    # is converted to uppercase, which means lowercase characters
+    # are valid.
+    DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
+    
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, host, key):
-        if '?' in host:
-            host += '&'
+    def __init__(self, url=None, key=None, **kwargs):
+        if not (url and key):
+            raise CannotLoadConfiguration(
+                "First Book server not configured."
+            )
+        super(FirstBookAuthenticationAPI, self).__init__(**kwargs)
+        if '?' in url:
+            url += '&'
         else:
-            host += '?'
-        self.root = host + 'key=' + key
+            url += '?'
+        self.root = url + 'key=' + key
 
-    @classmethod
-    def from_config(cls):
-        config = Configuration.integration(cls.FIRSTBOOK, required=True)
-        host = config.get(Configuration.URL)
-        key = config.get(cls.SECRET_KEY)
-        if not host:
-            cls.log.warning("No First Book client configured.")
+    # Begin implementation of BasicAuthenticationProvider abstract
+    # methods.
+
+    def remote_authenticate(self, username, password):
+        # All FirstBook credentials are in upper-case.
+        username = username.upper()
+
+        # If they fail a PIN test, there is no authenticated patron.
+        if not self.remote_pin_test(username, password):
             return None
-        return cls(host, key)
 
-    def request(self, url):
-        return requests.get(url)
+        # FirstBook keeps track of absolutely no information
+        # about the patron other than the permanent ID,
+        # which is also the authorization identifier.
+        return PatronData(
+            permanent_id=username,
+            authorization_identifier=username,
+        )
+   
+    # End implementation of BasicAuthenticationProvider abstract methods.
 
-    def dump(self, barcode):
-        return {}
-
-    def patron_info(self, barcode):
-        return dict(barcode=barcode)
-
-    def pintest(self, barcode, pin):
+    def remote_pin_test(self, barcode, pin):
         url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
             urllib.quote, (barcode, pin)
         ))
         try:
             response = self.request(url)
         except requests.exceptions.ConnectionError, e:
-            raise RemoteInitiatedServerError(str(e.message))
+            raise RemoteInitiatedServerError(
+                str(e.message),
+                self.NAME
+            )
         if response.status_code != 200:
             msg = "Got unexpected response code %d. Content: %s" % (
                 response.status_code, response.content
             )
-            raise RemoteInitiatedServerError(msg)
+            raise RemoteInitiatedServerError(msg, self.NAME)
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
+    
+    def request(self, url):
+        """Make an HTTP request.
 
-    def authenticated_patron(self, _db, identifier, password):
-        # If they fail basic validation, there is no authenticated patron.
-        if not self.server_side_validation(identifier, password):
-            return None
+        Defined solely so it can be overridden in the mock.
+        """
+        return requests.get(url)
 
-        # All FirstBook credentials are in upper-case.
-        identifier = identifier.upper()
 
-        # If they fail a PIN test, there is no authenticated patron.
-        if not self.pintest(identifier, password):
-            return None
-
-        # First Book thinks this is a valid patron. Find or create a
-        # corresponding Patron in our database.
-        kwargs = {Patron.authorization_identifier.name: identifier}
-        __transaction = _db.begin_nested()
-        patron, is_new = get_one_or_create(
-            _db, Patron, external_identifier=identifier,
-            authorization_identifier=identifier,
-        )
-        __transaction.commit()
-        return patron
-
-class DummyFirstBookResponse(object):
+class MockFirstBookResponse(object):
 
     def __init__(self, status_code, content):
         self.status_code = status_code
         self.content = content
 
-class DummyFirstBookAuthentationAPI(FirstBookAuthenticationAPI):
+class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
 
     SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
-    def __init__(self, valid={}):
+    def __init__(self, valid={}, bad_connection=False, 
+                 failure_status_code=None):
+        self.identifier_re = None
+        self.password_re = None
         self.root = "http://example.com/"
         self.valid = valid
+        self.bad_connection = bad_connection
+        self.failure_status_code = failure_status_code
 
     def request(self, url):
+        if self.bad_connection:
+            # Simulate a bad connection.
+            raise requests.exceptions.ConnectionError("Could not connect!")
+        elif self.failure_status_code:
+            # Simulate a server returning an unexpected error code.
+            return MockFirstBookResponse(
+                self.failure_status_code, "Error %s" % self.failure_status_code
+            )
         qa = urlparse.parse_qs(url)
         if 'accesscode' in qa and 'pin' in qa:
             [code] = qa['accesscode']
             [pin] = qa['pin']
             if code in self.valid and self.valid[code] == pin:
-                return DummyFirstBookResponse(200, self.SUCCESS)
+                return MockFirstBookResponse(200, self.SUCCESS)
             else:
-                return DummyFirstBookResponse(200, self.FAILURE)
+                return MockFirstBookResponse(200, self.FAILURE)
 
 
+# Specify which of the classes defined in this module is the
+# authentication provider.
+AuthenticationProvider = FirstBookAuthenticationAPI

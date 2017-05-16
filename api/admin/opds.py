@@ -9,16 +9,15 @@ class AdminAnnotator(CirculationManagerAnnotator):
 
     def __init__(self, circulation, test_mode=False):
         super(AdminAnnotator, self).__init__(circulation, None, test_mode=test_mode)
+        self.opds_cache_field = None
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
 
         super(AdminAnnotator, self).annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
 
         if isinstance(work, BaseMaterializedWork):
-            identifier_identifier = work.identifier
             data_source_name = work.name
         else:
-            identifier_identifier = identifier.identifier
             data_source_name = active_license_pool.data_source.name
 
         feed.add_link_to_entry(
@@ -26,7 +25,8 @@ class AdminAnnotator(CirculationManagerAnnotator):
             rel="http://librarysimplified.org/terms/rel/refresh",
             href=self.url_for(
                 "refresh", data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
+                identifier_type=identifier.type,
+                identifier=identifier.identifier, _external=True)
         )
 
         if active_license_pool.suppressed:
@@ -35,7 +35,8 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 rel="http://librarysimplified.org/terms/rel/restore",
                 href=self.url_for(
                     "unsuppress", data_source=data_source_name,
-                    identifier=identifier_identifier, _external=True)
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True)
             )
         else:
             feed.add_link_to_entry(
@@ -43,7 +44,8 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 rel="http://librarysimplified.org/terms/rel/hide",
                 href=self.url_for(
                     "suppress", data_source=data_source_name,
-                    identifier=identifier_identifier, _external=True)
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True)
             )
 
         feed.add_link_to_entry(
@@ -51,7 +53,8 @@ class AdminAnnotator(CirculationManagerAnnotator):
             rel="edit",
             href=self.url_for(
                 "edit", data_source=data_source_name,
-                identifier=identifier_identifier, _external=True)
+                identifier_type=identifier.type,
+                identifier=identifier.identifier, _external=True)
         )
             
     def complaints_url(self, facets, pagination):
@@ -74,7 +77,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
             type="application/opensearchdescription+xml",
             href=search_url
         )
-        feed.add_link(**search_link)
+        feed.add_link_to_feed(feed.feed, **search_link)
 
 
 class AdminFeed(AcquisitionFeed):
@@ -96,20 +99,23 @@ class AdminFeed(AcquisitionFeed):
         feed = cls(_db, title, url, works, annotator)
 
         # Render a 'start' link
-        top_level_title = "Collection Home"
+        top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
-        feed.add_link(href=start_uri, rel="start", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
+
+        # Render an 'up' link, same as the 'start' link to indicate top-level feed
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            feed.add_link(rel="next", href=annotator.complaints_url(facets, pagination.next_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="next", href=annotator.complaints_url(facets, pagination.next_page))
 
         if pagination.offset > 0:
-            feed.add_link(rel="first", href=annotator.complaints_url(facets, pagination.first_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="first", href=annotator.complaints_url(facets, pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link(rel="previous", href=annotator.complaints_url(facets, previous_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.complaints_url(facets, previous_page))
 
         annotator.annotate_feed(feed)
         return unicode(feed)
@@ -118,27 +124,33 @@ class AdminFeed(AcquisitionFeed):
     def suppressed(cls, _db, title, url, annotator, pagination=None):
         pagination = pagination or Pagination.default()
 
-        q = _db.query(LicensePool).filter(LicensePool.suppressed == True)
+        q = _db.query(LicensePool).filter(
+            LicensePool.suppressed == True).order_by(
+                LicensePool.id
+            )
         pools = pagination.apply(q).all()
 
         works = [pool.work for pool in pools]
         feed = cls(_db, title, url, works, annotator)
 
         # Render a 'start' link
-        top_level_title = "Collection Home"
+        top_level_title = annotator.top_level_title()
         start_uri = annotator.groups_url(None)
-        feed.add_link(href=start_uri, rel="start", title=top_level_title)
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="start", title=top_level_title)
+
+        # Render an 'up' link, same as the 'start' link to indicate top-level feed
+        AdminFeed.add_link_to_feed(feed.feed, href=start_uri, rel="up", title=top_level_title)
 
         if len(works) > 0:
             # There are works in this list. Add a 'next' link.
-            feed.add_link(rel="next", href=annotator.suppressed_url(pagination.next_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="next", href=annotator.suppressed_url(pagination.next_page))
 
         if pagination.offset > 0:
-            feed.add_link(rel="first", href=annotator.suppressed_url(pagination.first_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="first", href=annotator.suppressed_url(pagination.first_page))
 
         previous_page = pagination.previous_page
         if previous_page:
-            feed.add_link(rel="previous", href=annotator.suppressed_url(previous_page))
+            AdminFeed.add_link_to_feed(feed.feed, rel="previous", href=annotator.suppressed_url(previous_page))
 
         annotator.annotate_feed(feed)
         return unicode(feed)

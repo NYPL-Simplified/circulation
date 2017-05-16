@@ -5,13 +5,5 @@ import sys
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
-from api.monitor import (
-    SearchIndexUpdateMonitor,
-)
-from core.scripts import RunMonitorScript
-
-if len(sys.argv) > 1:
-    index = sys.argv[1]
-else:
-    index = None
-RunMonitorScript(SearchIndexUpdateMonitor, works_index=index).run()
+from scripts import UpdateSearchIndexScript
+UpdateSearchIndexScript().run()

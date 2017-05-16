@@ -1,18 +1,21 @@
 from nose.tools import set_trace
-from functools import wraps
+from functools import wraps, partial
 import os
 
 import flask
 from flask import (
     Response,
     redirect,
+    request,
 )
+from flask_cors import cross_origin
 
-from app import app
+from app import app, _db, babel
 
 from config import Configuration
 from core.app_server import (
     ErrorHandler,
+    returns_problem_detail,
 )
 from core.util.problem_detail import ProblemDetail
 from opds import (
@@ -20,30 +23,57 @@ from opds import (
 )
 from controller import CirculationManager
 
-
+# TODO: Without the monkeypatch below, Flask continues to process
+# requests while before_first_request is running. Those requests will
+# fail, since the app isn't completely set up yet.
+#
+# This is fixed in Flask 0.10.2, which is currently unreleased:
+#  https://github.com/pallets/flask/issues/879
+#
 @app.before_first_request
-def initialize_circulation_manager():
+def initialize_circulation_manager(): 
     if os.environ.get('AUTOINITIALIZE') == "False":
-        pass
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
+        pass
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager()
+            app.manager = CirculationManager(_db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
 
+# Monkeypatch in a Flask fix that will be released in 0.10.2
+def monkeypatch_try_trigger_before_first_request_functions(self):
+    """Called before each request and will ensure that it triggers
+    the :attr:`before_first_request_funcs` and only exactly once per
+    application instance (which means process usually).
+    
+    :internal:
+    """
+    if self._got_first_request:
+        return
+    with self._before_request_lock:
+        if self._got_first_request:
+            return
+        for func in self.before_first_request_funcs:
+            func() 
+        self._got_first_request = True
 
+from flask import Flask
+Flask.try_trigger_before_first_request_functions = monkeypatch_try_trigger_before_first_request_functions
 
-h = ErrorHandler(app, app.config['DEBUG'])
-@app.errorhandler(Exception)
-def exception_handler(exception):
-    return h.handle(exception)
+@babel.localeselector
+def get_locale():
+    languages = Configuration.localization_languages()
+    return request.accept_languages.best_match(languages)
 
 @app.teardown_request
 def shutdown_session(exception):
-    if app.manager._db:
+    if (hasattr(app, 'manager') 
+        and hasattr(app.manager, '_db') 
+        and app.manager._db
+    ):
         if exception:
             app.manager._db.rollback()
         else:
@@ -61,102 +91,208 @@ def requires_auth(f):
             return f(*args, **kwargs)
     return decorated
 
-def returns_problem_detail(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        v = f(*args, **kwargs)
-        if isinstance(v, ProblemDetail):
-            return v.response
-        return v
-    return decorated
+patron_web_integration = Configuration.integration(Configuration.PATRON_WEB_CLIENT_INTEGRATION)
+if patron_web_integration:
+    # The allows_patron_web decorator will add Cross-Origin Resource Sharing
+    # (CORS) headers to routes that will be used by the patron web interface.
+    # This is necessary for a JS app on a different domain to make requests.
+    #
+    # The partial function sets the arguments to the cross_origin decorator,
+    # since they're the same for all routes that use it.
+    patron_web_url = patron_web_integration.get(Configuration.URL)
+    allows_patron_web = partial(
+        cross_origin,
+        origins=[patron_web_url],
+        supports_credentials=True,
+    )
+else:
+    # If the patron web client isn't configured, the decorator will do nothing.
+    def allows_patron_web():
+        def decorated(f):
+            return f
+        return decorated
 
+h = ErrorHandler(app, app.config['DEBUG'])
+@app.errorhandler(Exception)
+@allows_patron_web()
+def exception_handler(exception):
+    return h.handle(exception)
+
+def dir_route(path, *args, **kwargs):
+    """Decorator to create routes that work with or without a trailing slash."""
+
+    if path.endswith("/"):
+        path_without_slash = path[:-1]
+    else:
+        path_without_slash = path
+
+    def decorator(f):
+        # By default, creating a route with a slash will make flask redirect
+        # requests without the slash, even if that route also exists.
+        # Setting strict_slashes to False disables this behavior.
+        # This is important for CORS because the redirects are not processed
+        # by the CORS decorator and won't be valid CORS responses.
+
+        # Decorate f with two routes, with and without the slash.
+        g = app.route(path_without_slash + "/", strict_slashes=False, *args, **kwargs)(f)
+        h = app.route(path_without_slash, *args, **kwargs)(g)
+        return h
+    return decorator
 
 @app.route('/')
+@allows_patron_web()
 @returns_problem_detail
 def index():
     return app.manager.index_controller()
 
-@app.route('/groups', defaults=dict(lane_name=None, languages=None))
-@app.route('/groups/', defaults=dict(lane_name=None, languages=None))
-@app.route('/groups/<languages>', defaults=dict(lane_name=None))
-@app.route('/groups/<languages>/', defaults=dict(lane_name=None))
+@dir_route('/groups', defaults=dict(lane_name=None, languages=None))
+@dir_route('/groups/<languages>', defaults=dict(lane_name=None))
 @app.route('/groups/<languages>/<lane_name>')
+@allows_patron_web()
 @returns_problem_detail
 def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
 
-@app.route('/feed', defaults=dict(lane_name=None, languages=None))
-@app.route('/feed/', defaults=dict(lane_name=None, languages=None))
-@app.route('/feed/<languages>', defaults=dict(lane_name=None))
-@app.route('/feed/<languages>/', defaults=dict(lane_name=None))
+@dir_route('/feed', defaults=dict(lane_name=None, languages=None))
+@dir_route('/feed/<languages>', defaults=dict(lane_name=None))
 @app.route('/feed/<languages>/<lane_name>')
+@allows_patron_web()
 @returns_problem_detail
 def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
 
-@app.route('/search', defaults=dict(lane_name=None, languages=None))
-@app.route('/search/', defaults=dict(lane_name=None, languages=None))
-@app.route('/search/<languages>', defaults=dict(lane_name=None))
-@app.route('/search/<languages>/', defaults=dict(lane_name=None))
+@dir_route('/search', defaults=dict(lane_name=None, languages=None))
+@dir_route('/search/<languages>', defaults=dict(lane_name=None))
 @app.route('/search/<languages>/<lane_name>')
+@allows_patron_web()
 @returns_problem_detail
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
-@app.route('/me', methods=['GET'])
+@app.route('/preload')
+@allows_patron_web()
+@returns_problem_detail
+def preload():
+    return app.manager.opds_feeds.preload()
+
+@dir_route('/patrons/me', methods=['GET', 'PUT'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def account():
-    return app.manager.accounts.account()
+def patron_profile():
+    return app.manager.profiles.protocol()
 
-@app.route('/loans/', methods=['GET', 'HEAD'])
+@dir_route('/loans', methods=['GET', 'HEAD'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
 def active_loans():
     return app.manager.loans.sync()
 
-@app.route('/works/<data_source>/<identifier>/borrow', methods=['GET', 'PUT'])
-@app.route('/works/<data_source>/<identifier>/borrow/<mechanism_id>', 
+@app.route('/annotations/', methods=['HEAD', 'GET', 'POST'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotations():
+    return app.manager.annotations.container()
+
+@app.route('/annotations/<annotation_id>', methods=['HEAD', 'GET', 'DELETE'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotation_detail(annotation_id):
+    return app.manager.annotations.detail(annotation_id)
+
+@app.route('/annotations/<identifier_type>/<path:identifier>/', methods=['GET'])
+@allows_patron_web()
+@requires_auth
+@returns_problem_detail
+def annotations_for_work(identifier_type, identifier):
+    return app.manager.annotations.container_for_work(identifier_type, identifier)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def borrow(data_source, identifier, mechanism_id=None):
-    return app.manager.loans.borrow(data_source, identifier, mechanism_id)
+def borrow(data_source, identifier_type, identifier, mechanism_id=None):
+    return app.manager.loans.borrow(data_source, identifier_type, identifier, mechanism_id)
 
-@app.route('/works/<data_source>/<identifier>/fulfill/')
-@app.route('/works/<data_source>/<identifier>/fulfill/<mechanism_id>')
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill')
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/fulfill/<mechanism_id>')
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def fulfill(data_source, identifier, mechanism_id=None):
-    return app.manager.loans.fulfill(data_source, identifier, mechanism_id)
+def fulfill(data_source, identifier_type, identifier, mechanism_id=None):
+    return app.manager.loans.fulfill(data_source, identifier_type, identifier, mechanism_id)
 
-@app.route('/loans/<data_source>/<identifier>/revoke', methods=['GET', 'PUT'])
+@app.route('/loans/<data_source>/<identifier_type>/<path:identifier>/revoke', methods=['GET', 'PUT'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def revoke_loan_or_hold(data_source, identifier):
-    return app.manager.loans.revoke(data_source, identifier)
+def revoke_loan_or_hold(data_source, identifier_type, identifier):
+    return app.manager.loans.revoke(data_source, identifier_type, identifier)
 
-@app.route('/loans/<data_source>/<identifier>', methods=['GET', 'DELETE'])
+@app.route('/loans/<data_source>/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
+@allows_patron_web()
 @requires_auth
 @returns_problem_detail
-def loan_or_hold_detail(data_source, identifier):
-    return app.manager.loans.detail(data_source, identifier)
+def loan_or_hold_detail(data_source, identifier_type, identifier):
+    return app.manager.loans.detail(data_source, identifier_type, identifier)
 
-@app.route('/works/')
+@dir_route('/works')
+@allows_patron_web()
 @returns_problem_detail
 def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
     return app.manager.urn_lookup.work_lookup(annotator, 'work')
 
-@app.route('/works/<data_source>/<identifier>')
+@dir_route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
+@dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/contributor/<contributor_name>/<languages>/<audiences>')
+@allows_patron_web()
 @returns_problem_detail
-def permalink(data_source, identifier):
-    return app.manager.work_controller.permalink(data_source, identifier)
-    
-@app.route('/works/<data_source>/<identifier>/report', methods=['GET', 'POST'])
+def contributor(contributor_name, languages, audiences):
+    return app.manager.work_controller.contributor(contributor_name, languages, audiences)
+
+@dir_route('/works/series/<series_name>', defaults=dict(languages=None, audiences=None))
+@dir_route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
+@app.route('/works/series/<series_name>/<languages>/<audiences>')
+@allows_patron_web()
 @returns_problem_detail
-def report(data_source, identifier):
-    return app.manager.work_controller.report(data_source, identifier)
+def series(series_name, languages, audiences):
+    return app.manager.work_controller.series(series_name, languages, audiences)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>')
+@allows_patron_web()
+@returns_problem_detail
+def permalink(data_source, identifier_type, identifier):
+    return app.manager.work_controller.permalink(data_source, identifier_type, identifier)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/recommendations')
+@allows_patron_web()
+@returns_problem_detail
+def recommendations(data_source, identifier_type, identifier):
+    return app.manager.work_controller.recommendations(data_source, identifier_type, identifier)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/related_books')
+@allows_patron_web()
+@returns_problem_detail
+def related_books(data_source, identifier_type, identifier):
+    return app.manager.work_controller.related(data_source, identifier_type, identifier)
+
+@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
+@allows_patron_web()
+@returns_problem_detail
+def report(data_source, identifier_type, identifier):
+    return app.manager.work_controller.report(data_source, identifier_type, identifier)
+
+@app.route('/analytics/<data_source>/<identifier_type>/<path:identifier>/<event_type>')
+@allows_patron_web()
+@returns_problem_detail
+def track_analytics_event(data_source, identifier_type, identifier, event_type):
+    return app.manager.analytics_controller.track_event(data_source, identifier_type, identifier, event_type)
 
 # Adobe Vendor ID implementation
 @app.route('/AdobeAuth/authdata')
@@ -180,6 +316,31 @@ def adobe_vendor_id_accountinfo():
 def adobe_vendor_id_status():
     return app.manager.adobe_vendor_id.status_handler()
 
+# DRM Device Management Protocol implementation for ACS.
+@app.route('/AdobeAuth/devices', methods=['GET', 'POST'])
+@requires_auth
+@returns_problem_detail
+def adobe_drm_devices():
+    return app.manager.adobe_device_management.device_id_list_handler()
+
+@app.route('/AdobeAuth/devices/<device_id>', methods=['DELETE'])
+@requires_auth
+@returns_problem_detail
+def adobe_drm_device(device_id):
+    return app.manager.adobe_device_management.device_id_handler(device_id)
+    
+# Route that redirects to the authentication URL for an OAuth provider
+@app.route('/oauth_authenticate')
+@returns_problem_detail
+def oauth_authenticate():
+    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args)
+
+# Redirect URI for OAuth providers, eg. Clever
+@app.route('/oauth_callback')
+@returns_problem_detail
+def oauth_callback():
+    return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
+
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')
@@ -201,3 +362,6 @@ def loadstorm_verify(code):
     else:
         return Response("", 404)
 
+@app.route('/healthcheck.html')
+def health_check():
+    return Response("", 200)

@@ -3,20 +3,15 @@ from nose.tools import set_trace
 
 from core.testing import (
     DatabaseTest,
-    _setup,
-    _teardown,
+    package_setup,
 )
 
-class CirculationDBInfo(object):
-    connection = None
-    engine = None
-    transaction = None
+package_setup()
 
-DatabaseTest.DBInfo = CirculationDBInfo
+def sample_data(filename, sample_data_dir):
+    base_path = os.path.split(__file__)[0]
+    resource_path = os.path.join(base_path, "files", sample_data_dir)
+    path = os.path.join(resource_path, filename)
 
-def setup():
-    _setup(CirculationDBInfo)
-
-def teardown():
-    _teardown(CirculationDBInfo)
-
+    with open(path) as f:
+        return f.read()

@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import datetime
 import json
 import requests
+import flask
 
 from sqlalchemy.orm import contains_eager
 
@@ -14,7 +15,8 @@ from circulation import (
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
-    OverdriveBibliographicCoverageProvider as BaseOverdriveBibliographicCoverageProvider,
+    OverdriveBibliographicCoverageProvider,
+    MockOverdriveAPI as BaseMockOverdriveAPI,
 )
 
 from core.model import (
@@ -35,8 +37,11 @@ from core.monitor import (
     Monitor,
     IdentifierSweepMonitor,
 )
+from core.util.http import HTTP
+from core.metadata_layer import ReplacementPolicy
 
 from circulation_exceptions import *
+from core.analytics import Analytics
 
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
@@ -48,17 +53,32 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
+    streaming_text = DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
+    overdrive_drm = DeliveryMechanism.OVERDRIVE_DRM
 
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'ebook-epub-open',
         (epub, adobe_drm): 'ebook-epub-adobe',
         (pdf, no_drm): 'ebook-pdf-open',
         (pdf, adobe_drm): 'ebook-pdf-adobe',
+        (streaming_text, overdrive_drm): 'ebook-overdrive',
     }
+
+    STREAMING_FORMATS = [
+        'ebook-overdrive',
+    ]
 
     # TODO: This is a terrible choice but this URL should never be
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
+
+    def __init__(self, *args, **kwargs):
+        super(OverdriveAPI, self).__init__(*args, **kwargs)
+        self.overdrive_bibliographic_coverage_provider = (
+            OverdriveBibliographicCoverageProvider(
+                self._db, overdrive_api=self
+                )
+        )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
@@ -70,13 +90,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         headers = dict(Authorization="Bearer %s" % patron_credential.credential)
         headers.update(extra_headers)
         if method and method.lower() in ('get', 'post', 'put', 'delete'):
-            method = getattr(requests, method.lower())
+            method = method.lower()
         else:
             if data:
-                method = requests.post
+                method = 'post'
             else:
-                method = requests.get
-        response = method(url, headers=headers, data=data)
+                method = 'get'
+        response = HTTP.request_with_timeout(
+            method, url, headers=headers, data=data
+        )
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -103,33 +125,49 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             self._db, DataSource.OVERDRIVE, "OAuth Token", patron, refresh)
 
     def refresh_patron_access_token(self, credential, patron, pin):
+        """Request an OAuth bearer token that allows us to act on
+        behalf of a specific patron.
+
+        Documentation: https://developer.overdrive.com/apis/patron-auth
+        """
         payload = dict(
             grant_type="password",
             username=patron.authorization_identifier,
-            password=pin,
             scope="websiteid:%s authorizationname:%s" % (
                 self.website_id, "default")
         )
+        if pin:
+            # A PIN was provided.
+            payload['password'] = pin
+        else:
+            # No PIN was provided. Depending on the library,
+            # this might be fine. If it's not fine, Overdrive will
+            # refuse to issue a token.
+            payload['password_required'] = 'false'
+            payload['password'] = '[ignore]'
         response = self.token_post(self.PATRON_TOKEN_ENDPOINT, payload)
         if response.status_code == 200:
             self._update_credential(credential, response.json())
         elif response.status_code == 400:
             response = response.json()
-            raise PatronAuthorizationFailedException(
-                response['error'] + "/" + response['error_description'])
+            message = response['error']
+            if 'error_description' in response:
+                message += '/' + response['error_description']
+            raise PatronAuthorizationFailedException(message)
         return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
 
-        :param patron_obj: a Patron object for the patron who wants
+        :param patron: a Patron object for the patron who wants
         to check out the book.
 
-        :param patron_password: The patron's alleged password.
+        :param pin: The patron's alleged password.
 
-        :param identifier: Identifier of the book to be checked out.
+        :param licensepool: Identifier of the book to be checked out is 
+        attached to this licensepool.
 
-        :param format_type: The patron's desired book format.
+        :param internal_format: Represents the patron's desired book format.
 
         :return: a LoanInfo object.
         """
@@ -143,7 +181,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         response = self.patron_request(
             patron, pin, self.CHECKOUTS_ENDPOINT, extra_headers=headers,
             data=payload)
-
         if response.status_code == 400:
             error = response.json()
             code = error['errorCode']
@@ -227,8 +264,25 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         return data
 
     def fulfill(self, patron, pin, licensepool, internal_format):
-        url, media_type = self.get_fulfillment_link(
-            patron, pin, licensepool.identifier.identifier, internal_format)
+        try:
+            url, media_type = self.get_fulfillment_link(
+                patron, pin, licensepool.identifier.identifier, internal_format)
+            if internal_format in self.STREAMING_FORMATS:
+                media_type += DeliveryMechanism.STREAMING_PROFILE
+        except FormatNotAvailable, e:
+
+            # It's possible the available formats for this book have changed and we
+            # have an inaccurate delivery mechanism. Try to update the formats, but
+            # reraise the error regardless.
+            self.log.info("Overdrive id %s was not available as %s, getting updated formats" % (licensepool.identifier.identifier, internal_format))
+
+            try:
+                self.update_formats(licensepool)
+            except Exception, e2:
+                self.log.error("Could not update formats for Overdrive ID %s" % licensepool.identifier.identifier)
+
+            raise e
+
         return FulfillmentInfo(
             licensepool.identifier.type,
             licensepool.identifier.identifier,
@@ -238,6 +292,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             content_expires=None
         )
 
+
     def get_fulfillment_link(self, patron, pin, overdrive_id, format_type):
         """Get the link to the ACSM file corresponding to an existing loan.
         """
@@ -245,14 +300,19 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if not loan:
             raise NoActiveLoan("Could not find active loan for %s" % overdrive_id)
         download_link = None
-        if not loan['isFormatLockedIn']:
+        if not loan['isFormatLockedIn'] and format_type not in self.STREAMING_FORMATS:
             # The format is not locked in. Lock it in.
             # This will happen the first time someone tries to fulfill
             # a loan.
             response = self.lock_in_format(
                 patron, pin, overdrive_id, format_type)
             if response.status_code not in (201, 200):
-                raise CannotFulfill("Could not lock in format %s" % format_type)
+                if response.status_code == 400:
+                    message = response.json().get("message")
+                    if message == "The selected format may not be available for this title.":
+                        raise FormatNotAvailable("This book is not available in the format you requested.")
+                else:
+                    raise CannotFulfill("Could not lock in format %s" % format_type)
             response = response.json()
             try:
                 download_link = self.extract_download_link(
@@ -275,10 +335,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if download_link:
             return self.get_fulfillment_link_from_download_link(
                 patron, pin, download_link)
-        else:
-            return response
 
-    def get_fulfillment_link_from_download_link(self, patron, pin, download_link):
+        raise CannotFulfill("Cannot obtain a download link for patron[%r], overdrive_id[%s], format_type[%s].", patron, overdrive_id, format_type)
+
+
+    def get_fulfillment_link_from_download_link(self, patron, pin, download_link, fulfill_url=None):
+        # If this for Overdrive's streaming reader, and the link expires,
+        # the patron can go back to the circulation manager fulfill url
+        # again to get a new one.
+        if not fulfill_url and flask.request:
+            fulfill_url = flask.request.url
+        else:
+            fulfill_url=""
+        download_link = download_link.replace("{odreadauthurl}", fulfill_url)
+
         download_response = self.patron_request(patron, pin, download_link)
         return self.extract_content_link(download_response.json())
         
@@ -336,22 +406,27 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         self.raise_exception_on_error(data)
         return data
 
+    @classmethod
+    def _pd(cls, d):
+        """Stupid method to parse a date.""" 
+        if not d:
+            return d
+        return datetime.datetime.strptime(d, cls.TIME_FORMAT)
+
     def patron_activity(self, patron, pin):
-
-        def pd(d):
-            """Stupid method to parse a date.""" 
-            if not d:
-                return d
-            return datetime.datetime.strptime(d, self.TIME_FORMAT)
-
         try:
             loans = self.get_patron_checkouts(patron, pin)
             holds = self.get_patron_holds(patron, pin)
         except PatronAuthorizationFailedException, e:
-            # TODO: This allows us to do account syncing
-            # even when running against the test ILS, which
-            # does not use barcodes recognized by Overdrive.
-            self.log.error(
+            # This frequently happens because Overdrive performs
+            # checks for blocked or expired accounts upon initial
+            # authorization, where the circulation manager would let
+            # the 'authorization' part succeed and block the patron's
+            # access afterwards.
+            #
+            # It's common enough that it's hardly worth mentioning, but it
+            # could theoretically be the sign of a larger problem.
+            self.log.info(
                 "Overdrive authentication failed, assuming no loans.",
                 exc_info=e
             )
@@ -359,21 +434,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             holds = {}
 
         for checkout in loans.get('checkouts', []):
-            overdrive_identifier = checkout['reserveId'].lower()
-            start = pd(checkout.get('checkoutDate'))
-            end = pd(checkout.get('expires'))
-            yield LoanInfo(
-                Identifier.OVERDRIVE_ID,
-                overdrive_identifier,
-                start_date=start,
-                end_date=end,
-                fulfillment_info=None
-            )
+            loan_info = self.process_checkout_data(checkout)
+            if loan_info:
+                yield loan_info
 
         for hold in holds.get('holds', []):
             overdrive_identifier = hold['reserveId'].lower()
-            start = pd(hold.get('holdPlacedDate'))
-            end = pd(hold.get('holdExpires'))
+            start = self._pd(hold.get('holdPlacedDate'))
+            end = self._pd(hold.get('holdExpires'))
             position = hold.get('holdListPosition')
             if position is not None:
                 position = int(position)
@@ -390,13 +458,84 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 hold_position=position
             )
 
+    @classmethod
+    def process_checkout_data(cls, checkout):
+        """Convert one checkout from Overdrive's list of checkouts
+        into a LoanInfo object.
+
+        :return: A LoanInfo object if the book can be fulfilled
+        by the default Library Simplified client, and None otherwise.
+        """
+        overdrive_identifier = checkout['reserveId'].lower()
+        start = cls._pd(checkout.get('checkoutDate'))
+        end = cls._pd(checkout.get('expires'))
+        
+        usable_formats = []
+
+        # If a format is already locked in, it will be in formats.
+        for format in checkout.get('formats', []):
+            format_type = format.get('formatType')
+            if format_type in cls.FORMATS:
+                usable_formats.append(format_type)
+
+        # If a format hasn't been selected yet, available formats are in actions.
+        actions = checkout.get('actions', {})
+        format_action = actions.get('format', {})
+        format_fields = format_action.get('fields', [])
+        for field in format_fields:
+            if field.get('name', "") == "formatType":
+                format_options = field.get("options", [])
+                for format_type in format_options:
+                    if format_type in cls.FORMATS:
+                        usable_formats.append(format_type)
+
+        if not usable_formats:
+            # Either this book is not available in any format readable
+            # by the default client, or the patron previously chose to
+            # fulfill it in a format not readable by the default
+            # client. Either way, we cannot fulfill this loan and we
+            # shouldn't show it in the list.
+            return None
+
+        # TODO: if there is one and only one format (usable or not, do
+        # not count overdrive-read), put it into fulfillment_info and
+        # let the caller make the decision whether or not to show it.
+        return LoanInfo(
+            Identifier.OVERDRIVE_ID,
+            overdrive_identifier,
+            start_date=start,
+            end_date=end,
+            fulfillment_info=None
+        )
+
+    def default_notification_email_address(self, patron, pin):
+        site_default = super(OverdriveAPI, self).default_notification_email_address(
+            patron, pin
+        )
+        response = self.patron_request(
+            patron, pin, self.PATRON_INFORMATION_ENDPOINT
+        )
+        if response.status_code != 200:
+            self.log.error(
+                "Unable to get patron information for %s: %s",
+                patron.authorization_identifier,
+                response.content
+            )
+            # Use the site-wide default rather than allow a hold to fail.
+            return site_default
+        data = response.json()
+        return data.get('lastHoldEmail') or site_default
+
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
         :return: A HoldInfo object
         """
         if not notification_email_address:
-            raise CannotHold("No notification email address provided.")
+            notification_email_address = self.default_notification_email_address(
+                patron, pin
+            )
+
         overdrive_id = licensepool.identifier.identifier
         headers, document = self.fill_out_form(
             reserveId=overdrive_id, emailAddress=notification_email_address)
@@ -424,6 +563,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 # The patron has this book checked out and cannot yet
                 # renew their loan.
                 raise CannotRenew()
+            elif code == 'PatronExceededHoldLimit':
+                raise PatronHoldLimitReached()
             else:
                 raise CannotHold(code)
         else:
@@ -460,20 +601,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # There was never a hold to begin with, so we're fine.
             return True
         raise CannotReleaseHold(response.content)
-       
-    def update_licensepool(self, book):
-        """Update availability information for a single book.
 
-        If the book has never been seen before, a new LicensePool
-        will be created for the book.
-
-        The book's LicensePool will be updated with current
-        circulation information.
-        """
-        # Retrieve current circulation information about this book
-        # print "Update for %s" % book
-        orig_book = book
-        book_id = None
+    def circulation_lookup(self, book):
         if isinstance(book, basestring):
             book_id = book
             circulation_link = self.AVAILABILITY_ENDPOINT % dict(
@@ -484,48 +613,104 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         else:
             book_id = book['id']
             circulation_link = book['availability_link']
+        return book, self.get(circulation_link, {})
+
+    def update_formats(self, licensepool):
+        """Update the format information for a single book.
+        """
+        info = self.metadata_lookup(licensepool.identifier)
+
+        metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
+            info, include_bibliographic=False, include_formats=True)
+        circulation_data = metadata.circulation
+
+        replace = ReplacementPolicy(
+            formats=True,
+        )
+        circulation_data.apply(licensepool, replace)
+
+    def update_licensepool(self, book_id):
+        """Update availability information for a single book.
+
+        If the book has never been seen before, a new LicensePool
+        will be created for the book.
+
+        The book's LicensePool will be updated with current
+        circulation information. Bibliographic coverage will be
+        ensured for the Overdrive Identifier, and a Work will be
+        created for the LicensePool and set as presentation-ready.
+        """
+        # Retrieve current circulation information about this book
         try:
-            status_code, headers, content = self.get(circulation_link, {})
+            book, (status_code, headers, content) = self.circulation_lookup(
+                book_id
+            )
         except Exception, e:
             status_code = None
             self.log.error(
                 "HTTP exception communicating with Overdrive",
                 exc_info=e
             )
+
         if status_code != 200:
             self.log.error(
                 "Could not get availability for %s: status code %s",
-                book['id'], status_code
+                book_id, status_code
             )
             return None, None, False
 
-        book.update(json.loads(content))
+        if isinstance(content, basestring):
+            content = json.loads(content)
+        book.update(content)
+
+        # Update book_id now that we know we have new data.
+        book_id = book['id']
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id)
+        if is_new:
+            # This is the first time we've seen this book. Make sure its
+            # identifier has bibliographic coverage.
+            self.overdrive_bibliographic_coverage_provider.ensure_coverage(
+                license_pool.identifier
+            )
+
         return self.update_licensepool_with_book_info(
             book, license_pool, is_new
         )
 
-    def update_licensepool_with_book_info(self, book, license_pool, is_new):
+    # Alias for the CirculationAPI interface
+    def update_availability(self, licensepool):
+        return self.update_licensepool(licensepool.identifier.identifier)
+
+    def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
 
-        Also creates an Edition and gives it very basic bibliographic
-        information (the title), if possible.
+        Then, create an Edition and make sure it has bibliographic
+        coverage. If the new Edition is the only candidate for the
+        pool's presentation_edition, promote it to presentation
+        status.
         """
         circulation = OverdriveRepresentationExtractor.book_info_to_circulation(
             book
         )
-        circulation_changed = circulation.update(license_pool, is_new)
+        license_pool, circulation_changed = circulation.apply(license_pool)
 
-        edition, ignore = Edition.for_foreign_id(
+        edition, is_new_edition = Edition.for_foreign_id(
             self._db, self.source, license_pool.identifier.type,
             license_pool.identifier.identifier)
-        edition.title = edition.title or book.get('title')
-        if is_new:
+
+        # If the pool does not already have a presentation edition, 
+        # and if this edition is newly made, then associate pool and edition
+        # as presentation_edition
+        if ((not license_pool.presentation_edition) and is_new_edition): 
+            edition_changed = license_pool.set_presentation_edition()
+
+        if is_new_pool:
             license_pool.open_access = False
             self.log.info("New Overdrive book discovered: %r", edition)
-        return license_pool, is_new, circulation_changed
+        return license_pool, is_new_pool, circulation_changed
+
 
     @classmethod
     def get_download_link(self, checkout_response, format_type, error_url):
@@ -539,8 +724,20 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 format = f
                 break
         if not format:
-            msg = "Could not find specified format %s. Available formats: %s"
-            raise IOError(msg % (format_type, ", ".join(available_formats)))
+            if any(x in set(available_formats) for x in self.INCOMPATIBLE_PLATFORM_FORMATS):
+                # The most likely explanation is that the patron
+                # already had this book delivered to their Kindle.
+                raise FulfilledOnIncompatiblePlatform(
+                    "It looks like this loan was already fulfilled on another platform, most likely Amazon Kindle. We're not allowed to also send it to you as an EPUB."
+                )
+            else:
+                # We don't know what happened -- most likely our
+                # format data is bad.
+                format_list = ", ".join(available_formats)
+                msg = "Could not find specified format %s. Available formats: %s"
+                raise NoAcceptableFormat(
+                    msg % (format_type, ", ".join(available_formats))
+                )
 
         return self.extract_download_link(format, error_url)
 
@@ -559,7 +756,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             return None
 
 
-class DummyOverdriveResponse(object):
+class MockOverdriveResponse(object):
     def __init__(self, status_code, headers, content):
         self.status_code = status_code
         self.headers = headers
@@ -568,39 +765,27 @@ class DummyOverdriveResponse(object):
     def json(self):
         return json.loads(self.content)
 
-class DummyOverdriveAPI(OverdriveAPI):
+
+class MockOverdriveAPI(BaseMockOverdriveAPI, OverdriveAPI):
 
     library_data = '{"id":1810,"name":"My Public Library (MA)","type":"Library","collectionToken":"1a09d9203","links":{"self":{"href":"http://api.overdrive.com/v1/libraries/1810","type":"application/vnd.overdrive.api+json"},"products":{"href":"http://api.overdrive.com/v1/collections/1a09d9203/products","type":"application/vnd.overdrive.api+json"},"dlrHomepage":{"href":"http://ebooks.nypl.org","type":"text/html"}},"formats":[{"id":"audiobook-wma","name":"OverDrive WMA Audiobook"},{"id":"ebook-pdf-adobe","name":"Adobe PDF eBook"},{"id":"ebook-mediado","name":"MediaDo eBook"},{"id":"ebook-epub-adobe","name":"Adobe EPUB eBook"},{"id":"ebook-kindle","name":"Kindle Book"},{"id":"audiobook-mp3","name":"OverDrive MP3 Audiobook"},{"id":"ebook-pdf-open","name":"Open PDF eBook"},{"id":"ebook-overdrive","name":"OverDrive Read"},{"id":"video-streaming","name":"Streaming Video"},{"id":"ebook-epub-open","name":"Open EPUB eBook"}]}'
 
     token_data = '{"access_token":"foo","token_type":"bearer","expires_in":3600,"scope":"LIB META AVAIL SRCH"}'
 
-    def __init__(self, *args, **kwargs):
-        super(DummyOverdriveAPI, self).__init__(*args, testing=True, **kwargs)
-        self.responses = []
+    collection_token = 'fake token'
 
-    def queue_response(self, response_code=200, media_type="application/json",
-                       other_headers=None, content=''):
-        headers = {"content-type": media_type}
-        if other_headers:
-            for k, v in other_headers.items():
-                headers[k.lower()] = v
-        self.responses.append((response_code, headers, content))
+    def patron_request(self, patron, pin, *args, **kwargs):
+        response = self._make_request(*args, **kwargs)
 
-    # Give canned answers to the most basic requests -- for access tokens
-    # and basic library information.
-    def token_post(self, *args, **kwargs):
-        return DummyOverdriveResponse(200, {}, self.token_data)
+        # Modify the record of the request to include the patron information.
+        original_data = self.requests[-1]
 
-    def get_library(self):
-        return json.loads(self.library_data)
-
-    def get(self, url, extra_headers, exception_on_401=False):
-        return self.responses.pop()
-
-    def patron_request(self, *args, **kwargs):
-        value = self.responses.pop()
-        return DummyOverdriveResponse(*value)
-
+        # The last item in the record of the request is keyword arguments.
+        # Stick this information in there to minimize confusion.
+        original_data[-1]['_patron'] = patron
+        original_data[-1]['_pin'] = patron
+        return response
+    
 
 class OverdriveCirculationMonitor(Monitor):
     """Maintain LicensePools for Overdrive titles.
@@ -620,7 +805,7 @@ class OverdriveCirculationMonitor(Monitor):
         return self.api.recently_changed_ids(start, cutoff)
 
     def run(self):
-        self.api = OverdriveAPI(self._db)
+        self.api = OverdriveAPI.from_environment(self._db)
         super(OverdriveCirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
@@ -640,9 +825,9 @@ class OverdriveCirculationMonitor(Monitor):
             license_pool, is_new, is_changed = self.api.update_licensepool(book)
             # Log a circulation event for this work.
             if is_new:
-                CirculationEvent.log(
-                    _db, license_pool, CirculationEvent.TITLE_ADD,
-                    None, None, start=license_pool.last_checked)
+                Analytics.collect_event(
+                    _db, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
+
             _db.commit()
 
             if is_changed:
@@ -688,7 +873,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
             _db, "Overdrive Collection Reaper", interval_seconds)
 
     def run(self):
-        self.api = OverdriveAPI(self._db)
+        self.api = OverdriveAPI.from_environment(self._db)
         super(OverdriveCollectionReaper, self).run()
 
     def identifier_query(self):
@@ -710,19 +895,24 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
             _db, "Reverse Chronological Overdrive Collection Monitor",
             interval_seconds, maximum_consecutive_unchanged_books)
 
-
-class OverdriveBibliographicCoverageProvider(BaseOverdriveBibliographicCoverageProvider):
-
-    """Fill in bibliographic metadata for Overdrive records.
-    
-    Then mark the works as presentation-ready.
+class OverdriveFormatSweep(IdentifierSweepMonitor):
+    """Check the current formats of every Overdrive book
+    in our collection.
     """
-    def process_batch(self, identifiers):
-        results = []
-        for result in super(OverdriveBibliographicCoverageProvider, self).process_batch(identifiers):
-            # Mark every successful result as presentation-ready.
-            if isinstance(result, Identifier):
-                result = self.set_presentation_ready(result)
-            results.append(result)
-        return results
+    def __init__(self, _db, api=None):
+        super(OverdriveFormatSweep, self).__init__(
+            _db, "Overdrive Format Sweep", batch_size=25)
+        self._db = _db
+        if not api:
+            api = OverdriveAPI.from_environment(self._db)
+        self.api = api
+        self.data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
+    def identifier_query(self):
+        return self._db.query(Identifier).filter(
+            Identifier.type==Identifier.OVERDRIVE_ID)
+
+    def process_identifier(self, identifier):
+        pool = identifier.licensed_through
+        self.api.update_formats(pool)
+        

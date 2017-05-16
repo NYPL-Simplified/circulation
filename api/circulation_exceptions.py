@@ -1,3 +1,12 @@
+from flask.ext.babel import lazy_gettext as _
+
+from core.problem_details import (
+    INTEGRATION_ERROR,
+    INTERNAL_SERVER_ERROR,
+)
+from problem_details import *
+
+
 class CirculationException(Exception):
     """An exception occured when carrying out a circulation operation.
 
@@ -8,8 +17,22 @@ class CirculationException(Exception):
 class InternalServerError(Exception):
     status_code = 500
 
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return INTERNAL_SERVER_ERROR
+
 class RemoteInitiatedServerError(InternalServerError):
     """One of the servers we communicate with had an internal error."""
+    status_code = 502
+
+    def __init__(self, message, service_name):
+        super(RemoteInitiatedServerError, self).__init__(message)
+        self.service_name = service_name
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        msg = _("Integration error communicating with %(service_name)s", service_name=self.service_name)
+        return INTEGRATION_ERROR.detailed(msg)
 
 class NoOpenAccessDownload(CirculationException):
     """We expected a book to have an open-access download, but it didn't."""
@@ -20,6 +43,9 @@ class AuthorizationFailedException(CirculationException):
 
 class PatronAuthorizationFailedException(AuthorizationFailedException):
     status_code = 400
+
+class RemotePatronCreationFailedException(CirculationException):
+    status_code = 500
 
 class LibraryAuthorizationFailedException(CirculationException):
     status_code = 500
@@ -51,7 +77,28 @@ class OutstandingFines(CannotLoan):
     """The patron has outstanding fines above the limit in the library's 
     policy."""
     status_code = 403
+    
+class AuthorizationExpired(CannotLoan):
+    """The patron's authorization has expired."""
+    status_code = 403
 
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return EXPIRED_CREDENTIALS
+    
+class AuthorizationBlocked(CannotLoan):
+    """The patron's authorization is blocked for some reason other than
+    fines or an expired card.
+
+    For instance, the patron has been banned from the library.
+    """
+    status_code = 403
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return BLOCKED_CREDENTIALS
+    
+    
 class PatronLoanLimitReached(CannotLoan):
     status_code = 403
 
@@ -62,7 +109,10 @@ class CannotHold(CirculationException):
     status_code = 500
 
 class PatronHoldLimitReached(CannotHold):
-    status_code = 403
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return HOLD_LIMIT_REACHED
 
 class CannotReleaseHold(CirculationException):
     status_code = 500
@@ -70,9 +120,21 @@ class CannotReleaseHold(CirculationException):
 class CannotFulfill(CirculationException):
     status_code = 500
 
+class FormatNotAvailable(CannotFulfill):
+    """Our format information for this book was outdated, and it's
+    no longer available in the requested format."""
+    status_code = 502
+
 class NotFoundOnRemote(CirculationException):
     """We know about this book but the remote site doesn't seem to."""
     status_code = 404
+
+class NoLicenses(NotFoundOnRemote):
+    """The library no longer has licenses for this book."""
+
+    def as_problem_detail_document(self, debug=False):
+        """Return a suitable problem detail document."""
+        return NO_LICENSES
 
 class CannotRenew(CirculationException):
     """The patron can't renew their loan on this book.
@@ -130,10 +192,22 @@ class NoAcceptableFormat(CannotFulfill):
     """We can't fulfill the patron's loan because the book is not available
     in an acceptable format.
     """
-    status_code = 500
+    status_code = 400
+
+class FulfilledOnIncompatiblePlatform(CannotFulfill):
+    """We can't fulfill the patron's loan because the loan was already
+    fulfilled on an incompatible platform (i.e. Kindle) in a way that's
+    exclusive to that platform.
+    """
+    status_code = 451
 
 class NoActiveLoan(CannotFulfill):
     """We can't fulfill the patron's loan because they don't have an
     active loan.
     """
     status_code = 400
+
+class PatronNotFoundOnRemote(NotFoundOnRemote):
+    status_code = 404
+
+

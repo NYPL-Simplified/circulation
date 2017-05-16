@@ -6,12 +6,15 @@ from sqlalchemy.orm import contains_eager
 from lxml import etree
 from core.axis import (
     Axis360API as BaseAxis360API,
+    MockAxis360API as BaseMockAxis360API,
     Axis360Parser,
     BibliographicParser,
+    Axis360BibliographicCoverageProvider
 )
 
 from core.metadata_layer import (
     CirculationData,
+    ReplacementPolicy, 
 )
 
 from core.monitor import (
@@ -56,6 +59,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
+    SERVICE_NAME = "Axis 360"
+
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
@@ -81,7 +86,9 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         try:
             return CheckoutResponseParser().process_all(response.content)
         except etree.XMLSyntaxError, e:
-            raise InternalServerError(response.content)
+            raise RemoteInitiatedServerError(
+                response.content, self.SERVICE_NAME
+            )
 
     def fulfill(self, patron, pin, licensepool, format_type):
         """Fulfill a patron's request for a specific book.
@@ -109,17 +116,27 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
     def checkin(self, patron, pin, licensepool):
         pass
 
-    def place_hold(self, patron, pin, licensepool, format_type,
-                   hold_notification_email):
+    def place_hold(self, patron, pin, licensepool, hold_notification_email):
+        if not hold_notification_email:
+            hold_notification_email = self.default_notification_email_address(
+                patron, pin
+            )
+
         url = self.base_url + "addtoHold/v2" 
         identifier = licensepool.identifier
         title_id = identifier.identifier
         patron_id = patron.authorization_identifier
-        params = dict(titleId=title_id, patronId=patron_id, format=format_type,
+        params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        return HoldResponseParser().process_all(
-                response.content)
+        hold_info = HoldResponseParser().process_all(response.content)
+        if not hold_info.identifier:
+            # The Axis 360 API doesn't return the identifier of the 
+            # item that was placed on hold, so we have to fill it in
+            # based on our own knowledge.
+            hold_info.identifier_type = identifier.type
+            hold_info.identifier = identifier.identifier
+        return hold_info
 
     def release_hold(self, patron, pin, licensepool):
         url = self.base_url + "removeHold/v2"
@@ -148,6 +165,13 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         return list(AvailabilityResponseParser().process_all(
             availability.content))
 
+    def update_availability(self, licensepool):
+        """Update the availability information for a single LicensePool.
+
+        Part of the CirculationAPI interface.
+        """
+        self.update_licensepools_for_identifiers([licensepool.identifier])
+
     def update_licensepools_for_identifiers(self, identifiers):
         """Update availability information for a list of books.
 
@@ -165,8 +189,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = bibliographic.license_pool(self._db)
-            availability.update(pool, is_new)
+            pool, is_new = availability.license_pool(self._db)
+            availability.apply(pool)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -185,13 +209,17 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             self.log.info(
                 "Reaping %r", removed_identifier
             )
+
             availability = CirculationData(
+                data_source=pool.data_source,
+                primary_identifier=removed_identifier,
                 licenses_owned=0,
                 licenses_available=0,
                 licenses_reserved=0,
-                patrons_in_hold_queue=0
+                patrons_in_hold_queue=0,
             )
-            availability.update(pool, False)
+            availability.apply(pool, ReplacementPolicy.from_license_source())
+
 
 class Axis360CirculationMonitor(Monitor):
 
@@ -202,7 +230,7 @@ class Axis360CirculationMonitor(Monitor):
     FIVE_MINUTES = timedelta(minutes=5)
 
     def __init__(self, _db, name="Axis 360 Circulation Monitor",
-                 interval_seconds=60, batch_size=50):
+                 interval_seconds=60, batch_size=50, api=None):
         super(Axis360CirculationMonitor, self).__init__(
             _db, name, interval_seconds=interval_seconds,
             default_start_time = self.VERY_LONG_AGO
@@ -216,9 +244,12 @@ class Axis360CirculationMonitor(Monitor):
         else:
             # This should only happen during a test.
             self.metadata_wrangler = None
+        self.api = api or Axis360API.from_environment(self._db)
+        self.bibliographic_coverage_provider = (
+            Axis360BibliographicCoverageProvider(self._db, axis_360_api=api)
+        )
 
     def run(self):
-        self.api = Axis360API(self._db)
         super(Axis360CirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
@@ -228,9 +259,6 @@ class Axis360CirculationMonitor(Monitor):
         availability = self.api.availability(since=since)
         status_code = availability.status_code
         content = availability.content
-        if status_code != 200:
-            raise Exception(
-                "Got status code %d from API: %s" % (status_code, content))
         count = 0
         for bibliographic, circulation in BibliographicParser().process_all(
                 content):
@@ -240,20 +268,38 @@ class Axis360CirculationMonitor(Monitor):
                 self._db.commit()
 
     def process_book(self, bibliographic, availability):
-        license_pool, new_license_pool = bibliographic.license_pool(self._db)
+        
+        license_pool, new_license_pool = availability.license_pool(self._db)
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
+        policy = ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+        )
+        availability.apply(
+            pool=license_pool, 
+            replace=policy,
+        )
+        if new_edition:
+            bibliographic.apply(edition, replace=policy)
+
         if new_license_pool or new_edition:
-            bibliographic.apply(
-                edition, 
-                replace_identifiers=False,
-                replace_subjects=True, 
-                replace_contributions=True,
-                replace_formats=True,
+            # At this point we have done work equivalent to that done by 
+            # the Axis360BibliographicCoverageProvider. Register that the
+            # work has been done so we don't have to do it again.
+            identifier = edition.primary_identifier
+            self.bibliographic_coverage_provider.handle_success(identifier)
+            self.bibliographic_coverage_provider.add_coverage_record_for(
+                identifier
             )
-        availability.update(license_pool, new_license_pool)
+            
         return edition, license_pool
 
+
+class MockAxis360API(BaseMockAxis360API, Axis360API):
+    pass
 
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
@@ -265,7 +311,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
             _db, "Axis Collection Reaper", interval_seconds)
 
     def run(self):
-        self.api = Axis360API(self._db)
+        self.api = Axis360API.from_environment(self._db)
         super(AxisCollectionReaper, self).run()
 
     def identifier_query(self):
@@ -281,6 +327,8 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
 class ResponseParser(Axis360Parser):
 
     id_type = Identifier.AXIS_360_ID
+
+    SERVICE_NAME = "Axis 360"
 
     # Map Axis 360 error codes to our circulation exceptions.
     code_to_exception = {
@@ -324,12 +372,12 @@ class ResponseParser(Axis360Parser):
         3127 : InvalidInputException, # First name is required
         3128 : InvalidInputException, # Last name is required
         3130 : LibraryInvalidInputException, # Invalid hold format (?)
-        3131 : InternalServerError, # Custom error message (?)
+        3131 : RemoteInitiatedServerError, # Custom error message (?)
         3132 : LibraryInvalidInputException, # Invalid delta datetime format
         3134 : LibraryInvalidInputException, # Delta datetime format must not be in the future
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
-        5000 : InternalServerError,
+        5000 : RemoteInitiatedServerError,
     }
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
@@ -345,14 +393,16 @@ class ResponseParser(Axis360Parser):
 
         if code is None:
             # Something is so wrong that we don't know what to do.
-            raise InternalServerError(message)
+            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
         code = code.text
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
-            raise InternalServerError(
-                "Invalid response code from Axis 360: %s" % code)
+            raise RemoteInitiatedServerError(
+                "Invalid response code from Axis 360: %s" % code,
+                self.SERVICE_NAME
+            )
 
         for d in custom_error_classes, self.code_to_exception:
             if (code, message) in d:
@@ -360,7 +410,12 @@ class ResponseParser(Axis360Parser):
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                raise d[code](message)
+                cls = d[code]
+                if cls is RemoteInitiatedServerError:
+                    e = cls(message, self.SERVICE_NAME)
+                else:
+                    e = cls(message)
+                raise e
         return code, message
 
 
@@ -483,6 +538,8 @@ class AvailabilityResponseParser(ResponseParser):
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
                     content=None, content_expires=None)
+            else:
+                fulfillment = None
             info = LoanInfo(
                 identifier_type=self.id_type,
                 identifier=axis_identifier,

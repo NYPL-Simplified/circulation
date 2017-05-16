@@ -1,9 +1,10 @@
 # Core requirements
-elasticsearch
+elasticsearch==2.1.0
 pillow
 psycopg2
 requests
 sqlalchemy==1.0.6
+flask-sqlalchemy-session
 lxml
 flask
 isbnlib
@@ -13,8 +14,13 @@ python-dateutil
 uwsgi
 loggly-python-handler
 mock
-cairosvg
+cairosvg==1.0.22
 py-bcrypt
+Flask-Babel
+money
+
+# Ensure that we support SNI-based SSL
+ndg-httpsclient
 
 # In circ, feedparser is only used in tests.
 feedparser
@@ -26,6 +32,14 @@ textblob
 
 # Used only by circulation
 oauth2client
+pyjwt==1.4.2
+flask-cors
+PyLD
 
 # A NYPL-specific requirement
 newrelic
+
+# for author name manipulations
+nameparser
+fuzzywuzzy
+

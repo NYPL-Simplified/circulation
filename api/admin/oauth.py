@@ -1,34 +1,41 @@
 import json
 from nose.tools import set_trace
 
-from api.problem_details import GOOGLE_OAUTH_FAILURE
-from config import Configuration
+from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
+from flask.ext.babel import lazy_gettext as _
 
 class GoogleAuthService(object):
 
-    def __init__(self, client_json_file, redirect_uri, test_mode=False):
-        if test_mode:
-            self.client = DummyGoogleClient()
-        else:
-            self.client = GoogleClient.flow_from_clientsecrets(
-                client_json_file,
-                scope='https://www.googleapis.com/auth/userinfo.email',
-                redirect_uri=redirect_uri
-            )
+    def __init__(self, auth_service, redirect_uri, test_mode=False):
+        self.auth_service = auth_service
+        self.redirect_uri = redirect_uri
+        self.test_mode = test_mode
+
+    @property
+    def client(self):
+        if self.test_mode:
+            return DummyGoogleClient()
+
+        integration = self.auth_service.external_integration
+        config = dict()
+        config["auth_uri"] = integration.url
+        config["client_id"] = integration.username
+        config["client_secret"] = integration.password
+        config['redirect_uri'] = self.redirect_uri
+        config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
+        return GoogleClient.OAuth2WebServerFlow(**config)
+
+    @property
+    def domains(self):
+        if self.auth_service:
+            integration = self.auth_service.external_integration
+            if integration.setting("domains").value:
+                return json.loads(integration.setting("domains").value)
+        return []
 
     def auth_uri(self, redirect_url):
         return self.client.step1_get_authorize_url(state=redirect_url)
-
-    @classmethod
-    def from_environment(cls, redirect_uri, test_mode=False):
-        if test_mode:
-            return cls('/path', '/callback', test_mode)
-        config = Configuration.integration(
-            Configuration.GOOGLE_OAUTH_INTEGRATION
-        )
-        client_json_file = config[Configuration.GOOGLE_OAUTH_CLIENT_JSON]
-        return cls(client_json_file, redirect_uri, test_mode)
 
     def callback(self, request={}):
         """Google OAuth sign-in flow"""
@@ -49,7 +56,15 @@ class GoogleAuthService(object):
             ), redirect_url
 
     def google_error_problem_detail(self, error):
-        error_detail = GOOGLE_OAUTH_FAILURE.detail + " Error: " + error
+        error_detail = _("Error: %(error)s", error=error)
+
+        # ProblemDetail.detailed requires the detail to be an internationalized
+        # string, so pass the combined string through _ as well even though the
+        # components were translated already. Space is a variable so it doesn't
+        # end up in the translation template.
+        space = " "
+        error_detail = _(unicode(GOOGLE_OAUTH_FAILURE.detail) + space + unicode(error_detail))
+
         return GOOGLE_OAUTH_FAILURE.detailed(error_detail)
 
     def active_credentials(self, admin):

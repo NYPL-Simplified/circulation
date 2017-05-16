@@ -12,19 +12,13 @@ from core.model import DataSource
 from api.config import Configuration
 if len(sys.argv) > 1 and sys.argv[1].startswith('http'):
     content_server_url = sys.argv[1]
-    register_timestamp = False
 else:
-    register_timestamp = True
     Configuration.load()
     content_server_url = Configuration.integration_url(Configuration.CONTENT_SERVER_INTEGRATION)
 
-import_presentation_ready = len(sys.argv) > 2 and sys.argv[2] == 'make-ready'
-
 print "Importing from %s" % content_server_url
-if import_presentation_ready:
-    print "Works will be made presentation-ready immediately."
 OPDSImportScript(
-    content_server_url, DataSource.OA_CONTENT_SERVER, OPDSImporter, 
-    register_timestamp, 
-    immediately_presentation_ready=import_presentation_ready
+    feed_url=content_server_url, opds_data_source=DataSource.OA_CONTENT_SERVER,
+    importer_class=OPDSImporter, 
+    immediately_presentation_ready=True
 ).run()

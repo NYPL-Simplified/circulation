@@ -13,7 +13,19 @@ python:
 
 cache: pip
 
+git:
+  submodules: false
+
+before_install:
+  - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+  - git submodule update --init --recursive
+
 install:
+  # pycparser is a dependency of cairosvg that currently does not work on travis.
+  # The bug has apparently been fixed (https://github.com/eliben/pycparser/issues/148)
+  # but it still doesn't work with cairocffi: https://github.com/Kozea/cairocffi/issues/91
+  # This is a temporary workaround.
+  - pip install git+https://github.com/eliben/pycparser@release_v2.14
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
   - cp config.json.sample config.json

@@ -7,6 +7,7 @@ from core.scripts import (
     Script,
     IdentifierInputScript,
 )
+from core.util.problem_detail import ProblemDetail
 
 from config import Configuration
 from authenticator import Authenticator
@@ -22,12 +23,12 @@ class ServiceStatus(object):
 
     SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
-    def __init__(self, _db):
+    def __init__(self, _db, auth=None, overdrive=None, threem=None, axis=None):
         self._db = _db
-        self.conf = Configuration.authentication_policy()
-        self.overdrive = OverdriveAPI.from_environment(self._db)
-        self.threem = ThreeMAPI.from_environment(self._db)
-        self.axis = Axis360API.from_environment(self._db)
+        self.auth = auth or Authenticator.from_config(self._db)
+        self.overdrive = overdrive or OverdriveAPI.from_environment(self._db)
+        self.threem = threem or ThreeMAPI.from_environment(self._db)
+        self.axis = axis or Axis360API.from_environment(self._db)
 
     def loans_status(self, response=False):
         """Checks the length of request times for patron activity.
@@ -35,18 +36,40 @@ class ServiceStatus(object):
         Returns a dict if response is set to true.
         """
         status = dict()
-        patrons = []
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
-        def do_patron():
-            patron = self.get_patron()
-            patrons.append(patron)
-        self._add_timing(status, 'Patron authentication', do_patron)
-
-        if not patrons:
-            self.log.error("No patron created during patron authentication")
+        if not self.auth.basic_auth_provider:
+            self.log.error(
+                "Basic auth not configured, cannot perform timing tests."
+            )
             return status
-        patron = patrons[0]
 
+        patron_info = []
+        def do_patron():
+            patron, password = self.auth.basic_auth_provider.testing_patron(
+                self._db
+            )
+            # Stick it in a list so we can use it once we leave the function.
+            patron_info.append((patron, password))
+
+        # Look up the test patron and verify their credentials. If
+        # this doesn't work, nothing else will work, either.
+        service = 'Patron authentication'
+        self._add_timing(status, service, do_patron)
+        success = False
+        patron = password = None
+        error = "Could not create patron with configured credentials."
+        if patron_info:
+            [(patron, password)] = patron_info
+            if patron:
+                if isinstance(patron, ProblemDetail):
+                    response = patron.response
+                    error = response[0] # The JSON representation of the ProblemDetail
+                else:
+                    success = True
+                    error = None
+        if not success:
+            self.log.error(error)
+            status[service] = error
+            return status
         for api in [self.overdrive, self.threem, self.axis]:
             if not api:
                 continue
@@ -70,8 +93,7 @@ class ServiceStatus(object):
         Intended to be run with an identifier without license restrictions.
         """
         status = dict()
-        patron = self.get_patron()
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
+        patron, password = self.get_patron()
         api = CirculationAPI(
             self._db, overdrive=self.overdrive, threem=self.threem,
             axis=self.axis
@@ -113,16 +135,6 @@ class ServiceStatus(object):
         self._add_timing(status, service, do_checkin)
 
         self.log_status(status)
-
-    def get_patron(self):
-        auth = Authenticator.initialize(self._db)
-        username = self.conf[Configuration.AUTHENTICATION_TEST_USERNAME]
-        password = self.conf[Configuration.AUTHENTICATION_TEST_PASSWORD]
-
-        patron = auth.authenticated_patron(self._db, username, password)
-        if not patron:
-            raise ValueError("Could not authenticate test patron!")
-        return patron
 
     def _add_timing(self, status, service, service_action, *args):
         try:

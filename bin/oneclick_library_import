@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+"""Update the circulation manager server with new books from the
+OneClick content server.
+
+If you want to test with sample OneClick data on a non-test database, 
+run like so:
+python bin/oneclick_library_import --mock
+"""
+import os
+import sys
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..")
+sys.path.append(os.path.abspath(package_dir))
+from core.scripts import OneClickImportScript
+
+from api.config import Configuration
+Configuration.load()
+library_id = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("library_id", None)
+
+print "Importing catalog of library #%s" % library_id
+OneClickImportScript().run()
+
