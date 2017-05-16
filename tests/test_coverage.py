@@ -118,7 +118,6 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         [edition] = id1.primarily_identifies
         eq_("Here's your title!", edition.title)
-        eq_(id1, edition.primary_identifier)
 
     def test_process_batch(self):
         provider = self._provider()
@@ -493,14 +492,66 @@ class TestMetadataWranglerCollectionReaper(DatabaseTest):
             [x.message for x in values]
         )
 
-        # We get an error if the 'server' sends data with the wrong media
-        # type.
-        response = MockRequestsResponse(200, {"content-type" : "text/plain"},
-                                        data)
-        assert_raises(
-            BadResponseException, self.reaper.process_feed_response,
-            response, {}
+    def test_process_batch(self):
+        # Ignoring reaping requirements, create three Identifiers to send.
+        # 1. Straightforward identifier that's represented in the OPDS response.
+        id1 = self._identifier(foreign_id=u'2020110')
+        # 2. Mapped identifier.
+        id2 = self._identifier(
+            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
         )
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        equivalent_id = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+        )
+        id2.equivalent_to(source, equivalent_id, 1)
+        # 3. An identifier that's not represented in the OPDS response.
+        id3 = self._identifier()
+
+        # Queue up a feed with different possible Metadata Wrangler
+        # responses.
+        data = sample_data('metadata_reaper_response.opds', 'opds')
+        self.reaper.lookup_client.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        results = self.reaper.process_batch([id1, id2, id3])
+
+        eq_(id1, results[0])
+        eq_(id2, results[1])
+        eq_(True, isinstance(results[2], CoverageFailure))
+        eq_(u'Unknown Error', results[2].exception)
+
+        # If a message comes back with an unexpected status, a
+        # CoverageFailure is created.
+        data = sample_data('unknown_message_status_code.opds', 'opds')
+        self.reaper.lookup_client.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        [result] = self.reaper.process_batch([id1])
+        eq_(True, isinstance(result, CoverageFailure))
+        eq_(id1, result.obj)
+        eq_('Unknown OPDSMessage status: 418', result.exception)
+
+        # If the 'server' sends data with the wrong media type, the whole
+        # batch gets CoverageFailures.
+        self.reaper.lookup_client.queue_response(
+            200, {'content-type': 'json/application'}, "It broke."
+        )
+        [result] = self.reaper.process_batch([id2])
+        eq_(True, isinstance(result, CoverageFailure))
+        eq_(id2, result.obj)
+        eq_(True, result.transient)
+        assert "It broke." in result.exception
+
+        # If the 'server' is down, the whole batch gets CoverageFailures.
+        self.reaper.lookup_client.queue_response(
+            500, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, 'Internal Server Error'
+        )
+        [result] = self.reaper.process_batch([id2])
+        eq_(True, isinstance(result, CoverageFailure))
+        eq_(id2, result.obj)
+        eq_(True, result.transient)
+        assert 'Internal Server Error' in result.exception
 
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
