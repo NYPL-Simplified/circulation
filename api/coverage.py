@@ -203,8 +203,70 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
             collection=self.collection
         )
 
+    def _process_batch(self, client_method, success_codes, batch):
+        results = list()
+        id_mapping = self.create_identifier_mapping(batch)
+        mapped_batch = id_mapping.keys()
+
+        try:
+            response = client_method(mapped_batch)
+            self.check_content_type(response)
+        except RemoteIntegrationException as e:
+            return [
+                CoverageFailure(
+                    id_mapping[obj], e.debug_message, self.data_source
+                )
+                for obj in mapped_batch
+            ]
+
+        for message in self.process_feed_response(response, id_mapping):
+            try:
+                identifier, _new = Identifier.parse_urn(self._db, message.urn)
+                mapped_batch.remove(identifier)
+            except ValueError as e:
+                # For some reason this URN can't be parsed. This
+                # shouldn't happen.
+                continue
+
+            if message.status_code in success_codes:
+                result = id_mapping[identifier]
+                results.append(result)
+            elif message.status_code == 400:
+                # The URN couldn't be recognized. (This shouldn't happen,
+                # since if we can parse it here, we can parse it on MW, too.)
+                exception = "%s: %s" % (message.status_code, message.message)
+                failure = CoverageFailure(
+                    identifier, exception, data_source=self.data_source
+                )
+                results.append(failure)
+            else:
+                exception = "Unknown OPDSMessage status: %s" % message.status_code
+                failure = CoverageFailure(
+                    identifier, exception, data_source=self.data_source
+                )
+                results.append(failure)
+
+        for remainder in mapped_batch:
+            failure = CoverageFailure(remainder, "Unknown Error", self.data_source)
+            results.append(failure)
+
+        return results
+
+    def process_feed_response(self, response, id_mapping):
+        """Extracts messages from OPDS feed"""
+        importer = OPDSImporter(
+            self._db, self.collection, data_source_name=self.data_source.name,
+            identifier_mapping=id_mapping
+        )
+        parser = OPDSXMLParser()
+        root = etree.parse(StringIO(response.text))
+        return importer.extract_messages(parser, root)
+
 
 class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
+    """Adds identifiers from a local Collection to the remote Metadata
+    Wrangler Collection
+    """
 
     SERVICE_NAME = "Metadata Wrangler Sync"
     OPERATION = CoverageRecord.SYNC_OPERATION
@@ -255,9 +317,19 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # even if they do have a REAP coverage record.
         return uncovered.except_(reaper_covered).union(relicensed)
 
+    def process_batch(self, batch):
+        # Success codes:
+            # - 200: It's already in the remote Collection.
+            # - 201: It was added successfully.
+        return self._process_batch(
+            self.lookup_client.add, (200, 201), batch
+        )
+
 
 class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
-    """Removes unlicensed identifiers from the Metadata Wrangler collection"""
+    """Removes unlicensed identifiers from the remote Metadata Wrangler
+    Collection
+    """
 
     SERVICE_NAME = "Metadata Wrangler Reaper"
     OPERATION = CoverageRecord.REAP_OPERATION
@@ -279,65 +351,12 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
         return qu
 
     def process_batch(self, batch):
-        results = list()
-        id_mapping = self.create_identifier_mapping(batch)
-        lookup_batch = id_mapping.keys()
-
-        try:
-            response = self.lookup_client.remove(lookup_batch)
-            self.check_content_type(response)
-        except RemoteIntegrationException as e:
-            return [
-                CoverageFailure(
-                    id_mapping[obj], e.debug_message, self.data_source
-                )
-                for obj in lookup_batch
-            ]
-
-        for message in self.process_feed_response(response, id_mapping):
-            try:
-                identifier, _new = Identifier.parse_urn(self._db, message.urn)
-                lookup_batch.remove(identifier)
-            except ValueError as e:
-                # For some reason this URN can't be parsed. This
-                # shouldn't happen.
-                continue
-
-            if message.status_code in (200, 404):
-                # It's been removed from the Collection's catalog (200)
-                # or it was never in there in the first place (404).
-                result = id_mapping[identifier]
-                results.append(result)
-            elif message.status_code == 400:
-                # The URN couldn't be recognized. (This shouldn't happen,
-                # since if we can parse it here, we can parse it on MW, too.)
-                exception = "%s: %s" % (message.status_code, message.message)
-                failure = CoverageFailure(
-                    identifier, exception, data_source=self.data_source
-                )
-                results.append(failure)
-            else:
-                exception = "Unknown OPDSMessage status: %s" % message.status_code
-                failure = CoverageFailure(
-                    identifier, exception, data_source=self.data_source
-                )
-                results.append(failure)
-
-        for remainder in lookup_batch:
-            failure = CoverageFailure(remainder, "Unknown Error", self.data_source)
-            results.append(failure)
-
-        return results
-
-    def process_feed_response(self, response, id_mapping):
-        """Extracts messages from OPDS feed"""
-        importer = OPDSImporter(
-            self._db, self.collection, data_source_name=self.data_source.name,
-            identifier_mapping=id_mapping
+        # Success codes:
+            # - 200: It was removed successfully.
+            # - 404: It wasn't found in the remote Collection
+        return self._process_batch(
+            self.lookup_client.remove, (200, 404), batch
         )
-        parser = OPDSXMLParser()
-        root = etree.parse(StringIO(response.text))
-        return importer.extract_messages(parser, root)
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
