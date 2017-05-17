@@ -29,11 +29,13 @@ import log # This sets the appropriate log format.
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
 
-    def __init__(self, obj, exception, data_source=None, transient=True):
+    def __init__(self, obj, exception, data_source=None, transient=True,
+                 collection=None):
         self.obj = obj
         self.data_source = data_source
         self.exception = exception
         self.transient = transient
+        self.collection = collection
 
     def __repr__(self):
         if self.data_source:
@@ -52,7 +54,8 @@ class CoverageFailure(object):
             )
 
         record, ignore = CoverageRecord.add_for(
-            self.obj, self.data_source, operation=operation
+            self.obj, self.data_source, operation=operation,
+            collection=self.collection
         )
         record.exception = self.exception
         if self.transient:
