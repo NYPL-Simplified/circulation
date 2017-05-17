@@ -138,14 +138,24 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             kwargs['auth'] = (self.client_id, self.client_secret)
         return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
-    def remove(self, identifiers):
-        """Remove items from an authenticated Metadata Wrangler collection"""
-
+    def add(self, identifiers):
+        """Add items to an authenticated Metadata Wrangler Collection"""
         if not self.authenticated:
             raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
-        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
+
+        args = "&".join(set("urn=%s" % i.urn for i in identifiers))
+        url = self.base_url + self.ADD_ENDPOINT + "?" + args
+        logging.info("Metadata Wrangler Collection Addition URL: %s", url)
+        return self._get(url)
+
+    def remove(self, identifiers):
+        """Remove items from an authenticated Metadata Wrangler Collection"""
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
+
+        args = "&".join(set("urn=%s" % i.urn for i in identifiers))
         url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
-        logging.info("Metadata Wrangler Removal URL: %s", url)
+        logging.info("Metadata Wrangler Collection Removal URL: %s", url)
         return self._get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
