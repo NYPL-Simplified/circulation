@@ -231,7 +231,6 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
         self.provider = self.create_provider()
 
-
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
         overdrive = self._identifier(Identifier.OVERDRIVE_ID)
@@ -422,6 +421,7 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
             eq_(True, isinstance(result, CoverageFailure))
             assert result.obj in [id1, id2]
             eq_(True, result.transient)
+            eq_(self.provider.collection, result.collection)
             assert "It broke." in result.exception
 
         # If the 'server' is down, the whole batch gets CoverageFailures.
@@ -434,6 +434,33 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
             assert result.obj in [id1, id2]
             eq_(True, result.transient)
             assert 'Internal Server Error' in result.exception
+
+        # If a message comes back with an unexpected status, a
+        # CoverageFailure is created.
+        data = sample_data('unknown_message_status_code.opds', 'opds')
+        valid_id = self.opds_feed_identifiers()[0]
+        self.lookup.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        [result] = self.provider.process_batch([valid_id])
+        eq_(True, isinstance(result, CoverageFailure))
+        eq_(valid_id, result.obj)
+        eq_(self.provider.collection, result.collection)
+        eq_('Unknown OPDSMessage status: 418', result.exception)
+
+    def test_coverage_records_for_unhandled_items_include_collection(self):
+        data = sample_data('metadata_sync_response.opds', 'opds')
+        self.lookup.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+
+        identifier = self._identifier()
+        self.provider.process_batch_and_handle_results([identifier])
+        [record] = identifier.coverage_records
+        eq_(CoverageRecord.TRANSIENT_FAILURE, record.status)
+        eq_(self.provider.data_source, record.data_source)
+        eq_(self.provider.operation, record.operation)
+        eq_(self.provider.collection, record.collection)
 
 
 class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
@@ -513,10 +540,6 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         results = self.provider.process_batch([valid_id, mapped_id, lost_id])
         eq_(valid_id, results[0])
         eq_(mapped_id, results[1])
-        eq_(True, isinstance(results[2], CoverageFailure))
-        eq_(lost_id, results[2].obj)
-        eq_('Unknown Error', results[2].exception)
-        eq_(True, results[2].transient)
 
 
 class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest):
@@ -582,19 +605,6 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
 
         eq_(valid_id, results[0])
         eq_(mapped_id, results[1])
-        eq_(True, isinstance(results[2], CoverageFailure))
-        eq_('Unknown Error', results[2].exception)
-
-        # If a message comes back with an unexpected status, a
-        # CoverageFailure is created.
-        data = sample_data('unknown_message_status_code.opds', 'opds')
-        self.lookup.queue_response(
-            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
-        )
-        [result] = self.provider.process_batch([valid_id])
-        eq_(True, isinstance(result, CoverageFailure))
-        eq_(valid_id, result.obj)
-        eq_('Unknown OPDSMessage status: 418', result.exception)
 
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db

@@ -203,6 +203,15 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
             collection=self.collection
         )
 
+    def failure(self, identifier, error, transient=True):
+        """Create a CoverageFailure object with an associated Collection"""
+        return CoverageFailure(
+            identifier, error,
+            data_source=self.data_source,
+            transient=transient,
+            collection=self.collection,
+        )
+
     def _process_batch(self, client_method, success_codes, batch):
         results = list()
         id_mapping = self.create_identifier_mapping(batch)
@@ -212,12 +221,8 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
             response = client_method(mapped_batch)
             self.check_content_type(response)
         except RemoteIntegrationException as e:
-            return [
-                CoverageFailure(
-                    id_mapping[obj], e.debug_message, self.data_source
-                )
-                for obj in mapped_batch
-            ]
+            return [self.failure(id_mapping[obj], e.debug_message)
+                    for obj in mapped_batch]
 
         for message in self.process_feed_response(response, id_mapping):
             try:
@@ -235,20 +240,12 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
                 # The URN couldn't be recognized. (This shouldn't happen,
                 # since if we can parse it here, we can parse it on MW, too.)
                 exception = "%s: %s" % (message.status_code, message.message)
-                failure = CoverageFailure(
-                    identifier, exception, data_source=self.data_source
-                )
+                failure = self.failure(identifier, exception)
                 results.append(failure)
             else:
                 exception = "Unknown OPDSMessage status: %s" % message.status_code
-                failure = CoverageFailure(
-                    identifier, exception, data_source=self.data_source
-                )
+                failure = self.failure(identifier, exception)
                 results.append(failure)
-
-        for remainder in mapped_batch:
-            failure = CoverageFailure(remainder, "Unknown Error", self.data_source)
-            results.append(failure)
 
         return results
 
