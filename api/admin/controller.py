@@ -139,7 +139,16 @@ class AdminController(object):
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
-        return flask.session.get("csrf_token")
+        return flask.request.cookies.get("csrf_token")
+
+    def generate_csrf_token(self):
+        """Generate a random CSRF token."""
+        # The CSRF token is in its own cookie instead of the session cookie,
+        # because if your session expires and you log in again, you should
+        # be able to submit a form you already had open. The CSRF token lasts
+        # until the user closes the browser window.
+        return base64.b64encode(os.urandom(24))
+        
 
 class SignInController(AdminController):
 
@@ -179,8 +188,13 @@ class SignInController(AdminController):
         else:
             admin = self.authenticated_admin(admin_details)
             flask.session["admin_email"] = admin_details.get("email")
-            flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
+
+            # A permanent session expires after a fixed time, rather than
+            # when the user closes the browser.
+            flask.session.permanent = True
+
             return redirect(redirect_url, Response=Response)
+
     
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
