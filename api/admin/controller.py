@@ -143,10 +143,6 @@ class AdminController(object):
 
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
-        # The CSRF token is in its own cookie instead of the session cookie,
-        # because if your session expires and you log in again, you should
-        # be able to submit a form you already had open. The CSRF token lasts
-        # until the user closes the browser window.
         return base64.b64encode(os.urandom(24))
         
 
