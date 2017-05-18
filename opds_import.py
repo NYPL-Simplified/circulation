@@ -87,9 +87,12 @@ class SimplifiedOPDSLookup(object):
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
         return HTTP.get_with_timeout(url, **kwargs)
 
+    def urn_args(self, identifiers):
+        return "&".join(set("urn=%s" % i.urn for i in identifiers))
+
     def lookup(self, identifiers):
         """Retrieve an OPDS feed with metadata for the given identifiers."""
-        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
+        args = self.urn_args(identifiers)
         url = self.base_url + self.lookup_endpoint + "?" + args
         logging.info("Lookup URL: %s", url)
         return self._get(url)
@@ -98,7 +101,7 @@ class SimplifiedOPDSLookup(object):
 class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     ADD_ENDPOINT = 'add'
-    REMOVAL_ENDPOINT = 'remove'
+    REMOVE_ENDPOINT = 'remove'
     UPDATES_ENDPOINT = 'updates'
     CANONICALIZE_ENDPOINT = 'canonical-author-name'
 
@@ -129,7 +132,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     @property
     def lookup_endpoint(self):
-        if not self.authenticated or not self.collection:
+        if not (self.authenticated and self.collection):
             return self.LOOKUP_ENDPOINT
         return self.collection.metadata_identifier + '/' + self.LOOKUP_ENDPOINT
 
@@ -138,24 +141,43 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             kwargs['auth'] = (self.client_id, self.client_secret)
         return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
+    def _post(self, url, **kwargs):
+        """Make an HTTP request. This method is overridden in the mock class."""
+        kwargs['timeout'] = kwargs.get('timeout', 120)
+        kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
+        kwargs['allowed_response_codes'] += ['2xx', '3xx']
+        return HTTP.post_with_timeout(url, "", **kwargs)
+
+    def get_collection_url(self, endpoint):
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler access not authenticated.")
+        if not self.collection:
+            raise ValueError("No Collection provided.")
+
+        return self.base_url + self.collection.metadata_identifier + '/' + endpoint
+
     def add(self, identifiers):
         """Add items to an authenticated Metadata Wrangler Collection"""
-        if not self.authenticated:
-            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
+        add_url = self.get_collection_url(self.ADD_ENDPOINT)
+        url = add_url + "?" + self.urn_args(identifiers)
 
-        args = "&".join(set("urn=%s" % i.urn for i in identifiers))
-        url = self.base_url + self.ADD_ENDPOINT + "?" + args
         logging.info("Metadata Wrangler Collection Addition URL: %s", url)
-        return self._get(url)
+        return self._post(url)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler Collection"""
-        if not self.authenticated:
-            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
+        remove_url = self.get_collection_url(self.REMOVE_ENDPOINT)
+        url = remove_url + "?" + self.urn_args(identifiers)
 
-        args = "&".join(set("urn=%s" % i.urn for i in identifiers))
-        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
         logging.info("Metadata Wrangler Collection Removal URL: %s", url)
+        return self._post(url)
+
+    def updates(self, identifiers):
+        """Retrieve updated items from an authenticated Metadata
+        Wrangler Collection
+        """
+        url = self.get_collection_url(self.UPDATES_ENDPOINT)
+        logging.info("Metadata Wrangler Collection Updates URL: %s", url)
         return self._get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
@@ -196,8 +218,15 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
             kwargs.get('disallowed_response_codes')
         )
 
+
 class MockMetadataWranglerOPDSLookup(MockSimplifiedOPDSLookup, MetadataWranglerOPDSLookup):
-    pass
+
+    def _post(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
 
 
 class OPDSXMLParser(XMLParser):

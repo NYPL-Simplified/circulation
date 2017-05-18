@@ -21,6 +21,7 @@ from config import (
     CannotLoadConfiguration
 )
 from opds_import import (
+    AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
@@ -75,37 +76,80 @@ class DoomedWorkOPDSImporter(OPDSImporter):
             # Any other import fails.
             raise Exception("Utter work failure!")
 
-class TestSimplifiedOPDSLookup(DatabaseTest):
+
+class TestMetadataWranglerOPDSLookup(DatabaseTest):
+
+    def setup(self):
+        super(TestMetadataWranglerOPDSLookup, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            username='abc', password='def', url="http://metadata.in"
+        )
+        self.collection = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id=u'library'
+        )
 
     def test_authenticates_wrangler_requests(self):
-        """Tests that the client_id and client_secret are set for any
-        Metadata Wrangler lookups"""
+        """Authenticated details are set for Metadata Wrangler requests
+        when they configured for the ExternalIntegration
+        """
 
-        wrangler_integration = self._external_integration(
-            ExternalIntegration.METADATA_WRANGLER,
-            username='abc', password='def', url="http://localhost"
-        )
-        importer = MetadataWranglerOPDSLookup(self._db)
-        eq_("abc", importer.client_id)
-        eq_("def", importer.client_secret)
+        lookup = MetadataWranglerOPDSLookup(self._db)
+        eq_("abc", lookup.client_id)
+        eq_("def", lookup.client_secret)
+        eq_(True, lookup.authenticated)
 
         # An error is raised if only one value is set.
-        wrangler_integration.password = None
-        assert_raises(CannotLoadConfiguration)
+        self.integration.password = None
+        assert_raises(
+            CannotLoadConfiguration, MetadataWranglerOPDSLookup, self._db
+        )
 
         # The details are None if client configuration isn't set at all.
-        wrangler_integration.username = None
-        importer = MetadataWranglerOPDSLookup(self._db)
-        eq_(None, importer.client_id)
-        eq_(None, importer.client_secret)
+        self.integration.username = None
+        lookup = MetadataWranglerOPDSLookup(self._db)
+        eq_(None, lookup.client_id)
+        eq_(None, lookup.client_secret)
+        eq_(False, lookup.authenticated)
 
-        # For other integrations, the details aren't created at all.
-        content_integration = self._external_integration(
-            ExternalIntegration.CONTENT_SERVER, url="http://whatevz"
+    def test_get_collection_endpoint(self):
+        lookup = MetadataWranglerOPDSLookup(self._db)
+
+        # If the lookup client doesn't have a Collection, an error is
+        # raised.
+        assert_raises(
+            ValueError, lookup.get_collection_endpoint, 'banana'
         )
-        importer = SimplifiedOPDSLookup.from_provider(self._db, ExternalIntegration.CONTENT_SERVER)
-        eq_(False, hasattr(importer, 'client_id'))
-        eq_(False, hasattr(importer, 'client_secret'))
+
+        # If the lookup client isn't authenticated, an error is raised.
+        lookup.collection = self.collection
+        lookup.client_id = lookup.client_secret = None
+        assert_raises(
+            AccessNotAuthenticated, lookup.get_collection_endpoint, 'banana'
+        )
+
+        # With both authentication and a specific Collection,
+        # a URL is returned.
+        lookup.client_id = lookup.client_secret = 'password'
+        expected = self.collection.metadata_identifier + '/banana'
+        eq_(expected, lookup.get_collection_endpoint('banana'))
+
+    def test_lookup_endpoint(self):
+        # A Collection-specific endpoint is returned if authentication
+        # and a Collection is available.
+        lookup = MetadataWranglerOPDSLookup(self._db, collection=self.collection)
+
+        expected = self.collection.metadata_identifier + '/lookup'
+        eq_(expected, lookup.lookup_endpoint)
+
+        # Without a collection, an unspecific endpoint is returned.
+        lookup.collection = None
+        eq_('lookup', lookup.lookup_endpoint)
+
+        # Without authentication, an unspecific endpoint is returned.
+        lookup.client_id = lookup.client_secret = None
+        lookup.collection = self.collection
+        eq_('lookup', lookup.lookup_endpoint)
 
 
 class OPDSImporterTest(DatabaseTest):
@@ -122,9 +166,10 @@ class OPDSImporterTest(DatabaseTest):
             DataSource.OA_CONTENT_SERVER
         )
 
+        # Set an ExternalIntegration for the metadata_client used
+        # in the OPDSImporter.
         self.service = self._external_integration(
-            ExternalIntegration.METADATA_WRANGLER,
-            username='abc', password='def', url="http://localhost"
+            ExternalIntegration.METADATA_WRANGLER, url="http://localhost"
         )
         
 
