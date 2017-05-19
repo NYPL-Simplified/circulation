@@ -146,7 +146,6 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     INPUT_IDENTIFIER_TYPES = [
         Identifier.OVERDRIVE_ID, 
         Identifier.THREEM_ID,
-        Identifier.GUTENBERG_ID, 
         Identifier.AXIS_360_ID,
         Identifier.ONECLICK_ID, 
     ]
@@ -163,9 +162,9 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
             )
 
     def create_identifier_mapping(self, batch):
-        """The metadata wrangler can look up URIs, Gutenberg identifiers,
-        and Overdrive identifiers. All other identifier types need to be
-        mapped to ISBNs.
+        """The metadata wrangler can look up ISBNs and Overdrive
+        identifiers. All other identifier types need to be mapped to
+        ISBNs.
         """
         mapping = dict()
         for identifier in batch:
@@ -264,10 +263,8 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         """
 
         # Start with items in this Collection that have not been synced.
-        uncovered = super(
-            MetadataWranglerCoverageProvider, self).items_that_need_coverage(
-                identifiers, **kwargs
-            )
+        uncovered = super(MetadataWranglerCoverageProvider, self)\
+            .items_that_need_coverage(identifiers, **kwargs)
 
         # We'll be excluding items that have been reaped because we
         # stopped having a license.

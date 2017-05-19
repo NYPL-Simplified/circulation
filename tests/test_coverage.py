@@ -259,7 +259,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         """
 
         edition, pool = self._edition(
-            with_license_pool=True, collection=self.collection
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
         )
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
@@ -287,7 +288,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
     def test_items_that_need_coverage_respects_count_as_covered(self):
         # Here's a coverage record with a transient failure.
         edition, pool = self._edition(
-            with_license_pool=True, collection=self.collection
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.OVERDRIVE_ID,
         )
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source, 
@@ -480,7 +482,8 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         # An item that has been synced for some other Collection, but not
         # this one.
         e1, other_covered = self._edition(
-            with_license_pool=True, collection=other_collection
+            with_license_pool=True, collection=other_collection,
+            identifier_type=Identifier.AXIS_360_ID,
         )
         uncovered = self._licensepool(
             e1, with_open_access_download=True,
@@ -494,6 +497,7 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         # by the reaper operation already.
         e2, reaped = self._edition(
             with_license_pool=True, collection=self.provider.collection,
+            identifier_type=Identifier.ONECLICK_ID,
         )
         reaped.update_availability(0, 0, 0, 0)
         reaper_cr = self._coverage_record(
@@ -505,7 +509,8 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         # An item that has been covered by the reaper operation, but has
         # had its license repurchased.
         e3, relicensed = self._edition(
-            with_license_pool=True, collection=self.provider.collection
+            with_license_pool=True, collection=self.provider.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
         )
         relicensed_coverage_record = self._coverage_record(
             relicensed.identifier, source,
