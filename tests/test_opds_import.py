@@ -112,27 +112,27 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         eq_(None, lookup.client_secret)
         eq_(False, lookup.authenticated)
 
-    def test_get_collection_endpoint(self):
+    def test_get_collection_url(self):
         lookup = MetadataWranglerOPDSLookup(self._db)
 
         # If the lookup client doesn't have a Collection, an error is
         # raised.
         assert_raises(
-            ValueError, lookup.get_collection_endpoint, 'banana'
+            ValueError, lookup.get_collection_url, 'banana'
         )
 
         # If the lookup client isn't authenticated, an error is raised.
         lookup.collection = self.collection
         lookup.client_id = lookup.client_secret = None
         assert_raises(
-            AccessNotAuthenticated, lookup.get_collection_endpoint, 'banana'
+            AccessNotAuthenticated, lookup.get_collection_url, 'banana'
         )
 
         # With both authentication and a specific Collection,
         # a URL is returned.
         lookup.client_id = lookup.client_secret = 'password'
-        expected = self.collection.metadata_identifier + '/banana'
-        eq_(expected, lookup.get_collection_endpoint('banana'))
+        expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
+        eq_(expected, lookup.get_collection_url('banana'))
 
     def test_lookup_endpoint(self):
         # A Collection-specific endpoint is returned if authentication
@@ -947,6 +947,45 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_pools)
         eq_([], imported_works)
 
+    def test_build_identifier_mapping(self):
+        """Reverse engineers an identifier_mapping based on a list of URNs"""
+
+        collection = self._collection(protocol=Collection.AXIS_360)
+        lp = self._licensepool(
+            None, collection=collection,
+            data_source_name=DataSource.AXIS_360
+        )
+
+        # Create a couple of ISBN equivalencies.
+        isbn1 = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+        )
+        isbn2 = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+        )
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        [lp.identifier.equivalent_to(source, isbn, 1) for isbn in [isbn1, isbn2]]
+
+        # The importer is initialized without an identifier mapping.
+        importer = OPDSImporter(self._db, collection)
+        eq_(None, importer.identifier_mapping)
+
+        # We can build one.
+        importer.build_identifier_mapping([isbn1.urn])
+        expected = { isbn1 : lp.identifier }
+        eq_(expected, importer.identifier_mapping)
+
+        # If we already have one, it isn't overwritten.
+        importer.build_identifier_mapping([isbn2.urn])
+        overwrite = { isbn2 : lp.identifier }
+        eq_(False, importer.identifier_mapping==overwrite)
+        eq_(expected, importer.identifier_mapping)
+
+        # If the importer doesn't have a collection, we can't build
+        # its mapping.
+        importer = OPDSImporter(self._db, None)
+        importer.build_identifier_mapping([isbn1])
+        eq_(None, importer.identifier_mapping)
 
 class TestCombine(object):
     """Test that OPDSImporter.combine combines dictionaries in sensible

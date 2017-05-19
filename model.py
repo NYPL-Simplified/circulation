@@ -9012,6 +9012,10 @@ class Collection(Base):
         cascade="save-update, merge, delete"
     )
 
+    def __repr__(self):
+        return (u'<Collection "%s"/"%s" ID=%d>' %
+                (self.name, self.protocol, self.id)).encode('utf8')
+
     @property
     def external_integration(self):
         _db = Session.object_session(self)

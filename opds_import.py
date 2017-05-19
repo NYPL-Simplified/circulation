@@ -10,6 +10,7 @@ import logging
 import traceback
 import urllib
 from urlparse import urlparse, urljoin
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
 
 from lxml import builder, etree
@@ -37,6 +38,7 @@ from model import (
     CoverageRecord,
     DataSource,
     Edition,
+    Equivalency,
     ExternalIntegration,
     Hyperlink,
     Identifier,
@@ -63,6 +65,16 @@ class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
+
+    @classmethod
+    def check_content_type(cls, response):
+        content_type = response.headers.get('content-type')
+        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
+            raise BadResponseException.from_response(
+                response.url,
+                "Wrong media type: %s" % content_type,
+                response
+            )
 
     @classmethod
     def from_provider(cls, _db, provider):
@@ -264,7 +276,8 @@ class OPDSImporter(object):
     def __init__(self, _db, collection,
                  data_source_name=DataSource.METADATA_WRANGLER,
                  identifier_mapping=None, mirror=None, http_get=None,
-                 metadata_client=None, content_modifier=None
+                 metadata_client=None, content_modifier=None,
+                 map_from_collection=None,
     ):
         """:param collection: LicensePools created by this OPDS import
         will be associated with the given Collection. If this is None,
@@ -309,6 +322,7 @@ class OPDSImporter(object):
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
+        self.map_from_collection = map_from_collection
 
     @property
     def data_source(self):
@@ -381,7 +395,6 @@ class OPDSImporter(object):
                 failures[key] = failure
 
         return imported_editions.values(), pools.values(), works.values(), failures
-
 
     def import_edition_from_metadata(
             self, metadata, even_if_no_author, immediately_presentation_ready
@@ -461,6 +474,31 @@ class OPDSImporter(object):
             for entry in parsed_feed['entries']
         ]
 
+    def build_identifier_mapping(self, external_urns):
+        """Uses the given Collection and a list of URNs to reverse
+        engineer an identifier mapping.
+        """
+        if self.identifier_mapping or not self.collection:
+            return
+
+        mapping = dict()
+        external_identifiers = [Identifier.parse_urn(self._db, urn)[0]
+                                for urn in external_urns]
+
+        internal_identifier = aliased(Identifier)
+        qu = self._db.query(Identifier, internal_identifier)\
+            .join(Identifier.inbound_equivalencies)\
+            .join(internal_identifier, Equivalency.input)\
+            .join(internal_identifier.licensed_through)\
+            .filter(
+                Identifier.id.in_([x.id for x in external_identifiers]),
+                LicensePool.collection==self.collection
+            )
+
+        for external_identifier, internal_identifier in qu:
+            mapping[external_identifier] = internal_identifier
+
+        self.identifier_mapping = mapping
 
     def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
@@ -472,6 +510,10 @@ class OPDSImporter(object):
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
             feed, data_source=data_source, feed_url=feed_url
         )
+
+        if self.map_from_collection:
+            # Build the identifier_mapping based on the Collection.
+            self.build_identifier_mapping(fp_metadata.keys() + fp_failures.keys())
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
