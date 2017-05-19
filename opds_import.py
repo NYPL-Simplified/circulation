@@ -172,11 +172,17 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         logging.info("Metadata Wrangler Collection Removal URL: %s", url)
         return self._post(url)
 
-    def updates(self, identifiers):
+    def updates(self, last_update_time):
         """Retrieve updated items from an authenticated Metadata
         Wrangler Collection
+
+        :param last_update_time: DateTime representing the last time
+            an update was fetched. May be None.
         """
         url = self.get_collection_url(self.UPDATES_ENDPOINT)
+        if last_update_time:
+            formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+            url += ('last_update_time=' + formatted_time)
         logging.info("Metadata Wrangler Collection Updates URL: %s", url)
         return self._get(url)
 
