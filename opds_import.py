@@ -48,7 +48,10 @@ from model import (
     RightsStatus,
 )
 from coverage import CoverageFailure
-from util.http import HTTP
+from util.http import (
+    BadResponseException,
+    HTTP,
+)
 from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
