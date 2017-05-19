@@ -36,7 +36,7 @@ class Monitor(object):
     Monitor does work, it will update a Timestamp object to track the
     last time the work was done.
 
-    A Monitor will run once and them stop. To repeatedly run a
+    A Monitor will run once and then stop. To repeatedly run a
     Monitor, you'll need to repeatedly invoke the Monitor from some
     external source such as a cron job.
 
@@ -226,11 +226,16 @@ class CollectionMonitor(Monitor):
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
         collections = _db.query(Collection).outerjoin(
-            Collection.timestamps).filter(
-                Collection.protocol==cls.PROTOCOL).filter(
-                    service_match).order_by(
-                        Timestamp.timestamp.asc().nullsfirst()
-                    )
+            Collection.timestamps).filter(service_match)
+
+        if cls.PROTOCOL:
+            collections = collections.filter(
+                Collection.protocol==cls.PROTOCOL
+            )
+
+        collections = collections.order_by(
+            Timestamp.timestamp.asc().nullsfirst()
+        )
         for collection in collections:
             yield cls(_db=_db, collection=collection, **constructor_kwargs)
 
