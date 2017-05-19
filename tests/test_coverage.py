@@ -64,9 +64,11 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         """If the lookup protocol sends something that's not an OPDS
         feed, refuse to go any further.
         """
-        response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
-        
         provider = self._provider()
+        provider.lookup_client = MockSimplifiedOPDSLookup(self._url)
+
+        response = MockRequestsResponse(200, {"content-type" : "text/plain"}, "Some data")
+        provider.lookup_client.queue_response(response)
         assert_raises_regexp(
             BadResponseException, "Wrong media type: text/plain",
             provider.import_feed_response, response, None

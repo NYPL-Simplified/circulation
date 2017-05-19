@@ -34,7 +34,6 @@ from core.opds_import import (
 
 from core.util.http import (
     RemoteIntegrationException,
-    BadResponseException,
 )
 
 
@@ -124,20 +123,11 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         By default, no identifier mapping is needed.
         """
         return None
-    
-    def check_content_type(self, response):
-        content_type = response.headers.get('content-type')
-        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
-            raise BadResponseException.from_response(
-                response.url, 
-                "Wrong media type: %s" % content_type,
-                response
-            )
 
     def import_feed_response(self, response, id_mapping):
         """Confirms OPDS feed response and imports feed.
         """
-        self.check_content_type(response)
+        self.lookup_client.check_content_type(response)
         importer = OPDSImporter(self._db, self.collection,
                                 identifier_mapping=id_mapping,
                                 data_source_name=self.data_source.name)
@@ -219,7 +209,7 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
 
         try:
             response = client_method(mapped_batch)
-            self.check_content_type(response)
+            self.lookup_client.check_content_type(response)
         except RemoteIntegrationException as e:
             return [self.failure(id_mapping[obj], e.debug_message)
                     for obj in mapped_batch]
