@@ -273,8 +273,7 @@ class OPDSImporter(object):
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
    
-    def __init__(self, _db, collection,
-                 data_source_name=DataSource.METADATA_WRANGLER,
+    def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
                  map_from_collection=None,
@@ -308,7 +307,8 @@ class OPDSImporter(object):
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
         self.collection = collection
-        if self.collection:
+        if self.collection and not data_source_name:
+            # Use the Collection data_source for OPDS import.
             data_source = self.collection.data_source
             if data_source:
                 data_source_name = data_source.name
@@ -316,6 +316,10 @@ class OPDSImporter(object):
                 raise ValueError(
                     "Cannot perform an OPDS import on a Collection that has no associated DataSource!"
                 )
+        else:
+            # Use the given data_source or default to the Metadata
+            # Wrangler.
+            data_source_name = data_source_name or DataSource.METADATA_WRANGLER
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
         self.metadata_client = metadata_client or MetadataWranglerOPDSLookup(_db, collection=collection)
