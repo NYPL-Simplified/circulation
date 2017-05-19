@@ -218,7 +218,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        lookup = MockMetadataWranglerOPDSLookup(self._db)
+        lookup = MockMetadataWranglerOPDSLookup(self._db, self.collection)
         return MetadataWranglerCoverageProvider(
             self._db, self.collection, lookup, **kwargs
         )
@@ -230,7 +230,9 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             url=self._url, username=u'abc', password=u'def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.collection = self._collection(
+            protocol=Collection.BIBLIOTHECA, external_account_id=u'lib'
+        )
         self.provider = self.create_provider()
 
     def test_create_identifier_mapping(self):
@@ -357,9 +359,11 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
             ExternalIntegration.METADATA_WRANGLER,
             url=self._url, username=u'abc', password=u'def'
         )
-        self.lookup = MockMetadataWranglerOPDSLookup(self._db)
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
-        self.collection = self._collection(protocol=Collection.BIBLIOTHECA)
+        self.collection = self._collection(
+            protocol=Collection.BIBLIOTHECA, external_account_id=u'lib'
+        )
+        self.lookup = MockMetadataWranglerOPDSLookup(self._db, collection=self.collection)
 
     def opds_feed_identifiers(self):
         """Creates three Identifiers to use for testing with a sample OPDS file."""
