@@ -34,6 +34,7 @@ from core.app_server import (
 from core.metadata_layer import Metadata
 from core.model import (
     Annotation,
+    Collection,
     Patron,
     DeliveryMechanism,
     Representation,
@@ -43,6 +44,7 @@ from core.model import (
     Edition,
     Identifier,
     Complaint,
+    Library,
     SessionManager,
     CachedFeed,
     Work,
@@ -123,8 +125,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-        self.library = self._default_library
-
+        
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -133,10 +134,20 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
+        # Most tests can use self._default_library and
+        # self._default_collection, but some can't, because those objects
+        # are associated with the default database session.
+        self.library = self.make_default_library(_db)
+        self.collection = self.make_default_collection(_db, self.library)
+        
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
-            _db, Patron, authorization_identifier="unittestuser",
-            create_method_kwargs=dict(external_identifier="unittestuser")
+            _db, Patron,
+            library=self.library,
+            authorization_identifier="unittestuser",
+            create_method_kwargs=dict(
+                external_identifier="unittestuser"
+            )
         )
 
         self.initialize_library(_db)
@@ -175,32 +186,28 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
-    
+    def make_default_library(self, _db):
+        return self._default_library
+
+    def make_default_collection(self, _db, library):
+        return self._default_collection
+
+
 class CirculationControllerTest(ControllerTest):
 
+    # These tests generally need at least one Work created,
+    # but some need more.
+    BOOKS = [
+        ["english_1", "Quite British", "John Bull", "eng", True],
+    ]
+    
     def setup(self):
         super(CirculationControllerTest, self).setup()
-
-        # TODO: This is a prime candidate for optimization. A lot of
-        # tests don't need these books, and they take over 1 second to
-        # create.
-
-        # Create two English books and a French book.
-        self.english_1 = self._work(
-            "Quite British", "John Bull", language="eng", fiction=True,
-            with_open_access_download=True
-        )
-        self.english_2 = self._work(
-            "Totally American", "Uncle Sam", language="eng", fiction=False,
-            with_open_access_download=True
-        )
-        self.french_1 = self._work(
-            u"Très Français", "Marianne", language="fre", fiction=False,
-            with_open_access_download=True
-        )
-        for w in self.english_1, self.english_2, self.french_1:
-            w.license_pools[0].collection = self._default_collection
-
+        for (variable_name, title, author, language, fiction) in self.BOOKS:
+            work = self._work(title, author, language=language, fiction=fiction,
+                              with_open_access_download=True)
+            setattr(self, variable_name, work)
+            work.license_pools[0].collection = self.collection
 
 
 class TestBaseController(CirculationControllerTest):
@@ -287,7 +294,7 @@ class TestBaseController(CirculationControllerTest):
     def test_load_licensepools(self):
 
         # Here's a Library that has two Collections.
-        library = self._default_library
+        library = self.library
         [c1] = library.collections
         c2 = self._collection()
         library.collections.append(c2)
@@ -545,7 +552,7 @@ class TestLoanController(CirculationControllerTest):
         other_pool.work = self.pool.work
 
         pools = self.manager.loans.load_licensepools(
-            self._default_library, self.identifier.type, self.identifier.identifier
+            self.library, self.identifier.type, self.identifier.identifier
         )
 
         with self.app.test_request_context(
@@ -805,7 +812,6 @@ class TestLoanController(CirculationControllerTest):
                 fulfill_links[0]['type'])
             eq_("http://streaming-content-link", fulfill_links[0]['href'])
 
-
     def test_borrow_nonexistent_delivery_mechanism(self):
         with self.app.test_request_context(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -917,6 +923,21 @@ class TestLoanController(CirculationControllerTest):
                  pool.identifier.type, pool.identifier.identifier)
              eq_(404, response.status_code)
              eq_("http://librarysimplified.org/terms/problem/not-found-on-remote", response.uri)
+
+    def test_borrow_fails_when_work_already_checked_out(self):
+        loan, _ignore = get_one_or_create(
+            self._db, Loan, license_pool=self.pool,
+            patron=self.default_patron
+        )
+
+        with self.app.test_request_context(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.borrow(
+                self.identifier.type, self.identifier.identifier)
+
+            eq_(ALREADY_CHECKED_OUT, response)
+
 
     def test_revoke_loan(self):
          with self.app.test_request_context(
@@ -1260,6 +1281,11 @@ class TestAnnotationController(CirculationControllerTest):
             selector = json.loads(annotation.target).get("http://www.w3.org/ns/oa#hasSelector")[0].get('@id')
             eq_(data['target']['selector'], selector)
 
+            # The response contains the annotation in the db.
+            item = json.loads(response.data)
+            assert str(annotation.id) in item['id']
+            eq_(annotation.motivation, item['motivation'])
+
     def test_detail(self):
         self.pool.loan_to(self.default_patron)
 
@@ -1364,6 +1390,10 @@ class TestWorkController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_contributor(self):
+        # Give the Contributor a display_name.
+        [contribution] = self.english_1.presentation_edition.contributions
+        contribution.contributor.display_name = u"John Bull"
+
         # For works without a contributor name, a ProblemDetail is returned.
         with self.app.test_request_context('/'):
             response = self.manager.work_controller.contributor('', None, None)
@@ -1496,7 +1526,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        metadata.recommendations = [self.english_1.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -1511,8 +1541,8 @@ class TestWorkController(CirculationControllerTest):
         eq_('Recommended Books', feed['feed']['title'])
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.english_2.title, entry['title'])
-        eq_(self.english_2.author, entry['author'])
+        eq_(self.english_1.title, entry['title'])
+        eq_(self.english_1.author, entry['author'])
 
         # The feed has facet links.
         links = feed['feed']['links']
@@ -1632,27 +1662,27 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         # Prep book with a contribution, a series, and a recommendation.
-        self.edition.add_contributor(original, role)
+        self.lp.presentation_edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
             language="eng", fiction=True, with_open_access_download=True
         )
         duplicate = same_author.presentation_edition.contributions[0].contributor
-        original.display_name = duplicate.display_name = 'John Bull'
+        original.display_name = duplicate.display_name = u"John Bull"
 
-        self.edition.series = "Around the World"
+        self.edition.series = u"Around the World"
         self.edition.series_position = 1
 
-        same_series = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
-        same_series.presentation_edition.series = "Around the World"
-        same_series.presentation_edition.series_position = 0
+        same_series_work = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
+        same_series_work.presentation_edition.series = "Around the World"
+        same_series_work.presentation_edition.series_position = 0
 
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
         mock_api = MockNoveListAPI()
-        metadata.recommendations = [self.english_2.license_pools[0].identifier]
+        metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         # A grouped feed is returned with all of the related books
@@ -1669,44 +1699,51 @@ class TestWorkController(CirculationControllerTest):
             [link] = [l for l in entry['links'] if l['rel']=='collection']
             return link['title'], link['href']
 
-        # One book is in the recommendations feed.
-        [e1] = [e for e in feed['entries'] if e['title'] == self.english_2.title]
-        title, href = collection_link(e1)
+        # This feed contains five books: one recommended,
+        # one in the same series, and two by the same author.
+        recommendations = []
+        same_series = []
+        same_contributor = []
+        feeds_with_original_book = []
+        for e in feed['entries']:
+            for link in e['links']:
+                if link['rel'] != 'collection':
+                    continue
+                if link['title'] == 'Recommended Books':
+                    recommendations.append(e)
+                elif link['title'] == 'Around the World':
+                    same_series.append(e)
+                elif link['title'] == 'John Bull':
+                    same_contributor.append(e)
+                if e['title'] == self.english_1.title:
+                    feeds_with_original_book.append(link['title'])
 
-        eq_("Recommended Books", title)
+        [recommendation] = recommendations
+        title, href = collection_link(recommendation)
         work_url = "/works/%s/%s/" % (self.identifier.type, self.identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
         eq_(True, href.endswith(expected))
 
-        # The other book in the series is in the series feed.
-        [e2] = [e for e in feed['entries'] if e['title'] == same_series.title]
-        title, href = collection_link(e2)
-        eq_("Around the World", title)
-        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
-        eq_(True, href.endswith(expected_series_link))
+        # All books in the series are in the series feed.
+        for book in same_series:
+            title, href = collection_link(book)
+            expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
+            eq_(True, href.endswith(expected_series_link))
 
         # The other book by this contributor is in the contributor feed.
-        [e3] = [e for e in feed['entries'] if e['title'] == same_author.title]
-        title, href = collection_link(e3)
-        eq_("John Bull", title)
-        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
-        eq_(True, href.endswith(expected_contributor_link))
+        for contributor in same_contributor:
+            title, href = collection_link(contributor)
+            expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
+            eq_(True, href.endswith(expected_contributor_link))
 
-        # The original book is listed in both the series and contributor feeds.
-        title_to_link_ending = {
-            'Around the World' : expected_series_link,
-            'John Bull' : expected_contributor_link
-        }
-        entries = [e for e in feed['entries'] if e['title']==self.english_1.title]
-        eq_(2, len(entries))
-        for entry in entries:
-            title, href = collection_link(entry)
-            eq_(True, href.endswith(title_to_link_ending[title]))
-            del title_to_link_ending[title]
+        # The book for which we got recommendations is itself listed in the
+        # series feed and in the 'books by this author' feed.
+        eq_(set(["John Bull", "Around the World"]),
+            set(feeds_with_original_book))
 
         # The series feed is sorted by series position.
-        [series_e1, series_e2] = [e for e in feed['entries'] if collection_link(e)[0]=="Around the World"]
-        eq_(same_series.title, series_e1['title'])
+        [series_e1, series_e2] = same_series
+        eq_(same_series_work.title, series_e1['title'])
         eq_(self.english_1.title, series_e2['title'])
 
     def test_report_problem_get(self):
@@ -1849,6 +1886,11 @@ class TestWorkController(CirculationControllerTest):
 
 class TestFeedController(CirculationControllerTest):
 
+    BOOKS = list(CirculationControllerTest.BOOKS) + [
+        ["english_2", "Totally American", "Uncle Sam", "eng", False],
+        ["french_1", u"Très Français", "Marianne", "fre", False],
+    ]
+    
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/"):
@@ -2288,8 +2330,27 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
+
+        # This will call make_default_library and make_default_collection.
         super(TestScopedSession, self).setup(_db)
 
+    def make_default_library(self, _db):
+        """We need to create a new instance of the library that
+        uses the scoped session.
+        """
+        return Library.instance(_db)
+
+    def make_default_collection(self, _db, library):
+        """We need to create a test collection that
+        uses the scoped session.
+        """
+        collection, ignore = get_one_or_create(
+            _db, Collection, name=self._str + " (for scoped session)",
+            protocol=Collection.OPDS_IMPORT
+        )
+        library.collections.append(collection)
+        return collection
+        
     @contextmanager
     def test_request_context_and_transaction(self, *args):
         """Run a simulated Flask request in a transaction that gets rolled

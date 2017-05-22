@@ -473,12 +473,12 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.unsuppress(
                 lp.identifier.type, lp.identifier.identifier
             )
+
+            # Both LicensePools are unsuppressed, even though one of them
+            # has a LicensePool-specific complaint.            
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
-
-            # The LicensePool with a LicensePool-specific complaint is
-            # not unsuppressed.
-            eq_(True, broken_lp.suppressed)
+            eq_(False, broken_lp.suppressed)
 
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
@@ -929,11 +929,11 @@ class TestDashboardController(AdminControllerTest):
     def test_stats_inventory(self):
         with self.app.test_request_context("/"):
 
-            # At first, there are 3 open access titles in the database,
+            # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
             inventory_data = response.get('inventory')
-            eq_(3, inventory_data.get('titles'))
+            eq_(1, inventory_data.get('titles'))
             eq_(0, inventory_data.get('licenses'))
             eq_(0, inventory_data.get('available_licenses'))
 
@@ -954,18 +954,18 @@ class TestDashboardController(AdminControllerTest):
 
             response = self.manager.admin_dashboard_controller.stats()
             inventory_data = response.get('inventory')
-            eq_(6, inventory_data.get('titles'))
+            eq_(4, inventory_data.get('titles'))
             eq_(15, inventory_data.get('licenses'))
             eq_(4, inventory_data.get('available_licenses'))
 
     def test_stats_vendors(self):
         with self.app.test_request_context("/"):
 
-            # At first, there are 3 open access titles in the database,
+            # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
             vendor_data = response.get('vendors')
-            eq_(3, vendor_data.get('open_access'))
+            eq_(1, vendor_data.get('open_access'))
             eq_(None, vendor_data.get('overdrive'))
             eq_(None, vendor_data.get('bibliotheca'))
             eq_(None, vendor_data.get('axis360'))
@@ -996,7 +996,7 @@ class TestDashboardController(AdminControllerTest):
 
             response = self.manager.admin_dashboard_controller.stats()
             vendor_data = response.get('vendors')
-            eq_(3, vendor_data.get('open_access'))
+            eq_(1, vendor_data.get('open_access'))
             eq_(1, vendor_data.get('overdrive'))
             eq_(1, vendor_data.get('bibliotheca'))
             eq_(1, vendor_data.get('axis360'))
@@ -1088,7 +1088,7 @@ class TestSettingsController(AdminControllerTest):
         library = get_one(self._db, Library)
         if library:
             self._db.delete(library)
-
+            
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),

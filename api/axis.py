@@ -459,14 +459,14 @@ class CheckoutResponseParser(ResponseParser):
 
         # WTH??? Why is identifier None? Is this ever used?
         fulfillment = FulfillmentInfo(
-            collection=None, data_source_name=DataSource.AXIS_360,
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type,
             identifier=None, content_link=fulfillment_url,
             content_type=None, content=None, content_expires=None
         )
         loan_start = datetime.utcnow()
         loan = LoanInfo(
-            collection=None, data_source_name=DataSource.AXIS_360,
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
@@ -504,7 +504,7 @@ class HoldResponseParser(ResponseParser):
         # NOTE: The caller needs to fill in Collection -- we have no idea
         # what collection this is.
         hold = HoldInfo(
-            collection=None, data_source_name=DataSource.AXIS_360,
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
@@ -560,7 +560,8 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
-                    collection=None, data_source_name=DataSource.AXIS_360,
+                    collection=self.collection,
+                    data_source_name=DataSource.AXIS_360,
                     identifier_type=self.id_type,
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
@@ -568,7 +569,8 @@ class AvailabilityResponseParser(ResponseParser):
             else:
                 fulfillment = None
             info = LoanInfo(
-                collection=None, data_source_name=DataSource.AXIS_360,
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
@@ -578,7 +580,8 @@ class AvailabilityResponseParser(ResponseParser):
             end_date = self._xpath1_date(
                 availability, 'axis:reservedEndDate', ns)
             info = HoldInfo(
-                collection=None, data_source_name=DataSource.AXIS_360,
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, 
@@ -589,7 +592,8 @@ class AvailabilityResponseParser(ResponseParser):
             position = self.int_of_optional_subtag(
                 availability, 'axis:holdsQueuePosition', ns)
             info = HoldInfo(
-                collection=None, data_source_name=DataSource.AXIS_360,
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, end_date=None,

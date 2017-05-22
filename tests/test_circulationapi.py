@@ -52,19 +52,19 @@ class TestCirculationAPI(DatabaseTest):
         super(TestCirculationAPI, self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
         edition, self.pool = self._edition(
-            data_source_name=DataSource.BIBLIOTHECA, with_license_pool=True,
-            collection=self.collection
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
+            with_license_pool=True, collection=self.collection
         )
         self.pool.open_access = False
         self.identifier = self.pool.identifier
-        self.identifier.type = Identifier.BIBLIOTHECA_ID
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
         self.patron = self._patron()
-
-        self.circulation = MockCirculationAPI(self._default_library, api_map={
-            Collection.BIBLIOTHECA : MockBibliothecaAPI
-        })
-
+        self.circulation = MockCirculationAPI(
+            self._default_library, api_map = {
+                Collection.BIBLIOTHECA : MockBibliothecaAPI
+            }
+        )
         self.remote = self.circulation.api_for_license_pool(self.pool)
 
     def borrow(self):

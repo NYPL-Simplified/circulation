@@ -100,7 +100,10 @@ def lanes_from_genres(_db, genres, **extra_args):
             name = descriptor['name']
         else:
             name = descriptor
-        genredata = classifier.genres[name]
+        if classifier.genres.get(name):
+            genredata = classifier.genres[name]
+        else:
+            genredata = GenreData(name, False)
         lane_args = dict(extra_args)
         if name in genre_lane_instructions.keys():
             instructions = genre_lane_instructions[name]

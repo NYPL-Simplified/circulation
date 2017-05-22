@@ -141,7 +141,6 @@ class CirculationManager(object):
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
         self._db = _db
-
         self.testing = testing
         if isinstance(lanes, LaneList):
             lanes = lanes
@@ -150,7 +149,7 @@ class CirculationManager(object):
         self.top_level_lane = self.create_top_level_lane(lanes)
 
         self.auth = Authenticator.from_config(self._db)
-        self.setup_circulation()
+        self.setup_circulation(Library.instance(self._db))
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -212,13 +211,13 @@ class CirculationManager(object):
                 self.log.warn("No external search server configured.")
                 return None
 
-    def setup_circulation(self):
+    def setup_circulation(self, library):
         """Set up the Circulation object."""        
         if self.testing:
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        self.circulation = cls(Library.instance(self._db))
+        self.circulation = cls(library)
 
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
@@ -567,9 +566,6 @@ class LoanController(CirculationManagerController):
         book or the license file.
         """
         patron = flask.request.patron
-
-        # TODO: First make sure the patron does not already have this book
-        # on loan.
         
         result = self.best_lendable_pool(
             self.library, patron, identifier_type, identifier, mechanism_id
@@ -659,7 +655,7 @@ class LoanController(CirculationManagerController):
         """Of the available LicensePools for the given Identifier, return the
         one that's the best candidate for loaning out right now.
         """
-        # Turn source + identifier into a LicensePool
+        # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
             self.library, identifier_type, identifier
         )
@@ -670,7 +666,14 @@ class LoanController(CirculationManagerController):
         best = None
         mechanism = None
         problem_doc = None
-        
+
+        existing_loans = self._db.query(Loan).filter(
+            Loan.license_pool_id.in_([lp.id for lp in pools]),
+            Loan.patron==patron
+        ).all()
+        if existing_loans:
+            return ALREADY_CHECKED_OUT
+
         # We found a number of LicensePools. Try to locate one that
         # we can actually loan to the patron.
         for pool in pools:
@@ -724,7 +727,7 @@ class LoanController(CirculationManagerController):
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
     
-        # Turn source + identifier into a set of LicensePools.
+        # Turn source + identifier into a LicensePool.
         pool = self.load_licensepool(license_pool_id)
         if isinstance(pool, ProblemDetail):
             return pool
@@ -920,7 +923,11 @@ class AnnotationController(CirculationManagerController):
         if isinstance(annotation, ProblemDetail):
             return annotation
 
-        return Response(status=200, headers=headers)
+        content = json.dumps(AnnotationWriter.detail(annotation))
+        status_code = 200
+        headers['Link'] = '<http://www.w3.org/ns/ldp#Resource>; rel="type"'
+        headers['Content-Type'] = AnnotationWriter.CONTENT_TYPE
+        return Response(content, status_code, headers)
 
     def container_for_work(self, identifier_type, identifier):
         id_obj, ignore = Identifier.for_foreign_id(
@@ -1097,7 +1104,7 @@ class WorkController(CirculationManagerController):
         # complaing is being lodged against the work or against a
         # specific LicensePool.
 
-        # Turn source + identifier into a LicensePool
+        # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.

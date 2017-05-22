@@ -223,6 +223,7 @@ class WorkController(CirculationManagerController):
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
+        
         work = self.load_work(self.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -337,21 +338,21 @@ class WorkController(CirculationManagerController):
         return Response("", 200)
 
     def unsuppress(self, identifier_type, identifier):
-        """Unsuppress the license pool associated with a book."""
-        # Turn source + identifier into a LicensePool
+        """Unsuppress all license pools associated with a book.
+
+        TODO: This will need to be revisited when we distinguish
+        between complaints about a work and complaints about a
+        LicensePoool.
+        """
+        # Turn source + identifier into a group of LicensePools
         pools = self.load_licensepools(self.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
 
+        # Unsuppress each pool.
         for pool in pools:
-            # Only unsuppress LicensePools that with Work-targetted,
-            # admin-editable complaints. Anything specific to a
-            # LicensePool is ignored until its specific complaints have
-            # been resolved.
-            ignore_pool = any(c.for_license_pool for c in pool.complaints)
-            if not ignore_pool:
-                pool.suppressed = False
+            pool.suppressed = False
         return Response("", 200)
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):
