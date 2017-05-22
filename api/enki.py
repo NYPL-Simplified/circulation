@@ -95,16 +95,20 @@ class EnkiCirculationMonitor(Monitor):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
-        availability = self.api.availability(since=since)
-	status_code = availability.status_code
-        content = availability.content
-        count = 0
-        for bibliographic, circulation in BibliographicParser().process_all(
-                content):
-            self.process_book(bibliographic, circulation)
-            count += 1
-            if count % self.batch_size == 0:
-                self._db.commit()
+        x=0
+        step=2000
+        while x < 80000:
+            availability = self.api.availability(since=since, strt=x, qty=step)
+	    status_code = availability.status_code
+            content = availability.content
+            count = 0
+            for bibliographic, circulation in BibliographicParser().process_all(
+                    content):
+                self.process_book(bibliographic, circulation)
+                count += 1
+                if count % self.batch_size == 0:
+                    self._db.commit()
+            x += step
 
     def process_book(self, bibliographic, availability):
 
