@@ -27,9 +27,10 @@ from core.external_search import (
 )
 from core.opds_import import (
     AccessNotAuthenticated,
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
     OPDSXMLParser,
+    SimplifiedOPDSLookup,
 )
 
 from core.util.http import (
@@ -43,7 +44,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
     """
     DEFAULT_BATCH_SIZE = 25
     
-    def __init__(self, _db, collection, lookup_client, **kwargs):
+    def __init__(self, collection, lookup_client, **kwargs):
         """Constructor.
 
         :param lookup_client: A SimplifiedOPDSLookup object.
@@ -147,12 +148,17 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.OVERDRIVE_ID, 
         Identifier.THREEM_ID,
         Identifier.AXIS_360_ID,
-        Identifier.ONECLICK_ID, 
+        Identifier.ONECLICK_ID,
     ]
     
-    def __init__(self, _db, collection, lookup_client, **kwargs):
+    def __init__(self, collection, lookup_client=None, **kwargs):
+        _db = Session.object_session(collection)
+        lookup_client = lookup_client or MetadataWranglerOPDSLookup(
+            _db, collection=collection
+        )
+
         super(MetadataWranglerCoverageProvider, self).__init__(
-            _db, collection, lookup_client, **kwargs
+            collection, lookup_client, **kwargs
         )
         if not self.lookup_client.authenticated:
             self.log.warn(
