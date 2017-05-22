@@ -17,6 +17,7 @@ from core.model import (
     Edition,
     Identifier,
     LicensePool,
+    Session,
     WorkCoverageRecord,
 )
 from core.util.opds_writer import (
@@ -387,7 +388,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     INPUT_IDENTIFIER_TYPES = None
     
-    def __init__(self, _db, collection, lookup_client, *args, **kwargs):
+    def __init__(self, collection, lookup_client, *args, **kwargs):
         if not lookup_client:
             content_server_url = (
                 Configuration.integration_url(
@@ -396,7 +397,7 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
             )
             lookup_client = SimplifiedOPDSLookup(content_server_url)
         super(ContentServerBibliographicCoverageProvider, self).__init__(
-            _db, collection, lookup_client, *args, **kwargs
+            collection, lookup_client, *args, **kwargs
         )
 
     def finalize_license_pool(self, license_pool):
@@ -423,9 +424,9 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
     SERVICE_NAME = "Mock Provider"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     
-    def __init__(self, _db, collection, *args, **kwargs):
+    def __init__(self, collection, *args, **kwargs):
         super(MockOPDSImportCoverageProvider, self).__init__(
-            _db, collection, None, *args, **kwargs
+            collection, None, *args, **kwargs
         )
         self.batches = []
         self.finalized = []

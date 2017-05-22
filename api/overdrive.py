@@ -21,6 +21,7 @@ from core.overdrive import (
 
 from core.model import (
     CirculationEvent,
+    Collection,
     Credential,
     DataSource,
     DeliveryMechanism,

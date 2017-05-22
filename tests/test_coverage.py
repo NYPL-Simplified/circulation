@@ -56,9 +56,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
     def _provider(self):
         """Create a generic MockOPDSImportCoverageProvider for testing purposes."""
-        return MockOPDSImportCoverageProvider(
-            self._db, self._default_collection
-        )
+        return MockOPDSImportCoverageProvider(self._default_collection)
 
     def test_badresponseexception_on_non_opds_feed(self):
         """If the lookup protocol sends something that's not an OPDS
@@ -100,7 +98,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         self._default_collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING, DataSource.OA_CONTENT_SERVER
         )
-        provider = TestProvider(self._db, self._default_collection, lookup)
+        provider = TestProvider(self._default_collection, lookup)
 
         # Create a hard-coded mapping. We use id1 internally, but the
         # foreign data source knows the book as id2.
@@ -220,7 +218,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
     def create_provider(self, **kwargs):
         lookup = MockMetadataWranglerOPDSLookup(self._db, self.collection)
         return MetadataWranglerCoverageProvider(
-            self._db, self.collection, lookup, **kwargs
+            self.collection, lookup, **kwargs
         )
 
     def setup(self):
@@ -476,7 +474,7 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
     def setup(self):
         super(TestMetadataWranglerCollectionSync, self).setup()
         self.provider = MetadataWranglerCollectionSync(
-            self._db, self.collection, self.lookup
+            self.collection, self.lookup
         )
 
     def test_items_that_need_coverage(self):
@@ -558,7 +556,7 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
     def setup(self):
         super(TestMetadataWranglerCollectionReaper, self).setup()
         self.provider = MetadataWranglerCollectionReaper(
-            self._db, self.collection, self.lookup
+            self.collection, self.lookup
         )
 
     def test_items_that_need_coverage(self):
@@ -658,8 +656,8 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         the coverage provider.
         """
         script = RunCoverageProviderScript(
-            ContentServerBibliographicCoverageProvider, self._db,
-            collection=self._default_collection, lookup_client=object()
+            ContentServerBibliographicCoverageProvider,
+            self._default_collection, lookup_client=object()
         )
         assert isinstance(script.provider, 
                           ContentServerBibliographicCoverageProvider)
@@ -693,7 +691,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Edition.
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._db, self._default_collection, lookup
+            self._default_collection, lookup
         )
         provider.finalize_license_pool(pool)
         work = pool.work
@@ -704,7 +702,7 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
         lookup = MockSimplifiedOPDSLookup(self._url)        
         provider = ContentServerBibliographicCoverageProvider(
-            self._db, self._default_collection, lookup
+            self._default_collection, lookup
         )
 
         # Here's an open-access work.
