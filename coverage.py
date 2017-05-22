@@ -757,12 +757,14 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CollectionCoverageProvider (or, more likely, one of its subclasses).
 
         """
-        if not cls.PROTOCOL:
-            raise ValueError("%s must define PROTOCOL." % cls.__name__)
-        collections = _db.query(Collection).filter(
-            Collection.protocol==cls.PROTOCOL).order_by(func.random())
+        collections = _db.query(Collection)
+
+        if cls.PROTOCOL:
+            collections = collections.filter(Collection.protocol==cls.PROTOCOL)
+
+        collections = collections.order_by(func.random())
         for collection in collections:
-            yield cls(collection=collection, **kwargs)
+            yield cls(collection, **kwargs)
         
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Identifiers associated with this Collection but lacking
