@@ -112,9 +112,9 @@ class AdminController(object):
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        access_token = flask.session.get("admin_access_token")
-        if access_token:
-            admin = get_one(self._db, Admin, access_token=access_token)
+        email = flask.session.get("admin_email")
+        if email:
+            admin = get_one(self._db, Admin, email=email)
             if admin and self.auth.active_credentials(admin):
                 return admin
         return INVALID_ADMIN_CREDENTIALS
@@ -139,7 +139,12 @@ class AdminController(object):
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
-        return flask.session.get("csrf_token")
+        return flask.request.cookies.get("csrf_token")
+
+    def generate_csrf_token(self):
+        """Generate a random CSRF token."""
+        return base64.b64encode(os.urandom(24))
+        
 
 class SignInController(AdminController):
 
@@ -178,9 +183,14 @@ class SignInController(AdminController):
             return self.error_response(INVALID_ADMIN_CREDENTIALS)
         else:
             admin = self.authenticated_admin(admin_details)
-            flask.session["admin_access_token"] = admin_details.get("access_token")
-            flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
+            flask.session["admin_email"] = admin_details.get("email")
+
+            # A permanent session expires after a fixed time, rather than
+            # when the user closes the browser.
+            flask.session.permanent = True
+
             return redirect(redirect_url, Response=Response)
+
     
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
