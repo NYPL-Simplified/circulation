@@ -30,7 +30,7 @@ app.secret_key = Configuration.get(Configuration.SECRET_KEY)
 
 # An admin's session will expire after this amount of time and
 # the admin will have to log in again.
-app.permanent_session_lifetime = timedelta(hours=4)
+app.permanent_session_lifetime = timedelta(hours=9)
 
 @app.before_first_request
 def setup_admin():
