@@ -60,7 +60,10 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import (
+    hybrid_property,
+    Comparator,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -76,7 +79,8 @@ from sqlalchemy.exc import (
     IntegrityError
 )
 from sqlalchemy import (
-    create_engine, 
+    create_engine,
+    func,
     Binary,
     Boolean,
     Column,
@@ -8607,13 +8611,35 @@ class Admin(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(Unicode, unique=True, nullable=False)
-    access_token = Column(Unicode, index=True)
+
+    # Admins who log in with OAuth will have a credential.
     credential = Column(Unicode)
 
-    def update_credentials(self, _db, access_token, credential):
-        self.access_token = access_token
-        self.credential = credential
+    # Admins can also log in with a local password.
+    password_hashed = Column(Unicode, index=True)
+
+    def update_credentials(self, _db, credential=None):
+        if credential:
+            self.credential = credential
         _db.commit()
+
+    class HashedPasswordComparator(Comparator):
+        def __init__(self, hashed_password):
+            self.hashed_password = hashed_password
+        def __eq__(self, password):
+            return self.hashed_password == func.crypt(password, self.hashed_password)
+
+    @hybrid_property
+    def password(self):
+        raise NotImplementedError("Password comparison is only supported in the database")
+
+    @password.comparator
+    def password(self):
+        return Admin.HashedPasswordComparator(self.password_hashed)
+
+    @password.setter
+    def password(self, value):
+        self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
 
 
 class ExternalIntegration(Base):
@@ -8692,8 +8718,9 @@ class AdminAuthenticationService(Base):
 
     # Supported values for the 'provider' field
     GOOGLE_OAUTH = 'Google OAuth'
+    LOCAL_PASSWORD = 'Local Password'
 
-    PROVIDERS = [GOOGLE_OAUTH]
+    PROVIDERS = [GOOGLE_OAUTH, LOCAL_PASSWORD]
 
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True)
