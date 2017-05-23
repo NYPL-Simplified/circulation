@@ -44,14 +44,13 @@ class GoogleAuthService(object):
         # These will be returned as a problem detail.
         error = request.get('error')
         if error:
-            return self.google_error_problem_detail(error)
+            return self.google_error_problem_detail(error), None
         auth_code = request.get('code')
         if auth_code:
             redirect_url = request.get("state")
             credentials = self.client.step2_exchange(auth_code)
             return dict(
                 email=credentials.id_token.get('email'),
-                access_token=credentials.get_access_token()[0],
                 credentials=credentials.to_json(),
             ), redirect_url
 
@@ -91,13 +90,10 @@ class DummyGoogleClient(object):
             self.id_token = {"hd" : domain, "email" : email}
 
         def to_json(self):
-            return json.loads('{"id_token" : %s }' % json.dumps(self.id_token))
+            return json.dumps(dict(id_token=self.id_token))
 
         def from_json(self, credentials):
             return self
-
-        def get_access_token(self):
-            return ["opensesame"]
 
     def __init__(self, email='example@nypl.org'):
         self.credentials = self.Credentials(email=email)

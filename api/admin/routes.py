@@ -87,7 +87,12 @@ def requires_csrf_token(f):
 @app.route('/admin/GoogleAuth/callback')
 @returns_problem_detail
 def google_auth_callback():
-    return app.manager.admin_sign_in_controller.redirect_after_sign_in()
+    return app.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+
+@app.route("/admin/sign_in_with_password", methods=["GET", "POST"])
+@returns_problem_detail
+def password_auth():
+    return app.manager.admin_sign_in_controller.password_sign_in()
 
 @app.route('/admin/sign_in')
 @returns_problem_detail

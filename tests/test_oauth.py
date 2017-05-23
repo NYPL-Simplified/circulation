@@ -24,16 +24,16 @@ class TestGoogleAuthService(DatabaseTest):
         self.google = GoogleAuthService(auth_service, "", test_mode=True)
 
         # Returns a problem detail when Google returns an error.
-        error_response = self.google.callback({'error' : 'access_denied'})
+        error_response, redirect = self.google.callback({'error' : 'access_denied'})
         eq_(True, isinstance(error_response, ProblemDetail))
         eq_(400, error_response.status_code)
         eq_(True, error_response.detail.endswith('access_denied'))
+        eq_(None, redirect)
 
         # Successful case creates a dict of admin details
         success, redirect = self.google.callback({'code' : 'abc'})
         eq_('example@nypl.org', success['email'])
-        eq_('opensesame', success['access_token'])
-        default_credentials = {"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}}
+        default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
         eq_(default_credentials, success['credentials'])
 
     def test_domains(self):
