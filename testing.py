@@ -25,6 +25,7 @@ from model import (
     DeliveryMechanism,
     DelegatedPatronIdentifier,
     Edition,
+    ExternalIntegration,
     Genre,
     Hyperlink,
     Identifier,
@@ -298,7 +299,7 @@ class DatabaseTest(object):
         return work
 
     def _coverage_record(self, edition, coverage_source, operation=None,
-                         status=CoverageRecord.SUCCESS):
+                         status=CoverageRecord.SUCCESS, collection=None):
         if isinstance(edition, Identifier):
             identifier = edition
         else:
@@ -308,6 +309,7 @@ class DatabaseTest(object):
             identifier=identifier,
             data_source=coverage_source,
             operation=operation,
+            collection=collection,
             create_method_kwargs = dict(
                 timestamp=datetime.utcnow(),
                 status=status,
@@ -451,6 +453,20 @@ class DatabaseTest(object):
         )
         return credential
     
+    def _external_integration(self, provider, type=None, settings=None, **kwargs):
+        integration, is_new = get_one_or_create(
+            self._db, ExternalIntegration, provider=provider, type=type
+        )
+
+        for attr, value in kwargs.items():
+            setattr(integration, attr, value)
+
+        settings = settings or dict()
+        for key, value in settings.items():
+            integration.set_setting(key, value)
+
+        return integration
+
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
             identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,

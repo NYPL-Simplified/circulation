@@ -195,27 +195,18 @@ class RunCoverageProvidersScript(Script):
             self.providers.append(i)
 
     def do_run(self):
-        offsets = dict()
         providers = list(self.providers)
         while providers:
             random.shuffle(providers)
             for provider in providers:
-                offset = offsets.get(provider, 0)
                 self.log.debug(
-                    "Running %s with offset %s", provider.service_name, offset
+                    "Running %s", provider.service_name
                 )
-                offset = provider.run_once_and_update_timestamp(offset)
+                provider.run_once_and_update_timestamp()
                 self.log.debug(
-                    "Completed %s, new offset is %s", provider.service_name, offset
+                    "Completed %s", provider.service_name
                 )
-                if offset is None:
-                    # We're done with this provider for now.
-                    if provider in offsets:
-                        del offsets[provider]
-                    if provider in providers:
-                        providers.remove(provider)
-                else:
-                    offsets[provider] = offset
+                providers.remove(provider)
 
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
@@ -470,7 +461,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
 
-    def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
+    def __init__(self, provider, _db=None, cmd_args=None, *provider_args, **provider_kwargs):
 
         super(RunCoverageProviderScript, self).__init__(_db)
         parsed_args = self.parse_command_line(self._db, cmd_args)
@@ -488,10 +479,10 @@ class RunCoverageProviderScript(IdentifierInputScript):
                 self.identifiers = []
 
             kwargs = self.extract_additional_command_line_arguments()
-            kwargs.update(provider_arguments)
+            kwargs.update(provider_kwargs)
 
             provider = provider(
-                self._db,
+                self._db, *provider_args,
                 cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
@@ -1522,7 +1513,10 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
-                sql = clause.read()
+                # By wrapping the action in a transation, we can avoid
+                # rolling over errors and losing data in files
+                # with multiple interrelated SQL actions.
+                sql = 'BEGIN;\n%s\nCOMMIT;' % clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]

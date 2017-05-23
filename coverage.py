@@ -29,11 +29,13 @@ import log # This sets the appropriate log format.
 class CoverageFailure(object):
     """Object representing the failure to provide coverage."""
 
-    def __init__(self, obj, exception, data_source=None, transient=True):
+    def __init__(self, obj, exception, data_source=None, transient=True,
+                 collection=None):
         self.obj = obj
         self.data_source = data_source
         self.exception = exception
         self.transient = transient
+        self.collection = collection
 
     def __repr__(self):
         if self.data_source:
@@ -52,7 +54,8 @@ class CoverageFailure(object):
             )
 
         record, ignore = CoverageRecord.add_for(
-            self.obj, self.data_source, operation=operation
+            self.obj, self.data_source, operation=operation,
+            collection=self.collection
         )
         record.exception = self.exception
         if self.transient:
@@ -754,12 +757,14 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CollectionCoverageProvider (or, more likely, one of its subclasses).
 
         """
-        if not cls.PROTOCOL:
-            raise ValueError("%s must define PROTOCOL." % cls.__name__)
-        collections = _db.query(Collection).filter(
-            Collection.protocol==cls.PROTOCOL).order_by(func.random())
+        collections = _db.query(Collection)
+
+        if cls.PROTOCOL:
+            collections = collections.filter(Collection.protocol==cls.PROTOCOL)
+
+        collections = collections.order_by(func.random())
         for collection in collections:
-            yield cls(collection=collection, **kwargs)
+            yield cls(collection, **kwargs)
         
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Identifiers associated with this Collection but lacking

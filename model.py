@@ -1135,21 +1135,36 @@ class CoverageRecord(Base, BaseCoverageRecord):
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+
     # If applicable, this is the ID of the data source that took the
     # Identifier as input.
     data_source_id = Column(
         Integer, ForeignKey('datasources.id')
     )
     operation = Column(String(255), default=None)
-        
+
     timestamp = Column(DateTime, index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
     
+    # If applicable, this is the ID of the collection for which
+    # coverage has taken place. This is currently only applicable
+    # for Metadata Wrangler coverage.
+    collection_id = Column(
+        Integer, ForeignKey('collections.id'), nullable=True
+    )
 
     __table_args__ = (
-        UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
+        Index(
+            'ix_identifier_id_data_source_id_operation',
+            identifier_id, data_source_id, operation,
+            unique=True, postgresql_where=collection_id.is_(None)),
+        Index(
+            'ix_identifier_id_data_source_id_operation_collection_id',
+            identifier_id, data_source_id, operation, collection_id,
+            unique=True
+        ),
     )
 
     def __repr__(self):
@@ -1191,7 +1206,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
-                status=BaseCoverageRecord.SUCCESS):
+                status=BaseCoverageRecord.SUCCESS, collection=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -1206,6 +1221,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier=identifier,
             data_source=data_source,
             operation=operation,
+            collection=collection,
             on_multiple='interchangeable'
         )
         coverage_record.status = status
@@ -8723,7 +8739,7 @@ class Library(Base):
         """Find the one and only library."""
         library, is_new = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
-                uuid=str(uuid.uuid4())
+                uuid=unicode(uuid.uuid4())
             )
         )
         return library
@@ -8742,6 +8758,7 @@ class Library(Base):
                 raise ValueError(
                     "Library registry short name cannot contain the pipe character."
                 )
+            value = unicode(value)
         self._library_registry_short_name = value
 
     def explain(self, include_library_registry_shared_secret=False):
@@ -8795,8 +8812,43 @@ class ExternalIntegration(Base):
     to a third-party API.
     """
 
+    # Utilities
+    CDN = Configuration.CDN_INTEGRATION
+    ELASTICSEARCH = Configuration.ELASTICSEARCH_INTEGRATION
+    AMAZON_S3 = Configuration.S3_INTEGRATION
+
+    # Simplified
+    CIRCULATION_MANAGER = Configuration.CIRCULATION_MANAGER_INTEGRATION
+    CONTENT_SERVER = Configuration.CONTENT_SERVER_INTEGRATION
+    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
+    PATRON_WEB_CLIENT = u'Patron Web Client'
+
+    # Metadata
+    BIBBLIO = u'Bibblio'
+    CONTENT_CAFE = u'Content Cafe'
+    NOVELIST = Configuration.NOVELIST_INTEGRATION
+    NYPL_SHADOWCAT = u'Shadowcat'
+    NYT = Configuration.NYT_INTEGRATION
+    STAFF_PICKS = u'Staff Picks'
+
+    # Analytics
+    GOOGLE_ANALYTICS = u'Google Analytics'
+
+    # Patron Authentication
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+
+    # Admin Authentication
+    ADMIN_AUTH_TYPE = u'admin_auth'
+    GOOGLE_OAUTH = u'Google OAuth'
+    ADMIN_AUTH_PROVIDERS = [GOOGLE_OAUTH]
+
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
+
+    # If this integration isn't related to a Collection, it should
+    # have a provider and type.
+    provider = Column(Unicode, nullable=True)
+    type = Column(Unicode, nullable=True)
 
     # If there is a special URL to use for access to this API,
     # put it here.
@@ -8812,8 +8864,26 @@ class ExternalIntegration(Base):
     # Any additional configuration information goes into the
     # externalintegrationsettings table.
     settings = relationship(
-        "ExternalIntegrationSetting", backref="external_integration"
+        "ExternalIntegrationSetting", backref="external_integration",
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    __table_args__ = (
+        UniqueConstraint('provider', 'type'),
+        Index(
+            'ix_unique_provider_with_null_type', provider,
+            unique=True, postgresql_where=(type.is_(None))),
+    )
+
+    @classmethod
+    def lookup(cls, _db, provider, type=None):
+        integration = get_one(_db, cls, provider=provider, type=type)
+        return integration
+
+    @classmethod
+    def admin_authentication(cls, _db):
+        admin_auth = get_one(_db, cls, type=cls.ADMIN_AUTH_TYPE)
+        return admin_auth
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this ExternalIntegration."""
@@ -8833,6 +8903,17 @@ class ExternalIntegration(Base):
         )
         return setting
 
+    def get(self, key):
+        """Returns a value for a given key from either the integration
+        itself or its additional settings
+        """
+        if hasattr(self, key):
+            return getattr(self, key)
+        if hasattr(self.setting, key):
+            return getattr(self, key)
+        return None
+
+
 class ExternalIntegrationSetting(Base):
     """An extra piece of information associated with an ExternalIntegration.
 
@@ -8850,37 +8931,6 @@ class ExternalIntegrationSetting(Base):
     )
 
 
-class AdminAuthenticationService(Base):
-    """An AdminAuthenticationService contains configuration for a third-party
-    service that can authenticate admins.
-    """
-
-    __tablename__ = "adminauthenticationservices"
-
-    id = Column(Integer, primary_key=True)
-
-    name = Column(Unicode, unique=True, nullable=False, index=True)
-
-    provider = Column(Unicode, nullable=False, index=True)
-
-    # Supported values for the 'provider' field
-    GOOGLE_OAUTH = 'Google OAuth'
-
-    PROVIDERS = [GOOGLE_OAUTH]
-
-    external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
-
-    @property
-    def external_integration(self):
-        _db = Session.object_session(self)
-        external_integration, ignore = get_one_or_create(
-            _db, ExternalIntegration, id=self.external_integration_id,
-        )
-        self.external_integration_id = external_integration.id
-        return external_integration
-
-
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
@@ -8896,7 +8946,7 @@ class Collection(Base):
     protocol = Column(Unicode, nullable=False, index=True)
 
     # Supported values for the 'protocol' field.
-    OPDS_IMPORT = 'OPDS Import'
+    OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
@@ -8913,7 +8963,7 @@ class Collection(Base):
     
     PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
 
-    DATA_SOURCE_NAME_SETTING = 'data_source'
+    DATA_SOURCE_NAME_SETTING = u'data_source'
     
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
@@ -8961,6 +9011,17 @@ class Collection(Base):
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
     )
+
+    # A Collection can be associated with multiple CoverageRecords
+    # for Identifiers in its catalog.
+    coverage_records = relationship(
+        "CoverageRecord", backref="collection",
+        cascade="save-update, merge, delete"
+    )
+
+    def __repr__(self):
+        return (u'<Collection "%s"/"%s" ID=%d>' %
+                (self.name, self.protocol, self.id)).encode('utf8')
 
     @property
     def external_integration(self):

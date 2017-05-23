@@ -18,15 +18,16 @@ from . import (
 )
 from config import (
     Configuration,
-    temp_config,
     CannotLoadConfiguration
 )
 from opds_import import (
-    SimplifiedOPDSLookup,
+    AccessNotAuthenticated,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
     OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
     OPDSXMLParser,
+    SimplifiedOPDSLookup,
 )
 from util.opds_writer import (
     AtomFeed,
@@ -41,6 +42,7 @@ from model import (
     CoverageRecord,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Edition,
@@ -74,43 +76,80 @@ class DoomedWorkOPDSImporter(OPDSImporter):
             # Any other import fails.
             raise Exception("Utter work failure!")
 
-class TestSimplifiedOPDSLookup(object):
+
+class TestMetadataWranglerOPDSLookup(DatabaseTest):
+
+    def setup(self):
+        super(TestMetadataWranglerOPDSLookup, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            username='abc', password='def', url="http://metadata.in"
+        )
+        self.collection = self._collection(
+            protocol=Collection.OVERDRIVE, external_account_id=u'library'
+        )
 
     def test_authenticates_wrangler_requests(self):
-        """Tests that the client_id and client_secret are set for any
-        Metadata Wrangler lookups"""
+        """Authenticated details are set for Metadata Wrangler requests
+        when they configured for the ExternalIntegration
+        """
 
-        mw_integration = Configuration.METADATA_WRANGLER_INTEGRATION
-        mw_client_id = Configuration.METADATA_WRANGLER_CLIENT_ID
-        mw_client_secret = Configuration.METADATA_WRANGLER_CLIENT_SECRET
+        lookup = MetadataWranglerOPDSLookup(self._db)
+        eq_("abc", lookup.client_id)
+        eq_("def", lookup.client_secret)
+        eq_(True, lookup.authenticated)
 
-        with temp_config() as config:
-            config['integrations'][mw_integration] = {
-                Configuration.URL : "http://localhost",
-                mw_client_id : "abc",
-                mw_client_secret : "def"
-            }
-            importer = SimplifiedOPDSLookup.from_config()
-            eq_("abc", importer.client_id)
-            eq_("def", importer.client_secret)
+        # An error is raised if only one value is set.
+        self.integration.password = None
+        assert_raises(
+            CannotLoadConfiguration, MetadataWranglerOPDSLookup, self._db
+        )
 
-            # An error is raised if only one value is set.
-            del config['integrations'][mw_integration][mw_client_secret]
-            assert_raises(CannotLoadConfiguration, SimplifiedOPDSLookup.from_config)
+        # The details are None if client configuration isn't set at all.
+        self.integration.username = None
+        lookup = MetadataWranglerOPDSLookup(self._db)
+        eq_(None, lookup.client_id)
+        eq_(None, lookup.client_secret)
+        eq_(False, lookup.authenticated)
 
-            # The details are None if client configuration isn't set at all.
-            del config['integrations'][mw_integration][mw_client_id]
-            importer = SimplifiedOPDSLookup.from_config()
-            eq_(None, importer.client_id)
-            eq_(None, importer.client_secret)
+    def test_get_collection_url(self):
+        lookup = MetadataWranglerOPDSLookup(self._db)
 
-            # For other integrations, the details aren't created at all.
-            config['integrations']["Content Server"] = dict(
-                url = "http://whatevz"
-            )
-            importer = SimplifiedOPDSLookup.from_config("Content Server")
-            eq_(None, importer.client_id)
-            eq_(None, importer.client_secret)
+        # If the lookup client doesn't have a Collection, an error is
+        # raised.
+        assert_raises(
+            ValueError, lookup.get_collection_url, 'banana'
+        )
+
+        # If the lookup client isn't authenticated, an error is raised.
+        lookup.collection = self.collection
+        lookup.client_id = lookup.client_secret = None
+        assert_raises(
+            AccessNotAuthenticated, lookup.get_collection_url, 'banana'
+        )
+
+        # With both authentication and a specific Collection,
+        # a URL is returned.
+        lookup.client_id = lookup.client_secret = 'password'
+        expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
+        eq_(expected, lookup.get_collection_url('banana'))
+
+    def test_lookup_endpoint(self):
+        # A Collection-specific endpoint is returned if authentication
+        # and a Collection is available.
+        lookup = MetadataWranglerOPDSLookup(self._db, collection=self.collection)
+
+        expected = self.collection.metadata_identifier + '/lookup'
+        eq_(expected, lookup.lookup_endpoint)
+
+        # Without a collection, an unspecific endpoint is returned.
+        lookup.collection = None
+        eq_('lookup', lookup.lookup_endpoint)
+
+        # Without authentication, an unspecific endpoint is returned.
+        lookup.client_id = lookup.client_secret = None
+        lookup.collection = self.collection
+        eq_('lookup', lookup.lookup_endpoint)
 
 
 class OPDSImporterTest(DatabaseTest):
@@ -125,6 +164,12 @@ class OPDSImporterTest(DatabaseTest):
             os.path.join(self.resource_path, "content_server_mini.opds")).read()
         self._default_collection.external_integration.setting('data_source').value = (
             DataSource.OA_CONTENT_SERVER
+        )
+
+        # Set an ExternalIntegration for the metadata_client used
+        # in the OPDSImporter.
+        self.service = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER, url="http://localhost"
         )
         
 
@@ -902,6 +947,45 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_([], imported_pools)
         eq_([], imported_works)
 
+    def test_build_identifier_mapping(self):
+        """Reverse engineers an identifier_mapping based on a list of URNs"""
+
+        collection = self._collection(protocol=Collection.AXIS_360)
+        lp = self._licensepool(
+            None, collection=collection,
+            data_source_name=DataSource.AXIS_360
+        )
+
+        # Create a couple of ISBN equivalencies.
+        isbn1 = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+        )
+        isbn2 = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+        )
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        [lp.identifier.equivalent_to(source, isbn, 1) for isbn in [isbn1, isbn2]]
+
+        # The importer is initialized without an identifier mapping.
+        importer = OPDSImporter(self._db, collection)
+        eq_(None, importer.identifier_mapping)
+
+        # We can build one.
+        importer.build_identifier_mapping([isbn1.urn])
+        expected = { isbn1 : lp.identifier }
+        eq_(expected, importer.identifier_mapping)
+
+        # If we already have one, it isn't overwritten.
+        importer.build_identifier_mapping([isbn2.urn])
+        overwrite = { isbn2 : lp.identifier }
+        eq_(False, importer.identifier_mapping==overwrite)
+        eq_(expected, importer.identifier_mapping)
+
+        # If the importer doesn't have a collection, we can't build
+        # its mapping.
+        importer = OPDSImporter(self._db, None)
+        importer.build_identifier_mapping([isbn1])
+        eq_(None, importer.identifier_mapping)
 
 class TestCombine(object):
     """Test that OPDSImporter.combine combines dictionaries in sensible
