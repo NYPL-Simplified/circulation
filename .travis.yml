@@ -38,5 +38,6 @@ before_script:
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_core_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_core_test to simplified_test;' -U postgres
+  - psql -c 'create extension pgcrypto;' -U postgres
 
 script: ./test
