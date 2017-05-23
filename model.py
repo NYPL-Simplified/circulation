@@ -8842,13 +8842,6 @@ class ExternalIntegration(Base):
     GOOGLE_OAUTH = u'Google OAuth'
     ADMIN_AUTH_PROVIDERS = [GOOGLE_OAUTH]
 
-    PROVIDERS = [
-        ADOBE_VENDOR_ID, AMAZON_S3, BIBBLIO, CDN, CIRCULATION_MANAGER,
-        CONTENT_CAFE, CONTENT_SERVER, ELASTICSEARCH, GOOGLE_ANALYTICS,
-        GOOGLE_OAUTH, METADATA_WRANGLER, NOVELIST, NYPL_SHADOWCAT,
-        PATRON_WEB_CLIENT, NYT, STAFF_PICKS,
-    ]
-
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
