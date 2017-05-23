@@ -2,6 +2,9 @@ sudo: false
 
 addons:
   postgresql: "9.3"
+  apt:
+    packages:
+      - postgresql-contrib-9.3
 
 services:
   - postgresql
@@ -35,5 +38,6 @@ before_script:
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
+  - psql -c 'create extension pgcrypto;' -U postgres -d simplified_circulation_test
 
 script: ./test
