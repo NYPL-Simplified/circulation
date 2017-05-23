@@ -156,13 +156,6 @@ INCOMPLETE_COLLECTION_CONFIGURATION = pd(
     detail=_("The collection's configuration is missing a required field."),
 )
 
-MISSING_ADMIN_AUTH_SERVICE_NAME = pd(
-    "http://librarysimplified.org/terms/problem/missing-admin-auth-service-name",
-    status_code=400,
-    title=_("Missing admin authentication service name."),
-    detail=_("You must identify the admin authentication service by its name."),
-)
-
 UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER = pd(
     "http://librarysimplified.org/terms/problem/unknown-admin-auth-service-provider",
     status_code=400,
@@ -182,13 +175,6 @@ NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
     status_code=400,
     title=_("No provider for new admin authentication service"),
     detail=_("The specified admin authentication service doesn't exist. You can create it, but you must specify a provider."),
-)
-
-CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-admin-auth-service-provider",
-    status_code=400,
-    title=_("Cannot change admin authentication service provider"),
-    detail=_("An admin authentication service's provider can't be changed once it has been set."),
 )
 
 INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION = pd(

@@ -21,6 +21,7 @@ from core.overdrive import (
 
 from core.model import (
     CirculationEvent,
+    Collection,
     Credential,
     DataSource,
     DeliveryMechanism,
@@ -815,6 +816,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     """
     SERVICE_NAME = "Overdrive Circulation Monitor"
     INTERVAL_SECONDS = 500
+    PROTOCOL = Collection.OVERDRIVE
 
     # Report successful completion upon finding this number of
     # consecutive books in the Overdrive results whose LicensePools

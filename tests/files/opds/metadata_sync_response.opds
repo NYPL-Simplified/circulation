@@ -6,12 +6,12 @@
   <simplified:message>
     <id>http://www.gutenberg.org/ebooks/2020110</id>
     <simplified:status_code>200</simplified:status_code>
-    <schema:description>Successfully removed</schema:description>
+    <schema:description>Already in catalog</schema:description>
   </simplified:message>
   <simplified:message>
     <id>urn:isbn:9781936460236</id>
-    <simplified:status_code>404</simplified:status_code>
-    <schema:description>Not in collection catalog</schema:description>
+    <simplified:status_code>201</simplified:status_code>
+    <schema:description>Successfully added</schema:description>
   </simplified:message>
  <simplified:message>
     <id>urn:isbn:1234</id>

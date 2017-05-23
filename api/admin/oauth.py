@@ -7,8 +7,8 @@ from flask.ext.babel import lazy_gettext as _
 
 class GoogleAuthService(object):
 
-    def __init__(self, auth_service, redirect_uri, test_mode=False):
-        self.auth_service = auth_service
+    def __init__(self, integration, redirect_uri, test_mode=False):
+        self.integration = integration
         self.redirect_uri = redirect_uri
         self.test_mode = test_mode
 
@@ -17,21 +17,18 @@ class GoogleAuthService(object):
         if self.test_mode:
             return DummyGoogleClient()
 
-        integration = self.auth_service.external_integration
         config = dict()
-        config["auth_uri"] = integration.url
-        config["client_id"] = integration.username
-        config["client_secret"] = integration.password
+        config["auth_uri"] = self.integration.url
+        config["client_id"] = self.integration.username
+        config["client_secret"] = self.integration.password
         config['redirect_uri'] = self.redirect_uri
         config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
         return GoogleClient.OAuth2WebServerFlow(**config)
 
     @property
     def domains(self):
-        if self.auth_service:
-            integration = self.auth_service.external_integration
-            if integration.setting("domains").value:
-                return json.loads(integration.setting("domains").value)
+        if self.integration and self.integration.setting("domains").value:
+            return json.loads(self.integration.setting("domains").value)
         return []
 
     def auth_uri(self, redirect_url):

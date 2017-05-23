@@ -18,12 +18,12 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
-    AdminAuthenticationService,
     CirculationEvent,
     Classification,
     Complaint,
     DataSource,
     Edition,
+    ExternalIntegration,
     Genre,
     Hold,
     Hyperlink,
@@ -99,8 +99,8 @@ class AdminController(object):
 
     @property
     def auth(self):
-        auth_service = get_one(self._db, AdminAuthenticationService)
-        if auth_service and auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
+        auth_service = ExternalIntegration.admin_authentication(self._db)
+        if auth_service and auth_service.provider == ExternalIntegration.GOOGLE_OAUTH:
             return GoogleAuthService(
                 auth_service,
                 self.url_for('google_auth_callback'),
@@ -1057,47 +1057,40 @@ class SettingsController(CirculationManagerController):
     def admin_auth_services(self):
         if flask.request.method == 'GET':
             auth_services = []
-            auth_service = get_one(self._db, AdminAuthenticationService)
-            if auth_service and auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
+            auth_service = ExternalIntegration.admin_authentication(self._db)
+            if auth_service and auth_service.provider == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
-                        name=auth_service.name,
                         provider=auth_service.provider,
-                        url=auth_service.external_integration.url,
-                        username=auth_service.external_integration.username,
-                        password=auth_service.external_integration.password,
-                        domains=json.loads(auth_service.external_integration.setting("domains").value),
+                        url=auth_service.url,
+                        username=auth_service.username,
+                        password=auth_service.password,
+                        domains=json.loads(auth_service.setting("domains").value),
                     )
                 ]
 
             return dict(
                 admin_auth_services=auth_services,
-                providers=AdminAuthenticationService.PROVIDERS,
+                providers=ExternalIntegration.ADMIN_AUTH_PROVIDERS,
             )
 
-        name = flask.request.form.get("name")
-        if not name:
-            return MISSING_ADMIN_AUTH_SERVICE_NAME
-
         provider = flask.request.form.get("provider")
+        if not provider:
+            return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
 
-        if provider and provider not in AdminAuthenticationService.PROVIDERS:
+        if provider not in ExternalIntegration.ADMIN_AUTH_PROVIDERS:
             return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
 
         is_new = False
-        auth_service = get_one(self._db, AdminAuthenticationService)
-        if auth_service:
-            # Currently there can only be one admin auth service, and one already exists.
-            if name != auth_service.name:
-                return ADMIN_AUTH_SERVICE_NOT_FOUND
-
-            if provider != auth_service.provider:
-                return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
+        auth_service = ExternalIntegration.admin_authentication(self._db)
+        if auth_service and provider != auth_service.provider:
+            return ADMIN_AUTH_SERVICE_NOT_FOUND
 
         else:
             if provider:
                 auth_service, is_new = get_one_or_create(
-                    self._db, AdminAuthenticationService, name=name, provider=provider
+                    self._db, ExternalIntegration, provider=provider,
+                    type=ExternalIntegration.ADMIN_AUTH_TYPE
                 )
             else:
                 return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
@@ -1121,11 +1114,10 @@ class SettingsController(CirculationManagerController):
             self._db.rollback()
             return INVALID_ADMIN_AUTH_DOMAIN_LIST
 
-        integration = auth_service.external_integration
-        integration.url = url
-        integration.username = username
-        integration.password = password
-        integration.set_setting("domains", domains)
+        auth_service.url = url
+        auth_service.username = username
+        auth_service.password = password
+        auth_service.set_setting("domains", domains)
 
         if is_new:
             return Response(unicode(_("Success")), 201)
