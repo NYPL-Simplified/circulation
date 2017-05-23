@@ -7,6 +7,7 @@ addons:
       - elasticsearch-1.7
     packages:
       - elasticsearch
+      - postgresql-contrib-9.3
 
 services:
   - postgresql
