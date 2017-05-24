@@ -420,7 +420,7 @@ class SIPClient(Constants):
         screen message: AF, var-length, optional
         print line: AG, var-length, optional
         """
-        return self.parse_response(
+        response = self.parse_response(
             data,
             64,
             fixed.patron_status,
@@ -462,6 +462,15 @@ class SIPClient(Constants):
             named.sipserver_internet_privileges,
             named.sipserver_internal_id
         )
+
+        # As a convenience, parse the patron_status field from a
+        # 14-character string into a dictionary of booleans.
+        try:
+            parsed = self.parse_patron_status(response.get('patron_status'))
+        except ValueError, e:
+            parsed = {}
+        response['patron_status_parsed'] = parsed
+        return response
 
     def parse_response(self, data, expect_status_code, *fields):
         """Verify that the given response string starts with the expected
@@ -560,6 +569,41 @@ class SIPClient(Constants):
                 )
         return data[2:]
 
+    @classmethod
+    def parse_patron_status(self, status_string):
+        """Parse the raw 14-character patron_status string.
+
+        :return: A 14-element dictionary mapping flag names to boolean
+        values.
+        """
+        if (not isinstance(status_string, basestring)
+            or len(status_string) != 14):
+            raise ValueError(
+                "Patron status must be a 14-character string."
+            )
+        status = {}
+        for i, field in enumerate([
+                # These names are taken from the SIP2 spec.
+                'charge privileges denied',
+                'renewal privileges denied',
+                'recall privileges denied',
+                'hold privileges denied',
+                'card reported lost',
+                'too many items charged',
+                'too many items overdue',
+                'too many renewals',
+                'too many claims of items returned',
+                'too many items lost',
+                'excessive outstanding fines',
+                'excessive outstanding fees',
+                'recall overdue',
+                'too many items billed',
+        ]):
+            # ' ' means false, 'Y' means true.
+            value = status_string[i] != ' '
+            status[field] = value
+        return status
+    
     def now(self):
         """Return the current time, formatted as SIP expects it."""
         now = datetime.datetime.utcnow()

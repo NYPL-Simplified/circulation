@@ -158,7 +158,7 @@ class TestLogin(object):
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
 
-        
+
 class TestPatronResponse(object):
 
     def setup(self):
@@ -169,11 +169,14 @@ class TestPatronResponse(object):
         response = self.sip.patron_information('identifier')
 
         # Test some of the basic fields.
-        response['institution_id'] = 'nypl '
-        response['peronal_name'] = 'No Name'
-        response['screen_message'] = ['Your library card number cannot be located.']
-        response['valid_patron'] = 'N'
-        response['patron_status'] = 'Y             '
+        eq_(response['institution_id'], 'nypl ')
+        eq_(response['personal_name'], 'No Name')
+        eq_(response['screen_message'], ['Your library card number cannot be located.'])
+        eq_(response['valid_patron'], 'N')
+        eq_(response['patron_status'], 'Y             ')
+        parsed = response['patron_status_parsed']
+        eq_(True, parsed['charge privileges denied'])
+        eq_(False, parsed['too many items charged'])
         
     def test_hold_items(self):
         "A patron has multiple items on hold."
@@ -240,3 +243,45 @@ class TestPatronResponse(object):
         assert with_password.endswith(
             'AApatron_identifier|AC|ADpatron_password'
         )
+
+    def test_parse_patron_status(self):
+        m = MockSIPClient.parse_patron_status
+        assert_raises(ValueError, m, None)
+        assert_raises(ValueError, m, "")
+        assert_raises(ValueError, m, " " * 20)
+        parsed = m("Y Y Y Y Y Y Y ")
+        for yes in [
+                'charge privileges denied',
+                #'renewal privileges denied',
+                'recall privileges denied',
+                #'hold privileges denied',
+                'card reported lost',
+                #'too many items charged',
+                'too many items overdue',
+                #'too many renewals',
+                'too many claims of items returned',
+                #'too many items lost',
+                'excessive outstanding fines',
+                #'excessive outstanding fees',
+                'recall overdue',
+                #'too many items billed',
+        ]:
+            eq_(parsed[yes], True)
+
+        for no in [
+                #'charge privileges denied',
+                'renewal privileges denied',
+                #'recall privileges denied',
+                'hold privileges denied',
+                #'card reported lost',
+                'too many items charged',
+                #'too many items overdue',
+                'too many renewals',
+                #'too many claims of items returned',
+                'too many items lost',
+                #'excessive outstanding fines',
+                'excessive outstanding fees',
+                #'recall overdue',
+                'too many items billed',
+        ]:
+            eq_(parsed[no], False)
