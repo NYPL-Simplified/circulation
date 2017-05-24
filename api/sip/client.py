@@ -182,7 +182,43 @@ class Constants(object):
 class SIPClient(Constants):
 
     log = logging.getLogger("SIPClient")
-   
+
+    # These are the subfield names associated with the 'patron status'
+    # field as specified in the SIP2 spec.
+    CHARGE_PRIVILEGES_DENIED = 'charge privileges denied'
+    RENEWAL_PRIVILEGES_DENIED = 'renewal privileges denied'
+    RECALL_PRIVILEGES_DENIED = 'recall privileges denied'
+    HOLD_PRIVILEGES_DENIED = 'hold privileges denied'
+    CARD_REPORTED_LOST = 'card reported lost'
+    TOO_MANY_ITEMS_CHARGED = 'too many items charged'
+    TOO_MANY_ITEMS_OVERDUE = 'too many items overdue'
+    TOO_MANY_RENEWALS = 'too many renewals'
+    TOO_MANY_RETURN_CLAIMS = 'too many claims of items returned'
+    TOO_MANY_LOST= 'too many items lost'
+    EXCESSIVE_FINES = 'excessive outstanding fines'
+    EXCESSIVE_FEES = 'excessive outstanding fees'
+    RECALL_OVERDUE = 'recall overdue'
+    TOO_MANY_ITEMS_BILLED = 'too many items billed'
+
+    # All the flags, in the order they're used in the 'patron status'
+    # field.
+    PATRON_STATUS_FIELDS = [
+        CHARGE_PRIVILEGES_DENIED,
+        RENEWAL_PRIVILEGES_DENIED,
+        RECALL_PRIVILEGES_DENIED,
+        HOLD_PRIVILEGES_DENIED,
+        CARD_REPORTED_LOST,
+        TOO_MANY_ITEMS_CHARGED,
+        TOO_MANY_ITEMS_OVERDUE,
+        TOO_MANY_RENEWALS,
+        TOO_MANY_RETURN_CLAIMS,
+        TOO_MANY_LOST,
+        EXCESSIVE_FINES,
+        EXCESSIVE_FEES,
+        RECALL_OVERDUE,
+        TOO_MANY_ITEMS_BILLED
+    ]
+    
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, location_code=None, separator=None):
         self.target_server = target_server
@@ -570,7 +606,7 @@ class SIPClient(Constants):
         return data[2:]
 
     @classmethod
-    def parse_patron_status(self, status_string):
+    def parse_patron_status(cls, status_string):
         """Parse the raw 14-character patron_status string.
 
         :return: A 14-element dictionary mapping flag names to boolean
@@ -582,23 +618,7 @@ class SIPClient(Constants):
                 "Patron status must be a 14-character string."
             )
         status = {}
-        for i, field in enumerate([
-                # These names are taken from the SIP2 spec.
-                'charge privileges denied',
-                'renewal privileges denied',
-                'recall privileges denied',
-                'hold privileges denied',
-                'card reported lost',
-                'too many items charged',
-                'too many items overdue',
-                'too many renewals',
-                'too many claims of items returned',
-                'too many items lost',
-                'excessive outstanding fines',
-                'excessive outstanding fees',
-                'recall overdue',
-                'too many items billed',
-        ]):
+        for i, field in enumerate(cls.PATRON_STATUS_FIELDS):
             # ' ' means false, 'Y' means true.
             value = status_string[i] != ' '
             status[field] = value

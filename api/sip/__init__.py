@@ -14,6 +14,17 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
+    # Most of the time, a patron who is blocked will be blocked with
+    # the reason UNKNOWN_BLOCK. However, there are a few more specific
+    # reasons we can use. This dictionary maps the block reason
+    # reported by SIP2 to the protocol-independent block reason used
+    # by PatronData.
+    SPECIFIC_BLOCK_REASONS = {
+        SIPClient.CARD_REPORTED_LOST : PatronData.CARD_REPORTED_LOST,
+        SIPClient.EXCESSIVE_FINES : PatronData.FINES,
+        SIPClient.EXCESSIVE_FEES : PatronData.FINES,
+    }
+    
     def __init__(self, library_id, server, port, login_user_id,
                  login_password, location_code, field_separator='|',
                  client=None,
@@ -122,6 +133,37 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 if value:
                     patrondata.authorization_expires = value
                     break
+
+        # If any subfield of the patron_status field is True, the
+        # patron is prohibited from borrowing books. The only
+        # exception is 'hold privileges denied', which only blocks a
+        # patron from putting books on hold and which we currently
+        # don't enforce.
+        status = info['patron_status_parsed']
+        block_reason = None
+        for field in SIPClient.PATRON_STATUS_FIELDS:
+            if field == SIPClient.HOLD_PRIVILEGES_DENIED:
+                continue
+            if status.get(field) is True:
+                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                    field, PatronData.UNKNOWN_BLOCK
+                )
+                if block_reason and block_reason != PatronData.UNKNOWN_BLOCK:
+                    # Even if there are multiple problems with this
+                    # patron's account, we can now present a specific
+                    # error message. There's no need to look through
+                    # more fields.
+                    break
+        patrondata.block_reason = block_reason
+
+        # If we can tell by looking at the SIP2 message that the
+        # patron has excessive fines, we can use that as the reason
+        # they're blocked.
+        if 'fee_limit' in info:
+            fee_limit = MoneyUtility.parse(info['fee_limit']).amount
+            if fee_limit and patrondata.fines > fee_limit:
+                patrondata.block_reason = PatronData.FINES
+        
         return patrondata
 
     @classmethod
