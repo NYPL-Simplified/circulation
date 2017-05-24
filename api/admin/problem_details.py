@@ -9,11 +9,18 @@ ADMIN_AUTH_NOT_CONFIGURED = pd(
     _("This circulation manager has not been configured to authenticate admins."),
 )
 
+ADMIN_AUTH_MECHANISM_NOT_CONFIGURED = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-mechanism-not-configured",
+    400,
+    _("Admin auth mechanism not configured"),
+    _("This circulation manager has not been configured to authenticate admins with the mechanism you used"),
+)
+
 INVALID_ADMIN_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/admin-credentials-invalid",
       401,
       _("Invalid admin credentials"),
-      _("A valid library staff email is required."),
+      _("Valid library staff credentials are required."),
 )
 
 GOOGLE_OAUTH_FAILURE = pd(
@@ -203,4 +210,11 @@ INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
     status_code=400,
     title=_("Invalid admin authentication domain list"),
     detail=_("The admin authentication domain list isn't in a valid format."),
+)
+
+INVALID_ADMIN_AUTH_ADMINS_LIST = pd(
+    "http://librarysimplified.org/terms/problem/invalid-admin-auth-admins-list",
+    status_code=400,
+    title=_("Invalid admin authentication list of admins"),
+    detail=_("The admin authentication list of admins isn't in a valid format."),
 )
