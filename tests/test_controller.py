@@ -87,7 +87,6 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.admin.oauth import DummyGoogleClient
 from api.testing import MockAdobeConfiguration
 from lxml import etree
 import random
