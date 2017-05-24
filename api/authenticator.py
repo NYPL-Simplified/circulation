@@ -65,7 +65,7 @@ class PatronData(object):
     # Reasons why a patron might be blocked.
     UNKNOWN_BLOCK = 'unknown'
     CARD_REPORTED_LOST = 'card reported lost'
-    FINES = 'too many fines'
+    EXCESSIVE_FINES = 'excessive fines'
     
     def __init__(self,
                  permanent_id=None,

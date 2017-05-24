@@ -66,7 +66,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # fines.
         client.queue_response(self.sierra_excessive_fines)
         patrondata = auth.remote_authenticate("user", "pass")
-        eq_(PatronData.FINES, patrondata.block_reason)
+        eq_(PatronData.EXCESSIVE_FINES, patrondata.block_reason)
         
         # Some examples taken from an Evergreen instance that doesn't
         # use passwords.

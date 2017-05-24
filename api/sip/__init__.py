@@ -140,7 +140,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         # patron from putting books on hold and which we currently
         # don't enforce.
         status = info['patron_status_parsed']
-        block_reason = None
+        block_reason = PatronData.NO_VALUE
         for field in SIPClient.PATRON_STATUS_FIELDS:
             if field == SIPClient.HOLD_PRIVILEGES_DENIED:
                 continue
@@ -148,7 +148,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
                     field, PatronData.UNKNOWN_BLOCK
                 )
-                if block_reason and block_reason != PatronData.UNKNOWN_BLOCK:
+                if block_reason not in (PatronData.NO_VALUE,
+                                        PatronData.UNKNOWN_BLOCK):
                     # Even if there are multiple problems with this
                     # patron's account, we can now present a specific
                     # error message. There's no need to look through
