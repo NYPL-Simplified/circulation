@@ -25,8 +25,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     evergreen_active_user = "64  Y           00020161021    142851000000000000000000000000AA12345|AEBooth Active Test|BHUSD|BDAdult Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863715|AOBiblioTest|AY2AZ0000"
     evergreen_expired_card = "64YYYY          00020161021    142937000000000000000000000000AA12345|AEBooth Expired Test|BHUSD|BDAdult Circ Desk #2 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20080907|PCAdult|PIAllowed|XI863716|AFblocked|AOBiblioTest|AY2AZ0000"
     evergreen_excessive_fines = "64  Y           00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
-    evergreen_hold_privileges_denied = "64  Y          00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
-    evergreen_card_reported_lost = "64   Y         00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
+    evergreen_hold_privileges_denied = "64   Y          00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
+    evergreen_card_reported_lost = "64    Y        00020161021    143002000000000000000100000000AA12345|AEBooth Excessive Fines Test|BHUSD|BV100.00|BDChildrens Circ Desk 1 Newtown, CT USA 06470|AQNEWTWN|BLY|PA20191004|PCAdult|PIAllowed|XI863718|AOBiblioTest|AY2AZ0000"
     evergreen_inactive_account = "64YYYY          00020161021    143028000000000000000000000000AE|AA12345|BLN|AOBiblioTest|AY2AZ0000"
 
     polaris_valid_pin = "64              00120161121    143327000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFPatron status is ok.|AGPatron status is ok.|AY2AZ94F3"
@@ -55,7 +55,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(0, patrondata.fines)
         eq_(None, patrondata.authorization_expires)
         eq_(None, patrondata.external_type)
-        eq_(None, patrondata.block_reason)
+        eq_(PatronData.NO_VALUE, patrondata.block_reason)
         
         client.queue_response(self.sierra_invalid_login)
         eq_(None, auth.remote_authenticate("user", "pass"))
@@ -111,12 +111,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # still borrow books.
         client.queue_response(self.evergreen_hold_privileges_denied)
         patrondata = auth.remote_authenticate("user", "pass")
-        eq_(None, patrondata.block_reason)
+        eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         client.queue_response(self.evergreen_card_reported_lost)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.CARD_REPORTED_LOST, patrondata.block_reason)
-
         
         # Some examples taken from a Polaris instance.
         client.queue_response(self.polaris_valid_pin)
