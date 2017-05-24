@@ -69,7 +69,13 @@ class PatronUtility(object):
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 
+        from api.authenticator import PatronData
         if patron.block_reason is not None:
+            if patron.block_reason is PatronData.EXCESSIVE_FINES:
+                # The authentication mechanism itself may know that
+                # the patron has outstanding fines, even if the circulation
+                # manager is not configured to make that deduction.
+                raise OutstandingFines()
             raise AuthorizationBlocked()
     
     @classmethod
