@@ -120,6 +120,38 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 if value:
                     patrondata.authorization_expires = value
                     break
+
+        # If any subfield of the patron_status field is True, the
+        # patron is prohibited from borrowing books. The only
+        # exception is 'hold privileges denied', which only blocks a
+        # patron from putting books on hold and which we currently
+        # don't enforce.
+        status = info['patron_status_parsed']
+        block_reason = PatronData.NO_VALUE
+        for field in SIPClient.PATRON_STATUS_FIELDS:
+            if field == SIPClient.HOLD_PRIVILEGES_DENIED:
+                continue
+            if status.get(field) is True:
+                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                    field, PatronData.UNKNOWN_BLOCK
+                )
+                if block_reason not in (PatronData.NO_VALUE,
+                                        PatronData.UNKNOWN_BLOCK):
+                    # Even if there are multiple problems with this
+                    # patron's account, we can now present a specific
+                    # error message. There's no need to look through
+                    # more fields.
+                    break
+        patrondata.block_reason = block_reason
+
+        # If we can tell by looking at the SIP2 message that the
+        # patron has excessive fines, we can use that as the reason
+        # they're blocked.
+        if 'fee_limit' in info:
+            fee_limit = MoneyUtility.parse(info['fee_limit']).amount
+            if fee_limit and patrondata.fines > fee_limit:
+                patrondata.block_reason = PatronData.EXCESSIVE_FINES
+        
         return patrondata
 
     @classmethod

@@ -9,6 +9,7 @@ from . import (
 )
 
 from api.config import Configuration, temp_config
+from api.authenticator import PatronData
 from api.util.patron import PatronUtility
 from api.circulation_exceptions import *
 
@@ -83,6 +84,16 @@ class TestPatronUtility(DatabaseTest):
             patron.fines = 0
             eq_(True, PatronUtility.has_borrowing_privileges(patron))
 
+        # Even if the circulation manager is not configured to know
+        # what "excessive fines" are, the authentication mechanism
+        # might know, and might store that information in the
+        # patron's block_reason.
+        patron.block_reason = PatronData.EXCESSIVE_FINES
+        assert_raises(
+            OutstandingFines,
+            PatronUtility.assert_borrowing_privileges, patron
+        )
+        
         # If your card is blocked for any reason you lose borrowing
         # privileges.
         patron.block_reason = "some reason"
