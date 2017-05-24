@@ -2,16 +2,14 @@ from nose.tools import set_trace
 
 from flask import url_for
 
+from admin_authentication_provider import AdminAuthenticationProvider
 from core.model import (
     Admin,
     Session,
 )
 from problem_details import *
 
-class PasswordAuthService(object):
-
-    def __init__(self, auth_service):
-        self.auth_service = auth_service
+class PasswordAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     def auth_uri(self, redirect):
         return url_for('password_auth') + "?redirect=%s" % redirect

@@ -5,14 +5,14 @@ from nose.tools import (
 
 from .. import DatabaseTest
 from api.admin.problem_details import *
-from api.admin.password_auth import PasswordAuthService
+from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 from core.model import (
     Admin,
     AdminAuthenticationService,
     create,
 )
 
-class TestPasswordAuthService(DatabaseTest):
+class TestPasswordAdminAuthenticationProvider(DatabaseTest):
 
     def test_sign_in(self):
         auth_service, ignore = create(
@@ -20,7 +20,7 @@ class TestPasswordAuthService(DatabaseTest):
             name="auth service", provider=AdminAuthenticationService.LOCAL_PASSWORD,
         )
 
-        password_auth = PasswordAuthService(auth_service)
+        password_auth = PasswordAdminAuthenticationProvider(auth_service)
 
         # There are two admins with passwords.
         admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")

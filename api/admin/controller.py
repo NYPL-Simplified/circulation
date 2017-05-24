@@ -43,8 +43,8 @@ from api.config import (
     CannotLoadConfiguration
 )
 
-from oauth import GoogleAuthService
-from password_auth import PasswordAuthService
+from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCoverageProvider
@@ -102,13 +102,13 @@ class AdminController(object):
         auth_service = get_one(self._db, AdminAuthenticationService)
         if auth_service:
             if auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
-                return GoogleAuthService(
+                return GoogleOAuthAdminAuthenticationProvider(
                     auth_service,
                     self.url_for('google_auth_callback'),
                     test_mode=self.manager.testing,
                 )
             elif auth_service.provider == AdminAuthenticationService.LOCAL_PASSWORD:
-                return PasswordAuthService(
+                return PasswordAdminAuthenticationProvider(
                     auth_service,
                 )
         return None
@@ -204,7 +204,7 @@ class SignInController(AdminController):
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        if not isinstance(self.auth, GoogleAuthService):
+        if not isinstance(self.auth, GoogleOAuthAdminAuthenticationProvider):
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
         admin_details, redirect_url = self.auth.callback(flask.request.args)
@@ -232,7 +232,7 @@ class SignInController(AdminController):
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        if not isinstance(self.auth, PasswordAuthService):
+        if not isinstance(self.auth, PasswordAdminAuthenticationProvider):
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
         if flask.request.method == 'GET':

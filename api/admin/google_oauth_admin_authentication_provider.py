@@ -1,14 +1,15 @@
 import json
 from nose.tools import set_trace
 
+from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
 
-class GoogleAuthService(object):
+class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     def __init__(self, auth_service, redirect_uri, test_mode=False):
-        self.auth_service = auth_service
+        super(GoogleOAuthAdminAuthenticationProvider, self).__init__(auth_service)
         self.redirect_uri = redirect_uri
         self.test_mode = test_mode
 
