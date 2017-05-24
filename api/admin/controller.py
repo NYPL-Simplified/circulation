@@ -240,7 +240,9 @@ class SignInController(AdminController):
                 password_sign_in_url=self.url_for("password_auth"),
                 redirect=flask.request.args.get("redirect"),
             )
-            return Response(html, 200)
+            headers = dict()
+            headers['Content-Type'] = "text/html"
+            return Response(html, 200, headers)
 
         admin_details, redirect_url = self.auth.sign_in(flask.request.form)
         if isinstance(admin_details, ProblemDetail):
