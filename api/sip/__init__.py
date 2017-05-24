@@ -21,8 +21,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     # by PatronData.
     SPECIFIC_BLOCK_REASONS = {
         SIPClient.CARD_REPORTED_LOST : PatronData.CARD_REPORTED_LOST,
-        SIPClient.EXCESSIVE_FINES : PatronData.FINES,
-        SIPClient.EXCESSIVE_FEES : PatronData.FINES,
+        SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
+        SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
     }
     
     def __init__(self, library_id, server, port, login_user_id,
@@ -163,7 +163,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         if 'fee_limit' in info:
             fee_limit = MoneyUtility.parse(info['fee_limit']).amount
             if fee_limit and patrondata.fines > fee_limit:
-                patrondata.block_reason = PatronData.FINES
+                patrondata.block_reason = PatronData.EXCESSIVE_FINES
         
         return patrondata
 
