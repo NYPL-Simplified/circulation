@@ -1298,7 +1298,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             OPDSImporter,
         )
 
-        self._default_collection.protocol = ExternalIntegration.OVERDRIVE
+        self._default_collection.external_integration.protocol = ExternalIntegration.OVERDRIVE
         assert_raises_regexp(
             ValueError,
             "Collection .* is configured for protocol Overdrive, not OPDS import.",
@@ -1308,7 +1308,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             OPDSImporter,
         )
 
-        self._default_collection.protocol = Collection.OPDS_IMPORT
+        self._default_collection.external_integration.protocol = ExternalIntegration.OPDS_IMPORT
         self._default_collection.external_integration.setting('data_source').value = None
         assert_raises_regexp(
             ValueError,
