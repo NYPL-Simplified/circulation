@@ -1277,7 +1277,7 @@ class OPDSImportMonitor(CollectionMonitor):
                 "OPDSImportMonitor can only be run in the context of a Collection."
             )
         
-        if collection.protocol != Collection.OPDS_IMPORT:
+        if collection.protocol != ExternalIntegration.OPDS_IMPORT:
             raise ValueError(
                 "Collection %s is configured for protocol %s, not OPDS import." % (
                     collection.name, collection.protocol
