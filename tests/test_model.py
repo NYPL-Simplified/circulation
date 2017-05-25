@@ -5642,6 +5642,8 @@ class TestCollection(DatabaseTest):
             set(Collection.by_protocol(self._db, overdrive).all()))
         eq_(([c2]),
             Collection.by_protocol(self._db, bibliotheca).all())
+        eq_(set([self.collection, c1, c2]),
+            set(Collection.by_protocol(self._db, None).all()))
 
         
     def test_explain(self):
@@ -5717,7 +5719,7 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.external_integration.provider, mirror_collection.external_integration.provider)
+        eq_(self.collection.external_integration.protocol, mirror_collection.external_integration.protocol)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)

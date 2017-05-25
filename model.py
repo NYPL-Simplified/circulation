@@ -9081,12 +9081,19 @@ class Collection(Base):
     
     @classmethod
     def by_protocol(cls, _db, protocol):
-        """Query collections that get their licenses through the given protocol."""
-        return _db.query(Collection).join(
+        """Query collections that get their licenses through the given protocol.
+
+        :param protocol: Protocol to use. If this is None, all
+        Collections will be returned.
+        """
+        qu = _db.query(Collection)
+        if protocol:
+            qu = qu.join(
             ExternalIntegration,
             ExternalIntegration.id==Collection.external_integration_id).filter(
                 ExternalIntegration.type==ExternalIntegration.LICENSE_TYPE
             ).filter(ExternalIntegration.protocol==protocol)
+        return qu
     
     @property
     def protocol(self):

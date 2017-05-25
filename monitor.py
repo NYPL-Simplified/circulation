@@ -186,7 +186,7 @@ class CollectionMonitor(Monitor):
 
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME and
-    PROVIDER. Subclasses may define replacement values for
+    PROTOCOL. Subclasses may define replacement values for
     KEEP_TIMESTAMP, INTERVAL_SECONDS, and DEFAULT_START_TIME.
     """
 
@@ -195,12 +195,12 @@ class CollectionMonitor(Monitor):
     # instantiated with Collections that get their licenses from this
     # provider. If this is unset, the CollectionMonitor can be
     # instantiated with any Collection, or with no Collection at all.
-    PROVIDER = None
+    PROTOCOL = None
 
     def __init__(self, _db, collection):
         cls = self.__class__
         self.protocol = cls.PROTOCOL
-        if self.provider:
+        if self.protocol:
             if collection is None:
                 raise CollectionMissing()
         if self.protocol and collection.protocol != self.protocol:
@@ -215,7 +215,7 @@ class CollectionMonitor(Monitor):
     @classmethod
     def all(cls, _db, **constructor_kwargs):
         """Yield a sequence of CollectionMonitor objects: one for every
-        Collection provided by cls.PROVIDER.
+        Collection associated with cls.PROTOCOL.
 
         Monitors that have no Timestamp will be yielded first. After that,
         Monitors with older Timestamps will be yielded before Monitors with
@@ -226,14 +226,8 @@ class CollectionMonitor(Monitor):
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
-        collections = _db.query(Collection).outerjoin(
+        collections = Collection.by_protocol(_db, cls.PROTOCOL).outerjoin(
             Collection.timestamps).filter(service_match)
-
-        if cls.PROTOCOL:
-            collections = collections.filter(
-                Collection.protocol==cls.PROTOCOL
-            )
-
         collections = collections.order_by(
             Timestamp.timestamp.asc().nullsfirst()
         )
