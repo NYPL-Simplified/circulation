@@ -5567,9 +5567,9 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(self._db, ExternalIntegration)
 
     def test_data_source(self):
-        # For most collections, the protocol determines the
+        # For most collections, the provider determines the
         # data source.
-        collection = self._collection(protocol=Collection.OVERDRIVE)
+        collection = self._collection(provider=ExternalIntegration.OVERDRIVE)
         eq_(DataSource.OVERDRIVE, collection.data_source.name)
 
         # For OPDS Import collections, data source is a setting which
@@ -5605,7 +5605,7 @@ class TestCollection(DatabaseTest):
     def setup(self):
         super(TestCollection, self).setup()
         self.collection = self._collection(
-            name="test collection", protocol=Collection.OVERDRIVE
+            name="test collection", provider=ExternalIntegration.OVERDRIVE
         )
 
     def test_explain(self):
@@ -5624,7 +5624,7 @@ class TestCollection(DatabaseTest):
 
         data = self.collection.explain()
         eq_(['Name: "test collection"',
-             'Protocol: "Overdrive"',
+             'Provider: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
              'URL: "url"',
@@ -5640,12 +5640,11 @@ class TestCollection(DatabaseTest):
         # If the collection is the child of another collection,
         # its parent is mentioned.
         child = Collection(
-            name="Child", parent=self.collection, protocol=self.collection.protocol, external_account_id="id2"
+            name="Child", parent=self.collection, external_account_id="id2"
         )
         data = child.explain()
         eq_(['Name: "Child"',
              'Parent: test collection',
-             'Protocol: "Overdrive"',
              'External account ID: "id2"'],
             data
         )
@@ -5662,14 +5661,16 @@ class TestCollection(DatabaseTest):
 
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'
-        expected = build_expected(Collection.OVERDRIVE, 'id')
+        expected = build_expected(ExternalIntegration.OVERDRIVE, 'id')
         eq_(expected, self.collection.metadata_identifier)
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
-            name="Child", protocol=Collection.OPDS_IMPORT, external_account_id=self._url)
+            name="Child", provider=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=self._url
+        )
         child.parent = self.collection
-        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.external_account_id)
+        expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
     def test_from_metadata_identifier(self):
@@ -5680,14 +5681,13 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.protocol, mirror_collection.protocol)
+        eq_(self.collection.external_integration.provider, mirror_collection.external_integration.provider)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
         mirror_collection = create(
             self._db, Collection,
             name=collection.metadata_identifier,
-            protocol=collection.protocol
         )[0]
 
         result, is_new = Collection.from_metadata_identifier(
@@ -5736,12 +5736,12 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
     metadata wrangler to meet the needs of the new Collection class.
     """
 
-    def test_only_name_and_protocol_are_required(self):
-        """Test that only name and protocol are required fields on
+    def test_only_name_is_required(self):
+        """Test that only name is a required field on
         the Collection class.
         """
         collection = create(
-            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+            self._db, Collection, name='banana'
         )[0]
         eq_(True, isinstance(collection, Collection))
 

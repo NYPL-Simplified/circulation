@@ -8812,34 +8812,86 @@ class ExternalIntegration(Base):
     to a third-party API.
     """
 
-    # Utilities
-    CDN = Configuration.CDN_INTEGRATION
-    ELASTICSEARCH = Configuration.ELASTICSEARCH_INTEGRATION
-    AMAZON_S3 = Configuration.S3_INTEGRATION
+    # Possible types of ExternalIntegrations.
+    #
+    # These integrations are associated with external services such as
+    # Google Enterprise which authenticate library administrators.
+    ADMIN_AUTH_TYPE = 'admin_auth'
 
-    # Simplified
+    # These integrations are associated with external services such as
+    # SIP2 which authenticate library patrons. Other constants related
+    # to this are defined in the circulation manager.
+    PATRON_AUTH_TYPE = 'patron_auth'
+
+    # These integrations are associated with external services such
+    # as Overdrive which provide access to books.
+    LICENSE_TYPE = 'licenses'
+
+    # These integrations are associated with external services such as
+    # the metadata wrangler, which provide information about books,
+    # but not the books themselves.
+    METADATA_TYPE = 'metadata'
+
+    # These integrations are associated with external services such as
+    # Google Analytics, which receive analytics events.
+    ANALYTICS_TYPE = 'analytics'
+       
+    # These integrations are associated with the Library Simplified
+    # applications themselves, as well as external services such as
+    # CDNs and Elasticsearch which are directly used by the
+    # applications.
+    SYSTEM_TYPE = 'system'
+    
+    # Supported providers for ExternalIntegrations of LICENSE_TYPE.
+    OPDS_IMPORT = u'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+
+    LICENSE_PROVIDERS = [
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
+    ]
+    
+    # Some LICENSE_TYPE providers imply that the data and
+    # licenses come from a specific data source.
+    DATA_SOURCE_FOR_LICENSE_PROVIDER = {
+        OVERDRIVE : DataSource.OVERDRIVE,
+        BIBLIOTHECA : DataSource.BIBLIOTHECA,
+        AXIS_360 : DataSource.AXIS_360,
+        ONE_CLICK : DataSource.ONECLICK
+    }
+
+    # SYSTEM_TYPE integrations. Each system may have at most one of these.
+
+    # TODO: There are three CDNs, one for cover images, one for content,
+    # one for OPDS feeds. They need separate integrations.
+    CDN = Configuration.CDN_INTEGRATION
+    # TODO: Similarly for S3.
+    AMAZON_S3 = Configuration.S3_INTEGRATION
+    ELASTICSEARCH = Configuration.ELASTICSEARCH_INTEGRATION
     CIRCULATION_MANAGER = Configuration.CIRCULATION_MANAGER_INTEGRATION
     CONTENT_SERVER = Configuration.CONTENT_SERVER_INTEGRATION
-    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
     PATRON_WEB_CLIENT = u'Patron Web Client'
-
-    # Metadata
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+    
+    # METADATA_TYPE integrations
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
     NOVELIST = Configuration.NOVELIST_INTEGRATION
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = Configuration.NYT_INTEGRATION
     STAFF_PICKS = u'Staff Picks'
-
-    # Analytics
+    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
+    
+    # ANALYTICS_TYPE integrations
     GOOGLE_ANALYTICS = u'Google Analytics'
 
-    # Patron Authentication
-    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
-
-    # Admin Authentication
+    # ADMIN_AUTHENTICATION_TYPE integrations
     ADMIN_AUTH_TYPE = u'admin_auth'
     GOOGLE_OAUTH = u'Google OAuth'
+
+    # List of such ADMIN_AUTHENTICATION_TYPE integrations
     ADMIN_AUTH_PROVIDERS = [GOOGLE_OAUTH]
 
     __tablename__ = 'externalintegrations'
@@ -8867,14 +8919,7 @@ class ExternalIntegration(Base):
         "ExternalIntegrationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-
-    __table_args__ = (
-        UniqueConstraint('provider', 'type'),
-        Index(
-            'ix_unique_provider_with_null_type', provider,
-            unique=True, postgresql_where=(type.is_(None))),
-    )
-
+    
     @classmethod
     def lookup(cls, _db, provider, type=None):
         integration = get_one(_db, cls, provider=provider, type=type)
@@ -8941,28 +8986,6 @@ class Collection(Base):
 
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
-    # What piece of code do we run to find out about changes to this
-    # collection?
-    protocol = Column(Unicode, nullable=False, index=True)
-
-    # Supported values for the 'protocol' field.
-    OPDS_IMPORT = u'OPDS Import'
-    OVERDRIVE = DataSource.OVERDRIVE
-    BIBLIOTHECA = DataSource.BIBLIOTHECA
-    AXIS_360 = DataSource.AXIS_360
-    ONE_CLICK = DataSource.ONECLICK
-
-    # Some protocols imply that the data and licenses come from a
-    # specific data source.
-    DATA_SOURCE_FOR_PROTOCOL = {
-        OVERDRIVE : DataSource.OVERDRIVE,
-        BIBLIOTHECA : DataSource.BIBLIOTHECA,
-        AXIS_360 : DataSource.AXIS_360,
-        ONE_CLICK : DataSource.ONECLICK
-    }
-    
-    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
-
     DATA_SOURCE_NAME_SETTING = u'data_source'
     
     # How does the provider of this collection distinguish it from
@@ -8970,9 +8993,11 @@ class Collection(Base):
     # called a "library ID".
     external_account_id = Column(Unicode, nullable=True)
 
-    # How do we connect to the provider of this collection? Any
-    # url, authentication information, or additional configuration
-    # goes into the external integration.
+    # How do we connect to the provider of this collection? Any url,
+    # authentication information, or additional configuration goes
+    # into the external integration, as does the 'provider', which
+    # designates the integration technique we will use to actually get
+    # the metadata and licenses.
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True)
 
@@ -9054,12 +9079,15 @@ class Collection(Base):
         with this data source, unless its bibliographic metadata
         indicates some other data source.
 
-        For most Collections, the protocol sets the data source.  For
-        collections that use the OPDS import protocol, the data source
-        is a Collection-specific setting.
+        For most Collections, the integration provider sets the data
+        source.  For collections that use the OPDS import protocol,
+        the data source is a Collection-specific setting.
         """
         data_source = None
-        name = Collection.DATA_SOURCE_FOR_PROTOCOL.get(self.protocol)
+        provider = self.external_integration.provider
+        name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROVIDER.get(
+            provider
+        )
         if not name:
             name = self.external_integration.setting(
                 Collection.DATA_SOURCE_NAME_SETTING
@@ -9073,15 +9101,17 @@ class Collection(Base):
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
         this Collection on the metadata wrangler. This identifier is
-        composed of the Collection protocol and account identifier.
+        composed of the Collection provider and account identifier.
 
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
         account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        protocol = base64.b64encode(unicode(self.protocol), '-_')
+        provider = base64.b64encode(
+            unicode(self.external_integration.provider), '-_'
+        )
 
-        metadata_identifier = protocol + ':' + account_id
+        metadata_identifier = provider + ':' + account_id
         return base64.b64encode(metadata_identifier, '-_')
 
     @classmethod
@@ -9094,9 +9124,14 @@ class Collection(Base):
 
         if not collection:
             details = base64.b64decode(metadata_identifier, '-_')
-            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
+            provider = base64.b64decode(details.split(':', 1)[0], '-_')
             collection, is_new = create(_db, Collection,
-                name=metadata_identifier, protocol=protocol)
+                name=metadata_identifier)
+
+            collection.external_integration.type = (
+                ExternalIntegration.LICENSE_TYPE
+            )
+            collection.external_integration.provider = provider
 
         return collection, is_new
 
@@ -9114,15 +9149,15 @@ class Collection(Base):
             lines.append('Name: "%s"' % self.name)
         if self.parent:
             lines.append('Parent: %s' % self.parent.name)
-        if self.protocol:
-            lines.append('Protocol: "%s"' % self.protocol)
+        integration = self.external_integration
+        if integration.provider:
+            lines.append('Provider: "%s"' % integration.provider)
         for library in self.libraries:
             lines.append('Used by library: "%s"' % (
                 library.short_name or library.name
             ))
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        integration = self.external_integration
         if integration.url:
             lines.append('URL: "%s"' % integration.url)
         if integration.username:
