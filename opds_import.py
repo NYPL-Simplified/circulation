@@ -122,7 +122,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     def __init__(self, _db, collection=None):
         integration = ExternalIntegration.lookup(
-            _db, provider=ExternalIntegration.METADATA_WRANGLER
+            _db, protocol=ExternalIntegration.METADATA_WRANGLER
         )
         if not integration:
             raise CannotLoadConfiguration(

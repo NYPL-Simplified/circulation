@@ -453,9 +453,9 @@ class DatabaseTest(object):
         )
         return credential
     
-    def _external_integration(self, provider, type=None, settings=None, **kwargs):
+    def _external_integration(self, protocol, type=None, settings=None, **kwargs):
         integration, is_new = get_one_or_create(
-            self._db, ExternalIntegration, provider=provider, type=type
+            self._db, ExternalIntegration, protocol=protocol, type=type
         )
 
         for attr, value in kwargs.items():

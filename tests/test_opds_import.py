@@ -86,7 +86,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
             username='abc', password='def', url="http://metadata.in"
         )
         self.collection = self._collection(
-            protocol=Collection.OVERDRIVE, external_account_id=u'library'
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'library'
         )
 
     def test_authenticates_wrangler_requests(self):
@@ -950,7 +950,7 @@ class TestOPDSImporter(OPDSImporterTest):
     def test_build_identifier_mapping(self):
         """Reverse engineers an identifier_mapping based on a list of URNs"""
 
-        collection = self._collection(protocol=Collection.AXIS_360)
+        collection = self._collection(protocol=ExternalIntegration.AXIS_360)
         lp = self._licensepool(
             None, collection=collection,
             data_source_name=DataSource.AXIS_360
