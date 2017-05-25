@@ -8855,7 +8855,7 @@ class ExternalIntegration(Base):
     
     # Some LICENSE_TYPE protocols imply that the data and
     # licenses come from a specific data source.
-    DATA_SOURCE_FOR_LICENSE_PROTOCOLS = {
+    DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,

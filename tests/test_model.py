@@ -5660,7 +5660,7 @@ class TestCollection(DatabaseTest):
 
         data = self.collection.explain()
         eq_(['Name: "test collection"',
-             'Provider: "Overdrive"',
+             'Protocol: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
              'URL: "url"',
