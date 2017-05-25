@@ -678,7 +678,7 @@ class DatabaseTest(object):
         )
         return library
     
-    def _collection(self, name=None, provider=ExternalIntegration.OPDS_IMPORT,
+    def _collection(self, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
                     password=None):
         name = name or self._str
@@ -687,7 +687,7 @@ class DatabaseTest(object):
         )
         collection.external_account_id = external_account_id
         collection.external_integration.type = ExternalIntegration.LICENSE_TYPE
-        collection.external_integration.provider = provider
+        collection.external_integration.protocol = protocol
         collection.external_integration.url = url
         collection.external_integration.username = username
         collection.external_integration.password = password

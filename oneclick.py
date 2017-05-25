@@ -75,10 +75,10 @@ class OneClickAPI(object):
     log = logging.getLogger("OneClick API")
 
     def __init__(self, collection):
-        if collection.provider != ExternalIntegration.ONE_CLICK:
+        if collection.protocol != ExternalIntegration.ONE_CLICK:
             raise ValueError(
-                "Collection provider is %s, but passed into OneClickAPI!" %
-                collection.provider
+                "Collection protocol is %s, but passed into OneClickAPI!" %
+                collection.protocol
             )
         self._db = Session.object_session(collection)
         self.collection_id = collection.id
@@ -527,7 +527,7 @@ class MockOneClickAPI(OneClickAPI):
             )
         )
         collection.external_integration.type = ExternalIntegration.LICENSE_TYPE
-        collection.external_integration.provider = ExternalIntegration.ONE_CLICK
+        collection.external_integration.protocol = ExternalIntegration.ONE_CLICK
         collection.external_integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
         return collection
@@ -822,7 +822,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     SERVICE_NAME = "OneClick Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.ONECLICK
-    PROVIDER = ExternalIntegration.ONE_CLICK
+    PROTOCOL = ExternalIntegration.ONE_CLICK
     INPUT_IDENTIFIER_TYPES = Identifier.ONECLICK_ID
     DEFAULT_BATCH_SIZE = 25
 

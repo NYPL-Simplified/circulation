@@ -30,6 +30,7 @@ from model import (
     CustomList,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Library,
     LicensePool,
@@ -221,7 +222,7 @@ class TestRunCollectionMonitorScript(DatabaseTest):
     def test_all(self):
         class OPDSCollectionMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor"
-            PROTOCOL = Collection.OPDS_IMPORT
+            PROVIDER = ExternalIntegration.OPDS_IMPORT
 
             def __init__(self, _db, test_argument=None, **kwargs):
                 self.test_argument = test_argument
@@ -236,7 +237,7 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         o3 = self._collection()
 
         # ...and a Bibliotheca collection.
-        b1 = self._collection(protocol=Collection.BIBLIOTHECA)
+        b1 = self._collection(provider=ExternalIntegration.BIBLIOTHECA)
 
         script = RunCollectionMonitorScript(
             OPDSCollectionMonitor, self._db, test_argument="test value"
@@ -1087,11 +1088,11 @@ class TestShowCollectionsScript(DatabaseTest):
         eq_("No collections found.\n", output.getvalue())
 
     def test_with_multiple_collections(self):
-        c1, ignore = create(self._db, Collection, name="Collection 1",
-                            protocol=Collection.OVERDRIVE)
+        c1 = self._collection(name="Collection 1",
+                              provider=ExternalIntegration.OVERDRIVE)
         c1.collection_password="a"
-        c2, ignore = create(self._db, Collection, name="Collection 2",
-                            protocol=Collection.BIBLIOTHECA)
+        c2 = self._collection(name="Collection 2",
+                              provider=ExternalIntegration.BIBLIOTHECA)
         c2.collection_password="b"
 
         # The output of this script is the result of running explain()
@@ -1138,7 +1139,7 @@ class TestConfigureCollectionScript(DatabaseTest):
         # necessary to create it.
         assert_raises_regexp(
             ValueError,
-            'No collection called "collection". You can create it, but you must specify a protocol.',
+            'No collection called "collection". You can create it, but you must specify a provider.',
             script.do_run, self._db, ["--name=collection"]
         )
 
@@ -1147,7 +1148,7 @@ class TestConfigureCollectionScript(DatabaseTest):
             ValueError,
             'Incorrect format for setting: "key". Should be "key=value"',
             script.do_run, self._db, [
-                "--name=collection", "--protocol=Overdrive",
+                "--name=collection", "--provider=Overdrive",
                 "--setting=key"
             ]
         )
@@ -1157,7 +1158,7 @@ class TestConfigureCollectionScript(DatabaseTest):
             ValueError,
             'No such library: "nosuchlibrary". I only know about: "L1"',
             script.do_run, self._db, [
-                "--name=collection", "--protocol=Overdrive",
+                "--name=collection", "--provider=Overdrive",
                 "--library=nosuchlibrary"
             ]
         )
@@ -1181,7 +1182,7 @@ class TestConfigureCollectionScript(DatabaseTest):
         # setting, and associate it with two libraries.
         output = StringIO()
         script.do_run(
-            self._db, ["--name=New Collection", "--protocol=Overdrive",
+            self._db, ["--name=New Collection", "--provider=Overdrive",
                        "--library=L2", "--library=L1",
                        "--setting=library_id=1234",
                        "--external-account-id=acctid",
@@ -1216,9 +1217,9 @@ class TestConfigureCollectionScript(DatabaseTest):
 
     def test_reconfigure_collection(self):
         # The collection exists.
-        collection, ignore = create(
-            self._db, Collection, name="Collection 1",
-            protocol=Collection.OVERDRIVE
+        collection = self._collection(
+            name="Collection 1",
+            provider=ExternalIntegration.OVERDRIVE
         )
         script = ConfigureCollectionScript()
         output = StringIO()
@@ -1228,14 +1229,14 @@ class TestConfigureCollectionScript(DatabaseTest):
             self._db, [
                 "--name=Collection 1",
                 "--url=foo",
-                "--protocol=%s" % Collection.BIBLIOTHECA
+                "--provider=%s" % ExternalIntegration.BIBLIOTHECA
             ],
             output
         )
 
         # The collection has been changed.
         eq_("foo", collection.external_integration.url)
-        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        eq_(ExternalIntegration.BIBLIOTHECA, collection.provider)
         
         expect = ("Configuration settings stored.\n"
                   + "\n".join(collection.explain()) + "\n")

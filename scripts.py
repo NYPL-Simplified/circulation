@@ -43,6 +43,7 @@ from model import (
     CustomList,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Library,
     LicensePool,
@@ -156,12 +157,13 @@ class RunMonitorScript(Script):
 
 
 class RunCollectionMonitorScript(Script):
-    """Run a CollectionMonitor on every Collection that implements a
-    certain protocol.
+    """Run a CollectionMonitor on every Collection that comes from a
+    certain provider.
 
     TODO: Currently the Monitors are run one at a time. It should
     be possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread.
+
     """
 
     def __init__(self, monitor_class, _db=None, **kwargs):
@@ -211,7 +213,7 @@ class RunCoverageProvidersScript(Script):
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
-    implement its protocol.
+    get their licenses from the appropriate place.
     """
     def __init__(self, provider_class, _db=None, **kwargs):
         _db = _db or self._db
@@ -764,8 +766,8 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--protocol',
-            help='Protocol used to get licenses. Possible values: "%s"' % (
-                '", "'.join(Collection.PROTOCOLS)
+            help='Protocol to use to get the licenses. Possible values: "%s"' % (
+                '", "'.join(ExternalIntegration.LICENSE_PROTOCOLS)
             )
         )
         parser.add_argument(
@@ -778,15 +780,15 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--username',
-            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+            help='Use this username to authenticate with the license provider. Sometimes called a "key".',
         )
         parser.add_argument(
             '--password',
-            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+            help='Use this password to authenticate with the license provider. Sometimes called a "secret".',
         )
         parser.add_argument(
             '--setting',
-            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
+            help='Set a provider-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
             action="append",
         )
         library_names = cls._library_names(_db)
@@ -814,26 +816,28 @@ class ConfigureCollectionScript(Script):
         args = self.parse_command_line(_db, cmd_args=cmd_args)
 
         # Find or create the collection
-        protocol = None
-        if args.protocol:
-            protocol = args.protocol
-            
-        collection = get_one(_db, Collection, name=args.name)
-        if not collection:
-            if protocol:
-                collection, is_new = get_one_or_create(
-                    _db, Collection, name=args.name, protocol=protocol
-                )
-            else:
+        provider = None
+        name = args.name
+        if args.provider:
+            # We have both name and provider, so we can create the Collection
+            # if it doesn't already exist.
+            collection, is_new = Collection.by_name_and_provider(
+                _db, name, provider
+            )
+        else:
+            # We only have name, so we can only find a Collection
+            # that already exists.
+            collection = get_one(_db, Collection, Collection.name==name)
+            if not collection:
                 raise ValueError(
-                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                    'No collection called "%s". You can create it, but you must specify a provider.' % name
                 )
-        if protocol:
-            collection.protocol = protocol
+        integration = collection.external_integration
+        if provider:
+            integration.provider = provider
         if args.external_account_id:
             collection.external_account_id = args.external_account_id
 
-        integration = collection.external_integration
         if args.url:
             integration.url = args.url
         if args.username:

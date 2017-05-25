@@ -8842,20 +8842,20 @@ class ExternalIntegration(Base):
     # applications.
     SYSTEM_TYPE = 'system'
     
-    # Supported providers for ExternalIntegrations of LICENSE_TYPE.
+    # Supported protocols for ExternalIntegrations of LICENSE_TYPE.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
-    LICENSE_PROVIDERS = [
+    LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
     ]
     
-    # Some LICENSE_TYPE providers imply that the data and
+    # Some LICENSE_TYPE protocols imply that the data and
     # licenses come from a specific data source.
-    DATA_SOURCE_FOR_LICENSE_PROVIDER = {
+    DATA_SOURCE_FOR_LICENSE_PROTOCOLS = {
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
@@ -8892,14 +8892,15 @@ class ExternalIntegration(Base):
     GOOGLE_OAUTH = u'Google OAuth'
 
     # List of such ADMIN_AUTHENTICATION_TYPE integrations
-    ADMIN_AUTH_PROVIDERS = [GOOGLE_OAUTH]
+    ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
-    # If this integration isn't related to a Collection, it should
-    # have a provider and type.
-    provider = Column(Unicode, nullable=True)
+    # Each integration should have a protocol (explaining how we actually
+    # get information through it) and a type (explaining what the integration
+    # is for).
+    protocol = Column(Unicode, nullable=True)
     type = Column(Unicode, nullable=True)
 
     # If there is a special URL to use for access to this API,
@@ -8921,8 +8922,8 @@ class ExternalIntegration(Base):
     )
     
     @classmethod
-    def lookup(cls, _db, provider, type=None):
-        integration = get_one(_db, cls, provider=provider, type=type)
+    def lookup(cls, _db, protocol, type=None):
+        integration = get_one(_db, cls, protocol=protocol, type=type)
         return integration
 
     @classmethod
@@ -8995,7 +8996,7 @@ class Collection(Base):
 
     # How do we connect to the provider of this collection? Any url,
     # authentication information, or additional configuration goes
-    # into the external integration, as does the 'provider', which
+    # into the external integration, as does the 'protocol', which
     # designates the integration technique we will use to actually get
     # the metadata and licenses.
     external_integration_id = Column(
@@ -9046,24 +9047,56 @@ class Collection(Base):
 
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
-                (self.name, self.protocol, self.id)).encode('utf8')
+                (self.name, self.protocol, self.id)).encode('utf8')        
 
     @classmethod
-    def by_provider(cls, _db, provider):
-        """Query collections for the given license provider."""
+    def by_name_and_protocol(cls, _db, name, protocol):
+        """Find or create a Collection with the given name and the given
+        protocol.
+
+        We can't use get_one_or_create because the protocol is kept in
+        a separate database object, (an ExternalIntegration).
+
+        :return: A 2-tuple (collection, is_new)
+        """
+        qu = cls.by_protocol(_db, protocol)
+        qu = qu.filter(Collection.name==name)
+        try:
+            collection = qu.one()                    
+            is_new = False
+        except NoResultFound, e:
+            # Make a new Collection.
+            collection, is_new = get_one_or_create(_db, Collection, name=name)
+            if not is_new and collection.protocol != protocol:
+                # The collection already exists, it just uses a different
+                # protocol than the one we asked about.
+                raise ValueError(
+                    'Collection "%s" does not use protocol "%s".' % (
+                        name, protocol
+                    )
+                )
+            collection.external_integration.type=ExternalIntegration.LICENSE_TYPE
+            collection.external_integration.protocol=protocol           
+        return collection, is_new
+    
+    @classmethod
+    def by_protocol(cls, _db, protocol):
+        """Query collections that get their licenses through the given protocol."""
         return _db.query(Collection).join(
             ExternalIntegration,
             ExternalIntegration.id==Collection.external_integration_id).filter(
                 ExternalIntegration.type==ExternalIntegration.LICENSE_TYPE
-            ).filter(ExternalIntegration.provider==provider)
+            ).filter(ExternalIntegration.protocol==protocol)
     
     @property
-    def provider(self):
-        """Who is providing this collection?"""
-        if self.external_integration.provider:
-            return self.external_integration.provider
+    def protocol(self):
+        """What protocol do we need to use to get licenses for this 
+        collection?
+        """
+        if self.external_integration.protocol:
+            return self.external_integration.protocol
         if self.parent:
-            return self.parent.provider
+            return self.parent.protocol
         return None
     
     @property
@@ -9098,14 +9131,14 @@ class Collection(Base):
         with this data source, unless its bibliographic metadata
         indicates some other data source.
 
-        For most Collections, the integration provider sets the data
+        For most Collections, the integration protocol sets the data
         source.  For collections that use the OPDS import protocol,
         the data source is a Collection-specific setting.
         """
         data_source = None
-        provider = self.external_integration.provider
-        name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROVIDER.get(
-            provider
+        protocol = self.external_integration.protocol
+        name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
+            protocol
         )
         if not name:
             name = self.external_integration.setting(
@@ -9120,17 +9153,17 @@ class Collection(Base):
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
         this Collection on the metadata wrangler. This identifier is
-        composed of the Collection provider and account identifier.
+        composed of the Collection protocol and account identifier.
 
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
         account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        provider = base64.b64encode(
-            unicode(self.external_integration.provider), '-_'
+        protocol = base64.b64encode(
+            unicode(self.external_integration.protocol), '-_'
         )
 
-        metadata_identifier = provider + ':' + account_id
+        metadata_identifier = protocol + ':' + account_id
         return base64.b64encode(metadata_identifier, '-_')
 
     @classmethod
@@ -9143,14 +9176,14 @@ class Collection(Base):
 
         if not collection:
             details = base64.b64decode(metadata_identifier, '-_')
-            provider = base64.b64decode(details.split(':', 1)[0], '-_')
+            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
             collection, is_new = create(_db, Collection,
                 name=metadata_identifier)
 
             collection.external_integration.type = (
                 ExternalIntegration.LICENSE_TYPE
             )
-            collection.external_integration.provider = provider
+            collection.external_integration.protocol = protocol
 
         return collection, is_new
 
@@ -9169,8 +9202,8 @@ class Collection(Base):
         if self.parent:
             lines.append('Parent: %s' % self.parent.name)
         integration = self.external_integration
-        if integration.provider:
-            lines.append('Provider: "%s"' % integration.provider)
+        if integration.protocol:
+            lines.append('Protocol: "%s"' % integration.protocol)
         for library in self.libraries:
             lines.append('Used by library: "%s"' % (
                 library.short_name or library.name

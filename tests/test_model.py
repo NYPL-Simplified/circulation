@@ -5569,7 +5569,7 @@ class TestExternalIntegration(DatabaseTest):
     def test_data_source(self):
         # For most collections, the provider determines the
         # data source.
-        collection = self._collection(provider=ExternalIntegration.OVERDRIVE)
+        collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         eq_(DataSource.OVERDRIVE, collection.data_source.name)
 
         # For OPDS Import collections, data source is a setting which
@@ -5605,9 +5605,45 @@ class TestCollection(DatabaseTest):
     def setup(self):
         super(TestCollection, self).setup()
         self.collection = self._collection(
-            name="test collection", provider=ExternalIntegration.OVERDRIVE
+            name="test collection", protocol=ExternalIntegration.OVERDRIVE
         )
 
+    def test_by_name_and_protocol(self):
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
+        name = "A name"
+        collection1, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(True, is_new)
+
+        collection2, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(collection1, collection2)
+        eq_(False, is_new)
+
+        assert_raises_regexp(
+            ValueError,
+            'Collection "A name" does not use protocol "Bibliotheca".',
+            Collection.by_name_and_protocol,
+            self._db, name, ExternalIntegration.BIBLIOTHECA
+        )
+
+    def test_by_protocol(self):
+        """Verify the ability to find all collections that implement
+        a certain protocol.
+        """
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+        c1 = self._collection(self._str, protocol=overdrive)
+        c2 = self._collection(self._str, protocol=bibliotheca)
+        eq_(set([self.collection, c1]),
+            set(Collection.by_protocol(self._db, overdrive).all()))
+        eq_(([c2]),
+            Collection.by_protocol(self._db, bibliotheca).all())
+
+        
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
@@ -5666,7 +5702,7 @@ class TestCollection(DatabaseTest):
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
-            name="Child", provider=ExternalIntegration.OPDS_IMPORT,
+            name="Child", protocol=ExternalIntegration.OPDS_IMPORT,
             external_account_id=self._url
         )
         child.parent = self.collection

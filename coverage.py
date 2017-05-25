@@ -768,8 +768,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             collections = collections.join(
                 ExternalIntegration,
                 ExternalIntegration.id==Collection.external_integration_id).filter(
-                    ExternalIntegration.provider==cls.PROVIDER)
-
+                    ExternalIntegration.type==ExternalIntegration.LICENSE_TYPE
+                ).filter(
+                    ExternalIntegration.provider==cls.PROVIDER
+                )
         collections = collections.order_by(func.random())
         for collection in collections:
             yield cls(collection, **kwargs)

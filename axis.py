@@ -67,10 +67,10 @@ class Axis360API(object):
     log = logging.getLogger("Axis 360 API")
 
     def __init__(self, collection):
-        if collection.provider != ExternalIntegration.AXIS_360:
+        if collection.protocol != ExternalIntegration.AXIS_360:
             raise ValueError(
-                "Collection provider is %s, but passed into Axis360API!" %
-                collection.provider
+                "Collection protocol is %s, but passed into Axis360API!" %
+                collection.protocol
             )
         self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id.encode("utf8")
@@ -200,7 +200,7 @@ class MockAxis360API(Axis360API):
                 external_account_id=u'c',
             )
         )
-        collection.external_integration.provider=ExternalIntegration.AXIS_360
+        collection.external_integration.protocol=ExternalIntegration.AXIS_360
         collection.external_integration.username = u'a'
         collection.external_integration.password = u'b'
         collection.external_integration.url = u"http://axis.test/"
@@ -249,7 +249,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
 
     SERVICE_NAME = "Axis 360 Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.AXIS_360
-    PROVIDER = ExternalIntegration.AXIS_360
+    PROTOCOL = ExternalIntegration.AXIS_360
     INPUT_IDENTIFIER_TYPES = Identifier.AXIS_360_ID
     DEFAULT_BATCH_SIZE = 25
     

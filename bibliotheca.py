@@ -70,10 +70,10 @@ class BibliothecaAPI(object):
     
     def __init__(self, collection):
         
-        if collection.provider != ExternalIntegration.BIBLIOTHECA:
+        if collection.protocol != ExternalIntegration.BIBLIOTHECA:
             raise ValueError(
-                "Collection provider is %s, but passed into BibliothecaAPI!" %
-                collection.provider
+                "Collection protocol is %s, but passed into BibliothecaAPI!" %
+                collection.protocol
             )
 
         self._db = Session.object_session(collection)
@@ -209,7 +209,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
                 external_account_id=u'c',
             )
         )
-        collection.external_integration.provider=ExternalIntegration.BIBLIOTHECA
+        collection.external_integration.protocol=ExternalIntegration.BIBLIOTHECA
         collection.external_integration.username = u'a'
         collection.external_integration.password = u'b'
         collection.external_integration.url = "http://bibliotheca.test"
@@ -421,7 +421,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
     """
     SERVICE_NAME = "Bibliotheca Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.BIBLIOTHECA
-    PROVIDER = ExternalIntegration.BIBLIOTHECA
+    PROTOCOL = ExternalIntegration.BIBLIOTHECA
     INPUT_IDENTIFIER_TYPES = Identifier.BIBLIOTHECA_ID
 
     # 25 is the maximum batch size for the Bibliotheca API.

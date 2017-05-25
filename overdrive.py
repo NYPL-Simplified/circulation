@@ -109,10 +109,10 @@ class OverdriveAPI(object):
 
    
     def __init__(self, collection):
-        if collection.provider != ExternalIntegration.OVERDRIVE:
+        if collection.protocol != ExternalIntegration.OVERDRIVE:
             raise ValueError(
-                "Collection provider is %s, but passed into OverdriveAPI!" %
-                collection.provider
+                "Collection protocol is %s, but passed into OverdriveAPI!" %
+                collection.protocol
             )
         self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id
@@ -402,7 +402,7 @@ class MockOverdriveAPI(OverdriveAPI):
                     external_account_id=u'c'
                 )
             )
-        collection.external_integration.provider = ExternalIntegration.OVERDRIVE
+        collection.external_integration.protocol = ExternalIntegration.OVERDRIVE
         collection.external_integration.username = u'a'
         collection.external_integration.password = u'b'
         collection.external_integration.set_setting('website_id', 'd')
@@ -993,7 +993,7 @@ class OverdriveAdvantageAccount(object):
         """
         # First find the parent Collection.
         try:
-            parent = Collection.by_provider(_db, ExternalIntegration.OVERDRIVE).filter(
+            parent = Collection.by_protocol(_db, ExternalIntegration.OVERDRIVE).filter(
                 Collection.external_account_id==self.parent_library_id
             ).one()
         except NoResultFound, e:
@@ -1023,7 +1023,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     SERVICE_NAME = "Overdrive Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.OVERDRIVE
-    PROVIDER = ExternalIntegration.OVERDRIVE
+    PROTOCOL = ExternalIntegration.OVERDRIVE
     INPUT_IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
     
     def __init__(self, collection, api_class=OverdriveAPI, **kwargs):
