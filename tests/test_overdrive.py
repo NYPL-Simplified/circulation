@@ -25,6 +25,7 @@ from model import (
     Contributor,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     Representation,
     Subject,
@@ -183,7 +184,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         """
         # Here's an Overdrive collection.
         main = self._collection(
-            protocol=Collection.OVERDRIVE, external_account_id="1",
+            provider=ExternalIntegration.OVERDRIVE, external_account_id="1",
         )
         main.external_integration.username = "user"
         main.external_integration.password = "password"
@@ -197,7 +198,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         # Here's an Overdrive Advantage collection associated with the
         # main Overdrive collection.
         child = self._collection(
-            protocol=Collection.OVERDRIVE, external_account_id="2",
+            provider=ExternalIntegration.OVERDRIVE, external_account_id="2",
         )
         child.parent = main
         overdrive_child = MockOverdriveAPI(child)
@@ -420,7 +421,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         
         # So, create a Collection to be the parent.
         parent = self._collection(
-            name="Parent", protocol=Collection.OVERDRIVE,
+            name="Parent", provider=ExternalIntegration.OVERDRIVE,
             external_account_id="parent_id"
         )
 
@@ -429,7 +430,10 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         eq_(p, parent)
         eq_(parent, collection.parent)
         eq_(collection.external_account_id, account.library_id)
-        eq_(Collection.OVERDRIVE, collection.protocol)
+        eq_(ExternalIntegration.LICENSE_TYPE,
+            collection.external_integration.type)
+        eq_(ExternalIntegration.OVERDRIVE,
+            collection.provider)
 
         # To ensure uniqueness, the collection was named after its
         # parent.

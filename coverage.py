@@ -14,6 +14,7 @@ from model import (
     CoverageRecord,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Timestamp,
@@ -700,8 +701,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     number of licenses available for a book.
 
     In addition to defining the class variables defined by
-    CoverageProvider, you must define the class variable PROTOCOL when
-    subclassing this class.
+    CoverageProvider, you must define the class variable PROVIDER when
+    subclassing this class. This is the entity that provides the
+    licenses for this Collection. It should be one of the
+    collection-type provider constants defined in the
+    `ExternalIntegration` class, such as
+    ExternalIntegration.OPDS_IMPORT or ExternalIntegration.OVERDRIVE.
     """
     # By default, this type of CoverageProvider will provide coverage to
     # all Identifiers in the given Collection, regardless of their type.
@@ -709,10 +714,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     
     DEFAULT_BATCH_SIZE = 10
 
-    # Set this to the name of the protocol managed by this type of
+    # Set this to the name of the provider managed by this type of
     # CoverageProvider. If this CoverageProvider can manage collections
-    # for any protocols, leave this as None.
-    PROTOCOL = None
+    # for any provider, leave this as None.
+    PROVIDER = None
     
     def __init__(self, collection, **kwargs):
         """Constructor.
@@ -727,10 +732,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 )
             )
 
-        if self.PROTOCOL and collection.protocol != self.PROTOCOL:
+        if self.PROVIDER and collection.provider != self.PROVIDER:
             raise ValueError(
-                "Collection protocol (%s) does not match CoverageProvider protocol (%s)" % (
-                    collection.protocol, self.PROTOCOL
+                "Collection provider (%s) does not match CoverageProvider provider (%s)" % (
+                    collection.provider, self.PROVIDER
                 )
             )
         _db = Session.object_session(collection)
@@ -749,7 +754,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     @classmethod
     def all(cls, _db, **kwargs):
         """Yield a sequence of CollectionCoverageProvider instances, one for
-        every Collection that implements cls.PROTOCOL.
+        every Collection that gets its licenses from cls.PROVIDER.
 
         CollectionCoverageProviders will be yielded in a random order.
 
@@ -759,8 +764,11 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         """
         collections = _db.query(Collection)
 
-        if cls.PROTOCOL:
-            collections = collections.filter(Collection.protocol==cls.PROTOCOL)
+        if cls.PROVIDER:
+            collections = collections.join(
+                ExternalIntegration,
+                ExternalIntegration.id==Collection.external_integration_id).filter(
+                    ExternalIntegration.provider==cls.PROVIDER)
 
         collections = collections.order_by(func.random())
         for collection in collections:

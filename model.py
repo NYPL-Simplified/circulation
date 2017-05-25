@@ -9048,11 +9048,30 @@ class Collection(Base):
         return (u'<Collection "%s"/"%s" ID=%d>' %
                 (self.name, self.protocol, self.id)).encode('utf8')
 
+    @classmethod
+    def by_provider(cls, _db, provider):
+        """Query collections for the given license provider."""
+        return _db.query(Collection).join(
+            ExternalIntegration,
+            ExternalIntegration.id==Collection.external_integration_id).filter(
+                ExternalIntegration.type==ExternalIntegration.LICENSE_TYPE
+            ).filter(ExternalIntegration.provider==provider)
+    
+    @property
+    def provider(self):
+        """Who is providing this collection?"""
+        if self.external_integration.provider:
+            return self.external_integration.provider
+        if self.parent:
+            return self.parent.provider
+        return None
+    
     @property
     def external_integration(self):
         _db = Session.object_session(self)
         external_integration, ignore = get_one_or_create(
             _db, ExternalIntegration, id=self.external_integration_id,
+            create_method_kwargs=dict(type=ExternalIntegration.LICENSE_TYPE)
         )
         self.external_integration_id = external_integration.id
         return external_integration
