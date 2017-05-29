@@ -199,24 +199,6 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
 
-    def test_single_entry_no_active_license_pool(self):
-        work = self._work(with_open_access_download=True)
-        pool = work.license_pools[0]
-
-        # Create an <entry> tag for this work and its LicensePool.
-        feed1 = AcquisitionFeed.single_entry(
-            self._db, work, self.annotator, pool
-        )
-
-        # If we don't pass in the license pool, it makes a guess to
-        # figure out which license pool we're talking about.
-        feed2 = AcquisitionFeed.single_entry(
-            self._db, work, self.annotator, None
-        )
-
-        # Both entries are identical.
-        eq_(etree.tostring(feed1), etree.tostring(feed2))
-
     def test_fulfill_link_includes_device_registration_tags(self):
         """Verify that when Adobe Vendor ID delegation is included, the
         fulfill link for an Adobe delivery mechanism includes instructions
