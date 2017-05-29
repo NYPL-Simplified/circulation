@@ -402,13 +402,6 @@ class TestContributorLane(LaneTest):
         # at least a name.
         assert_raises(ValueError, ContributorLane, self._db, '')
 
-        # An error is raised if ContributorLane is created with a name and
-        # ID that don't match.
-        assert_raises(
-            ValueError, ContributorLane,
-            self._db, 'Clark Kent', self.contributor.id
-        )
-
     def test_works_query(self):
         # A work by someone else.
         w1 = self._work(with_license_pool=True)
@@ -420,9 +413,7 @@ class TestContributorLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # The work with a matching name is found in the contributor lane.
-        lane = ContributorLane(
-            self._db, 'Lois Lane', contributor_id=self.contributor.id
-        )
+        lane = ContributorLane(self._db, 'Lois Lane')
         self.assert_works_queries(lane, [w2])
 
         # And when we add some additional works, like:
@@ -439,11 +430,6 @@ class TestContributorLane(LaneTest):
         # Those works are also included in the lane, in alphabetical order.
         self.assert_works_queries(lane, [w3, w4, w2])
 
-        # When the lane is created without a contributor_id, the query
-        # only searches by name.
-        lane = ContributorLane(self._db, 'Lois Lane')
-        self.assert_works_queries(lane, [w3, w2])
-
         # If the lane is created with languages, works in other languages
         # aren't included.
         fre = self._work(with_license_pool=True, language='fre')
@@ -454,7 +440,7 @@ class TestContributorLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
 
         lane = ContributorLane(self._db, 'Lois Lane', languages=['eng'])
-        self.assert_works_queries(lane, [w3, w2])
+        self.assert_works_queries(lane, [w3, w4, w2])
 
         lane.languages = ['fre', 'spa']
         self.assert_works_queries(lane, [fre, spa])
