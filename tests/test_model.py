@@ -35,6 +35,7 @@ from config import (
 )
 
 from model import (
+    Admin,
     Annotation,
     BaseCoverageRecord,
     CirculationEvent,
@@ -5687,3 +5688,12 @@ class TestMaterializedViews(DatabaseTest):
         # to be the data source ID of the presentation edition.
         eq_(presentation_edition.data_source.id, mw.data_source_id)
         eq_(presentation_edition.data_source.id, mwg.data_source_id)
+
+
+class TestAdmin(DatabaseTest):
+    def test_password_hashed(self):
+        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        admin.password = "password"
+        assert_raises(NotImplementedError, lambda: admin.password)
+        db_admins = self._db.query(Admin).filter(Admin.password=="password").all()
+        eq_([admin], db_admins)
