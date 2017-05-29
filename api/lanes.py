@@ -441,7 +441,7 @@ class RecommendationLane(LicensePoolBasedLane):
         self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
             _db, license_pool, full_name, display_name=display_name,
-            parent=parent
+            parent=parent, searchable=False,
         )
         self.recommendations = self.fetch_recommendations()
 
@@ -486,7 +486,7 @@ class SeriesLane(QueryGeneratedLane):
 
         super(SeriesLane, self).__init__(
             _db, full_name, parent=parent, display_name=display_name,
-            audiences=audiences, languages=languages
+            audiences=audiences, languages=languages, searchable=False,
         )
 
     @property
@@ -548,7 +548,7 @@ class ContributorLane(QueryGeneratedLane):
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
             _db, full_name, display_name=display_name, parent=parent,
-            audiences=audiences, languages=languages
+            audiences=audiences, languages=languages, searchable=False,
         )
 
     @property
