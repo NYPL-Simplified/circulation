@@ -17,12 +17,14 @@ from core.lane import (
     Lane,
 )
 from core.model import (
+    Contributor,
     DataSource,
-    Library,
-    Work,
-    Representation,
     DeliveryMechanism,
+    Library,
+    PresentationCalculationPolicy,
+    Representation,
     RightsStatus,
+    Work,
 )
 
 from core.classifier import (
@@ -30,6 +32,8 @@ from core.classifier import (
     Fantasy,
     Urban_Fantasy
 )
+
+from core.external_search import DummyExternalSearchIndex
 
 from core.util.opds_writer import (
     AtomFeed, 
@@ -372,8 +376,7 @@ class TestOPDS(WithVendorIDTest):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]
 
-        feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
-        feed = feedparser.parse(unicode(feed))
+        feed = self.get_parsed_feed([work])
         [entry] = feed['entries']
         eq_(entry['id'], pool.identifier.urn)
 
@@ -386,110 +389,157 @@ class TestOPDS(WithVendorIDTest):
         # 'work' and that was wrong.
         assert '/host/permalink' in permalink
 
-    def test_acquisition_feed_includes_problem_reporting_link(self):
-        w1 = self._work(with_open_access_download=True)
-        self._db.commit()
+    def get_parsed_feed(self, works, lane=None):
+        if not lane:
+            lane = Lane(self._db, "Main Lane")
+
         feed = AcquisitionFeed(
-            self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed['entries']
-        [issues_link] = [x for x in entry['links'] if x['rel'] == 'issues']
-        assert '/report' in issues_link['href']
+            self._db, "test", "url", works,
+            CirculationManagerAnnotator(None, lane, test_mode=True)
+        )
 
-    def test_acquisition_feed_includes_open_access_or_borrow_link(self):
-        w1 = self._work(with_open_access_download=True)
-        w2 = self._work(with_open_access_download=True)
-        w2.license_pools[0].open_access = False
-        w2.license_pools[0].licenses_owned = 1
+        return feedparser.parse(unicode(feed))
+
+    def assert_link_on_entry(self, entry, link_type=None, rels=None,
+                             partials_by_rel=None
+    ):
+        """Asserts that a link with a certain 'rel' value exists on a
+        given feed or entry, as well as its link 'type' value and parts
+        of its 'href' value.
+        """
+        def get_link_by_rel(rel):
+            try:
+                [link] = [x for x in entry['links'] if x['rel']==rel]
+            except ValueError as e:
+                raise AssertionError
+            if link_type:
+                eq_(link_type, link.type)
+            return link
+
+        if rels:
+            [get_link_by_rel(rel) for rel in rels]
+
+        partials_by_rel = partials_by_rel or dict()
+        for rel, uri_partials in partials_by_rel.items():
+            link = get_link_by_rel(rel)
+            if not isinstance(uri_partials, list):
+                uri_partials = [uri_partials]
+            for part in uri_partials:
+                assert part in link.href
+
+    def test_work_entry_includes_problem_reporting_link(self):
+        work = self._work(with_open_access_download=True)
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        expected_rel_and_partial = { 'issues' : '/report' }
+        self.assert_link_on_entry(entry, partials_by_rel=expected_rel_and_partial)
+
+    def test_work_entry_includes_open_access_or_borrow_link(self):
+        open_access_work = self._work(with_open_access_download=True)
+        licensed_work = self._work(with_license_pool=True)
+        licensed_work.license_pools[0].open_access = False
+
+        feed = self.get_parsed_feed([open_access_work, licensed_work])
+        [open_access_entry, licensed_entry] = feed.entries
+
+        self.assert_link_on_entry(open_access_entry, rels=[OPDSFeed.BORROW_REL])
+        self.assert_link_on_entry(licensed_entry, rels=[OPDSFeed.BORROW_REL])
+
+    def test_work_entry_includes_contributor_links(self):
+        """ContributorLane links are added to works with contributors"""
+        work = self._work(with_open_access_download=True)
+        contributor1 = work.presentation_edition.author_contributors[0]
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+
+        expected_rel_and_partial = dict(contributor='/contributor')
+        self.assert_link_on_entry(
+            entry, link_type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            partials_by_rel=expected_rel_and_partial,
+        )
+
+        # When there are two authors, they each get a contributor link.
+        work.presentation_edition.add_contributor(u'Oprah', Contributor.AUTHOR_ROLE)
+        work.calculate_presentation(
+            PresentationCalculationPolicy(regenerate_opds_entries=True),
+            DummyExternalSearchIndex()
+        )
+        [entry] = self.get_parsed_feed([work]).entries
+        contributor_links = [l for l in entry.links if l.rel == 'contributor']
+        eq_(2, len(contributor_links))
+        contributor_links.sort(key=lambda l: l.href)
+        for l in contributor_links:
+            assert l.type == OPDSFeed.ACQUISITION_FEED_TYPE
+            assert '/contributor' in l.href
+        assert contributor1.sort_name in contributor_links[0].href
+        assert 'Oprah' in contributor_links[1].href
+
+        # When there's no author, there's no contributor link.
+        self._db.delete(work.presentation_edition.contributions[0])
+        self._db.delete(work.presentation_edition.contributions[1])
         self._db.commit()
+        work.calculate_presentation(
+            PresentationCalculationPolicy(regenerate_opds_entries=True),
+            DummyExternalSearchIndex()
+        )
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        eq_([], filter(lambda l: l.rel=='contributor', entry.links))
 
-        works = self._db.query(Work)
-        feed = AcquisitionFeed(
-            self._db, "test", "url", works, CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
+    def test_work_entry_includes_series_link(self):
+        """A series lane link is added to the work entry when its in a series
+        """
+        work = self._work(
+            with_open_access_download=True, series='Serious Cereals Series'
+        )
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        expected_rel_and_partial = dict(series='/series')
+        self.assert_link_on_entry(
+            entry, link_type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            partials_by_rel=expected_rel_and_partial
+        )
 
-        feed = feedparser.parse(unicode(feed))
-        entries = sorted(feed['entries'], key = lambda x: int(x['title']))
+        # When there's no series, there's no series link.
+        work = self._work(with_open_access_download=True)
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        eq_([], filter(lambda l: l.rel=='series', entry.links))
 
-        open_access_links, borrow_links = [x['links'] for x in entries]
-        open_access_rels = [x['rel'] for x in open_access_links]
-        assert OPDSFeed.BORROW_REL in open_access_rels
-
-        borrow_rels = [x['rel'] for x in borrow_links]
-        assert OPDSFeed.BORROW_REL in borrow_rels
-
-    def test_acquisition_feed_includes_related_books_link(self):
-
-        work = self._work(with_license_pool=True, with_open_access_download=True)
-        def confirm_related_books_link():
-            """Tests the presence of a /related_books link in a feed."""
-            feed = AcquisitionFeed(
-                self._db, "test", "url", [work],
-                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
-            )
-            feed = feedparser.parse(unicode(feed))
-            [entry] = feed['entries']
-            [recommendations_link] = [x for x in entry['links']
-                                      if x['rel'] == 'related']
-            eq_(OPDSFeed.ACQUISITION_FEED_TYPE, recommendations_link['type'])
-            assert '/related_books' in recommendations_link['href']
-
-
-        # If there is a contributor, there's a related books link.
-        with temp_config() as config:
-            NoveListAPI.IS_CONFIGURED = None
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-            confirm_related_books_link()
-
-        # If there is no possibility of related works,
-        # there's no related books link.
-        with temp_config() as config:
-            # Remove contributors.
-            self._db.delete(work.license_pools[0].presentation_edition.contributions[0])
-            self._db.commit()
-
-            # Turn off NoveList.
-            NoveListAPI.IS_CONFIGURED = None
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-            feed = AcquisitionFeed(
-                self._db, "test", "url", [work],
-                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
-            )
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed['entries']
-        recommendations_links = [x for x in entry['links'] if x['rel'] == 'related']
-        eq_([], recommendations_links)
-
-        # If NoveList is configured (and thus recommendations are available),
-        # there's is a related books link.
+    def test_work_entry_includes_recommendations_link(self):
+        work = self._work(with_open_access_download=True)
         with temp_config() as config:
             NoveListAPI.IS_CONFIGURED = None
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
                 Configuration.NOVELIST_PROFILE : "library",
                 Configuration.NOVELIST_PASSWORD : "yep"
             }
-            confirm_related_books_link()
+            feed = self.get_parsed_feed([work])
+            [entry] = feed.entries
+            expected_rel_and_partial = dict(recommendations='/recommendations')
+            self.assert_link_on_entry(
+                entry, link_type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                partials_by_rel=expected_rel_and_partial)
 
-        # If the book is in a series, there's is a related books link.
+        # If NoveList Select isn't configured, there's no recommendations link.
         with temp_config() as config:
             NoveListAPI.IS_CONFIGURED = None
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-            work.license_pools[0].presentation_edition.series = "Serious Cereal Series"
-            confirm_related_books_link()
+            feed = self.get_parsed_feed([work])
+            [entry] = feed.entries
+            eq_([], filter(lambda l: l.rel=='recommendations', entry.links))
 
-    def test_acquisition_feed_includes_annotations_link(self):
-        w1 = self._work(with_open_access_download=True)
-        self._db.commit()
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed['entries']
-        [annotations_link] = [x for x in entry['links'] if x['rel'] == 'http://www.w3.org/ns/oa#annotationservice']
-        assert '/annotations' in annotations_link['href']
-        identifier = w1.license_pools[0].identifier
-        assert identifier.identifier in annotations_link['href']
+    def test_work_entry_includes_annotations_link(self):
+        work = self._work(with_open_access_download=True)
+        identifier_str = work.license_pools[0].identifier.identifier
+        uri_parts = ['/annotations', identifier_str]
+        rel_with_partials = {
+            'http://www.w3.org/ns/oa#annotationservice' : uri_parts
+        }
+
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        self.assert_link_on_entry(entry, partials_by_rel=rel_with_partials)
 
     def test_active_loan_feed(self):
         with self.temp_config() as config:

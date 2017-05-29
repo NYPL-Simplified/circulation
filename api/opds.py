@@ -9,6 +9,7 @@ import uuid
 from sqlalchemy.orm import lazyload
 
 from config import Configuration
+from core.classifier import Classifier
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -30,17 +31,20 @@ from core.model import (
     Work,
     Edition,
 )
-from core.lane import Lane
-from circulation import BaseCirculationAPI
+from core.lane import (
+    Lane,
+    QueryGeneratedLane,
+)
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
-from novelist import NoveListAPI
-from lanes import QueryGeneratedLane
-from annotations import AnnotationWriter
+
 from adobe_vendor_id import AuthdataUtility
+from annotations import AnnotationWriter
+from circulation import BaseCirculationAPI
+from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
-   
+
     def __init__(self, circulation, lane, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -259,20 +263,30 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
-        # Add a link for related books if available.
-        if self.related_books_available(active_license_pool):
+        # Add a link for each author.
+        self.add_author_links(work, feed, entry)
+
+        # And a series, if there are some.
+        if work.series:
+            self.add_series_link(work, feed, entry)
+
+        if NoveListAPI.is_configured():
+            # If NoveList Select is configured, there might be
+            # recommendations, too.
             feed.add_link_to_entry(
                 entry,
-                rel='related',
+                rel='recommendations',
                 type=OPDSFeed.ACQUISITION_FEED_TYPE,
                 title='Recommended Works',
                 href=self.url_for(
-                    'related_books',
-                    data_source=data_source_name, identifier_type=identifier.type,
-                    identifier=identifier.identifier, _external=True
+                    'recommendations',
+                    data_source=data_source_name,
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    _external=True
                 )
             )
-        
+
         # Add a link to get a patron's annotations for this book.
         feed.add_link_to_entry(
             entry,
