@@ -309,57 +309,46 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             assert same_tag is not element
             eq_(etree.tostring(element), etree.tostring(same_tag))
 
-            
+
 class TestOPDS(WithVendorIDTest):
 
     def setup(self):
         super(TestOPDS, self).setup()
         parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
-        fantasy_lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
-        self.lane = fantasy_lane
+        self.lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
+        self.annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
 
         # A QueryGeneratedLane to test code that handles it differently.
         self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
-
-        default_lane_url = annotator.default_lane_url()
-
+        default_lane_url = self.annotator.default_lane_url()
         assert "groups" in default_lane_url
         assert "Fantasy" not in default_lane_url
 
     def test_groups_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
-
-        groups_url_no_lane = annotator.groups_url(None)
-
+        groups_url_no_lane = self.annotator.groups_url(None)
         assert "groups" in groups_url_no_lane
         assert "Fantasy" not in groups_url_no_lane
 
-        groups_url_fantasy = annotator.groups_url(self.lane)
+        groups_url_fantasy = self.annotator.groups_url(self.lane)
         assert "groups" in groups_url_fantasy
         assert "Fantasy" in groups_url_fantasy
 
     def test_feed_url(self):
         # A regular Lane.
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
-
-        feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
+        feed_url_fantasy = self.annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
 
         # A QueryGeneratedLane.
-        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
-
-        feed_url_contributor = annotator.feed_url(self.contributor_lane, dict(), dict())
+        self.annotator.lane = self.contributor_lane
+        feed_url_contributor = self.annotator.feed_url(self.contributor_lane, dict(), dict())
         assert self.contributor_lane.ROUTE in feed_url_contributor
         assert self.contributor_lane.contributor_name in feed_url_contributor
 
     def test_search_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
-
-        search_url = annotator.search_url(self.lane, "query", dict())
+        search_url = self.annotator.search_url(self.lane, "query", dict())
         assert "search" in search_url
         assert "query" in search_url
         assert "Fantasy" in search_url
@@ -367,37 +356,29 @@ class TestOPDS(WithVendorIDTest):
     def test_facet_url(self):
         # A regular Lane.
         facets = dict(collection="main")
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
-
-        facet_url = annotator.facet_url(facets)
+        facet_url = self.annotator.facet_url(facets)
         assert "collection=main" in facet_url
         assert "Fantasy" in facet_url
 
         # A QueryGeneratedLane.
-        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+        self.annotator.lane = self.contributor_lane
 
-        facet_url_contributor = annotator.facet_url(facets)
+        facet_url_contributor = self.annotator.facet_url(facets)
         assert "collection=main" in facet_url_contributor
         assert self.contributor_lane.ROUTE in facet_url_contributor
         assert self.contributor_lane.contributor_name in facet_url_contributor
 
-
     def test_alternate_link_is_permalink(self):
-        w1 = self._work(with_open_access_download=True)
-        self._db.commit()
-
-        works = self._db.query(Work)
-        annotator = CirculationManagerAnnotator(None, Fantasy, test_mode=True)
-        pool = annotator.active_licensepool_for(w1)
+        work = self._work(with_open_access_download=True)
+        pool = work.license_pools[0]
 
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         eq_(entry['id'], pool.identifier.urn)
 
-
         [(alternate, type)] = [(x['href'], x['type']) for x in entry['links'] if x['rel'] == 'alternate']
-        permalink = annotator.permalink_for(w1, pool, pool.identifier)
+        permalink = self.annotator.permalink_for(work, pool, pool.identifier)
         eq_(alternate, permalink)
         eq_(OPDSFeed.ENTRY_TYPE, type)
 
@@ -679,12 +660,9 @@ class TestOPDS(WithVendorIDTest):
         pool.licenses_owned = 100
         pool.licenses_available = 50
         pool.patrons_in_hold_queue = 25
-        self._db.commit()
 
-        works = self._db.query(Work)
         feed = AcquisitionFeed(
-            self._db, "test", "url", works,
-            CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            self._db, "title", "url", [work], self.annotator
         )
         u = unicode(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
