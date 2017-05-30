@@ -5637,6 +5637,7 @@ class TestCollection(DatabaseTest):
         overdrive = ExternalIntegration.OVERDRIVE
         bibliotheca = ExternalIntegration.BIBLIOTHECA
         c1 = self._collection(self._str, protocol=overdrive)
+        c1.parent = self.collection
         c2 = self._collection(self._str, protocol=bibliotheca)
         eq_(set([self.collection, c1]),
             set(Collection.by_protocol(self._db, overdrive).all()))
@@ -5645,6 +5646,30 @@ class TestCollection(DatabaseTest):
         eq_(set([self.collection, c1, c2]),
             set(Collection.by_protocol(self._db, None).all()))
 
+    def test_change_protocol(self):
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+
+        # Create a parent and a child collection, both with
+        # protocol=Overdrive.
+        child = self._collection(self._str, protocol=overdrive)
+        child.parent = self.collection
+
+        # We can't change the child's protocol to a value that contradicts
+        # the parent's protocol.
+        child.protocol = overdrive
+        def set_child_protocol():
+            child.protocol = bibliotheca
+        assert_raises_regexp(
+            ValueError,
+            "Proposed new protocol \(Bibliotheca\) contradicts parent collection's protocol \(Overdrive\).",
+            set_child_protocol
+        )
+
+        # If we change the parent's protocol, the children are
+        # automatically updated.
+        self.collection.protocol = bibliotheca
+        eq_(bibliotheca, child.protocol)
         
     def test_explain(self):
         """Test that Collection.explain gives all relevant information

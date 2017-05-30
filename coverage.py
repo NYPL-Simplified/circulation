@@ -714,9 +714,9 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     
     DEFAULT_BATCH_SIZE = 10
 
-    # Set this to the name of the provider managed by this type of
+    # Set this to the name of the protocol managed by this type of
     # CoverageProvider. If this CoverageProvider can manage collections
-    # for any provider, leave this as None.
+    # for any protocol, leave this as None.
     PROTOCOL = None
     
     def __init__(self, collection, **kwargs):

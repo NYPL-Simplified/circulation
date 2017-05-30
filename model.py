@@ -8887,11 +8887,10 @@ class ExternalIntegration(Base):
     # ANALYTICS_TYPE integrations
     GOOGLE_ANALYTICS = u'Google Analytics'
 
-    # ADMIN_AUTHENTICATION_TYPE integrations
-    ADMIN_AUTH_TYPE = u'admin_auth'
+    # ADMIN_AUTH_TYPE integrations
     GOOGLE_OAUTH = u'Google OAuth'
 
-    # List of such ADMIN_AUTHENTICATION_TYPE integrations
+    # List of such ADMIN_AUTH_TYPE integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
     __tablename__ = 'externalintegrations'
@@ -8900,7 +8899,7 @@ class ExternalIntegration(Base):
     # Each integration should have a protocol (explaining how we actually
     # get information through it) and a type (explaining what the integration
     # is for).
-    protocol = Column(Unicode, nullable=True)
+    protocol = Column(Unicode, nullable=False)
     type = Column(Unicode, nullable=True)
 
     # If there is a special URL to use for access to this API,
@@ -9014,7 +9013,7 @@ class Collection(Base):
     # to Overdrive Advantage collections.
     children = relationship(
         "Collection", backref=backref("parent", remote_side = [id]),
-        uselist=False
+        uselist=True
     )
     
     # A Collection can provide books to many Libraries.
@@ -9094,17 +9093,26 @@ class Collection(Base):
                 ExternalIntegration.type==ExternalIntegration.LICENSE_TYPE
             ).filter(ExternalIntegration.protocol==protocol)
         return qu
-    
-    @property
+
+    @hybrid_property
     def protocol(self):
         """What protocol do we need to use to get licenses for this 
         collection?
         """
-        if self.external_integration.protocol:
-            return self.external_integration.protocol
-        if self.parent:
-            return self.parent.protocol
-        return None
+        return self.external_integration.protocol
+    
+    @protocol.setter
+    def set_protocol(self, new_protocol):
+        """Modify the protocol in use by this Collection."""
+        if self.parent and self.parent.protocol != new_protocol:
+            raise ValueError(
+                "Proposed new protocol (%s) contradicts parent collection's protocol (%s)." % (
+                    new_protocol, self.parent.protocol
+                )
+            )
+        self.external_integration.protocol = new_protocol
+        for child in self.children:
+            child.protocol = new_protocol
     
     @property
     def external_integration(self):
