@@ -445,6 +445,24 @@ class TestOPDS(WithVendorIDTest):
         self.assert_link_on_entry(open_access_entry, rels=[OPDSFeed.BORROW_REL])
         self.assert_link_on_entry(licensed_entry, rels=[OPDSFeed.BORROW_REL])
 
+    def test_language_and_audience_key_from_work(self):
+        work = self._work(language='eng', audience=Classifier.AUDIENCE_CHILDREN)
+        result = self.annotator.language_and_audience_key_from_work(work)
+        eq_(('eng', 'Children'), result)
+
+        work = self._work(language='fre', audience=Classifier.AUDIENCE_YOUNG_ADULT)
+        result = self.annotator.language_and_audience_key_from_work(work)
+        eq_(('fre', 'Children,Young+Adult'), result)
+
+        work = self._work(language='spa', audience=Classifier.AUDIENCE_ADULT)
+        result = self.annotator.language_and_audience_key_from_work(work)
+        eq_(('spa', 'Adult,Adults+Only,Children,Young+Adult'), result)
+
+        work = self._work(audience=Classifier.AUDIENCE_ADULTS_ONLY)
+        result = self.annotator.language_and_audience_key_from_work(work)
+        eq_(('eng', 'Adult,Adults+Only,Children,Young+Adult'), result)
+
+
     def test_work_entry_includes_contributor_links(self):
         """ContributorLane links are added to works with contributors"""
         work = self._work(with_open_access_download=True)

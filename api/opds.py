@@ -266,7 +266,7 @@ class CirculationManagerAnnotator(Annotator):
         # Add a link for each author.
         self.add_author_links(work, feed, entry)
 
-        # And a series, if there are some.
+        # And a series, if there is one.
         if work.series:
             self.add_series_link(work, feed, entry)
 
@@ -306,13 +306,14 @@ class CirculationManagerAnnotator(Annotator):
         if work.audience == Classifier.AUDIENCE_CHILDREN:
             audiences = [Classifier.AUDIENCE_CHILDREN]
         if work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
-            audiences = [Classifier.AUDIENCES_JUVENILE]
+            audiences = Classifier.AUDIENCES_JUVENILE
         if work.audience in Classifier.AUDIENCES_ADULT:
             audiences = list(Classifier.AUDIENCES)
 
         audience_key=None
         if audiences:
-            audience_key = [urllib.quote_plus(a) for a in sorted(audiences)]
+            audience_strings = [urllib.quote_plus(a) for a in sorted(audiences)]
+            audience_key = u','.join(audience_strings)
 
         return language_key, audience_key
 
