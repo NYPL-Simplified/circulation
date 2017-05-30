@@ -222,6 +222,19 @@ class TestAnnotators(DatabaseTest):
             work.presentation_edition.primary_identifier)
         eq_(tag_string, etree.tostring(same_tag))
 
+    def test_duplicate_author_names_are_ignored(self):
+        """Ignores duplicate author names"""
+        work = self._work(with_license_pool=True)
+        duplicate = self._contributor()[0]
+        duplicate.sort_name = work.author
+
+        edition = work.presentation_edition
+        edition.add_contributor(duplicate, Contributor.AUTHOR_ROLE)
+
+        eq_(1, len(Annotator.authors(
+            work, work.license_pools[0], edition, edition.primary_identifier
+        )))
+
     def test_all_annotators_mention_every_author(self):
         work = self._work(authors=[], with_license_pool=True)
         work.presentation_edition.add_contributor(
