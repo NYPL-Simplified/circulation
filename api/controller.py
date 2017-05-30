@@ -102,6 +102,7 @@ from lanes import (
     make_lanes,
     ContributorLane,
     RecommendationLane,
+    RelatedBooksLane,
     SeriesLane,
 )
 
@@ -923,6 +924,43 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
+
+    def related(self, data_source, identifier_type, identifier,
+                novelist_api=None):
+        """Serve a groups feed of books related to a given book."""
+
+        pool = self.load_licensepool(data_source, identifier_type, identifier)
+        if isinstance(pool, ProblemDetail):
+            return pool
+
+        try:
+            lane_name = "Books Related to %s by %s" % (
+                pool.work.title, pool.work.author
+            )
+            lane = RelatedBooksLane(
+                self._db, pool, lane_name, novelist_api=novelist_api
+            )
+        except ValueError, e:
+            # No related books were found.
+            return NO_SUCH_LANE.detailed(e.message)
+
+        annotator = self.manager.annotator(lane)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        url = annotator.feed_url(
+            lane,
+            facets=facets,
+            pagination=pagination,
+        )
+
+        feed = AcquisitionFeed.groups(
+            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
+        )
+        return feed_response(unicode(feed.content))
 
     def recommendations(self, data_source, identifier_type, identifier,
                         novelist_api=None):

@@ -287,6 +287,22 @@ class CirculationManagerAnnotator(Annotator):
                 )
             )
 
+        # Add a link for related books if available.
+        if self.related_books_available(active_license_pool):
+            feed.add_link_to_entry(
+                entry,
+                rel='related',
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                title='Recommended Works',
+                href=self.url_for(
+                    'related_books',
+                    data_source=data_source_name,
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    _external=True
+                )
+            )
+
         # Add a link to get a patron's annotations for this book.
         feed.add_link_to_entry(
             entry,
@@ -299,6 +315,15 @@ class CirculationManagerAnnotator(Annotator):
                 _external=True
             )
         )
+
+    @classmethod
+    def related_books_available(cls, license_pool):
+        """:return: bool asserting whether related books are available for a
+        particular work
+        """
+        contributions = license_pool.presentation_edition.contributions
+        series = license_pool.presentation_edition.series
+        return contributions or series or NoveListAPI.is_configured()
 
     def language_and_audience_key_from_work(self, work):
         language_key = work.language

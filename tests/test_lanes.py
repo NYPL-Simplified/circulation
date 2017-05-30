@@ -31,6 +31,7 @@ from api.lanes import (
     ContributorLane,
     LicensePoolBasedLane,
     RecommendationLane,
+    RelatedBooksLane,
     SeriesLane,
 )
 from api.novelist import MockNoveListAPI
@@ -194,6 +195,125 @@ class TestLicensePoolBasedLane(DatabaseTest):
         work.audience = Classifier.AUDIENCE_ADULTS_ONLY
         adults_only_lane = LicensePoolBasedLane(self._db, lp, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
+
+
+class TestRelatedBooksLane(DatabaseTest):
+
+    def setup(self):
+        super(TestRelatedBooksLane, self).setup()
+        self.work = self._work(
+            with_license_pool=True, audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
+
+    def test_initialization(self):
+        """Asserts that a RelatedBooksLane won't be initialized for a work
+        without related books
+        """
+
+        with temp_config() as config:
+            # A book without a series or a contributor on a circ manager without
+            # NoveList recommendations raises an error.
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+            self._db.delete(self.edition.contributions[0])
+            self._db.commit()
+
+            assert_raises(
+                ValueError, RelatedBooksLane, self._db, self.lp, ""
+            )
+
+            # A book with a contributor initializes a RelatedBooksLane.
+            luthor, i = self._contributor('Luthor, Lex')
+            self.edition.add_contributor(luthor, [Contributor.EDITOR_ROLE])
+
+            result = RelatedBooksLane(self._db, self.lp, '')
+            eq_(self.lp, result.license_pool)
+            [sublane] = result.sublanes
+            eq_(True, isinstance(sublane, ContributorLane))
+            eq_(sublane.contributors, [luthor])
+
+            # As does a book in a series.
+            self.edition.series = "All By Myself"
+            result = RelatedBooksLane(self._db, self.lp, "")
+            eq_(2, len(result.sublanes))
+            [contributor, series] = result.sublanes
+            eq_(True, isinstance(series, SeriesLane))
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
+                Configuration.NOVELIST_PROFILE : 'library',
+                Configuration.NOVELIST_PASSWORD : 'sure'
+            }
+            # When NoveList is configured and recommendations are available,
+            # a RecommendationLane will be included.
+            mock_api = MockNoveListAPI()
+            response = Metadata(
+                self.lp.data_source, recommendations=[self._identifier()]
+            )
+            mock_api.setup(response)
+            result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
+            eq_(3, len(result.sublanes))
+
+            # The book's language and audience list is passed down to all sublanes.
+            eq_(['eng'], result.languages)
+            for sublane in result.sublanes:
+                eq_(result.languages, sublane.languages)
+                if isinstance(sublane, SeriesLane):
+                    eq_(set([result.source_audience]), sublane.audiences)
+                else:
+                    eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
+
+            contributor, recommendations, series = result.sublanes
+            eq_(True, isinstance(recommendations, RecommendationLane))
+            eq_(True, isinstance(series, SeriesLane))
+            eq_(True, isinstance(contributor, ContributorLane))
+
+    def test_contributor_lane_generation(self):
+
+        with temp_config() as config:
+            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+
+            original = self.edition.contributions[0].contributor
+            luthor, i = self._contributor('Luthor, Lex')
+            self.edition.add_contributor(luthor, Contributor.EDITOR_ROLE)
+
+            # Lex Luthor doesn't show up because he's only an editor,
+            # and an author is listed.
+            result = RelatedBooksLane(self._db, self.lp, '')
+            eq_(1, len(result.sublanes))
+            [sublane] = result.sublanes
+            eq_([original], sublane.contributors)
+
+        # A book with multiple contributors results in multiple
+        # ContributorLane sublanes.
+        lane, i = self._contributor('Lane, Lois')
+        self.edition.add_contributor(lane, Contributor.PRIMARY_AUTHOR_ROLE)
+        result = RelatedBooksLane(self._db, self.lp, '')
+        eq_(2, len(result.sublanes))
+        sublane_contributors = list()
+        [sublane_contributors.extend(c.contributors) for c in result.sublanes]
+        eq_(set([lane, original]), set(sublane_contributors))
+
+        # When there are no AUTHOR_ROLES present, contributors in
+        # displayable secondary roles appear.
+        for contribution in self.edition.contributions:
+            if contribution.role in Contributor.AUTHOR_ROLES:
+                self._db.delete(contribution)
+        self._db.commit()
+
+        result = RelatedBooksLane(self._db, self.lp, '')
+        eq_(1, len(result.sublanes))
+        [sublane] = result.sublanes
+        eq_([luthor], sublane.contributors)
+
+    def test_works_query(self):
+        """RelatedBooksLane is an invisible, groups lane without works."""
+
+        self.work.presentation_edition.series = "All By Myself"
+        lane = RelatedBooksLane(self._db, self.lp, "")
+        eq_(None, lane.works())
+        eq_(None, lane.materialized_works())
 
 
 class LaneTest(DatabaseTest):
