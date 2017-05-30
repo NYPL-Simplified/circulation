@@ -453,9 +453,9 @@ class DatabaseTest(object):
         )
         return credential
     
-    def _external_integration(self, protocol, type=None, settings=None, **kwargs):
+    def _external_integration(self, protocol, goal=None, settings=None, **kwargs):
         integration, is_new = get_one_or_create(
-            self._db, ExternalIntegration, protocol=protocol, type=type
+            self._db, ExternalIntegration, protocol=protocol, goal=goal
         )
 
         for attr, value in kwargs.items():
@@ -686,11 +686,10 @@ class DatabaseTest(object):
             self._db, Collection, name=name
         )
         collection.external_account_id = external_account_id
-        collection.external_integration.type = ExternalIntegration.LICENSE_TYPE
-        collection.external_integration.protocol = protocol
-        collection.external_integration.url = url
-        collection.external_integration.username = username
-        collection.external_integration.password = password
+        integration = collection.create_external_integration(protocol)
+        integration.url = url
+        integration.username = username
+        integration.password = password
         return collection
 
     @property

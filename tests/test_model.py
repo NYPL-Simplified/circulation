@@ -5564,7 +5564,9 @@ class TestExternalIntegration(DatabaseTest):
 
     def setup(self):
         super(TestExternalIntegration, self).setup()
-        self.external_integration, ignore = create(self._db, ExternalIntegration)
+        self.external_integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
 
     def test_data_source(self):
         # For most collections, the protocol determines the
@@ -5705,9 +5707,13 @@ class TestCollection(DatabaseTest):
         child = Collection(
             name="Child", parent=self.collection, external_account_id="id2"
         )
+        child.create_external_integration(
+            protocol=ExternalIntegration.OVERDRIVE
+        )
         data = child.explain()
         eq_(['Name: "Child"',
              'Parent: test collection',
+             'Protocol: "Overdrive"',
              'External account ID: "id2"'],
             data
         )
