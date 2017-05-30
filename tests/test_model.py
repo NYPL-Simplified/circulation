@@ -5567,7 +5567,7 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(self._db, ExternalIntegration)
 
     def test_data_source(self):
-        # For most collections, the provider determines the
+        # For most collections, the protocol determines the
         # data source.
         collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         eq_(DataSource.OVERDRIVE, collection.data_source.name)
