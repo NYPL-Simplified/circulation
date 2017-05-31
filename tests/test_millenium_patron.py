@@ -385,12 +385,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """Test authenticating against the patron's last name, given the
         correct name
         """
-        config = {
-            Configuration.URL : "http://example.com",
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
-            Configuration.MILLENIUM_MODE : "last_name"
-        }
-        api = MilleniumPatronAPI.from_config(config)
+        self.api = MockAPI(auth_mode = "last_name")
         self.api.enqueue("dump.success.html")
         patrondata = self.api.remote_authenticate(
             "44444444444447", "SHELDON"
@@ -401,11 +396,6 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """Test authenticating against the patron's last name, given the
         incorrect name
         """
-        config = {
-            Configuration.URL : "http://example.com",
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
-            Configuration.MILLENIUM_MODE : "last_name"
-        }
-        api = MilleniumPatronAPI.from_config(config)
+        self.api = MockAPI(auth_mode = "last_name")
         self.api.enqueue("dump.success.html")
         eq_(False, self.api.remote_authenticate("44444444444447", "wrong name"))
