@@ -1004,11 +1004,16 @@ class OverdriveAdvantageAccount(object):
                 "Cannot create a Collection whose parent does not already exist."
             )
         name = parent.name + " / " + self.name
-        child, ignore = get_one_or_create(
+        child, is_new = get_one_or_create(
             _db, Collection, parent_id=parent.id,
             external_account_id=self.library_id,
             create_method_kwargs=dict(name=name)
         )
+        if is_new:
+            # Make sure the child has its protocol set appropriately.
+            integration = child.create_external_integration(
+                ExternalIntegration.OVERDRIVE
+            )
 
         # Set or update the name of the collection to reflect the name of
         # the library, just in case that name has changed.

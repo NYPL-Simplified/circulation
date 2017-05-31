@@ -430,8 +430,8 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         eq_(p, parent)
         eq_(parent, collection.parent)
         eq_(collection.external_account_id, account.library_id)
-        eq_(ExternalIntegration.LICENSE_TYPE,
-            collection.external_integration.type)
+        eq_(ExternalIntegration.LICENSE_GOAL,
+            collection.external_integration.goal)
         eq_(ExternalIntegration.OVERDRIVE,
             collection.protocol)
 
