@@ -442,7 +442,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
                  novelist_api=None):
         super(RelatedBooksLane, self).__init__(
             _db, license_pool, full_name,
-            display_name=display_name, invisible=True
+            display_name=display_name, invisible=True, searchable=False,
         )
         sublanes = self._get_sublanes(_db, license_pool, novelist_api=novelist_api)
         if not sublanes:
@@ -475,8 +475,7 @@ class RelatedBooksLane(LicensePoolBasedLane):
                 contributor_name = contributor.sort_name
 
             contributor_lane = ContributorLane(
-                _db, contributor_name, contributor_id=contributor.id,
-                parent=self
+                _db, contributor_name, parent=self
             )
             sublanes.append(contributor_lane)
 
@@ -520,7 +519,7 @@ class RecommendationLane(LicensePoolBasedLane):
         self.api = novelist_api or NoveListAPI.from_config(_db)
         super(RecommendationLane, self).__init__(
             _db, license_pool, full_name, display_name=display_name,
-            parent=parent
+            parent=parent, searchable=False,
         )
         self.recommendations = self.fetch_recommendations()
 
@@ -565,7 +564,7 @@ class SeriesLane(QueryGeneratedLane):
 
         super(SeriesLane, self).__init__(
             _db, full_name, parent=parent, display_name=display_name,
-            audiences=audiences, languages=languages
+            audiences=audiences, languages=languages, searchable=False,
         )
 
     @property
@@ -608,26 +607,19 @@ class ContributorLane(QueryGeneratedLane):
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, contributor_name, contributor_id=None,
+    def __init__(self, _db, contributor_name,
                  parent=None, languages=None, audiences=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
         self.contributor_name = contributor_name
-        self.contributor = None
-        if contributor_id:
-            self.contributor = get_one(_db, Contributor, id=contributor_id)
-            if (self.contributor_name!=self.contributor.display_name and
-                self.contributor_name!=self.contributor.sort_name):
-                raise ValueError(
-                    "ContributorLane can't be created with inaccurate"
-                    " Contributor data."
-                )
+        self.contributors = _db.query(Contributor)\
+                .filter(or_(*self.contributor_name_clauses)).all()
 
         full_name = display_name = self.contributor_name
         super(ContributorLane, self).__init__(
             _db, full_name, display_name=display_name, parent=parent,
-            audiences=audiences, languages=languages
+            audiences=audiences, languages=languages, searchable=False,
         )
 
     @property
@@ -639,6 +631,13 @@ class ContributorLane(QueryGeneratedLane):
         )
         return self.ROUTE, kwargs
 
+    @property
+    def contributor_name_clauses(self):
+        return [
+            Contributor.display_name==self.contributor_name,
+            Contributor.sort_name==self.contributor_name
+        ]
+
     def lane_query_hook(self, qu, **kwargs):
         if not self.contributor_name:
             return None
@@ -649,14 +648,15 @@ class ContributorLane(QueryGeneratedLane):
 
         # Run a number of queries against the Edition table based on the
         # available contributor information: name, display name, id, viaf.
-        clauses = [
-            Contributor.display_name==self.contributor_name,
-            Contributor.sort_name==self.contributor_name
-        ]
-        if self.contributor:
-            clauses.append(Contributor.id==self.contributor.id)
-            if self.contributor.viaf:
-                clauses.append(Contributor.viaf==self.contributor.viaf)
+        clauses = self.contributor_name_clauses
+
+        if self.contributors:
+            viafs = list(set([c.viaf for c in self.contributors if c.viaf]))
+            if len(viafs) == 1:
+                # If there's only one VIAF here, look for other
+                # Contributors that share it. This helps catch authors
+                # with pseudonyms.
+                clauses.append(Contributor.viaf==viafs[0])
         or_clause = or_(*clauses)
         qu = qu.filter(or_clause)
 
