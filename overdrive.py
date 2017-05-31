@@ -402,10 +402,12 @@ class MockOverdriveAPI(OverdriveAPI):
                     external_account_id=u'c'
                 )
             )
-        collection.external_integration.protocol = ExternalIntegration.OVERDRIVE
-        collection.external_integration.username = u'a'
-        collection.external_integration.password = u'b'
-        collection.external_integration.set_setting('website_id', 'd')
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+        integration.username = u'a'
+        integration.password = u'b'
+        integration.set_setting('website_id', 'd')
         library.collections.append(collection)
         return collection
     

@@ -209,10 +209,12 @@ class MockBibliothecaAPI(BibliothecaAPI):
                 external_account_id=u'c',
             )
         )
-        collection.external_integration.protocol=ExternalIntegration.BIBLIOTHECA
-        collection.external_integration.username = u'a'
-        collection.external_integration.password = u'b'
-        collection.external_integration.url = "http://bibliotheca.test"
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.BIBLIOTHECA
+        )
+        integration.username = u'a'
+        integration.password = u'b'
+        integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         return collection
         

@@ -526,9 +526,10 @@ class MockOneClickAPI(OneClickAPI):
                 external_account_id=u'library_id_123',
             )
         )
-        collection.external_integration.type = ExternalIntegration.LICENSE_TYPE
-        collection.external_integration.protocol = ExternalIntegration.ONE_CLICK
-        collection.external_integration.password = u'abcdef123hijklm'
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.ONE_CLICK
+        )        
+        integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
         return collection
     

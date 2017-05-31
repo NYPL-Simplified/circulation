@@ -9111,6 +9111,10 @@ class Collection(Base):
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 
+        To be used immediately after creating a new Collection,
+        e.g. in by_name_and_protocol, from_metadata_identifier, and
+        various test methods that create mock Collections.
+
         If an external integration already exists, return it instead
         of creating another one.
 
