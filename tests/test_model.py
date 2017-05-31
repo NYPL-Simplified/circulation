@@ -5648,6 +5648,39 @@ class TestCollection(DatabaseTest):
         eq_(set([self.collection, c1, c2]),
             set(Collection.by_protocol(self._db, None).all()))
 
+    def test_create_external_integration(self):
+        # A newly created Collection has no associated ExternalIntegration.
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name=self._str
+        )
+        eq_(None, collection.external_integration_id)
+        assert_raises_regexp(
+            ValueError,
+            "No known external integration for collection",
+            getattr, collection, 'external_integration'
+        )
+        
+        # We can create one with create_external_integration().
+        overdrive = ExternalIntegration.OVERDRIVE
+        integration = collection.create_external_integration(protocol=overdrive)
+        eq_(integration.id, collection.external_integration_id)
+        eq_(overdrive, integration.protocol)
+
+        # If we call create_external_integration() again we get the same
+        # ExternalIntegration as before.
+        integration2 = collection.create_external_integration(protocol=overdrive)
+        eq_(integration, integration2)
+        
+        
+        # If we try to initialize an ExternalIntegration with a different
+        # protocol, we get an error.
+        assert_raises_regexp(
+            ValueError,
+            "Located ExternalIntegration, but its protocol \(Overdrive\) does not match desired protocol \(blah\).",
+            collection.create_external_integration,
+            protocol="blah"
+        )
+        
     def test_change_protocol(self):
         overdrive = ExternalIntegration.OVERDRIVE
         bibliotheca = ExternalIntegration.BIBLIOTHECA

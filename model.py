@@ -9127,6 +9127,12 @@ class Collection(Base):
             _db, ExternalIntegration, id=self.external_integration_id,
             create_method_kwargs=dict(protocol=protocol, goal=goal)
         )
+        if external_integration.protocol != protocol:
+            raise ValueError(
+                "Located ExternalIntegration, but its protocol (%s) does not match desired protocol (%s)." % (
+                    external_integration.protocol, protocol
+                )
+            )
         self.external_integration_id = external_integration.id
         return external_integration
             
@@ -9141,7 +9147,7 @@ class Collection(Base):
         """
         if not self.external_integration_id:
             raise ValueError(
-                "No known external intergation for collection %s" % self.name
+                "No known external integration for collection %s" % self.name
             )
         _db = Session.object_session(self)
         return get_one(
