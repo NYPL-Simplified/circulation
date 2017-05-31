@@ -19,6 +19,7 @@ from model import (
     CollectionMissing,
     CoverageRecord,
     Edition,
+    ExternalIntegration,
     CustomListEntry,
     Identifier,
     LicensePool,
@@ -180,8 +181,8 @@ class Monitor(object):
 
 
 class CollectionMonitor(Monitor):
-    """A Monitor that does something for all Collections that implement
-    a certain protocol.
+    """A Monitor that does something for all Collections that come
+    from a certain provider.
 
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME and
@@ -189,11 +190,11 @@ class CollectionMonitor(Monitor):
     KEEP_TIMESTAMP, INTERVAL_SECONDS, and DEFAULT_START_TIME.
     """
 
-    # Set this to the name of the protocol managed by this Monitor. If
-    # this value is set, the CollectionMonitor can only be
-    # instantiated with Collections that implement this protocol. If this is
-    # unset, the CollectionMonitor can be instantiated with any Collection,
-    # or with no Collection at all.
+    # Set this to the name of the license provider managed by this
+    # Monitor. If this value is set, the CollectionMonitor can only be
+    # instantiated with Collections that get their licenses from this
+    # provider. If this is unset, the CollectionMonitor can be
+    # instantiated with any Collection, or with no Collection at all.
     PROTOCOL = None
 
     def __init__(self, _db, collection):
@@ -214,7 +215,7 @@ class CollectionMonitor(Monitor):
     @classmethod
     def all(cls, _db, **constructor_kwargs):
         """Yield a sequence of CollectionMonitor objects: one for every
-        Collection that implements cls.PROTOCOL.
+        Collection associated with cls.PROTOCOL.
 
         Monitors that have no Timestamp will be yielded first. After that,
         Monitors with older Timestamps will be yielded before Monitors with
@@ -225,14 +226,8 @@ class CollectionMonitor(Monitor):
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
-        collections = _db.query(Collection).outerjoin(
+        collections = Collection.by_protocol(_db, cls.PROTOCOL).outerjoin(
             Collection.timestamps).filter(service_match)
-
-        if cls.PROTOCOL:
-            collections = collections.filter(
-                Collection.protocol==cls.PROTOCOL
-            )
-
         collections = collections.order_by(
             Timestamp.timestamp.asc().nullsfirst()
         )

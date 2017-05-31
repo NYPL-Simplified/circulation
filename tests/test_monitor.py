@@ -18,6 +18,7 @@ from model import (
     Collection,
     CollectionMissing,
     DataSource,
+    ExternalIntegration,
     Identifier,
     Subject,
     Timestamp,
@@ -179,11 +180,11 @@ class TestCollectionMonitor(DatabaseTest):
 
         class OverdriveMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor 2"
-            PROTOCOL = Collection.OVERDRIVE
+            PROTOCOL = ExternalIntegration.OVERDRIVE
 
         # Two collections.
-        c1 = self._collection(protocol=Collection.OVERDRIVE)
-        c2 = self._collection(protocol=Collection.BIBLIOTHECA)
+        c1 = self._collection(protocol=ExternalIntegration.OVERDRIVE)
+        c2 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
         # The NoProtocolMonitor can be instantiated with either one,
         # or with no Collection at all.
@@ -207,7 +208,7 @@ class TestCollectionMonitor(DatabaseTest):
         """Test that we can create a list of Monitors using all()."""
         class OPDSCollectionMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor"
-            PROTOCOL = Collection.OPDS_IMPORT
+            PROTOCOL = ExternalIntegration.OPDS_IMPORT
         
         # Here we have three OPDS import Collections...
         o1 = self._collection()
@@ -215,7 +216,7 @@ class TestCollectionMonitor(DatabaseTest):
         o3 = self._collection()
 
         # ...and a Bibliotheca collection.
-        b1 = self._collection(protocol=Collection.BIBLIOTHECA)
+        b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
         # o1 just had its Monitor run.
         Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME, o1)
@@ -227,7 +228,7 @@ class TestCollectionMonitor(DatabaseTest):
         an_hour_ago = now - datetime.timedelta(seconds=3600)
         Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME,
                         o3, an_hour_ago)
-        
+
         monitors = list(OPDSCollectionMonitor.all(self._db))
 
         # Three OPDSCollectionMonitors were returned, one for each

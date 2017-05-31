@@ -43,6 +43,7 @@ from model import (
     CustomList,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Library,
     LicensePool,
@@ -156,12 +157,13 @@ class RunMonitorScript(Script):
 
 
 class RunCollectionMonitorScript(Script):
-    """Run a CollectionMonitor on every Collection that implements a
+    """Run a CollectionMonitor on every Collection that comes through a
     certain protocol.
 
     TODO: Currently the Monitors are run one at a time. It should
     be possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread.
+
     """
 
     def __init__(self, monitor_class, _db=None, **kwargs):
@@ -211,7 +213,7 @@ class RunCoverageProvidersScript(Script):
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
-    implement its protocol.
+    get their licenses from the appropriate place.
     """
     def __init__(self, provider_class, _db=None, **kwargs):
         _db = _db or self._db
@@ -764,8 +766,8 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--protocol',
-            help='Protocol used to get licenses. Possible values: "%s"' % (
-                '", "'.join(Collection.PROTOCOLS)
+            help='Protocol to use to get the licenses. Possible values: "%s"' % (
+                '", "'.join(ExternalIntegration.LICENSE_PROTOCOLS)
             )
         )
         parser.add_argument(
@@ -778,11 +780,11 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--username',
-            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+            help='Use this username to authenticate with the license protocol. Sometimes called a "key".',
         )
         parser.add_argument(
             '--password',
-            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+            help='Use this password to authenticate with the license protocol. Sometimes called a "secret".',
         )
         parser.add_argument(
             '--setting',
@@ -815,25 +817,26 @@ class ConfigureCollectionScript(Script):
 
         # Find or create the collection
         protocol = None
-        if args.protocol:
-            protocol = args.protocol
-            
-        collection = get_one(_db, Collection, name=args.name)
+        name = args.name
+        protocol = args.protocol
+        collection = get_one(_db, Collection, Collection.name==name)
         if not collection:
             if protocol:
-                collection, is_new = get_one_or_create(
-                    _db, Collection, name=args.name, protocol=protocol
+                collection, is_new = Collection.by_name_and_protocol(
+                    _db, name, protocol
                 )
             else:
+                # We didn't find a Collection, and we don't have a protocol,
+                # so we can't create a new Collection.
                 raise ValueError(
-                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                    'No collection called "%s". You can create it, but you must specify a protocol.' % name
                 )
+        integration = collection.external_integration
         if protocol:
-            collection.protocol = protocol
+            integration.protocol = protocol
         if args.external_account_id:
             collection.external_account_id = args.external_account_id
 
-        integration = collection.external_integration
         if args.url:
             integration.url = args.url
         if args.username:

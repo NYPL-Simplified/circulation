@@ -453,9 +453,9 @@ class DatabaseTest(object):
         )
         return credential
     
-    def _external_integration(self, provider, type=None, settings=None, **kwargs):
+    def _external_integration(self, protocol, goal=None, settings=None, **kwargs):
         integration, is_new = get_one_or_create(
-            self._db, ExternalIntegration, provider=provider, type=type
+            self._db, ExternalIntegration, protocol=protocol, goal=goal
         )
 
         for attr, value in kwargs.items():
@@ -678,17 +678,18 @@ class DatabaseTest(object):
         )
         return library
     
-    def _collection(self, name=None, protocol=Collection.OPDS_IMPORT,
+    def _collection(self, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
                     password=None):
         name = name or self._str
         collection, ignore = get_one_or_create(
-            self._db, Collection, name=name, protocol=protocol
+            self._db, Collection, name=name
         )
         collection.external_account_id = external_account_id
-        collection.external_integration.url = url
-        collection.external_integration.username = username
-        collection.external_integration.password = password
+        integration = collection.create_external_integration(protocol)
+        integration.url = url
+        integration.username = username
+        integration.password = password
         return collection
 
     @property
@@ -753,7 +754,7 @@ class MockCoverageProvider(object):
 
     # This CoverageProvider can work with any Collection that supports
     # the OPDS import protocol (e.g. DatabaseTest._default_collection).
-    PROTOCOL = Collection.OPDS_IMPORT
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
 
 
 class InstrumentedCoverageProvider(MockCoverageProvider,
