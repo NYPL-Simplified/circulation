@@ -222,7 +222,20 @@ class TestAnnotators(DatabaseTest):
             work.presentation_edition.primary_identifier)
         eq_(tag_string, etree.tostring(same_tag))
 
-    def test_verbose_annotator_mentions_every_author(self):
+    def test_duplicate_author_names_are_ignored(self):
+        """Ignores duplicate author names"""
+        work = self._work(with_license_pool=True)
+        duplicate = self._contributor()[0]
+        duplicate.sort_name = work.author
+
+        edition = work.presentation_edition
+        edition.add_contributor(duplicate, Contributor.AUTHOR_ROLE)
+
+        eq_(1, len(Annotator.authors(
+            work, work.license_pools[0], edition, edition.primary_identifier
+        )))
+
+    def test_all_annotators_mention_every_author(self):
         work = self._work(authors=[], with_license_pool=True)
         work.presentation_edition.add_contributor(
             self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
@@ -230,6 +243,9 @@ class TestAnnotators(DatabaseTest):
             self._contributor()[0], Contributor.AUTHOR_ROLE)
         work.presentation_edition.add_contributor(
             self._contributor()[0], "Illustrator")
+        eq_(2, len(Annotator.authors(
+            work, work.license_pools[0], work.presentation_edition,
+            work.presentation_edition.primary_identifier)))
         eq_(2, len(VerboseAnnotator.authors(
             work, work.license_pools[0], work.presentation_edition,
             work.presentation_edition.primary_identifier)))
