@@ -29,6 +29,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     PresentationCalculationPolicy,
@@ -829,7 +830,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         """Verify that class variables become appropriate instance
         variables.
         """
-        collection = self._collection(protocol=Collection.OPDS_IMPORT)
+        collection = self._collection(protocol=ExternalIntegration.OPDS_IMPORT)
         provider = AlwaysSuccessfulCollectionCoverageProvider(collection)
         eq_(provider.DATA_SOURCE_NAME, provider.data_source.name)
 
@@ -842,7 +843,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
     def test_collection_protocol_must_match_class_protocol(self):
-        collection = self._collection(protocol=Collection.OVERDRIVE)
+        collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         assert_raises_regexp(
             ValueError,
             "Collection protocol \(Overdrive\) does not match CoverageProvider protocol \(OPDS Import\)",
@@ -871,9 +872,9 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         objects, one for each Collection that implements the
         appropriate protocol.
         """
-        opds1 = self._collection(protocol=Collection.OPDS_IMPORT)
-        opds2 = self._collection(protocol=Collection.OPDS_IMPORT)
-        overdrive = self._collection(protocol=Collection.OVERDRIVE)
+        opds1 = self._collection(protocol=ExternalIntegration.OPDS_IMPORT)
+        opds2 = self._collection(protocol=ExternalIntegration.OPDS_IMPORT)
+        overdrive = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         providers = list(
             AlwaysSuccessfulCollectionCoverageProvider.all(self._db, batch_size=34)
         )
@@ -1108,9 +1109,9 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # CIRCULATION_DATA are data for an Overdrive book.)
         class OverdriveProvider(AlwaysSuccessfulCollectionCoverageProvider):
             DATA_SOURCE_NAME = DataSource.OVERDRIVE
-            PROTOCOL = Collection.OVERDRIVE
+            PROTOCOL = ExternalIntegration.OVERDRIVE
             IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
-        collection = self._collection(protocol=Collection.OVERDRIVE)
+        collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         provider = OverdriveProvider(collection)
 
         # We get a CoverageFailure if we don't pass in any data at all.

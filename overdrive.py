@@ -8,6 +8,9 @@ import logging
 import urlparse
 import urllib
 import sys
+from sqlalchemy.orm.exc import (
+    NoResultFound,
+)
 from sqlalchemy.orm.session import Session
 
 from config import (
@@ -24,6 +27,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Library,
@@ -105,7 +109,7 @@ class OverdriveAPI(object):
 
    
     def __init__(self, collection):
-        if collection.protocol != collection.OVERDRIVE:
+        if collection.protocol != ExternalIntegration.OVERDRIVE:
             raise ValueError(
                 "Collection protocol is %s, but passed into OverdriveAPI!" %
                 collection.protocol
@@ -394,13 +398,16 @@ class MockOverdriveAPI(OverdriveAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
                 name="Test Overdrive Collection",
-                protocol=Collection.OVERDRIVE, create_method_kwargs=dict(
+                create_method_kwargs=dict(
                     external_account_id=u'c'
                 )
             )
-        collection.external_integration.username = u'a'
-        collection.external_integration.password = u'b'
-        collection.external_integration.set_setting('website_id', 'd')
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+        integration.username = u'a'
+        integration.password = u'b'
+        integration.set_setting('website_id', 'd')
         library.collections.append(collection)
         return collection
     
@@ -987,21 +994,27 @@ class OverdriveAdvantageAccount(object):
         collection, Overdrive Advantage collection)
         """
         # First find the parent Collection.
-        parent = get_one(
-            _db, Collection, external_account_id=self.parent_library_id,
-            protocol=Collection.OVERDRIVE
-        )
-        if not parent:
+        try:
+            parent = Collection.by_protocol(_db, ExternalIntegration.OVERDRIVE).filter(
+                Collection.external_account_id==self.parent_library_id
+            ).one()
+        except NoResultFound, e:
             # Without the parent's credentials we can't access the child.
             raise ValueError(
                 "Cannot create a Collection whose parent does not already exist."
             )
         name = parent.name + " / " + self.name
-        child, ignore = get_one_or_create(
-            _db, Collection, parent_id=parent.id, protocol=Collection.OVERDRIVE,
+        child, is_new = get_one_or_create(
+            _db, Collection, parent_id=parent.id,
             external_account_id=self.library_id,
             create_method_kwargs=dict(name=name)
         )
+        if is_new:
+            # Make sure the child has its protocol set appropriately.
+            integration = child.create_external_integration(
+                ExternalIntegration.OVERDRIVE
+            )
+
         # Set or update the name of the collection to reflect the name of
         # the library, just in case that name has changed.
         child.name = name
@@ -1017,7 +1030,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     SERVICE_NAME = "Overdrive Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.OVERDRIVE
-    PROTOCOL = Collection.OVERDRIVE
+    PROTOCOL = ExternalIntegration.OVERDRIVE
     INPUT_IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
     
     def __init__(self, collection, api_class=OverdriveAPI, **kwargs):

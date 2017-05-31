@@ -24,6 +24,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Library,
@@ -74,7 +75,7 @@ class OneClickAPI(object):
     log = logging.getLogger("OneClick API")
 
     def __init__(self, collection):
-        if collection.protocol != collection.ONE_CLICK:
+        if collection.protocol != ExternalIntegration.ONE_CLICK:
             raise ValueError(
                 "Collection protocol is %s, but passed into OneClickAPI!" %
                 collection.protocol
@@ -521,11 +522,14 @@ class MockOneClickAPI(OneClickAPI):
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test OneClick Collection",
-            protocol=Collection.ONE_CLICK, create_method_kwargs=dict(
+            create_method_kwargs=dict(
                 external_account_id=u'library_id_123',
             )
         )
-        collection.external_integration.password = u'abcdef123hijklm'
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.ONE_CLICK
+        )        
+        integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
         return collection
     
@@ -819,7 +823,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     SERVICE_NAME = "OneClick Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.ONECLICK
-    PROTOCOL = Collection.ONE_CLICK
+    PROTOCOL = ExternalIntegration.ONE_CLICK
     INPUT_IDENTIFIER_TYPES = Identifier.ONECLICK_ID
     DEFAULT_BATCH_SIZE = 25
 

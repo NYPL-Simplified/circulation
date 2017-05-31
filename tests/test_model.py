@@ -5564,12 +5564,14 @@ class TestExternalIntegration(DatabaseTest):
 
     def setup(self):
         super(TestExternalIntegration, self).setup()
-        self.external_integration, ignore = create(self._db, ExternalIntegration)
+        self.external_integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
 
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
-        collection = self._collection(protocol=Collection.OVERDRIVE)
+        collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         eq_(DataSource.OVERDRIVE, collection.data_source.name)
 
         # For OPDS Import collections, data source is a setting which
@@ -5605,9 +5607,105 @@ class TestCollection(DatabaseTest):
     def setup(self):
         super(TestCollection, self).setup()
         self.collection = self._collection(
-            name="test collection", protocol=Collection.OVERDRIVE
+            name="test collection", protocol=ExternalIntegration.OVERDRIVE
         )
 
+    def test_by_name_and_protocol(self):
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
+        name = "A name"
+        collection1, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(True, is_new)
+
+        collection2, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(collection1, collection2)
+        eq_(False, is_new)
+
+        assert_raises_regexp(
+            ValueError,
+            'Collection "A name" does not use protocol "Bibliotheca".',
+            Collection.by_name_and_protocol,
+            self._db, name, ExternalIntegration.BIBLIOTHECA
+        )
+
+    def test_by_protocol(self):
+        """Verify the ability to find all collections that implement
+        a certain protocol.
+        """
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+        c1 = self._collection(self._str, protocol=overdrive)
+        c1.parent = self.collection
+        c2 = self._collection(self._str, protocol=bibliotheca)
+        eq_(set([self.collection, c1]),
+            set(Collection.by_protocol(self._db, overdrive).all()))
+        eq_(([c2]),
+            Collection.by_protocol(self._db, bibliotheca).all())
+        eq_(set([self.collection, c1, c2]),
+            set(Collection.by_protocol(self._db, None).all()))
+
+    def test_create_external_integration(self):
+        # A newly created Collection has no associated ExternalIntegration.
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name=self._str
+        )
+        eq_(None, collection.external_integration_id)
+        assert_raises_regexp(
+            ValueError,
+            "No known external integration for collection",
+            getattr, collection, 'external_integration'
+        )
+        
+        # We can create one with create_external_integration().
+        overdrive = ExternalIntegration.OVERDRIVE
+        integration = collection.create_external_integration(protocol=overdrive)
+        eq_(integration.id, collection.external_integration_id)
+        eq_(overdrive, integration.protocol)
+
+        # If we call create_external_integration() again we get the same
+        # ExternalIntegration as before.
+        integration2 = collection.create_external_integration(protocol=overdrive)
+        eq_(integration, integration2)
+        
+        
+        # If we try to initialize an ExternalIntegration with a different
+        # protocol, we get an error.
+        assert_raises_regexp(
+            ValueError,
+            "Located ExternalIntegration, but its protocol \(Overdrive\) does not match desired protocol \(blah\).",
+            collection.create_external_integration,
+            protocol="blah"
+        )
+        
+    def test_change_protocol(self):
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+
+        # Create a parent and a child collection, both with
+        # protocol=Overdrive.
+        child = self._collection(self._str, protocol=overdrive)
+        child.parent = self.collection
+
+        # We can't change the child's protocol to a value that contradicts
+        # the parent's protocol.
+        child.protocol = overdrive
+        def set_child_protocol():
+            child.protocol = bibliotheca
+        assert_raises_regexp(
+            ValueError,
+            "Proposed new protocol \(Bibliotheca\) contradicts parent collection's protocol \(Overdrive\).",
+            set_child_protocol
+        )
+
+        # If we change the parent's protocol, the children are
+        # automatically updated.
+        self.collection.protocol = bibliotheca
+        eq_(bibliotheca, child.protocol)
+        
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
@@ -5640,7 +5738,10 @@ class TestCollection(DatabaseTest):
         # If the collection is the child of another collection,
         # its parent is mentioned.
         child = Collection(
-            name="Child", parent=self.collection, protocol=self.collection.protocol, external_account_id="id2"
+            name="Child", parent=self.collection, external_account_id="id2"
+        )
+        child.create_external_integration(
+            protocol=ExternalIntegration.OVERDRIVE
         )
         data = child.explain()
         eq_(['Name: "Child"',
@@ -5662,14 +5763,16 @@ class TestCollection(DatabaseTest):
 
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'
-        expected = build_expected(Collection.OVERDRIVE, 'id')
+        expected = build_expected(ExternalIntegration.OVERDRIVE, 'id')
         eq_(expected, self.collection.metadata_identifier)
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
-            name="Child", protocol=Collection.OPDS_IMPORT, external_account_id=self._url)
+            name="Child", protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=self._url
+        )
         child.parent = self.collection
-        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.external_account_id)
+        expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
     def test_from_metadata_identifier(self):
@@ -5680,14 +5783,13 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.protocol, mirror_collection.protocol)
+        eq_(self.collection.external_integration.protocol, mirror_collection.external_integration.protocol)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
         mirror_collection = create(
             self._db, Collection,
             name=collection.metadata_identifier,
-            protocol=collection.protocol
         )[0]
 
         result, is_new = Collection.from_metadata_identifier(
@@ -5736,12 +5838,12 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
     metadata wrangler to meet the needs of the new Collection class.
     """
 
-    def test_only_name_and_protocol_are_required(self):
-        """Test that only name and protocol are required fields on
+    def test_only_name_is_required(self):
+        """Test that only name is a required field on
         the Collection class.
         """
         collection = create(
-            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+            self._db, Collection, name='banana'
         )[0]
         eq_(True, isinstance(collection, Collection))
 

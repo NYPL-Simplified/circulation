@@ -8813,43 +8813,87 @@ class ExternalIntegration(Base):
     to a third-party API.
     """
 
-    # Utilities
-    CDN = Configuration.CDN_INTEGRATION
-    ELASTICSEARCH = Configuration.ELASTICSEARCH_INTEGRATION
-    AMAZON_S3 = Configuration.S3_INTEGRATION
+    # Possible goals of ExternalIntegrations.
+    #
+    # These integrations are associated with external services such as
+    # Google Enterprise which authenticate library administrators.
+    ADMIN_AUTH_GOAL = 'admin_auth'
 
-    # Simplified
-    CIRCULATION_MANAGER = Configuration.CIRCULATION_MANAGER_INTEGRATION
-    CONTENT_SERVER = Configuration.CONTENT_SERVER_INTEGRATION
-    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
-    PATRON_WEB_CLIENT = u'Patron Web Client'
+    # These integrations are associated with external services such as
+    # SIP2 which authenticate library patrons. Other constants related
+    # to this are defined in the circulation manager.
+    PATRON_AUTH_GOAL = 'patron_auth'
 
-    # Metadata
+    # These integrations are associated with external services such
+    # as Overdrive which provide access to books.
+    LICENSE_GOAL = 'licenses'
+
+    # These integrations are associated with external services such as
+    # the metadata wrangler, which provide information about books,
+    # but not the books themselves.
+    METADATA_GOAL = 'metadata'
+
+    # These integrations are associated with external services such as
+    # Google Analytics, which receive analytics events.
+    ANALYTICS_GOAL = 'analytics'
+    
+    # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
+    OPDS_IMPORT = u'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+
+    LICENSE_PROTOCOLS = [
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
+    ]
+    
+    # Some integrations with LICENSE_GOAL imply that the data and
+    # licenses come from a specific data source.
+    DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
+        OVERDRIVE : DataSource.OVERDRIVE,
+        BIBLIOTHECA : DataSource.BIBLIOTHECA,
+        AXIS_360 : DataSource.AXIS_360,
+        ONE_CLICK : DataSource.ONECLICK
+    }
+
+    # TODO: Goals for the following.
+    # * The Library Simplified application components
+    #   themselves. (what's the actual goal here?)
+    # * Search services (e.g. protocol="Elasticsearch")
+    # * Cover images (e.g. protocol="HTTP" or protocol="S3")
+    # * Open-access content (e.g. protocol="HTTP" or protocol="S3")
+    # * Adobe Vendor ID server
+
+        
+    # Integrations with METADATA_GOAL
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
     NOVELIST = Configuration.NOVELIST_INTEGRATION
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = Configuration.NYT_INTEGRATION
     STAFF_PICKS = u'Staff Picks'
-
-    # Analytics
+    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
+    
+    # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
 
-    # Patron Authentication
-    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
-
-    # Admin Authentication
-    ADMIN_AUTH_TYPE = u'admin_auth'
+    # Integrations with ADMIN_AUTH_GOAL
     GOOGLE_OAUTH = u'Google OAuth'
-    ADMIN_AUTH_PROVIDERS = [GOOGLE_OAUTH]
+
+    # List of such ADMIN_AUTH_GOAL integrations
+    ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
-    # If this integration isn't related to a Collection, it should
-    # have a provider and type.
-    provider = Column(Unicode, nullable=True)
-    type = Column(Unicode, nullable=True)
+    # Each integration should have a protocol (explaining what type of
+    # code or network traffic we need to run to get things done) and a
+    # goal (explaining the real-world goal of the integration).
+    #
+    # Basically, the protocol is the 'how' and the goal is the 'why'.
+    protocol = Column(Unicode, nullable=False)
+    goal = Column(Unicode, nullable=True)
 
     # If there is a special URL to use for access to this API,
     # put it here.
@@ -8868,22 +8912,15 @@ class ExternalIntegration(Base):
         "ExternalIntegrationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-
-    __table_args__ = (
-        UniqueConstraint('provider', 'type'),
-        Index(
-            'ix_unique_provider_with_null_type', provider,
-            unique=True, postgresql_where=(type.is_(None))),
-    )
-
+    
     @classmethod
-    def lookup(cls, _db, provider, type=None):
-        integration = get_one(_db, cls, provider=provider, type=type)
+    def lookup(cls, _db, protocol, goal=None):
+        integration = get_one(_db, cls, protocol=protocol, goal=goal)
         return integration
 
     @classmethod
     def admin_authentication(cls, _db):
-        admin_auth = get_one(_db, cls, type=cls.ADMIN_AUTH_TYPE)
+        admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
         return admin_auth
 
     def set_setting(self, key, value):
@@ -8942,28 +8979,6 @@ class Collection(Base):
 
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
-    # What piece of code do we run to find out about changes to this
-    # collection?
-    protocol = Column(Unicode, nullable=False, index=True)
-
-    # Supported values for the 'protocol' field.
-    OPDS_IMPORT = u'OPDS Import'
-    OVERDRIVE = DataSource.OVERDRIVE
-    BIBLIOTHECA = DataSource.BIBLIOTHECA
-    AXIS_360 = DataSource.AXIS_360
-    ONE_CLICK = DataSource.ONECLICK
-
-    # Some protocols imply that the data and licenses come from a
-    # specific data source.
-    DATA_SOURCE_FOR_PROTOCOL = {
-        OVERDRIVE : DataSource.OVERDRIVE,
-        BIBLIOTHECA : DataSource.BIBLIOTHECA,
-        AXIS_360 : DataSource.AXIS_360,
-        ONE_CLICK : DataSource.ONECLICK
-    }
-    
-    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
-
     DATA_SOURCE_NAME_SETTING = u'data_source'
     
     # How does the provider of this collection distinguish it from
@@ -8971,9 +8986,11 @@ class Collection(Base):
     # called a "library ID".
     external_account_id = Column(Unicode, nullable=True)
 
-    # How do we connect to the provider of this collection? Any
-    # url, authentication information, or additional configuration
-    # goes into the external integration.
+    # How do we connect to the provider of this collection? Any url,
+    # authentication information, or additional configuration goes
+    # into the external integration, as does the 'protocol', which
+    # designates the integration technique we will use to actually get
+    # the metadata and licenses.
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True)
 
@@ -8989,7 +9006,7 @@ class Collection(Base):
     # to Overdrive Advantage collections.
     children = relationship(
         "Collection", backref=backref("parent", remote_side = [id]),
-        uselist=False
+        uselist=True
     )
     
     # A Collection can provide books to many Libraries.
@@ -9022,16 +9039,121 @@ class Collection(Base):
 
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
-                (self.name, self.protocol, self.id)).encode('utf8')
+                (self.name, self.protocol, self.id)).encode('utf8')        
 
-    @property
-    def external_integration(self):
+    @classmethod
+    def by_name_and_protocol(cls, _db, name, protocol):
+        """Find or create a Collection with the given name and the given
+        protocol.
+
+        We can't use get_one_or_create because the protocol is kept in
+        a separate database object, (an ExternalIntegration).
+
+        :return: A 2-tuple (collection, is_new)
+        """
+        qu = cls.by_protocol(_db, protocol)
+        qu = qu.filter(Collection.name==name)
+        try:
+            collection = qu.one()                    
+            is_new = False
+        except NoResultFound, e:
+            # Make a new Collection.
+            collection, is_new = get_one_or_create(_db, Collection, name=name)
+            if not is_new and collection.protocol != protocol:
+                # The collection already exists, it just uses a different
+                # protocol than the one we asked about.
+                raise ValueError(
+                    'Collection "%s" does not use protocol "%s".' % (
+                        name, protocol
+                    )
+                )
+            integration = collection.create_external_integration(
+                protocol=protocol
+            )
+            collection.external_integration.protocol=protocol           
+        return collection, is_new
+    
+    @classmethod
+    def by_protocol(cls, _db, protocol):
+        """Query collections that get their licenses through the given protocol.
+
+        :param protocol: Protocol to use. If this is None, all
+        Collections will be returned.
+        """
+        qu = _db.query(Collection)
+        if protocol:
+            qu = qu.join(
+            ExternalIntegration,
+            ExternalIntegration.id==Collection.external_integration_id).filter(
+                ExternalIntegration.goal==ExternalIntegration.LICENSE_GOAL
+            ).filter(ExternalIntegration.protocol==protocol)
+        return qu
+
+    @hybrid_property
+    def protocol(self):
+        """What protocol do we need to use to get licenses for this 
+        collection?
+        """
+        return self.external_integration.protocol
+    
+    @protocol.setter
+    def set_protocol(self, new_protocol):
+        """Modify the protocol in use by this Collection."""
+        if self.parent and self.parent.protocol != new_protocol:
+            raise ValueError(
+                "Proposed new protocol (%s) contradicts parent collection's protocol (%s)." % (
+                    new_protocol, self.parent.protocol
+                )
+            )
+        self.external_integration.protocol = new_protocol
+        for child in self.children:
+            child.protocol = new_protocol
+
+    def create_external_integration(self, protocol):
+        """Create an ExternalIntegration for this Collection.
+
+        To be used immediately after creating a new Collection,
+        e.g. in by_name_and_protocol, from_metadata_identifier, and
+        various test methods that create mock Collections.
+
+        If an external integration already exists, return it instead
+        of creating another one.
+
+        :param protocol: The protocol known to be in use when getting
+        licenses for this collection.
+        """
         _db = Session.object_session(self)
-        external_integration, ignore = get_one_or_create(
+        goal = ExternalIntegration.LICENSE_GOAL
+        external_integration, is_new = get_one_or_create(
             _db, ExternalIntegration, id=self.external_integration_id,
+            create_method_kwargs=dict(protocol=protocol, goal=goal)
         )
+        if external_integration.protocol != protocol:
+            raise ValueError(
+                "Located ExternalIntegration, but its protocol (%s) does not match desired protocol (%s)." % (
+                    external_integration.protocol, protocol
+                )
+            )
         self.external_integration_id = external_integration.id
         return external_integration
+            
+    @property
+    def external_integration(self):
+        """Find the external integration for this Collection, assuming
+        it already exists.
+
+        This is generally a safe assumption since by_name_and_protocol and 
+        from_metadata_identifier both create ExternalIntegrations for the
+        Collections they create.
+        """
+        if not self.external_integration_id:
+            raise ValueError(
+                "No known external integration for collection %s" % self.name
+            )
+        _db = Session.object_session(self)
+        return get_one(
+            _db, ExternalIntegration, id=self.external_integration_id
+        )
 
     @property
     def unique_account_id(self):
@@ -9055,12 +9177,15 @@ class Collection(Base):
         with this data source, unless its bibliographic metadata
         indicates some other data source.
 
-        For most Collections, the protocol sets the data source.  For
-        collections that use the OPDS import protocol, the data source
-        is a Collection-specific setting.
+        For most Collections, the integration protocol sets the data
+        source.  For collections that use the OPDS import protocol,
+        the data source is a Collection-specific setting.
         """
         data_source = None
-        name = Collection.DATA_SOURCE_FOR_PROTOCOL.get(self.protocol)
+        protocol = self.external_integration.protocol
+        name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
+            protocol
+        )
         if not name:
             name = self.external_integration.setting(
                 Collection.DATA_SOURCE_NAME_SETTING
@@ -9080,7 +9205,9 @@ class Collection(Base):
         name of the collection.
         """
         account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        protocol = base64.b64encode(unicode(self.protocol), '-_')
+        protocol = base64.b64encode(
+            unicode(self.external_integration.protocol), '-_'
+        )
 
         metadata_identifier = protocol + ':' + account_id
         return base64.b64encode(metadata_identifier, '-_')
@@ -9097,7 +9224,13 @@ class Collection(Base):
             details = base64.b64decode(metadata_identifier, '-_')
             protocol = base64.b64decode(details.split(':', 1)[0], '-_')
             collection, is_new = create(_db, Collection,
-                name=metadata_identifier, protocol=protocol)
+                name=metadata_identifier)
+
+            integration = collection.create_external_integration(protocol)
+            collection.external_integration.goal = (
+                ExternalIntegration.LICENSE_GOAL
+            )
+            collection.external_integration.protocol = protocol
 
         return collection, is_new
 
@@ -9115,13 +9248,13 @@ class Collection(Base):
             lines.append('Name: "%s"' % self.name)
         if self.parent:
             lines.append('Parent: %s' % self.parent.name)
-        if self.protocol:
-            lines.append('Protocol: "%s"' % self.protocol)
+        integration = self.external_integration
+        if integration.protocol:
+            lines.append('Protocol: "%s"' % integration.protocol)
         for library in self.libraries:
             lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        integration = self.external_integration
         if integration.url:
             lines.append('URL: "%s"' % integration.url)
         if integration.username:
