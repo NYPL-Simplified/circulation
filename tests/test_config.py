@@ -32,6 +32,7 @@ class TestFacetConfig(object):
             eq_(Configuration.DEFAULT_FACET, facet_config._default_facets)
 
         with temp_config() as config:
+            config[Configuration.POLICIES] = {}
             config[Configuration.POLICIES][Configuration.FACET_POLICY] = {
                 Configuration.ENABLED_FACETS_KEY: self.enabled,
                 Configuration.DEFAULT_FACET_KEY: self.default,

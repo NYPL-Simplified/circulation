@@ -61,7 +61,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # Create an identifier and its equivalent to work with the OPDS
         # feed.
         collection = self._collection(
-            protocol=Collection.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
         lp = self._licensepool(
             None, data_source_name=DataSource.BIBLIOTHECA, collection=collection
