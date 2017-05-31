@@ -8919,7 +8919,7 @@ class ExternalIntegration(Base):
 
     @classmethod
     def admin_authentication(cls, _db):
-        admin_auth = get_one(_db, cls, type=cls.ADMIN_AUTH_TYPE)
+        admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
         return admin_auth
 
     def set_setting(self, key, value):
