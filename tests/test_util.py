@@ -428,7 +428,7 @@ class TestEnglishDetector(object):
         eq_(round(diff, 7), 0)
 
 
-class TestOPDSAuthenticationDocument(object):
+class TestOPDSAuthenticationDocument(DatabaseTest):
 
     def test_bad_documents(self):
         assert_raises(
@@ -449,23 +449,25 @@ class TestOPDSAuthenticationDocument(object):
     def test_fill_in_adds_providers(self):
         class MockProvider(object):
             URI = "http://example.com/"
-            authentication_provider_document = "foo"
+            def authentication_provider_document(self, _db):
+                return "foo"
 
         doc1 = {"id": "An ID", "name": "A title"}
         doc2 = OPDSAuthenticationDocument.fill_in(
-            doc1, [MockProvider], "Bla1", "Bla2")
+            doc1, [MockProvider()], self._db, "Bla1", "Bla2")
         eq_({'http://example.com/': 'foo'}, doc2['providers'])
 
     def test_fill_in_raises_valueerror_if_uri_not_defined(self):
         class MockProvider(object):
             URI = None
-            authentication_provider_document = "foo"
+            def authentication_provider_document(self, _db):
+                return "foo"
 
         doc = {"id": "An ID", "name": "A title"}
         assert_raises_regexp(
             ValueError, "does not define .URI",
             OPDSAuthenticationDocument.fill_in,
-            doc, [MockProvider], "Bla1", "Bla2"
+            doc, [MockProvider()], self._db, "Bla1", "Bla2"
         )
         
     def test_fill_in_does_not_change_already_set_values(self):
@@ -473,7 +475,7 @@ class TestOPDSAuthenticationDocument(object):
         doc1 = {"id": "An ID", "name": "A title"}
 
         doc2 = OPDSAuthenticationDocument.fill_in(
-            doc1, [], "Bla1", "Bla2")
+            doc1, [], self._db, "Bla1", "Bla2")
         del doc2['providers']
         eq_(doc2, doc1)
 
@@ -490,7 +492,7 @@ class TestOPDSAuthenticationDocument(object):
         }
 
         doc = OPDSAuthenticationDocument.fill_in(
-            {}, [],
+            {}, [], self._db,
             "A title", "An ID", links=links)
 
         eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
