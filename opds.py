@@ -201,14 +201,15 @@ class Annotator(object):
     def authors(cls, work, license_pool, edition, identifier):
         """Create one or more <author> tags for the given work."""
         authors = list()
-        listed = list()
+        listed = set()
         for author in edition.author_contributors:
             name = author.display_name or author.sort_name
-            if name.lower() in listed:
+            name_key = name.lower()
+            if name_key in listed:
                 continue
 
             authors.append(AtomFeed.author(AtomFeed.name(name)))
-            listed.append(name.lower())
+            listed.add(name_key)
 
         if authors:
             return authors
