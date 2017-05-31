@@ -27,6 +27,7 @@ from core.model import (
     Collection,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Representation,
@@ -42,7 +43,7 @@ class OverdriveAPITest(DatabaseTest):
         library = self._default_library
         self.collection = MockOverdriveAPI.mock_collection(self._db)
         self.circulation = CirculationAPI(
-            library, {Collection.OVERDRIVE:MockOverdriveAPI}
+            library, {ExternalIntegration.OVERDRIVE:MockOverdriveAPI}
         )
         self.api = self.circulation.api_for_collection[self.collection]
         

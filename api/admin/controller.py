@@ -1074,23 +1074,23 @@ class SettingsController(CirculationManagerController):
                 providers=ExternalIntegration.ADMIN_AUTH_PROVIDERS,
             )
 
-        provider = flask.request.form.get("provider")
-        if not provider:
+        protocol = flask.request.form.get("provider")
+        if not protocol:
             return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
 
-        if provider not in ExternalIntegration.ADMIN_AUTH_PROVIDERS:
+        if protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
 
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        if auth_service and provider != auth_service.provider:
+        if auth_service and protocol != auth_service.protocol:
             return ADMIN_AUTH_SERVICE_NOT_FOUND
 
         else:
             if provider:
                 auth_service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, provider=provider,
-                    type=ExternalIntegration.ADMIN_AUTH_TYPE
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
                 )
             else:
                 return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
