@@ -404,7 +404,16 @@ class TestAuthenticator(ControllerTest):
         l1, ignore = create(self._db, Library, short_name="l1")
         l2, ignore = create(self._db, Library, short_name="l2")
 
-        auth = Authenticator(self._db)
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.AUTHENTICATION_POLICY: {
+                    "providers": [
+                        {"module": 'api.millenium_patron',
+                         Configuration.URL: "http://url"}
+                    ]
+                }
+            }
+            auth = Authenticator(self._db)
         auth.library_authenticators['l1'] = MockLibraryAuthenticator("l1")
         auth.library_authenticators['l2'] = MockLibraryAuthenticator("l2")
 
