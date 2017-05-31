@@ -380,3 +380,32 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # NOTE: We can't automatically test that request() actually
         # calls _modify_request_kwargs() because request() is the
         # method we override for mock purposes.
+
+    def test_authorization_last_name_success(self):
+        """Test authenticating against the patron's last name, given the
+        correct name
+        """
+        config = {
+            Configuration.URL : "http://example.com",
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
+            Configuration.MILLENIUM_MODE : "last_name"
+        }
+        api = MilleniumPatronAPI.from_config(config)
+        self.api.enqueue("dump.success.html")
+        patrondata = self.api.remote_authenticate(
+            "44444444444447", "SHELDON"
+        )
+        eq_("44444444444447", patrondata.authorization_identifier)
+
+    def test_authorization_last_name_failure(self):
+        """Test authenticating against the patron's last name, given the
+        incorrect name
+        """
+        config = {
+            Configuration.URL : "http://example.com",
+            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
+            Configuration.MILLENIUM_MODE : "last_name"
+        }
+        api = MilleniumPatronAPI.from_config(config)
+        self.api.enqueue("dump.success.html")
+        eq_(False, self.api.remote_authenticate("44444444444447", "wrong name"))
