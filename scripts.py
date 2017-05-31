@@ -682,7 +682,8 @@ class ConfigureLibraryScript(Script):
             # No existing library. Make one.
             library, ignore = get_one_or_create(
                 _db, Library, create_method_kwargs=dict(
-                    uuid=str(uuid.uuid4())
+                    uuid=str(uuid.uuid4()),
+                    short_name=args.short_name,
                 )
             )
 
