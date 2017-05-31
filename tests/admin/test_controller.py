@@ -663,8 +663,8 @@ class TestSignInController(AdminControllerTest):
         # Works once the admin auth service exists.
         create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         with self.app.test_request_context('/admin'):
             flask.session['admin_access_token'] = self.admin.access_token
@@ -710,8 +710,8 @@ class TestSignInController(AdminControllerTest):
 
         create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.session['admin_access_token'] = self.admin.access_token
@@ -727,8 +727,8 @@ class TestSignInController(AdminControllerTest):
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         auth_service.set_setting("domains", json.dumps(["alibrary.org"]))
 
@@ -1147,16 +1147,16 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
 
-            # All the protocols in Collection.PROTOCOLS are supported by the admin interface.
+            # All the protocols in ExternalIntegration.LICENSE_PROTOCOLS are supported by the admin interface.
             eq_(sorted([p.get("name") for p in response.get("protocols")]),
-                sorted(Collection.PROTOCOLS))
+                sorted(ExternalIntegration.LICENSE_PROTOCOLS))
 
     def test_collections_get_with_multiple_collections(self):
 
         [c1] = self._default_library.collections
 
-        c2, ignore = create(
-            self._db, Collection, name="Collection 2", protocol=Collection.BIBLIOTHECA,
+        c2 = self._collection(
+            name="Collection 2", protocol=ExternalIntegration.BIBLIOTHECA,
         )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
@@ -1201,9 +1201,9 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, UNKNOWN_COLLECTION_PROTOCOL)
 
-        collection, ignore = create(
-            self._db, Collection, name="Collection 1",
-            protocol=Collection.OVERDRIVE
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.OVERDRIVE
         )
 
         with self.app.test_request_context("/", method="POST"):
@@ -1317,9 +1317,9 @@ class TestSettingsController(AdminControllerTest):
 
     def test_collections_post_edit(self):
         # The collection exists.
-        collection, ignore = create(
-            self._db, Collection, name="Collection 1",
-            protocol=Collection.OVERDRIVE
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.OVERDRIVE
         )
 
         l1, ignore = create(
@@ -1329,7 +1329,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 1"),
-                ("protocol", Collection.OVERDRIVE),
+                ("protocol", ExternalIntegration.OVERDRIVE),
                 ("external_account_id", "1234"),
                 ("username", "user2"),
                 ("password", "password"),
@@ -1353,7 +1353,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 1"),
-                ("protocol", Collection.OVERDRIVE),
+                ("protocol", ExternalIntegration.OVERDRIVE),
                 ("external_account_id", "1234"),
                 ("username", "user2"),
                 ("password", "password"),
@@ -1365,7 +1365,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection is the same.
         eq_("user2", collection.external_integration.username)
-        eq_(Collection.OVERDRIVE, collection.protocol)
+        eq_(ExternalIntegration.OVERDRIVE, collection.protocol)
 
         # But the library has been removed.
         eq_([], l1.collections)
@@ -1375,16 +1375,16 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.get("admin_auth_services"), [])
 
-            # All the providers in ExternalIntegration.ADMIN_AUTH_PROVIDERS
+            # All the protocols in ExternalIntegration.ADMIN_AUTH_PROTOCOLS
             # are supported by the admin interface.
             eq_(sorted([p for p in response.get("providers")]),
-                sorted(ExternalIntegration.ADMIN_AUTH_PROVIDERS))
+                sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
         
     def test_admin_auth_services_get_with_one_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         auth_service.url = "http://oauth.test"
         auth_service.username = "user"
@@ -1395,7 +1395,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             [service] = response.get("admin_auth_services")
 
-            eq_(auth_service.provider, service.get("provider"))
+            eq_(auth_service.protocol, service.get("provider"))
             eq_(auth_service.url, service.get("url"))
             eq_(auth_service.username, service.get("username"))
             eq_(auth_service.password, service.get("password"))
@@ -1416,8 +1416,8 @@ class TestSettingsController(AdminControllerTest):
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
 
         with self.app.test_request_context("/", method="POST"):
@@ -1471,8 +1471,8 @@ class TestSettingsController(AdminControllerTest):
         # The auth service exists.
         auth_service, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         auth_service.url = "url"
         auth_service.username = "user"

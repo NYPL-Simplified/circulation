@@ -35,6 +35,7 @@ from core.metadata_layer import Metadata
 from core.model import (
     Annotation,
     Collection,
+    ExternalIntegration,
     Patron,
     DeliveryMechanism,
     Representation,
@@ -2346,8 +2347,8 @@ class TestScopedSession(ControllerTest):
         """
         collection, ignore = get_one_or_create(
             _db, Collection, name=self._str + " (for scoped session)",
-            protocol=Collection.OPDS_IMPORT
         )
+        collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
         library.collections.append(collection)
         return collection
         

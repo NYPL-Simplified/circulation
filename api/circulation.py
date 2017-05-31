@@ -14,6 +14,7 @@ from core.model import (
     CirculationEvent,
     Collection,
     CollectionMissing,
+    ExternalIntegration,
     Identifier,
     DataSource,
     LicensePoolDeliveryMechanism,
@@ -218,10 +219,10 @@ class CirculationAPI(object):
         from axis import Axis360API
         from oneclick import OneClickAPI
         return {
-            Collection.OVERDRIVE : OverdriveAPI,
-            Collection.BIBLIOTHECA : BibliothecaAPI,
-            Collection.AXIS_360 : Axis360API,
-            Collection.ONE_CLICK : OneClickAPI,
+            ExternalIntegration.OVERDRIVE : OverdriveAPI,
+            ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
+            ExternalIntegration.AXIS_360 : Axis360API,
+            ExternalIntegration.ONE_CLICK : OneClickAPI,
         }
 
     def api_for_license_pool(self, licensepool):

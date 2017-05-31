@@ -22,8 +22,8 @@ class TestGoogleAuthService(DatabaseTest):
         super(TestGoogleAuthService, self).setup()
         auth_integration, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         self.google = GoogleAuthService(auth_integration, "", test_mode=True)
 
@@ -44,8 +44,8 @@ class TestGoogleAuthService(DatabaseTest):
         super(TestGoogleAuthService, self).setup()
         auth_integration, ignore = create(
             self._db, ExternalIntegration,
-            provider=ExternalIntegration.GOOGLE_OAUTH,
-            type=ExternalIntegration.ADMIN_AUTH_TYPE
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         auth_integration.set_setting("domains", json.dumps(["nypl.org"]))
         

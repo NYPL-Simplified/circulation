@@ -27,9 +27,9 @@ from api.circulation import (
 from core.analytics import Analytics
 from core.model import (
     CirculationEvent,
-    Collection,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Loan,
@@ -62,7 +62,7 @@ class TestCirculationAPI(DatabaseTest):
         self.patron = self._patron()
         self.circulation = MockCirculationAPI(
             self._default_library, api_map = {
-                Collection.BIBLIOTHECA : MockBibliothecaAPI
+                ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
             }
         )
         self.remote = self.circulation.api_for_license_pool(self.pool)
@@ -650,7 +650,7 @@ class TestCirculationAPI(DatabaseTest):
 
         circulation = IncompleteCirculationAPI(
             self._default_library,
-            api_map={Collection.BIBLIOTHECA : MockBibliothecaAPI})
+            api_map={ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
         # The loan is still in the db, since there was an
@@ -667,7 +667,7 @@ class TestCirculationAPI(DatabaseTest):
 
         circulation = CompleteCirculationAPI(
             self._default_library,
-            api_map={Collection.BIBLIOTHECA : MockBibliothecaAPI})
+            api_map={ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
         # Now the loan is gone.
@@ -677,7 +677,7 @@ class TestCirculationAPI(DatabaseTest):
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.
         circulation = CirculationAPI(self._default_library, api_map={
-            Collection.BIBLIOTHECA : MockBibliothecaAPI
+            ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
         })
         mock_bibliotheca = circulation.api_for_collection[self.collection]
 
