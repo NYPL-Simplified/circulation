@@ -4,6 +4,8 @@ from nose.tools import (
     set_trace,
 )
 import datetime
+import flask
+from flask import url_for
 from api.clever import (
     CleverAuthenticationAPI,
     UNSUPPORTED_CLEVER_USER_TYPE,
@@ -70,18 +72,18 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         self.api.queue_response(dict(access_token="a token"))
         with self.app.test_request_context("/"):
             eq_("a token",
-                self.api.remote_exchange_code_for_bearer_token("code")
+                self.api.remote_exchange_code_for_bearer_token(self._db, "code")
             )
 
         # Test failure.
         self.api.queue_response(None)
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token("code")
+            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
 
         self.api.queue_response(dict(something_else="not a token"))
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token("code")
+            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
         
     def test_remote_patron_lookup_unsupported_user_type(self):
@@ -187,6 +189,8 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             self._default_library.id, "key", "secret", 2
         )
         with self.app.test_request_context("/"):
-            params = my_api.external_authenticate_url("state")
-            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=http://localhost/oauth_callback&state=state', params)
+            flask.request.library = self._default_library
+            params = my_api.external_authenticate_url("state", self._db)
+            expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
+            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=%s&state=state' % expected_redirect_uri, params)
 

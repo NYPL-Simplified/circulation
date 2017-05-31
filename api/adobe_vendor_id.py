@@ -82,7 +82,8 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         """Generate the Link Template that explains how to deregister
         a specific DRM device ID.
         """
-        url = url_for("adobe_drm_device", device_id="{id}", _external=True)
+        library = flask.request.library
+        url = url_for("adobe_drm_device", library_short_name=library.short_name, device_id="{id}", _external=True)
         # The curly brackets in {id} were escaped. Un-escape them to
         # get a Link Template.
         url = url.replace("%7Bid%7D", "{id}")

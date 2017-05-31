@@ -253,3 +253,10 @@ NO_ANNOTATION = pd(
     title=_("No annotation."),
     detail=_("The annotation you requested does not exist."),
 )
+
+LIBRARY_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/library-not-found",
+    status_code=404,
+    title=_("Library not found."),
+    detail=_("The requested library short name does not exist."),
+)

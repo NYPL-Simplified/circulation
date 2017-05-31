@@ -29,6 +29,19 @@ app.config['BABEL_DEFAULT_LOCALE'] = LanguageCodes.three_to_two[Configuration.lo
 app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
 
+url = Configuration.integration_url(
+    Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
+scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+if ':' in netloc:
+    host, port = netloc.split(':')
+    port = int(port)
+else:
+    host = netloc
+    port = 80
+
+# Required for subdomain support.
+app.config['SERVER_NAME'] = netloc
+
 import routes
 if Configuration.get(Configuration.INCLUDE_ADMIN_INTERFACE):
     import admin.routes
@@ -40,15 +53,6 @@ app.debug = debug
 
 def run():
     debug = True
-    url = Configuration.integration_url(
-        Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
-    scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
-    if ':' in netloc:
-        host, port = netloc.split(':')
-        port = int(port)
-    else:
-        host = netloc
-        port = 80
 
     # Workaround for a "Resource temporarily unavailable" error when
     # running in debug mode with the global socket timeout set by isbnlib

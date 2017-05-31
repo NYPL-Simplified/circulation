@@ -7,8 +7,8 @@ from core.opds import AcquisitionFeed
 
 class AdminAnnotator(CirculationManagerAnnotator):
 
-    def __init__(self, circulation, test_mode=False):
-        super(AdminAnnotator, self).__init__(circulation, None, test_mode=test_mode)
+    def __init__(self, circulation, library, test_mode=False):
+        super(AdminAnnotator, self).__init__(circulation, None, library, test_mode=test_mode)
         self.opds_cache_field = None
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):

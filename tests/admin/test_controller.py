@@ -63,6 +63,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = False
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -79,6 +80,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = True
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -106,6 +108,7 @@ class TestWorkController(AdminControllerTest):
                 .count()
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "New subtitle"),
@@ -130,6 +133,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             # Change the summary again
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -147,6 +151,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             # Now delete the subtitle and series and summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -170,6 +175,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             # Set the fields one more time
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -193,6 +199,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             # Set the series position to a non-numerical value
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -233,6 +240,7 @@ class TestWorkController(AdminControllerTest):
 
         # make no changes
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction"),
@@ -267,6 +275,7 @@ class TestWorkController(AdminControllerTest):
 
         # remove all genres
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction")
@@ -295,6 +304,7 @@ class TestWorkController(AdminControllerTest):
 
         # completely change genres
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction"),
@@ -317,6 +327,7 @@ class TestWorkController(AdminControllerTest):
 
         # remove some genres and change audience and target age
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -342,6 +353,7 @@ class TestWorkController(AdminControllerTest):
 
         # try to add a nonfiction genre
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -364,6 +376,7 @@ class TestWorkController(AdminControllerTest):
 
         # try to add Erotica
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -387,6 +400,7 @@ class TestWorkController(AdminControllerTest):
         # try to set min target age greater than max target age
         # othe edits should not go through
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -406,6 +420,7 @@ class TestWorkController(AdminControllerTest):
 
         # change to nonfiction with nonfiction genres and new target age
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 15),
@@ -427,6 +442,7 @@ class TestWorkController(AdminControllerTest):
 
         # set to Adult and make sure that target ages is set automatically
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "nonfiction"),
@@ -445,6 +461,7 @@ class TestWorkController(AdminControllerTest):
         [lp] = self.english_1.license_pools
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.suppress(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -470,6 +487,7 @@ class TestWorkController(AdminControllerTest):
         )
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.unsuppress(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -492,6 +510,7 @@ class TestWorkController(AdminControllerTest):
         failure_provider = NeverSuccessfulMetadataProvider(self._db)
 
         with self.app.test_request_context('/'):
+            flask.request.library = self._default_library
             [lp] = self.english_1.license_pools
             response = self.manager.admin_work_controller.refresh_metadata(
                 lp.identifier.type, lp.identifier.identifier, provider=success_provider
@@ -536,6 +555,7 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.complaints(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -570,6 +590,7 @@ class TestWorkController(AdminControllerTest):
 
         # first attempt to resolve complaints of the wrong type
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = ImmutableMultiDict([("type", type2)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -580,6 +601,7 @@ class TestWorkController(AdminControllerTest):
 
         # then attempt to resolve complaints of the correct type
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = ImmutableMultiDict([("type", type1)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -591,6 +613,7 @@ class TestWorkController(AdminControllerTest):
 
         # then attempt to resolve the already-resolved complaints of the correct type
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             flask.request.form = ImmutableMultiDict([("type", type1)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -623,6 +646,7 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_work_controller.classifications(
                 lp.identifier.type, lp.identifier.identifier)
             eq_(response['book']['identifier_type'], lp.identifier.type)
@@ -774,6 +798,7 @@ class TestFeedController(AdminControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_feed_controller.complaints()
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -788,6 +813,7 @@ class TestFeedController(AdminControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_feed_controller.suppressed()
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -827,8 +853,9 @@ class TestDashboardController(AdminControllerTest):
             time += timedelta(minutes=1)
 
         with self.app.test_request_context("/"):
+            flask.request.library = self._default_library
             response = self.manager.admin_dashboard_controller.circulation_events()
-            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+            url = AdminAnnotator(self.manager.circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
         events = response['circulation_events']
         eq_(types[::-1], [event['type'] for event in events])
@@ -838,8 +865,9 @@ class TestDashboardController(AdminControllerTest):
 
         # request fewer events
         with self.app.test_request_context("/?num=2"):
+            flask.request.library = self._default_library
             response = self.manager.admin_dashboard_controller.circulation_events()
-            url = AdminAnnotator(self.manager.circulation).permalink_for(self.english_1, lp, lp.identifier)
+            url = AdminAnnotator(self.manager.circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
         eq_(2, len(response['circulation_events']))
 

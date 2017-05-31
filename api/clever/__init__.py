@@ -4,7 +4,6 @@ import base64
 import json
 import os
 import datetime
-from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
 from core.util.problem_detail import ProblemDetail
@@ -93,7 +92,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         # Ask the OAuth provider to verify the code that was passed
         # in.  This will give us a bearer token we can use to look up
         # detailed patron information.
-        token = self.remote_exchange_code_for_bearer_token(code)
+        token = self.remote_exchange_code_for_bearer_token(_db, code)
         if isinstance(token, ProblemDetail):
             return token
         
@@ -113,7 +112,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     # End implementations of OAuthAuthenticationProvider abstract
     # methods.
 
-    def remote_exchange_code_for_bearer_token(self, code):
+    def remote_exchange_code_for_bearer_token(self, _db, code):
         """Ask the OAuth provider to convert a code (passed in to the OAuth
         callback) into a bearer token.
 
@@ -127,7 +126,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         payload = dict(
             code=code,
             grant_type='authorization_code',
-            redirect_uri=OAuthController.oauth_authentication_callback_url()
+            redirect_uri=OAuthController.oauth_authentication_callback_url(_db)
         )
         authorization = base64.b64encode(
             self.client_id + ":" + self.client_secret
