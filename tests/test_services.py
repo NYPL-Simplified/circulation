@@ -13,7 +13,7 @@ from api.config import (
 )
 
 from api.authenticator import (
-    Authenticator
+    LibraryAuthenticator
 )
 from api.mock_authentication import (
     MockAuthenticationProvider
@@ -73,7 +73,7 @@ class TestServiceStatusMonitor(DatabaseTest):
             test_username="user",
             test_password="pass",
         )
-        return Authenticator(self._db, library, provider)
+        return LibraryAuthenticator(self._db, library, provider)
 
     def test_test_patron(self):
         """Verify that test_patron() returns credentials determined

@@ -7,7 +7,7 @@ import feedparser
 
 from api.admin.opds import AdminAnnotator, AdminFeed
 from api.opds import AcquisitionFeed
-from core.model import Complaint
+from core.model import Complaint, Library
 from core.lane import Facets, Pagination
 from core.opds import Annotator
 
@@ -32,7 +32,7 @@ class TestOPDS(DatabaseTest):
         lp.suppressed = False
         self._db.commit()
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
         [suppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/hide"]
         assert lp.identifier.identifier in suppress_link["href"]
@@ -42,7 +42,7 @@ class TestOPDS(DatabaseTest):
         lp.suppressed = True
         self._db.commit()
 
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
         [unsuppress_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/restore"]
         assert lp.identifier.identifier in unsuppress_link["href"]
@@ -53,7 +53,7 @@ class TestOPDS(DatabaseTest):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
  
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, test_mode=True))
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
         [edit_link] = [x for x in entry['links'] if x['rel'] == "edit"]
         assert lp.identifier.identifier in edit_link["href"]
@@ -109,7 +109,7 @@ class TestOPDS(DatabaseTest):
 
         facets = Facets.default()
         pagination = Pagination(size=1)
-        annotator = TestAnnotator()
+        annotator = MockAnnotator(self._default_library)
 
         def make_page(pagination):
             return AdminFeed.complaints(
@@ -157,7 +157,7 @@ class TestOPDS(DatabaseTest):
         work2.license_pools[0].suppressed = True
 
         pagination = Pagination(size=1)
-        annotator = TestAnnotator()
+        annotator = MockAnnotator(self._default_library)
         titles = [work1.title, work2.title]
 
         def make_page(pagination):
@@ -197,10 +197,10 @@ class TestOPDS(DatabaseTest):
         eq_(1, len(parsed['entries']))
         eq_(remaining_title, parsed['entries'][0]['title'])
 
-class TestAnnotator(AdminAnnotator):
+class MockAnnotator(AdminAnnotator):
 
-    def __init__(self):
-        super(TestAnnotator, self).__init__(None, test_mode=True)
+    def __init__(self, library):
+        super(MockAnnotator, self).__init__(None, library, test_mode=True)
 
     def groups_url(self, lane):
         if lane:
@@ -227,5 +227,5 @@ class TestAnnotator(AdminAnnotator):
         return base
 
     def annotate_feed(self, feed):
-        super(TestAnnotator, self).annotate_feed(feed)
+        super(MockAnnotator, self).annotate_feed(feed)
 

@@ -41,7 +41,7 @@ from adobe_vendor_id import AuthdataUtility
 
 class CirculationManagerAnnotator(Annotator):
    
-    def __init__(self, circulation, lane, patron=None,
+    def __init__(self, circulation, lane, library, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
                  facet_view='feed',
@@ -50,6 +50,7 @@ class CirculationManagerAnnotator(Annotator):
     ):
         self.circulation = circulation
         self.lane = lane
+        self.library = library
         self.patron = patron
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
@@ -113,13 +114,19 @@ class CirculationManagerAnnotator(Annotator):
         return self.url_for(
             'permalink',
             identifier_type=identifier.type,
-            identifier=identifier.identifier, _external=True
+            identifier=identifier.identifier,
+            library_short_name=self.library.short_name,
+            _external=True
         )
 
     def groups_url(self, lane):
         lane_name, languages = self._lane_name_and_languages(lane)
         return self.cdn_url_for(
-            "acquisition_groups", lane_name=lane_name, languages=languages, _external=True)
+            "acquisition_groups",
+            lane_name=lane_name, 
+            languages=languages,
+            library_short_name=self.library.short_name,
+            _external=True)
 
     def default_lane_url(self):
         return self.groups_url(None)
@@ -132,6 +139,7 @@ class CirculationManagerAnnotator(Annotator):
             route = default_route
             lane_name, languages = self._lane_name_and_languages(lane)
             kwargs = dict(lane_name=lane_name, languages=languages)
+        kwargs['library_short_name'] = self.library.short_name
         if facets != None:
             kwargs.update(dict(facets.items()))
         if pagination != None:
@@ -143,15 +151,9 @@ class CirculationManagerAnnotator(Annotator):
         kwargs = dict(q=query)
         kwargs.update(dict(pagination.items()))
         return self.url_for(
-            "lane_search", lane_name=lane_name, languages=languages, _external=True, **kwargs)
-
-    @classmethod
-    def featured_feed_url(cls, lane, order=None, cdn=True):
-        if cdn:
-            m = self.cdn_url_for
-        else:
-            m = self.url_for
-        return m('feed', languages=lane.languages, lane_name=lane.name, order=order, _external=True)
+            "lane_search", lane_name=lane_name, languages=languages,
+            library_short_name=self.library.short_name,
+            _external=True, **kwargs)
 
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
@@ -175,7 +177,8 @@ class CirculationManagerAnnotator(Annotator):
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
-            url = self.cdn_url_for('acquisition_groups', languages=None, lane_name=None, _external=True)
+            url = self.cdn_url_for('acquisition_groups', languages=None, lane_name=None,
+                                   library_short_name=self.library.short_name, _external=True)
             title = "All Books"
             return url, title
 
@@ -242,6 +245,7 @@ class CirculationManagerAnnotator(Annotator):
                 'report',
                 identifier_type=identifier.type,
                 identifier=identifier.identifier,
+                library_short_name=self.library.short_name,
                 _external=True
             )
         )
@@ -265,7 +269,9 @@ class CirculationManagerAnnotator(Annotator):
                 href=self.url_for(
                     'related_books',
                     identifier_type=identifier.type,
-                    identifier=identifier.identifier, _external=True
+                    identifier=identifier.identifier,
+                    library_short_name=self.library.short_name,
+                    _external=True
                 )
             )
         
@@ -278,6 +284,7 @@ class CirculationManagerAnnotator(Annotator):
                 'annotations_for_work',
                 identifier_type=identifier.type,
                 identifier=identifier.identifier,
+                library_short_name=self.library.short_name,
                 _external=True
             )
         )
@@ -306,6 +313,7 @@ class CirculationManagerAnnotator(Annotator):
         lane_name, languages = self._lane_name_and_languages(lane)
         search_url = self.url_for(
             'lane_search', languages=languages, lane_name=lane_name,
+            library_short_name=self.library.short_name,
             _external=True
         )
         search_link = dict(
@@ -319,20 +327,20 @@ class CirculationManagerAnnotator(Annotator):
         preload_url = dict(
             rel='http://librarysimplified.org/terms/rel/preload',
             type='application/atom+xml;profile=opds-catalog;kind=acquisition',
-            href=self.url_for('preload', _external=True),
+            href=self.url_for('preload', library_short_name=self.library.short_name, _external=True),
         )
         feed.add_link_to_feed(feed.feed, **preload_url)
 
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",
             type=OPDSFeed.ACQUISITION_FEED_TYPE,
-            href=self.url_for('active_loans', _external=True))
+            href=self.url_for('active_loans', library_short_name=self.library.short_name, _external=True))
         feed.add_link_to_feed(feed.feed, **shelf_link)
 
         annotations_link = dict(
             rel="http://www.w3.org/ns/oa#annotationService",
             type=AnnotationWriter.CONTENT_TYPE,
-            href=self.url_for('annotations', _external=True))
+            href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
         feed.add_link_to_feed(feed.feed, **annotations_link)
 
         self.add_configuration_links(feed)
@@ -396,6 +404,7 @@ class CirculationManagerAnnotator(Annotator):
             url = self.url_for(
                 'revoke_loan_or_hold',
                 license_pool_id=active_license_pool.id,
+                library_short_name=self.library.short_name,
                 _external=True)
 
             kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
@@ -516,7 +525,9 @@ class CirculationManagerAnnotator(Annotator):
             "borrow", 
             identifier_type=identifier.type,
             identifier=identifier.identifier, 
-            mechanism_id=mechanism_id, _external=True)
+            mechanism_id=mechanism_id,
+            library_short_name=self.library.short_name,
+            _external=True)
         rel = OPDSFeed.BORROW_REL
         borrow_link = AcquisitionFeed.link(
             rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
@@ -564,6 +575,7 @@ class CirculationManagerAnnotator(Annotator):
             "fulfill",
             license_pool_id=license_pool.id,
             mechanism_id=delivery_mechanism.id,
+            library_short_name=self.library.short_name,
             _external=True
         )
         rel=OPDSFeed.ACQUISITION_REL
@@ -659,7 +671,7 @@ class CirculationManagerAnnotator(Annotator):
                 device_list_link = OPDSFeed.makeelement("link")
                 device_list_link.attrib['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
                 device_list_link.attrib['href'] = self.url_for(
-                    "adobe_drm_devices", _external=True
+                    "adobe_drm_devices", library_short_name=self.library.short_name, _external=True
                 )
                 drm_licensor.append(device_list_link)
                 cached = [drm_licensor]
@@ -710,10 +722,10 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
                 active_holds_by_work[work] = hold
 
         annotator = cls(
-            circulation, None, patron, active_loans_by_work, active_holds_by_work,
+            circulation, None, patron.library, patron, active_loans_by_work, active_holds_by_work,
             test_mode=test_mode
         )
-        url = annotator.url_for('active_loans', _external=True)
+        url = annotator.url_for('active_loans', library_short_name=patron.library.short_name, _external=True)
         works = patron.works_on_loan_or_on_hold()
 
         feed_obj = AcquisitionFeed(db, "Active loans and holds", url, works, annotator)
@@ -724,7 +736,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, 
+        annotator = cls(circulation, None, loan.patron.library,
                         active_loans_by_work={work:loan}, 
                         active_holds_by_work={}, 
                         test_mode=test_mode)
@@ -732,7 +744,9 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         url = annotator.url_for(
             'loan_or_hold_detail',
             identifier_type=identifier.type,
-            identifier=identifier.identifier, _external=True
+            identifier=identifier.identifier,
+            library_short_name=loan.patron.library.short_name,
+            _external=True
         )
         if not work:
             return AcquisitionFeed(
@@ -743,7 +757,8 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
         work = hold.license_pool.work or hold.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, active_loans_by_work={}, 
+        annotator = cls(circulation, None, hold.patron.library,
+                        active_loans_by_work={}, 
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
         return AcquisitionFeed.single_entry(db, work, annotator)
@@ -752,7 +767,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, 
+        annotator = cls(circulation, None, loan.patron.library,
                         active_loans_by_work={}, 
                         active_holds_by_work={}, 
                         active_fulfillments_by_work={work:fulfillment},
@@ -761,7 +776,9 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         url = annotator.url_for(
             'loan_or_hold_detail',
             identifier_type=identifier.type,
-            identifier=identifier.identifier, _external=True
+            identifier=identifier.identifier,
+            library_short_name=loan.patron.library.short_name,
+            _external=True
         )
         if not work:
             return AcquisitionFeed(
@@ -792,7 +809,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         link = OPDSFeed.makeelement("link")
         link.attrib['rel'] = 'http://librarysimplified.org/terms/rel/user-profile'
         link.attrib['href'] = self.url_for(
-            'patron_profile', _external=True
+            'patron_profile', library_short_name=self.library.short_name, _external=True
         )
         return link
         

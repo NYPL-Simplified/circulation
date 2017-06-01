@@ -5,6 +5,7 @@ from nose.tools import (
 
 import contextlib
 import datetime
+import flask
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
@@ -212,6 +213,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 testing=True
             )
             with script.app.test_request_context("/"):
+                flask.request.library = self._default_library
                 cached_feeds = script.process_lane(lane)
                 # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
                 eq_(4, len(cached_feeds))

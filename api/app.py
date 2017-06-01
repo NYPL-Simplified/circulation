@@ -39,7 +39,6 @@ app.config['DEBUG'] = debug
 app.debug = debug
 
 def run():
-    debug = True
     url = Configuration.integration_url(
         Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
     scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
@@ -49,6 +48,11 @@ def run():
     else:
         host = netloc
         port = 80
+
+    # Required for subdomain support.
+    app.config['SERVER_NAME'] = netloc
+
+    debug = True
 
     # Workaround for a "Resource temporarily unavailable" error when
     # running in debug mode with the global socket timeout set by isbnlib

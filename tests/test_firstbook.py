@@ -100,6 +100,6 @@ class TestFirstBook(DatabaseTest):
         )
     
     def test_authentication_provider_document(self):
-        doc = self.api.authentication_provider_document
+        doc = self.api.authentication_provider_document(self._db)
         eq_(self.api.DISPLAY_NAME, doc['name'])
         assert self.api.METHOD in doc['methods']

@@ -148,7 +148,7 @@ class CirculationManager(object):
             lanes = make_lanes(_db, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
-        self.auth = Authenticator.from_config(self._db)
+        self.auth = Authenticator(self._db)
         self.setup_circulation(Library.instance(self._db))
         self.__external_search = None
         self.lending_policy = load_lending_policy(
@@ -158,7 +158,7 @@ class CirculationManager(object):
         self.setup_controllers()
         self.setup_adobe_vendor_id()
 
-        self.opds_authentication_document = None
+        self.opds_authentication_documents = {}
 
     @property
     def external_search(self):
@@ -269,7 +269,7 @@ class CirculationManager(object):
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(
-            self.circulation, lane, top_level_title='All Books',
+            self.circulation, lane, flask.request.library, top_level_title='All Books',
             *args, **kwargs
         )
 
@@ -383,9 +383,10 @@ class IndexController(CirculationManagerController):
 
     def __call__(self):
         # The simple case: the app is equally open to all clients.
+        library_short_name = flask.request.library.short_name
         policy = Configuration.root_lane_policy()
         if not policy:
-            return redirect(self.cdn_url_for('acquisition_groups'))
+            return redirect(self.cdn_url_for('acquisition_groups', library_short_name=library_short_name))
 
         # The more complex case. We must authorize the patron, check
         # their type, and redirect them to an appropriate feed.
@@ -407,6 +408,7 @@ class IndexController(CirculationManagerController):
             return self.load_lane(lang_key, name)
 
     def appropriate_index_for_patron_type(self):
+        library_short_name = flask.request.library.short_name
         root_lane = self.authenticated_patron_root_lane()
         if isinstance(root_lane, ProblemDetail):
             return root_lane
@@ -415,13 +417,15 @@ class IndexController(CirculationManagerController):
         if root_lane is None:
             return redirect(
                 self.cdn_url_for(
-                    'acquisition_groups'
+                    'acquisition_groups',
+                    library_short_name=library_short_name,
                 )
             )
     
         return redirect(
             self.cdn_url_for(
                 'acquisition_groups', 
+                library_short_name=library_short_name,
                 languages=root_lane.language_key,
                 lane_name=root_lane.url_name
             )
@@ -436,8 +440,9 @@ class OPDSFeedController(CirculationManagerController):
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
+        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name
+            "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library_short_name,
         )
 
         title = lane.display_name
@@ -452,8 +457,10 @@ class OPDSFeedController(CirculationManagerController):
         lane = self.load_lane(languages, lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
+        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
-            "feed", languages=languages, lane_name=lane_name
+            "feed", languages=languages, lane_name=lane_name,
+            library_short_name=library_short_name,
         )
 
         title = lane.display_name
@@ -478,8 +485,10 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
+        library_short_name = flask.request.library.short_name
         this_url = self.url_for(
             'lane_search', languages=languages, lane_name=lane_name,
+            library_short_name=library_short_name,
         )
         if not query:
             # Send the search form
@@ -501,7 +510,7 @@ class OPDSFeedController(CirculationManagerController):
         return feed_response(opds_feed)
 
     def preload(self):
-        this_url = url_for("preload", _external=True)
+        this_url = url_for("preload", library_short_name=flask.request.library.short_name, _external=True)
 
         annotator = self.manager.annotator(None)
         opds_feed = PreloadFeed.page(
@@ -566,9 +575,10 @@ class LoanController(CirculationManagerController):
         book or the license file.
         """
         patron = flask.request.patron
-        
+        library = flask.request.library
+
         result = self.best_lendable_pool(
-            self.library, patron, identifier_type, identifier, mechanism_id
+            library, patron, identifier_type, identifier, mechanism_id
         )
         if not result:
             # No LicensePools were found and no ProblemDetail
@@ -657,7 +667,7 @@ class LoanController(CirculationManagerController):
         """
         # Turn source + identifier into a set of LicensePools
         pools = self.load_licensepools(
-            self.library, identifier_type, identifier
+            library, identifier_type, identifier
         )
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
@@ -861,7 +871,8 @@ class LoanController(CirculationManagerController):
             return self.revoke_loan_or_hold(identifier_type, identifier)
 
         patron = flask.request.patron
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        library = flask.request.library
+        pools = self.load_licensepools(library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             return pools
 
@@ -1016,7 +1027,8 @@ class WorkController(CirculationManagerController):
         feed containing any number of entries.
         """
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        library = flask.request.library
+        work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -1028,7 +1040,8 @@ class WorkController(CirculationManagerController):
     def recommendations(self, identifier_type, identifier, novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        library = flask.request.library
+        work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -1064,7 +1077,8 @@ class WorkController(CirculationManagerController):
     def related(self, identifier_type, identifier, novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        library = flask.request.library
+        work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -1105,7 +1119,8 @@ class WorkController(CirculationManagerController):
         # specific LicensePool.
 
         # Turn source + identifier into a set of LicensePools
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        library = flask.request.library
+        pools = self.load_licensepools(library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
@@ -1189,7 +1204,8 @@ class AnalyticsController(CirculationManagerController):
         # a way to distinguish between different LicensePools for the
         # same book.
         if event_type in CirculationEvent.CLIENT_EVENTS:
-            pools = self.load_licensepools(self.library, identifier_type, identifier)
+            library = flask.request.library
+            pools = self.load_licensepools(library, identifier_type, identifier)
             if isinstance(pools, ProblemDetail):
                 return pools
             Analytics.collect_event(self._db, pools[0], event_type, datetime.datetime.utcnow())
@@ -1214,7 +1230,7 @@ class ServiceStatusController(CirculationManagerController):
 """
 
     def __call__(self):
-        service_status = ServiceStatus(self._db)
+        service_status = ServiceStatus(self._db, flask.request.library)
         timings = service_status.loans_status(response=True)
         statuses = []
         for k, v in sorted(timings.items()):
