@@ -1291,7 +1291,7 @@ class TestCollectionInputScript(DatabaseTest):
         c2 = self._collection()
         expect = [c2, self._default_collection]
         actual = collections(["--collection=" + c.name for c in expect])
-        eq_(expect, found)
+        eq_(expect, actual)
 
 
 # Mock classes used by TestOPDSImportScript
