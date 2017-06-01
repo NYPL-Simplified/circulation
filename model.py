@@ -8845,6 +8845,10 @@ class Admin(Base):
     def password(self, value):
         self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
 
+    @classmethod
+    def with_password(cls, _db):
+        """Get Admins that have a password."""
+        return _db.query(Admin).filter(Admin.password_hashed != None)
 
 class ExternalIntegration(Base):
 
