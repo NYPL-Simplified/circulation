@@ -42,6 +42,7 @@ from oneclick import MockOneClickAPI
 from scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB, 
+    CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureLibraryScript,
     CustomListManagementScript,
@@ -1244,9 +1245,38 @@ class TestConfigureCollectionScript(DatabaseTest):
         
         eq_(expect, output.getvalue())
 
+class TestCollectionInputScript(DatabaseTest):
+    """Test the ability to name collections on the command line."""
 
+    def test_parse_command_line(self):
+
+        def collections(cmd_args):
+            parsed = CollectionInputScript.parse_command_line(
+                self._db, cmd_args
+            )
+            return parsed.collections
+
+        # No collections named on command line -> no collections
+        eq_([], collections([]))
+
+        # Nonexistent collection -> ValueError
+        assert_raises_regexp(
+            ValueError,
+            'Unknown collection: "no such collection"',
+            collections, ['--collection="no such collection"']
+        )
+
+        # Collections are presented in the order they were encountered
+        # on the command line.
+        c2 = self._collection()
+        expect = [c2, self._default_collection]
+        actual = collections(["--collection=" + c.name for x in expect])
+        eq_(expect, found)
+
+
+# Mock classes used by TestOPDSImportScript
 class MockOPDSImportMonitor(object):
-
+    """Pretend to monitor an OPDS feed for new titles."""
     INSTANCES = []
     
     def __init__(self, _db, collection, *args, **kwargs):
@@ -1260,15 +1290,17 @@ class MockOPDSImportMonitor(object):
         self.was_run = True
 
 class MockOPDSImporter(object):
+    """Pretend to import titles from an OPDS feed."""
     pass
 
 class MockOPDSImportScript(OPDSImportScript):
+    """Actually instantiate a monitor that will pretend to do something."""
     MONITOR_CLASS = MockOPDSImportMonitor
     IMPORTER_CLASS = MockOPDSImporter
 
-
+        
 class TestOPDSImportScript(DatabaseTest):  
-       
+
     def test_do_run(self):
         self._default_collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value = (
             DataSource.OA_CONTENT_SERVER

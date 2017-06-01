@@ -1174,8 +1174,7 @@ class CollectionInputScript(Script):
     """A script that takes collection names as command line inputs."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
-                           *args, **kwargs):
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
         return cls.look_up_collections(_db, parsed, *args, **kwargs)
