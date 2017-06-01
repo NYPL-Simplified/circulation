@@ -344,29 +344,23 @@ class Authenticator(object):
         for library in _db.query(Library):
             self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library)
 
-    def authenticated_patron(self, _db, header):
+    def invoke_authenticator_method(self, method_name, *args, **kwargs):
         short_name = flask.request.library.short_name
         if short_name not in self.library_authenticators:
             return LIBRARY_NOT_FOUND
-        return self.library_authenticators[short_name].authenticated_patron(_db, header)
+        return getattr(self.library_authenticators[short_name], method_name)(*args, **kwargs)
+
+    def authenticated_patron(self, _db, header):
+        return self.invoke_authenticator_method("authenticated_patron", _db, header)
 
     def create_authentication_document(self):
-        short_name = flask.request.library.short_name
-        if short_name not in self.library_authenticators:
-            return LIBRARY_NOT_FOUND
-        return self.library_authenticators[short_name].create_authentication_document()
+        return self.invoke_authenticator_method("create_authentication_document")
 
     def create_authentication_headers(self):
-        short_name = flask.request.library.short_name
-        if short_name not in self.library_authenticators:
-            return LIBRARY_NOT_FOUND
-        return self.library_authenticators[short_name].create_authentication_headers()
+        return self.invoke_authenticator_method("create_authentication_headers")
 
     def get_credential_from_header(self, header):
-        short_name = flask.request.library.short_name
-        if short_name not in self.library_authenticators:
-            return LIBRARY_NOT_FOUND
-        return self.library_authenticators[short_name].get_credential_from_header(header)
+        return self.invoke_authenticator_method("get_credential_from_header", header)
 
 class LibraryAuthenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
