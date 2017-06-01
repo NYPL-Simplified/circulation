@@ -58,6 +58,7 @@ from model import (
 from external_search import ExternalSearchIndex
 from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
+from monitor import CollectionMonitor
 from opds_import import (
     OPDSImportMonitor,
     OPDSImporter,
@@ -149,14 +150,32 @@ class Script(object):
 
 class RunMonitorScript(Script):
 
-    def __init__(self, monitor, **kwargs):
-        if callable(monitor):
-            monitor = monitor(self._db, **kwargs)
-        self.monitor = monitor
-        self.name = self.monitor.service_name
-
+    def __init__(self, monitor, _db=None, **kwargs):
+        super(RunMonitorScript, self).__init__(_db)
+        if issubclass(monitor, CollectionMonitor):
+            self.collection_monitor = monitor
+            self.collection_monitor_kwargs = kwargs
+            self.monitor = None
+        else:
+            self.collection_monitor = None
+            if callable(monitor):
+                monitor = monitor(self._db, **kwargs)
+            self.monitor = monitor
+            self.name = self.monitor.service_name
+            
     def do_run(self):
-        self.monitor.run()
+        if self.monitor:
+            self.monitor.run()
+        elif self.collection_monitor:
+            logging.warn(
+                "Running a CollectionMonitor by delegating to RunCollectionMonitorScript. "
+                "It would be better if you used RunCollectionMonitorScript directly."
+            )
+            RunCollectionMonitorScript(
+                self.collection_monitor, self._db, **self.collection_monitor_kwargs
+            ).run()
+        else:
+            self.monitor.run()
 
 
 class RunCollectionMonitorScript(Script):

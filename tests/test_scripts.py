@@ -56,6 +56,7 @@ from scripts import (
     PatronInputScript,
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
+    RunMonitorScript,
     Script,
     ShowCollectionsScript,
     ShowLibrariesScript,
@@ -219,20 +220,39 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class OPDSCollectionMonitor(CollectionMonitor):
+    """Mock Monitor for use in tests of Run*MonitorScript."""
+    SERVICE_NAME = "Test Monitor"
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+
+    def __init__(self, _db, test_argument=None, **kwargs):
+        self.test_argument = test_argument
+        super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
+
+    def run_once(self, start, cutoff):
+        self.collection.ran_with_argument = self.test_argument
+
+        
+class TestRunMonitorScript(DatabaseTest):
+
+    def test_run_with_collection_monitor(self):
+        """It's not ideal, but you can run a CollectionMonitor script from
+        RunMonitorScript. This will run the monitor on every
+        appropriate Collection.
+        """
+        c1 = self._collection()
+        c2 = self._collection()
+        script = RunMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+        for c in [c1, c2]:
+            eq_("test value", c.ran_with_argument)
+        
+        
 class TestRunCollectionMonitorScript(DatabaseTest):
 
     def test_all(self):
-        class OPDSCollectionMonitor(CollectionMonitor):
-            SERVICE_NAME = "Test Monitor"
-            PROTOCOL = ExternalIntegration.OPDS_IMPORT
-
-            def __init__(self, _db, test_argument=None, **kwargs):
-                self.test_argument = test_argument
-                super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
-
-            def run_once(self, start, cutoff):
-                self.collection.ran_with_argument = self.test_argument
-
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -1334,3 +1354,53 @@ class TestOPDSImportScript(DatabaseTest):
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
         eq_(self._default_collection, monitor.collection)
         eq_(True, monitor.kwargs['force_reimport'])
+
+
+class TestWorkConsolidationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkPresentationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkClassificationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkOPDSScript(object):
+    """TODO"""
+    pass
+
+
+class TestCustomListManagementScript(object):
+    """TODO"""
+    pass
+
+
+class TestSubjectAssignmentScript(object):
+    """TODO"""
+    pass
+
+
+class TestBibliographicRefreshScript(object):
+    """TODO"""
+    pass
+
+        
+class TestNYTBestSellerListsScript(object):
+    """TODO"""
+    pass
+
+
+class TestRefreshMaterializedViewsScript(object):
+    """TODO"""
+    pass
+
+
+class TestExplain(object):
+    """TODO"""
+    pass
