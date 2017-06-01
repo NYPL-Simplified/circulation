@@ -174,8 +174,6 @@ class RunMonitorScript(Script):
             RunCollectionMonitorScript(
                 self.collection_monitor, self._db, **self.collection_monitor_kwargs
             ).run()
-        else:
-            self.monitor.run()
 
 
 class RunCollectionMonitorScript(Script):
