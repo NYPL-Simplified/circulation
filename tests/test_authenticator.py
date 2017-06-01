@@ -877,11 +877,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
                 # right position.
                 providers = doc['providers']
                 basic_doc = providers[basic.URI]
-                expect_basic = basic.authentication_provider_document(self._db)
+                expect_basic = basic.authentication_provider_document(library.short_name)
                 eq_(expect_basic, basic_doc)
             
                 oauth_doc = providers[oauth.URI]
-                expect_oauth = oauth.authentication_provider_document(self._db)
+                expect_oauth = oauth.authentication_provider_document(library.short_name)
                 eq_(expect_oauth, oauth_doc)
 
                 # We also need to test that the library's name and UUID

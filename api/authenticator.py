@@ -443,6 +443,7 @@ class LibraryAuthenticator(object):
         self.library_id = library.id
         self.library_uuid = library.uuid
         self.library_name = library.name
+        self.library_short_name = library.short_name
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
@@ -652,7 +653,7 @@ class LibraryAuthenticator(object):
 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, list(self.providers), self._db,
+            base_opds_document, list(self.providers), short_name=self.library_short_name,
             name=library_name, id=self.library_uuid, links=links,
         )
         return json.dumps(doc)
@@ -782,7 +783,7 @@ class AuthenticationProvider(object):
             patron_or_patrondata
         )       
     
-    def authentication_provider_document(self, _db):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         :return: A dictionary that can be associated with the
@@ -1084,7 +1085,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     def authentication_header(self):
         return 'Basic realm="%s"' % self.AUTHENTICATION_REALM
     
-    def authentication_provider_document(self, _db):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1315,15 +1316,15 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         raise NotImplementedError()
     
-    def _internal_authenticate_url(self, _db):
+    def _internal_authenticate_url(self, library_short_name):
         """A patron who wants to log in should hit this URL on the circulation
         manager. They'll be redirected to the OAuth provider, which will 
         take care of it.
         """
         return url_for('oauth_authenticate', _external=True,
-                       provider=self.NAME, library_short_name=self.library(_db).short_name)
+                       provider=self.NAME, library_short_name=library_short_name)
 
-    def authentication_provider_document(self, _db):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1337,7 +1338,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             }
         }
         """
-        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(_db)))
+        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(library_short_name)))
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
