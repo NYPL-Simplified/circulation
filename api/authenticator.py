@@ -351,6 +351,10 @@ class Authenticator(object):
         # Commit just in case this is the first time the Library has
         # ever been loaded.
         _db.commit()
+
+        integrations = _db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
+        )
         
         authentication_policy = Configuration.policy("authentication")
         if not authentication_policy:
