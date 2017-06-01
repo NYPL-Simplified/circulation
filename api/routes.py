@@ -210,6 +210,7 @@ def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
 @library_route('/preload')
+@has_library
 @allows_patron_web()
 @returns_problem_detail
 def preload():
