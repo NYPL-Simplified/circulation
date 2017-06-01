@@ -258,5 +258,5 @@ LIBRARY_NOT_FOUND = pd(
     "http://librarysimplified.org/terms/problem/library-not-found",
     status_code=404,
     title=_("Library not found."),
-    detail=_("The requested library short name does not exist."),
+    detail=_("No library with the requested name on this server."),
 )
