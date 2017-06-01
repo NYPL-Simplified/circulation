@@ -8707,7 +8707,7 @@ class Library(Base):
 
     # A short name of this library, to use when identifying it in
     # scripts. e.g. "NYPL" for NYPL.
-    short_name = Column(Unicode, unique=True)
+    short_name = Column(Unicode, unique=True, nullable=False)
     
     # A UUID that uniquely identifies the library among all libraries
     # in the world. This is used to serve the library's Authentication
@@ -8739,7 +8739,8 @@ class Library(Base):
         """Find the one and only library."""
         library, is_new = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
-                uuid=unicode(uuid.uuid4())
+                uuid=unicode(uuid.uuid4()),
+                short_name="default",
             )
         )
         return library
@@ -9251,9 +9252,7 @@ class Collection(Base):
         if integration.protocol:
             lines.append('Protocol: "%s"' % integration.protocol)
         for library in self.libraries:
-            lines.append('Used by library: "%s"' % (
-                library.short_name or library.name
-            ))
+            lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
         if integration.url:

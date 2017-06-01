@@ -5711,7 +5711,7 @@ class TestCollection(DatabaseTest):
         about a Collection.
         """
         library = Library.instance(self._db)
-        library.name = "The only library"
+        library.short_name = "The only library"
         library.collections.append(self.collection)
         
         self.collection.external_account_id = "id"
