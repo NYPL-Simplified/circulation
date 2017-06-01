@@ -193,6 +193,15 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     def make_default_collection(self, _db, library):
         return self._default_collection
 
+    @contextmanager
+    def request_context_with_library(self, route, *args, **kwargs):
+        if 'library' in kwargs:
+            library = kwargs.pop('library')
+        else:
+            library = self._default_library
+        with self.app.test_request_context(route, *args, **kwargs) as c:
+            flask.request.library = library
+            yield c
 
 class CirculationControllerTest(ControllerTest):
 
@@ -218,19 +227,16 @@ class TestBaseController(CirculationControllerTest):
         how database sessions will be handled in production.
         """
         # Both requests used the self._db session used by most unit tests.
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response1 = self.manager.index_controller()
             eq_(self.app.manager._db, self._db)
 
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response2 = self.manager.index_controller()
             eq_(self.app.manager._db, self._db)
 
     def test_authenticated_patron_invalid_credentials(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(
                 dict(username="user1", password="password2")
             )
@@ -240,16 +246,14 @@ class TestBaseController(CirculationControllerTest):
         """A patron can authenticate even if their credentials have
         expired -- they just can't create loans or holds.
         """
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(
                 dict(username="expired", password="password")
             )
             eq_("expired_username", value.username)
 
     def test_authenticated_patron_correct_credentials(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             value = self.controller.authenticated_patron(self.valid_credentials)
             assert isinstance(value, Patron)
 
@@ -266,13 +270,11 @@ class TestBaseController(CirculationControllerTest):
                 }
             }
 
-            with self.app.test_request_context("/"):
-                flask.request.library = self.library
+            with self.request_context_with_library("/"):
                 response = self.controller.authenticate()
                 eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
 
-            with self.app.test_request_context("/", headers={"X-Requested-With": "XMLHttpRequest"}):
-                flask.request.library = self.library
+            with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
                 response = self.controller.authenticate()
                 eq_(None, response.headers.get("WWW-Authenticate"))
 
@@ -445,8 +447,7 @@ class TestBaseController(CirculationControllerTest):
         eq_(BAD_DELIVERY_MECHANISM.uri, problem_detail.uri)
 
     def test_apply_borrowing_policy_when_holds_prohibited(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(self.valid_credentials)
             with temp_config() as config:
                 config[Configuration.POLICIES] = {
@@ -476,8 +477,7 @@ class TestBaseController(CirculationControllerTest):
                 eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(self.valid_credentials)
             work = self._work(with_license_pool=True)
             [pool] = work.license_pools
@@ -533,24 +533,21 @@ class TestIndexController(CirculationControllerTest):
                 Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
                 Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
             }
-            with self.app.test_request_context(
+            with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-                flask.request.library = self.library
                 response = self.manager.index_controller()
                 eq_(401, response.status_code)
 
-            with self.app.test_request_context(
+            with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-                flask.request.library = self.library
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/default/groups/eng/Adult%20Fiction", response.headers['location'])
 
             # Now those patrons get sent to the top-level lane.
             config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
-            with self.app.test_request_context(
+            with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-                flask.request.library = self.library
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
                 eq_("http://cdn/default/groups/", response.headers['location'])
@@ -585,9 +582,8 @@ class TestLoanController(CirculationControllerTest):
             self.library, self.identifier.type, self.identifier.identifier
         )
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
 
             # Without a loan or a hold, nothing is returned.
@@ -619,9 +615,8 @@ class TestLoanController(CirculationControllerTest):
 
 
     def test_borrow_success(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier)
@@ -713,9 +708,8 @@ class TestLoanController(CirculationControllerTest):
         )
         identifier = edition.primary_identifier
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             self.manager.circulation.queue_checkout(
                 pool,
@@ -848,9 +842,8 @@ class TestLoanController(CirculationControllerTest):
             eq_("http://streaming-content-link", fulfill_links[0]['href'])
 
     def test_borrow_nonexistent_delivery_mechanism(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier,
@@ -871,9 +864,8 @@ class TestLoanController(CirculationControllerTest):
         pool.licenses_available = 0
         pool.open_access = False
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             self.manager.circulation.queue_checkout(
                 pool, NoAvailableCopies()
@@ -913,9 +905,8 @@ class TestLoanController(CirculationControllerTest):
         pool.licenses_available = 0
         pool.open_access = False
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             self.manager.circulation.queue_checkout(
                 pool, AlreadyOnHold()
@@ -951,9 +942,8 @@ class TestLoanController(CirculationControllerTest):
          pool.licenses_available = 1
          pool.open_access = False
 
-         with self.app.test_request_context(
+         with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             flask.request.library = self.library
              self.manager.loans.authenticated_patron_from_request()
              self.manager.circulation.queue_checkout(
                  pool, NotFoundOnRemote()
@@ -969,9 +959,8 @@ class TestLoanController(CirculationControllerTest):
             patron=self.default_patron
         )
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.borrow(
                 self.identifier.type, self.identifier.identifier)
@@ -980,9 +969,8 @@ class TestLoanController(CirculationControllerTest):
 
 
     def test_revoke_loan(self):
-         with self.app.test_request_context(
+         with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             flask.request.library = self.library
              patron = self.manager.loans.authenticated_patron_from_request()
              loan, newly_created = self.pool.loan_to(patron)
 
@@ -993,9 +981,8 @@ class TestLoanController(CirculationControllerTest):
              eq_(200, response.status_code)
              
     def test_revoke_hold(self):
-         with self.app.test_request_context(
+         with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
-             flask.request.library = self.library
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = self.pool.on_hold_to(patron, position=0)
 
@@ -1006,9 +993,8 @@ class TestLoanController(CirculationControllerTest):
              eq_(200, response.status_code)
 
     def test_revoke_hold_nonexistent_licensepool(self):
-         with self.app.test_request_context(
+         with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             patron = self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.revoke(-10)
             assert isinstance(response, ProblemDetail)
@@ -1017,9 +1003,8 @@ class TestLoanController(CirculationControllerTest):
     def test_hold_fails_when_patron_is_at_hold_limit(self):
         edition, pool = self._edition(with_license_pool=True)
         pool.open_access = False
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             patron = self.manager.loans.authenticated_patron_from_request()
             self.manager.circulation.queue_checkout(
                 pool, NoAvailableCopies()
@@ -1053,9 +1038,8 @@ class TestLoanController(CirculationControllerTest):
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
 
-            with self.app.test_request_context(
+            with self.request_context_with_library(
                     "/", headers=dict(Authorization=auth)):
-                flask.request.library = self.library
                 self.manager.loans.authenticated_patron_from_request()
                 response = self.manager.loans.borrow(
                     pool.identifier.type, pool.identifier.identifier)
@@ -1069,9 +1053,8 @@ class TestLoanController(CirculationControllerTest):
                 Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
             }
 
-            with self.app.test_request_context(
+            with self.request_context_with_library(
                     "/", headers=dict(Authorization=auth)):
-                flask.request.library = self.library
                 self.manager.loans.authenticated_patron_from_request()
 
                 self.manager.circulation.queue_checkout(
@@ -1101,9 +1084,8 @@ class TestLoanController(CirculationControllerTest):
          )
          pool.open_access = False
 
-         with self.app.test_request_context(
+         with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             patron = self.manager.loans.authenticated_patron_from_request()
             hold, newly_created = pool.on_hold_to(patron, position=0)
             response = self.manager.loans.revoke(pool.id)
@@ -1112,9 +1094,8 @@ class TestLoanController(CirculationControllerTest):
             eq_("Cannot release a hold once it enters reserved state.", response.detail)
 
     def test_active_loans(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             patron = self.manager.loans.authenticated_patron_from_request()
             with self.temp_config() as config:
                 response = self.manager.loans.sync()
@@ -1160,9 +1141,8 @@ class TestLoanController(CirculationControllerTest):
             0,
         )
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             patron = self.manager.loans.authenticated_patron_from_request()
             with self.temp_config() as config:
                 response = self.manager.loans.sync()
@@ -1197,9 +1177,8 @@ class TestAnnotationController(CirculationControllerTest):
         self.identifier = self.edition.primary_identifier
 
     def test_get_empty_container(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.annotations.container()
             eq_(200, response.status_code)
@@ -1230,9 +1209,8 @@ class TestAnnotationController(CirculationControllerTest):
         annotation.active = True
         annotation.timestamp = datetime.datetime.now()
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
             response = self.manager.annotations.container()
             eq_(200, response.status_code)
@@ -1274,9 +1252,8 @@ class TestAnnotationController(CirculationControllerTest):
             motivation=Annotation.IDLING,
         )
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
             response = self.manager.annotations.container_for_work(self.identifier.type, self.identifier.identifier)
             eq_(200, response.status_code)
@@ -1306,9 +1283,8 @@ class TestAnnotationController(CirculationControllerTest):
         data['motivation'] = Annotation.IDLING
         data['target'] = dict(source=self.identifier.urn, selector="epubcfi(/6/4[chap01ref]!/4[body01]/10[para05]/3:10)")
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
             "/", headers=dict(Authorization=self.valid_auth), method='POST', data=json.dumps(data)):
-            flask.request.library = self.library
             patron = self.manager.annotations.authenticated_patron_from_request()
             patron.synchronize_annotations = True
             # The patron doesn't have any annotations yet.
@@ -1350,9 +1326,8 @@ class TestAnnotationController(CirculationControllerTest):
         )
         annotation.active = True
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
             response = self.manager.annotations.detail(annotation.id)
             eq_(200, response.status_code)
@@ -1381,9 +1356,8 @@ class TestAnnotationController(CirculationControllerTest):
         )
         annotation.active = True
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
 
             # The patron can't see that this annotation exists.
@@ -1391,9 +1365,8 @@ class TestAnnotationController(CirculationControllerTest):
             eq_(404, response.status_code)
 
     def test_detail_for_missing_annotation_returns_404(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
 
             # This annotation does not exist.
@@ -1411,9 +1384,8 @@ class TestAnnotationController(CirculationControllerTest):
         )
         annotation.active = False
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
             response = self.manager.annotations.detail(annotation.id)
             eq_(404, response.status_code)
@@ -1429,9 +1401,8 @@ class TestAnnotationController(CirculationControllerTest):
         )
         annotation.active = True
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='DELETE', headers=dict(Authorization=self.valid_auth)):
-            flask.request.library = self.library
             self.manager.annotations.authenticated_patron_from_request()
             response = self.manager.annotations.detail(annotation.id)
             eq_(200, response.status_code)
@@ -1453,8 +1424,7 @@ class TestWorkController(CirculationControllerTest):
         contribution.contributor.display_name = u"John Bull"
 
         # For works without a contributor name, a ProblemDetail is returned.
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.contributor('', None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
@@ -1463,21 +1433,18 @@ class TestWorkController(CirculationControllerTest):
         contributor.display_name = name = 'John Bull'
         
         # Similarly if the pagination data is bad.
-        with self.app.test_request_context('/?size=abc'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad.
-        with self.app.test_request_context('/?order=nosuchorder'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
         
         # If the work has a contributor, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
@@ -1498,16 +1465,14 @@ class TestWorkController(CirculationControllerTest):
 
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/?order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=title"):
             response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
 
-        with self.app.test_request_context("/?available=always"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?available=always"):
             response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
@@ -1517,8 +1482,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.english_1.title, entry['title'])
 
         # Pagination works.
-        with self.app.test_request_context("/?size=1"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?size=1"):
             response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
@@ -1527,8 +1491,7 @@ class TestWorkController(CirculationControllerTest):
         [entry] = feed['entries']
         eq_(another_work.title, entry['title'])
 
-        with self.app.test_request_context("/?after=1"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?after=1"):
             response = self.manager.work_controller.contributor(name, None, None)
 
         eq_(200, response.status_code)
@@ -1538,8 +1501,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.english_1.title, entry['title'])
 
     def test_permalink(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
             annotator = CirculationManagerAnnotator(None, None, self._default_library)
             expect = etree.tostring(
@@ -1564,8 +1526,7 @@ class TestWorkController(CirculationControllerTest):
         kwargs = dict(novelist_api=mock_api)
         
         # We get a 400 response if the pagination data is bad.
-        with self.app.test_request_context('/?size=abc'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
@@ -1573,8 +1534,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Or if the facet data is bad.
         mock_api.setup(metadata)
-        with self.app.test_request_context('/?order=nosuchorder'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
@@ -1582,8 +1542,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Show it working.
         mock_api.setup(metadata)
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
@@ -1600,8 +1559,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1622,8 +1580,7 @@ class TestWorkController(CirculationControllerTest):
 
 
         with temp_config() as config:
-            with self.app.test_request_context('/'):
-                flask.request.library = self.library
+            with self.request_context_with_library('/'):
                 config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
                 response = self.manager.work_controller.recommendations(
                     self.identifier.type, self.identifier.identifier
@@ -1645,8 +1602,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/?order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=title"):
             response = self.manager.work_controller.recommendations(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1665,8 +1621,7 @@ class TestWorkController(CirculationControllerTest):
         ]
         mock_api.setup(metadata)
 
-        with self.app.test_request_context("/?order=author"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=author"):
             response = self.manager.work_controller.recommendations(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1686,8 +1641,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         # Pagination works.
-        with self.app.test_request_context("/?size=1&order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?size=1&order=title"):
             response = self.manager.work_controller.recommendations(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1705,8 +1659,7 @@ class TestWorkController(CirculationControllerTest):
         ]
         mock_api.setup(metadata)
 
-        with self.app.test_request_context("/?after=1&order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?after=1&order=title"):
             response = self.manager.work_controller.recommendations(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1730,8 +1683,7 @@ class TestWorkController(CirculationControllerTest):
             self._db.delete(contribution)
             self._db.commit()
 
-            with self.app.test_request_context('/'):
-                flask.request.library = self.library
+            with self.request_context_with_library('/'):
                 response = self.manager.work_controller.related(
                     self.identifier.type, self.identifier.identifier
                 )
@@ -1763,8 +1715,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         # A grouped feed is returned with all of the related books
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.related(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api
@@ -1825,8 +1776,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.english_1.title, series_e2['title'])
 
     def test_report_problem_get(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response = self.manager.work_controller.report(self.identifier.type, self.identifier.identifier)
         eq_(200, response.status_code)
         eq_("text/uri-list", response.headers['Content-Type'])
@@ -1839,8 +1789,7 @@ class TestWorkController(CirculationControllerTest):
                             "source": "foo",
                             "detail": "bar"}
         )
-        with self.app.test_request_context("/", method="POST", data=data):
-            flask.request.library = self.library
+        with self.request_context_with_library("/", method="POST", data=data):
             response = self.manager.work_controller.report(self.identifier.type, self.identifier.identifier)
         eq_(201, response.status_code)
         [complaint] = self.lp.complaints
@@ -1850,8 +1799,7 @@ class TestWorkController(CirculationControllerTest):
 
     def test_series(self):
         # If the work doesn't have a series, a ProblemDetail is returned.
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.series("", None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
@@ -1859,21 +1807,18 @@ class TestWorkController(CirculationControllerTest):
         series_name = "Like As If Whatever Mysteries"
         self.edition.series = series_name
         # Similarly if the pagination data is bad.
-        with self.app.test_request_context('/?size=abc'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
 
         # Or if the facet data is bad
-        with self.app.test_request_context('/?order=nosuchorder'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
             
         # If the work is in a series, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context('/'):
-            flask.request.library = self.library
+        with self.request_context_with_library('/'):
             response = self.manager.work_controller.series(series_name, None, None)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -1895,8 +1840,7 @@ class TestWorkController(CirculationControllerTest):
         
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/?order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=title"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1906,8 +1850,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry1['title'])
         eq_(self.english_1.title, entry2['title'])
 
-        with self.app.test_request_context("/?order=author"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=author"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1921,8 +1864,7 @@ class TestWorkController(CirculationControllerTest):
         another_work.license_pools[0].series_position = 1
 
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/?order=series"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=series"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1933,8 +1875,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry2['title'])
 
         # Series is the default facet.
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1945,8 +1886,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry2['title'])
 
         # Pagination works.
-        with self.app.test_request_context("/?size=1&order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?size=1&order=title"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1955,8 +1895,7 @@ class TestWorkController(CirculationControllerTest):
         [entry] = feed['entries']
         eq_(another_work.title, entry['title'])
 
-        with self.app.test_request_context("/?after=1&order=title"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?after=1&order=title"):
             response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
@@ -1967,8 +1906,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Language restrictions can remove books that would otherwise be
         # in the feed.
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             response = self.manager.work_controller.series(
                 series_name, 'fre', None
             )
@@ -1984,8 +1922,7 @@ class TestFeedController(CirculationControllerTest):
     
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             with temp_config() as config:
                 config['links'] = {
                     "terms_of_service": "a",
@@ -2015,8 +1952,7 @@ class TestFeedController(CirculationControllerTest):
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
         SessionManager.refresh_materialized_views(self._db)
-        with self.app.test_request_context("/?size=1"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?size=1"):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
 
             feed = feedparser.parse(response.data)
@@ -2040,8 +1976,7 @@ class TestFeedController(CirculationControllerTest):
             assert shelf_link.endswith('/loans/')
 
     def test_bad_order_gives_problem_detail(self):
-        with self.app.test_request_context("/?order=nosuchorder"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?order=nosuchorder"):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
@@ -2050,8 +1985,7 @@ class TestFeedController(CirculationControllerTest):
             )
 
     def test_bad_pagination_gives_problem_detail(self):
-        with self.app.test_request_context("/?size=abc"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?size=abc"):
             response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
             eq_(400, response.status_code)
             eq_(
@@ -2072,8 +2006,7 @@ class TestFeedController(CirculationControllerTest):
                 self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
         
             SessionManager.refresh_materialized_views(self._db)
-            with self.app.test_request_context("/"):
-                flask.request.library = self.library
+            with self.request_context_with_library("/"):
                 response = self.manager.opds_feeds.groups(None, None)
 
                 feed = feedparser.parse(response.data)
@@ -2096,8 +2029,7 @@ class TestFeedController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # Execute a search query designed to find the second one.
-        with self.app.test_request_context("/?q=t&size=1&after=1"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/?q=t&size=1&after=1"):
             response = self.manager.opds_feeds.search(None, None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2126,8 +2058,7 @@ class TestFeedController(CirculationControllerTest):
                 Configuration.PRELOADED_CONTENT : [urn]
             }
 
-            with self.app.test_request_context("/"):
-                flask.request.library = self.library
+            with self.request_context_with_library("/"):
                 response = self.manager.opds_feeds.preload()
 
                 assert self.english_1.title not in response.data
@@ -2153,14 +2084,12 @@ class TestAnalyticsController(CirculationControllerTest):
                 ['core.local_analytics_provider'], config
             )            
 
-            with self.app.test_request_context("/"):
-                flask.request.library = self.library
+            with self.request_context_with_library("/"):
                 response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "invalid_type")
                 eq_(400, response.status_code)
                 eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
-            with self.app.test_request_context("/"):
-                flask.request.library = self.library
+            with self.request_context_with_library("/"):
                 response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
                 eq_(200, response.status_code)
 
@@ -2192,8 +2121,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         """Test the value of the Link-Template header used in 
         device_id_list_handler.
         """
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             headers = self.controller.link_template_header
             eq_(1, len(headers))
             template = headers['Link-Template']
@@ -2216,10 +2144,9 @@ class TestDeviceManagementProtocolController(ControllerTest):
         eq_([], self.default_patron.credentials)
         headers = dict(self.auth)
         headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
-        with self.app.test_request_context(
+        with self.request_context_with_library(
             "/", method='POST', headers=headers, data="device"
         ):
-            flask.request.library = self.library
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(200, response.status_code)
@@ -2240,8 +2167,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         credential = self._create_credential()
         credential.register_drm_device_identifier("device1")
         credential.register_drm_device_identifier("device2")
-        with self.app.test_request_context("/", headers=self.auth):
-            flask.request.library = self.library
+        with self.request_context_with_library("/", headers=self.auth):
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(200, response.status_code)
@@ -2258,18 +2184,16 @@ class TestDeviceManagementProtocolController(ControllerTest):
                 assert response.headers[k] == v
 
     def device_id_list_handler_bad_auth(self):
-        with self.app.test_request_context("/"):
-            flask.request.library = self.library
+        with self.request_context_with_library("/"):
             self.controller.authenticated_patron_from_request()
             response = self.manager.adobe_vendor_id.device_id_list_handler()
             assert isinstance(response, ProblemDetail)
             eq_(401, response.status_code)
 
     def device_id_list_handler_bad_method(self):
-        with self.app.test_request_context(
+        with self.request_context_with_library(
             "/", method='DELETE', headers=self.auth
         ):
-            flask.request.library = self.library
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             assert isinstance(response, ProblemDetail)
@@ -2279,10 +2203,9 @@ class TestDeviceManagementProtocolController(ControllerTest):
         """We only allow registration of one device ID at a time."""
         headers = dict(self.auth)
         headers['Content-Type'] = self.controller.DEVICE_ID_LIST_MEDIA_TYPE
-        with self.app.test_request_context(
+        with self.request_context_with_library(
             "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
-            flask.request.library = self.library
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(413, response.status_code)
@@ -2291,10 +2214,9 @@ class TestDeviceManagementProtocolController(ControllerTest):
     def test_device_id_list_handler_wrong_media_type(self):
         headers = dict(self.auth)
         headers['Content-Type'] = "text/plain"
-        with self.app.test_request_context(
+        with self.request_context_with_library(
             "/", method='POST', headers=headers, data="device1\ndevice2"
         ):
-            flask.request.library = self.library
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(415, response.status_code)
@@ -2305,17 +2227,15 @@ class TestDeviceManagementProtocolController(ControllerTest):
         credential = self._create_credential()
         credential.register_drm_device_identifier("device")
 
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='DELETE', headers=self.auth
         ):
-            flask.request.library = self.library
             patron = self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_handler("device")
             eq_(200, response.status_code)
 
     def test_device_id_handler_bad_auth(self):
-        with self.app.test_request_context("/", method='DELETE'):
-            flask.request.library = self.library
+        with self.request_context_with_library("/", method='DELETE'):
             with temp_config() as config:
                 config[Configuration.INTEGRATIONS] = {
                     "Circulation Manager" : { "url" : "http://foo/" }
@@ -2326,8 +2246,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(401, response.status_code)
 
     def test_device_id_handler_bad_method(self):
-        with self.app.test_request_context("/", method='POST', headers=self.auth):
-            flask.request.library = self.library
+        with self.request_context_with_library("/", method='POST', headers=self.auth):
             patron = self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_handler("device")
             assert isinstance(response, ProblemDetail)
@@ -2351,10 +2270,9 @@ class TestProfileController(ControllerTest):
         
     def test_get(self):
         """Verify that a patron can see their own profile."""
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='GET', headers=self.auth
         ):
-            flask.request.library = self.library
             patron = self.controller.authenticated_patron_from_request()
             patron.synchronize_annotations = True
             response = self.manager.profiles.protocol()
@@ -2373,12 +2291,11 @@ class TestProfileController(ControllerTest):
 
         request_patron = None
         identifier = self._identifier()
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='PUT', headers=self.auth,
                 content_type=ProfileController.MEDIA_TYPE,
                 data=json.dumps(payload)
         ):
-            flask.request.library = self.library
             # By default, a patron has no value for synchronize_annotations.
             request_patron = self.controller.authenticated_patron_from_request()
             eq_(None, request_patron.synchronize_annotations)
@@ -2406,12 +2323,11 @@ class TestProfileController(ControllerTest):
         # But if we make another request and change their
         # synchronize_annotations field to False...
         payload['settings'][ProfileStorage.SYNCHRONIZE_ANNOTATIONS] = False
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='PUT', headers=self.auth,
                 content_type=ProfileController.MEDIA_TYPE,
                 data=json.dumps(payload)
         ):
-            flask.request.library = self.library
             response = self.manager.profiles.protocol()
 
             # ...the annotation goes away.
@@ -2423,11 +2339,10 @@ class TestProfileController(ControllerTest):
         """Verify that an error results in a ProblemDetail being returned
         from the controller.
         """
-        with self.app.test_request_context(
+        with self.request_context_with_library(
                 "/", method='PUT', headers=self.auth,
                 content_type="text/plain",
         ):
-            flask.request.library = self.library
             response = self.manager.profiles.protocol()
             assert isinstance(response, ProblemDetail)
             eq_(415, response.status_code)
