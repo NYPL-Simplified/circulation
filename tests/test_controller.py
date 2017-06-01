@@ -497,18 +497,18 @@ class TestBaseController(CirculationControllerTest):
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
-    def test_library_from_request(self):
+    def test_library_for_request(self):
         with self.app.test_request_context("/"):
-            value = self.controller.library_from_request("not-a-library")
+            value = self.controller.library_for_request("not-a-library")
             eq_(LIBRARY_NOT_FOUND, value)
 
         with self.app.test_request_context("/"):
-            value = self.controller.library_from_request(self._default_library.short_name)
+            value = self.controller.library_for_request(self._default_library.short_name)
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
 
         with self.app.test_request_context("/"):
-            value = self.controller.library_from_request(None)
+            value = self.controller.library_for_request(None)
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
 

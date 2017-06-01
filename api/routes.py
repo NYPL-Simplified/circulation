@@ -126,7 +126,7 @@ def has_library(f):
             library_short_name = kwargs.pop("library_short_name")
         else:
             library_short_name = None
-        library = app.manager.index_controller.library_from_request(library_short_name)
+        library = app.manager.index_controller.library_for_request(library_short_name)
         if isinstance(library, ProblemDetail):
             return library.response
         else:

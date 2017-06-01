@@ -83,7 +83,7 @@ class BaseCirculationManagerController(object):
         headers = self.manager.auth.create_authentication_headers()
         return Response(data, 401, headers)
 
-    def library_from_request(self, library_short_name):
+    def library_for_request(self, library_short_name):
         if library_short_name:
             library = get_one(self._db, Library, short_name=library_short_name)
         else:
