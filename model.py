@@ -60,7 +60,10 @@ from sqlalchemy.ext.mutable import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import (
+    hybrid_property,
+    Comparator,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     cast,
@@ -76,7 +79,8 @@ from sqlalchemy.exc import (
     IntegrityError
 )
 from sqlalchemy import (
-    create_engine, 
+    create_engine,
+    func,
     Binary,
     Boolean,
     Column,
@@ -5276,7 +5280,6 @@ class Resource(Base):
                 if (champion_media_type_priority is None
                     or (media_priority is not None
                         and media_priority < champion_media_type_priority)):
-                    print "%s beats %s" % (media_priority, champion_media_type_priority)
                     champions = [r]
                     champion_score = r.quality
                     champion_media_type_priority = media_priority
@@ -5338,9 +5341,12 @@ class Genre(Base):
                                cascade="all, delete, delete-orphan")
 
     def __repr__(self):
+        if classifier.genres.get(self.name):
+            length = len(classifier.genres[self.name].subgenres)
+        else:
+            length = 0
         return "<Genre %s (%d subjects, %d works, %d subcategories)>" % (
-            self.name, len(self.subjects), len(self.works),
-            len(classifier.genres[self.name].subgenres))
+            self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
@@ -5358,7 +5364,10 @@ class Genre(Base):
 
     @property
     def genredata(self):
-        return classifier.genres[self.name]
+        if classifier.genres.get(self.name):
+            return classifier.genres[self.name]
+        else:
+            return GenreData(self.name, False)
 
     @property
     def subgenres(self):
@@ -5379,6 +5388,7 @@ class Genre(Base):
         if self.name not in classifier.genres:
             return None
         return classifier.genres[self.name].is_fiction
+
 
 class Subject(Base):
     """A subject under which books might be classified."""
@@ -8345,6 +8355,10 @@ class CustomList(Base):
     # audience, fiction status, and subject, but there is no planned
     # interface for managing this.
 
+    def __repr__(self):
+        return (u'<Custom List name="%s" foreign_identifier="%s" [%d entries]>' % (
+            self.name, self.foreign_identifier, len(self.entries))).encode('utf8')
+
     @classmethod
     def all_from_data_sources(cls, _db, data_sources):
         """All custom lists from the given data sources."""
@@ -8391,7 +8405,7 @@ class CustomList(Base):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
-        existing = self.entries_for_work(edition)
+        existing = list(self.entries_for_work(edition))
         if existing:
             was_new = False
             entry = existing[0]
@@ -8427,7 +8441,7 @@ class CustomList(Base):
         """
         _db = Session.object_session(self)
 
-        existing_entries = self.entries_for_work(edition)
+        existing_entries = list(self.entries_for_work(edition))
         for entry in existing_entries:
             _db.delete(entry)
 
@@ -8443,8 +8457,11 @@ class CustomList(Base):
         if isinstance(work_or_edition, Work):
             edition = work_or_edition.presentation_edition
 
-        equivalents = edition.equivalent_editions()
-        return [e for e in self.entries if e.edition in equivalents]
+        equivalents = edition.equivalent_editions().all()
+
+        for entry in self.entries:
+            if entry.edition in equivalents:
+                yield entry
 
 
 class CustomListEntry(Base):
@@ -8798,13 +8815,35 @@ class Admin(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(Unicode, unique=True, nullable=False)
-    access_token = Column(Unicode, index=True)
+
+    # Admins who log in with OAuth will have a credential.
     credential = Column(Unicode)
 
-    def update_credentials(self, _db, access_token, credential):
-        self.access_token = access_token
-        self.credential = credential
+    # Admins can also log in with a local password.
+    password_hashed = Column(Unicode, index=True)
+
+    def update_credentials(self, _db, credential=None):
+        if credential:
+            self.credential = credential
         _db.commit()
+
+    class HashedPasswordComparator(Comparator):
+        def __init__(self, hashed_password):
+            self.hashed_password = hashed_password
+        def __eq__(self, password):
+            return self.hashed_password == func.crypt(password, self.hashed_password)
+
+    @hybrid_property
+    def password(self):
+        raise NotImplementedError("Password comparison is only supported in the database")
+
+    @password.comparator
+    def password(self):
+        return Admin.HashedPasswordComparator(self.password_hashed)
+
+    @password.setter
+    def password(self, value):
+        self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
 
 
 class ExternalIntegration(Base):
@@ -8967,7 +9006,6 @@ class ExternalIntegrationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'key'),
     )
-
 
 class Collection(Base):
 

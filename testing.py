@@ -200,7 +200,7 @@ class DatabaseTest(object):
                  identifier_type=Identifier.GUTENBERG_ID,
                  with_license_pool=False, with_open_access_download=False,
                  title=None, language="eng", authors=None, identifier_id=None,
-                 collection=None
+                 series=None, collection=None
     ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
@@ -209,6 +209,8 @@ class DatabaseTest(object):
         if not title:
             title = self._str
         wr.title = unicode(title)
+        if series:
+            wr.series = series
         if language:
             wr.language = language
         if authors is None:
@@ -220,7 +222,7 @@ class DatabaseTest(object):
             wr.author = unicode(authors[0])
         for author in authors[1:]:
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
-            
+
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(
                 wr, data_source_name=data_source_name,
@@ -234,7 +236,7 @@ class DatabaseTest(object):
 
     def _work(self, title=None, authors=None, genre=None, language=None,
               audience=None, fiction=True, with_license_pool=False, 
-              with_open_access_download=False, quality=0.5,
+              with_open_access_download=False, quality=0.5, series=None,
               presentation_edition=None):
         pool = None
         if with_open_access_download:
@@ -258,7 +260,8 @@ class DatabaseTest(object):
                 authors=authors,
                 with_license_pool=with_license_pool,
                 with_open_access_download=with_open_access_download,
-                data_source_name=data_source_name
+                data_source_name=data_source_name,
+                series=series,
             )
             if with_license_pool:
                 presentation_edition, pool = presentation_edition

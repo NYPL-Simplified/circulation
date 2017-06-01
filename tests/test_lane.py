@@ -321,7 +321,29 @@ class TestLane(DatabaseTest):
         eq_(True, all_language_lane.includes_language('eng'))
         eq_(True, all_language_lane.includes_language('fre'))
 
-        
+    def test_set_customlist_ignored_when_no_list(self):
+
+        class SetCustomListErrorLane(Lane):
+            def set_customlist_information(self, *args, **kwargs):
+                raise RuntimeError()
+
+        # Because this lane has no list-related information, the
+        # RuntimeError shouldn't pop up at all.
+        lane = SetCustomListErrorLane(self._db, self._str)
+
+        # The minute we put in some list information, it does!
+        assert_raises(
+            RuntimeError, SetCustomListErrorLane, self._db, self._str,
+            list_data_source=DataSource.NYT
+        )
+
+        # It can be a DataSource, or a CustomList identifier. World == oyster.
+        assert_raises(
+            RuntimeError, SetCustomListErrorLane, self._db, self._str,
+            list_identifier=u"Staff Picks"
+        )
+
+
 class TestLanes(DatabaseTest):
 
     def test_all_matching_genres(self):

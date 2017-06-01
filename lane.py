@@ -582,11 +582,16 @@ class Lane(object):
             exclude_genres=exclude_genres, fiction=fiction
         )
 
-        # CustomList information must be set after sublanes.
-        # Otherwise, sublanes won't be restricted by the list.
-        self.set_customlist_information(
-            list_data_source, list_identifier, list_seen_in_previous_days
-        )
+        if list_data_source or list_identifier:
+            # CustomList information must be set after sublanes.
+            # Otherwise, sublanes won't be restricted by the list.
+            self.set_customlist_information(
+                list_data_source, list_identifier, list_seen_in_previous_days
+            )
+        else:
+            self.list_data_source_id = None
+            self.list_ids = list()
+            self.list_featured_works_query = None
 
         # Best-seller and staff pick lanes go at the top.
         base_args = dict(
@@ -653,6 +658,9 @@ class Lane(object):
         for sublane in self.sublanes:
             # If the sublanes were set beforehand, they need to
             # inherit this information now.
+            #
+            # TODO: Find a different way to combine list restrictions
+            # from parent lanes. This is a placeholder.
             sublane.set_customlist_information(None, None, None)
 
         self.set_from_parent(
