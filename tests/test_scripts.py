@@ -51,6 +51,7 @@ from scripts import (
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
+    OPDSImportScript,
     PatronInputScript,
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
@@ -1242,3 +1243,62 @@ class TestConfigureCollectionScript(DatabaseTest):
                   + "\n".join(collection.explain()) + "\n")
         
         eq_(expect, output.getvalue())
+
+
+class MockOPDSImportMonitor(object):
+
+    INSTANCES = []
+    
+    def __init__(self, _db, collection, *args, **kwargs):
+        self.collection = collection
+        self.args = args
+        self.kwargs = kwargs
+        self.INSTANCES.append(self)
+        self.was_run = False
+        
+    def run(self):
+        self.was_run = True
+
+class MockOPDSImporter(object):
+    pass
+
+class MockOPDSImportScript(OPDSImportScript):
+    MONITOR_CLASS = MockOPDSImportMonitor
+    IMPORTER_CLASS = MockOPDSImporter
+
+
+class TestOPDSImportScript(DatabaseTest):  
+       
+    def test_do_run(self):
+        self._default_collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value = (
+            DataSource.OA_CONTENT_SERVER
+        )
+
+        script = MockOPDSImportScript(self._db)
+        script.do_run([])
+
+        # Since we provided no collection, no MockOPDSImportMonitor
+        # was instantiated.
+        eq_([], MockOPDSImportMonitor.INSTANCES)
+
+        args = ['--collection=%s' % self._default_collection.name]
+        script.do_run(args)
+
+        # Now a monitor has been instantiated and run.
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.was_run)
+
+        # Our replacement OPDS importer class was passed in to the
+        # monitor constructor. If this had been a real monitor, that's the
+        # code we would have used to import OPDS feeds.
+        eq_(MockOPDSImporter, monitor.kwargs['import_class'])
+        eq_(False, monitor.kwargs['force_reimport'])
+
+        # Setting --force changes the 'force_reimport' argument
+        # passed to the monitor constructor.
+        args.append('--force')
+        script.do_run(args)
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.kwargs['force_reimport'])

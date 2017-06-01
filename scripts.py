@@ -58,7 +58,10 @@ from model import (
 from external_search import ExternalSearchIndex
 from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
-from opds_import import OPDSImportMonitor
+from opds_import import (
+    OPDSImportMonitor,
+    OPDSImporter,
+)
 from oneclick import OneClickAPI, MockOneClickAPI
 from overdrive import OverdriveBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
@@ -1167,48 +1170,65 @@ class OneClickDeltaScript(OneClickImportScript):
         items_transmitted, items_updated = self.api.populate_delta()
 
 
-class OPDSImportScript(Script):
-    """Import all books from an OPDS feed."""
+class CollectionInputScript(Script):
+    """A script that takes collection names as command line inputs."""
 
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        return cls.look_up_collections(_db, parsed, *args, **kwargs)
+
+    @classmethod
+    def look_up_collections(cls, _db, parsed, *args, **kwargs):
+        """Turn collection names as specified on the command line into
+        real database Collection objects.
+        """
+        parsed.collections = []
+        for name in parsed.collection_names:
+            collection = get_one(_db, Collection, name=name)
+            if not collection:
+                raise ValueError("Unknown collection: %s" % name)
+            parsed.collections.append(collection)
+        return parsed    
+    
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--url', 
-            help='URL of the OPDS feed to be imported'
+            '--collection', 
+            help='Collection to use',
+            dest='collection_names',            
+            metavar='NAME', nargs='+', default=[]
         )
-        parser.add_argument(
-            '--data-source', 
-            help='The name of the data source providing the OPDS feed.'
-        )
+        return parser
+    
+    
+class OPDSImportScript(CollectionInputScript):
+    """Import all books from the OPDS feed associated with a collection."""
+
+    IMPORTER_CLASS = OPDSImporter
+    MONITOR_CLASS = OPDSImportMonitor
+    
+    @classmethod
+    def arg_parser(cls):
+        parser = CollectionInputScript.arg_parser()
         parser.add_argument(
             '--force', 
             help='Import the feed from scratch, even if it seems like it was already imported.',
             dest='force', action='store_true'
         )
         return parser
-
-    def __init__(self, feed_url, opds_data_source, importer_class, 
-                 immediately_presentation_ready=False, cmd_args=None,
-                 _db=None):
-        if _db:
-            self._session = _db
-
-        args = self.parse_command_line(cmd_args)
-        self.force_reimport = args.force
-        self.feed_url = args.url or feed_url
-        self.opds_data_source = args.data_source or opds_data_source
-        self.importer_class = importer_class
-        self.immediately_presentation_ready = immediately_presentation_ready
-
-    def do_run(self):
-        monitor = OPDSImportMonitor(
-            self._db, self.feed_url, self.opds_data_source, 
-            self.importer_class, 
-            immediately_presentation_ready = self.immediately_presentation_ready,
-            force_reimport=self.force_reimport
-        )
-        monitor.run()
+    
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        for collection in parsed.collections:
+            monitor = self.MONITOR_CLASS(
+                self._db, collection, import_class=self.IMPORTER_CLASS,
+                force_reimport=parsed.force
+            )
+            monitor.run()
 
 
 class NYTBestSellerListsScript(Script):
