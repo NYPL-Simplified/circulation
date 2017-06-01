@@ -1217,7 +1217,7 @@ class CollectionInputScript(Script):
             '--collection', 
             help='Collection to use',
             dest='collection_names',            
-            metavar='NAME', nargs='+', default=[]
+            metavar='NAME', action='append', default=[]
         )
         return parser
     

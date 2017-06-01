@@ -1290,7 +1290,8 @@ class TestCollectionInputScript(DatabaseTest):
         # on the command line.
         c2 = self._collection()
         expect = [c2, self._default_collection]
-        actual = collections(["--collection=" + c.name for c in expect])
+        args = ["--collection=" + c.name for c in expect]
+        actual = collections(args)
         eq_(expect, actual)
 
 
