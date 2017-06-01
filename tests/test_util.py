@@ -433,41 +433,46 @@ class TestOPDSAuthenticationDocument(DatabaseTest):
     def test_bad_documents(self):
         assert_raises(
             ValueError, OPDSAuthenticationDocument.fill_in, 
-            {}, "Not a list", "A title", "An id"
+            {}, "Not a list", "A name", "A title", "An id"
         )
 
         assert_raises(
             ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
-            None, "An id"
+            "A name", None, "An id"
         )
 
         assert_raises(
             ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
-            "A title", None
+            "A name", None, "An id"
+        )
+
+        assert_raises(
+            ValueError, OPDSAuthenticationDocument.fill_in, {}, [],
+            "A name", "A title", None
         )
 
     def test_fill_in_adds_providers(self):
         class MockProvider(object):
             URI = "http://example.com/"
-            def authentication_provider_document(self, _db):
+            def authentication_provider_document(self, short_name):
                 return "foo"
 
         doc1 = {"id": "An ID", "name": "A title"}
         doc2 = OPDSAuthenticationDocument.fill_in(
-            doc1, [MockProvider()], self._db, "Bla1", "Bla2")
+            doc1, [MockProvider()], "Bla0", "Bla1", "Bla2")
         eq_({'http://example.com/': 'foo'}, doc2['providers'])
 
     def test_fill_in_raises_valueerror_if_uri_not_defined(self):
         class MockProvider(object):
             URI = None
-            def authentication_provider_document(self, _db):
+            def authentication_provider_document(self, short_name):
                 return "foo"
 
         doc = {"id": "An ID", "name": "A title"}
         assert_raises_regexp(
             ValueError, "does not define .URI",
             OPDSAuthenticationDocument.fill_in,
-            doc, [MockProvider()], self._db, "Bla1", "Bla2"
+            doc, [MockProvider()], "Bla0", "Bla1", "Bla2"
         )
         
     def test_fill_in_does_not_change_already_set_values(self):
@@ -475,7 +480,7 @@ class TestOPDSAuthenticationDocument(DatabaseTest):
         doc1 = {"id": "An ID", "name": "A title"}
 
         doc2 = OPDSAuthenticationDocument.fill_in(
-            doc1, [], self._db, "Bla1", "Bla2")
+            doc1, [], "Bla0", "Bla1", "Bla2")
         del doc2['providers']
         eq_(doc2, doc1)
 
@@ -492,7 +497,7 @@ class TestOPDSAuthenticationDocument(DatabaseTest):
         }
 
         doc = OPDSAuthenticationDocument.fill_in(
-            {}, [], self._db,
+            {}, [], "A name",
             "A title", "An ID", links=links)
 
         eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
