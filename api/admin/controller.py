@@ -100,7 +100,7 @@ class AdminController(object):
     @property
     def auth(self):
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        if auth_service and auth_service.provider == ExternalIntegration.GOOGLE_OAUTH:
+        if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
             return GoogleAuthService(
                 auth_service,
                 self.url_for('google_auth_callback'),
@@ -211,11 +211,11 @@ class WorkController(CirculationManagerController):
         This includes relevant links for editing the book.
         """
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
@@ -224,7 +224,7 @@ class WorkController(CirculationManagerController):
         """Return detailed complaint information for admins."""
         
         
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -242,7 +242,7 @@ class WorkController(CirculationManagerController):
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -325,7 +325,7 @@ class WorkController(CirculationManagerController):
     def suppress(self, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
         # Turn source + identifier into a LicensePool
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
@@ -345,7 +345,7 @@ class WorkController(CirculationManagerController):
         LicensePoool.
         """
         # Turn source + identifier into a group of LicensePools
-        pools = self.load_licensepools(self.library, identifier_type, identifier)
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
@@ -360,7 +360,7 @@ class WorkController(CirculationManagerController):
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -386,7 +386,7 @@ class WorkController(CirculationManagerController):
     def resolve_complaints(self, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -411,7 +411,7 @@ class WorkController(CirculationManagerController):
     def classifications(self, identifier_type, identifier):
         """Return list of this work's classifications."""
 
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -444,7 +444,7 @@ class WorkController(CirculationManagerController):
     def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
         
-        work = self.load_work(self.library, identifier_type, identifier)
+        work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
@@ -608,7 +608,7 @@ class FeedController(CirculationManagerController):
 
     def complaints(self):
         this_url = self.url_for('complaints')
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -621,7 +621,7 @@ class FeedController(CirculationManagerController):
 
     def suppressed(self):
         this_url = self.url_for('suppressed')
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -765,7 +765,7 @@ class DashboardController(CirculationManagerController):
         )
 
     def circulation_events(self):
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         num = min(int(flask.request.args.get("num", "100")), 500)
 
         results = self._db.query(CirculationEvent) \
@@ -884,7 +884,8 @@ class SettingsController(CirculationManagerController):
         else:
             library, is_new = get_one_or_create(
                 self._db, Library, create_method_kwargs=dict(
-                    uuid=str(uuid.uuid4())
+                    uuid=str(uuid.uuid4()),
+                    short_name=short_name,
                 )
             )
 
@@ -916,14 +917,14 @@ class SettingsController(CirculationManagerController):
         protocols = []
         
         protocols.append({
-            "name": Collection.OPDS_IMPORT,
+            "name": ExternalIntegration.OPDS_IMPORT,
             "fields": [
                 { "key": "external_account_id", "label": _("URL") },
             ],
         })
 
         protocols.append({
-            "name": Collection.OVERDRIVE,
+            "name": ExternalIntegration.OVERDRIVE,
             "fields": [
                 { "key": "external_account_id", "label": _("Library ID") },
                 { "key": "website_id", "label": _("Website ID") },
@@ -933,7 +934,7 @@ class SettingsController(CirculationManagerController):
         })
 
         protocols.append({
-            "name": Collection.BIBLIOTHECA,
+            "name": ExternalIntegration.BIBLIOTHECA,
             "fields": [
                 { "key": "username", "label": _("Account ID") },
                 { "key": "password", "label": _("Account Key") },
@@ -942,7 +943,7 @@ class SettingsController(CirculationManagerController):
         })
 
         protocols.append({
-            "name": Collection.AXIS_360,
+            "name": ExternalIntegration.AXIS_360,
             "fields": [
                 { "key": "username", "label": _("Username") },
                 { "key": "password", "label": _("Password") },
@@ -952,7 +953,7 @@ class SettingsController(CirculationManagerController):
         })
 
         protocols.append({
-            "name": Collection.ONE_CLICK,
+            "name": ExternalIntegration.ONE_CLICK,
             "fields": [
                 { "key": "password", "label": _("Basic Token") },
                 { "key": "external_account_id", "label": _("Library ID") },
@@ -1006,8 +1007,9 @@ class SettingsController(CirculationManagerController):
         else:
             if protocol:
                 collection, is_new = get_one_or_create(
-                    self._db, Collection, name=name, protocol=protocol
+                    self._db, Collection, name=name
                 )
+                collection.create_external_integration(protocol)
             else:
                 return NO_PROTOCOL_FOR_NEW_COLLECTION
 
@@ -1058,10 +1060,10 @@ class SettingsController(CirculationManagerController):
         if flask.request.method == 'GET':
             auth_services = []
             auth_service = ExternalIntegration.admin_authentication(self._db)
-            if auth_service and auth_service.provider == ExternalIntegration.GOOGLE_OAUTH:
+            if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
-                        provider=auth_service.provider,
+                        provider=auth_service.protocol,
                         url=auth_service.url,
                         username=auth_service.username,
                         password=auth_service.password,
@@ -1071,26 +1073,26 @@ class SettingsController(CirculationManagerController):
 
             return dict(
                 admin_auth_services=auth_services,
-                providers=ExternalIntegration.ADMIN_AUTH_PROVIDERS,
+                providers=ExternalIntegration.ADMIN_AUTH_PROTOCOLS,
             )
 
-        provider = flask.request.form.get("provider")
-        if not provider:
+        protocol = flask.request.form.get("provider")
+        if not protocol:
             return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
 
-        if provider not in ExternalIntegration.ADMIN_AUTH_PROVIDERS:
+        if protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
 
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        if auth_service and provider != auth_service.provider:
+        if auth_service and protocol != auth_service.protocol:
             return ADMIN_AUTH_SERVICE_NOT_FOUND
 
         else:
-            if provider:
+            if protocol:
                 auth_service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, provider=provider,
-                    type=ExternalIntegration.ADMIN_AUTH_TYPE
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
                 )
             else:
                 return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE

@@ -94,7 +94,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
         super(TestCirculationManagerAnnotator, self).setup()
         self.work = self._work(with_open_access_download=True)
         self.annotator = CirculationManagerAnnotator(
-            None, Fantasy, test_mode=True, top_level_title="Test Top Level Title"
+            None, Fantasy, self._default_library, test_mode=True, top_level_title="Test Top Level Title"
         )
             
     def test_add_configuration_links(self):
@@ -313,7 +313,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
             eq_("http://librarysimplified.org/terms/drm/rel/devices",
                 device_management_link.attrib['rel'])
             expect_url = self.annotator.url_for(
-                'adobe_drm_devices', _external=True
+                'adobe_drm_devices', library_short_name=self._default_library.short_name, _external=True
             )
             eq_(expect_url, device_management_link.attrib['href'])
             
@@ -342,7 +342,7 @@ class TestOPDS(WithVendorIDTest):
         self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         default_lane_url = annotator.default_lane_url()
 
@@ -350,7 +350,7 @@ class TestOPDS(WithVendorIDTest):
         assert "Fantasy" not in default_lane_url
 
     def test_groups_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         groups_url_no_lane = annotator.groups_url(None)
 
@@ -363,21 +363,21 @@ class TestOPDS(WithVendorIDTest):
 
     def test_feed_url(self):
         # A regular Lane.
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         feed_url_fantasy = annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
         assert "Fantasy" in feed_url_fantasy
 
         # A QueryGeneratedLane.
-        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, self._default_library, test_mode=True)
 
         feed_url_contributor = annotator.feed_url(self.contributor_lane, dict(), dict())
         assert self.contributor_lane.ROUTE in feed_url_contributor
         assert self.contributor_lane.contributor_name in feed_url_contributor
 
     def test_search_url(self):
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         search_url = annotator.search_url(self.lane, "query", dict())
         assert "search" in search_url
@@ -387,14 +387,14 @@ class TestOPDS(WithVendorIDTest):
     def test_facet_url(self):
         # A regular Lane.
         facets = dict(collection="main")
-        annotator = CirculationManagerAnnotator(None, self.lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         facet_url = annotator.facet_url(facets)
         assert "collection=main" in facet_url
         assert "Fantasy" in facet_url
 
         # A QueryGeneratedLane.
-        annotator = CirculationManagerAnnotator(None, self.contributor_lane, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, self.contributor_lane, self._default_library, test_mode=True)
 
         facet_url_contributor = annotator.facet_url(facets)
         assert "collection=main" in facet_url_contributor
@@ -407,7 +407,7 @@ class TestOPDS(WithVendorIDTest):
         self._db.commit()
 
         works = self._db.query(Work)
-        annotator = CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+        annotator = CirculationManagerAnnotator(None, Fantasy, self._default_library, test_mode=True)
         pool = annotator.active_licensepool_for(w1)
 
         feed = AcquisitionFeed(self._db, "test", "url", works, annotator)
@@ -430,7 +430,7 @@ class TestOPDS(WithVendorIDTest):
         self._db.commit()
         feed = AcquisitionFeed(
             self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
+                None, Fantasy, self._default_library, test_mode=True))
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [issues_link] = [x for x in entry['links'] if x['rel'] == 'issues']
@@ -446,7 +446,7 @@ class TestOPDS(WithVendorIDTest):
         works = self._db.query(Work)
         feed = AcquisitionFeed(
             self._db, "test", "url", works, CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
+                None, Fantasy, self._default_library, test_mode=True))
 
         feed = feedparser.parse(unicode(feed))
         entries = sorted(feed['entries'], key = lambda x: int(x['title']))
@@ -465,7 +465,7 @@ class TestOPDS(WithVendorIDTest):
             """Tests the presence of a /related_books link in a feed."""
             feed = AcquisitionFeed(
                 self._db, "test", "url", [work],
-                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+                CirculationManagerAnnotator(None, Fantasy, self._default_library, test_mode=True)
             )
             feed = feedparser.parse(unicode(feed))
             [entry] = feed['entries']
@@ -493,7 +493,7 @@ class TestOPDS(WithVendorIDTest):
             config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
             feed = AcquisitionFeed(
                 self._db, "test", "url", [work],
-                CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+                CirculationManagerAnnotator(None, Fantasy, self._default_library, test_mode=True)
             )
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
@@ -522,7 +522,7 @@ class TestOPDS(WithVendorIDTest):
         self._db.commit()
         feed = AcquisitionFeed(
             self._db, "test", "url", [w1], CirculationManagerAnnotator(
-                None, Fantasy, test_mode=True))
+                None, Fantasy, self._default_library, test_mode=True))
         feed = feedparser.parse(unicode(feed))
         [entry] = feed['entries']
         [annotations_link] = [x for x in entry['links'] if x['rel'] == 'http://www.w3.org/ns/oa#annotationservice']
@@ -549,7 +549,7 @@ class TestOPDS(WithVendorIDTest):
             ]
             annotator = cls(None, None, patron, test_mode=True)
             expect_url = annotator.url_for(
-                'patron_profile', _external=True
+                'patron_profile', library_short_name=patron.library.short_name, _external=True
             )
             eq_(expect_url, upmp_link['href'])
             
@@ -705,7 +705,7 @@ class TestOPDS(WithVendorIDTest):
         works = self._db.query(Work)
         feed = AcquisitionFeed(
             self._db, "test", "url", works,
-            CirculationManagerAnnotator(None, Fantasy, test_mode=True)
+            CirculationManagerAnnotator(None, Fantasy, self._default_library, test_mode=True)
         )
         u = unicode(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
@@ -816,7 +816,7 @@ class TestOPDS(WithVendorIDTest):
         a generic drm:licensor tag, except with the drm:scheme attribute 
         set.
         """ 
-        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
         patron = self._patron()
         with self.temp_config() as config:
             [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
@@ -843,7 +843,7 @@ class TestOPDS(WithVendorIDTest):
         data_source_name = pool.data_source.name
         identifier = pool.identifier
 
-        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, test_mode=True)
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
         
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.

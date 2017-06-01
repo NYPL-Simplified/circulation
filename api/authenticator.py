@@ -335,26 +335,42 @@ class PatronData(object):
         self.authorization_identifiers = authorization_identifiers
 
 class Authenticator(object):
+    """Route requests to the appropriate LibraryAuthenticator.
+    """
+
+    def __init__(self, _db):
+        self.library_authenticators = {}
+
+        for library in _db.query(Library):
+            self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library)
+
+    def invoke_authenticator_method(self, method_name, *args, **kwargs):
+        short_name = flask.request.library.short_name
+        if short_name not in self.library_authenticators:
+            return LIBRARY_NOT_FOUND
+        return getattr(self.library_authenticators[short_name], method_name)(*args, **kwargs)
+
+    def authenticated_patron(self, _db, header):
+        return self.invoke_authenticator_method("authenticated_patron", _db, header)
+
+    def create_authentication_document(self):
+        return self.invoke_authenticator_method("create_authentication_document")
+
+    def create_authentication_headers(self):
+        return self.invoke_authenticator_method("create_authentication_headers")
+
+    def get_credential_from_header(self, header):
+        return self.invoke_authenticator_method("get_credential_from_header", header)
+
+class LibraryAuthenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
     credentials into Patron objects.
     """    
 
     @classmethod
-    def from_config(cls, _db):
+    def from_config(cls, _db, library):
         """Initialize an Authenticator from site configuration.
         """
-        # TODO: This needs to change to get _all_ libraries
-        # and instantiate an Authenticator for each, or else
-        # a single Authenticator that can handle all of them.
-        library = Library.instance(_db)
-        
-        # Commit just in case this is the first time the Library has
-        # ever been loaded.
-        _db.commit()
-
-        integrations = _db.query(ExternalIntegration).filter(
-            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
-        )
         
         authentication_policy = Configuration.policy("authentication")
         if not authentication_policy:
@@ -406,14 +422,13 @@ class Authenticator(object):
     def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
                  bearer_token_signing_secret=None):
-        """Initialize an Authenticator from a list of AuthenticationProviders.
+        """Initialize a LibraryAuthenticator from a list of AuthenticationProviders.
 
         :param _db: A database session (probably a scoped session, which is
             why we can't derive it from `library`)
 
-        :param library: The Library to which this Authenticator guards
-        access. TODO: This paramater will disappear if we decide that
-        an Authenticator guards access to _all_ libraries.
+        :param library: The Library to which this LibraryAuthenticator guards
+        access.
 
         :param basic_auth_provider: The AuthenticatonProvider that handles
         HTTP Basic Auth requests.
@@ -429,6 +444,7 @@ class Authenticator(object):
         self.library_id = library.id
         self.library_uuid = library.uuid
         self.library_name = library.name
+        self.library_short_name = library.short_name
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
@@ -438,7 +454,7 @@ class Authenticator(object):
         self.assert_ready_for_oauth()
         
     def assert_ready_for_oauth(self):
-        """If this Authenticator has OAuth providers, ensure that it
+        """If this LibraryAuthenticator has OAuth providers, ensure that it
         also has a secret it can use to sign bearer tokens.
         """
         if self.oauth_providers_by_name and not self.bearer_token_signing_secret:
@@ -625,11 +641,6 @@ class Authenticator(object):
         """
         base_opds_document = Configuration.base_opds_authentication_document()
 
-        circulation_manager_url = Configuration.integration_url(
-            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
-        scheme, netloc, path, parameters, query, fragment = (
-            urlparse.urlparse(circulation_manager_url))
-
         links = {}
         for rel, value in (
                 ("terms-of-service", Configuration.terms_of_service_url()),
@@ -643,7 +654,7 @@ class Authenticator(object):
 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, list(self.providers),
+            base_opds_document, list(self.providers), short_name=self.library_short_name,
             name=library_name, id=self.library_uuid, links=links,
         )
         return json.dumps(doc)
@@ -773,7 +784,7 @@ class AuthenticationProvider(object):
             patron_or_patrondata
         )       
     
-    def authentication_provider_document(self):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         :return: A dictionary that can be associated with the
@@ -1075,8 +1086,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     def authentication_header(self):
         return 'Basic realm="%s"' % self.AUTHENTICATION_REALM
     
-    @property
-    def authentication_provider_document(self):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1219,7 +1229,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         return None
 
-    def external_authenticate_url(self, state):
+    def external_authenticate_url(self, state, _db):
         """Generate the URL provided by the OAuth provider which will present
         the patron with a login form.
 
@@ -1227,18 +1237,19 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         callback.
         """
         template = self.EXTERNAL_AUTHENTICATE_URL
-        arguments = self.external_authenticate_url_parameters(state)
+        arguments = self.external_authenticate_url_parameters(state, _db)
         return template % arguments
 
-    def external_authenticate_url_parameters(self, state):
+    def external_authenticate_url_parameters(self, state, _db):
         """Arguments used to fill in the template EXTERNAL_AUTHENTICATE_URL.
         """
+        library_short_name = self.library(_db).short_name
         return dict(
             client_id=self.client_id,
             state=state,
             # When the patron finishes logging in to the OAuth provider,
             # we want them to send the patron to this URL.
-            oauth_callback_url=OAuthController.oauth_authentication_callback_url()
+            oauth_callback_url=OAuthController.oauth_authentication_callback_url(library_short_name)
         )
 
 
@@ -1265,7 +1276,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         # Ask the OAuth provider to verify the code that was passed
         # in.  This will give us an access token we can use to look up
         # detailed patron information.
-        token = self.remote_exchange_code_for_access_token(code)
+        token = self.remote_exchange_code_for_access_token(_db, code)
         if isinstance(token, ProblemDetail):
             return token
         
@@ -1284,7 +1295,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         credential, is_new = self.create_token(_db, patron, token)
         return credential, patron, patrondata
 
-    def remote_exchange_authorization_code_for_access_token(self, code):
+    def remote_exchange_authorization_code_for_access_token(self, _db, code):
         """Ask the OAuth provider to convert a code (passed in to the OAuth
         callback) into a bearer token.
 
@@ -1306,16 +1317,15 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         raise NotImplementedError()
     
-    def _internal_authenticate_url(self):
+    def _internal_authenticate_url(self, library_short_name):
         """A patron who wants to log in should hit this URL on the circulation
         manager. They'll be redirected to the OAuth provider, which will 
         take care of it.
         """
         return url_for('oauth_authenticate', _external=True,
-                       provider=self.NAME)
+                       provider=self.NAME, library_short_name=library_short_name)
 
-    @property
-    def authentication_provider_document(self):
+    def authentication_provider_document(self, library_short_name):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1329,7 +1339,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             }
         }
         """
-        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url()))
+        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(library_short_name)))
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
@@ -1350,7 +1360,7 @@ class OAuthController(object):
         self.authenticator = authenticator
 
     @classmethod
-    def oauth_authentication_callback_url(cls):
+    def oauth_authentication_callback_url(cls, library_short_name):
         """The URL to the oauth_authentication_callback controller.
 
         This is its own method because sometimes an
@@ -1358,9 +1368,9 @@ class OAuthController(object):
         provider to demonstrate that it knows which URL a patron was
         redirected to.
         """
-        return url_for('oauth_callback', _external=True)
+        return url_for('oauth_callback', library_short_name=library_short_name, _external=True)
         
-    def oauth_authentication_redirect(self, params):
+    def oauth_authentication_redirect(self, params, _db):
         """Redirect an unauthenticated patron to the authentication URL of the
         appropriate OAuth provider.
 
@@ -1378,7 +1388,7 @@ class OAuthController(object):
         )
         state = json.dumps(state)
         state = urllib.quote(state)
-        return redirect(provider.external_authenticate_url(state))
+        return redirect(provider.external_authenticate_url(state, _db))
 
     def oauth_authentication_callback(self, _db, params):
         """Create a Patron object and a bearer token for a patron who has just

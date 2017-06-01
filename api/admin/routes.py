@@ -13,11 +13,16 @@ from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
 from core.app_server import returns_problem_detail
+from core.model import Library
 
 from controller import setup_admin_controllers
 from templates import (
     admin as admin_template,
     admin_sign_in_again as sign_in_again_template,
+)
+from api.routes import (
+    has_library,
+    library_route,
 )
 
 import csv, codecs, cStringIO
@@ -81,13 +86,15 @@ def google_auth_callback():
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
 def work_details(identifier_type, identifier):
     return app.manager.admin_work_controller.details(identifier_type, identifier)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
 def work_classifications(identifier_type, identifier):
@@ -96,7 +103,8 @@ def work_classifications(identifier_type, identifier):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
 def work_complaints(identifier_type, identifier):
@@ -105,54 +113,62 @@ def work_complaints(identifier_type, identifier):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 def edit(identifier_type, identifier):
     return app.manager.admin_work_controller.edit(identifier_type, identifier)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
 def suppress(identifier_type, identifier):
     return app.manager.admin_work_controller.suppress(identifier_type, identifier)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
 def unsuppress(identifier_type, identifier):
     return app.manager.admin_work_controller.unsuppress(identifier_type, identifier)
 
-@app.route('/works/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
+@library_route('/works/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_csrf_token
 @requires_admin
 def refresh(identifier_type, identifier):
     return app.manager.admin_work_controller.refresh_metadata(identifier_type, identifier)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def resolve_complaints(identifier_type, identifier):
     return app.manager.admin_work_controller.resolve_complaints(identifier_type, identifier)
 
-@app.route('/admin/works/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def edit_classifications(identifier_type, identifier):
     return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
 
-@app.route('/admin/complaints')
+@library_route('/admin/complaints')
+@has_library
 @returns_problem_detail
 @requires_admin
 def complaints():
     return app.manager.admin_feed_controller.complaints()
 
-@app.route('/admin/suppressed')
+@library_route('/admin/suppressed')
+@has_library
 @returns_problem_detail
 @requires_admin
 def suppressed():
@@ -217,7 +233,8 @@ def bulk_circulation_events():
     response.headers["Content-type"] = "text/csv"
     return response
 
-@app.route('/admin/circulation_events')
+@library_route('/admin/circulation_events')
+@has_library
 @returns_problem_detail
 @requires_admin
 def circulation_events():
@@ -309,15 +326,18 @@ def admin_view(collection=None, book=None, **kwargs):
                     quoted_book,
                     quoted_book.replace("/", "%2F"))
             return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
+        library = Library.instance(app.manager._db)
+        home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
     else:
         csrf_token = None
+        home_url = None
     show_circ_events_download = (
         "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
     )
     return flask.render_template_string(
         admin_template,
         csrf_token=csrf_token,
-        home_url=app.manager.url_for('acquisition_groups'),
+        home_url=home_url,
         show_circ_events_download=show_circ_events_download,
         setting_up=setting_up,
     )

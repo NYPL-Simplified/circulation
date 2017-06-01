@@ -229,7 +229,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=Collection.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
         self.provider = self.create_provider()
 
@@ -359,7 +359,7 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
-            protocol=Collection.BIBLIOTHECA, external_account_id=u'lib'
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
         self.lookup = MockMetadataWranglerOPDSLookup(self._db, collection=self.collection)
 
@@ -479,7 +479,7 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
 
     def test_items_that_need_coverage(self):
         source = self.provider.data_source
-        other_collection = self._collection(protocol=Collection.OVERDRIVE)
+        other_collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
 
         # An item that has been synced for some other Collection, but not
         # this one.

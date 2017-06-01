@@ -4,7 +4,7 @@ from core.util.problem_detail import ProblemDetail
 from circulation_exceptions import *
 from problem_details import *
 from flask.ext.babel import lazy_gettext as _
-from core.model import Library
+from core.model import Library, get_one
 
 class BaseCirculationManagerController(object):
     """Define minimal standards for a circulation manager controller,
@@ -19,16 +19,6 @@ class BaseCirculationManagerController(object):
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 
-    @property
-    def library(self):
-        """Set flask.request.library.
-
-        TODO: This is a stopgap which will need to be modified once
-        we actually support more than one library.
-        """
-        flask.request.library = Library.instance(self._db)
-        return flask.request.library
-        
     def authorization_header(self):
         """Get the authentication header."""
 
@@ -85,9 +75,21 @@ class BaseCirculationManagerController(object):
 
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
-        if not self.manager.opds_authentication_document:
-            self.manager.opds_authentication_document = self.manager.auth.create_authentication_document()
+        library_short_name = flask.request.library.short_name
+        if library_short_name not in self.manager.opds_authentication_documents:
+            self.manager.opds_authentication_documents[library_short_name] = self.manager.auth.create_authentication_document()
 
-        data = self.manager.opds_authentication_document
+        data = self.manager.opds_authentication_documents[library_short_name]
         headers = self.manager.auth.create_authentication_headers()
         return Response(data, 401, headers)
+
+    def library_for_request(self, library_short_name):
+        if library_short_name:
+            library = get_one(self._db, Library, short_name=library_short_name)
+        else:
+            library = Library.instance(self._db)
+        
+        if not library:
+            return LIBRARY_NOT_FOUND
+        flask.request.library = library
+        return library

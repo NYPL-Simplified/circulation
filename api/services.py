@@ -11,7 +11,7 @@ from core.scripts import (
 from core.util.problem_detail import ProblemDetail
 
 from config import Configuration
-from authenticator import Authenticator
+from authenticator import LibraryAuthenticator
 from overdrive import OverdriveAPI
 from bibliotheca import BibliothecaAPI
 from axis import Axis360API
@@ -27,7 +27,7 @@ class ServiceStatus(object):
     def __init__(self, library, auth=None, api_map=None):
         self._db = Session.object_session(library)
         self.circulation = CirculationAPI(library, api_map)
-        self.auth = auth or Authenticator.from_config(self._db)
+        self.auth = auth or LibraryAuthenticator.from_config(self._db, library)
 
     @property
     def test_patron(self):
