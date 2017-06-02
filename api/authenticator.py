@@ -28,6 +28,7 @@ from util.patron import PatronUtility
 import datetime
 import logging
 from money import Money
+import os
 import re
 import urlparse
 import urllib
@@ -375,9 +376,9 @@ class LibraryAuthenticator(object):
         configured ExternalIntegrations.
         """
 
-        bearer_token_signing_secret = ConfigurationSetting.sitewide(
-            _db, 'bearer_token_signing_secret'
-        ).value
+        bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
+            _db
+        )
 
         # Start with an empty list of authenticators.
         authenticator = cls(
@@ -445,6 +446,10 @@ class LibraryAuthenticator(object):
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
+
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this LibraryAuthenticator has OAuth providers, ensure that it
@@ -461,19 +466,26 @@ class LibraryAuthenticator(object):
 
         :param integration: An ExternalIntegration that configures
         a way of authenticating patrons.
-        """
+        """           
         if integration.goal != integration.PATRON_AUTH_GOAL:
             raise CannotLoadConfiguration(
                 "Was asked to register an integration with goal=%s as though it were a way of authenticating patrons." % integration.goal
             )
 
+        library = self.library
+        if library not in integration.libraries:
+            raise CannotLoadConfiguration(
+                "Was asked to register an integration with library %s, which doesn't use it." % library.name
+            )
+        
         module_name = integration.protocol
         if not module_name:
+            # This should be impossible since protocol is not nullable.
             raise CannotLoadConfiguration(
                 "Authentication provider configuration does not specify protocol."
             )
         provider_module = importlib.import_module(module_name)
-        provider_class = getattr(provider_module, "AuthenticationProvider")
+        provider_class = getattr(provider_module, "AuthenticationProvider", None)
         if not provider_class:
             raise CannotLoadConfiguration(
                 "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
@@ -1186,6 +1198,22 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
 
     # This is the default value for that configuration setting.
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
+
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
+
+    @classmethod
+    def bearer_token_signing_secret(cls, _db):
+        """Find or generate the site-wide bearer token signing secret."""
+        secret = ConfigurationSetting.sitewide(
+            _db, cls.BEARER_TOKEN_SIGNING_SECRET
+        )
+        if not secret.value:
+            secret.value = os.urandom(24).encode('hex')
+            # Commit to get this in the database ASAP.
+            _db.commit()
+        return secret.value
     
     @classmethod
     def from_config(cls, library_id, integration):

@@ -83,9 +83,9 @@ class MockBasicAuthenticationProvider(
     """A mock basic authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, library_id, patron=None, patrondata=None, *args, **kwargs):
+    def __init__(self, library_id, integration, patron=None, patrondata=None, *args, **kwargs):
         super(MockBasicAuthenticationProvider, self).__init__(
-            library_id, *args, **kwargs)
+            library_id, integration, *args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
 
@@ -103,10 +103,10 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
-    def __init__(self, library_id, patrondata=None,
+    def __init__(self, library_id, integration, patrondata=None,
                  remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
-        super(MockBasic, self).__init__(library_id, *args, **kwargs)
+        super(MockBasic, self).__init__(library_id, integration, *args, **kwargs)
         self.patrondata = patrondata
         self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
         
@@ -459,19 +459,21 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_({}, auth.oauth_providers_by_name)
 
     def test_from_config_basic_auth_and_oauth(self):
+        library = self._default_library
         # A basic auth provider and an oauth provider.
         firstbook = self._external_integration(
             "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
             url="http://url/", password="secret"
         )
-
-        oauth = self._external_integration(
-            "api.clever", username="client_id", password="client_secret"
-        )
-        for i in [firstbook, oauth]:
-            self._default_library.integrations.append(i)
+        library.integrations.append(firstbook)
         
-        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
+        oauth = self._external_integration(
+            "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
+            username="client_id", password="client_secret"
+        )
+        library.integrations.append(oauth)
+
+        auth = LibraryAuthenticator.from_config(self._db, library)
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider,
@@ -483,72 +485,67 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
             
-    def test_config_fails_when_no_providers_specified(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {}
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "No authentication policy given.",
-                LibraryAuthenticator.from_config, self._db, self._default_library,
-            )
+    def test_config_fails_when_no_providers_configured(self):
+        assert_raises_regexp(
+            CannotLoadConfiguration, "No authentication providers configured",
+            LibraryAuthenticator.from_config, self._db, self._default_library,
+        )
 
-    def test_config_fails_when_providers_is_not_a_dictionary(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: "api.millenium_patron"
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Authentication policy must be a dictionary with key 'providers'.",
-                LibraryAuthenticator.from_config, self._db, self._default_library,
-            )        
-
-    def test_config_fails_when_provider_is_not_a_dictionary(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": ["api.millenium_patron"]
-                }
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Provider 'api.millenium_patron' is invalid; must be a dictionary.",
-                LibraryAuthenticator.from_config, self._db, self._default_library,
-            )        
-
-    def test_config_fails_when_provider_dictionary_does_not_define_module(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"config": "value"}
-                    ]
-                }
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Provider configuration does not define 'module':",
-                LibraryAuthenticator.from_config, self._db, self._default_library,
-            )
-            
-    def test_register_provider_basic_auth(self):
-        config = {
-            "module": "api.firstbook",
-            Configuration.URL: "http://url",
-            FirstBookAuthenticationAPI.SECRET_KEY: "secret",
-        }
+    def test_register_fails_when_integration_has_wrong_goal(self):
+        integration = self._external_integration(
+            "protocol", "some other goal"
+        )
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
-        auth.register_provider(config)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Was asked to register an integration with goal=some other goal as though it were a way of authenticating patrons.",
+            auth.register_provider, integration
+        )
+
+    def test_register_fails_when_integration_not_associated_with_library(self):
+        integration = self._external_integration(
+            "protocol", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Was asked to register an integration with library .*, which doesn't use it.",
+            auth.register_provider, integration
+        )
+
+    def test_register_fails_when_integration_module_does_not_contain_provider_class(self):
+        library = self._default_library
+        integration = self._external_integration(
+            "api.lanes", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        library.integrations.append(integration)
+        auth = LibraryAuthenticator(_db=self._db, library=library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Loaded module api.lanes but could not find a class called AuthenticationProvider inside.",
+            auth.register_provider, integration
+        )        
+        
+    def test_register_provider_basic_auth(self):
+        firstbook = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+            url="http://url/", password="secret"
+        )
+        self._default_library.integrations.append(firstbook)
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        auth.register_provider(firstbook)
         assert isinstance(
             auth.basic_auth_provider, FirstBookAuthenticationAPI
         )
         
     def test_register_oauth_provider(self):
-        config = {
-            "module": "api.clever",
-            Configuration.OAUTH_CLIENT_ID: 'client_id',
-            Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
-        }
+        oauth = self._external_integration(
+            "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
+            username="client_id", password="client_secret"
+        )
+        self._default_library.integrations.append(oauth)
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
-        auth.register_provider(config)
+        auth.register_provider(oauth)
         eq_(1, len(auth.oauth_providers_by_name))
         clever = auth.oauth_providers_by_name[
             CleverAuthenticationAPI.NAME
@@ -556,8 +553,13 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         assert isinstance(clever, CleverAuthenticationAPI)
             
     def test_oauth_provider_requires_secret(self):
-        basic = MockBasicAuthenticationProvider(self._default_library.id)
-        oauth = MockOAuthAuthenticationProvider(self._default_library.id, "provider1")
+        basic_integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library.id, basic_integration
+        )
+        oauth = MockOAuthAuthenticationProvider(
+            self._default_library.id, "provider1"
+        )
 
         # You can create an Authenticator that only uses Basic Auth
         # without providing a secret.
@@ -585,7 +587,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         
     def test_providers(self):
-        basic = MockBasicAuthenticationProvider(self._default_library.id)
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library.id, integration
+        )
         oauth1 = MockOAuthAuthenticationProvider(self._default_library.id, "provider1")
         oauth2 = MockOAuthAuthenticationProvider(self._default_library.id, "provider2")
 
@@ -608,8 +613,13 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             library=Library.instance(self._db),
             bearer_token_signing_secret='foo'
         )
-        basic1 = MockBasicAuthenticationProvider(self._default_library.id)
-        basic2 = MockBasicAuthenticationProvider(self._default_library.id)
+        integration = self._external_integration(self._str)
+        basic1 = MockBasicAuthenticationProvider(
+            self._default_library.id, integration
+        )
+        basic2 = MockBasicAuthenticationProvider(
+            self._default_library.id, integration
+        )
         oauth1 = MockOAuthAuthenticationProvider(self._default_library.id, "provider1")
         oauth2 = MockOAuthAuthenticationProvider(self._default_library.id, "provider2")
         oauth1_dupe = MockOAuthAuthenticationProvider(self._default_library.id, "provider1")
@@ -636,7 +646,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
     def test_oauth_provider_lookup(self):
 
         # If there are no OAuth providers we cannot look one up.
-        basic = MockBasicAuthenticationProvider(self._default_library.id)
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library.id, integration
+        )
         authenticator = LibraryAuthenticator(
             _db=self._db,
             library=Library.instance(self._db),
@@ -674,8 +687,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             authorization_identifier=patron.authorization_identifier,
             username=patron.username
         )
+        integration = self._external_integration(self._str)
         basic = MockBasicAuthenticationProvider(
-            self._default_library.id, patron=patron, patrondata=patrondata
+            self._default_library.id, integration, patron=patron,
+            patrondata=patrondata
         )
         authenticator = LibraryAuthenticator(
             _db=self._db,
@@ -740,7 +755,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
 
     def test_get_credential_from_header(self):
-        basic = MockBasicAuthenticationProvider(self._default_library.id)
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(self._default_library.id, integration)
         oauth = MockOAuthAuthenticationProvider(self._default_library.id, "oauth1")
 
         # We can pull the password out of a Basic Auth credential
@@ -824,7 +840,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_(token_value, decoded)
 
     def test_create_authentication_document(self):
-        basic = MockBasicAuthenticationProvider(self._default_library.id)
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(self._default_library.id, integration)
         oauth = MockOAuthAuthenticationProvider(self._default_library.id, "oauth")
         oauth.URI = "http://example.org/"
         library = Library.instance(self._db)
