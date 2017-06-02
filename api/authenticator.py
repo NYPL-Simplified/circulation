@@ -369,42 +369,33 @@ class LibraryAuthenticator(object):
 
     @classmethod
     def from_config(cls, _db, library):
-        """Initialize an Authenticator from site configuration.
+        """Initialize an Authenticator for the given Library based on its
+        configured ExternalIntegrations.
         """
-        
-        authentication_policy = Configuration.policy("authentication")
-        if not authentication_policy:
-            raise CannotLoadConfiguration(
-                "No authentication policy given."
-            )
-        
-        if (not isinstance(authentication_policy, dict)
-            or not 'providers' in authentication_policy):
-            raise CannotLoadConfiguration(
-                "Authentication policy must be a dictionary with key 'providers'."
-            )
-        bearer_token_signing_secret = authentication_policy.get(
-            'bearer_token_signing_secret'
-        )
-        providers = authentication_policy['providers']        
-        if isinstance(providers, dict):
-            # There's only one provider.
-            providers = [providers]
-            
-        # Start with an empty list of authenticators.        
+
+        bearer_token_signing_secret = ConfigurationSetting.sitewide(
+            _db, 'bearer_token_signing_secret'
+        ).value
+
+        # Start with an empty list of authenticators.
         authenticator = cls(
             _db=_db, library=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
-        # Register each provider.
-        for provider_dict in providers:
-            if not isinstance(provider_dict, dict):
-                raise CannotLoadConfiguration(
-                    "Provider %r is invalid; must be a dictionary." %
-                    provider_dict
-                )
-            authenticator.register_provider(provider_dict)
+        # Find all of this library's ExternalIntegrations set up with
+        # the goal of authenticating patrons.
+        integrations = _db.query(ExternalIntegration).join(
+            ExternalIntegrations.libraries).filter(
+            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
+        ).filter(
+            ExternalIntegration.library_id==library.id
+        )
+
+        # Turn each such ExternalIntegration into an
+        # AuthenticationProvider.
+        for integration in integrations:
+            authenticator.register_provider(integration)
                 
         if (not authenticator.basic_auth_provider
             and not authenticator.oauth_providers_by_name):
@@ -414,7 +405,7 @@ class LibraryAuthenticator(object):
             # getting rid of all the links to controllers that require
             # authentication.
             raise CannotLoadConfiguration(
-                "No authentication provider configured"
+                "No authentication providers configured"
             )
         authenticator.assert_ready_for_oauth()
         return authenticator
@@ -462,32 +453,37 @@ class LibraryAuthenticator(object):
                 "OAuth providers are configured, but secret for signing bearer tokens is not."
             )
                 
-    def register_provider(self, config):
-        """Turn a description of a provider into an AuthenticationProvider
+    def register_provider(self, integration):
+        """Turn an ExternalIntegration object into an AuthenticationProvider
         object, and register it.
 
-        :param config: A dictionary of parameters that configure
-        the provider.
+        :param integration: An ExternalIntegration that configures
+        a way of authenticating patrons.
         """
-        if not 'module' in config:
+        if integration.goal != integration.PATRON_AUTH_GOAL:
             raise CannotLoadConfiguration(
-                "Provider configuration does not define 'module': %r" %
-                config
+                "Was asked to register an integration with goal=%s as though it were a way of authenticating patrons." % integration.goal
             )
-        module_name = config['module']
-        config = dict(config)
-        del config['module']
+
+        module_name = integration.protocol
+        if not module_name:
+            raise CannotLoadConfiguration(
+                "Authentication provider configuration does not specify protocol."
+            )
         provider_module = importlib.import_module(module_name)
         provider_class = getattr(provider_module, "AuthenticationProvider")
+        if not provider_class:
+            raise CannotLoadConfiguration(
+                "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
+            )
+        provider = provider_class.from_config(self.library_id, integration)
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(self.library_id, config)
             self.register_basic_auth_provider(provider)
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(self.library_id, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
-                "Unrecognized authentication provider: %s" % provider_class
+                "Authentication provider %s is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it." % provider_class
             )
 
     def register_basic_auth_provider(self, provider):
