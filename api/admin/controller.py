@@ -20,6 +20,7 @@ from core.model import (
     Admin,
     CirculationEvent,
     Classification,
+    Collection,
     Complaint,
     DataSource,
     Edition,
@@ -28,6 +29,7 @@ from core.model import (
     Hold,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
     Loan,
     Patron,
@@ -44,7 +46,8 @@ from api.config import (
     CannotLoadConfiguration
 )
 
-from oauth import GoogleAuthService
+from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCoverageProvider
@@ -53,10 +56,6 @@ from core.app_server import (
     entry_response, 
     feed_response,
     load_pagination_from_request
-)
-from core.model import (
-    Collection,
-    Library,
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
@@ -101,21 +100,25 @@ class AdminController(object):
     def auth(self):
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
-            return GoogleAuthService(
+            return GoogleOAuthAdminAuthenticationProvider(
                 auth_service,
                 self.url_for('google_auth_callback'),
                 test_mode=self.manager.testing,
             )
+        elif Admin.with_password(self._db).count() != 0:
+            return PasswordAdminAuthenticationProvider(
+                auth_service,
+            )
         return None
 
     def authenticated_admin_from_request(self):
-        """Returns an authenticated admin or begins the Google OAuth flow"""
+        """Returns an authenticated admin or a problem detail."""
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        access_token = flask.session.get("admin_access_token")
-        if access_token:
-            admin = get_one(self._db, Admin, access_token=access_token)
+        email = flask.session.get("admin_email")
+        if email:
+            admin = get_one(self._db, Admin, email=email)
             if admin and self.auth.active_credentials(admin):
                 return admin
         return INVALID_ADMIN_CREDENTIALS
@@ -127,12 +130,21 @@ class AdminController(object):
             self._db, Admin, email=admin_details['email']
         )
         admin.update_credentials(
-            self._db, admin_details['access_token'], admin_details['credentials']
+            self._db,
+            credential=admin_details.get('credentials'),
         )
+
+        # Set up the admin's flask session.
+        flask.session["admin_email"] = admin_details.get("email")
+
+        # A permanent session expires after a fixed time, rather than
+        # when the user closes the browser.
+        flask.session.permanent = True
+
         return admin
 
     def check_csrf_token(self):
-        """Verifies that the provided CSRF token is valid."""
+        """Verifies that the CSRF token in the form data matches the one in the session."""
         token = self.get_csrf_token()
         if not token or token != flask.request.form.get("csrf_token"):
             return INVALID_CSRF_TOKEN
@@ -140,7 +152,12 @@ class AdminController(object):
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
-        return flask.session.get("csrf_token")
+        return flask.request.cookies.get("csrf_token")
+
+    def generate_csrf_token(self):
+        """Generate a random CSRF token."""
+        return base64.b64encode(os.urandom(24))
+        
 
 class SignInController(AdminController):
 
@@ -151,6 +168,20 @@ class SignInController(AdminController):
 <p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
 </body>
 </html>"""
+
+    PASSWORD_SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
+<html lang="en">
+<head><meta charset="utf8"></head>
+</body>
+<form action="%(password_sign_in_url)s" method="post">
+<input type="hidden" name="redirect" value="%(redirect)s"/>
+<label>Email <input type="text" name="email" /></label>
+<label>Password <input type="password" name="password" /></label>
+<button type="submit">Sign In</button>
+</form>
+</body>
+</html>"""
+
 
     def sign_in(self):
         """Redirects admin if they're signed in."""
@@ -165,11 +196,14 @@ class SignInController(AdminController):
         elif admin:
             return redirect(flask.request.args.get("redirect"), Response=Response)
 
-    def redirect_after_sign_in(self):
+    def redirect_after_google_sign_in(self):
         """Uses the Google OAuth client to determine admin details upon
         callback. Barring error, redirects to the provided redirect url.."""
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
+
+        if not isinstance(self.auth, GoogleOAuthAdminAuthenticationProvider):
+            return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
         admin_details, redirect_url = self.auth.callback(flask.request.args)
         if isinstance(admin_details, ProblemDetail):
@@ -179,19 +213,42 @@ class SignInController(AdminController):
             return self.error_response(INVALID_ADMIN_CREDENTIALS)
         else:
             admin = self.authenticated_admin(admin_details)
-            flask.session["admin_access_token"] = admin_details.get("access_token")
-            flask.session["csrf_token"] = base64.b64encode(os.urandom(24))
             return redirect(redirect_url, Response=Response)
+
     
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
         domain"""
-        if not self.auth:
+        if not self.auth or not self.auth.domains:
             return False
 
         staff_domains = self.auth.domains
         domain = email[email.index('@')+1:]
         return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
+
+    def password_sign_in(self):
+        if not self.auth:
+            return ADMIN_AUTH_NOT_CONFIGURED
+
+        if not isinstance(self.auth, PasswordAdminAuthenticationProvider):
+            return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
+
+        if flask.request.method == 'GET':
+            html = self.PASSWORD_SIGN_IN_TEMPLATE % dict(
+                password_sign_in_url=self.url_for("password_auth"),
+                redirect=flask.request.args.get("redirect"),
+            )
+            headers = dict()
+            headers['Content-Type'] = "text/html"
+            return Response(html, 200, headers)
+
+        admin_details, redirect_url = self.auth.sign_in(self._db, flask.request.form)
+        if isinstance(admin_details, ProblemDetail):
+            return self.error_response(INVALID_ADMIN_CREDENTIALS)
+
+        admin = self.authenticated_admin(admin_details)
+        return redirect(redirect_url, Response=Response)
+
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
@@ -1059,7 +1116,9 @@ class SettingsController(CirculationManagerController):
     def admin_auth_services(self):
         if flask.request.method == 'GET':
             auth_services = []
+            admins = []
             auth_service = ExternalIntegration.admin_authentication(self._db)
+            admins_with_password = Admin.with_password(self._db)
             if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
@@ -1070,56 +1129,77 @@ class SettingsController(CirculationManagerController):
                         domains=json.loads(auth_service.setting("domains").value),
                     )
                 ]
+            if admins_with_password.count() != 0:
+                admins=[dict(email=admin.email) for admin in admins_with_password]
 
             return dict(
                 admin_auth_services=auth_services,
+                admins=admins,
                 providers=ExternalIntegration.ADMIN_AUTH_PROTOCOLS,
             )
 
         protocol = flask.request.form.get("provider")
-        if not protocol:
-            return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
-
-        if protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
+        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
 
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service and protocol != auth_service.protocol:
-            return ADMIN_AUTH_SERVICE_NOT_FOUND
+            return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
 
-        else:
-            if protocol:
-                auth_service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
-                )
-            else:
-                return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
+        elif protocol:
+            auth_service, is_new = get_one_or_create(
+                self._db, ExternalIntegration, protocol=protocol,
+                goal=ExternalIntegration.ADMIN_AUTH_GOAL
+            )
 
-        # Only Google OAuth is supported for now.
-        url = flask.request.form.get("url")
-        username = flask.request.form.get("username")
-        password = flask.request.form.get("password")
-        domains = flask.request.form.get("domains")
+        if protocol == ExternalIntegration.GOOGLE_OAUTH:
+            url = flask.request.form.get("url")
+            username = flask.request.form.get("username")
+            password = flask.request.form.get("password")
+            domains = flask.request.form.get("domains")
         
-        if not url or not username or not password or not domains:
-            # If an admin auth service was created, make sure it
-            # isn't saved in a incomplete state.
-            self._db.rollback()
-            return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
+            if not url or not username or not password or not domains:
+                # If an admin auth service was created, make sure it
+                # isn't saved in a incomplete state.
+                self._db.rollback()
+                return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
 
-        # Also make sure the domain list is valid JSON.
-        try:
-            json.loads(domains)
-        except Exception:
-            self._db.rollback()
-            return INVALID_ADMIN_AUTH_DOMAIN_LIST
+            # Also make sure the domain list is valid JSON.
+            try:
+                json.loads(domains)
+            except Exception:
+                self._db.rollback()
+                return INVALID_ADMIN_AUTH_DOMAIN_LIST
 
-        auth_service.url = url
-        auth_service.username = username
-        auth_service.password = password
-        auth_service.set_setting("domains", domains)
+            auth_service.url = url
+            auth_service.username = username
+            auth_service.password = password
+            auth_service.set_setting("domains", domains)
+
+        elif protocol == None:
+            admins = flask.request.form.get("admins")
+
+            if not admins:
+                self._db.rollback()
+                return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
+
+            # Also make sure admins is valid JSON.
+            try:
+                admins = json.loads(admins)
+            except Exception:
+                self._db.rollback()
+                return INVALID_ADMIN_AUTH_ADMINS_LIST
+
+            for admin_details in admins:
+                admin, ignore = get_one_or_create(self._db, Admin, email=admin_details.get("email"))
+                if (admin_details.get("password")):
+                    admin.password = admin_details.get("password")
+
+            admin_emails = [a.get("email") for a in admins]
+            for admin in self._db.query(Admin).filter(Admin.password_hashed!=None):
+                if admin.email not in admin_emails:
+                    self._db.delete(admin)
 
         if is_new:
             return Response(unicode(_("Success")), 201)
