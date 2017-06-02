@@ -8981,7 +8981,7 @@ class ConfigurationSetting(Base):
       is a patron of, is associated with both a Library and an
       ExternalIntegration.
     """
-    __tablename__ = 'externalintegrationsettings'
+    __tablename__ = 'configurationsettings'
     id = Column(Integer, primary_key=True)
     external_integration_id = Column(
         Integer, ForeignKey('externalintegrations.id'), index=True
