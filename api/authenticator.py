@@ -7,8 +7,10 @@ from core.model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
+    ConfigurationSetting,
     Credential,
     DataSource,
+    ExternalIntegration,
     Library,
     Patron,
     Session,
@@ -386,10 +388,10 @@ class LibraryAuthenticator(object):
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
         integrations = _db.query(ExternalIntegration).join(
-            ExternalIntegrations.libraries).filter(
+            ExternalIntegration.libraries).filter(
             ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
         ).filter(
-            ExternalIntegration.library_id==library.id
+            Library.id==library.id
         )
 
         # Turn each such ExternalIntegration into an
@@ -479,6 +481,8 @@ class LibraryAuthenticator(object):
         provider = provider_class.from_config(self.library_id, integration)
         if issubclass(provider_class, BasicAuthenticationProvider):
             self.register_basic_auth_provider(provider)
+            # TODO: Run a self-test, or at least check that we have
+            # the ability to run one.
         elif issubclass(provider_class, OAuthAuthenticationProvider):
             self.register_oauth_provider(provider)
         else:
@@ -840,46 +844,74 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
 
+    # Configuration settings that are common to all Basic Auth-type
+    # authentication techniques.
+    #
+    
+    # Identifiers can be presumed invalid if they don't match
+    # this regular expression.
+    IDENTIFIER_REGULAR_EXPRESSION = 'identifier_regular_expression'
+
+    # Passwords can be presumed invalid if they don't match this regular
+    # expression.
+    PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
+
+    # Identifiers that contain any of these strings are ignored when
+    # finding the "correct" identifier in a patron's record, even if
+    # it means they end up with no identifier at all.
+    IDENTIFIER_BLACKLIST = 'identifier_blacklist'
+
+    # These identifier and password are supposed to be valid
+    # credentials.  If there's a problem using them, there's a problem
+    # with the authenticator or with the way we have it configured.
+    TEST_IDENTIFIER = 'test_identifier'
+    TEST_PASSWORD = 'test_password'
+    
     @classmethod
-    def from_config(cls, library_id, config):
-        """Load a BasicAuthenticationProvider from site configuration."""
-        return cls(library_id, **config)
+    def from_config(cls, library_id, integration):
+        """Load a BasicAuthenticationProvider from an ExternalIntegration."""
+        return cls(library_id, integration)
 
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self, library_id,
-                 identifier_regular_expression=class_default,
-                 password_regular_expression=class_default,
-                 test_username=None, test_password=None):
+    def __init__(self, library_id, integration):
         """Create a BasicAuthenticationProvider.
 
         :param library_id: Patrons authenticated through this provider
             are associated with the Library with the given ID. We don't
             pass the Library object to avoid contaminating with
             an object from a non-scoped session.
+
+        :param integration: An ExternalIntegration that configures
+            this authentication mechanism. Don't store this object--just
+            pull normal Python objects out of it.
         """
         super(BasicAuthenticationProvider, self).__init__(library_id)
-        if identifier_regular_expression is self.class_default:
-            identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+        identifier_regular_expression = integration.get(
+            self.IDENTIFIER_REGULAR_EXPRESSION,
+            self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION      
+        )
         if identifier_regular_expression:
             identifier_regular_expression = re.compile(
                 identifier_regular_expression
             )
-        if password_regular_expression is self.class_default:
-            password_regular_expression = self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-
+        self.identifier_re = identifier_regular_expression
+        
+        password_regular_expression = integration.get(
+            self.IDENTIFIER_REGULAR_EXPRESSION,
+            self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
+        )
         if password_regular_expression:
             password_regular_expression = re.compile(
                 password_regular_expression
-            )
-
-        self.identifier_re = identifier_regular_expression
+            )            
         self.password_re = password_regular_expression
-        self.test_username = test_username
-        self.test_password = test_password
+
+        self.test_username = integration.get(self.TEST_IDENTIFIER)
+        self.test_password = integration.get(self.TEST_PASSWORD)
         self.log = logging.getLogger(self.NAME)
         
     def testing_patron(self, _db):
@@ -1153,8 +1185,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
     
     @classmethod
-    def from_config(cls, library_id, config):
-        """Load this OAuthAuthenticationProvider from the site configuration.
+    def from_config(cls, library_id, integration):
+        """Load this OAuthAuthenticationProvider from an ExternalIntegration.
         """
         client_id = config.get(Configuration.OAUTH_CLIENT_ID)
         client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)

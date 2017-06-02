@@ -44,30 +44,37 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
-    REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
-
     DEFAULT_CURRENCY = "USD"
 
     # A configuration value for whether or not to validate the SSL certificate
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
     
-    def __init__(self, library_id, url=None, authorization_identifier_blacklist=[],
-                 verify_certificate=True, **kwargs):
+    def __init__(self, library_id, integration):
+        super(MilleniumPatronAPI, self).__init__(library_id, integration)
+        url = integration.url
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
-
-        super(MilleniumPatronAPI, self).__init__(library_id, **kwargs)
         if not url.endswith('/'):
             url = url + "/"
         self.root = url
-        self.verify_certificate=verify_certificate
+        self.verify_certificate=integration.get_json(
+            self.VERIFY_CERTIFICATE, 'true'
+        )
         self.parser = etree.HTMLParser()
+
+        # In a Sierra ILS, a patron may have a large number of
+        # identifiers, some of which are not real library cards. A
+        # blacklist allows us to exclude certain types of identifiers
+        # from being considered as library cards.
+        authorization_identifier_blacklist = integration.get_json(
+            self.IDENTIFIER_BLACKLIST, '[]'
+        )
         self.blacklist = [re.compile(x, re.I)
                           for x in authorization_identifier_blacklist]
-
+        
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
 

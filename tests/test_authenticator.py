@@ -22,6 +22,7 @@ from core.model import (
     CirculationEvent,
     Credential,
     DataSource,
+    ExternalIntegration,
     Library,
     Patron,
     create,
@@ -445,21 +446,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
     def test_from_config(self):
         # Only a basic auth provider.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"module": 'api.millenium_patron',
-                         Configuration.URL: "http://url"}
-                    ]
-                }
-            }
-            auth = LibraryAuthenticator.from_config(self._db, self._default_library)
+        integration = self._external_integration(
+            "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
+            url="http://url/"
+        )
+        self._default_library.integrations.append(integration)
+        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
 
-            assert auth.basic_auth_provider != None
-            assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
+        assert auth.basic_auth_provider != None
+        assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
 
-            eq_({}, auth.oauth_providers_by_name)
+        eq_({}, auth.oauth_providers_by_name)
 
         # A basic auth provider and an oauth provider.
         with temp_config() as config:
