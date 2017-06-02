@@ -34,7 +34,7 @@ from core.model import (
 )
 
 from core.monitor import (
-    Monitor,
+    CollectionMonitor,
     IdentifierSweepMonitor,
 )
 from core.util.xmlparser import XMLParser
@@ -691,7 +691,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                 pool.last_checked = now
 
 
-class BibliothecaEventMonitor(Monitor):
+class BibliothecaEventMonitor(CollectionMonitor):
 
     """Register CirculationEvents for Bibliotheca titles.
 
@@ -711,8 +711,7 @@ class BibliothecaEventMonitor(Monitor):
     SERVICE_NAME = "Bibliotheca Event Monitor"
     DEFAULT_START_TIME = datetime.timedelta(365*3)
     
-    def __init__(self, collection, api_class=BibliothecaAPI):
-        _db = Session.object_session(collection)
+    def __init__(self, _db, collection, api_class=BibliothecaAPI):
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
         self.api = api_class(collection)
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(

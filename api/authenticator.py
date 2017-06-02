@@ -373,6 +373,7 @@ class LibraryAuthenticator(object):
     def from_config(cls, _db, library):
         """Initialize an Authenticator from site configuration.
         """
+        
         authentication_policy = Configuration.policy("authentication")
         if not authentication_policy:
             raise CannotLoadConfiguration(

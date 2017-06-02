@@ -540,7 +540,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
 
     def test_default_start_time(self):
         monitor = BibliothecaEventMonitor(
-            self.collection, api_class=MockBibliothecaAPI
+            self._db, self.collection, api_class=MockBibliothecaAPI
         )
         expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
 
