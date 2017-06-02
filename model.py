@@ -8730,6 +8730,12 @@ class Library(Base):
         'Patron', backref='library', cascade="all, delete, delete-orphan"
     )
 
+    # A Library may have many ExternalIntegrations.
+    integrations = relationship(
+        "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
+        backref="libraries"
+    )
+    
     # Any additional configuration information is stored as
     # ConfigurationSettings.
     settings = relationship(
@@ -8948,15 +8954,20 @@ class ExternalIntegration(Base):
             _db, key, self
         )
 
-    def get(self, key):
+    def get(self, key, default=None):
         """Returns a value for a given key from either the integration
-        itself or its additional settings
+        itself or its additional settings.
         """
         if hasattr(self, key):
-            return getattr(self, key)
-        if hasattr(self.setting, key):
-            return getattr(self, key)
-        return None
+            return getattr(self, key, default)
+        setting = self.setting(key)
+        if not setting.value:
+            return default
+        return setting.value
+
+    def get_json(self, key, default):
+        """Parse a configuration value as JSON."""
+        return json.loads(self.get(key, default))
 
 
 class ConfigurationSetting(Base):
@@ -9362,6 +9373,18 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
+externalintegrations_libraries = Table(
+    'externalintegrations_libraries', Base.metadata,
+     Column(
+         'externalintegration_id', Integer, ForeignKey('externalintegrations.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('externalintegration_id', 'library_id'),
+ )
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,
