@@ -913,7 +913,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.identifier_re = identifier_regular_expression
         
         password_regular_expression = integration.get(
-            self.IDENTIFIER_REGULAR_EXPRESSION,
+            self.PASSWORD_REGULAR_EXPRESSION,
             self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
         )
         if password_regular_expression:

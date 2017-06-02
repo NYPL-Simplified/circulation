@@ -1078,17 +1078,23 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
 
     def test_from_config(self):
 
-        class ConfigAuthenticationProvider(BasicAuthenticationProvider):
-            NAME = "Config loading test"
+        b = BasicAuthenticationProvider
         
-        config = {
-            Configuration.IDENTIFIER_REGULAR_EXPRESSION : "idre",
-            Configuration.PASSWORD_REGULAR_EXPRESSION : "pwre",
-            Configuration.AUTHENTICATION_TEST_USERNAME : "username",
-            Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
-        }
+        class ConfigAuthenticationProvider(b):
+            NAME = "Config loading test"
+
+        
+        integration = self._external_integration(
+            self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        self._default_library.integrations.append(integration)
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = "idre"
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = "pwre"
+        integration.setting(b.TEST_IDENTIFIER).value = "username"
+        integration.setting(b.TEST_PASSWORD).value = "pw"
+
         provider = ConfigAuthenticationProvider.from_config(
-            self._default_library.id, config
+            self._default_library.id, integration
         )
         eq_("idre", provider.identifier_re.pattern)
         eq_("pwre", provider.password_re.pattern)
@@ -1099,14 +1105,16 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider = ConfigAuthenticationProvider.from_config(
             self._default_library.id, {}
         )
-        eq_(BasicAuthenticationProvider.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
+        eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
             provider.identifier_re)
         eq_(None, provider.password_re)
         
     
     def test_testing_patron(self):
         # You don't have to have a testing patron.
-        no_testing_patron = BasicAuthenticationProvider(self._default_library.id)
+        no_testing_patron = BasicAuthenticationProvider(
+            self._default_library.id, {}
+        )
         eq_((None, None), no_testing_patron.testing_patron(self._db))
 
         # We configure a testing patron but their username and

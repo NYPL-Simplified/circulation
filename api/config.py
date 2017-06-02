@@ -34,10 +34,6 @@ class Configuration(CoreConfiguration):
     ADOBE_VENDOR_ID = u"vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
 
-    AUTHENTICATION = "authentication"
-    AUTHENTICATION_TEST_USERNAME = "test_username"
-    AUTHENTICATION_TEST_PASSWORD = "test_password"
-
     SECRET_KEY = "secret_key"
 
     STAFF_PICKS_INTEGRATION = u"Staff Picks"
@@ -46,9 +42,6 @@ class Configuration(CoreConfiguration):
     LIST_FIELDS = "fields"
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
-
-    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
 
     @classmethod
     def lending_policy(cls):
