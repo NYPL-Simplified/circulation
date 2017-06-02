@@ -1178,20 +1178,23 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
-    
+   
     # After verifying the patron's OAuth credentials, we send them a
-    # token. This is how long they can use that token before we check
-    # their OAuth credentials again.
+    # token. This configuration setting controls how long they can use
+    # that token before we check their OAuth credentials again.
+    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
+
+    # This is the default value for that configuration setting.
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
     
     @classmethod
     def from_config(cls, library_id, integration):
         """Load this OAuthAuthenticationProvider from an ExternalIntegration.
         """
-        client_id = config.get(Configuration.OAUTH_CLIENT_ID)
-        client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
-        token_expiration_days = config.get(
-            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
+        client_id = integration.username
+        client_secret = integration.password
+        token_expiration_days = integration.get(
+            cls.OAUTH_TOKEN_EXPIRATION_DAYS,
             cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         )
         return cls(library_id, client_id, client_secret, token_expiration_days)

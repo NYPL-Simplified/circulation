@@ -38,13 +38,8 @@ class Configuration(CoreConfiguration):
     AUTHENTICATION_TEST_USERNAME = "test_username"
     AUTHENTICATION_TEST_PASSWORD = "test_password"
 
-    OAUTH_CLIENT_ID = 'client_id'
-    OAUTH_CLIENT_SECRET = 'client_secret'
-    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
     SECRET_KEY = "secret_key"
 
-    MILLENIUM_INTEGRATION = u"Millenium"
-    AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
     STAFF_PICKS_INTEGRATION = u"Staff Picks"
     PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 

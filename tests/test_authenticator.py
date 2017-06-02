@@ -444,55 +444,44 @@ class TestAuthenticator(ControllerTest):
 
 class TestLibraryAuthenticator(AuthenticatorTest):
 
-    def test_from_config(self):
+    def test_from_config_basic_auth_only(self):
         # Only a basic auth provider.
-        integration = self._external_integration(
+        millenium = self._external_integration(
             "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
             url="http://url/"
         )
-        self._default_library.integrations.append(integration)
+        self._default_library.integrations.append(millenium)
+
         auth = LibraryAuthenticator.from_config(self._db, self._default_library)
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
-
         eq_({}, auth.oauth_providers_by_name)
 
+    def test_from_config_basic_auth_and_oauth(self):
         # A basic auth provider and an oauth provider.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: dict(
-                    providers=[
-                        { "module": 'api.firstbook',
-                          Configuration.URL: "http://url",
-                          FirstBookAuthenticationAPI.SECRET_KEY: "secret",
-                        },
-                        {"module": 'api.clever',
-                         Configuration.OAUTH_CLIENT_ID: 'client_id',
-                         Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
-                        },
-                    ],
-                    bearer_token_signing_secret="signing secret"
-                )
-            }
-            config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.NAME: {
-                },
-                CleverAuthenticationAPI.NAME: {
-                }
-            }
+        firstbook = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+            url="http://url/", password="secret"
+        )
 
-            auth = LibraryAuthenticator.from_config(self._db, self._default_library)
+        oauth = self._external_integration(
+            "api.clever", username="client_id", password="client_secret"
+        )
+        for i in [firstbook, oauth]:
+            self._default_library.integrations.append(i)
+        
+        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
 
-            assert auth.basic_auth_provider != None
-            assert isinstance(auth.basic_auth_provider,
-                              FirstBookAuthenticationAPI)
+        assert auth.basic_auth_provider != None
+        assert isinstance(auth.basic_auth_provider,
+                          FirstBookAuthenticationAPI)
             
-            eq_(1, len(auth.oauth_providers_by_name))
-            clever = auth.oauth_providers_by_name[
-                CleverAuthenticationAPI.NAME
-            ]
-            assert isinstance(clever, CleverAuthenticationAPI)
+        eq_(1, len(auth.oauth_providers_by_name))
+        clever = auth.oauth_providers_by_name[
+            CleverAuthenticationAPI.NAME
+        ]
+        assert isinstance(clever, CleverAuthenticationAPI)
             
     def test_config_fails_when_no_providers_specified(self):
         with temp_config() as config:

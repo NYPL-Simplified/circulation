@@ -38,12 +38,14 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, url=None, key=None, **kwargs):
+    def __init__(self, library_id, integration):
+        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration)
+        url = integration.url
+        key = integration.password
         if not (url and key):
             raise CannotLoadConfiguration(
                 "First Book server not configured."
             )
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, **kwargs)
         if '?' in url:
             url += '&'
         else:
