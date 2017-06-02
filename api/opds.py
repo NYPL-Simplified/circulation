@@ -9,6 +9,7 @@ import uuid
 from sqlalchemy.orm import lazyload
 
 from config import Configuration
+from core.classifier import Classifier
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -30,14 +31,17 @@ from core.model import (
     Work,
     Edition,
 )
-from core.lane import Lane
-from circulation import BaseCirculationAPI
+from core.lane import (
+    Lane,
+    QueryGeneratedLane,
+)
 from core.app_server import cdn_url_for
 from core.util.cdn import cdnify
-from novelist import NoveListAPI
-from lanes import QueryGeneratedLane
-from annotations import AnnotationWriter
+
 from adobe_vendor_id import AuthdataUtility
+from annotations import AnnotationWriter
+from circulation import BaseCirculationAPI
+from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
    
@@ -259,6 +263,30 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
+        # Add a link for each author.
+        self.add_author_links(work, feed, entry)
+
+        # And a series, if there is one.
+        if work.series:
+            self.add_series_link(work, feed, entry)
+
+        if NoveListAPI.is_configured():
+            # If NoveList Select is configured, there might be
+            # recommendations, too.
+            feed.add_link_to_entry(
+                entry,
+                rel='recommendations',
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                title='Recommended Works',
+                href=self.url_for(
+                    'recommendations',
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+            )
+
         # Add a link for related books if available.
         if self.related_books_available(work):
             feed.add_link_to_entry(
@@ -274,7 +302,7 @@ class CirculationManagerAnnotator(Annotator):
                     _external=True
                 )
             )
-        
+
         # Add a link to get a patron's annotations for this book.
         feed.add_link_to_entry(
             entry,
@@ -304,6 +332,70 @@ class CirculationManagerAnnotator(Annotator):
         contributions = edition.contributions
         series = edition.series
         return contributions or series or NoveListAPI.is_configured()
+
+    def language_and_audience_key_from_work(self, work):
+        language_key = work.language
+
+        if work.audience == Classifier.AUDIENCE_CHILDREN:
+            audiences = [Classifier.AUDIENCE_CHILDREN]
+        if work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
+            audiences = Classifier.AUDIENCES_JUVENILE
+        if work.audience in Classifier.AUDIENCES_ADULT:
+            audiences = list(Classifier.AUDIENCES)
+
+        audience_key=None
+        if audiences:
+            audience_strings = [urllib.quote_plus(a) for a in sorted(audiences)]
+            audience_key = u','.join(audience_strings)
+
+        return language_key, audience_key
+
+    def add_author_links(self, work, feed, entry):
+        author_tag = '{%s}author' % OPDSFeed.ATOM_NS
+        author_entries = entry.findall(author_tag)
+
+        languages, audiences = self.language_and_audience_key_from_work(work)
+        for author_entry in author_entries:
+            name_tag = '{%s}name' % OPDSFeed.ATOM_NS
+            contributor_name = author_entry.find(name_tag).text
+            if not contributor_name:
+                continue
+
+            feed.add_link_to_entry(
+                author_entry,
+                rel='contributor',
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                title=contributor_name,
+                href=self.url_for(
+                    'contributor',
+                    contributor_name=contributor_name,
+                    languages=languages,
+                    audiences=audiences,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+            )
+
+    def add_series_link(self, work, feed, entry):
+        series_tag = OPDSFeed.schema_('Series')
+        series_entry = entry.find(series_tag)
+
+        series_name = work.series
+        languages, audiences = self.language_and_audience_key_from_work(work)
+        feed.add_link_to_entry(
+            series_entry,
+            rel='series',
+            type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            title=series_name,
+            href=self.url_for(
+                'series',
+                series_name=series_name,
+                languages=languages,
+                audiences=audiences,
+                library_short_name=self.library.short_name,
+                _external=True,
+            )
+        )
 
     def annotate_feed(self, feed, lane):
         if self.patron:

@@ -644,7 +644,7 @@ class TestSignInController(AdminControllerTest):
     def setup(self):
         super(TestSignInController, self).setup()
         self.admin, ignore = create(
-            self._db, Admin, email=u'example@nypl.org', access_token=u'abc123',
+            self._db, Admin, email=u'example@nypl.org',
             credential=json.dumps({
                 u'access_token': u'abc123',
                 u'client_id': u'', u'client_secret': u'',
@@ -656,7 +656,7 @@ class TestSignInController(AdminControllerTest):
     def test_authenticated_admin_from_request(self):
         # Returns an error if there's no admin auth service.
         with self.app.test_request_context('/admin'):
-            flask.session['admin_access_token'] = self.admin.access_token
+            flask.session['admin_email'] = self.admin.email
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
             eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
 
@@ -667,7 +667,7 @@ class TestSignInController(AdminControllerTest):
             goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
         with self.app.test_request_context('/admin'):
-            flask.session['admin_access_token'] = self.admin.access_token
+            flask.session['admin_email'] = self.admin.email
             response = self.manager.admin_sign_in_controller.authenticated_admin_from_request()
             eq_(self.admin, response)
 
@@ -682,29 +682,30 @@ class TestSignInController(AdminControllerTest):
         # Creates a new admin with fresh details.
         new_admin_details = {
             'email' : u'admin@nypl.org',
-            'access_token' : u'tubular',
             'credentials' : u'gnarly',
         }
-        admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
-        eq_('admin@nypl.org', admin.email)
-        eq_('tubular', admin.access_token)
-        eq_('gnarly', admin.credential)
+        with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
+            eq_('admin@nypl.org', admin.email)
+            eq_('gnarly', admin.credential)
+
+            # Also sets up the admin's flask session.
+            eq_("admin@nypl.org", flask.session["admin_email"])
+            eq_(True, flask.session.permanent)
 
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
             'email' : u'example@nypl.org',
-            'access_token' : u'bananas',
             'credentials' : u'b-a-n-a-n-a-s',
         }
-        admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
-        eq_(self.admin.id, admin.id)
-        eq_('bananas', self.admin.access_token)
-        eq_('b-a-n-a-n-a-s', self.admin.credential)
+        with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
+            eq_(self.admin.id, admin.id)
+            eq_('b-a-n-a-n-a-s', self.admin.credential)
 
     def test_admin_signin(self):
         # Returns an error if there's no admin auth service.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
-            flask.session['admin_access_token'] = self.admin.access_token
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
 
@@ -713,9 +714,56 @@ class TestSignInController(AdminControllerTest):
             protocol=ExternalIntegration.GOOGLE_OAUTH,
             goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
+
+        # Redirects to the auth service's login page if there's an auth service
+        # but no signed in admin.
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
-            flask.session['admin_access_token'] = self.admin.access_token
             response = self.manager.admin_sign_in_controller.sign_in()
+            eq_(302, response.status_code)
+            eq_("GOOGLE REDIRECT", response.headers["Location"])
+
+        # Redirects to the redirect parameter if an admin is signed in.
+        with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_sign_in_controller.sign_in()
+            eq_(302, response.status_code)
+            eq_("foo", response.headers["Location"])
+
+    def test_redirect_after_google_sign_in(self):
+        # Returns an error if there's no admin auth service.
+        with self.app.test_request_context('/admin/GoogleOAuth/callback'):
+            response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+
+        # Returns an error if the admin auth service isn't google.
+        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        admin.password = "password"
+        with self.app.test_request_context('/admin/GoogleOAuth/callback'):
+            response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+            eq_(ADMIN_AUTH_MECHANISM_NOT_CONFIGURED, response)
+
+        self._db.delete(admin)
+        auth_integration, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
+        )
+
+        # Returns an error if google oauth fails..
+        with self.app.test_request_context('/admin/GoogleOAuth/callback?error=foo'):
+            response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+            eq_(400, response.status_code)
+
+        # Returns an error if the admin email isn't a staff email.
+        auth_integration.set_setting("domains", json.dumps(["alibrary.org"]))
+        with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
+            response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+            eq_(401, response.status_code)
+        
+        # Redirects to the state parameter if the admin email is valid.
+        auth_integration.set_setting("domains", json.dumps(["nypl.org"]))
+        with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
+            response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
             eq_(302, response.status_code)
             eq_("foo", response.headers["Location"])
 
@@ -725,18 +773,77 @@ class TestSignInController(AdminControllerTest):
             result = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
             eq_(False, result)
 
-        auth_service, ignore = create(
+        auth_integration, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
             goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
-        auth_service.set_setting("domains", json.dumps(["alibrary.org"]))
+        auth_integration.set_setting("domains", json.dumps(["alibrary.org"]))
 
         with self.app.test_request_context('/admin/sign_in'):
             staff_email = self.manager.admin_sign_in_controller.staff_email("working@alibrary.org")
             interloper_email = self.manager.admin_sign_in_controller.staff_email("rando@gmail.com")
             eq_(True, staff_email)
             eq_(False, interloper_email)
+
+    def test_password_sign_in(self):
+        # Returns an error if there's no admin auth service and no admins.
+        with self.app.test_request_context('/admin/sign_in_with_password'):
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(ADMIN_AUTH_NOT_CONFIGURED, response)
+
+        # Returns an error if the admin auth service isn't password auth.
+        auth_integration, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
+        )
+        with self.app.test_request_context('/admin/sign_in_with_password'):
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(ADMIN_AUTH_MECHANISM_NOT_CONFIGURED, response)
+
+        self._db.delete(auth_integration)
+        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        admin.password = "password"
+
+        # Returns a sign in page in response to a GET.
+        with self.app.test_request_context('/admin/sign_in_with_password'):
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(200, response.status_code)
+            assert "Email" in response.get_data()
+            assert "Password" in response.get_data()
+
+        # Returns an error if there's no admin with the provided email.
+        with self.app.test_request_context('/admin/sign_in_with_password', method='POST'):
+            flask.request.form = MultiDict([
+                ("email", "notanadmin@nypl.org"),
+                ("password", "password"),
+                ("redirect", "foo")
+            ])
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(401, response.status_code)
+
+        # Returns an error if the password doesn't match.
+        self.admin.password = "password"
+        with self.app.test_request_context('/admin/sign_in_with_password', method='POST'):
+            flask.request.form = MultiDict([
+                ("email", self.admin.email),
+                ("password", "notthepassword"),
+                ("redirect", "foo")
+            ])
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(401, response.status_code)
+        
+        # Redirects if the admin email/password combination is valid.
+        with self.app.test_request_context('/admin/sign_in_with_password', method='POST'):
+            flask.request.form = MultiDict([
+                ("email", self.admin.email),
+                ("password", "password"),
+                ("redirect", "foo")
+            ])
+            response = self.manager.admin_sign_in_controller.password_sign_in()
+            eq_(302, response.status_code)
+            eq_("foo", response.headers["Location"])
 
 
 class TestFeedController(AdminControllerTest):
@@ -1380,7 +1487,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(sorted([p for p in response.get("providers")]),
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
         
-    def test_admin_auth_services_get_with_one_service(self):
+    def test_admin_auth_services_get_with_google_oauth_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -1414,6 +1521,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE)
 
+    def test_admin_auth_services_post_errors_google_oauth(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -1421,11 +1529,9 @@ class TestSettingsController(AdminControllerTest):
         )
 
         with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("provider", "Unsupported Provider"),
-            ])
+            flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER)
+            eq_(response, CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER)
         
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1445,7 +1551,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, INVALID_ADMIN_AUTH_DOMAIN_LIST)
 
-    def test_admin_auth_services_post_create(self):
+    def test_admin_auth_services_post_google_oauth_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("provider", "Google OAuth"),
@@ -1467,7 +1573,7 @@ class TestSettingsController(AdminControllerTest):
         eq_("domains", setting.key)
         eq_(["nypl.org", "gmail.com"], json.loads(setting.value))
 
-    def test_admin_auth_services_post_edit(self):
+    def test_admin_auth_services_post_google_oauth_edit(self):
         # The auth service exists.
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -1495,5 +1601,61 @@ class TestSettingsController(AdminControllerTest):
         [setting] = auth_service.settings
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
+
+    def test_individual_admins(self):
+        # There are two admins that can sign in with passwords.
+        admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
+        admin1.password = "pass1"
+        admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
+        admin2.password = "pass2"
+
+        # This admin doesn't have a password, and won't be included.
+        admin3, ignore = create(self._db, Admin, email="admin3@nypl.org")
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.individual_admins()
+            admins = response.get("individualAdmins")
+            eq_([{"email": "admin1@nypl.org"}, {"email": "admin2@nypl.org"}], admins)
+
+    def test_individual_admins_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.uri, INVALID_INDIVIDUAL_ADMIN_CONFIGURATION.uri)
+
+    def test_individual_admins_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "admin@nypl.org"),
+                ("password", "pass"),
+            ])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.status_code, 201)
+
+        # The admin was created.
+        admin_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="pass").all()
+        eq_(1, len(admin_matches))
+
+    def test_individual_admins_post_edit(self):
+        # An admin exists.
+        admin, ignore = create(
+            self._db, Admin, email="admin@nypl.org",
+        )
+        admin.password = "password"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "admin@nypl.org"),
+                ("password", "new password"),
+            ])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.status_code, 200)
+
+        # The password was changed.
+        old_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="password").all()
+        eq_(0, len(old_password_matches))
+
+        new_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="new password").all()
+        eq_([admin], new_password_matches)
 
 

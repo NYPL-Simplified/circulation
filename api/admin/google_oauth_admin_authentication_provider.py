@@ -1,14 +1,15 @@
 import json
 from nose.tools import set_trace
 
+from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
 
-class GoogleAuthService(object):
+class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     def __init__(self, integration, redirect_uri, test_mode=False):
-        self.integration = integration
+        super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
         self.redirect_uri = redirect_uri
         self.test_mode = test_mode
 
@@ -41,14 +42,13 @@ class GoogleAuthService(object):
         # These will be returned as a problem detail.
         error = request.get('error')
         if error:
-            return self.google_error_problem_detail(error)
+            return self.google_error_problem_detail(error), None
         auth_code = request.get('code')
         if auth_code:
             redirect_url = request.get("state")
             credentials = self.client.step2_exchange(auth_code)
             return dict(
                 email=credentials.id_token.get('email'),
-                access_token=credentials.get_access_token()[0],
                 credentials=credentials.to_json(),
             ), redirect_url
 
@@ -88,13 +88,10 @@ class DummyGoogleClient(object):
             self.id_token = {"hd" : domain, "email" : email}
 
         def to_json(self):
-            return json.loads('{"id_token" : %s }' % json.dumps(self.id_token))
+            return json.dumps(dict(id_token=self.id_token))
 
         def from_json(self, credentials):
             return self
-
-        def get_access_token(self):
-            return ["opensesame"]
 
     def __init__(self, email='example@nypl.org'):
         self.credentials = self.Credentials(email=email)

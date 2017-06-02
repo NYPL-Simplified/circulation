@@ -1037,43 +1037,6 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def recommendations(self, identifier_type, identifier, novelist_api=None):
-        """Serve a feed of recommendations related to a given book."""
-
-        library = flask.request.library
-        work = self.load_work(library, identifier_type, identifier)
-        if isinstance(work, ProblemDetail):
-            return work
-
-        lane_name = "Recommendations for %s by %s" % (work.title, work.author)
-        try:
-            lane = RecommendationLane(
-                self._db, work, lane_name, novelist_api=novelist_api
-            )
-        except ValueError, e:
-            # NoveList isn't configured.
-            return NO_SUCH_LANE.detailed(_("Recommendations not available"))
-
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request()
-        if isinstance(facets, ProblemDetail):
-            return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-        url = annotator.feed_url(
-            lane,
-            facets=facets,
-            pagination=pagination,
-        )
-
-        feed = AcquisitionFeed.page(
-            self._db, lane.DISPLAY_NAME, url, lane,
-            facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
-        )
-        return feed_response(unicode(feed.content))
-
     def related(self, identifier_type, identifier, novelist_api=None):
         """Serve a groups feed of books related to a given book."""
 
@@ -1108,6 +1071,43 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.groups(
             self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
+        )
+        return feed_response(unicode(feed.content))
+
+    def recommendations(self, identifier_type, identifier, novelist_api=None):
+        """Serve a feed of recommendations related to a given book."""
+
+        library = flask.request.library
+        work = self.load_work(library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        lane_name = "Recommendations for %s by %s" % (work.title, work.author)
+        try:
+            lane = RecommendationLane(
+                self._db, work, lane_name, novelist_api=novelist_api
+            )
+        except ValueError, e:
+            # NoveList isn't configured.
+            return NO_SUCH_LANE.detailed(_("Recommendations not available"))
+
+        annotator = self.manager.annotator(lane)
+        facets = load_facets_from_request()
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        url = annotator.feed_url(
+            lane,
+            facets=facets,
+            pagination=pagination,
+        )
+
+        feed = AcquisitionFeed.page(
+            self._db, lane.DISPLAY_NAME, url, lane,
+            facets=facets, pagination=pagination,
+            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
         return feed_response(unicode(feed.content))
 

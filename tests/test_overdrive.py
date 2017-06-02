@@ -572,7 +572,7 @@ class TestSyncBookshelf(OverdriveAPITest):
 
         # All four loans in the sample data were created.
         eq_(4, len(loans))
-        eq_(loans, patron.loans)
+        eq_(loans.sort(), patron.loans.sort())
 
         eq_([], holds)
 
@@ -581,7 +581,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         self.api.queue_response(200, content=holds_data)
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(loans))
-        eq_(loans, patron.loans)        
+        eq_(loans.sort(), patron.loans.sort())
 
     def test_sync_bookshelf_removes_loans_not_present_on_remote(self):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
