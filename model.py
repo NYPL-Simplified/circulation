@@ -8725,8 +8725,16 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
+    # A library may have many Patrons.
     patrons = relationship(
         'Patron', backref='library', cascade="all, delete, delete-orphan"
+    )
+
+    # Any additional configuration information is stored as
+    # ConfigurationSettings.
+    settings = relationship(
+        "ConfigurationSetting", backref="library",
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
     
     def __repr__(self):
@@ -8906,13 +8914,12 @@ class ExternalIntegration(Base):
     username = Column(Unicode, nullable=True)
     password = Column(Unicode, nullable=True)
 
-    # Any additional configuration information goes into the
-    # externalintegrationsettings table.
+    # Any additional configuration information goes into
+    # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-    # TODO: join on library_id match and externalintegration_id=None
     
     @classmethod
     def lookup(cls, _db, protocol, goal=None):
@@ -8958,19 +8965,21 @@ class ConfigurationSetting(Base):
     A ConfigurationSetting may be associated with an
     ExternalIntegration, a Library, both, or neither.
 
+    * The secret used by the circulation manager to sign OAuth bearer
+      tokens is not associated with an ExternalIntegration or with a
+      Library.
+
     * The link to a library's privacy policy is associated with the
       Library, but not with any particular ExternalIntegration.
 
     * The "website ID" for an Overdrive collection is associated with
-      an ExternalIntegration, but not with any particular Library.
+      an ExternalIntegration (the Overdrive integration), but not with
+      any particular Library (since multiple libraries might share an
+      Overdrive collection).
 
-    * The "identifier prefix" used to verify that a patron is
-      associated with a library is associated with both a Library and
-      an ExternalIntegration.
-
-    * The secret used by the circulation manager to sign OAuth bearer
-      tokens is not associated with an ExternalIntegration or with a
-      Library.
+    * The "identifier prefix" used to determine which library a patron
+      is a patron of, is associated with both a Library and an
+      ExternalIntegration.
     """
     __tablename__ = 'externalintegrationsettings'
     id = Column(Integer, primary_key=True)
@@ -8978,7 +8987,7 @@ class ConfigurationSetting(Base):
         Integer, ForeignKey('externalintegrations.id'), index=True
     )
     library_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True
+        Integer, ForeignKey('libraries.id'), index=True
     )
     key = Column(Unicode, index=True)
     value = Column(Unicode)
@@ -8990,34 +8999,35 @@ class ConfigurationSetting(Base):
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
-        return cls.for_library_and_externalintegration(key, None, None)
+        return cls.for_library_and_externalintegration(_db, key, None, None)
 
     @classmethod
     def for_library(cls, _db, key, library):
         """Find or create a ConfigurationSetting for the given Library."""
-        return cls.for_library_and_externalintegration(key, library, None)
+        return cls.for_library_and_externalintegration(_db, key, library, None)
 
     @classmethod
     def for_externalintegration(cls, _db, key, externalintegration):
         """Find or create a ConfigurationSetting for the given
         ExternalIntegration.
         """
-        return cls.for_library_and_externalintegriaton(
-            key, None, externalintegration
+        return cls.for_library_and_externalintegration(
+            _db, key, None, externalintegration
         )
     
     @classmethod
     def for_library_and_externalintegration(
-            self, _db, key, library, external_integration
+            cls, _db, key, library, external_integration
     ):
         """Find or create a ConfigurationSetting associated with a Library
         and an ExternalIntegration.
         """
-        return get_one_or_create(
+        setting, ignore = get_one_or_create(
             _db, ConfigurationSetting,
             library=library, external_integration=external_integration,
             key=key
         )
+        return setting
 
     
 class Collection(Base):

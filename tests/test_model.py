@@ -43,6 +43,7 @@ from model import (
     Collection,
     CollectionMissing,
     Complaint,
+    ConfigurationSetting,
     Contributor,
     CoverageRecord,
     Credential,
@@ -5601,6 +5602,59 @@ class TestExternalIntegration(DatabaseTest):
         eq_("id2", setting2.value)
 
         eq_(setting2, self.external_integration.setting("website_id"))
+
+
+class TestConfigurationSetting(DatabaseTest):
+
+    def test_relationships(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        eq_([], integration.settings)
+        
+        library = self._default_library
+        eq_([], library.settings)
+        
+        # Create four different ConfigurationSettings with the same key.
+        cs = ConfigurationSetting
+        key = self._str
+
+        for_neither = cs.sitewide(self._db, key)
+        eq_(None, for_neither.library)
+        eq_(None, for_neither.external_integration)
+        
+        for_library = cs.for_library(self._db, key, library)
+        eq_(library, for_library.library)
+        eq_(None, for_library.external_integration)
+
+        for_integration = cs.for_externalintegration(self._db, key, integration)
+        eq_(None, for_integration.library)
+        eq_(integration, for_integration.external_integration)
+
+        for_both = cs.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # We got four distinct objects with the same key.
+        objs = [for_neither, for_library, for_integration, for_both]
+        eq_(4, len(set(objs)))
+        for o in objs:
+            eq_(o.key, key)
+
+        eq_([for_library, for_both], library.settings)
+        eq_([for_integration, for_both], integration.settings)
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # If we delete the integration, all configuration settings
+        # associated with it are deleted, even the one that's also
+        # associated with the library.
+        self._db.delete(integration)
+        self._db.commit()
+        eq_([for_library], library.settings)
+
 
 class TestCollection(DatabaseTest):
 
