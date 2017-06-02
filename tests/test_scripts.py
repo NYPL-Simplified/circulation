@@ -42,6 +42,7 @@ from oneclick import MockOneClickAPI
 from scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB, 
+    CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureLibraryScript,
     CustomListManagementScript,
@@ -51,9 +52,11 @@ from scripts import (
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
+    OPDSImportScript,
     PatronInputScript,
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
+    RunMonitorScript,
     Script,
     ShowCollectionsScript,
     ShowLibrariesScript,
@@ -217,20 +220,39 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class OPDSCollectionMonitor(CollectionMonitor):
+    """Mock Monitor for use in tests of Run*MonitorScript."""
+    SERVICE_NAME = "Test Monitor"
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+
+    def __init__(self, _db, test_argument=None, **kwargs):
+        self.test_argument = test_argument
+        super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
+
+    def run_once(self, start, cutoff):
+        self.collection.ran_with_argument = self.test_argument
+
+        
+class TestRunMonitorScript(DatabaseTest):
+
+    def test_run_with_collection_monitor(self):
+        """It's not ideal, but you can run a CollectionMonitor script from
+        RunMonitorScript. This will run the monitor on every
+        appropriate Collection.
+        """
+        c1 = self._collection()
+        c2 = self._collection()
+        script = RunMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+        for c in [c1, c2]:
+            eq_("test value", c.ran_with_argument)
+        
+        
 class TestRunCollectionMonitorScript(DatabaseTest):
 
     def test_all(self):
-        class OPDSCollectionMonitor(CollectionMonitor):
-            SERVICE_NAME = "Test Monitor"
-            PROTOCOL = ExternalIntegration.OPDS_IMPORT
-
-            def __init__(self, _db, test_argument=None, **kwargs):
-                self.test_argument = test_argument
-                super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
-
-            def run_once(self, start, cutoff):
-                self.collection.ran_with_argument = self.test_argument
-
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -1242,3 +1264,144 @@ class TestConfigureCollectionScript(DatabaseTest):
                   + "\n".join(collection.explain()) + "\n")
         
         eq_(expect, output.getvalue())
+
+class TestCollectionInputScript(DatabaseTest):
+    """Test the ability to name collections on the command line."""
+
+    def test_parse_command_line(self):
+
+        def collections(cmd_args):
+            parsed = CollectionInputScript.parse_command_line(
+                self._db, cmd_args
+            )
+            return parsed.collections
+
+        # No collections named on command line -> no collections
+        eq_([], collections([]))
+
+        # Nonexistent collection -> ValueError
+        assert_raises_regexp(
+            ValueError,
+            'Unknown collection: "no such collection"',
+            collections, ['--collection="no such collection"']
+        )
+
+        # Collections are presented in the order they were encountered
+        # on the command line.
+        c2 = self._collection()
+        expect = [c2, self._default_collection]
+        args = ["--collection=" + c.name for c in expect]
+        actual = collections(args)
+        eq_(expect, actual)
+
+
+# Mock classes used by TestOPDSImportScript
+class MockOPDSImportMonitor(object):
+    """Pretend to monitor an OPDS feed for new titles."""
+    INSTANCES = []
+    
+    def __init__(self, _db, collection, *args, **kwargs):
+        self.collection = collection
+        self.args = args
+        self.kwargs = kwargs
+        self.INSTANCES.append(self)
+        self.was_run = False
+        
+    def run(self):
+        self.was_run = True
+
+class MockOPDSImporter(object):
+    """Pretend to import titles from an OPDS feed."""
+    pass
+
+class MockOPDSImportScript(OPDSImportScript):
+    """Actually instantiate a monitor that will pretend to do something."""
+    MONITOR_CLASS = MockOPDSImportMonitor
+    IMPORTER_CLASS = MockOPDSImporter
+
+        
+class TestOPDSImportScript(DatabaseTest):  
+
+    def test_do_run(self):
+        self._default_collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value = (
+            DataSource.OA_CONTENT_SERVER
+        )
+
+        script = MockOPDSImportScript(self._db)
+        script.do_run([])
+
+        # Since we provided no collection, no MockOPDSImportMonitor
+        # was instantiated.
+        eq_([], MockOPDSImportMonitor.INSTANCES)
+
+        args = ['--collection=%s' % self._default_collection.name]
+        script.do_run(args)
+
+        # Now a monitor has been instantiated and run.
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.was_run)
+
+        # Our replacement OPDS importer class was passed in to the
+        # monitor constructor. If this had been a real monitor, that's the
+        # code we would have used to import OPDS feeds.
+        eq_(MockOPDSImporter, monitor.kwargs['import_class'])
+        eq_(False, monitor.kwargs['force_reimport'])
+
+        # Setting --force changes the 'force_reimport' argument
+        # passed to the monitor constructor.
+        args.append('--force')
+        script.do_run(args)
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.kwargs['force_reimport'])
+
+
+class TestWorkConsolidationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkPresentationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkClassificationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkOPDSScript(object):
+    """TODO"""
+    pass
+
+
+class TestCustomListManagementScript(object):
+    """TODO"""
+    pass
+
+
+class TestSubjectAssignmentScript(object):
+    """TODO"""
+    pass
+
+
+class TestBibliographicRefreshScript(object):
+    """TODO"""
+    pass
+
+        
+class TestNYTBestSellerListsScript(object):
+    """TODO"""
+    pass
+
+
+class TestRefreshMaterializedViewsScript(object):
+    """TODO"""
+    pass
+
+
+class TestExplain(object):
+    """TODO"""
+    pass
