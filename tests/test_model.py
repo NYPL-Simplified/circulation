@@ -5606,6 +5606,32 @@ class TestExternalIntegration(DatabaseTest):
 
 class TestConfigurationSetting(DatabaseTest):
 
+    def test_duplicate(self):
+        """You can't have two ConfigurationSettings for the same key,
+        library, and external integration.
+
+        (test_relationships shows that you can have two settings for the same
+        key as long as library or integration is different.)
+        """
+        key = self._str
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        library = self._default_library
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(setting, setting2)
+        assert_raises(
+            IntegrityError,
+            create, self._db, ConfigurationSetting,
+            key=key,
+            library=library, external_integration=integration
+        )
+    
     def test_relationships(self):
         integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
