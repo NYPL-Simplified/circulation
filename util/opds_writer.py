@@ -56,7 +56,6 @@ class AtomFeed(object):
 
     @classmethod
     def add_link_to_entry(cls, entry, children=None, **kwargs):
-        #links.append(E.link(rel=rel, href=url, type=image_type))
         link = cls.E.link(**kwargs)
         entry.append(link)
         if children:
