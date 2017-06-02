@@ -1501,32 +1501,12 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.admin_auth_services()
             [service] = response.get("admin_auth_services")
-            admins = response.get("admins")
 
-            eq_([], admins)
             eq_(auth_service.protocol, service.get("provider"))
             eq_(auth_service.url, service.get("url"))
             eq_(auth_service.username, service.get("username"))
             eq_(auth_service.password, service.get("password"))
             eq_(["nypl.org"], service.get("domains"))
-
-    def test_admin_auth_services_get_with_local_passwords(self):
-        # There are two admins that can sign in with passwords.
-        admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
-        admin1.password = "pass1"
-        admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
-        admin2.password = "pass2"
-
-        # This admin doesn't have a password, and won't be included.
-        admin3, ignore = create(self._db, Admin, email="admin3@nypl.org")
-
-        with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            services = response.get("admin_auth_services")
-            admins = response.get("admins")
-
-            eq_([], services)
-            eq_([{"email": "admin1@nypl.org"}, {"email": "admin2@nypl.org"}], admins)
 
     def test_admin_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1535,6 +1515,11 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE)
 
     def test_admin_auth_services_post_errors_google_oauth(self):
         auth_service, ignore = create(
@@ -1566,19 +1551,6 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, INVALID_ADMIN_AUTH_DOMAIN_LIST)
 
-    def test_admin_auth_services_post_errors_local_password(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([])
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response.uri, INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION.uri)
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("admins", "not json"),
-            ])
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, INVALID_ADMIN_AUTH_ADMINS_LIST)
-        
     def test_admin_auth_services_post_google_oauth_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1630,43 +1602,60 @@ class TestSettingsController(AdminControllerTest):
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
 
-    def test_admin_auth_services_post_local_password_create(self):
+    def test_individual_admins(self):
+        # There are two admins that can sign in with passwords.
+        admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
+        admin1.password = "pass1"
+        admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
+        admin2.password = "pass2"
+
+        # This admin doesn't have a password, and won't be included.
+        admin3, ignore = create(self._db, Admin, email="admin3@nypl.org")
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.individual_admins()
+            admins = response.get("individualAdmins")
+            eq_([{"email": "admin1@nypl.org"}, {"email": "admin2@nypl.org"}], admins)
+
+    def test_individual_admins_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.uri, INVALID_INDIVIDUAL_ADMIN_CONFIGURATION.uri)
+
+    def test_individual_admins_post_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("admins", json.dumps([{"email": "admin1@nypl.org", "password": "pass1"},
-                                       {"email": "admin2@nypl.org", "password": "pass2"}])),
+                ("email", "admin@nypl.org"),
+                ("password", "pass"),
             ])
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response.status_code, 200)
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.status_code, 201)
 
-        # Two admins were created.
-        admin1_matches = self._db.query(Admin).filter(Admin.email=="admin1@nypl.org").filter(Admin.password=="pass1").all()
-        eq_(1, len(admin1_matches))
+        # The admin was created.
+        admin_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="pass").all()
+        eq_(1, len(admin_matches))
 
-        admin2_matches = self._db.query(Admin).filter(Admin.email=="admin2@nypl.org").filter(Admin.password=="pass2").all()
-        eq_(1, len(admin2_matches))
-
-    def test_admin_auth_services_post_local_password_edit(self):
-        # One admin exists.
-        old_admin, ignore = create(
-            self._db, Admin, email="oldadmin@nypl.org",
+    def test_individual_admins_post_edit(self):
+        # An admin exists.
+        admin, ignore = create(
+            self._db, Admin, email="admin@nypl.org",
         )
-        old_admin.password = "password"
+        admin.password = "password"
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("admins", json.dumps([{"email": "admin1@nypl.org", "password": "pass1"},
-                                       {"email": "admin2@nypl.org", "password": "pass2"}])),
+                ("email", "admin@nypl.org"),
+                ("password", "new password"),
             ])
-            response = self.manager.admin_settings_controller.admin_auth_services()
+            response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.status_code, 200)
 
-        # The old admin was deleted, and the new admins were created.
-        admins = self._db.query(Admin).all()
-        eq_(2, len(admins))
+        # The password was changed.
+        old_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="password").all()
+        eq_(0, len(old_password_matches))
 
-        admin1_matches = self._db.query(Admin).filter(Admin.email=="admin1@nypl.org").filter(Admin.password=="pass1").all()
-        eq_(1, len(admin1_matches))
+        new_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="new password").all()
+        eq_([admin], new_password_matches)
 
-        admin2_matches = self._db.query(Admin).filter(Admin.email=="admin2@nypl.org").filter(Admin.password=="pass2").all()
-        eq_(1, len(admin2_matches))
+

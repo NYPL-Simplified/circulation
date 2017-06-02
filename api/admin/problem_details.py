@@ -177,6 +177,13 @@ CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
     detail=_("An admin authentication service's provider can't be changed once it has been set."),
 )
 
+NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-provider-for-new-admin-auth-service",
+    status_code=400,
+    title=_("No provider for new admin authentication service"),
+    detail=_("The specified admin authentication service doesn't exist. You can create it, but you must specify a provider."),
+)
+
 INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION = pd(
     "http://librarysimplified.org/terms/problem/incomplete-admin-auth-service-configuration",
     status_code=400,
@@ -191,9 +198,9 @@ INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
     detail=_("The admin authentication domain list isn't in a valid format."),
 )
 
-INVALID_ADMIN_AUTH_ADMINS_LIST = pd(
-    "http://librarysimplified.org/terms/problem/invalid-admin-auth-admins-list",
+INVALID_INDIVIDUAL_ADMIN_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-individual-admin-configuration",
     status_code=400,
-    title=_("Invalid admin authentication list of admins"),
-    detail=_("The admin authentication list of admins isn't in a valid format."),
+    title=_("Incomplete individual admin configuration"),
+    detail=_("The individual admin's configuration is missing a required field."),
 )

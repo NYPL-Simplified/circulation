@@ -309,6 +309,19 @@ def admin_auth_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/individual_admins", methods=['GET', 'POST'])
+@returns_problem_detail
+@allows_admin_auth_setup
+@requires_admin
+@requires_csrf_token
+def individual_admins():
+    data = app.manager.admin_settings_controller.individual_admins()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in

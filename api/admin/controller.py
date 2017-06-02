@@ -1116,9 +1116,7 @@ class SettingsController(CirculationManagerController):
     def admin_auth_services(self):
         if flask.request.method == 'GET':
             auth_services = []
-            admins = []
             auth_service = ExternalIntegration.admin_authentication(self._db)
-            admins_with_password = Admin.with_password(self._db)
             if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
@@ -1129,12 +1127,8 @@ class SettingsController(CirculationManagerController):
                         domains=json.loads(auth_service.setting("domains").value),
                     )
                 ]
-            if admins_with_password.count() != 0:
-                admins=[dict(email=admin.email) for admin in admins_with_password]
-
             return dict(
                 admin_auth_services=auth_services,
-                admins=admins,
                 providers=ExternalIntegration.ADMIN_AUTH_PROTOCOLS,
             )
 
@@ -1144,14 +1138,17 @@ class SettingsController(CirculationManagerController):
 
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
-        if auth_service and protocol != auth_service.protocol:
-            return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
-
-        elif protocol:
-            auth_service, is_new = get_one_or_create(
-                self._db, ExternalIntegration, protocol=protocol,
-                goal=ExternalIntegration.ADMIN_AUTH_GOAL
-            )
+        if auth_service:
+            if protocol != auth_service.protocol:
+                return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
+        else:
+            if protocol:
+                auth_service, is_new = get_one_or_create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
+                )
+            else:
+                return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
 
         if protocol == ExternalIntegration.GOOGLE_OAUTH:
             url = flask.request.form.get("url")
@@ -1177,29 +1174,30 @@ class SettingsController(CirculationManagerController):
             auth_service.password = password
             auth_service.set_setting("domains", domains)
 
-        elif protocol == None:
-            admins = flask.request.form.get("admins")
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
 
-            if not admins:
-                self._db.rollback()
-                return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
+    def individual_admins(self):
+        if flask.request.method == 'GET':
+            admins = []
+            admins_with_password = Admin.with_password(self._db)
+            if admins_with_password.count() != 0:
+                admins=[dict(email=admin.email) for admin in admins_with_password]
 
-            # Also make sure admins is valid JSON.
-            try:
-                admins = json.loads(admins)
-            except Exception:
-                self._db.rollback()
-                return INVALID_ADMIN_AUTH_ADMINS_LIST
+            return dict(
+                individualAdmins=admins,
+            )
 
-            for admin_details in admins:
-                admin, ignore = get_one_or_create(self._db, Admin, email=admin_details.get("email"))
-                if (admin_details.get("password")):
-                    admin.password = admin_details.get("password")
+        email = flask.request.form.get("email")
+        password = flask.request.form.get("password")
 
-            admin_emails = [a.get("email") for a in admins]
-            for admin in self._db.query(Admin).filter(Admin.password_hashed!=None):
-                if admin.email not in admin_emails:
-                    self._db.delete(admin)
+        if not email or not password:
+            return INVALID_INDIVIDUAL_ADMIN_CONFIGURATION
+
+        admin, is_new = get_one_or_create(self._db, Admin, email=email)
+        admin.password = password
 
         if is_new:
             return Response(unicode(_("Success")), 201)
