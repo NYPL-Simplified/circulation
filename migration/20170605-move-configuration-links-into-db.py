@@ -22,11 +22,11 @@ _db = production_session()
 library = Library.instance(_db)
 
 for rel, value in (
-        ("terms-of-service", Configuration.terms_of_service_url()),
-        ("privacy-policy", Configuration.privacy_policy_url()),
-        ("copyright", Configuration.acknowledgements_url()),
-        ("about", Configuration.about_url()),
-        ("license", Configuration.license_url()),
+        ("terms-of-service", Configuration.get('links', {}).get('terms_of_service', None)),
+        ("privacy-policy", Configuration.get('links', {}).get('privacy_policy', None)),
+        ("copyright", Configuration.get('links', {}).get('copyright', None)),
+        ("about", Configuration.get('links', {}).get('about', None)),
+        ("license", Configuration.get('links', {}).get('license', None)),
 ):
     if value:
         ConfigurationSetting.for_library(_db, rel, library).value = value

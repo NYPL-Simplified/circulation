@@ -20,6 +20,7 @@ from flask import url_for
 
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     Credential,
     DataSource,
     Library,
@@ -50,6 +51,7 @@ from api.authenticator import (
     OAuthAuthenticationProvider,
     PatronData,
 )
+from api.opds import CirculationManagerAnnotator
 
 from api.config import (
     CannotLoadConfiguration,
@@ -858,17 +860,22 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         self.app = app
         del os.environ['AUTOINITIALIZE']
 
+        link_config = {
+            CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms",
+            CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy",
+            CirculationManagerAnnotator.COPYRIGHT: "http://copyright",
+            CirculationManagerAnnotator.ABOUT: "http://about",
+            CirculationManagerAnnotator.LICENSE: "http://license/",
+        }
+
+        # Set up configuration settings for links.
+        for rel, value in link_config.iteritems():
+            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][
                 Configuration.CIRCULATION_MANAGER_INTEGRATION
             ] = dict(url="http://circulation-manager/")
-            config[Configuration.LINKS] = {
-                Configuration.TERMS_OF_SERVICE: "http://terms",
-                Configuration.PRIVACY_POLICY: "http://privacy",
-                Configuration.COPYRIGHT: "http://copyright",
-                Configuration.ABOUT: "http://about",
-                Configuration.LICENSE: "http://license/",
-            }
 
             with self.app.test_request_context("/"):        
                 doc = json.loads(authenticator.create_authentication_document())

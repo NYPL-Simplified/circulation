@@ -7,6 +7,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
+    ConfigurationSetting,
     Credential,
     DataSource,
     Library,
@@ -22,6 +23,7 @@ from core.analytics import Analytics
 from sqlalchemy.ext.hybrid import hybrid_property
 from problem_details import *
 from util.patron import PatronUtility
+from api.opds import CirculationManagerAnnotator
 
 import datetime
 import logging
@@ -644,15 +646,11 @@ class LibraryAuthenticator(object):
         base_opds_document = Configuration.base_opds_authentication_document()
 
         links = {}
-        for rel, value in (
-                ("terms-of-service", Configuration.terms_of_service_url()),
-                ("privacy-policy", Configuration.privacy_policy_url()),
-                ("copyright", Configuration.acknowledgements_url()),
-                ("about", Configuration.about_url()),
-                ("license", Configuration.license_url()),
-        ):
-            if value:
-                links[rel] = dict(href=value, type="text/html")
+        library = get_one(self._db, Library, self.library_id)
+        for rel in CirculationManagerAnnotator.CONFIGURATION_LINKS:
+            setting = ConfigurationSetting.for_library(self._db, rel, library)
+            if setting.value:
+                links[rel] = dict(href=setting.value, type="text/html")
 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
