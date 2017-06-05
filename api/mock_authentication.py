@@ -45,6 +45,7 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
         self.patrons = patrons
         self.expired_patrons = expired_patrons
         self.patrons_with_fines = patrons_with_fines
+        self.test_username, self.test_password = sorted(patrons.items())[0]
         
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.

@@ -52,26 +52,20 @@ class TestServiceStatusMonitor(DatabaseTest):
 
     def test_init(self):
         # Test that ServiceStatus can create an Authenticator.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"module": 'api.mock_authentication'}
-                    ]
-                }
-            }
-            service_status = ServiceStatus(self._default_library)
-            assert service_status.auth != None
-            assert service_status.auth.basic_auth_provider != None
+        integration = self._external_integration(
+            "api.mock_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        self._default_library.integrations.append(integration)
+        service_status = ServiceStatus(self._default_library)
+        assert service_status.auth != None
+        assert service_status.auth.basic_auth_provider != None
 
     @property
     def mock_auth(self):
         library = self._default_library
         provider = MockAuthenticationProvider(
             library.id,
-            patrons={"user": "pass"},
-            test_username="user",
-            test_password="pass",
+            patrons={"user": "pass"}
         )
         return LibraryAuthenticator(self._db, library, provider)
 
