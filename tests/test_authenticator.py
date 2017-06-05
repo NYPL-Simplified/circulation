@@ -1124,9 +1124,12 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         # We configure a testing patron but their username and
         # password don't actually authenticate anyone. We don't crash,
         # but we can't look up the testing patron either.
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(b.TEST_IDENTIFIER).value = '1'
+        integration.setting(b.TEST_PASSWORD).value = '2'
         missing_patron = MockBasicAuthenticationProvider(
-            self._default_library.id, patron=None, test_username="1",
-            test_password="2"
+            self._default_library.id, integration, patron=None
         )
         value = missing_patron.testing_patron(self._db)
         eq_((None, "2"), value)
@@ -1135,32 +1138,36 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         # their username and password.
         patron = self._patron()
         present_patron = MockBasicAuthenticationProvider(
-            self._default_library.id, patron=patron, test_username="1",
-            test_password="2"
+            self._default_library.id, integration,
+            patron=patron
         )
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
 
     def test_server_side_validation(self):
-        provider = BasicAuthenticationProvider(
-            self._default_library.id,
-            identifier_regular_expression="foo",
-            password_regular_expression="bar"
-        )
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = 'foo'
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = 'bar'
+
+        provider = b(self._default_library.id, integration)
+        
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(False, provider.server_side_validation("food", "arbecue"))
         eq_(False, provider.server_side_validation("ood", "barbecue"))
         eq_(False, provider.server_side_validation(None, None))
 
         # It's okay not to provide anything for server side validation.
-        # Everything will be considered valid.
-        provider = BasicAuthenticationProvider(
-            self._default_library.id,
-            identifier_regular_expression=None,
-            password_regular_expression=None
-        )
+        # The default settings will be used.
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        provider = b(self._default_library.id, integration)
+        eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
+            provider.identifier_re.pattern)
+        eq_(None, b.password_re)
         eq_(True, provider.server_side_validation("food", "barbecue"))
-        eq_(True, provider.server_side_validation(None, None))
+        eq_(True, provider.server_side_validation("a", None))
+        eq_(False, provider.server_side_validation("!@#$", None))
         
     def test_local_patron_lookup(self):
         patron1 = self._patron("patron1_ext_id")
@@ -1172,7 +1179,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         patron2.username = "patron2"
         self._db.commit()
         
-        provider = BasicAuthenticationProvider(self._default_library.id)
+        provider = self.mock_basic()
 
         # If we provide PatronData associated with patron1, we look up
         # patron1, even though we provided the username associated
@@ -1212,13 +1219,13 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         )        
 
     def test_get_credential_from_header(self):
-        provider = BasicAuthenticationProvider(self._default_library.id)
+        provider = self.mock_basic()
         eq_(None, provider.get_credential_from_header("Bearer [some token]"))
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
-        provider = BasicAuthenticationProvider(self._default_library.id)
+        provider = self.mock_basic()
         doc = provider.authentication_provider_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['name'])
         methods = doc['methods']
