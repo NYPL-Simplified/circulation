@@ -1456,13 +1456,13 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         integration = self._external_integration(
             self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        config = {
-            Configuration.OAUTH_CLIENT_ID : "client_id",
-            Configuration.OAUTH_CLIENT_SECRET : "client_secret",
-            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
-        }
+        integration.username = 'client_id'
+        integration.password = 'client_secret'
+        integration.setting(
+            ConfigAuthenticationProvider.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).value = 20
         provider = ConfigAuthenticationProvider.from_config(
-            self._default_library.id, config
+            self._default_library.id, integration
         )
         eq_("client_id", provider.client_id)
         eq_("client_secret", provider.client_secret)
