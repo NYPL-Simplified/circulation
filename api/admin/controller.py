@@ -22,6 +22,7 @@ from core.model import (
     Classification,
     Collection,
     Complaint,
+    ConfigurationSetting,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -908,6 +909,14 @@ class DashboardController(CirculationManagerController):
 class SettingsController(CirculationManagerController):
 
     def libraries(self):
+        settings = [
+            { "key": AdminAnnotator.TERMS_OF_SERVICE, "label": _("Terms of Service URL") },
+            { "key": AdminAnnotator.PRIVACY_POLICY, "label": _("Privacy Policy URL") },
+            { "key": AdminAnnotator.COPYRIGHT, "label": _("Copyright URL") },
+            { "key": AdminAnnotator.ABOUT, "label": _("About URL") },
+            { "key": AdminAnnotator.LICENSE, "label": _("License URL") },
+        ]
+
         if flask.request.method == 'GET':
             libraries = [
                 dict(
@@ -915,12 +924,12 @@ class SettingsController(CirculationManagerController):
                     name=library.name,
                     short_name=library.short_name,
                     library_registry_short_name=library.library_registry_short_name,
-                    library_registry_shared_secret=library.library_registry_shared_secret
+                    library_registry_shared_secret=library.library_registry_shared_secret,
+                    settings={ setting.key: setting.value for setting in library.settings },
                 )
                 for library in self._db.query(Library).order_by(Library.name).all()
             ]
-        
-            return dict(libraries=libraries)
+            return dict(libraries=libraries, settings=settings)
 
 
         library_uuid = flask.request.form.get("uuid")
@@ -964,6 +973,10 @@ class SettingsController(CirculationManagerController):
             library.library_registry_short_name = registry_short_name
         if registry_shared_secret:
             library.library_registry_shared_secret = registry_shared_secret
+
+        for setting in settings:
+            value = flask.request.form.get(setting['key'], None)
+            ConfigurationSetting.for_library(self._db, setting['key'], library).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)

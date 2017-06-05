@@ -19,6 +19,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    ConfigurationSetting,
     Credential,
     DataSource,
     DeliveryMechanism,
@@ -44,7 +45,21 @@ from circulation import BaseCirculationAPI
 from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
+
+    TERMS_OF_SERVICE = 'terms-of-service'
+    PRIVACY_POLICY = 'privacy-policy'
+    COPYRIGHT = 'copyright'
+    ABOUT = 'about'
+    LICENSE = 'license'
    
+    CONFIGURATION_LINKS = [
+        TERMS_OF_SERVICE,
+        PRIVACY_POLICY,
+        COPYRIGHT,
+        ABOUT,
+        LICENSE,
+    ]
+
     def __init__(self, circulation, lane, library, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -437,17 +452,12 @@ class CirculationManagerAnnotator(Annotator):
 
         self.add_configuration_links(feed)
         
-    @classmethod
-    def add_configuration_links(cls, feed):
-        for rel, value in (
-                ("terms-of-service", Configuration.terms_of_service_url()),
-                ("privacy-policy", Configuration.privacy_policy_url()),
-                ("copyright", Configuration.acknowledgements_url()),
-                ("about", Configuration.about_url()),
-                ("license", Configuration.license_url()),
-        ):
-            if value:
-                d = dict(href=value, type="text/html", rel=rel)
+    def add_configuration_links(self, feed):
+        for rel in self.CONFIGURATION_LINKS:
+            _db = Session.object_session(self.library)
+            setting = ConfigurationSetting.for_library(_db, rel, self.library)
+            if setting.value:
+                d = dict(href=setting.value, type="text/html", rel=rel)
                 if isinstance(feed, OPDSFeed):
                     feed.add_link_to_feed(feed.feed, **d)
                 else:
