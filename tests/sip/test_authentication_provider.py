@@ -36,10 +36,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     polaris_no_such_patron = "64YYYY          00120161121    143126000000000000000000000000AO3|AA1112|AE, |BZ0000|CA0000|CB0000|BLN|CQN|BHUSD|BV0.00|CC0.00|BD|BE|BF|BC|PA0|PE|PS|U1|U2|U3|U4|U5|PZ|PX|PYN|FA0.00|AFPatron does not exist.|AGPatron does not exist.|AY2AZBCF2"
     
     def test_remote_authenticate(self):
+        integration = self._external_integration(self._str)
         client = MockSIPClient()
         auth = SIP2AuthenticationProvider(
-            self._default_library.id, None, None, None, None, None, None,
-            client=client
+            self._default_library.id, integration, client=client
         )
 
         # Some examples taken from a Sierra SIP API.
@@ -120,12 +120,12 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
                 raise IOError("Doom!")
 
 
+        integration = self._external_integration(self._str)
         assert_raises_regexp(
             RemoteIntegrationException,
-            "Error accessing server.local: Doom!",
+            "Error accessing unknown server: Doom!",
             SIP2AuthenticationProvider,
-            self._default_library.id, "server.local", None, None, None, None,
-            client=CannotConnect
+            self._default_library.id, integration, client=CannotConnect
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -136,12 +136,12 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def do_send(self, data):
                 raise IOError("Doom!")
         client = CannotSend()
-        client.target_server = 'server.local'
-            
+
+        integration = self._external_integration(self._str)
         provider = SIP2AuthenticationProvider(
-            self._default_library.id, None, None, None, None, None,
-            client=client
+            self._default_library.id, integration, client=client
         )
+        provider.client.target_server = 'server.local'
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",
