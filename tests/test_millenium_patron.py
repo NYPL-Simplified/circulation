@@ -1,6 +1,7 @@
 import pkgutil
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+import json
 from nose.tools import (
     eq_,
     set_trace,
@@ -22,8 +23,8 @@ class MockResponse(object):
 
 class MockAPI(MilleniumPatronAPI):
 
-    def __init__(self, library_id, url="http://test-url/", *args, **kwargs):
-        super(MockAPI, self).__init__(library_id, url, *args, **kwargs)
+    def __init__(self, library_id, integration):
+        super(MockAPI, self).__init__(library_id, integration)
         self.queue = []
         self.requests_made = []
         
@@ -43,19 +44,19 @@ class MockAPI(MilleniumPatronAPI):
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
+    def mock_api(self, url="http://url/", blacklist=[], verify_certificate=True):
+        integration = self._external_integration(self._str)
+        integration.url = url
+        integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
+        integration.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value = json.dumps(verify_certificate)
+        return MockAPI(self._default_library.id, integration)
+    
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
-        self.api = MockAPI(
-            self._default_library.id, identifier_regular_expression=None
-        )
+        self.api = self.mock_api("http://url/")
 
-    def test_from_config(self):
-        api = None
-        config = {
-            Configuration.URL : "http://example.com",
-            Configuration.AUTHORIZATION_IDENTIFIER_BLACKLIST : ["a", "b"],
-        }
-        api = MilleniumPatronAPI.from_config(self._default_library.id, config)
+    def test_constructor(self):
+        api = self.mock_api("http://example.com/", ["a", "b"])
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
         
@@ -105,16 +106,16 @@ class TestMilleniumPatronAPI(DatabaseTest):
         dump = self.api.sample_data("dump.two_barcodes.html")
 
         # Let's say they authenticate with the first one.
-        patrondata = self.api.patron_dump_to_patrondata("FIRST_barcode", dump)
+        patrondata = self.api.patron_dump_to_patrondata("FIRST-barcode", dump)
         # Their Patron record will use their first barcode as authorization
         # identifier, because that's what they typed in.
-        eq_("FIRST_barcode", patrondata.authorization_identifier)
+        eq_("FIRST-barcode", patrondata.authorization_identifier)
 
         # Let's say they authenticate with the second barcode.
-        patrondata = self.api.patron_dump_to_patrondata("SECOND_barcode", dump)
+        patrondata = self.api.patron_dump_to_patrondata("SECOND-barcode", dump)
         # Their Patron record will use their second barcode as authorization
         # identifier, because that's what they typed in.
-        eq_("SECOND_barcode", patrondata.authorization_identifier)
+        eq_("SECOND-barcode", patrondata.authorization_identifier)
 
         # Let's say they authenticate with a username.
         patrondata = self.api.patron_dump_to_patrondata(
@@ -123,7 +124,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Their Patron record will suggest the second barcode as
         # authorization identifier, because it's likely to be the most
         # recently added one.
-        eq_("SECOND_barcode", patrondata.authorization_identifier)
+        eq_("SECOND-barcode", patrondata.authorization_identifier)
         
     def test_remote_authenticate_no_such_barcode(self):
         self.api.enqueue("pintest.no such barcode.html")
@@ -163,21 +164,21 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self.api.enqueue("dump.two_barcodes.html")
         p2 = self.api.authenticated_patron(self._db, dict(username="alice"))
         eq_(p2, p)
-        eq_("SECOND_barcode", p.authorization_identifier)
+        eq_("SECOND-barcode", p.authorization_identifier)
 
         # If the patron is new, and logged in with a barcode, their
         # authorization identifier will be the barcode they used.
         p.authorization_identifier = None
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="FIRST_barcode"))
-        eq_("FIRST_barcode", p.authorization_identifier)
+        self.api.authenticated_patron(self._db, dict(username="FIRST-barcode"))
+        eq_("FIRST-barcode", p.authorization_identifier)
 
         p.authorization_identifier = None
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="SECOND_barcode"))
-        eq_("SECOND_barcode", p.authorization_identifier)
+        self.api.authenticated_patron(self._db, dict(username="SECOND-barcode"))
+        eq_("SECOND-barcode", p.authorization_identifier)
 
         # If the patron authorizes with their username, we will leave
         # their authorization identifier alone.
@@ -195,24 +196,24 @@ class TestMilleniumPatronAPI(DatabaseTest):
         p.authorization_identifier = "alice"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="FIRST_barcode"))
-        eq_("FIRST_barcode", p.authorization_identifier)
+        self.api.authenticated_patron(self._db, dict(username="FIRST-barcode"))
+        eq_("FIRST-barcode", p.authorization_identifier)
 
         # Or to the case where the patron's authorization identifier is
         # simply not used anymore.
-        p.authorization_identifier = "OLD_barcode"
+        p.authorization_identifier = "OLD-barcode"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="SECOND_barcode"))
-        eq_("SECOND_barcode", p.authorization_identifier)
+        self.api.authenticated_patron(self._db, dict(username="SECOND-barcode"))
+        eq_("SECOND-barcode", p.authorization_identifier)
 
         # If the patron has an authorization identifier, and it _is_
         # one of their barcodes, we'll keep it.
-        p.authorization_identifier = "FIRST_barcode"
+        p.authorization_identifier = "FIRST-barcode"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
         self.api.authenticated_patron(self._db, dict(username="alice"))
-        eq_("FIRST_barcode", p.authorization_identifier)
+        eq_("FIRST-barcode", p.authorization_identifier)
 
         # We'll keep the patron's authorization identifier constant
         # even if the patron has started authenticating with some
@@ -224,11 +225,11 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # third-party services that don't check the ILS', and using
         # the permanent ID in there, would alleviate this problem for
         # new patrons.
-        p.authorization_identifier = "SECOND_barcode"
+        p.authorization_identifier = "SECOND-barcode"
         self.api.enqueue("pintest.good.html")
         self.api.enqueue("dump.two_barcodes.html")
-        self.api.authenticated_patron(self._db, dict(username="FIRST_barcode"))
-        eq_("SECOND_barcode", p.authorization_identifier)
+        self.api.authenticated_patron(self._db, dict(username="FIRST-barcode"))
+        eq_("SECOND-barcode", p.authorization_identifier)
 
     def test_authenticated_patron_success(self):
         """This test can probably be removed -- it mostly tests functionality
@@ -337,22 +338,17 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """
         content = self.api.sample_data("dump.two_barcodes.html")
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
-        eq_("SECOND_barcode", patrondata.authorization_identifier)
+        eq_("SECOND-barcode", patrondata.authorization_identifier)
 
-        api = MockAPI(
-            self._default_library.id, authorization_identifier_blacklist=["second"]
-        )
+        api = self.mock_api(blacklist=["second"])
         patrondata = api.patron_dump_to_patrondata('alice', content)
-        eq_("FIRST_barcode", patrondata.authorization_identifier)
+        eq_("FIRST-barcode", patrondata.authorization_identifier)
         
     def test_blacklist_may_remove_every_authorization_identifier(self):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
         """
-        api = MockAPI(
-            self._default_library.id,
-            authorization_identifier_blacklist=["barcode"]
-        )
+        api = self.mock_api(blacklist=["barcode"])
         content = api.sample_data("dump.two_barcodes.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_(patrondata.NO_VALUE, patrondata.authorization_identifier)
@@ -363,24 +359,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
         server's SSL certificate.
         """
         # By default, verify_certificate is True.
-        config = {
-            Configuration.URL : "http://example.com",
-        }
-        api = MilleniumPatronAPI.from_config(self._default_library.id, config)
-        eq_(True, api.verify_certificate)
-        
-        # But we can turn it off.
-        config = {
-            Configuration.URL : "http://example.com",
-            MilleniumPatronAPI.VERIFY_CERTIFICATE : False,
-        }
-        api = MilleniumPatronAPI.from_config(self._default_library.id, config)
+        eq_(True, self.api.verify_certificate)
+
+        api = self.mock_api(verify_certificate=False)
         eq_(False, api.verify_certificate)
 
         # Test that the value of verify_certificate becomes the
         # 'verify' argument when _modify_request_kwargs() is called.
         kwargs = dict(verify=False)
-        api = MockAPI(self._default_library.id, verify_certificate = "yes please")
+        api = self.mock_api(verify_certificate = "yes please")
         api._update_request_kwargs(kwargs)
         eq_("yes please", kwargs['verify'])
 
