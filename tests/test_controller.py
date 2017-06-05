@@ -152,13 +152,21 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         )
 
         self.initialize_library(_db)
-        p = MockAuthenticationProvider
-        integration = self._external_integration(
-            "api.mock_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
-        )
-        integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
-        integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
-        self.library.integrations.append(integration)
+
+        # Create a simple authentication integration for this library,
+        # unless it already has a way to authenticate patrons
+        # (in which case we would just screw things up).
+        if not any([x for x in self.library.integrations if x.goal==
+                ExternalIntegration.PATRON_AUTH_GOAL]):
+            p = MockAuthenticationProvider
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol="api.mock_authentication",
+                goal=ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            self.library.integrations.append(integration)
         self.authdata = AuthdataUtility.from_config(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
