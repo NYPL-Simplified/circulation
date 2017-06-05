@@ -152,7 +152,12 @@ class AuthenticatorTest(DatabaseTest):
         """Convenience method to instantiate a MockBasic object with the 
         default library.
         """
-        return MockBasic(self._default_library.id, *args, **kwargs)
+        integration = self._external_integration(
+            self._str, ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        return MockBasic(
+            self._default_library.id, integration, *args, **kwargs
+        )
 
         
 class TestPatronData(AuthenticatorTest):
@@ -553,9 +558,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         assert isinstance(clever, CleverAuthenticationAPI)
             
     def test_oauth_provider_requires_secret(self):
-        basic_integration = self._external_integration(self._str)
+        integration = self._external_integration(self._str)
+
         basic = MockBasicAuthenticationProvider(
-            self._default_library.id, basic_integration
+            self._default_library.id, integration
         )
         oauth = MockOAuthAuthenticationProvider(
             self._default_library.id, "provider1"
@@ -1041,9 +1047,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(None, patron.username)
         
         patrondata = PatronData(username="user")
-        provider = MockBasicAuthenticationProvider(
-            self._default_library.id, patrondata=patrondata
-        )
+        provider = self.mock_basic(remote_patron_lookup_patrondata=patrondata)
         provider.update_patron_metadata(patron)
 
         # The patron's username has been changed.
@@ -1055,9 +1059,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
     def test_update_patron_metadata_noop_if_no_remote_metadata(self):
 
         patron = self._patron()
-        provider = MockBasicAuthenticationProvider(
-            self._default_library.id, patrondata=None
-        )
+        provider = self.mock_basic(patrondata=None)
         provider.update_patron_metadata(patron)
 
         # We can tell that update_patron_metadata was a no-op because
@@ -1066,7 +1068,9 @@ class TestAuthenticationProvider(AuthenticatorTest):
 
     def test_remote_patron_lookup_is_noop(self):
         """The default implementation of remote_patron_lookup is a no-op."""
-        provider = BasicAuthenticationProvider(self._default_library.id)
+        provider = BasicAuthenticationProvider(
+            self._default_library.id, self._external_integration(self._str)
+        )
         eq_(None, provider.remote_patron_lookup(None))
         patron = self._patron()
         eq_(patron, provider.remote_patron_lookup(patron))
