@@ -51,7 +51,7 @@ from api.authenticator import (
     OAuthAuthenticationProvider,
     PatronData,
 )
-from api.mock_authentication import SimpleAuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 
 from api.config import (
@@ -374,8 +374,8 @@ class TestPatronData(AuthenticatorTest):
 class TestAuthenticator(ControllerTest):
 
     def test_init(self):
-        # The default library uses the default MockAuthenticator
-        # for its basic auth.
+        # The default library uses the MockAuthenticator for its basic
+        # auth -- the best choice for unit tests.
         l1 = self._default_library
         l1.short_name = 'l1'
 
@@ -399,9 +399,10 @@ class TestAuthenticator(ControllerTest):
 
         # Each LibraryAuthenticator has been associated with
         # an appropriate AuthenticationProvider.
+        from api.mock_authentication import MockAuthenticationProvider as DefaultUnitTestProvider
         assert isinstance(
             auth.library_authenticators['l1'].basic_auth_provider,
-            SimpleAuthenticationProvider
+            DefaultUnitTestProvider
         )
         assert isinstance(
             auth.library_authenticators['l2'].basic_auth_provider,
