@@ -52,12 +52,20 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
     
-    def __init__(self, url=None, authorization_identifier_blacklist=[],
+    def __init__(self, url=None, auth_mode=None, authorization_identifier_blacklist=[],
                  verify_certificate=True, **kwargs):
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
+        if not auth_mode:
+            self.auth_mode = "pin"
+        elif auth_mode != "pin" and auth_mode != "last_name":
+            raise CannotLoadConfiguration(
+                "Millenium Patron API authentication mode unrecognized."
+            )
+        else:
+            self.auth_mode = auth_mode
 
         super(MilleniumPatronAPI, self).__init__(**kwargs)
         if not url.endswith('/'):
@@ -78,15 +86,26 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         valid, a PatronData that serves only to indicate which
         authorization identifier the patron prefers.
         """
-        path = "%(barcode)s/%(pin)s/pintest" % dict(
-            barcode=username, pin=password
-        )
-        url = self.root + path
-        response = self.request(url)
-        data = dict(self._extract_text_nodes(response.content))
-        if data.get('RETCOD') == '0':
-            return PatronData(authorization_identifier=username, complete=False)
-        return False
+        if self.auth_mode == "pin":
+            path = "%(barcode)s/%(pin)s/pintest" % dict(
+                barcode=username, pin=password
+            )
+            url = self.root + path
+            response = self.request(url)
+            data = dict(self._extract_text_nodes(response.content))
+            if data.get('RETCOD') == '0':
+                return PatronData(authorization_identifier=username, complete=False)
+            return False
+        elif self.auth_mode == "last_name":
+            path = "%(barcode)s/dump" % dict(barcode=username)
+            url = self.root + path
+            response = self.request(url)
+            data = dict(self._extract_text_nodes(response.content))
+            dump_name = data.get(self.PERSONAL_NAME_FIELD)
+            dump_name = dump_name.split(',')[0]
+            if dump_name == password:
+              return PatronData(authorization_identifier=username, complete=False)
+            return False
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
