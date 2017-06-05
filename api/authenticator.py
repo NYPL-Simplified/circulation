@@ -394,22 +394,11 @@ class LibraryAuthenticator(object):
         ).filter(
             Library.id==library.id
         )
-
         # Turn each such ExternalIntegration into an
         # AuthenticationProvider.
         for integration in integrations:
             authenticator.register_provider(integration)
                 
-        if (not authenticator.basic_auth_provider
-            and not authenticator.oauth_providers_by_name):
-            # TODO: This isn't unacceptable: a fully open-access
-            # collection doesn't need any authentication providers.
-            # But supporting that case requires specialized work, e.g.
-            # getting rid of all the links to controllers that require
-            # authentication.
-            raise CannotLoadConfiguration(
-                "No authentication providers configured"
-            )
         authenticator.assert_ready_for_oauth()
         return authenticator
 

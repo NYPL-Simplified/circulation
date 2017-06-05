@@ -152,20 +152,24 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         )
 
         self.initialize_library(_db)
+        p = MockAuthenticationProvider
+        integration = self._external_integration(
+            "api.mock_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        integration.setting(p.VALID_PATRONS).value = json.dumps(
+            { "unittestuser": "unittestpassword",
+              "unittestuser2" : "unittestpassword2" }
+        )
+        integration.setting(p.EXPIRED_PATRONS).value = json.dumps(
+            { "expired" : "password" }
+        )
+        integration.setting(p.PATRONS_WITH_FINES).value = json.dumps(
+            { "ihavefines" : "password" }
+        )
+        self.library.integrations.append(integration)
+        self.authdata = AuthdataUtility.from_config(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : {
-                    "providers": [
-                        {
-                            "module": "api.mock_authentication",
-                            "patrons": { "unittestuser": "unittestpassword",
-                                         "unittestuser2" : "unittestpassword2",
-                            },
-                            "expired_patrons": { "expired" : "password" },
-                            "patrons_with_fines": { "ihavefines" : "password" },
-                        }
-                    ],
-                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -183,7 +187,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
-            self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 

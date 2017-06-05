@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import logging
+import json
 from decimal import Decimal
 
 from authenticator import (
@@ -22,20 +23,32 @@ class MockAuthenticationProvider(BasicAuthenticationProvider):
     """
 
     NAME = "Mock Authentication Provider"
-           
-    def __init__(self, library_id, patrons=None, expired_patrons=None,
-                 patrons_with_fines=None, *args, **kwargs):
+
+    VALID_PATRONS = 'patrons'
+    EXPIRED_PATRONS = 'expired_patrons'
+    PATRONS_WITH_FINES = 'patrons_with_fines'
+
+    def _setting(self, integration, key):
+        value = integration.setting(key).value
+        if not value:
+            return {}
+        return json.loads(value)
+    
+    def __init__(self, library_id, integration):
         super(MockAuthenticationProvider, self).__init__(
-            library_id, *args, **kwargs
+            library_id, integration
         )
+        patrons = self._setting(integration, self.VALID_PATRONS)
         if not patrons:
             self.log.warn(
                 "No patrons configured for mock authentication provider."
             )
-            patrons = {}
+            patrons = {}            
         self.patrons = patrons
-        self.expired_patrons = expired_patrons
-        self.patrons_with_fines = patrons_with_fines
+        self.expired_patrons = self._setting(integration, self.EXPIRED_PATRONS)
+        self.patrons_with_fines = self._setting(
+            integration, self.PATRONS_WITH_FINES
+        )
         
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
