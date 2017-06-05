@@ -43,14 +43,6 @@ class Configuration(object):
     LOG_FORMAT_TEXT = "text"
     LOG_FORMAT_JSON = "json"
 
-    # Links
-    LINKS = "links"
-    PRIVACY_POLICY = "privacy_policy"
-    TERMS_OF_SERVICE = "terms_of_service"
-    COPYRIGHT = "copyright"
-    ABOUT = "about"
-    LICENSE = "license"
-    
     # Logging
     LOGGING = "logging"
     LOG_LEVEL = "level"
@@ -173,11 +165,6 @@ class Configuration(object):
         )
 
     @classmethod
-    def link(cls, name):
-        """Find a link by name."""
-        return cls.get(cls.LINKS, {}).get(name, None)
-
-    @classmethod
     def integration(cls, name, required=False):
         """Find an integration configuration by name."""
         integrations = cls.get(cls.INTEGRATIONS, {})
@@ -234,26 +221,6 @@ class Configuration(object):
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
-    @classmethod
-    def terms_of_service_url(cls):
-        return cls.link(cls.TERMS_OF_SERVICE)
-
-    @classmethod
-    def acknowledgements_url(cls):
-        return cls.link(cls.COPYRIGHT)
-
-    @classmethod
-    def about_url(cls):
-        return cls.link(cls.ABOUT)
-
-    @classmethod
-    def privacy_policy_url(cls):
-        return cls.link(cls.PRIVACY_POLICY)
-
-    @classmethod
-    def license_url(cls):
-        return cls.link(cls.LICENSE)
-    
     @classmethod
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
