@@ -51,9 +51,7 @@ from api.authenticator import (
     OAuthAuthenticationProvider,
     PatronData,
 )
-# This is a 'mock' authentication provider in a different sense than the
-# MockAuthenticationProvider defined below.
-from api.mock_authentication import MockAuthenticationProvider as PresetAuthenticationProvider
+from api.mock_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 
 from api.config import (
@@ -403,7 +401,7 @@ class TestAuthenticator(ControllerTest):
         # an appropriate AuthenticationProvider.
         assert isinstance(
             auth.library_authenticators['l1'].basic_auth_provider,
-            PresetAuthenticationProvider
+            SimpleAuthenticationProvider
         )
         assert isinstance(
             auth.library_authenticators['l2'].basic_auth_provider,

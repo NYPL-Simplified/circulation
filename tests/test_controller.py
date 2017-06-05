@@ -156,16 +156,8 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         integration = self._external_integration(
             "api.mock_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        integration.setting(p.VALID_PATRONS).value = json.dumps(
-            { "unittestuser": "unittestpassword",
-              "unittestuser2" : "unittestpassword2" }
-        )
-        integration.setting(p.EXPIRED_PATRONS).value = json.dumps(
-            { "expired" : "password" }
-        )
-        integration.setting(p.PATRONS_WITH_FINES).value = json.dumps(
-            { "ihavefines" : "password" }
-        )
+        integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+        integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
         self.library.integrations.append(integration)
         self.authdata = AuthdataUtility.from_config(_db)
         with temp_config() as config:
