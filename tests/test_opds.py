@@ -17,6 +17,7 @@ from core.lane import (
     Lane,
 )
 from core.model import (
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -104,15 +105,18 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
     def test_add_configuration_links(self):
         mock_feed = []
         link_config = {
-            Configuration.TERMS_OF_SERVICE: "http://terms/",
-            Configuration.PRIVACY_POLICY: "http://privacy/",
-            Configuration.COPYRIGHT: "http://copyright/",
-            Configuration.ABOUT: "http://about/",
-            Configuration.LICENSE: "http://license/",
+            CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms/",
+            CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy/",
+            CirculationManagerAnnotator.COPYRIGHT: "http://copyright/",
+            CirculationManagerAnnotator.ABOUT: "http://about/",
+            CirculationManagerAnnotator.LICENSE: "http://license/",
         }
-        with temp_config() as config:
-            config['links'] = link_config
-            CirculationManagerAnnotator.add_configuration_links(mock_feed)
+
+        # Set up configuration settings for links.
+        for rel, value in link_config.iteritems():
+            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+
+        self.annotator.add_configuration_links(mock_feed)
 
         # Five links were added to the "feed"
         eq_(5, len(mock_feed))
@@ -126,11 +130,8 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
 
             eq_("text/html", type)
 
-            # Convert the link relation into a key to the configuration.
-            config_value = rel.replace('-', '_')
-
             # Check that the configuration value made it into the link.
-            eq_(href, link_config[config_value])
+            eq_(href, link_config[rel])
             
     def test_open_access_link(self):
 

@@ -36,6 +36,7 @@ from core.metadata_layer import Metadata
 from core.model import (
     Annotation,
     Collection,
+    ConfigurationSetting,
     ExternalIntegration,
     Patron,
     DeliveryMechanism,
@@ -1932,32 +1933,34 @@ class TestFeedController(CirculationControllerTest):
     
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
+
+        # Set up configuration settings for links.
+        for rel, value in [(CirculationManagerAnnotator.TERMS_OF_SERVICE, "a"),
+                           (CirculationManagerAnnotator.PRIVACY_POLICY, "b"),
+                           (CirculationManagerAnnotator.COPYRIGHT, "c"),
+                           (CirculationManagerAnnotator.ABOUT, "d"),
+                           ]:
+            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+
         with self.request_context_with_library("/"):
-            with temp_config() as config:
-                config['links'] = {
-                    "terms_of_service": "a",
-                    "privacy_policy": "b",
-                    "copyright": "c",
-                    "about": "d",
-                }
-                response = self.manager.opds_feeds.feed(
-                    'eng', 'Adult Fiction'
-                )
+            response = self.manager.opds_feeds.feed(
+                'eng', 'Adult Fiction'
+            )
 
-                assert self.english_1.title in response.data
-                assert self.english_2.title not in response.data
-                assert self.french_1.title not in response.data
+            assert self.english_1.title in response.data
+            assert self.english_2.title not in response.data
+            assert self.french_1.title not in response.data
 
-                feed = feedparser.parse(response.data)
-                links = feed['feed']['links']
-                by_rel = dict()
-                for i in links:
-                    by_rel[i['rel']] = i['href']
+            feed = feedparser.parse(response.data)
+            links = feed['feed']['links']
+            by_rel = dict()
+            for i in links:
+                by_rel[i['rel']] = i['href']
 
-                eq_("a", by_rel['terms-of-service'])
-                eq_("b", by_rel['privacy-policy'])
-                eq_("c", by_rel['copyright'])
-                eq_("d", by_rel['about'])
+            eq_("a", by_rel[CirculationManagerAnnotator.TERMS_OF_SERVICE])
+            eq_("b", by_rel[CirculationManagerAnnotator.PRIVACY_POLICY])
+            eq_("c", by_rel[CirculationManagerAnnotator.COPYRIGHT])
+            eq_("d", by_rel[CirculationManagerAnnotator.ABOUT])
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
