@@ -66,7 +66,9 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             url = url + "/"
         self.root = url
         self.verify_certificate = integration.setting(
-            self.VERIFY_CERTIFICATE).json_value or True
+            self.VERIFY_CERTIFICATE).json_value
+        if self.verify_certificate is None:
+            self.verify_certificate = True
         self.parser = etree.HTMLParser()
 
         # In a Sierra ILS, a patron may have a large number of
