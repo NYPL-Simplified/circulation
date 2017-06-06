@@ -5681,7 +5681,26 @@ class TestConfigurationSetting(DatabaseTest):
         self._db.commit()
         eq_([for_library], library.settings)
 
+    def test_int_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234"
+        eq_(1234, number.int_value)
 
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.int_value)
+
+    def test_json_value(self):
+        jsondata = ConfigurationSetting.sitewide(self._db, "json")
+        eq_(None, jsondata.int_value)
+
+        jsondata.value = "[1,2]"
+        eq_([1,2], jsondata.json_value)
+
+        jsondata.value = "tra la la"
+        assert_raises(ValueError, lambda: jsondata.json_value)
+        
 class TestCollection(DatabaseTest):
 
     def setup(self):
