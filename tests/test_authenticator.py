@@ -374,9 +374,8 @@ class TestPatronData(AuthenticatorTest):
 class TestAuthenticator(ControllerTest):
 
     def test_init(self):
-        # The default library uses the authenticator from
-        # api.mock_authenticator for its basic auth -- the best choice
-        # for unit tests.
+        # The default library has already been configured to use the
+        # SimpleAuthenticationProvider for its basic auth.
         l1 = self._default_library
         l1.short_name = 'l1'
 
