@@ -15,8 +15,8 @@ from api.config import (
 from api.authenticator import (
     LibraryAuthenticator
 )
-from api.mock_authentication import (
-    MockAuthenticationProvider
+from api.simple_authentication import (
+    SimpleAuthenticationProvider
 )
 
 from core.model import (
@@ -63,11 +63,12 @@ class TestServiceStatusMonitor(DatabaseTest):
     @property
     def mock_auth(self):
         library = self._default_library
-        provider = MockAuthenticationProvider(
-            library.id,
-            patrons={"user": "pass"}
-        )
-        return LibraryAuthenticator(self._db, library, provider)
+        integration = self._external_integration(self._str)
+        provider = SimpleAuthenticationProvider
+        integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
+        integration.setting(provider.TEST_PASSWORD).value = "password"
+        self.authenticator = provider(library.id, integration)
+        return LibraryAuthenticator(self._db, library, self.authenticator)
 
     def test_test_patron(self):
         """Verify that test_patron() returns credentials determined
