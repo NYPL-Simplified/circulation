@@ -9040,6 +9040,30 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+    @property
+    def int_value(self):
+        """Turn the value into an int if possible.
+
+        :return: An integer, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to an int.
+        """
+        if self.value:
+            return int(self.value)
+        return None
+
+    @property
+    def json_value(self):
+        """Interpret the value as JSON if possible.
+
+        :return: An object, or None if there is no value.
+
+        :raise ValueError: If the value cannot be parsed as JSON.
+        """
+        if self.value:
+            return json.loads(self.value)
+        return None
+
     
 class Collection(Base):
 

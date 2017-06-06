@@ -112,6 +112,7 @@ class DatabaseTest(object):
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
             shutil.rmtree(cls.tmp_data_dir)
+
         else:
             logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
 
