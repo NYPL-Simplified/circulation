@@ -2079,7 +2079,6 @@ class TestAnalyticsController(CirculationControllerTest):
             config = {
                 Configuration.POLICIES : {
                     Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
-                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 }
             }
 
