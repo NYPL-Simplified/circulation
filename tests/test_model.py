@@ -5547,18 +5547,34 @@ class TestLibrary(DatabaseTest):
         library.library_registry_short_name = "SHORT"
         library.library_registry_shared_secret = "secret"
 
-        data = library.explain()
-        eq_(
-            ['UUID: "uuid"',
-             'Name: "The Library"',
-             'Short name: "Short"',
-             'Short name (for library registry): "SHORT"'],
-            data
+        integration = self._external_integration(
+            "protocol", "goal"
         )
-
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
+        library.integrations.append(integration)
         
-        with_secret = library.explain(True)
-        assert 'Shared secret (for library registry): "secret"' in with_secret
+        data = library.explain()
+        eq_("""Library UUID: "uuid"
+Name: "The Library"
+Short name: "Short"
+Short name (for library registry): "SHORT"
+
+External integrations:
+----------------------
+Protocol/Goal: protocol/goal
+URL: http://url/
+Username: someuser
+somesetting=somevalue
+""",
+            "\n".join(data)
+        )
+        
+        with_secrets = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secrets
+        assert 'Password: somepass' in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
@@ -5602,6 +5618,26 @@ class TestExternalIntegration(DatabaseTest):
         eq_("id2", setting2.value)
 
         eq_(setting2, self.external_integration.setting("website_id"))
+
+    def test_explain(self):
+        integration = self._external_integration(
+            "protocol", "goal"
+        )
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
+        
+        data = integration.explain()
+        eq_("""Protocol/Goal: protocol/goal
+URL: http://url/
+Username: someuser
+somesetting=somevalue""",
+            "\n".join(data)
+        )
+        
+        with_secrets = integration.explain(True)
+        assert 'Password: somepass' in with_secrets
 
 
 class TestConfigurationSetting(DatabaseTest):

@@ -8798,8 +8798,7 @@ class Library(Base):
                 'Short name (for library registry): "%s"' %
                 self.library_registry_short_name
             )
-        if (self.library_registry_shared_secret and
-            include_library_registry_shared_secret):
+        if (self.library_registry_shared_secret and include_secrets):
             lines.append(
                 'Shared secret (for library registry): "%s"' %
                 self.library_registry_shared_secret
@@ -8986,12 +8985,11 @@ class ExternalIntegration(Base):
         """
         lines = []
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
-        lines.append("ID: %s" % self.id)
         if self.url:
             lines.append("URL: %s" % self.url)
         if self.username:
             lines.append("Username: %s" % self.username)
-        if self.password:
+        if self.password and include_password:
             lines.append("Password: %s" % self.password)
         for setting in self.settings:
             lines.append("%s=%s" % (setting.key, setting.value))
