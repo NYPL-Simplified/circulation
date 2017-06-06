@@ -28,8 +28,6 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # patron's credentials.
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
 
-    SECRET_KEY = 'key'
-
     # Server-side validation happens before the identifier
     # is converted to uppercase, which means lowercase characters
     # are valid.
