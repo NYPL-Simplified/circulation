@@ -8965,10 +8965,6 @@ class ExternalIntegration(Base):
             return default
         return setting.value
 
-    def get_json(self, key, default):
-        """Parse a configuration value as JSON."""
-        return json.loads(self.get(key, default))
-
 
 class ConfigurationSetting(Base):
     """An extra piece of site configuration.
