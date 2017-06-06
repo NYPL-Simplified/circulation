@@ -97,7 +97,7 @@ class AuthorizationBlocked(CannotLoan):
     def as_problem_detail_document(self, debug=False):
         """Return a suitable problem detail document."""
         return BLOCKED_CREDENTIALS
-    
+
     
 class PatronLoanLimitReached(CannotLoan):
     status_code = 403

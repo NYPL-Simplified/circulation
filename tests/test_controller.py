@@ -32,10 +32,12 @@ from api.authenticator import (
 from core.app_server import (
     load_lending_policy
 )
+from core.external_search import DummyExternalSearchIndex
 from core.metadata_layer import Metadata
 from core.model import (
     Annotation,
     Collection,
+    ConfigurationSetting,
     ExternalIntegration,
     Patron,
     DeliveryMechanism,
@@ -52,6 +54,7 @@ from core.model import (
     Work,
     CirculationEvent,
     LicensePoolDeliveryMechanism,
+    PresentationCalculationPolicy,
     RightsStatus,
     get_one,
     get_one_or_create,
@@ -91,7 +94,6 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.admin.oauth import DummyGoogleClient
 from api.testing import MockAdobeConfiguration
 from lxml import etree
 import random
@@ -1579,11 +1581,13 @@ class TestWorkController(CirculationControllerTest):
         # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_('Recommended Books', feed['feed']['title'])
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
+
+        eq_('Recommended Books', feed.feed.title)
+        [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
-        eq_(self.english_1.author, entry['author'])
+        author = self.english_1.presentation_edition.author_contributors[0]
+        expected_author_name = author.display_name or author.sort_name
+        eq_(expected_author_name, entry.author)
 
         # The feed has facet links.
         links = feed['feed']['links']
@@ -1714,10 +1718,14 @@ class TestWorkController(CirculationControllerTest):
         self.edition.series = u"Around the World"
         self.edition.series_position = 1
 
-        same_series_work = self._work(title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True)
-        same_series_work.presentation_edition.series = "Around the World"
+        same_series_work = self._work(
+            title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
+            series="Around the World")
         same_series_work.presentation_edition.series_position = 0
-
+        self.english_1.calculate_presentation(
+            PresentationCalculationPolicy(regenerate_opds_entries=True),
+            DummyExternalSearchIndex()
+        )
         SessionManager.refresh_materialized_views(self._db)
 
         source = DataSource.lookup(self._db, self.datasource)
@@ -1810,14 +1818,15 @@ class TestWorkController(CirculationControllerTest):
         eq_("bar", complaint.detail)
 
     def test_series(self):
-        # If the work doesn't have a series, a ProblemDetail is returned.
+        # If no series is given, a ProblemDetail is returned.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.series("", None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         series_name = "Like As If Whatever Mysteries"
-        self.edition.series = series_name
+        work = self._work(with_open_access_download=True, series=series_name)
+
         # Similarly if the pagination data is bad.
         with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.series(series_name, None, None)
@@ -1836,15 +1845,17 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(series_name, feed['feed']['title'])
         [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(work.title, entry['title'])
 
         # The feed has facet links.
         links = feed['feed']['links']
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(10, len(facet_links))
 
-        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
-        another_work.license_pools[0].presentation_edition.series = series_name
+        another_work = self._work(
+            title="000", authors="After Default Work",
+            with_open_access_download=True, series=series_name
+        )
 
         # Delete the cache
         [cached_feed] = self._db.query(CachedFeed).all()
@@ -1860,7 +1871,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
         eq_(another_work.title, entry1['title'])
-        eq_(self.english_1.title, entry2['title'])
+        eq_(work.title, entry2['title'])
 
         with self.request_context_with_library("/?order=author"):
             response = self.manager.work_controller.series(series_name, None, None)
@@ -1869,11 +1880,11 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
+        eq_(work.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
-        self.english_1.license_pools[0].presentation_edition.series_position = 0
-        another_work.license_pools[0].series_position = 1
+        work.presentation_edition.series_position = 0
+        another_work.presentation_edition.series_position = 1
 
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?order=series"):
@@ -1883,7 +1894,7 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
+        eq_(work.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
         # Series is the default facet.
@@ -1894,7 +1905,7 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
+        eq_(work.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
         # Pagination works.
@@ -1914,7 +1925,7 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(work.title, entry['title'])
 
         # Language restrictions can remove books that would otherwise be
         # in the feed.
@@ -1934,32 +1945,34 @@ class TestFeedController(CirculationControllerTest):
     
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
+
+        # Set up configuration settings for links.
+        for rel, value in [(CirculationManagerAnnotator.TERMS_OF_SERVICE, "a"),
+                           (CirculationManagerAnnotator.PRIVACY_POLICY, "b"),
+                           (CirculationManagerAnnotator.COPYRIGHT, "c"),
+                           (CirculationManagerAnnotator.ABOUT, "d"),
+                           ]:
+            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+
         with self.request_context_with_library("/"):
-            with temp_config() as config:
-                config['links'] = {
-                    "terms_of_service": "a",
-                    "privacy_policy": "b",
-                    "copyright": "c",
-                    "about": "d",
-                }
-                response = self.manager.opds_feeds.feed(
-                    'eng', 'Adult Fiction'
-                )
+            response = self.manager.opds_feeds.feed(
+                'eng', 'Adult Fiction'
+            )
 
-                assert self.english_1.title in response.data
-                assert self.english_2.title not in response.data
-                assert self.french_1.title not in response.data
+            assert self.english_1.title in response.data
+            assert self.english_2.title not in response.data
+            assert self.french_1.title not in response.data
 
-                feed = feedparser.parse(response.data)
-                links = feed['feed']['links']
-                by_rel = dict()
-                for i in links:
-                    by_rel[i['rel']] = i['href']
+            feed = feedparser.parse(response.data)
+            links = feed['feed']['links']
+            by_rel = dict()
+            for i in links:
+                by_rel[i['rel']] = i['href']
 
-                eq_("a", by_rel['terms-of-service'])
-                eq_("b", by_rel['privacy-policy'])
-                eq_("c", by_rel['copyright'])
-                eq_("d", by_rel['about'])
+            eq_("a", by_rel[CirculationManagerAnnotator.TERMS_OF_SERVICE])
+            eq_("b", by_rel[CirculationManagerAnnotator.PRIVACY_POLICY])
+            eq_("c", by_rel[CirculationManagerAnnotator.COPYRIGHT])
+            eq_("d", by_rel[CirculationManagerAnnotator.ABOUT])
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
@@ -2047,7 +2060,9 @@ class TestFeedController(CirculationControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
             entry = entries[0]
-            eq_(self.english_2.author, entry.author)
+            author = self.english_2.presentation_edition.author_contributors[0]
+            expected_author_name = author.display_name or author.sort_name
+            eq_(expected_author_name, entry.author)
 
             assert 'links' in entry
             assert len(entry.links) > 0

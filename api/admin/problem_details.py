@@ -9,11 +9,18 @@ ADMIN_AUTH_NOT_CONFIGURED = pd(
     _("This circulation manager has not been configured to authenticate admins."),
 )
 
+ADMIN_AUTH_MECHANISM_NOT_CONFIGURED = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-mechanism-not-configured",
+    400,
+    _("Admin auth mechanism not configured"),
+    _("This circulation manager has not been configured to authenticate admins with the mechanism you used"),
+)
+
 INVALID_ADMIN_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/admin-credentials-invalid",
       401,
       _("Invalid admin credentials"),
-      _("A valid library staff email is required."),
+      _("Valid library staff credentials are required."),
 )
 
 GOOGLE_OAUTH_FAILURE = pd(
@@ -163,11 +170,11 @@ UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER = pd(
     detail=_("The provider is not one of the known admin authentication service providers."),
 )
 
-ADMIN_AUTH_SERVICE_NOT_FOUND = pd(
-    "http://librarysimplified.org/terms/problem/admin-auth-service-not-found",
+CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-admin-auth-service-provider",
     status_code=400,
-    title=_("Admin authentication service not found."),
-    detail=_("Currently there can only be one admin authentication service, and the request does not match the existing one."),
+    title=_("Cannot change admin authentication service provider"),
+    detail=_("An admin authentication service's provider can't be changed once it has been set."),
 )
 
 NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
@@ -189,4 +196,11 @@ INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
     status_code=400,
     title=_("Invalid admin authentication domain list"),
     detail=_("The admin authentication domain list isn't in a valid format."),
+)
+
+INVALID_INDIVIDUAL_ADMIN_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-individual-admin-configuration",
+    status_code=400,
+    title=_("Incomplete individual admin configuration"),
+    detail=_("The individual admin's configuration is missing a required field."),
 )
