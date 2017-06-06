@@ -60,7 +60,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             )
         if not auth_mode:
             self.auth_mode = "pin"
-        elif auth_mode != "pin" and auth_mode != "last_name":
+        elif auth_mode != "pin" and auth_mode != "family_name":
             raise CannotLoadConfiguration(
                 "Millenium Patron API authentication mode unrecognized."
             )
@@ -96,14 +96,14 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             if data.get('RETCOD') == '0':
                 return PatronData(authorization_identifier=username, complete=False)
             return False
-        elif self.auth_mode == "last_name":
+        elif self.auth_mode == "family_name":
             path = "%(barcode)s/dump" % dict(barcode=username)
             url = self.root + path
             response = self.request(url)
             data = dict(self._extract_text_nodes(response.content))
             dump_name = data.get(self.PERSONAL_NAME_FIELD)
             dump_name = dump_name.split(',')[0]
-            if dump_name == password:
+            if dump_name.upper() == password.upper():
               return PatronData(authorization_identifier=username, complete=False)
             return False
 
