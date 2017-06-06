@@ -62,10 +62,14 @@ def convert_millenium(_db, integration, provider):
     # Cross-check MilleniumPatronAPI.__init__ to see how these values
     # are pulled from the ExternalIntegration.
     integration.url = provider.get('url')
+    auth_mode = provider.get('auth_mode')
     blacklist = provider.get('authorization_identifier_blacklist')
     if blacklist:
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST
         ).value = json.dumps(blacklist)
+    if auth_mode:
+        integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE
+        ).value = auth_mode
     
 def convert_sip(_db, integration, provider):
     # Cross-check SIP2AuthenticationProvider.__init__ to see how these values

@@ -3,13 +3,14 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 import json
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
 
 from api.config import (
+    CannotLoadConfiguration,
     Configuration,
-    temp_config,
 )
 
 from api.authenticator import PatronData
@@ -44,11 +45,13 @@ class MockAPI(MilleniumPatronAPI):
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
-    def mock_api(self, url="http://url/", blacklist=[], verify_certificate=True):
+    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
         integration.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value = json.dumps(verify_certificate)
+        if auth_mode:
+            integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
         return MockAPI(self._default_library.id, integration)
     
     def setup(self):
@@ -374,3 +377,54 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # NOTE: We can't automatically test that request() actually
         # calls _modify_request_kwargs() because request() is the
         # method we override for mock purposes.
+
+    def test_family_name_match(self):
+        m = MilleniumPatronAPI.family_name_match
+        eq_(False, m(None, None))
+        eq_(False, m(None, ""))
+        eq_(False, m("", None))
+        eq_(True, m("", ""))
+        eq_(True, m("cher", "cher"))
+        eq_(False, m("chert", "cher"))
+        eq_(False, m("cher", "chert"))
+        eq_(True, m("cherryh, c.j.", "cherryh"))
+
+    def test_misconfigured_authentication_mode(self):
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Unrecognized Millenium Patron API authentication mode: nosuchauthmode.",
+            self.mock_api,
+            auth_mode = 'nosuchauthmode'
+        )
+            
+        
+    def test_authorization_family_name_success(self):
+        """Test authenticating against the patron's family name, given the
+        correct name (case insensitive)
+        """
+        self.api = self.mock_api(auth_mode = "family_name")
+        self.api.enqueue("dump.success.html")
+        patrondata = self.api.remote_authenticate(
+            "44444444444447", "Sheldon"
+        )
+        eq_("44444444444447", patrondata.authorization_identifier)
+
+        # Since we got a full patron dump, the PatronData we get back
+        # is complete. 
+        eq_(True, patrondata.complete)
+        
+    def test_authorization_family_name_failure(self):
+        """Test authenticating against the patron's family name, given the
+        incorrect name
+        """
+        self.api = self.mock_api(auth_mode = "family_name")
+        self.api.enqueue("dump.success.html")
+        eq_(False, self.api.remote_authenticate("44444444444447", "wrong name"))
+
+    def test_authorization_family_name_no_such_patron(self):
+        """If no patron is found, authorization based on family name cannot 
+        proceed.
+        """
+        self.api = self.mock_api(auth_mode = "family_name")
+        self.api.enqueue("dump.no such barcode.html")
+        eq_(False, self.api.remote_authenticate("44444444444447", "somebody"))
