@@ -28,27 +28,23 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
             raise CannotLoadConfiguration(
                 "Test identifier and password not set."
             )
-        self.patron_expiration = None
-        self.patron_fines = None
         
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
         if not username or not password:
             return None
 
+        if not self.valid_patron(username, password):
+            return None
+
+        username = self.test_identifier
         patrondata = PatronData(
             authorization_identifier=username,
             permanent_id=username + "_id",
-            username=username + "_username"
+            username=username + "_username",
+            authorization_expires = None,
+            fines = None,
         )
-        now = datetime.datetime.utcnow()
-        one_day = datetime.timedelta(days=1)
-        if self.valid_patron(username, password):
-            # The patron's authorization expires tomorrow.
-            patrondata.authorization_expires = self.patron_expiration or (now + one_day)
-            patrondata.fines = self.patron_fines or None
-        else:
-            patrondata = None
         return patrondata
 
     # End implementation of BasicAuthenticationProvider abstract
@@ -58,6 +54,9 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         """Is this patron associated with the given password in 
         the given dictionary?
         """
-        return username==self.test_identifier and password==self.test_password
+        return password==self.test_password and (
+            username==self.test_identifier
+            or username == self.test_identifier + '_username'
+        )
 
 AuthenticationProvider = SimpleAuthenticationProvider

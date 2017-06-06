@@ -33,7 +33,7 @@ class TestFirstBook(DatabaseTest):
 
     def test_from_config(self):
         api = None
-        integration = self._external_integration()
+        integration = self._external_integration(self._str)
         integration.url = "http://example.com/"
         integration.password = "the_key"
         api = FirstBookAuthenticationAPI(self._default_library.id, integration)
