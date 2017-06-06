@@ -53,13 +53,16 @@ class TestServiceStatusMonitor(DatabaseTest):
     def test_init(self):
         # Test that ServiceStatus can create an Authenticator.
         integration = self._external_integration(
-            "api.mock_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
+            "api.simple_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
+        provider = SimpleAuthenticationProvider
+        integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
+        integration.setting(provider.TEST_PASSWORD).value = "password"
         self._default_library.integrations.append(integration)
         service_status = ServiceStatus(self._default_library)
         assert service_status.auth != None
-        assert service_status.auth.basic_auth_provider != None
-
+        assert isinstance(service_status.auth.basic_auth_provider, provider)
+        
     @property
     def mock_auth(self):
         library = self._default_library
