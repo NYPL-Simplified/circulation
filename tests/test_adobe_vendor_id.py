@@ -35,6 +35,7 @@ from core.model import (
     Credential,
     DataSource,
     DelegatedPatronIdentifier,
+    ExternalIntegration,
     Library,
 )
 from core.util.problem_detail import ProblemDetail
@@ -45,7 +46,7 @@ from api.config import (
     temp_config,
 )
 
-from api.mock_authentication import MockAuthenticationProvider       
+from api.simple_authentication import SimpleAuthenticationProvider       
 
 class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
     pass
@@ -57,10 +58,17 @@ class TestVendorIDModel(VendorIDTest):
     
     def setup(self):
         super(TestVendorIDModel, self).setup()
-        self.authenticator = MockAuthenticationProvider(
-            self._default_library.id,
-            patrons={"validpatron" : "password" }
+
+        # Set up a simple authentication provider that validates
+        # one specific patron.
+        integration = self._external_integration(self._str)
+        provider = SimpleAuthenticationProvider
+        integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
+        integration.setting(provider.TEST_PASSWORD).value = "password"
+        self.authenticator = SimpleAuthenticationProvider(
+            self._default_library.id, integration
         )
+        
         self.model = AdobeVendorIDModel(self._db, self.authenticator,
                                         self.TEST_NODE_VALUE)
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
