@@ -8776,22 +8776,23 @@ class Library(Base):
             value = unicode(value)
         self._library_registry_short_name = value
 
-    def explain(self, include_library_registry_shared_secret=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
 
-        :param include_library_registry_shared_secret: For security reasons,
-           the shared secret is not displayed by default.
+        :param include_secrets: For security reasons, secrets are not
+            displayed by default.
 
         :return: A list of explanatory strings.
         """
         lines = []
         if self.uuid:
-            lines.append('UUID: "%s"' % self.uuid)
+            lines.append('Library UUID: "%s"' % self.uuid)
         if self.name:
             lines.append('Name: "%s"' % self.name)
         if self.short_name:
             lines.append('Short name: "%s"' % self.short_name)
+
         if self.library_registry_short_name:
             lines.append(
                 'Short name (for library registry): "%s"' %
@@ -8803,6 +8804,15 @@ class Library(Base):
                 'Shared secret (for library registry): "%s"' %
                 self.library_registry_shared_secret
             )
+
+        integrations = list(self.integrations)
+        if integrations:
+            lines.append("")
+            lines.append("External integrations:")
+            lines.append("----------------------")
+        for integration in integrations:
+            lines.extend(integration.explain(include_secrets))
+            lines.append("")
         return lines
 
 
@@ -8965,6 +8975,27 @@ class ExternalIntegration(Base):
             return default
         return setting.value
 
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain an
+        ExternalIntegration's settings.
+
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
+        lines.append("ID: %s" % self.id)
+        if self.url:
+            lines.append("URL: %s" % self.url)
+        if self.username:
+            lines.append("Username: %s" % self.username)
+        if self.password:
+            lines.append("Password: %s" % self.password)
+        for setting in self.settings:
+            lines.append("%s=%s" % (setting.key, setting.value))
+        return lines
 
 class ConfigurationSetting(Base):
     """An extra piece of site configuration.
