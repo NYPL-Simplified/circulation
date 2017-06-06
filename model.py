@@ -8963,17 +8963,6 @@ class ExternalIntegration(Base):
             _db, key, self
         )
 
-    def get(self, key, default=None):
-        """Returns a value for a given key from either the integration
-        itself or its additional settings.
-        """
-        if hasattr(self, key):
-            return getattr(self, key, default)
-        setting = self.setting(key)
-        if not setting.value:
-            return default
-        return setting.value
-
     def explain(self, include_password=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
