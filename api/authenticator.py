@@ -843,7 +843,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # passwords.
     alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
-    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None
 
     # Configuration settings that are common to all Basic Auth-type
     # authentication techniques.
@@ -886,28 +886,27 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             pull normal Python objects out of it.
         """
         super(BasicAuthenticationProvider, self).__init__(library_id)
-        identifier_regular_expression = integration.get(
-            self.IDENTIFIER_REGULAR_EXPRESSION,
-            self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION      
-        )
+        identifier_regular_expression = integration.setting(
+            self.IDENTIFIER_REGULAR_EXPRESSION
+        ).value or self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+
         if identifier_regular_expression:
             identifier_regular_expression = re.compile(
                 identifier_regular_expression
             )
         self.identifier_re = identifier_regular_expression
         
-        password_regular_expression = integration.get(
-            self.PASSWORD_REGULAR_EXPRESSION,
-            self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-        )
+        password_regular_expression = integration.setting(
+            self.PASSWORD_REGULAR_EXPRESSION
+        ).value or self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
         if password_regular_expression:
             password_regular_expression = re.compile(
                 password_regular_expression
             )            
         self.password_re = password_regular_expression
 
-        self.test_username = integration.get(self.TEST_IDENTIFIER)
-        self.test_password = integration.get(self.TEST_PASSWORD)
+        self.test_username = integration.setting(self.TEST_IDENTIFIER).value
+        self.test_password = integration.setting(self.TEST_PASSWORD).value
         self.log = logging.getLogger(self.NAME)
         
     def testing_patron(self, _db):

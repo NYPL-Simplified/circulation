@@ -22,8 +22,8 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         super(SimpleAuthenticationProvider, self).__init__(
             library_id, integration,
         )
-        self.test_identifier = integration.get(self.TEST_IDENTIFIER)
-        self.test_password = integration.get(self.TEST_PASSWORD)
+        self.test_identifier = integration.setting(self.TEST_IDENTIFIER).value
+        self.test_password = integration.setting(self.TEST_PASSWORD).value
         if not (self.test_identifier and self.test_password):
             raise CannotLoadConfiguration(
                 "Test identifier and password not set."

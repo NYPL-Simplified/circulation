@@ -1121,8 +1121,11 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_("pw", provider.test_password)
 
         # Test the defaults.
+        integration = self._external_integration(
+            self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
         provider = ConfigAuthenticationProvider.from_config(
-            self._default_library.id, {}
+            self._default_library.id, integration
         )
         eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
             provider.identifier_re)
@@ -1131,8 +1134,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
     
     def test_testing_patron(self):
         # You don't have to have a testing patron.
+        integration = self._external_integration(self._str)
         no_testing_patron = BasicAuthenticationProvider(
-            self._default_library.id, {}
+            self._default_library.id, integration
         )
         eq_((None, None), no_testing_patron.testing_patron(self._db))
 
