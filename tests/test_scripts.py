@@ -988,8 +988,8 @@ class TestShowLibrariesScript(DatabaseTest):
         # on both libraries.
         output = StringIO()
         ShowLibrariesScript().do_run(self._db, output=output)
-        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=False))
-        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=False))
+        expect_1 = "\n".join(l1.explain(include_secrets=False))
+        expect_2 = "\n".join(l2.explain(include_secrets=False))
         
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
@@ -1008,11 +1008,11 @@ class TestShowLibrariesScript(DatabaseTest):
         output = StringIO()
         ShowLibrariesScript().do_run(
             self._db,
-            cmd_args=["--show-registry-shared-secret"],
+            cmd_args=["--show-secrets"],
             output=output
         )
-        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=True))
-        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=True))
+        expect_1 = "\n".join(l1.explain(include_secrets=True))
+        expect_2 = "\n".join(l2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 

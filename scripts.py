@@ -616,8 +616,8 @@ class ShowLibrariesScript(Script):
             help='Only display information for the library with the given short name',
         )
         parser.add_argument(
-            '--show-registry-shared-secret',
-            help='Print out the secret shared with the library registry.',
+            '--show-secrets',
+            help='Print out secrets associated with the library.',
             action='store_true'
         )
         return parser
@@ -638,8 +638,7 @@ class ShowLibrariesScript(Script):
             output.write(
                 "\n".join(
                     library.explain(
-                        include_library_registry_shared_secret=
-                        args.show_registry_shared_secret
+                        include_secrets=args.show_secrets
                     )
                 )
             )
