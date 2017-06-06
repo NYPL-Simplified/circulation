@@ -1205,12 +1205,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         client_id = integration.username
         client_secret = integration.password
-        token_expiration_days = integration.get(
-            cls.OAUTH_TOKEN_EXPIRATION_DAYS,
-            cls.DEFAULT_TOKEN_EXPIRATION_DAYS
-        ) or cls.DEFAULT_TOKEN_EXPIRATION_DAYS
-        if isinstance(token_expiration_days, basestring):
-            token_expiration_days = int(token_expiration_days)
+        token_expiration_days = integration.setting(
+            cls.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).int_value or cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         return cls(library_id, client_id, client_secret, token_expiration_days)
     
     def __init__(self, library_id, client_id, client_secret, token_expiration_days):
