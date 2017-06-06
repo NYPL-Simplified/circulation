@@ -65,18 +65,16 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         if not url.endswith('/'):
             url = url + "/"
         self.root = url
-        self.verify_certificate=integration.get_json(
-            self.VERIFY_CERTIFICATE, 'true'
-        )
+        self.verify_certificate = integration.setting(
+            self.VERIFY_CERTIFICATE).json_value or True
         self.parser = etree.HTMLParser()
 
         # In a Sierra ILS, a patron may have a large number of
         # identifiers, some of which are not real library cards. A
         # blacklist allows us to exclude certain types of identifiers
         # from being considered as library cards.
-        authorization_identifier_blacklist = integration.get_json(
-            self.IDENTIFIER_BLACKLIST, '[]'
-        )
+        authorization_identifier_blacklist = integration.setting(
+            self.IDENTIFIER_BLACKLIST).json_value or []
         self.blacklist = [re.compile(x, re.I)
                           for x in authorization_identifier_blacklist]
         

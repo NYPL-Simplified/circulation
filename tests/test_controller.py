@@ -25,8 +25,8 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
-from api.mock_authentication import (
-    MockAuthenticationProvider
+from api.authenticator import (
+    BasicAuthenticationProvider
 )
 from core.app_server import (
     load_lending_policy
@@ -108,7 +108,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
-    # MockAuthenticationProvider set up in ControllerTest.setup().
+    # SimpleAuthenticationProvider set up in ControllerTest.setup().
     valid_auth = 'Basic ' + base64.b64encode(
         'unittestuser:unittestpassword'
     )
@@ -158,12 +158,12 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # (in which case we would just screw things up).
         if not any([x for x in self.library.integrations if x.goal==
                 ExternalIntegration.PATRON_AUTH_GOAL]):
-            p = MockAuthenticationProvider
             integration, ignore = create(
                 _db, ExternalIntegration,
-                protocol="api.mock_authentication",
+                protocol="api.simple_authentication",
                 goal=ExternalIntegration.PATRON_AUTH_GOAL
             )
+            p = BasicAuthenticationProvider
             integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
             self.library.integrations.append(integration)

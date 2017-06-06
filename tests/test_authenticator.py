@@ -374,8 +374,9 @@ class TestPatronData(AuthenticatorTest):
 class TestAuthenticator(ControllerTest):
 
     def test_init(self):
-        # The default library uses the MockAuthenticator for its basic
-        # auth -- the best choice for unit tests.
+        # The default library uses the authenticatot from
+        # api.mock_authenticator for its basic auth -- the best choice
+        # for unit tests.
         l1 = self._default_library
         l1.short_name = 'l1'
 
@@ -397,8 +398,12 @@ class TestAuthenticator(ControllerTest):
         assert isinstance(auth.library_authenticators['l1'], LibraryAuthenticator)
         assert isinstance(auth.library_authenticators['l2'], LibraryAuthenticator)
 
-        # Each LibraryAuthenticator has been associated with
-        # an appropriate AuthenticationProvider.
+        # Each LibraryAuthenticator has been associated with an
+        # appropriate AuthenticationProvider.
+
+        # Note that this MockAuthenticationProvider is different from
+        # the one defined above -- it's the one from
+        # api.mock_authentication.
         from api.mock_authentication import MockAuthenticationProvider as DefaultUnitTestProvider
         assert isinstance(
             auth.library_authenticators['l1'].basic_auth_provider,
