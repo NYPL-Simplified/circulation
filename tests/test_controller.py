@@ -10,6 +10,7 @@ import datetime
 import re
 from wsgiref.handlers import format_date_time
 from time import mktime
+from decimal import Decimal
 
 import flask
 from flask import url_for
@@ -249,11 +250,17 @@ class TestBaseController(CirculationControllerTest):
         """A patron can authenticate even if their credentials have
         expired -- they just can't create loans or holds.
         """
+        one_year_ago = datetime.datetime.utcnow() - datetime.timedelta(days=365)
         with self.request_context_with_library("/"):
-            value = self.controller.authenticated_patron(
-                dict(username="expired", password="password")
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
             )
-            eq_("expired_username", value.username)
+            patron.expires = one_year_ago
+
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
+            )
+            eq_(one_year_ago, patron.expires)
 
     def test_authenticated_patron_correct_credentials(self):
         with self.request_context_with_library("/"):
@@ -1034,16 +1041,18 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        auth = 'Basic ' + base64.b64encode('ihavefines:password')
-        
         with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
 
             with self.request_context_with_library(
-                    "/", headers=dict(Authorization=auth)):
-                self.manager.loans.authenticated_patron_from_request()
+                    "/", headers=dict(Authorization=self.valid_auth)):
+
+                # The patron's credentials are valid, but they have a lot
+                # of fines.
+                patron = self.manager.loans.authenticated_patron_from_request()
+                patron.fines = Decimal("12345678.90")
                 response = self.manager.loans.borrow(
                     pool.identifier.type, pool.identifier.identifier)
                 
@@ -1051,15 +1060,15 @@ class TestLoanController(CirculationControllerTest):
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "$12345678.90 outstanding" in response.detail
 
+        # Reduce the patron's fines, and there's no problem.
         with self.temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
+                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
-
             with self.request_context_with_library(
-                    "/", headers=dict(Authorization=auth)):
-                self.manager.loans.authenticated_patron_from_request()
-
+                    "/", headers=dict(Authorization=self.valid_auth)):
+                patron = self.manager.loans.authenticated_patron_from_request()
+                patron.fines = Decimal("0.49")
                 self.manager.circulation.queue_checkout(
                     pool,
                     LoanInfo(
