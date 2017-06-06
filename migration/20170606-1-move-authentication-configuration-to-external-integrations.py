@@ -13,6 +13,7 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.model import (
+    ConfigurationSetting,
     ExternalIntegration,
     get_one_or_create,
     production_session,
@@ -104,6 +105,14 @@ try:
     _db = production_session()
     integrations = []
     auth_conf = Configuration.policy('authentication')
+
+    bearer_token_signing_secret = auth_conf.get('bearer_token_signing_secret')
+    secret_setting = ConfigurationSetting.sitewide(
+        _db, OAuthAuthenticationProvider.BEARER_TOKEN_SIGNING_SECRET
+    )
+    if bearer_token_signing_secret:
+        secret_setting.value = bearer_token_signing_secret
+    
     for provider in auth_conf.get('providers'):
         integration = make_patron_auth_integration(_db, provider)
         module = provider.get('module')
@@ -126,6 +135,7 @@ try:
             if integration not in library.integrations:
                 library.integrations.append(integration)
 
+    print "Sitewide bearer token signing secret: %s" % secret_setting.value
     for library in _db.query(Library):
         print "\n".join(library.explain(include_secrets=True))
 finally:
