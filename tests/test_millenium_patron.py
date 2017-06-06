@@ -385,7 +385,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """Test authenticating against the patron's last name, given the
         correct name (case insensitive)
         """
-        self.api = MockAPI(auth_mode = "last_name")
+        self.api = MockAPI(auth_mode = "family_name")
         self.api.enqueue("dump.success.html")
         patrondata = self.api.remote_authenticate(
             "44444444444447", "Sheldon"
