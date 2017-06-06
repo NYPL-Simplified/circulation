@@ -857,11 +857,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # expression.
     PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
 
-    # Identifiers that contain any of these strings are ignored when
-    # finding the "correct" identifier in a patron's record, even if
-    # it means they end up with no identifier at all.
-    IDENTIFIER_BLACKLIST = 'identifier_blacklist'
-
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
     # with the authenticator or with the way we have it configured.

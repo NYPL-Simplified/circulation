@@ -46,6 +46,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
     DEFAULT_CURRENCY = "USD"
 
+    # Identifiers that contain any of these strings are ignored when
+    # finding the "correct" identifier in a patron's record, even if
+    # it means they end up with no identifier at all.
+    IDENTIFIER_BLACKLIST = 'identifier_blacklist'
+    
     # A configuration value for whether or not to validate the SSL certificate
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
