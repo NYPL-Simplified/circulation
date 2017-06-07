@@ -200,7 +200,20 @@ class Annotator(object):
     @classmethod
     def authors(cls, work, license_pool, edition, identifier):
         """Create one or more <author> tags for the given work."""
-        return [AtomFeed.author(AtomFeed.name(edition.author or ""))]
+        authors = list()
+        listed = set()
+        for author in edition.author_contributors:
+            name = author.display_name or author.sort_name
+            name_key = name.lower()
+            if name_key in listed:
+                continue
+
+            authors.append(AtomFeed.author(AtomFeed.name(name)))
+            listed.add(name_key)
+
+        if authors:
+            return authors
+        return [AtomFeed.author(AtomFeed.name(""))]
 
     @classmethod
     def series(cls, series_name, series_position):
