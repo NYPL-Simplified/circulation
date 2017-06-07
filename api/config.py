@@ -15,7 +15,6 @@ class Configuration(CoreConfiguration):
     INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     LANGUAGE_POLICY = "languages"
-    LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
@@ -90,22 +89,16 @@ class Configuration(CoreConfiguration):
         return [[x] for x in value.split(',')]
 
     @classmethod
-    def force_language(cls, language):
-        """Override normal language settings to deliver a particular
-        collection no matter what.
-        """
-        policy = cls.language_policy()
-        return policy.get(cls.LANGUAGE_FORCE, language)
-
-    @classmethod
     def default_notification_email_address(cls):
-        return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
+        return ConfigurationSetting.for_library(
+            cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
+        )
 
     @classmethod
-    def max_outstanding_fines(cls):
-        max_fines = Configuration.policy(
-            Configuration.MAX_OUTSTANDING_FINES
-        )
+    def max_outstanding_fines(cls, library):
+        max_fines = ConfigurationSetting.for_library(
+            self.MAX_OUTSTANDING_FINES, library
+        ).value
         return MoneyUtility.parse(max_fines)
     
     @classmethod
