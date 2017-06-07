@@ -690,7 +690,7 @@ class AcquisitionFeed(OPDSFeed):
         value = ConfigurationSetting.sitewide(
             _db, cls.GROUPED_MAX_AGE_POLICY).int_value
         if value is None:
-            value = cls.DEFAULT_NONGROUPED_MAX_AGE
+            value = cls.DEFAULT_GROUPED_MAX_AGE
         return value
 
     @classmethod

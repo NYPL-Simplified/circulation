@@ -880,16 +880,11 @@ class TestOPDS(DatabaseTest):
             # By policy, group feeds are cached forever, which means
             # an attempt to generate them will fail. You'll get a
             # page-type feed as a consolation prize.
-
-            feed = AcquisitionFeed.groups(
+            cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
                 force_refresh=False, use_materialized_works=False
             )
-            eq_(CachedFeed.PAGE_TYPE, feed.type)
-            cached_groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=True, use_materialized_works=False
-            )
+            eq_(CachedFeed.PAGE_TYPE, cached_groups.type)
             parsed = feedparser.parse(cached_groups.content)
 
             # There are two entries, one for each work.
@@ -897,7 +892,7 @@ class TestOPDS(DatabaseTest):
 
             # Each entry has one and only one link.
             [l1], [l2] = e1['links'], e2['links']
-
+            
             # Those links are 'collection' links that classify the
             # works under their subgenres.
             assert all([l['rel'] == 'collection' for l in (l1, l2)])
