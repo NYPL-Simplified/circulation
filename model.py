@@ -9097,7 +9097,21 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
-                                                        
+
+    @classmethod
+    def sitewide_secret(cls, _db, key):
+        """Find or create a sitewide shared secret.
+
+        The value of this setting doesn't matter, only that it's
+        unique across the site and that it's always available.
+        """
+        secret = ConfigurationSetting.sitewide(_db, key)
+        if not secret.value:
+            secret.value = os.urandom(24).encode('hex')
+            # Commit to get this in the database ASAP.
+            _db.commit()
+        return secret.value
+    
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
