@@ -540,8 +540,7 @@ class CirculationAPI(object):
             raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
-        cdns = Configuration.cdns()
-        content_link = cdnify(rep.url, cdns)
+        content_link = cdnify(self._db, rep.url)
         media_type = rep.media_type
         return FulfillmentInfo(
             licensepool.collection, licensepool.data_source,

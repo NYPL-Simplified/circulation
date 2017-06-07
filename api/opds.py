@@ -97,7 +97,8 @@ class CirculationManagerAnnotator(Annotator):
         if self.test_mode:
             return self.test_url_for(True, *args, **kwargs)
         else:
-            return cdn_url_for(*args, **kwargs)
+            _db = Session.object_session(self.library)
+            return cdn_url_for(_db, *args, **kwargs)
 
     def test_url_for(self, cdn=False, *args, **kwargs):
         # Generate a plausible-looking URL that doesn't depend on Flask
@@ -784,7 +785,8 @@ class CirculationManagerAnnotator(Annotator):
         return cached
         
     def open_access_link(self, lpdm):
-        url = cdnify(lpdm.resource.url, Configuration.cdns())
+        _db = Session.object_session(self.library)
+        url = cdnify(_db, lpdm.resource.url)
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
         rep = lpdm.resource.representation
         if rep and rep.media_type:

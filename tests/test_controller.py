@@ -83,7 +83,6 @@ from api.circulation import (
 from api.novelist import MockNoveListAPI
 from api.adobe_vendor_id import AuthdataUtility
 from api.lanes import make_lanes_default
-from core.util.cdn import cdnify
 import base64
 import feedparser
 from core.opds import (
@@ -101,11 +100,6 @@ import json
 import urllib
 from core.analytics import Analytics
 
-class TestCirculationManager(CirculationManager):
-
-    def cdn_url_for(self, view, *args, **kwargs):
-        base_url = url_for(view, *args, **kwargs)
-        return cdnify(base_url, {"": "http://cdn/"})
 
 class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     """A test that requires a functional app server."""
@@ -143,7 +137,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # are associated with the default database session.
         self.library = self.make_default_library(_db)
         self.collection = self.make_default_collection(_db, self.library)
-        
+
         # Create the patron used by the dummy authentication mechanism.
         self.default_patron, ignore = get_one_or_create(
             _db, Patron,
@@ -155,6 +149,11 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         )
 
         self.initialize_library(_db)
+
+        # Create a CDN for testing purposes.
+        cdn = self._external_integration(
+            ExternalIntegration.CDN, goal="", url="http://cdn"
+        )
 
         # Create a simple authentication integration for this library,
         # unless it already has a way to authenticate patrons
@@ -187,7 +186,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                 )
             }
             lanes = make_lanes_default(_db)
-            self.manager = TestCirculationManager(
+            self.manager = CirculationManager(
                 _db, lanes=lanes, testing=True
             )
             app.manager = self.manager
@@ -523,6 +522,7 @@ class TestBaseController(CirculationControllerTest):
             value = self.controller.library_for_request(None)
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
+
 
 class TestIndexController(CirculationControllerTest):
     
@@ -1424,6 +1424,7 @@ class TestAnnotationController(CirculationControllerTest):
             # The annotation has been marked inactive.
             eq_(False, annotation.active)
 
+
 class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
@@ -1936,6 +1937,7 @@ class TestWorkController(CirculationControllerTest):
             feed = feedparser.parse(response.data)
             eq_(0, len(feed['entries']))
 
+
 class TestFeedController(CirculationControllerTest):
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
@@ -2092,6 +2094,7 @@ class TestFeedController(CirculationControllerTest):
                 assert self.english_2.title in response.data
                 assert self.french_1.author not in response.data
 
+
 class TestAnalyticsController(CirculationControllerTest):
     def setup(self):
         super(TestAnalyticsController, self).setup()
@@ -2125,6 +2128,7 @@ class TestAnalyticsController(CirculationControllerTest):
                     license_pool=self.lp
                 )
                 assert circulation_event != None
+
 
 class TestDeviceManagementProtocolController(ControllerTest):
 
@@ -2374,6 +2378,7 @@ class TestProfileController(ControllerTest):
             eq_(415, response.status_code)
             eq_("Expected vnd.librarysimplified/user-profile+json",
                 response.detail)
+
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)

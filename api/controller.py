@@ -185,7 +185,7 @@ class CirculationManager(object):
         )
 
     def cdn_url_for(self, view, *args, **kwargs):
-        return cdn_url_for(view, *args, **kwargs)
+        return cdn_url_for(self._db, view, *args, **kwargs)
 
     def url_for(self, view, *args, **kwargs):
         kwargs['_external'] = True

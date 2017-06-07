@@ -21,6 +21,7 @@ from core.model import (
     Contributor,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Library,
     PresentationCalculationPolicy,
     Representation,
@@ -64,7 +65,6 @@ from core.opds import (
 )
 from api.adobe_vendor_id import AuthdataUtility
 
-from core.util.cdn import cdnify
 from api.novelist import NoveListAPI
 from api.lanes import ContributorLane
 import jwt
@@ -145,13 +145,10 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
         # If we have a CDN set up for open-access links, the CDN hostname
         # replaces the original hostname.
         with temp_config() as config:
-            cdn_host = "https://cdn.com/"
-            cdns = {
-                "foo.com" : cdn_host
-            }
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.CDN_INTEGRATION : cdns
-            }
+            self._external_integration(
+                ExternalIntegration.CDN,
+                goal=u'foo.com', url=u'https://cdn.com/'
+            )
             link_tag = self.annotator.open_access_link(lpdm)
             link_url = link_tag.get('href')
             eq_("https://cdn.com/thefile.epub", link_url)
