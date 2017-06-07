@@ -32,6 +32,7 @@ from classifier import Classifier
 from model import (
     BaseMaterializedWork,
     CachedFeed,
+    ConfigurationSetting,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -681,21 +682,30 @@ class AcquisitionFeed(OPDSFeed):
     DEFAULT_NONGROUPED_MAX_AGE = 1200
 
     GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
-    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
+    DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
             
     @classmethod
     def grouped_max_age(cls, _db):
         "The maximum cache time for a grouped acquisition feed."
         value = ConfigurationSetting.sitewide(
-            _db, self.GROUPED_MAX_AGE_POLICY).int_value
-        return value or cls.DEFAULT_NONGROUPED_MAX_AGE
+            _db, cls.GROUPED_MAX_AGE_POLICY).int_value
+        if value is None:
+            value = cls.DEFAULT_NONGROUPED_MAX_AGE
+        return value
 
     @classmethod
     def nongrouped_max_age(cls, _db):
         "The maximum cache time for a non-grouped acquisition feed."
         value = ConfigurationSetting.sitewide(
-            _db, self.NONGROUPED_MAX_AGE_POLICY).int_value
-        return value or cls.DEFAULT_GROUPED_MAX_AGE
+            _db, cls.NONGROUPED_MAX_AGE_POLICY).int_value
+        if value is cls.CACHE_FOREVER:
+            logging.error(
+                "Non-grouped acquisition feed cannot be cached forever."
+            )
+            value = None
+        if value is None:
+            value = cls.DEFAULT_NONGROUPED_MAX_AGE
+        return value
             
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):

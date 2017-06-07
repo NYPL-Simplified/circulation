@@ -542,6 +542,7 @@ class Lane(object):
         self.searchable = searchable
         self.invisible = invisible
         self.license_source = license_source
+        self.allow_holds = allow_holds
         
         self.log = logging.getLogger("Lane %s" % self.name)
 

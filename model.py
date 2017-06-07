@@ -5853,6 +5853,7 @@ class CachedFeed(Base):
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
+        from opds import AcquisitionFeed
         if max_age is None:
             if lane and hasattr(lane, 'MAX_CACHE_AGE'):
                 max_age = lane.MAX_CACHE_AGE
