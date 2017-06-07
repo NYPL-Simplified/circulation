@@ -6495,7 +6495,7 @@ class LicensePool(Base):
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
         if not patron.library.allow_holds:
-            raise PolicyException("Holds are disabled on this system.")
+            raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
@@ -8810,7 +8810,7 @@ class Library(Base):
         :return: A bool.
         """
         value = ConfigurationSetting.for_library(
-            self, self.ALLOW_HOLDS).bool_value
+            self.ALLOW_HOLDS, self).bool_value
         if value is None:
             return True
         return value
@@ -9140,7 +9140,7 @@ class ConfigurationSetting(Base):
         :return: A boolean, or None if there is no value.
         """
         if self.value:
-            if value.lower() in self.MEANS_YES:
+            if self.value.lower() in self.MEANS_YES:
                 return True
             return False
         return None

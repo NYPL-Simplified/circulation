@@ -65,6 +65,7 @@ from model import (
     Measurement,
     Patron,
     PatronProfileStorage,
+    PolicyException,
     Representation,
     Resource,
     RightsStatus,
@@ -3665,25 +3666,34 @@ class TestHold(DatabaseTest):
         edition = self._edition()
         pool = self._licensepool(edition)
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            hold, is_new = pool.on_hold_to(patron, now, later, 4)
-            eq_(True, is_new)
-            eq_(now, hold.start)
-            eq_(None, hold.end)
-            eq_(4, hold.position)
+        hold, is_new = pool.on_hold_to(patron, now, later, 4)
+        eq_(True, is_new)
+        eq_(now, hold.start)
+        eq_(None, hold.end)
+        eq_(4, hold.position)
 
-            # Now update the position to 0. It's the patron's turn
-            # to check out the book.
-            hold, is_new = pool.on_hold_to(patron, now, later, 0)
-            eq_(False, is_new)
-            eq_(now, hold.start)
-            # The patron has until `hold.end` to actually check out the book.
-            eq_(later, hold.end)
-            eq_(0, hold.position)
+        # Now update the position to 0. It's the patron's turn
+        # to check out the book.
+        hold, is_new = pool.on_hold_to(patron, now, later, 0)
+        eq_(False, is_new)
+        eq_(now, hold.start)
+        # The patron has until `hold.end` to actually check out the book.
+        eq_(later, hold.end)
+        eq_(0, hold.position)
 
+    def test_holds_not_allowed(self):
+        patron = self._patron()
+        edition = self._edition()
+        pool = self._licensepool(edition)
+
+        key = patron.library.ALLOW_HOLDS
+        patron.library.setting(key).value = False
+        assert_raises_regexp(
+            PolicyException,
+            "Holds are disabled for this library.",
+            pool.on_hold_to, patron, datetime.datetime.now(), 4
+        )
+        
     def test_work(self):
         # We don't need to test the functionality--that's tested in
         # Loan--just that Hold also has access to .work.
