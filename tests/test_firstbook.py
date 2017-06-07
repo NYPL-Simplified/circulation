@@ -33,13 +33,10 @@ class TestFirstBook(DatabaseTest):
 
     def test_from_config(self):
         api = None
-        config = {
-            Configuration.URL : "http://example.com/",
-            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-        }
-        api = FirstBookAuthenticationAPI.from_config(
-            self._default_library.id, config
-        )
+        integration = self._external_integration(self._str)
+        integration.url = "http://example.com/"
+        integration.password = "the_key"
+        api = FirstBookAuthenticationAPI(self._default_library.id, integration)
 
         # Verify that the configuration details were stored properly.
         eq_('http://example.com/?key=the_key', api.root)
@@ -51,13 +48,8 @@ class TestFirstBook(DatabaseTest):
         eq_(True, api.server_side_validation("foo@bar", "1234"))
 
         # Try another case where the root URL has multiple arguments.
-        config = {
-            Configuration.URL : "http://example.com/?foo=bar",
-            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-        }
-        api = FirstBookAuthenticationAPI.from_config(
-            self._default_library.id, config
-        )
+        integration.url = "http://example.com/?foo=bar"
+        api = FirstBookAuthenticationAPI(self._default_library.id, integration)
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
         
     def test_authentication_success(self):

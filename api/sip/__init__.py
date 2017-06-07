@@ -14,6 +14,12 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
+    # Constants for integration configuration settings.
+    PORT = "port"
+    LOCATION_CODE = "location code"
+    FIELD_SEPARATOR = "field separator"
+    
+
     # Most of the time, a patron who is blocked will be blocked with
     # the reason UNKNOWN_BLOCK. However, there are a few more specific
     # reasons we can use. This dictionary maps the block reason
@@ -24,11 +30,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
         SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
     }
-   
-    def __init__(self, library_id, server, port, login_user_id,
-                 login_password, location_code, field_separator='|',
-                 client=None,
-                 **kwargs):
+
+    def __init__(self, library_id, integration, client=None, connect=True):
         """An object capable of communicating with a SIP server.
 
         :param server: Hostname of the SIP server.
@@ -58,19 +61,31 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         :param client: A drop-in replacement for the SIPClient
         object. Only intended for use during testing.
 
+        :param connect: If this is false, the generated SIPClient will
+        not attempt to connect to the server. Only intended for use
+        during testing.
         """
         super(SIP2AuthenticationProvider, self).__init__(
-            library_id=library_id, **kwargs
+            library_id, integration
         )
         try:
+            server = None
             if client:
                 if callable(client):
                     client = client()
             else:
+                server = integration.url
+                port = integration.setting(self.PORT).int_value
+                login_user_id = integration.username
+                login_password = integration.password
+                location_code = integration.setting(self.LOCATION_CODE).value
+                field_separator = integration.setting(
+                    self.FIELD_SEPARATOR).value or '|'
                 client = SIPClient(
                     target_server=server, target_port=port,
                     login_user_id=login_user_id, login_password=login_password,
-                    location_code=location_code, separator=field_separator
+                    location_code=location_code, separator=field_separator,
+                    connect=connect
                 )
         except IOError, e:
             raise RemoteIntegrationException(

@@ -15,8 +15,8 @@ from api.config import (
 from api.authenticator import (
     LibraryAuthenticator
 )
-from api.mock_authentication import (
-    MockAuthenticationProvider
+from api.simple_authentication import (
+    SimpleAuthenticationProvider
 )
 
 from core.model import (
@@ -52,28 +52,26 @@ class TestServiceStatusMonitor(DatabaseTest):
 
     def test_init(self):
         # Test that ServiceStatus can create an Authenticator.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"module": 'api.mock_authentication'}
-                    ]
-                }
-            }
-            service_status = ServiceStatus(self._default_library)
-            assert service_status.auth != None
-            assert service_status.auth.basic_auth_provider != None
-
+        integration = self._external_integration(
+            "api.simple_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        provider = SimpleAuthenticationProvider
+        integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
+        integration.setting(provider.TEST_PASSWORD).value = "password"
+        self._default_library.integrations.append(integration)
+        service_status = ServiceStatus(self._default_library)
+        assert service_status.auth != None
+        assert isinstance(service_status.auth.basic_auth_provider, provider)
+        
     @property
     def mock_auth(self):
         library = self._default_library
-        provider = MockAuthenticationProvider(
-            library.id,
-            patrons={"user": "pass"},
-            test_username="user",
-            test_password="pass",
-        )
-        return LibraryAuthenticator(self._db, library, provider)
+        integration = self._external_integration(self._str)
+        provider = SimpleAuthenticationProvider
+        integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
+        integration.setting(provider.TEST_PASSWORD).value = "password"
+        self.authenticator = provider(library.id, integration)
+        return LibraryAuthenticator(self._db, library, self.authenticator)
 
     def test_test_patron(self):
         """Verify that test_patron() returns credentials determined

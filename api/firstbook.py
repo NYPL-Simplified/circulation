@@ -28,8 +28,6 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # patron's credentials.
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
 
-    SECRET_KEY = 'key'
-
     # Server-side validation happens before the identifier
     # is converted to uppercase, which means lowercase characters
     # are valid.
@@ -38,12 +36,14 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, url=None, key=None, **kwargs):
+    def __init__(self, library_id, integration):
+        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration)
+        url = integration.url
+        key = integration.password
         if not (url and key):
             raise CannotLoadConfiguration(
                 "First Book server not configured."
             )
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, **kwargs)
         if '?' in url:
             url += '&'
         else:

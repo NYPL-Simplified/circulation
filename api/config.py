@@ -14,7 +14,6 @@ class Configuration(CoreConfiguration):
 
     INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
-    AUTHENTICATION_POLICY = "authentication"
     LANGUAGE_POLICY = "languages"
     LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
@@ -34,26 +33,14 @@ class Configuration(CoreConfiguration):
     ADOBE_VENDOR_ID = u"vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
 
-    AUTHENTICATION = "authentication"
-    AUTHENTICATION_TEST_USERNAME = "test_username"
-    AUTHENTICATION_TEST_PASSWORD = "test_password"
-
-    OAUTH_CLIENT_ID = 'client_id'
-    OAUTH_CLIENT_SECRET = 'client_secret'
-    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
     SECRET_KEY = "secret_key"
 
-    MILLENIUM_INTEGRATION = u"Millenium"
-    AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
     STAFF_PICKS_INTEGRATION = u"Staff Picks"
     PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 
     LIST_FIELDS = "fields"
    
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
-
-    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
 
     @classmethod
     def lending_policy(cls):

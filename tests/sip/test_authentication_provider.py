@@ -38,12 +38,37 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     polaris_excess_fines = "64YYYY      Y   00120161121    144438000000000000000000000000AO3|AA25891000115879|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV11.50|CC9.99|BD123, Charlotte Hall, MD 20622|BE|BF501-555-1212|BC20140610    000000|PA1|PEHALL|PS|U1No|U2|U3|U4|U5|PZ20622|PX20170424    235959|PYN|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA27B"
 
     polaris_no_such_patron = "64YYYY          00120161121    143126000000000000000000000000AO3|AA1112|AE, |BZ0000|CA0000|CB0000|BLN|CQN|BHUSD|BV0.00|CC0.00|BD|BE|BF|BC|PA0|PE|PS|U1|U2|U3|U4|U5|PZ|PX|PYN|FA0.00|AFPatron does not exist.|AGPatron does not exist.|AY2AZBCF2"
-    
+
+    def test_initialize_from_integration(self):
+        p = SIP2AuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.url = "server.com"
+        integration.username = "user1"
+        integration.password = "pass1"
+        integration.setting(p.FIELD_SEPARATOR).value = "\t"
+
+        provider = p(self._default_library.id, integration, connect=False)
+
+        # A SIPClient was initialized based on the integration values.
+        client = provider.client
+        eq_("user1", client.login_user_id)
+        eq_("pass1", client.login_password)
+        eq_("\t", client.separator)
+        eq_("server.com", client.target_server)
+        
+        # Default port is 6001.
+        eq_(6001, client.target_port)
+
+        # Try again, specifying a port.
+        integration.setting(p.PORT).value = "1234"
+        provider = p(self._default_library.id, integration, connect=False)
+        eq_(1234, provider.client.target_port)
+        
     def test_remote_authenticate(self):
+        integration = self._external_integration(self._str)
         client = MockSIPClient()
         auth = SIP2AuthenticationProvider(
-            self._default_library.id, None, None, None, None, None, None,
-            client=client
+            self._default_library.id, integration, client=client
         )
 
         # Some examples taken from a Sierra SIP API.
@@ -153,12 +178,12 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
                 raise IOError("Doom!")
 
 
+        integration = self._external_integration(self._str)
         assert_raises_regexp(
             RemoteIntegrationException,
-            "Error accessing server.local: Doom!",
+            "Error accessing unknown server: Doom!",
             SIP2AuthenticationProvider,
-            self._default_library.id, "server.local", None, None, None, None,
-            client=CannotConnect
+            self._default_library.id, integration, client=CannotConnect
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -169,12 +194,12 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def do_send(self, data):
                 raise IOError("Doom!")
         client = CannotSend()
-        client.target_server = 'server.local'
-            
+
+        integration = self._external_integration(self._str)
         provider = SIP2AuthenticationProvider(
-            self._default_library.id, None, None, None, None, None,
-            client=client
+            self._default_library.id, integration, client=client
         )
+        provider.client.target_server = 'server.local'
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",

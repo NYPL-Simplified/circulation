@@ -44,33 +44,67 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
-    REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
-
     DEFAULT_CURRENCY = "USD"
 
+    # Identifiers that contain any of these strings are ignored when
+    # finding the "correct" identifier in a patron's record, even if
+    # it means they end up with no identifier at all.
+    IDENTIFIER_BLACKLIST = 'identifier_blacklist'
+    
     # A configuration value for whether or not to validate the SSL certificate
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
+
+    # The field to use when validating a patron's credential.
+    AUTHENTICATION_MODE = 'auth_mode'
+    PIN_AUTHENTICATION_MODE = 'pin'
+    FAMILY_NAME_AUTHENTICATION_MODE = 'family_name'
     
-    def __init__(self, library_id, url=None, authorization_identifier_blacklist=[],
-                 verify_certificate=True, **kwargs):
+    AUTHENTICATION_MODES = [
+        PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
+    ]
+    
+    def __init__(self, library_id, integration):
+        super(MilleniumPatronAPI, self).__init__(library_id, integration)
+        url = integration.url
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
 
-        super(MilleniumPatronAPI, self).__init__(library_id, **kwargs)
         if not url.endswith('/'):
             url = url + "/"
         self.root = url
-        self.verify_certificate=verify_certificate
+        self.verify_certificate = integration.setting(
+            self.VERIFY_CERTIFICATE).json_value
+        if self.verify_certificate is None:
+            self.verify_certificate = True
         self.parser = etree.HTMLParser()
+
+        # In a Sierra ILS, a patron may have a large number of
+        # identifiers, some of which are not real library cards. A
+        # blacklist allows us to exclude certain types of identifiers
+        # from being considered as library cards.
+        authorization_identifier_blacklist = integration.setting(
+            self.IDENTIFIER_BLACKLIST).json_value or []
         self.blacklist = [re.compile(x, re.I)
                           for x in authorization_identifier_blacklist]
 
+        auth_mode = integration.setting(
+            self.AUTHENTICATION_MODE).value or self.PIN_AUTHENTICATION_MODE
+        
+        if auth_mode not in self.AUTHENTICATION_MODES:
+            raise CannotLoadConfiguration(
+                "Unrecognized Millenium Patron API authentication mode: %s." % auth_mode
+            )
+        self.auth_mode = auth_mode
+        
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
 
+    def _request(self, path):
+        """Make an HTTP request and parse the response."""
+    
     def remote_authenticate(self, username, password):
         """Does the Millenium Patron API approve of these credentials?
 
@@ -78,27 +112,55 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         valid, a PatronData that serves only to indicate which
         authorization identifier the patron prefers.
         """
-        path = "%(barcode)s/%(pin)s/pintest" % dict(
-            barcode=username, pin=password
-        )
-        url = self.root + path
-        response = self.request(url)
-        data = dict(self._extract_text_nodes(response.content))
-        if data.get('RETCOD') == '0':
-            return PatronData(authorization_identifier=username, complete=False)
+        if self.auth_mode == self.PIN_AUTHENTICATION_MODE:
+            path = "%(barcode)s/%(pin)s/pintest" % dict(
+                barcode=username, pin=password
+            )
+            url = self.root + path
+            response = self.request(url)
+            data = dict(self._extract_text_nodes(response.content))
+            if data.get('RETCOD') == '0':
+                return PatronData(authorization_identifier=username, complete=False)
+            return False
+        elif self.auth_mode == self.FAMILY_NAME_AUTHENTICATION_MODE:
+
+            patrondata = self._remote_patron_lookup(username)
+            if not patrondata:
+                # The patron doesn't even exist.
+                return False
+
+            # The patron exists; but do the last names match?
+            if self.family_name_match(patrondata.personal_name, password):
+                # Since this is a complete PatronData, we'll be able
+                # to update their account without making a separate
+                # call to /dump.
+                return patrondata
+        return False
+
+    @classmethod
+    def family_name_match(self, actual_name, supposed_family_name):
+        """Does `supposed_family_name` match `actual_name`?"""
+        if actual_name is None or supposed_family_name is None:
+            return False
+        actual_family_name = actual_name.split(',')[0]
+        if actual_family_name.upper() == supposed_family_name.upper():
+            return True
         return False
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
         """
         current_identifier = patron_or_patrondata.authorization_identifier
-        path = "%(barcode)s/dump" % dict(barcode=current_identifier)
+        return self._remote_patron_lookup(current_identifier)
+
+    def _remote_patron_lookup(self, identifier):
+        """Look up patron information for the given identifier."""
+        path = "%(barcode)s/dump" % dict(barcode=identifier)
         url = self.root + path
         response = self.request(url)
-        return self.patron_dump_to_patrondata(
-            current_identifier, response.content
-        )
-
+        return self.patron_dump_to_patrondata(identifier, response.content)
+        
+    
     # End implementation of BasicAuthenticationProvider abstract
     # methods.
     

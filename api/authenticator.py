@@ -10,6 +10,7 @@ from core.model import (
     ConfigurationSetting,
     Credential,
     DataSource,
+    ExternalIntegration,
     Library,
     Patron,
     Session,
@@ -28,6 +29,7 @@ from api.opds import CirculationManagerAnnotator
 import datetime
 import logging
 from money import Money
+import os
 import re
 import urlparse
 import urllib
@@ -373,53 +375,33 @@ class LibraryAuthenticator(object):
 
     @classmethod
     def from_config(cls, _db, library):
-        """Initialize an Authenticator from site configuration.
+        """Initialize an Authenticator for the given Library based on its
+        configured ExternalIntegrations.
         """
-        
-        authentication_policy = Configuration.policy("authentication")
-        if not authentication_policy:
-            raise CannotLoadConfiguration(
-                "No authentication policy given."
-            )
-        
-        if (not isinstance(authentication_policy, dict)
-            or not 'providers' in authentication_policy):
-            raise CannotLoadConfiguration(
-                "Authentication policy must be a dictionary with key 'providers'."
-            )
-        bearer_token_signing_secret = authentication_policy.get(
-            'bearer_token_signing_secret'
+
+        bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
+            _db
         )
-        providers = authentication_policy['providers']        
-        if isinstance(providers, dict):
-            # There's only one provider.
-            providers = [providers]
-            
-        # Start with an empty list of authenticators.        
+
+        # Start with an empty list of authenticators.
         authenticator = cls(
             _db=_db, library=library,
             bearer_token_signing_secret=bearer_token_signing_secret
         )
 
-        # Register each provider.
-        for provider_dict in providers:
-            if not isinstance(provider_dict, dict):
-                raise CannotLoadConfiguration(
-                    "Provider %r is invalid; must be a dictionary." %
-                    provider_dict
-                )
-            authenticator.register_provider(provider_dict)
+        # Find all of this library's ExternalIntegrations set up with
+        # the goal of authenticating patrons.
+        integrations = _db.query(ExternalIntegration).join(
+            ExternalIntegration.libraries).filter(
+            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
+        ).filter(
+            Library.id==library.id
+        )
+        # Turn each such ExternalIntegration into an
+        # AuthenticationProvider.
+        for integration in integrations:
+            authenticator.register_provider(integration)
                 
-        if (not authenticator.basic_auth_provider
-            and not authenticator.oauth_providers_by_name):
-            # TODO: This isn't unacceptable: a fully open-access
-            # collection doesn't need any authentication providers.
-            # But supporting that case requires specialized work, e.g.
-            # getting rid of all the links to controllers that require
-            # authentication.
-            raise CannotLoadConfiguration(
-                "No authentication provider configured"
-            )
         authenticator.assert_ready_for_oauth()
         return authenticator
 
@@ -456,6 +438,10 @@ class LibraryAuthenticator(object):
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
         self.assert_ready_for_oauth()
+
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this LibraryAuthenticator has OAuth providers, ensure that it
@@ -466,32 +452,46 @@ class LibraryAuthenticator(object):
                 "OAuth providers are configured, but secret for signing bearer tokens is not."
             )
                 
-    def register_provider(self, config):
-        """Turn a description of a provider into an AuthenticationProvider
+    def register_provider(self, integration):
+        """Turn an ExternalIntegration object into an AuthenticationProvider
         object, and register it.
 
-        :param config: A dictionary of parameters that configure
-        the provider.
-        """
-        if not 'module' in config:
+        :param integration: An ExternalIntegration that configures
+        a way of authenticating patrons.
+        """           
+        if integration.goal != integration.PATRON_AUTH_GOAL:
             raise CannotLoadConfiguration(
-                "Provider configuration does not define 'module': %r" %
-                config
+                "Was asked to register an integration with goal=%s as though it were a way of authenticating patrons." % integration.goal
             )
-        module_name = config['module']
-        config = dict(config)
-        del config['module']
+
+        library = self.library
+        if library not in integration.libraries:
+            raise CannotLoadConfiguration(
+                "Was asked to register an integration with library %s, which doesn't use it." % library.name
+            )
+        
+        module_name = integration.protocol
+        if not module_name:
+            # This should be impossible since protocol is not nullable.
+            raise CannotLoadConfiguration(
+                "Authentication provider configuration does not specify protocol."
+            )
         provider_module = importlib.import_module(module_name)
-        provider_class = getattr(provider_module, "AuthenticationProvider")
+        provider_class = getattr(provider_module, "AuthenticationProvider", None)
+        if not provider_class:
+            raise CannotLoadConfiguration(
+                "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
+            )
+        provider = provider_class.from_config(self.library_id, integration)
         if issubclass(provider_class, BasicAuthenticationProvider):
-            provider = provider_class.from_config(self.library_id, config)
             self.register_basic_auth_provider(provider)
+            # TODO: Run a self-test, or at least check that we have
+            # the ability to run one.
         elif issubclass(provider_class, OAuthAuthenticationProvider):
-            provider = provider_class.from_config(self.library_id, config)
             self.register_oauth_provider(provider)
         else:
             raise CannotLoadConfiguration(
-                "Unrecognized authentication provider: %s" % provider_class
+                "Authentication provider %s is neither a BasicAuthenticationProvider nor an OAuthAuthenticationProvider. I can create it, but not sure where to put it." % provider_class
             )
 
     def register_basic_auth_provider(self, provider):
@@ -842,48 +842,70 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # passwords.
     alphanumerics_plus = re.compile("^[A-Za-z0-9@.-]+$")
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = alphanumerics_plus
-    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None        
+    DEFAULT_PASSWORD_REGULAR_EXPRESSION = None
 
+    # Configuration settings that are common to all Basic Auth-type
+    # authentication techniques.
+    #
+    
+    # Identifiers can be presumed invalid if they don't match
+    # this regular expression.
+    IDENTIFIER_REGULAR_EXPRESSION = 'identifier_regular_expression'
+
+    # Passwords can be presumed invalid if they don't match this regular
+    # expression.
+    PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
+
+    # These identifier and password are supposed to be valid
+    # credentials.  If there's a problem using them, there's a problem
+    # with the authenticator or with the way we have it configured.
+    TEST_IDENTIFIER = 'test_identifier'
+    TEST_PASSWORD = 'test_password'
+    
     @classmethod
-    def from_config(cls, library_id, config):
-        """Load a BasicAuthenticationProvider from site configuration."""
-        return cls(library_id, **config)
+    def from_config(cls, library_id, integration):
+        """Load a BasicAuthenticationProvider from an ExternalIntegration."""
+        return cls(library_id, integration)
 
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self, library_id,
-                 identifier_regular_expression=class_default,
-                 password_regular_expression=class_default,
-                 test_username=None, test_password=None):
+    def __init__(self, library_id, integration):
         """Create a BasicAuthenticationProvider.
 
         :param library_id: Patrons authenticated through this provider
             are associated with the Library with the given ID. We don't
             pass the Library object to avoid contaminating with
             an object from a non-scoped session.
+
+        :param integration: An ExternalIntegration that configures
+            this authentication mechanism. Don't store this object--just
+            pull normal Python objects out of it.
         """
         super(BasicAuthenticationProvider, self).__init__(library_id)
-        if identifier_regular_expression is self.class_default:
-            identifier_regular_expression = self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+        identifier_regular_expression = integration.setting(
+            self.IDENTIFIER_REGULAR_EXPRESSION
+        ).value or self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
+
         if identifier_regular_expression:
             identifier_regular_expression = re.compile(
                 identifier_regular_expression
             )
-        if password_regular_expression is self.class_default:
-            password_regular_expression = self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
-
+        self.identifier_re = identifier_regular_expression
+        
+        password_regular_expression = integration.setting(
+            self.PASSWORD_REGULAR_EXPRESSION
+        ).value or self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
         if password_regular_expression:
             password_regular_expression = re.compile(
                 password_regular_expression
-            )
-
-        self.identifier_re = identifier_regular_expression
+            )            
         self.password_re = password_regular_expression
-        self.test_username = test_username
-        self.test_password = test_password
+
+        self.test_username = integration.setting(self.TEST_IDENTIFIER).value
+        self.test_password = integration.setting(self.TEST_PASSWORD).value
         self.log = logging.getLogger(self.NAME)
         
     def testing_patron(self, _db):
@@ -1150,22 +1172,40 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     
     METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
-    
+   
     # After verifying the patron's OAuth credentials, we send them a
-    # token. This is how long they can use that token before we check
-    # their OAuth credentials again.
+    # token. This configuration setting controls how long they can use
+    # that token before we check their OAuth credentials again.
+    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
+
+    # This is the default value for that configuration setting.
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
+
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
+
+    @classmethod
+    def bearer_token_signing_secret(cls, _db):
+        """Find or generate the site-wide bearer token signing secret."""
+        secret = ConfigurationSetting.sitewide(
+            _db, cls.BEARER_TOKEN_SIGNING_SECRET
+        )
+        if not secret.value:
+            secret.value = os.urandom(24).encode('hex')
+            # Commit to get this in the database ASAP.
+            _db.commit()
+        return secret.value
     
     @classmethod
-    def from_config(cls, library_id, config):
-        """Load this OAuthAuthenticationProvider from the site configuration.
+    def from_config(cls, library_id, integration):
+        """Load this OAuthAuthenticationProvider from an ExternalIntegration.
         """
-        client_id = config.get(Configuration.OAUTH_CLIENT_ID)
-        client_secret = config.get(Configuration.OAUTH_CLIENT_SECRET)
-        token_expiration_days = config.get(
-            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS,
-            cls.DEFAULT_TOKEN_EXPIRATION_DAYS
-        )
+        client_id = integration.username
+        client_secret = integration.password
+        token_expiration_days = integration.setting(
+            cls.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).int_value or cls.DEFAULT_TOKEN_EXPIRATION_DAYS
         return cls(library_id, client_id, client_secret, token_expiration_days)
     
     def __init__(self, library_id, client_id, client_secret, token_expiration_days):

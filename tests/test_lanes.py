@@ -146,7 +146,6 @@ class TestLaneCreation(DatabaseTest):
     def test_make_lanes_default(self):
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',

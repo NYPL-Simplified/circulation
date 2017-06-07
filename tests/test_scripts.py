@@ -98,11 +98,6 @@ class TestLaneScript(DatabaseTest):
         """
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : {
-                    "providers": [
-                        { "module" : "api.mock_authentication" }
-                    ]
-                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'fre',

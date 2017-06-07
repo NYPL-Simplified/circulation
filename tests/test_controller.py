@@ -10,6 +10,7 @@ import datetime
 import re
 from wsgiref.handlers import format_date_time
 from time import mktime
+from decimal import Decimal
 
 import flask
 from flask import url_for
@@ -25,8 +26,8 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
-from api.mock_authentication import (
-    MockAuthenticationProvider
+from api.authenticator import (
+    BasicAuthenticationProvider
 )
 from core.app_server import (
     load_lending_policy
@@ -110,7 +111,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
-    # MockAuthenticationProvider set up in ControllerTest.setup().
+    # SimpleAuthenticationProvider set up in ControllerTest.setup().
     valid_auth = 'Basic ' + base64.b64encode(
         'unittestuser:unittestpassword'
     )
@@ -154,20 +155,24 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         )
 
         self.initialize_library(_db)
+
+        # Create a simple authentication integration for this library,
+        # unless it already has a way to authenticate patrons
+        # (in which case we would just screw things up).
+        if not any([x for x in self.library.integrations if x.goal==
+                ExternalIntegration.PATRON_AUTH_GOAL]):
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol="api.simple_authentication",
+                goal=ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            p = BasicAuthenticationProvider
+            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            self.library.integrations.append(integration)
+        self.authdata = AuthdataUtility.from_config(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : {
-                    "providers": [
-                        {
-                            "module": "api.mock_authentication",
-                            "patrons": { "unittestuser": "unittestpassword",
-                                         "unittestuser2" : "unittestpassword2",
-                            },
-                            "expired_patrons": { "expired" : "password" },
-                            "patrons_with_fines": { "ihavefines" : "password" },
-                        }
-                    ],
-                },
                 Configuration.LANGUAGE_POLICY : {
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
@@ -185,7 +190,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
-            self.authdata = AuthdataUtility.from_config(_db)
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
@@ -248,11 +252,17 @@ class TestBaseController(CirculationControllerTest):
         """A patron can authenticate even if their credentials have
         expired -- they just can't create loans or holds.
         """
+        one_year_ago = datetime.datetime.utcnow() - datetime.timedelta(days=365)
         with self.request_context_with_library("/"):
-            value = self.controller.authenticated_patron(
-                dict(username="expired", password="password")
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
             )
-            eq_("expired_username", value.username)
+            patron.expires = one_year_ago
+
+            patron = self.controller.authenticated_patron(
+                self.valid_credentials
+            )
+            eq_(one_year_ago, patron.expires)
 
     def test_authenticated_patron_correct_credentials(self):
         with self.request_context_with_library("/"):
@@ -1033,16 +1043,18 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        auth = 'Basic ' + base64.b64encode('ihavefines:password')
-        
         with self.temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
 
             with self.request_context_with_library(
-                    "/", headers=dict(Authorization=auth)):
-                self.manager.loans.authenticated_patron_from_request()
+                    "/", headers=dict(Authorization=self.valid_auth)):
+
+                # The patron's credentials are valid, but they have a lot
+                # of fines.
+                patron = self.manager.loans.authenticated_patron_from_request()
+                patron.fines = Decimal("12345678.90")
                 response = self.manager.loans.borrow(
                     pool.identifier.type, pool.identifier.identifier)
                 
@@ -1050,15 +1062,15 @@ class TestLoanController(CirculationControllerTest):
                 eq_(OUTSTANDING_FINES.uri, response.uri)
                 assert "$12345678.90 outstanding" in response.detail
 
+        # Reduce the patron's fines, and there's no problem.
         with self.temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$999999999.99"
+                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
             }
-
             with self.request_context_with_library(
-                    "/", headers=dict(Authorization=auth)):
-                self.manager.loans.authenticated_patron_from_request()
-
+                    "/", headers=dict(Authorization=self.valid_auth)):
+                patron = self.manager.loans.authenticated_patron_from_request()
+                patron.fines = Decimal("0.49")
                 self.manager.circulation.queue_checkout(
                     pool,
                     LoanInfo(
@@ -2091,7 +2103,6 @@ class TestAnalyticsController(CirculationControllerTest):
             config = {
                 Configuration.POLICIES : {
                     Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
-                Configuration.AUTHENTICATION_POLICY : "api.mock_authentication",
                 }
             }
 
