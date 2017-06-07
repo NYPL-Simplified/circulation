@@ -130,12 +130,13 @@ class CirculationAPI(object):
     between different circulation APIs.
     """
 
-    def __init__(self, _db, overdrive=None, threem=None, axis=None):
+    def __init__(self, _db, overdrive=None, threem=None, axis=None, enki=None):
         self._db = _db
         self.overdrive = overdrive
         self.threem = threem
         self.axis = axis
-        self.apis = [x for x in (overdrive, threem, axis) if x]
+        self.enki = enki
+        self.apis = [x for x in (overdrive, threem, axis, enki) if x]
         self.log = logging.getLogger("Circulation API")
 
         # When we get our view of a patron's loans and holds, we need
@@ -154,6 +155,10 @@ class CirculationAPI(object):
         if self.axis:
             data_sources_for_sync.append(
                 DataSource.lookup(_db, DataSource.AXIS_360)
+            )
+        if self.enki:
+            data_sources_for_sync.append(
+                DataSource.lookup(_db, DataSource.ENKI)
             )
 
 
@@ -177,6 +182,8 @@ class CirculationAPI(object):
             api = self.threem
         elif licensepool.data_source.name==DataSource.AXIS_360:
             api = self.axis
+        elif licensepool.data_source.name==DataSource.ENKI:
+            api = self.enki
         else:
             return None
 
