@@ -237,67 +237,57 @@ class TestFacetsApply(DatabaseTest):
         )
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
-                     order=Facets.ORDER_TITLE
+                     order=Facets.ORDER_TITLE,
+                     allow_holds=True,
         ):
-            f = Facets(collection, available, order)
+            f = Facets(collection, available, order, allow_holds=allow_holds)
             return f.apply(self._db, qu)
 
-        # When holds are allowed, we can find all works by asking
-        # for everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
+        # When holds are allowed, we can find all works by asking for
+        # everything.
 
-            everything = facetify()
-            eq_(4, everything.count())
+        everything = facetify(allow_holds=True)
+        eq_(4, everything.count())
 
         # If we disallow holds, we lose one book even when we ask for
         # everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-            everything = facetify()
-            eq_(3, everything.count())
-            assert licensed_high not in everything
+        everything = facetify(allow_holds=False)
+        eq_(3, everything.count())
+        assert licensed_high not in everything
+        
+        # Even when holds are allowed, if we restrict to books
+        # currently available we lose the unavailable book.
+        available_now = facetify(available=Facets.AVAILABLE_NOW,
+                                 allow_holds=True)
+        eq_(3, available_now.count())
+        assert licensed_high not in available_now
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            # Even when holds are allowed, if we restrict to books
-            # currently available we lose the unavailable book.
-            available_now = facetify(available=Facets.AVAILABLE_NOW)
-            eq_(3, available_now.count())
-            assert licensed_high not in available_now
+        # If we restrict to open-access books we lose two books.
+        open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
+        eq_(2, open_access.count())
+        assert licensed_high not in open_access
+        assert licensed_low not in open_access
 
-            # If we restrict to open-access books we lose two books.
-            open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
-            eq_(2, open_access.count())
-            assert licensed_high not in open_access
-            assert licensed_low not in open_access
+        # If we restrict to the main collection we lose the low-quality
+        # open-access book.
+        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
+        eq_(3, main_collection.count())
+        assert open_access_low not in main_collection
 
-            # If we restrict to the main collection we lose the low-quality
-            # open-access book.
-            main_collection = facetify(collection=Facets.COLLECTION_MAIN)
-            eq_(3, main_collection.count())
-            assert open_access_low not in main_collection
+        # If we restrict to the featured collection we lose both
+        # low-quality books.
+        featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
+        eq_(2, featured_collection.count())
+        assert open_access_low not in featured_collection
+        assert licensed_low not in featured_collection
 
-            # If we restrict to the featured collection we lose both
-            # low-quality books.
-            featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
-            eq_(2, featured_collection.count())
-            assert open_access_low not in featured_collection
-            assert licensed_low not in featured_collection
+        title_order = facetify(order=Facets.ORDER_TITLE)
+        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
+            title_order.all())
 
-            title_order = facetify(order=Facets.ORDER_TITLE)
-            eq_([open_access_high, open_access_low, licensed_high, licensed_low],
-                title_order.all())
-
-            random_order = facetify(order=Facets.ORDER_RANDOM)
-            eq_([licensed_low, open_access_high, licensed_high, open_access_low],
-                random_order.all())
+        random_order = facetify(order=Facets.ORDER_RANDOM)
+        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
+            random_order.all())
 
 
 class TestLane(DatabaseTest):
@@ -1187,20 +1177,17 @@ class TestFilters(DatabaseTest):
         eq_(set([w1, w4, w6, w7, w8]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-
-            # w1 no longer shows up, because although we own licenses, 
-            #  no copies are available.
-            # w4 is open-access but it's suppressed, so it still doesn't 
-            #  show up.
-            # w6 still shows up because it's an open-access work.
-            # w7 and w8 show up because we own licenses and copies are
-            #  available.
-            q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(set([w6, w7, w8]), set(q.all()))
+        ConfigurationSetting.for_library(
+            Library.ALLOW_HOLDS, self._default_library).value = "false"
+        # w1 no longer shows up, because although we own licenses, 
+        #  no copies are available.
+        # w4 is open-access but it's suppressed, so it still doesn't 
+        #  show up.
+        # w6 still shows up because it's an open-access work.
+        # w7 and w8 show up because we own licenses and copies are
+        #  available.
+        q = Lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w6, w7, w8]), set(q.all()))
 
     def test_lane_subclass_queries(self):
         """Subclasses of Lane can effectively retrieve all of a Work's
