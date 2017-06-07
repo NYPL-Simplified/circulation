@@ -200,7 +200,7 @@ class DatabaseTest(object):
                     identifier_type=Identifier.GUTENBERG_ID,
                     with_license_pool=False, with_open_access_download=False,
                     title=None, language="eng", authors=None, identifier_id=None,
-                    series=None):
+                 collection=None, series=None):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
