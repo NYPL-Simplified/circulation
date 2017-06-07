@@ -22,7 +22,6 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     ROOT_LANE_POLICY = "root_lane"
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
 
     MAX_OUTSTANDING_FINES = "max_outstanding_fines"
 
@@ -89,10 +88,10 @@ class Configuration(CoreConfiguration):
         return [[x] for x in value.split(',')]
 
     @classmethod
-    def default_notification_email_address(cls):
+    def default_notification_email_address(cls, library):
         return ConfigurationSetting.for_library(
             cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
-        )
+        ).value
 
     @classmethod
     def max_outstanding_fines(cls, library):
