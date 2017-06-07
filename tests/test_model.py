@@ -4800,30 +4800,31 @@ class TestPatron(DatabaseTest):
     def test_external_type_regular_expression(self):
         patron = self._patron("234")
         patron.authorization_identifier = "A123"
-        key = Patron.EXTERNAL_TYPE_REGULAR_EXPRESSION
-        with temp_config() as config:
+        library = patron.library
+        setting = library.setting(library.EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
-            config[Configuration.POLICIES] = {}
-
-            config[Configuration.POLICIES][key] = None
-            eq_(None, patron.external_type)
-
-            config[Configuration.POLICIES][key] = "([A-Z])"
-            eq_("A", patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "([0-9]$)"
-            eq_("3", patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "A"
-            eq_(None, patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "(not a valid regexp"
-            assert_raises(TypeError, lambda x: patron.external_type)
-            patron._external_type = None
-
+        setting.value = None
+        eq_(None, patron.external_type)
+        del library._external_type_regular_expression
+        
+        setting.value = "([A-Z])"
+        eq_("A", patron.external_type)
+        patron._external_type = None
+        del library._external_type_regular_expression
+        
+        setting.value = "([0-9]$)"
+        eq_("3", patron.external_type)
+        patron._external_type = None
+        del library._external_type_regular_expression
+        
+        setting.value = "A"
+        eq_(None, patron.external_type)
+        patron._external_type = None
+        del library._external_type_regular_expression
+        
+        setting.value = "(not a valid regexp"
+        assert_raises(TypeError, lambda x: patron.external_type)
+        
     def test_set_synchronize_annotations(self):
         # Two patrons.
         p1 = self._patron()
@@ -5686,11 +5687,11 @@ class TestConfigurationSetting(DatabaseTest):
         eq_(None, for_neither.library)
         eq_(None, for_neither.external_integration)
         
-        for_library = cs.for_library(self._db, key, library)
+        for_library = cs.for_library(key, library)
         eq_(library, for_library.library)
         eq_(None, for_library.external_integration)
 
-        for_integration = cs.for_externalintegration(self._db, key, integration)
+        for_integration = cs.for_externalintegration(key, integration)
         eq_(None, for_integration.library)
         eq_(integration, for_integration.external_integration)
 

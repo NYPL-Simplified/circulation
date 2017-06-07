@@ -468,7 +468,6 @@ class Patron(Base):
     )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -482,16 +481,12 @@ class Patron(Base):
         loans = self.works_on_loan()
         return set(holds + loans)
 
-    # TODO: Should be moved into circulation?
     @property
     def external_type(self):
         if self.authorization_identifier and not self._external_type:
-            policy = ConfigurationSetting.for_library(
-                self.library, self.EXTERNAL_TYPE_REGULAR_EXPRESSION
-            )
-            if policy:
-                match = re.compile(policy).search(
-                    self.authorization_identifier)
+            expression = self.library.external_type_regular_expression
+            if expression:
+                match = expression.search(self.authorization_identifier)
                 if match:
                     groups = match.groups()
                     if groups:
@@ -8795,19 +8790,42 @@ class Library(Base):
             value = unicode(value)
         self._library_registry_short_name = value
 
+    def setting(self, key):
+        """Find or create a ConfigurationSetting on this Library.
+
+        :param key: Name of the setting.
+        :return: A ConfigurationSetting
+        """
+        return ConfigurationSetting.for_library(
+            key, self
+        )
+
+    # Some specific per-library configuration settings.
     ALLOW_HOLDS = "allow_holds"
-        
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'        
     @property
     def allow_holds(self):
         """Are patrons of this library allowed to put items on hold?
         
         :return: A bool.
         """
-        value = ConfigurationSetting.for_library(self, self.ALLOW_HOLDS).bool_value
+        value = ConfigurationSetting.for_library(
+            self, self.ALLOW_HOLDS).bool_value
         if value is None:
             return True
         return value
-        
+
+    @property
+    def external_type_regular_expression(self):
+        """The regular expression (if any) used against a patron's
+        authorization identifier to determine their external_type.
+        """
+        if not hasattr(self, '_external_type_regular_expression'):
+            pattern = self.setting(self.EXTERNAL_TYPE_REGULAR_EXPRESSION).value
+            if pattern:
+                pattern = re.compile(pattern)
+            self._external_type_regular_expression = pattern
+        return self._external_type_regular_expression
         
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
@@ -9017,9 +9035,8 @@ class ExternalIntegration(Base):
         :param key: Name of the setting.
         :return: A ConfigurationSetting
         """
-        _db = Session.object_session(self)
         return ConfigurationSetting.for_externalintegration(
-            _db, key, self
+            key, self
         )
 
     def explain(self, include_password=False):
@@ -9086,15 +9103,17 @@ class ConfigurationSetting(Base):
         return cls.for_library_and_externalintegration(_db, key, None, None)
 
     @classmethod
-    def for_library(cls, _db, key, library):
+    def for_library(cls, key, library):
         """Find or create a ConfigurationSetting for the given Library."""
+        _db = Session.object_session(library)
         return cls.for_library_and_externalintegration(_db, key, library, None)
 
     @classmethod
-    def for_externalintegration(cls, _db, key, externalintegration):
+    def for_externalintegration(cls, key, externalintegration):
         """Find or create a ConfigurationSetting for the given
         ExternalIntegration.
         """
+        _db = Session.object_session(externalintegration)
         return cls.for_library_and_externalintegration(
             _db, key, None, externalintegration
         )
@@ -9113,7 +9132,7 @@ class ConfigurationSetting(Base):
         )
         return setting
 
-    MEANS_YES = set('true', 't', 'yes', 'y')
+    MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property
     def bool_value(self):
         """Turn the value into a boolean if possible.
