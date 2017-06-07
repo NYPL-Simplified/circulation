@@ -1176,9 +1176,9 @@ class TestFilters(DatabaseTest):
         )
         eq_(set([w1, w4, w6, w7, w8]), set(q.all()))
 
-        # Change site policy to hide books that can't be borrowed.
-        ConfigurationSetting.for_library(
-            Library.ALLOW_HOLDS, self._default_library).value = "false"
+        # Now run the same query on a site where we don't allow books
+        # to be put on hold.
+        #
         # w1 no longer shows up, because although we own licenses, 
         #  no copies are available.
         # w4 is open-access but it's suppressed, so it still doesn't 
@@ -1186,7 +1186,7 @@ class TestFilters(DatabaseTest):
         # w6 still shows up because it's an open-access work.
         # w7 and w8 show up because we own licenses and copies are
         #  available.
-        q = Lane.only_show_ready_deliverable_works(orig_q, Work)
+        q = Lane.only_show_ready_deliverable_works(orig_q, Work, allow_holds=False)
         eq_(set([w6, w7, w8]), set(q.all()))
 
     def test_lane_subclass_queries(self):
