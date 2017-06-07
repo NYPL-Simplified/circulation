@@ -56,7 +56,7 @@ class Facets(FacetConstants):
         )
 
     def __init__(self, collection, availability, order,
-                 order_ascending=None, enabled_facets=None):
+                 order_ascending=None, enabled_facets=None, allow_holds=True):
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -73,9 +73,8 @@ class Facets(FacetConstants):
             self.ORDER_FACET_GROUP_NAME
         )
 
-        hold_policy = Configuration.hold_policy()
-        if (availability == self.AVAILABLE_ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
+        self.allow_holds = allow_holds
+        if (availability == self.AVAILABLE_ALL and not self.allow_holds):
             # Under normal circumstances we would show all works, but
             # site configuration says to hide books that aren't
             # available.
@@ -91,12 +90,15 @@ class Facets(FacetConstants):
         self.order_ascending = order_ascending
         self.facets_enabled_at_init = enabled_facets
 
-    def navigate(self, collection=None, availability=None, order=None):
+    def navigate(self, collection=None, availability=None,
+                 order=None):
         """Create a slightly different Facets object from this one."""
         return Facets(collection or self.collection, 
                       availability or self.availability, 
                       order or self.order,
-                      enabled_facets=self.facets_enabled_at_init)
+                      enabled_facets=self.facets_enabled_at_init,
+                      allow_holds=self.allow_holds
+        )
 
     def items(self):
         if self.order:
@@ -530,6 +532,7 @@ class Lane(object):
 
                  searchable=False,
                  invisible=False,
+                 allow_holds=True
                  ):
         self.name = full_name
         self.display_name = display_name or self.name
@@ -539,7 +542,7 @@ class Lane(object):
         self.searchable = searchable
         self.invisible = invisible
         self.license_source = license_source
-
+        
         self.log = logging.getLogger("Lane %s" % self.name)
 
         # This controls which feeds to display when showing this lane
@@ -1171,7 +1174,9 @@ class Lane(object):
 
         # TODO: Also filter on formats.
 
-        q = self.only_show_ready_deliverable_works(q, work_model)
+        q = self.only_show_ready_deliverable_works(
+            q, work_model, allow_holds=self.allow_holds
+        )
 
         distinct = False
         if self.list_data_source_id or self.list_ids:
@@ -1208,7 +1213,7 @@ class Lane(object):
 
     @classmethod
     def only_show_ready_deliverable_works(
-            cls, query, work_model, show_suppressed=False
+            cls, query, work_model, show_suppressed=False, allow_holds=True
     ):
         """Restrict a query to show only presentation-ready
         works which the default client can fulfill.
@@ -1243,8 +1248,7 @@ class Lane(object):
         )
 
         # If we don't allow holds, hide any books with no available copies.
-        hold_policy = Configuration.hold_policy()
-        if hold_policy == Configuration.HOLD_POLICY_HIDE:
+        if not allow_holds:
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
@@ -1414,7 +1418,8 @@ class Lane(object):
                 (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
         ):
             facets = Facets(collection=collection, availability=availability,
-                            order=Facets.ORDER_RANDOM)
+                            order=Facets.ORDER_RANDOM,
+                            allow_holds=self.allow_holds)
             if use_materialized_works:
                 query = self.materialized_works(facets=facets)
             else:
