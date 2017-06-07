@@ -54,7 +54,6 @@ try:
         for cdn in cdns:
             cdn.libraries = LIBRARIES
 
-    # Import Circulation Manager configuration.
 finally:
     _db.commit()
     _db.close()

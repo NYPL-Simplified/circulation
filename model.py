@@ -8993,8 +8993,8 @@ class ExternalIntegration(Base):
     )
 
     def __repr__(self):
-        return (u"<ExternalIntegration: protocol=%s goal='%s' ID=%d>" % (
-            self.protocol, self.goal, self.id)).encode('utf8')
+        return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
+            self.protocol, self.goal, len(self.settings), self.id)
 
     @classmethod
     def lookup(cls, _db, protocol, goal=None):
@@ -9077,6 +9077,9 @@ class ConfigurationSetting(Base):
     )
     key = Column(Unicode, index=True)
     value = Column(Unicode)
+
+    # Key for the base url of the app.
+    BASE_URL_KEY = 'base_url'
 
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
