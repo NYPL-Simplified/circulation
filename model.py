@@ -482,11 +482,13 @@ class Patron(Base):
         loans = self.works_on_loan()
         return set(holds + loans)
 
+    # TODO: Should be moved into circulation?
     @property
     def external_type(self):
         if self.authorization_identifier and not self._external_type:
-            policy = Configuration.policy(
-                self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
+            policy = ConfigurationSetting.for_library(
+                self.library, self.EXTERNAL_TYPE_REGULAR_EXPRESSION
+            )
             if policy:
                 match = re.compile(policy).search(
                     self.authorization_identifier)
@@ -949,6 +951,7 @@ class DataSource(Base):
         value = int(value)
         return datetime.timedelta(days=value)
 
+    # TODO: This needs to be converted to an ExternalIntegration setting.
     @property
     def default_loan_period(self):
         return self._datetime_config_value(
@@ -956,6 +959,7 @@ class DataSource(Base):
             self.default_default_loan_period
         )
 
+    # TODO: This needs to be converted to an ExternalIntegration setting.
     @property
     def default_reservation_period(self):
         return self._datetime_config_value(
@@ -5858,12 +5862,11 @@ class CachedFeed(Base):
             if lane and hasattr(lane, 'MAX_CACHE_AGE'):
                 max_age = lane.MAX_CACHE_AGE
             elif type == cls.GROUPS_TYPE:
-                max_age = Configuration.groups_max_age()
+                max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
-                max_age = Configuration.page_max_age()
+                max_age = AcquisitionFeed.nongrouped_max_age(_db)
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
-
         work = None
         if lane:
             lane_name = unicode(lane.name)
@@ -5905,7 +5908,7 @@ class CachedFeed(Base):
             # cached feed as stale.
             return feed, False
 
-        if max_age is Configuration.CACHE_FOREVER:
+        if max_age is AcquisitionFeed.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
@@ -6496,8 +6499,7 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (Configuration.hold_policy() 
-            != Configuration.HOLD_POLICY_ALLOW):
+        if not patron.library.allow_holds:
             raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
@@ -8793,6 +8795,20 @@ class Library(Base):
             value = unicode(value)
         self._library_registry_short_name = value
 
+    ALLOW_HOLDS = "allow_holds"
+        
+    @property
+    def allow_holds(self):
+        """Are patrons of this library allowed to put items on hold?
+        
+        :return: A bool.
+        """
+        value = ConfigurationSetting.for_library(self, self.ALLOW_HOLDS).bool_value
+        if value is None:
+            return True
+        return value
+        
+        
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
@@ -9063,7 +9079,7 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
-
+                                                        
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
@@ -9097,6 +9113,19 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+    MEANS_YES = set('true', 't', 'yes', 'y')
+    @property
+    def bool_value(self):
+        """Turn the value into a boolean if possible.
+
+        :return: A boolean, or None if there is no value.
+        """
+        if self.value:
+            if value.lower() in self.MEANS_YES:
+                return True
+            return False
+        return None
+        
     @property
     def int_value(self):
         """Turn the value into an int if possible.

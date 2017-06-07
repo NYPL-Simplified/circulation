@@ -55,10 +55,6 @@ class Configuration(object):
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
-    HOLD_POLICY = "holds"
-    HOLD_POLICY_ALLOW = "allow"
-    HOLD_POLICY_HIDE = "hide"
-
     LANES_POLICY = "lanes"
 
     # Facet policies
@@ -86,13 +82,6 @@ class Configuration(object):
 
     # Lane policies
     DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
-    CACHE_FOREVER = 'forever'
-
-    PAGE_MAX_AGE_POLICY = "default_page_max_age" 
-    DEFAULT_PAGE_MAX_AGE = 1200
-
-    GROUPS_MAX_AGE_POLICY = "default_groups_max_age" 
-    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
 
     # Loan policies
     DEFAULT_LOAN_PERIOD = "default_loan_period"
@@ -240,24 +229,6 @@ class Configuration(object):
         if not policy or not cls.DEFAULT_FACET_KEY in policy:
             return cls.DEFAULT_FACET[group_name]
         return policy[cls.DEFAULT_FACET_KEY][group_name]
-
-    @classmethod
-    def page_max_age(cls):
-        value = cls.policy(
-            cls.PAGE_MAX_AGE_POLICY, cls.DEFAULT_PAGE_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
-
-    @classmethod
-    def groups_max_age(cls):
-        value = cls.policy(
-            cls.GROUPS_MAX_AGE_POLICY, cls.DEFAULT_GROUPS_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
 
     @classmethod
     def base_opds_authentication_document(cls):

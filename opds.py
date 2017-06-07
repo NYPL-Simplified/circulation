@@ -675,6 +675,28 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
 
+    CACHE_FOREVER = 'forever'
+
+    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    DEFAULT_NONGROUPED_MAX_AGE = 1200
+
+    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
+            
+    @classmethod
+    def grouped_max_age(cls, _db):
+        "The maximum cache time for a grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, self.GROUPED_MAX_AGE_POLICY).int_value
+        return value or cls.DEFAULT_NONGROUPED_MAX_AGE
+
+    @classmethod
+    def nongrouped_max_age(cls, _db):
+        "The maximum cache time for a non-grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, self.NONGROUPED_MAX_AGE_POLICY).int_value
+        return value or cls.DEFAULT_GROUPED_MAX_AGE
+            
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
