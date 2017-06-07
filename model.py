@@ -8742,8 +8742,22 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
+    # A library may have many Patrons.
     patrons = relationship(
         'Patron', backref='library', cascade="all, delete, delete-orphan"
+    )
+
+    # A Library may have many ExternalIntegrations.
+    integrations = relationship(
+        "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
+        backref="libraries"
+    )
+    
+    # Any additional configuration information is stored as
+    # ConfigurationSettings.
+    settings = relationship(
+        "ConfigurationSetting", backref="library",
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
     
     def __repr__(self):
@@ -8779,33 +8793,42 @@ class Library(Base):
             value = unicode(value)
         self._library_registry_short_name = value
 
-    def explain(self, include_library_registry_shared_secret=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
 
-        :param include_library_registry_shared_secret: For security reasons,
-           the shared secret is not displayed by default.
+        :param include_secrets: For security reasons, secrets are not
+            displayed by default.
 
         :return: A list of explanatory strings.
         """
         lines = []
         if self.uuid:
-            lines.append('UUID: "%s"' % self.uuid)
+            lines.append('Library UUID: "%s"' % self.uuid)
         if self.name:
             lines.append('Name: "%s"' % self.name)
         if self.short_name:
             lines.append('Short name: "%s"' % self.short_name)
+
         if self.library_registry_short_name:
             lines.append(
                 'Short name (for library registry): "%s"' %
                 self.library_registry_short_name
             )
-        if (self.library_registry_shared_secret and
-            include_library_registry_shared_secret):
+        if (self.library_registry_shared_secret and include_secrets):
             lines.append(
                 'Shared secret (for library registry): "%s"' %
                 self.library_registry_shared_secret
             )
+
+        integrations = list(self.integrations)
+        if integrations:
+            lines.append("")
+            lines.append("External integrations:")
+            lines.append("----------------------")
+        for integration in integrations:
+            lines.extend(integration.explain(include_secrets))
+            lines.append("")
         return lines
 
 
@@ -8845,6 +8868,10 @@ class Admin(Base):
     def password(self, value):
         self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
 
+    @classmethod
+    def with_password(cls, _db):
+        """Get Admins that have a password."""
+        return _db.query(Admin).filter(Admin.password_hashed != None)
 
 class ExternalIntegration(Base):
 
@@ -8945,10 +8972,10 @@ class ExternalIntegration(Base):
     username = Column(Unicode, nullable=True)
     password = Column(Unicode, nullable=True)
 
-    # Any additional configuration information goes into the
-    # externalintegrationsettings table.
+    # Any additional configuration information goes into
+    # ConfigurationSettings.
     settings = relationship(
-        "ExternalIntegrationSetting", backref="external_integration",
+        "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
     
@@ -8969,45 +8996,132 @@ class ExternalIntegration(Base):
         return setting
     
     def setting(self, key):
-        """Find or create a ExternalIntegrationSetting on this ExternalIntegration.
+        """Find or create a ConfigurationSetting on this ExternalIntegration.
 
         :param key: Name of the setting.
-        :return: A ExternalIntegrationSetting
+        :return: A ConfigurationSetting
         """
         _db = Session.object_session(self)
-        setting, is_new = get_one_or_create(
-            _db, ExternalIntegrationSetting, external_integration=self, key=key
+        return ConfigurationSetting.for_externalintegration(
+            _db, key, self
         )
-        return setting
 
-    def get(self, key):
-        """Returns a value for a given key from either the integration
-        itself or its additional settings
+    def explain(self, include_password=False):
+        """Create a series of human-readable strings to explain an
+        ExternalIntegration's settings.
+
+        :param include_password: For security reasons,
+           the password (if any) is not displayed by default.
+
+        :return: A list of explanatory strings.
         """
-        if hasattr(self, key):
-            return getattr(self, key)
-        if hasattr(self.setting, key):
-            return getattr(self, key)
-        return None
+        lines = []
+        lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
+        if self.url:
+            lines.append("URL: %s" % self.url)
+        if self.username:
+            lines.append("Username: %s" % self.username)
+        if self.password and include_password:
+            lines.append("Password: %s" % self.password)
+        for setting in self.settings:
+            lines.append("%s=%s" % (setting.key, setting.value))
+        return lines
 
+class ConfigurationSetting(Base):
+    """An extra piece of site configuration.
 
-class ExternalIntegrationSetting(Base):
-    """An extra piece of information associated with an ExternalIntegration.
+    A ConfigurationSetting may be associated with an
+    ExternalIntegration, a Library, both, or neither.
 
-    e.g. the "website ID" associated with an Overdrive collection, or the
-    JSON credentials for Google OAuth.
+    * The secret used by the circulation manager to sign OAuth bearer
+      tokens is not associated with an ExternalIntegration or with a
+      Library.
+
+    * The link to a library's privacy policy is associated with the
+      Library, but not with any particular ExternalIntegration.
+
+    * The "website ID" for an Overdrive collection is associated with
+      an ExternalIntegration (the Overdrive integration), but not with
+      any particular Library (since multiple libraries might share an
+      Overdrive collection).
+
+    * The "identifier prefix" used to determine which library a patron
+      is a patron of, is associated with both a Library and an
+      ExternalIntegration.
     """
-    __tablename__ = 'externalintegrationsettings'
+    __tablename__ = 'configurationsettings'
     id = Column(Integer, primary_key=True)
-    external_integration_id = Column(Integer, ForeignKey('externalintegrations.id'), index=True)
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
     key = Column(Unicode, index=True)
     value = Column(Unicode)
 
     __table_args__ = (
-        UniqueConstraint('external_integration_id', 'key'),
+        UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
 
+    @classmethod
+    def sitewide(cls, _db, key):
+        """Find or create a sitewide ConfigurationSetting."""
+        return cls.for_library_and_externalintegration(_db, key, None, None)
 
+    @classmethod
+    def for_library(cls, _db, key, library):
+        """Find or create a ConfigurationSetting for the given Library."""
+        return cls.for_library_and_externalintegration(_db, key, library, None)
+
+    @classmethod
+    def for_externalintegration(cls, _db, key, externalintegration):
+        """Find or create a ConfigurationSetting for the given
+        ExternalIntegration.
+        """
+        return cls.for_library_and_externalintegration(
+            _db, key, None, externalintegration
+        )
+    
+    @classmethod
+    def for_library_and_externalintegration(
+            cls, _db, key, library, external_integration
+    ):
+        """Find or create a ConfigurationSetting associated with a Library
+        and an ExternalIntegration.
+        """
+        setting, ignore = get_one_or_create(
+            _db, ConfigurationSetting,
+            library=library, external_integration=external_integration,
+            key=key
+        )
+        return setting
+
+    @property
+    def int_value(self):
+        """Turn the value into an int if possible.
+
+        :return: An integer, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to an int.
+        """
+        if self.value:
+            return int(self.value)
+        return None
+
+    @property
+    def json_value(self):
+        """Interpret the value as JSON if possible.
+
+        :return: An object, or None if there is no value.
+
+        :raise ValueError: If the value cannot be parsed as JSON.
+        """
+        if self.value:
+            return json.loads(self.value)
+        return None
+
+    
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
@@ -9340,6 +9454,18 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
+externalintegrations_libraries = Table(
+    'externalintegrations_libraries', Base.metadata,
+     Column(
+         'externalintegration_id', Integer, ForeignKey('externalintegrations.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('externalintegration_id', 'library_id'),
+ )
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,

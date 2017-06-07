@@ -112,6 +112,7 @@ class DatabaseTest(object):
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
             shutil.rmtree(cls.tmp_data_dir)
+
         else:
             logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
 
@@ -197,10 +198,11 @@ class DatabaseTest(object):
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
     def _edition(self, data_source_name=DataSource.GUTENBERG,
-                    identifier_type=Identifier.GUTENBERG_ID,
-                    with_license_pool=False, with_open_access_download=False,
-                    title=None, language="eng", authors=None, identifier_id=None,
-                 collection=None, series=None):
+                 identifier_type=Identifier.GUTENBERG_ID,
+                 with_license_pool=False, with_open_access_download=False,
+                 title=None, language="eng", authors=None, identifier_id=None,
+                 series=None, collection=None
+    ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(

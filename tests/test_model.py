@@ -44,6 +44,7 @@ from model import (
     Collection,
     CollectionMissing,
     Complaint,
+    ConfigurationSetting,
     Contributor,
     CoverageRecord,
     Credential,
@@ -5547,18 +5548,34 @@ class TestLibrary(DatabaseTest):
         library.library_registry_short_name = "SHORT"
         library.library_registry_shared_secret = "secret"
 
-        data = library.explain()
-        eq_(
-            ['UUID: "uuid"',
-             'Name: "The Library"',
-             'Short name: "Short"',
-             'Short name (for library registry): "SHORT"'],
-            data
+        integration = self._external_integration(
+            "protocol", "goal"
         )
-
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
+        library.integrations.append(integration)
         
-        with_secret = library.explain(True)
-        assert 'Shared secret (for library registry): "secret"' in with_secret
+        data = library.explain()
+        eq_("""Library UUID: "uuid"
+Name: "The Library"
+Short name: "Short"
+Short name (for library registry): "SHORT"
+
+External integrations:
+----------------------
+Protocol/Goal: protocol/goal
+URL: http://url/
+Username: someuser
+somesetting=somevalue
+""",
+            "\n".join(data)
+        )
+        
+        with_secrets = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secrets
+        assert 'Password: somepass' in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
@@ -5603,6 +5620,124 @@ class TestExternalIntegration(DatabaseTest):
 
         eq_(setting2, self.external_integration.setting("website_id"))
 
+    def test_explain(self):
+        integration = self._external_integration(
+            "protocol", "goal"
+        )
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
+        
+        data = integration.explain()
+        eq_("""Protocol/Goal: protocol/goal
+URL: http://url/
+Username: someuser
+somesetting=somevalue""",
+            "\n".join(data)
+        )
+        
+        with_secrets = integration.explain(True)
+        assert 'Password: somepass' in with_secrets
+
+
+class TestConfigurationSetting(DatabaseTest):
+
+    def test_duplicate(self):
+        """You can't have two ConfigurationSettings for the same key,
+        library, and external integration.
+
+        (test_relationships shows that you can have two settings for the same
+        key as long as library or integration is different.)
+        """
+        key = self._str
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        library = self._default_library
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(setting, setting2)
+        assert_raises(
+            IntegrityError,
+            create, self._db, ConfigurationSetting,
+            key=key,
+            library=library, external_integration=integration
+        )
+    
+    def test_relationships(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        eq_([], integration.settings)
+        
+        library = self._default_library
+        eq_([], library.settings)
+        
+        # Create four different ConfigurationSettings with the same key.
+        cs = ConfigurationSetting
+        key = self._str
+
+        for_neither = cs.sitewide(self._db, key)
+        eq_(None, for_neither.library)
+        eq_(None, for_neither.external_integration)
+        
+        for_library = cs.for_library(self._db, key, library)
+        eq_(library, for_library.library)
+        eq_(None, for_library.external_integration)
+
+        for_integration = cs.for_externalintegration(self._db, key, integration)
+        eq_(None, for_integration.library)
+        eq_(integration, for_integration.external_integration)
+
+        for_both = cs.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # We got four distinct objects with the same key.
+        objs = [for_neither, for_library, for_integration, for_both]
+        eq_(4, len(set(objs)))
+        for o in objs:
+            eq_(o.key, key)
+
+        eq_([for_library, for_both], library.settings)
+        eq_([for_integration, for_both], integration.settings)
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # If we delete the integration, all configuration settings
+        # associated with it are deleted, even the one that's also
+        # associated with the library.
+        self._db.delete(integration)
+        self._db.commit()
+        eq_([for_library], library.settings)
+
+    def test_int_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234"
+        eq_(1234, number.int_value)
+
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.int_value)
+
+    def test_json_value(self):
+        jsondata = ConfigurationSetting.sitewide(self._db, "json")
+        eq_(None, jsondata.int_value)
+
+        jsondata.value = "[1,2]"
+        eq_([1,2], jsondata.json_value)
+
+        jsondata.value = "tra la la"
+        assert_raises(ValueError, lambda: jsondata.json_value)
+        
 class TestCollection(DatabaseTest):
 
     def setup(self):
@@ -6023,3 +6158,18 @@ class TestAdmin(DatabaseTest):
         assert_raises(NotImplementedError, lambda: admin.password)
         db_admins = self._db.query(Admin).filter(Admin.password=="password").all()
         eq_([admin], db_admins)
+
+    def test_with_password(self):
+        eq_([], Admin.with_password(self._db).all())
+
+        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        eq_([], Admin.with_password(self._db).all())
+
+        admin.password = "password"
+        eq_([admin], Admin.with_password(self._db).all())
+
+        admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
+        eq_([admin], Admin.with_password(self._db).all())
+
+        admin2.password = "password2"
+        eq_(set([admin, admin2]), set(Admin.with_password(self._db).all()))
