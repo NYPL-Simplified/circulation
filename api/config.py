@@ -38,8 +38,6 @@ class Configuration(CoreConfiguration):
 
     LIST_FIELDS = "fields"
    
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
-
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
@@ -86,12 +84,6 @@ class Configuration(CoreConfiguration):
         if isinstance(value, list):
             return value
         return [[x] for x in value.split(',')]
-
-    @classmethod
-    def default_notification_email_address(cls, library):
-        return ConfigurationSetting.for_library(
-            cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
-        ).value
 
     @classmethod
     def max_outstanding_fines(cls, library):

@@ -29,6 +29,8 @@ from config import Configuration
 
 class CirculationInfo(object):
 
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier):
         """A loan, hold, or whatever.
@@ -849,8 +851,9 @@ class BaseCirculationAPI(object):
         """What email address should be used to notify this patron
         of changes?
         """
-        return Configuration.default_notification_email_address()
-
+        return ConfigurationSetting.for_library(
+            cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
+        ).value
 
     def checkin(self, patron, pin, licensepool):
         """  Return a book early.  
