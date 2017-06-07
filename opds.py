@@ -115,16 +115,13 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdns = Configuration.cdns()
         if work:
+            _db = Session.object_session(work)
             if work.cover_thumbnail_url:
-                thumb = work.cover_thumbnail_url
-                old_thumb = thumb
-                thumbnails = [cdnify(thumb, cdns)]
+                thumbnails = [cdnify(_db, work.cover_thumbnail_url)]
 
             if work.cover_full_url:
-                full = work.cover_full_url
-                full = [cdnify(full, cdns)]
+                full = [cdnify(_db, work.cover_full_url)]
         return thumbnails, full
 
     @classmethod

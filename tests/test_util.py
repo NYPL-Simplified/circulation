@@ -502,6 +502,7 @@ class TestOPDSAuthenticationDocument(DatabaseTest):
 
         eq_(doc['links'], {'complex-link': {'href': 'http://baz', 'type': 'text/html'}, 'double-link': [{'href': 'http://bar1'}, {'href': 'http://bar2'}], 'single-link': {'href': 'http://foo'}, 'complex-links': [{'href': 'http://comp1', 'type': 'text/html'}, {'href': 'http://comp2', 'type': 'text/plain'}]})
 
+
 class TestMedian(object):
 
     def test_median(self):

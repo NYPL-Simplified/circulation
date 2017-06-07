@@ -141,8 +141,6 @@ class Configuration(object):
     S3_OPEN_ACCESS_CONTENT_BUCKET = u"open_access_content_bucket"
     S3_BOOK_COVERS_BUCKET = u"book_covers_bucket"
 
-    CDN_INTEGRATION = u"CDN"
-
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
 
@@ -187,10 +185,6 @@ class Configuration(object):
                 "Integration '%s' did not define a required 'url'!" % name
             )
         return v
-
-    @classmethod
-    def cdns(cls):
-        return cls.integration(cls.CDN_INTEGRATION)
 
     @classmethod
     def s3_bucket(cls, bucket_name):

@@ -8883,25 +8883,34 @@ class ExternalIntegration(Base):
     #
     # These integrations are associated with external services such as
     # Google Enterprise which authenticate library administrators.
-    ADMIN_AUTH_GOAL = 'admin_auth'
+    ADMIN_AUTH_GOAL = u'admin_auth'
 
     # These integrations are associated with external services such as
     # SIP2 which authenticate library patrons. Other constants related
     # to this are defined in the circulation manager.
-    PATRON_AUTH_GOAL = 'patron_auth'
+    PATRON_AUTH_GOAL = u'patron_auth'
 
     # These integrations are associated with external services such
     # as Overdrive which provide access to books.
-    LICENSE_GOAL = 'licenses'
+    LICENSE_GOAL = u'licenses'
 
     # These integrations are associated with external services such as
     # the metadata wrangler, which provide information about books,
     # but not the books themselves.
-    METADATA_GOAL = 'metadata'
+    METADATA_GOAL = u'metadata'
+
+    # These integrations provide access to book covers.
+    BOOK_COVERS_GOAL = u'book_covers'
+
+    # These integrations provide access to cached OPDS feeds.
+    OPDS_GOAL = u'opds'
+
+    # These integrations provide access to open access book files.
+    OA_BOOKS_GOAL = u'open_access_books'
 
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
-    ANALYTICS_GOAL = 'analytics'
+    ANALYTICS_GOAL = u'analytics'
     
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
@@ -8938,8 +8947,12 @@ class ExternalIntegration(Base):
     NOVELIST = Configuration.NOVELIST_INTEGRATION
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = Configuration.NYT_INTEGRATION
-    STAFF_PICKS = u'Staff Picks'
     METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
+
+    # Integration for cached performance enhancement with
+    # BOOK_COVERS_GOAL, OPDS_GOAL, or OA_BOOKS_GOAL.
+    CDN = u'CDN'
+    S3 = u'S3'
     
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
@@ -8978,7 +8991,11 @@ class ExternalIntegration(Base):
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-    
+
+    def __repr__(self):
+        return (u"<ExternalIntegration: protocol=%s goal='%s' ID=%d>" % (
+            self.protocol, self.goal, self.id)).encode('utf8')
+
     @classmethod
     def lookup(cls, _db, protocol, goal=None):
         integration = get_one(_db, cls, protocol=protocol, goal=goal)
@@ -9027,6 +9044,7 @@ class ExternalIntegration(Base):
             lines.append("%s=%s" % (setting.key, setting.value))
         return lines
 
+
 class ConfigurationSetting(Base):
     """An extra piece of site configuration.
 
@@ -9063,6 +9081,10 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
+
+    def __repr__(self):
+        return u'<ConfigurationSetting: key=%s, ID=%d>' % (
+            self.key, self.id)
 
     @classmethod
     def sitewide(cls, _db, key):
@@ -9121,7 +9143,7 @@ class ConfigurationSetting(Base):
             return json.loads(self.value)
         return None
 
-    
+
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.

@@ -2,12 +2,10 @@
 
 from nose.tools import set_trace
 import urlparse
+from core.model import ExternalIntegration
 from s3 import S3Uploader
 
-def cdnify(url, cdns):
-    if not cdns:
-        # No CDNs configured
-        return url
+def cdnify(_db, url):
     scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
 
     if netloc == 's3.amazonaws.com':
@@ -16,10 +14,14 @@ def cdnify(url, cdns):
         # i.e. treat the bucket name as the netloc.
         bucket, path = S3Uploader.bucket_and_filename(url)
         netloc = bucket
-    if netloc not in cdns:
+
+    cdn = ExternalIntegration.lookup(
+        _db, ExternalIntegration.CDN, goal=netloc
+    )
+    if not cdn:
         # This domain name is not covered by any of our CDNs.
         return url
 
-    cdn_host = cdns[netloc]
+    cdn_host = cdn.url
     cdn_scheme, cdn_netloc, i1, i2, i3 = urlparse.urlsplit(cdn_host)
     return urlparse.urlunsplit((cdn_scheme, cdn_netloc, path, query, fragment))

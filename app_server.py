@@ -41,10 +41,10 @@ from lane import (
 )
 from problem_details import *
 
-cdns = Configuration.cdns()
-def cdn_url_for(*args, **kwargs):
+
+def cdn_url_for(_db, *args, **kwargs):
     base_url = url_for(*args, **kwargs)
-    return cdnify(base_url, cdns)
+    return cdnify(_db, base_url)
 
 def load_lending_policy(policy):
     if not policy:
@@ -262,7 +262,7 @@ class URNLookupController(object):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
-        this_url = cdn_url_for(route_name, _external=True, urn=urns)
+        this_url = cdn_url_for(self._db, route_name, _external=True, urn=urns)
         for urn in urns:
             self.process_urn(urn, **process_urn_kwargs)
         self.post_lookup_hook()
@@ -275,7 +275,7 @@ class URNLookupController(object):
 
     def permalink(self, urn, annotator, route_name='work'):
         """Look up a single identifier and generate an OPDS feed."""
-        this_url = cdn_url_for(route_name, _external=True, urn=urn)
+        this_url = cdn_url_for(self._db, route_name, _external=True, urn=urn)
         self.process_urn(urn)
         self.post_lookup_hook()
 

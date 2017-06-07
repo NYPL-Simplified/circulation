@@ -22,6 +22,7 @@ from model import (
     Contributor,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Genre,
     Measurement,
     Representation,
@@ -737,13 +738,11 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.presentation_edition.cover_full_url = "http://full/a"
 
-        with temp_config() as config:
-            config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            work.calculate_opds_entries(verbose=False)
-            feed = feedparser.parse(unicode(work.simple_opds_entry))
-            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                            'image' in x['rel']])
-            eq_(['http://full/a', 'http://thumbnail/b'], links)
+        work.calculate_opds_entries(verbose=False)
+        feed = feedparser.parse(unicode(work.simple_opds_entry))
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if
+                        'image' in x['rel']])
+        eq_(['http://full/a', 'http://thumbnail/b'], links)
 
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
@@ -751,15 +750,19 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
         work.presentation_edition.cover_full_url = "http://full.com/a"
 
-        with temp_config() as config:
-            config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            config['integrations'][Configuration.CDN_INTEGRATION]['thumbnail.com'] = "http://foo/"
-            config['integrations'][Configuration.CDN_INTEGRATION]['full.com'] = "http://bar/"
-            work.calculate_opds_entries(verbose=False)
-            feed = feedparser.parse(work.simple_opds_entry)
-            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                            'image' in x['rel']])
-            eq_(['http://bar/a', 'http://foo/b'], links)
+        # Create some CDNS.
+        self._external_integration(
+            ExternalIntegration.CDN, goal=u'thumbnail.com', url=u'http://foo/'
+        )
+        self._external_integration(
+            ExternalIntegration.CDN, goal=u'full.com', url=u'http://bar/'
+        )
+
+        work.calculate_opds_entries(verbose=False)
+        feed = feedparser.parse(work.simple_opds_entry)
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if
+                        'image' in x['rel']])
+        eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include OPDSMessage objects for a given URN in
