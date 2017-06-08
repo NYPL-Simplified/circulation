@@ -426,7 +426,7 @@ class Patron(Base):
     # Depending on library policy it may be possible to automatically
     # derive the patron's account type from their authorization
     # identifier.
-    _external_type = Column(Unicode, index=True, name="external_type")
+    external_type = Column(Unicode, index=True)
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
@@ -496,18 +496,6 @@ class Patron(Base):
         holds = [hold.work for hold in self.holds if hold.work]
         loans = self.works_on_loan()
         return set(holds + loans)
-
-    @property
-    def external_type(self):
-        if self.authorization_identifier and not self._external_type:
-            expression = self.library.external_type_regular_expression
-            if expression:
-                match = expression.search(self.authorization_identifier)
-                if match:
-                    groups = match.groups()
-                    if groups:
-                        self._external_type = groups[0]
-        return self._external_type
 
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
@@ -8792,18 +8780,6 @@ class Library(Base):
     # The name of the per-library regular expression used to derive a patron's
     # external_type from their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
-
-    @property
-    def external_type_regular_expression(self):
-        """The regular expression (if any) used against a patron's
-        authorization identifier to determine their external_type.
-        """
-        if not hasattr(self, '_external_type_regular_expression'):
-            pattern = self.setting(self.EXTERNAL_TYPE_REGULAR_EXPRESSION).value
-            if pattern:
-                pattern = re.compile(pattern)
-            self._external_type_regular_expression = pattern
-        return self._external_type_regular_expression
         
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
