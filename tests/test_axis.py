@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from core.model import (
+    ConfigurationSetting,
     DataSource,
     Edition,
     Identifier,
@@ -120,15 +121,16 @@ class TestAxis360API(Axis360Test):
         data = self.sample_data("place_hold_success.xml")
         self.api.queue_response(200, content=data)
         patron = self._patron()
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            response = self.api.place_hold(patron, 'pin', pool, None)
-            eq_(1, response.hold_position)
-            eq_(response.identifier_type, pool.identifier.type)
-            eq_(response.identifier, pool.identifier.identifier)
-            [request] = self.api.requests
-            params = request[-1]['params']
-            eq_('notifications@example.com', params['email'])
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            self._default_library).value = "notifications@example.com"
+        response = self.api.place_hold(patron, 'pin', pool, None)
+        eq_(1, response.hold_position)
+        eq_(response.identifier_type, pool.identifier.type)
+        eq_(response.identifier, pool.identifier.identifier)
+        [request] = self.api.requests
+        params = request[-1]['params']
+        eq_('notifications@example.com', params['email'])
 
 class TestCirculationMonitor(Axis360Test):
 

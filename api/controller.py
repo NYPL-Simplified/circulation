@@ -84,7 +84,6 @@ from circulation_exceptions import *
 from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
-    PreloadFeed,
 )
 from annotations import (
   AnnotationWriter,
