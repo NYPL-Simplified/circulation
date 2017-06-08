@@ -4812,34 +4812,6 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
-
-    def test_external_type_regular_expression(self):
-        patron = self._patron("234")
-        patron.authorization_identifier = "A123"
-        library = patron.library
-        setting = library.setting(library.EXTERNAL_TYPE_REGULAR_EXPRESSION)
-
-        setting.value = None
-        eq_(None, patron.external_type)
-        del library._external_type_regular_expression
-        
-        setting.value = "([A-Z])"
-        eq_("A", patron.external_type)
-        patron._external_type = None
-        del library._external_type_regular_expression
-        
-        setting.value = "([0-9]$)"
-        eq_("3", patron.external_type)
-        patron._external_type = None
-        del library._external_type_regular_expression
-        
-        setting.value = "A"
-        eq_(None, patron.external_type)
-        patron._external_type = None
-        del library._external_type_regular_expression
-        
-        setting.value = "(not a valid regexp"
-        assert_raises(TypeError, lambda x: patron.external_type)
         
     def test_set_synchronize_annotations(self):
         # Two patrons.
