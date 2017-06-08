@@ -30,7 +30,7 @@ class TestSimpleAuth(DatabaseTest):
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
         integration.setting(p.TEST_PASSWORD).value = "pass"
-        provider = p(self._default_library.id, integration)
+        provider = p(self._default_library, integration)
 
         eq_(None, provider.remote_authenticate("user", "wrongpass"))
         eq_(None, provider.remote_authenticate("user", None))
