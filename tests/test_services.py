@@ -71,7 +71,7 @@ class TestServiceStatusMonitor(DatabaseTest):
         provider = SimpleAuthenticationProvider
         integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
         integration.setting(provider.TEST_PASSWORD).value = "password"
-        self.authenticator = provider(library.id, integration)
+        self.authenticator = provider(library, integration)
         return LibraryAuthenticator(self._db, library, self.authenticator)
 
     def test_test_patron(self):
