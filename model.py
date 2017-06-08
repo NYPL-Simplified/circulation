@@ -931,37 +931,6 @@ class DataSource(Base):
     def uri(self):
         return self.URI_PREFIX + urllib.quote(self.name)
 
-    # These are pretty standard values but each library needs to
-    # define the policy they've negotiated in their configuration.
-    default_default_loan_period = datetime.timedelta(days=21)
-    default_default_reservation_period = datetime.timedelta(days=3)
-
-    def _datetime_config_value(self, key, default):
-        integration = Configuration.integration(self.name)
-        if not integration:
-            return default
-        value = integration.get(key)
-        if not value:
-            return default
-        value = int(value)
-        return datetime.timedelta(days=value)
-
-    # TODO: This needs to be converted to an ExternalIntegration setting.
-    @property
-    def default_loan_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_LOAN_PERIOD,
-            self.default_default_loan_period
-        )
-
-    # TODO: This needs to be converted to an ExternalIntegration setting.
-    @property
-    def default_reservation_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_RESERVATION_PERIOD,
-            self.default_default_reservation_period
-        )
-
     @classmethod
     def license_source_for(cls, _db, identifier):
         """Find the one DataSource that provides licenses for books identified
@@ -9312,7 +9281,50 @@ class Collection(Base):
         self.external_integration.protocol = new_protocol
         for child in self.children:
             child.protocol = new_protocol
+            
+    DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
+    STANDARD_DEFAULT_LOAN_PERIOD = 21
+            
+    @hybrid_property
+    def default_loan_period(self):
+        """Unless we hear otherwise from the collection provider, we assume
+        that someone who borrows a non-open-access book from this
+        collection has it for this number of days.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_LOAN_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_LOAN_PERIOD
+        )
 
+    @protocol.setter
+    def set_default_loan_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_LOAN_PERIOD_KEY).value = str(new_value)
+
+    DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
+    STANDARD_DEFAULT_RESERVATION_PERIOD = 3
+            
+    @hybrid_property
+    def default_reservation_period(self):
+        """Unless we hear otherwise from the collection provider, we assume
+        that someone who puts a book on hold has this many days to
+        check it out before it goes to the next person in line.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+        )
+
+    @protocol.setter
+    def set_default_reservation_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
+    
+            
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 

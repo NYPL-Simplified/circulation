@@ -91,10 +91,6 @@ class Configuration(object):
     # Lane policies
     DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
 
-    # Loan policies
-    DEFAULT_LOAN_PERIOD = "default_loan_period"
-    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
-
     ANALYTICS_POLICY = "analytics"
 
     LOCALIZATION_LANGUAGES = "localization_languages"
