@@ -8788,7 +8788,11 @@ class Library(Base):
         )
 
     # Some specific per-library configuration settings.
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'        
+
+    # The name of the per-library regular expression used to derive a patron's
+    # external_type from their authorization_identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
     @property
     def external_type_regular_expression(self):
         """The regular expression (if any) used against a patron's
@@ -9339,7 +9343,7 @@ class Collection(Base):
             or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
 
-    @protocol.setter
+    @default_reservation_period.setter
     def set_default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
