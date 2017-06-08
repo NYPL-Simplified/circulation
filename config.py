@@ -55,6 +55,10 @@ class Configuration(object):
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
+    # TODO: These policies should be converted to per-library
+    # ConfigurationSettings. Since they affect how feeds are
+    # generated, this can only happen once lane configuration happens
+    # in the database.
     HOLD_POLICY = "holds"
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"

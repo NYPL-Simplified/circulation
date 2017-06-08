@@ -527,7 +527,6 @@ class AcquisitionFeed(OPDSFeed):
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
              force_refresh=False, use_materialized_works=True,
-             allow_holds
     ):
         """Create a feed representing one page of works from a given lane.
 

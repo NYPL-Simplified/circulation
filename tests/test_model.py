@@ -3694,7 +3694,6 @@ class TestHold(DatabaseTest):
                 Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
             }
         
-            patron.library.setting(key).value = False
             assert_raises_regexp(
                 PolicyException,
                 "Holds are disabled for this library.",
