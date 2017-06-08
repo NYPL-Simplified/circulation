@@ -699,7 +699,7 @@ class AuthenticationProvider(object):
     # authentication identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
-    def __init__(self, library, externalintegration):
+    def __init__(self, library, integration):
         """Basic constructor.
         
         :param library: Patrons authenticated through this provider
@@ -707,7 +707,7 @@ class AuthenticationProvider(object):
         It's associated with a scoped database session. Just pull
         normal Python objects out of it.
 
-        :param externalintegration: The ExternalIntegration that
+        :param integration: The ExternalIntegration that
         configures this AuthenticationProvider. Don't store this
         object! It's associated with a scoped database session. Just
         pull normal Python objects out of it.
@@ -725,8 +725,9 @@ class AuthenticationProvider(object):
 
         # If there's a regular expression that maps authorization
         # identifier to external type, find it now.
+        _db = Session.object_session(library)
         regexp = ConfigurationSetting.for_library_and_externalintegration(
-            self.EXTERNAL_TYPE_REGULAR_EXPRESSION, library, external_integration
+            _db, self.EXTERNAL_TYPE_REGULAR_EXPRESSION, library, integration
         ).value
         if regexp:
             regexp = re.compile(regexp)
@@ -939,7 +940,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         object! It's associated with a scoped database session. Just
         pull normal Python objects out of it.
         """
-        super(BasicAuthenticationProvider, self).__init__(library)
+        super(BasicAuthenticationProvider, self).__init__(library, integration)
         identifier_regular_expression = integration.setting(
             self.IDENTIFIER_REGULAR_EXPRESSION
         ).value or self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
@@ -1271,8 +1272,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         self.client_id = integration.username
         self.client_secret = integration.password
         self.token_expiration_days = integration.setting(
-            cls.OAUTH_TOKEN_EXPIRATION_DAYS
-        ).int_value or cls.DEFAULT_TOKEN_EXPIRATION_DAYS
+            self.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).int_value or self.DEFAULT_TOKEN_EXPIRATION_DAYS
         
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.
