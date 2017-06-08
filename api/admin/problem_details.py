@@ -204,3 +204,10 @@ INVALID_INDIVIDUAL_ADMIN_CONFIGURATION = pd(
     title=_("Incomplete individual admin configuration"),
     detail=_("The individual admin's configuration is missing a required field."),
 )
+
+MISSING_PGCRYPTO_EXTENSION = pd(
+    "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
+    status_code=500,
+    title=_("Missing pgcrypto database extension"),
+    detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
+)
