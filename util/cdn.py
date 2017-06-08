@@ -1,8 +1,7 @@
 """Turn local URLs into CDN URLs."""
-
 from nose.tools import set_trace
 import urlparse
-from core.model import ExternalIntegration
+from model import ExternalIntegration
 from s3 import S3Uploader
 
 def cdnify(_db, url):
