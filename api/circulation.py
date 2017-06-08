@@ -853,7 +853,7 @@ class BaseCirculationAPI(object):
         of changes?
         """
         return ConfigurationSetting.for_library(
-            self.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
         ).value
 
     def checkin(self, patron, pin, licensepool):

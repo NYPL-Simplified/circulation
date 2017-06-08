@@ -509,16 +509,6 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(opds_feed)
 
-    def preload(self):
-        this_url = url_for("preload", library_short_name=flask.request.library.short_name, _external=True)
-
-        annotator = self.manager.annotator(None)
-        opds_feed = PreloadFeed.page(
-            self._db, "Content to Preload", this_url,
-            annotator=annotator,
-        )
-        return feed_response(opds_feed)
-
 
 class LoanController(CirculationManagerController):
 

@@ -1952,7 +1952,7 @@ class TestFeedController(CirculationControllerTest):
                            (CirculationManagerAnnotator.COPYRIGHT, "c"),
                            (CirculationManagerAnnotator.ABOUT, "d"),
                            ]:
-            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+            ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
@@ -2077,21 +2077,6 @@ class TestFeedController(CirculationControllerTest):
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
 
-    def test_preload(self):
-        SessionManager.refresh_materialized_views(self._db)
-
-        with temp_config() as config:
-            urn = self.english_2.presentation_edition.primary_identifier.urn
-            config[Configuration.POLICIES] = {
-                Configuration.PRELOADED_CONTENT : [urn]
-            }
-
-            with self.request_context_with_library("/"):
-                response = self.manager.opds_feeds.preload()
-
-                assert self.english_1.title not in response.data
-                assert self.english_2.title in response.data
-                assert self.french_1.author not in response.data
 
 class TestAnalyticsController(CirculationControllerTest):
     def setup(self):

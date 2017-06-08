@@ -36,6 +36,10 @@ class Configuration(CoreConfiguration):
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
     MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+
+    # The name of the per-library setting that sets the default email
+    # address to use when notifying patrons of changes.
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
     
     @classmethod
     def lending_policy(cls):
