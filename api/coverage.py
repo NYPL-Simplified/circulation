@@ -23,9 +23,6 @@ from core.model import (
 from core.util.opds_writer import (
     OPDSFeed
 )
-from core.external_search import (
-    ExternalSearchIndex,
-)
 from core.opds_import import (
     AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,

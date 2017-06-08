@@ -40,7 +40,7 @@ class SearchIndexMonitor(WorkSweepMonitor):
             self.search_index_client = index_client
         else:
             self.search_index_client = ExternalSearchIndex(
-                works_index=index_name
+                _db, works_index=index_name
             )
 
         index_name = self.search_index_client.works_index

@@ -204,12 +204,11 @@ class CirculationManager(object):
         if self.testing:
             return DummyExternalSearchIndex()
         else:
-            if Configuration.integration(
-                    Configuration.ELASTICSEARCH_INTEGRATION):
-                return ExternalSearchIndex()
-            else:
+            search = ExternalSearchIndex(self._db)
+            if not search:
                 self.log.warn("No external search server configured.")
                 return None
+            return search
 
     def setup_circulation(self, library):
         """Set up the Circulation object."""        

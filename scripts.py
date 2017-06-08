@@ -192,7 +192,7 @@ class MetadataCalculationScript(Script):
 
     def run(self):
         q = self.q()
-        search_index_client = ExternalSearchIndex()
+        search_index_client = ExternalSearchIndex(self._db)
         self.log.info("Attempting to repair metadata for %d works" % q.count())
 
         success = 0
@@ -789,7 +789,7 @@ class InstanceInitializationScript(Script):
     def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
         if not ignore_search:
-            search_client = ExternalSearchIndex()
+            search_client = ExternalSearchIndex(self._db)
 
         # Set a timestamp that represents the new database's version.
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
