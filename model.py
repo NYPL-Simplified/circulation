@@ -9281,14 +9281,19 @@ class Collection(Base):
         self.external_integration.protocol = new_protocol
         for child in self.children:
             child.protocol = new_protocol
-            
+
+    # TODO: The default loan period needs to be expanded to handle
+    # different defaults for different media types (e.g. on Overdrive
+    # the default loan period for audiobooks is 14 days, and for video
+    # it's 5 days). This isn't a high priority because the license
+    # source generally tells us when each loan will end.
     DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
-            
+        
     @hybrid_property
     def default_loan_period(self):
-        """Unless we hear otherwise from the collection provider, we assume
-        that someone who borrows a non-open-access book from this
+        """Unless we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
         return (
@@ -9308,8 +9313,8 @@ class Collection(Base):
             
     @hybrid_property
     def default_reservation_period(self):
-        """Unless we hear otherwise from the collection provider, we assume
-        that someone who puts a book on hold has this many days to
+        """Unless we hear otherwise from the license provider, we assume
+        that someone who puts an item on hold has this many days to
         check it out before it goes to the next person in line.
         """
         return (
@@ -9323,7 +9328,6 @@ class Collection(Base):
         new_value = int(new_value)
         self.external_integration.setting(
             self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
-    
             
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
