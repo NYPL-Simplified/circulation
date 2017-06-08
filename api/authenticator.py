@@ -1188,7 +1188,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     @classmethod
     def bearer_token_signing_secret(cls, _db):
         """Find or generate the site-wide bearer token signing secret."""
-        secret = ConfigurationSetting.sitewide_secret(
+        return ConfigurationSetting.sitewide_secret(
             _db, cls.BEARER_TOKEN_SIGNING_SECRET
         )
     

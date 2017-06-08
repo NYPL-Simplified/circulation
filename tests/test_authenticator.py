@@ -893,7 +893,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # Set up configuration settings for links.
         for rel, value in link_config.iteritems():
-            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+            ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][
