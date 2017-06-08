@@ -538,12 +538,15 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
+        ConfigurationSetting.for_library(
+            Library.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            self._default_library
+        ).value = "^(unittest)"
         with temp_config() as config:
             # Patrons whose authorization identifiers start with 'unittest'
             # get sent to the Adult Fiction lane.
             config[Configuration.POLICIES] = {
                 Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
-                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
             }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
