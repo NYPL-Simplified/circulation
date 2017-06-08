@@ -722,7 +722,7 @@ class AuthenticationProvider(object):
             )
 
         self.library_id = library.id
-
+        self.log = logging.getLogger(self.NAME)
         # If there's a regular expression that maps authorization
         # identifier to external type, find it now.
         _db = Session.object_session(library)
@@ -730,10 +730,15 @@ class AuthenticationProvider(object):
             _db, self.EXTERNAL_TYPE_REGULAR_EXPRESSION, library, integration
         ).value
         if regexp:
-            regexp = re.compile(regexp)
+            try:
+                regexp = re.compile(regexp)
+            except Exception, e:
+                self.log.error(
+                    "Could not configure external type regular expression: %r", e
+                )
+                regexp = None
         self.external_type_regular_expression = regexp
 
-        self.log = logging.getLogger(self.NAME)
             
     def library(self, _db):
         return get_one(_db, Library, self.library_id)

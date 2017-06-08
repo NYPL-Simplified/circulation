@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 from money import Money
+import re
 import urllib
 import urlparse
 import flask
@@ -1073,11 +1074,13 @@ class TestAuthenticationProvider(AuthenticatorTest):
         
     def test_update_patron_metadata(self):
         patron = self._patron()
+        patron.authorization_identifier="2345"
         eq_(None, patron.last_external_sync)
         eq_(None, patron.username)
         
         patrondata = PatronData(username="user")
         provider = self.mock_basic(remote_patron_lookup_patrondata=patrondata)
+        provider.external_type_regular_expression = re.compile("^(.)")
         provider.update_patron_metadata(patron)
 
         # The patron's username has been changed.
@@ -1085,7 +1088,10 @@ class TestAuthenticationProvider(AuthenticatorTest):
         
         # last_external_sync has been updated.
         assert patron.last_external_sync != None
-    
+
+        # external_type was updated based on the regular expression
+        eq_("2", patron.external_type)
+        
     def test_update_patron_metadata_noop_if_no_remote_metadata(self):
 
         patron = self._patron()
@@ -1106,6 +1112,48 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(patron, provider.remote_patron_lookup(patron))
         patrondata = PatronData()
         eq_(patrondata, provider.remote_patron_lookup(patrondata))
+
+    def test_update_patron_external_type(self):
+        patron = self._patron()
+        patron.authorization_identifier = "A123"
+        patron.external_type = "old value"
+        library = patron.library
+        integration = self._external_integration(self._str)
+
+        class MockProvider(AuthenticationProvider):
+            NAME = "Just a mock"
+        
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MockProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            library, integration
+        )
+        setting.value = None
+
+        # If there is no EXTERNAL_TYPE_REGULAR_EXPRESSION, calling
+        # update_patron_external_type does nothing.
+        MockProvider(library, integration).update_patron_external_type(
+            patron
+        )
+        eq_("old value", patron.external_type)
+        
+        setting.value = "([A-Z])"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("A", patron.external_type)
+        
+        setting.value = "([0-9]$)"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("3", patron.external_type)
+
+        # These regexp has no groups, so it has no power to change
+        # external_type.
+        setting.value = "A"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("3", patron.external_type)
+
+        # This regexp is invalid, so it isn't used.
+        setting.value = "(not a valid regexp"
+        provider = MockProvider(library, integration)
+        eq_(None, provider.external_type_regular_expression)
 
 
 class TestBasicAuthenticationProvider(AuthenticatorTest):
@@ -1733,4 +1781,3 @@ class TestOAuthController(AuthenticatorTest):
         eq_(None, fragments.get('access_token'))
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
-
