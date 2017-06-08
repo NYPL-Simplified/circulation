@@ -283,7 +283,7 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            max_fines = Configuration.max_outstanding_fines()
+            max_fines = Configuration.max_outstanding_fines(patron.library)
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 

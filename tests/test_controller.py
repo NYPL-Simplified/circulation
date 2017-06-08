@@ -1046,48 +1046,41 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        with self.temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
-            }
+        ConfigurationSetting.for_library(
+            Configuration.MAX_OUTSTANDING_FINES, self._default_library).value = "$0.50"
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
 
-            with self.request_context_with_library(
-                    "/", headers=dict(Authorization=self.valid_auth)):
-
-                # The patron's credentials are valid, but they have a lot
-                # of fines.
-                patron = self.manager.loans.authenticated_patron_from_request()
-                patron.fines = Decimal("12345678.90")
-                response = self.manager.loans.borrow(
-                    pool.identifier.type, pool.identifier.identifier)
+            # The patron's credentials are valid, but they have a lot
+            # of fines.
+            patron = self.manager.loans.authenticated_patron_from_request()
+            patron.fines = Decimal("12345678.90")
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
                 
-                eq_(403, response.status_code)
-                eq_(OUTSTANDING_FINES.uri, response.uri)
-                assert "$12345678.90 outstanding" in response.detail
+            eq_(403, response.status_code)
+            eq_(OUTSTANDING_FINES.uri, response.uri)
+            assert "$12345678.90 outstanding" in response.detail
 
         # Reduce the patron's fines, and there's no problem.
-        with self.temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
-            }
-            with self.request_context_with_library(
-                    "/", headers=dict(Authorization=self.valid_auth)):
-                patron = self.manager.loans.authenticated_patron_from_request()
-                patron.fines = Decimal("0.49")
-                self.manager.circulation.queue_checkout(
-                    pool,
-                    LoanInfo(
-                        pool.collection, pool.data_source.name,
-                        pool.identifier.type,
-                        pool.identifier.identifier,
-                        datetime.datetime.utcnow(),
-                        datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                    )
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            patron.fines = Decimal("0.49")
+            self.manager.circulation.queue_checkout(
+                pool,
+                LoanInfo(
+                    pool.collection, pool.data_source.name,
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
-                response = self.manager.loans.borrow(
-                    pool.identifier.type, pool.identifier.identifier)
+            )
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
                 
-                eq_(201, response.status_code)
+            eq_(201, response.status_code)
 
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
