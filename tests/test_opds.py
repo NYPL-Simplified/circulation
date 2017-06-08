@@ -877,16 +877,12 @@ class TestOPDS(DatabaseTest):
 
             annotator = TestAnnotatorWithGroup()
 
-            # By policy, group feeds are cached forever, which means
-            # an attempt to generate them will fail. You'll get a
-            # page-type feed as a consolation prize.
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=False, use_materialized_works=False
+                force_refresh=True, use_materialized_works=False
             )
-            eq_(CachedFeed.PAGE_TYPE, cached_groups.type)
             parsed = feedparser.parse(cached_groups.content)
-
+            
             # There are two entries, one for each work.
             e1, e2 = parsed['entries']
 
