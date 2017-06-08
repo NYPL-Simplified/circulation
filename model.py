@@ -6495,8 +6495,9 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if not patron.library.allow_holds:
-            raise PolicyException("Holds are disabled for this library.")
+        if (Configuration.hold_policy() 
+            != Configuration.HOLD_POLICY_ALLOW):
+            raise PolicyException("Holds are disabled on this system.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
@@ -8802,20 +8803,7 @@ class Library(Base):
         )
 
     # Some specific per-library configuration settings.
-    ALLOW_HOLDS = "allow_holds"
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'        
-    @property
-    def allow_holds(self):
-        """Are patrons of this library allowed to put items on hold?
-        
-        :return: A bool.
-        """
-        value = ConfigurationSetting.for_library(
-            self.ALLOW_HOLDS, self).bool_value
-        if value is None:
-            return True
-        return value
-
     @property
     def external_type_regular_expression(self):
         """The regular expression (if any) used against a patron's

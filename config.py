@@ -55,6 +55,10 @@ class Configuration(object):
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
+    HOLD_POLICY = "holds"
+    HOLD_POLICY_ALLOW = "allow"
+    HOLD_POLICY_HIDE = "hide"
+    
     LANES_POLICY = "lanes"
 
     # Facet policies
@@ -210,6 +214,9 @@ class Configuration(object):
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
+    # TODO: This needs to be turned into a per-Library
+    # ConfigurationSetting, but it's not practical to do so until lane
+    # configuration is moved into the database.
     @classmethod
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
