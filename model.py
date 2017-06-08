@@ -9322,7 +9322,7 @@ class Collection(Base):
             or self.STANDARD_DEFAULT_LOAN_PERIOD
         )
 
-    @protocol.setter
+    @default_loan_period.setter
     def set_default_loan_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
