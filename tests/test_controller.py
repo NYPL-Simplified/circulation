@@ -502,10 +502,10 @@ class TestBaseController(CirculationControllerTest):
                 }
             )
 
-            patron._external_type = '10'
+            patron.external_type = '10'
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 
-            patron._external_type = '152'
+            patron.external_type = '152'
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
@@ -538,15 +538,12 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
-        ConfigurationSetting.for_library(
-            Library.EXTERNAL_TYPE_REGULAR_EXPRESSION,
-            self._default_library
-        ).value = "^(unittest)"
+        self.default_patron.external_type = "1"
         with temp_config() as config:
-            # Patrons whose authorization identifiers start with 'unittest'
-            # get sent to the Adult Fiction lane.
+            # Patrons of external type '1' get sent to the Adult
+            # Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
+                Configuration.ROOT_LANE_POLICY : { "1": ["eng", "Adult Fiction"]},
             }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -560,7 +557,7 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/eng/Adult%20Fiction", response.headers['location'])
 
             # Now those patrons get sent to the top-level lane.
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
