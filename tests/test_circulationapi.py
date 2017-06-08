@@ -27,6 +27,7 @@ from api.circulation import (
 from core.analytics import Analytics
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
@@ -367,11 +368,10 @@ class TestCirculationAPI(DatabaseTest):
         old_fines = self.patron.fines
         self.patron.fines = 1000
 
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
-            }
-            assert_raises(OutstandingFines, self.borrow)
+        ConfigurationSetting.for_library(
+            Configuration.MAX_OUTSTANDING_FINES,
+            self._default_library).value = "$0.50"
+        assert_raises(OutstandingFines, self.borrow)
         self.patron.fines = old_fines
 
     def test_borrow_with_block_fails(self):

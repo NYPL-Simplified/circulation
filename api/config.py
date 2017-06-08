@@ -9,10 +9,11 @@ from core.config import (
     temp_config as core_temp_config,
 )
 from core.util import MoneyUtility
+from core.model import ConfigurationSetting
+
 
 class Configuration(CoreConfiguration):
 
-    INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     LANGUAGE_POLICY = "languages"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
@@ -23,21 +24,19 @@ class Configuration(CoreConfiguration):
 
     ROOT_LANE_POLICY = "root_lane"
 
-    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
-
-    PRELOADED_CONTENT = "preloaded_content"
-
     ADOBE_VENDOR_ID_INTEGRATION = u"Adobe Vendor ID"
     ADOBE_VENDOR_ID = u"vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
 
-    SECRET_KEY = "secret_key"
-
-    STAFF_PICKS_INTEGRATION = u"Staff Picks"
     PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 
-    LIST_FIELDS = "fields"
-   
+    # The name of the sitewide secret used to sign cookies for admin login.
+    SECRET_KEY = "secret_key"
+
+    # The name of the per-library setting that sets the maximum amount
+    # of fines a patron can have before losing lending privileges.
+    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+    
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
@@ -88,7 +87,7 @@ class Configuration(CoreConfiguration):
     @classmethod
     def max_outstanding_fines(cls, library):
         max_fines = ConfigurationSetting.for_library(
-            self.MAX_OUTSTANDING_FINES, library
+            cls.MAX_OUTSTANDING_FINES, library
         ).value
         return MoneyUtility.parse(max_fines)
     

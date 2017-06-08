@@ -455,7 +455,7 @@ class CirculationManagerAnnotator(Annotator):
     def add_configuration_links(self, feed):
         _db = Session.object_session(self.library)
         for rel in self.CONFIGURATION_LINKS:
-            setting = ConfigurationSetting.for_library(_db, rel, self.library)
+            setting = ConfigurationSetting.for_library(rel, self.library)
             if setting.value:
                 d = dict(href=setting.value, type="text/html", rel=rel)
                 if isinstance(feed, OPDSFeed):

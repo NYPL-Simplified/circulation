@@ -648,7 +648,7 @@ class LibraryAuthenticator(object):
         links = {}
         library = get_one(self._db, Library, self.library_id)
         for rel in CirculationManagerAnnotator.CONFIGURATION_LINKS:
-            setting = ConfigurationSetting.for_library(self._db, rel, library)
+            setting = ConfigurationSetting.for_library(rel, library)
             if setting.value:
                 links[rel] = dict(href=setting.value, type="text/html")
 
@@ -1188,14 +1188,9 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     @classmethod
     def bearer_token_signing_secret(cls, _db):
         """Find or generate the site-wide bearer token signing secret."""
-        secret = ConfigurationSetting.sitewide(
+        secret = ConfigurationSetting.sitewide_secret(
             _db, cls.BEARER_TOKEN_SIGNING_SECRET
         )
-        if not secret.value:
-            secret.value = os.urandom(24).encode('hex')
-            # Commit to get this in the database ASAP.
-            _db.commit()
-        return secret.value
     
     @classmethod
     def from_config(cls, library_id, integration):

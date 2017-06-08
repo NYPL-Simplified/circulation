@@ -20,6 +20,7 @@ from core.model import (
     Classification,
     Collection,
     Complaint,
+    ConfigurationSetting,
     CoverageRecord,
     create,
     DataSource,
@@ -48,13 +49,9 @@ from datetime import date, datetime, timedelta
 class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
-        with temp_config() as config:
-            config[Configuration.INCLUDE_ADMIN_INTERFACE] = True
-            config[Configuration.SECRET_KEY] = "a secret"
-
-            super(AdminControllerTest, self).setup()
-
-            setup_admin_controllers(self.manager)
+        super(AdminControllerTest, self).setup()
+        ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
+        setup_admin_controllers(self.manager)
 
 class TestWorkController(AdminControllerTest):
 

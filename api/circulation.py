@@ -14,6 +14,7 @@ from core.model import (
     CirculationEvent,
     Collection,
     CollectionMissing,
+    ConfigurationSetting,
     ExternalIntegration,
     Identifier,
     DataSource,

@@ -8,12 +8,15 @@ from flask import (
 )
 import os
 
-from api.app import app
+from api.app import app, _db
 from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
 from core.app_server import returns_problem_detail
-from core.model import Library
+from core.model import (
+    ConfigurationSetting,
+    Library,
+)
 
 from controller import setup_admin_controllers
 from templates import (
@@ -31,7 +34,9 @@ import urllib
 from datetime import timedelta
 
 # The secret key is used for signing cookies for admin login
-app.secret_key = Configuration.get(Configuration.SECRET_KEY)
+app.secret_key = ConfigurationSetting.sitewide_secret(
+    _db, Configuration.SECRET_KEY
+)
 
 # An admin's session will expire after this amount of time and
 # the admin will have to log in again.
