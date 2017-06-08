@@ -13,6 +13,7 @@ from flask import (
     redirect,
 )
 from flask.ext.babel import lazy_gettext as _
+from sqlalchemy.exc import ProgrammingError
 
 from core.model import (
     get_one,
@@ -1211,6 +1212,11 @@ class SettingsController(CirculationManagerController):
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
         admin.password = password
+        try:
+            self._db.flush()
+        except ProgrammingError as e:
+            self._db.rollback()
+            return MISSING_PGCRYPTO_EXTENSION
 
         if is_new:
             return Response(unicode(_("Success")), 201)
