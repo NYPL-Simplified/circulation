@@ -187,7 +187,7 @@ class PatronData(object):
         # identifier.
         self.set_value(patron, 'external_identifier', self.permanent_id)
         self.set_value(patron, 'username', self.username)
-        self.set_value(patron, '_external_type', self.external_type)
+        self.set_value(patron, 'external_type', self.external_type)
         self.set_value(patron, 'authorization_expires',
                        self.authorization_expires)
         self.set_value(patron, 'fines', self.fines)
@@ -753,8 +753,6 @@ class AuthenticationProvider(object):
             return patron
         if PatronUtility.needs_external_sync(patron):
             self.update_patron_metadata(patron)
-        if self.external_type_regular_expression:
-            self.update_patron_external_type(patron)
         return patron
 
     def update_patron_metadata(self, patron):
@@ -765,6 +763,8 @@ class AuthenticationProvider(object):
         remote_patron_info = self.remote_patron_lookup(patron)
         if isinstance(remote_patron_info, PatronData):
             remote_patron_info.apply(patron)
+        if self.external_type_regular_expression:
+            self.update_patron_external_type(patron)
 
     def update_patron_external_type(self, patron):
         """Make sure the patron's external type reflects

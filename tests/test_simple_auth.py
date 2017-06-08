@@ -25,7 +25,7 @@ class TestSimpleAuth(DatabaseTest):
         assert_raises_regexp(
             CannotLoadConfiguration,
             "Test identifier and password not set.",
-            p, self._default_library.id, integration
+            p, self._default_library, integration
         )
 
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
