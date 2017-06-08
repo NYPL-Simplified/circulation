@@ -246,14 +246,20 @@ class Configuration(object):
         default_logging = {}
         return cls.get(cls.LOGGING, default_logging)
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def minimum_featured_quality(cls):
         return float(cls.policy(cls.MINIMUM_FEATURED_QUALITY, 0.65))
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def featured_lane_size(cls):
         return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def show_staff_picks_on_top_level(cls):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)

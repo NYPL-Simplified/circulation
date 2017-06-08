@@ -9292,7 +9292,7 @@ class Collection(Base):
         
     @hybrid_property
     def default_loan_period(self):
-        """Unless we hear otherwise from the license provider, we assume
+        """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
@@ -9313,7 +9313,7 @@ class Collection(Base):
             
     @hybrid_property
     def default_reservation_period(self):
-        """Unless we hear otherwise from the license provider, we assume
+        """Until we hear otherwise from the license provider, we assume
         that someone who puts an item on hold has this many days to
         check it out before it goes to the next person in line.
         """

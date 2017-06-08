@@ -3696,7 +3696,7 @@ class TestHold(DatabaseTest):
         
             assert_raises_regexp(
                 PolicyException,
-                "Holds are disabled for this library.",
+                "Holds are disabled on this system.",
                 pool.on_hold_to, patron, datetime.datetime.now(), 4
             )
         
