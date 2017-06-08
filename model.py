@@ -4151,7 +4151,9 @@ class Work(Base):
 
 
     def update_external_index(self, client, add_coverage_record=True):
-        client = client or ExternalSearchIndex()
+        if not client:
+            _db = Session.object_session(self)
+            client = ExternalSearchIndex(_db)
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -8899,14 +8901,21 @@ class ExternalIntegration(Base):
     # but not the books themselves.
     METADATA_GOAL = u'metadata'
 
-    # These integrations provide access to book covers.
+    # These integrations are associated with external services such as
+    # S3 that provide access to book covers.
     BOOK_COVERS_GOAL = u'book_covers'
 
-    # These integrations provide access to cached OPDS feeds.
+    # These integrations are associated with external services such as
+    # S3 that provide access to static or cached OPDS feeds.
     OPDS_GOAL = u'opds'
 
-    # These integrations provide access to open access book files.
-    OA_BOOKS_GOAL = u'open_access_books'
+    # These integrations are associated with external services such as
+    # S3 that provide access to open access content.
+    OA_CONTENT_GOAL = u'open_access_books'
+
+    # These integrations are associated with external services such as
+    # Elasticsearch that provide indexed search.
+    SEARCH_GOAL = u'search'
 
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
@@ -8935,9 +8944,6 @@ class ExternalIntegration(Base):
     # TODO: Goals for the following.
     # * The Library Simplified application components
     #   themselves. (what's the actual goal here?)
-    # * Search services (e.g. protocol="Elasticsearch")
-    # * Cover images (e.g. protocol="HTTP" or protocol="S3")
-    # * Open-access content (e.g. protocol="HTTP" or protocol="S3")
     # * Adobe Vendor ID server
 
         
@@ -8949,11 +8955,14 @@ class ExternalIntegration(Base):
     NYT = Configuration.NYT_INTEGRATION
     METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
 
-    # Integration for cached performance enhancement with
-    # BOOK_COVERS_GOAL, OPDS_GOAL, or OA_BOOKS_GOAL.
+    # Integrations for storage or cache with BOOK_COVERS_GOAL,
+    # OPDS_GOAL, or OA_CONTENT_GOAL.
     CDN = u'CDN'
     S3 = u'S3'
     
+    # Integrations with SEARCH_GOAL
+    ELASTICSEARCH = u'Elasticsearch'
+
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
 

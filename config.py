@@ -111,9 +111,6 @@ class Configuration(object):
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    ELASTICSEARCH_INTEGRATION = u"Elasticsearch"
-    ELASTICSEARCH_INDEX_KEY = u"works_index"
-
     METADATA_WRANGLER_INTEGRATION = u"Metadata Wrangler"
     METADATA_WRANGLER_CLIENT_ID = u"client_id"
     METADATA_WRANGLER_CLIENT_SECRET = u"client_secret"

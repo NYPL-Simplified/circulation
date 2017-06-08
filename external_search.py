@@ -13,7 +13,10 @@ import re
 import time
 
 class ExternalSearchIndex(object):
-    
+
+    WORKS_INDEX_KEY = u'works_index'
+    WORKS_ALIAS_KEY = u'works_alias'
+
     work_document_type = 'work-type'
     __client = None
 
@@ -29,27 +32,24 @@ class ExternalSearchIndex(object):
         """
         cls.__client = None
 
-    def __init__(self, url=None, works_index=None):
+    def __init__(self, _db, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
+        integration = None
 
         if not ExternalSearchIndex.__client:
-            if not url or not works_index:
-                integration = Configuration.integration(
-                    Configuration.ELASTICSEARCH_INTEGRATION, 
+            if _db and (not url or not works_index):
+                from model import ExternalIntegration
+                integration = ExternalIntegration.lookup(
+                    _db, ExternalIntegration.ELASTICSEARCH,
+                    goal=ExternalIntegration.SEARCH_GOAL
                 )
 
+                url = url or integration.url
                 if not works_index:
-                    works_index = integration.get(
-                        Configuration.ELASTICSEARCH_INDEX_KEY
-                    )
-
-                if not url:
-                    if not integration:
-                        return
-                    url = integration[Configuration.URL]
+                    works_index = integration.setting(self.WORKS_INDEX_KEY).value
 
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
@@ -71,6 +71,20 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         self.set_works_index_and_alias(works_index)
+
+        # If the ExternalIntegration doesn't have a set alias and this
+        # ExternalSearchIndex is using both a matching index and an alias,
+        # update the ExternalIntegration.
+        index_or_alias = set([self.works_index, self.works_alias])
+        if (integration
+            and not self.works_index==self.works_alias
+            and not integration.setting(self.WORKS_ALIAS_KEY).value
+            and integration.setting(self.WORKS_INDEX_KEY).value in index_or_alias
+        ):
+            # Update the ExternalIntegration configuration with the
+            # appropriate index and alias.
+            integration.setting(self.WORKS_INDEX_KEY).value = self.works_index
+            integration.setting(self.WORKS_ALIAS_KEY).value = self.works_alias
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)

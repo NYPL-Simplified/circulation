@@ -55,7 +55,6 @@ from model import (
     WorkCoverageRecord,
     WorkGenre,
 )
-from external_search import ExternalSearchIndex
 from monitor import SubjectAssignmentMonitor
 from nyt import NYTBestSellerAPI
 from monitor import CollectionMonitor
