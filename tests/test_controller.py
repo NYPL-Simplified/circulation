@@ -2019,9 +2019,10 @@ class TestFeedController(CirculationControllerTest):
             )            
 
     def test_groups(self):
+        ConfigurationSetting.sitewide(
+            self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.GROUPS_MAX_AGE_POLICY : 10,
                 Configuration.MINIMUM_FEATURED_QUALITY: 0,
                 Configuration.FEATURED_LANE_SIZE: 2,
             }
