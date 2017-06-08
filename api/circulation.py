@@ -30,8 +30,6 @@ from config import Configuration
 
 class CirculationInfo(object):
 
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
-    
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier):
         """A loan, hold, or whatever.

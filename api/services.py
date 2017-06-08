@@ -4,6 +4,7 @@ import logging
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 
+from core.model import ConfigurationSetting
 from core.scripts import (
     Script,
     IdentifierInputScript,
@@ -114,10 +115,16 @@ class ServiceStatus(object):
                 license_pool.collection.name, identifier
             )
             api = self.circulation.api_for_license_pool(license_pool)
+
+            address = ConfigurationSetting.for_library(
+                Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+                patron.library
+            )
+            
             def do_checkout():
                 loan, hold, is_new = api.borrow(
                     patron, password, license_pool, delivery_mechanism,
-                    Configuration.default_notification_email_address()
+                    address,
                 )
                 if loan:
                     loans.append(loan)
