@@ -1169,10 +1169,16 @@ class TestFilters(DatabaseTest):
             "weird content type", "weird DRM scheme", "weird rights URI",
             None
         )
+
+        # w9 is in a collection not associated with the default library.
+        w9 = self._work(with_license_pool=True)
+        collection2 = self._collection()
+        w9.license_pools[0].collection = collection2
+        w9.presentation_edition.title = "I'm in a different collection"
         
         # A normal query against Work/LicensePool finds all works.
         orig_q = self._db.query(Work).join(Work.license_pools)
-        eq_(8, orig_q.count())
+        eq_(9, orig_q.count())
 
         # only_show_ready_deliverable_works filters out everything but
         # w1 (owned licenses), w6 (open-access), w7 (available
@@ -1203,6 +1209,15 @@ class TestFilters(DatabaseTest):
             q = lane.only_show_ready_deliverable_works(orig_q, Work)
             eq_(set([w6, w7, w8]), set(q.all()))
 
+        # If we add the second collection to the library, its works
+        # start showing up. (But we have to recreate the Lane object
+        # because it only looks at the library's collections during
+        # construction.)
+        self._default_library.collections.append(collection2)
+        lane = Lane(self._default_library, self._str)
+        q = lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w1, w6, w7, w8, w9]), set(q.all()))
+        
     def test_lane_subclass_queries(self):
         """Subclasses of Lane can effectively retrieve all of a Work's
         LicensePools
