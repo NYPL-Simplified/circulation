@@ -114,7 +114,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
 
         # Set up configuration settings for links.
         for rel, value in link_config.iteritems():
-            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+            ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         self.annotator.add_configuration_links(mock_feed)
 
@@ -678,17 +678,6 @@ class TestOPDS(WithVendorIDTest):
         assert "simplified:username" in raw
         eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
         eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
-
-    def test_loans_feed_includes_preload_link(self):
-        patron = self._patron()
-        feed_obj = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
-            None, patron, test_mode=True)
-        raw = unicode(feed_obj)
-        feed = feedparser.parse(raw)['feed']
-        links = feed['links']
-
-        [preload_link] = [x for x in links if x['rel'] == 'http://librarysimplified.org/terms/rel/preload']
-        assert '/preload' in preload_link['href']
         
     def test_loans_feed_includes_annotations_link(self):
         patron = self._patron()

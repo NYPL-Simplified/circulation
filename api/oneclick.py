@@ -67,10 +67,14 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
         )
 
-        num_days = int(self.ebook_loan_length)
-        self.ebook_expiration_default = datetime.timedelta(days=num_days)
-        num_days = int(self.eaudio_loan_length)
-        self.eaudio_expiration_default = datetime.timedelta(days=num_days)
+        # TODO: We need a general system for tracking default loan
+        # durations for different media types. However it doesn't
+        # matter much because the license sources generally tell us
+        # when specific loans expire.
+        self.ebook_expiration_default = datetime.timedelta(
+            self.collection.default_reservation_period
+        )
+        self.eaudio_expiration_default = self.ebook_expiration_default
 
 
     def checkin(self, patron, pin, licensepool):

@@ -9,13 +9,13 @@ from core.config import (
     temp_config as core_temp_config,
 )
 from core.util import MoneyUtility
+from core.model import ConfigurationSetting
+
 
 class Configuration(CoreConfiguration):
 
-    INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
     LANGUAGE_POLICY = "languages"
-    LANGUAGE_FORCE = "force"
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
@@ -23,25 +23,24 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     ROOT_LANE_POLICY = "root_lane"
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
-
-    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
-
-    PRELOADED_CONTENT = "preloaded_content"
 
     ADOBE_VENDOR_ID_INTEGRATION = u"Adobe Vendor ID"
     ADOBE_VENDOR_ID = u"vendor_id"
     ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
 
-    SECRET_KEY = "secret_key"
-
-    STAFF_PICKS_INTEGRATION = u"Staff Picks"
     PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 
-    LIST_FIELDS = "fields"
-   
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    # The name of the sitewide secret used to sign cookies for admin login.
+    SECRET_KEY = "secret_key"
 
+    # The name of the per-library setting that sets the maximum amount
+    # of fines a patron can have before losing lending privileges.
+    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+
+    # The name of the per-library setting that sets the default email
+    # address to use when notifying patrons of changes.
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
@@ -90,22 +89,10 @@ class Configuration(CoreConfiguration):
         return [[x] for x in value.split(',')]
 
     @classmethod
-    def force_language(cls, language):
-        """Override normal language settings to deliver a particular
-        collection no matter what.
-        """
-        policy = cls.language_policy()
-        return policy.get(cls.LANGUAGE_FORCE, language)
-
-    @classmethod
-    def default_notification_email_address(cls):
-        return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
-
-    @classmethod
-    def max_outstanding_fines(cls):
-        max_fines = Configuration.policy(
-            Configuration.MAX_OUTSTANDING_FINES
-        )
+    def max_outstanding_fines(cls, library):
+        max_fines = ConfigurationSetting.for_library(
+            cls.MAX_OUTSTANDING_FINES, library
+        ).value
         return MoneyUtility.parse(max_fines)
     
     @classmethod

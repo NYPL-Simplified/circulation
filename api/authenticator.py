@@ -187,7 +187,7 @@ class PatronData(object):
         # identifier.
         self.set_value(patron, 'external_identifier', self.permanent_id)
         self.set_value(patron, 'username', self.username)
-        self.set_value(patron, '_external_type', self.external_type)
+        self.set_value(patron, 'external_type', self.external_type)
         self.set_value(patron, 'authorization_expires',
                        self.authorization_expires)
         self.set_value(patron, 'fines', self.fines)
@@ -431,6 +431,7 @@ class LibraryAuthenticator(object):
         self.library_uuid = library.uuid
         self.library_name = library.name
         self.library_short_name = library.short_name
+
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
@@ -482,7 +483,7 @@ class LibraryAuthenticator(object):
             raise CannotLoadConfiguration(
                 "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
             )
-        provider = provider_class.from_config(self.library_id, integration)
+        provider = provider_class(self.library, integration)
         if issubclass(provider_class, BasicAuthenticationProvider):
             self.register_basic_auth_provider(provider)
             # TODO: Run a self-test, or at least check that we have
@@ -579,7 +580,7 @@ class LibraryAuthenticator(object):
                 break
             
         return credential
-    
+
     def oauth_provider_lookup(self, provider_name):
         """Look up the OAuthAuthenticationProvider with the given name. If that
         doesn't work, return an appropriate ProblemDetail.
@@ -623,14 +624,14 @@ class LibraryAuthenticator(object):
         return jwt.encode(
             payload, self.bearer_token_signing_secret, algorithm='HS256'
         )
-    
+
     def decode_bearer_token_from_header(self, header):
         """Extract auth provider name and access token from an Authenticate
         header value.
         """
         simplified_token = header.split(' ')[1]
         return self.decode_bearer_token(simplified_token)
-    
+
     def decode_bearer_token(self, token):
         """Extract auth provider name and access token from JSON web token."""
         decoded = jwt.decode(token, self.bearer_token_signing_secret,
@@ -638,7 +639,7 @@ class LibraryAuthenticator(object):
         provider_name = decoded['iss']
         token = decoded['token']
         return (provider_name, token)
-    
+
     def create_authentication_document(self):
         """Create the OPDS authentication document to be used when
         a request comes in with no authentication.
@@ -648,7 +649,7 @@ class LibraryAuthenticator(object):
         links = {}
         library = get_one(self._db, Library, self.library_id)
         for rel in CirculationManagerAnnotator.CONFIGURATION_LINKS:
-            setting = ConfigurationSetting.for_library(self._db, rel, library)
+            setting = ConfigurationSetting.for_library(rel, library)
             if setting.value:
                 links[rel] = dict(href=setting.value, type="text/html")
 
@@ -687,24 +688,58 @@ class AuthenticationProvider(object):
     # used to create the name of the log channel used by this
     # subclass, used to distinguish between tokens from different
     # OAuth providers, etc.
-    
+
     # Each subclass MUST define a value for URI. This is used in the
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     URI = None
 
-    def __init__(self, library_id):
+    # Each library and authentication mechanism may have a regular
+    # expression for deriving a patron's external type from their
+    # authentication identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+    
+    def __init__(self, library, integration):
         """Basic constructor.
         
-        :param library_id: The database ID of the Library to be managed 
-        by this AuthenticationProvider.
+        :param library: Patrons authenticated through this provider
+        are associated with this Library. Don't store this object!
+        It's associated with a scoped database session. Just pull
+        normal Python objects out of it.
+
+        :param integration: The ExternalIntegration that
+        configures this AuthenticationProvider. Don't store this
+        object! It's associated with a scoped database session. Just
+        pull normal Python objects out of it.
         """
-        if not isinstance(library_id, int):
+        if not isinstance(library, Library):
             raise Exception(
-                "Expected library_id to be an integer, got %r" % library_id
+                "Expected library to be a Library, got %r" % library
             )
-        self.library_id = library_id
-    
+        if not isinstance(integration, ExternalIntegration):
+            raise Exception(
+                "Expected integration to be an ExternalIntegration, got %r" % integration
+            )
+
+        self.library_id = library.id
+        self.log = logging.getLogger(self.NAME)
+        # If there's a regular expression that maps authorization
+        # identifier to external type, find it now.
+        _db = Session.object_session(library)
+        regexp = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.EXTERNAL_TYPE_REGULAR_EXPRESSION, library, integration
+        ).value
+        if regexp:
+            try:
+                regexp = re.compile(regexp)
+            except Exception, e:
+                self.log.error(
+                    "Could not configure external type regular expression: %r", e
+                )
+                regexp = None
+        self.external_type_regular_expression = regexp
+
+            
     def library(self, _db):
         return get_one(_db, Library, self.library_id)
     
@@ -733,6 +768,36 @@ class AuthenticationProvider(object):
         remote_patron_info = self.remote_patron_lookup(patron)
         if isinstance(remote_patron_info, PatronData):
             remote_patron_info.apply(patron)
+        if self.external_type_regular_expression:
+            self.update_patron_external_type(patron)
+
+    def update_patron_external_type(self, patron):
+        """Make sure the patron's external type reflects
+        what external_type_regular_expression says.
+        """
+        if not self.external_type_regular_expression:
+            # External type is not determined by a regular expression.
+            return
+        if not patron.authorization_identifier:
+            # Patron has no authorization identifier. Leave their
+            # external_type alone.
+            return
+
+        match = self.external_type_regular_expression.search(
+            patron.authorization_identifier
+        )
+        if not match:
+            # Patron's authorization identifier doesn't match the
+            # regular expression at all. Leave their external_type
+            # alone.
+            return
+        groups = match.groups()
+        if not groups:
+            # The regular expression matched but didn't contain any groups.
+            # This is a configuration error; do nothing.
+            return
+            
+        patron.external_type = groups[0]
 
     def authenticate(self, _db, header):
         """Authenticate a patron based on a WWW-Authenticate header
@@ -862,29 +927,25 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     TEST_IDENTIFIER = 'test_identifier'
     TEST_PASSWORD = 'test_password'
     
-    @classmethod
-    def from_config(cls, library_id, integration):
-        """Load a BasicAuthenticationProvider from an ExternalIntegration."""
-        return cls(library_id, integration)
-
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self, library_id, integration):
+    def __init__(self, library, integration):
         """Create a BasicAuthenticationProvider.
 
-        :param library_id: Patrons authenticated through this provider
-            are associated with the Library with the given ID. We don't
-            pass the Library object to avoid contaminating with
-            an object from a non-scoped session.
+        :param library: Patrons authenticated through this provider
+        are associated with this Library. Don't store this object!
+        It's associated with a scoped database session. Just pull
+        normal Python objects out of it.
 
-        :param integration: An ExternalIntegration that configures
-            this authentication mechanism. Don't store this object--just
-            pull normal Python objects out of it.
+        :param externalintegration: The ExternalIntegration that
+        configures this AuthenticationProvider. Don't store this
+        object! It's associated with a scoped database session. Just
+        pull normal Python objects out of it.
         """
-        super(BasicAuthenticationProvider, self).__init__(library_id)
+        super(BasicAuthenticationProvider, self).__init__(library, integration)
         identifier_regular_expression = integration.setting(
             self.IDENTIFIER_REGULAR_EXPRESSION
         ).value or self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
@@ -906,7 +967,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         self.test_username = integration.setting(self.TEST_IDENTIFIER).value
         self.test_password = integration.setting(self.TEST_PASSWORD).value
-        self.log = logging.getLogger(self.NAME)
         
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
@@ -1143,7 +1203,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # Each subclass MUST define an attribute called
     # NAME, which is the name used to configure that
     # subclass in the configuration file. Failure to define this
-    # attribute will result in an error in .from_config().
+    # attribute will result in an error in the constructor.
     #
     # Each subclass MUST define an attribute called TOKEN_TYPE, which
     # is the name used in the database to distinguish this provider's
@@ -1188,31 +1248,21 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     @classmethod
     def bearer_token_signing_secret(cls, _db):
         """Find or generate the site-wide bearer token signing secret."""
-        secret = ConfigurationSetting.sitewide(
+        return ConfigurationSetting.sitewide_secret(
             _db, cls.BEARER_TOKEN_SIGNING_SECRET
         )
-        if not secret.value:
-            secret.value = os.urandom(24).encode('hex')
-            # Commit to get this in the database ASAP.
-            _db.commit()
-        return secret.value
-    
-    @classmethod
-    def from_config(cls, library_id, integration):
-        """Load this OAuthAuthenticationProvider from an ExternalIntegration.
-        """
-        client_id = integration.username
-        client_secret = integration.password
-        token_expiration_days = integration.setting(
-            cls.OAUTH_TOKEN_EXPIRATION_DAYS
-        ).int_value or cls.DEFAULT_TOKEN_EXPIRATION_DAYS
-        return cls(library_id, client_id, client_secret, token_expiration_days)
-    
-    def __init__(self, library_id, client_id, client_secret, token_expiration_days):
+        
+    def __init__(self, library, integration):
         """Initialize this OAuthAuthenticationProvider.
 
         :param library: Patrons authenticated through this provider
-            are associated with the given Library.
+            are associated with this Library. Don't store this object!
+            It's associated with a scoped database session. Just pull
+            normal Python objects out of it.
+        :param externalintegration: The ExternalIntegration that
+            configures this AuthenticationProvider. Don't store this
+            object! It's associated with a scoped database session. Just
+            pull normal Python objects out of it.
         :param client_id: An ID given to us by the OAuth provider, used
             to distinguish between us and its other clients.
         :param client_secret: A secret key given to us by the OAuth 
@@ -1221,11 +1271,14 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             we ask the patron to go through the OAuth validation
             process again.
         """
-        super(OAuthAuthenticationProvider, self).__init__(library_id)
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.token_expiration_days = token_expiration_days
-        self.log = logging.getLogger(self.NAME)
+        super(OAuthAuthenticationProvider, self).__init__(
+            library, integration
+        )
+        self.client_id = integration.username
+        self.client_secret = integration.password
+        self.token_expiration_days = integration.setting(
+            self.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).int_value or self.DEFAULT_TOKEN_EXPIRATION_DAYS
         
     def authenticated_patron(self, _db, token):
         """Go from an OAuth provider token to an authenticated Patron.
