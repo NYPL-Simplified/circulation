@@ -52,7 +52,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         integration.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value = json.dumps(verify_certificate)
         if auth_mode:
             integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
-        return MockAPI(self._default_library.id, integration)
+        return MockAPI(self._default_library, integration)
     
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()

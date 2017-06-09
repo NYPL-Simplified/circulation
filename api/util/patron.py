@@ -65,7 +65,7 @@ class PatronUtility(object):
             raise AuthorizationExpired()
 
         if patron.fines:
-            max_fines = Configuration.max_outstanding_fines()
+            max_fines = Configuration.max_outstanding_fines(patron.library)
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 

@@ -15,6 +15,7 @@ from api.problem_details import *
 from core.model import (
     Credential,
     DataSource,
+    ExternalIntegration,
     Patron,
     get_one,
     get_one_or_create,
@@ -44,15 +45,29 @@ class MockAPI(CleverAuthenticationAPI):
 
 class TestCleverAuthenticationAPI(DatabaseTest):
 
+    
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
-        self.api = MockAPI(
-            self._default_library.id, 'fake_client_id', 'fake_client_secret', 2
-        )
+        
+        self.api = MockAPI(self._default_library, self.mock_integration)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
         self.app = app
+        
+    @property
+    def mock_integration(self):
+        """Make a fake ExternalIntegration that can be used to configure
+        a CleverAuthenticationAPI.
+        """
+        integration = self._external_integration(
+            protocol="OAuth",
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+            username="fake_client_id",
+            password="fake_client_secret"
+        )
+        integration.setting(MockAPI.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
+        return integration
         
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
@@ -186,11 +201,11 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # We're about to call url_for, so we must create an
         # application context.
         my_api = CleverAuthenticationAPI(
-            self._default_library.id, "key", "secret", 2
+            self._default_library, self.mock_integration
         )
         with self.app.test_request_context("/"):
             flask.request.library = self._default_library
             params = my_api.external_authenticate_url("state", self._db)
             expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
-            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=%s&state=state' % expected_redirect_uri, params)
+            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state' % expected_redirect_uri, params)
 

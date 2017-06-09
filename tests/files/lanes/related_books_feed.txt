@@ -1,0 +1,94 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://cdn/works/Gutenberg/Gutenberg%20ID/2001/related_books</id>
+  <title>Related Books</title>
+  <updated>2016-06-16T16:47:16Z</updated>
+  <link href="http://cdn/works/Gutenberg/Gutenberg%20ID/2001/related_books" rel="self"/>
+  <entry schema:additionalType="http://schema.org/Book">
+    <id>http://www.gutenberg.org/ebooks/2005</id>
+    <title>Totally American</title>
+    <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
+    <author>
+      <name>Uncle Sam</name>
+    </author>
+    <updated>2016-06-16T16:47:16Z</updated>
+    <simplified:pwid>0c1e9ccf-4c04-0c83-dd7d-ce90b8c22669</simplified:pwid>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Nonfiction" scheme="http://librarysimplifieg/terms/fiction/" label="Nonfiction"/>
+    <dcterms:language>en</dcterms:language>
+    <published>2016-06-16T16:47:16Z</published>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2005" type="application/atom+xml;type=entry;profile=opdtalog" rel="alternate"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2005/report" rel="issues"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2005/borrow" rel="http://opds-spec.org/acquisition/borrtype="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://foo.com/2006" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip">
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2005/related_bookspe="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Related Books"/>
+    <link thr:count="1" href="/works/Gutenberg/Gutenberg%20ID/2001/recommendations" rel="collection" title="Recommendeoks"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/Book">
+    <id>http://www.gutenberg.org/ebooks/2001</id>
+    <title>Quite British</title>
+    <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
+    <author>
+      <name>John Bull</name>
+    </author>
+    <updated>2016-06-16T16:47:16Z</updated>
+    <simplified:pwid>b36bbd5e-a7a5-814e-6c2e-4247acac2a2f</simplified:pwid>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimpliforg/terms/fiction/" label="Fiction"/>
+    <dcterms:language>en</dcterms:language>
+    <published>2016-06-16T16:47:15Z</published>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2001" type="application/atom+xml;type=entry;profile=ocatalog" rel="alternate"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2001/report" rel="issues"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2001/borrow" rel="http://opds-spec.org/acquisition/bo" type="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://foo.com/2002" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip">
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2001/related_bootype="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Related Books"/>
+    <link thr:count="2" href="/works/Gutenberg/Gutenberg%20ID/2001/series" rel="collection" title="Around the World"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/Book">
+    <id>http://www.gutenberg.org/ebooks/2009</id>
+    <title>Tr&#232;s Fran&#231;ais</title>
+    <bibframe:distribution bibframe:ProviderName="Gutenberg"/>
+    <author>
+      <name>Marianne</name>
+    </author>
+    <updated>2016-06-16T16:47:16Z</updated>
+    <simplified:pwid>0cdf6fca-26c4-ec83-85fe-847ed01c79f5</simplified:pwid>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Nonfiction" scheme="http://librarysimplorg/terms/fictiolabel="Nonfiction"/>
+    <dcterms:language>fr</dcterms:language>
+    <published>2016-06-16T16:47:16Z</published>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/type="application/atom+xml;type=entry;profile=ocatalog" rel="alternate"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2009/report" rel="issues"/>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2009/borrow" rel="http://opdsorg/acquisition/borrtype="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://foo.com/2010" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip">
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://localhost/works/Gutenberg/Gutenberg%20ID/2009/related_btype="application/atom+xml;profile=ocatalog;kind=acquisition" rel="related" title="Related Books"/>
+    <link thr:count="2" href="/works/Gutenberg/Gutenberg%20ID/2001/series" rel="collection" title="Around the World"/>
+  </entry>
+  <link href="http://localhost/groups/" rel="start" title="All Books"/>
+  <link href="http://localhost/groups/" rel="up" title="All Books"/>
+  <simplified:breadcrumbs>
+    <link href="http://localhost/groups/" title="All Books"/>
+  </simplified:breadcrumbs>
+  <link href="http://localhost/me" type="application/json" rel="http://librarysimplified.org/terms/rel/account"/>
+  <link href="http://localhost/search//Books%20Related%20to%20Quite%20British%20by%20John%20t"application/opensearchdescription+xml" rel="search"/>
+  <link href="http://localhost/preload" type="application/atom+xml;profile=opds-catalog;kind=acquisitirel://librarysimplified.org/terms/rel/preload"/>
+  <link href="http://localhost/loans/" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel://opds-sorg/shelf"/>
+  <link href="http://www.librarysimplified.org/NYPLEULA" type="text/html" rel="terms-of-service"/>
+  <link href="http://www.librarysimplified.org/nyplprivacypolicy.html" type="text/html" rel="privacy-policy"/>
+  <link href="http://www.librarysimplified.org/acknowledgments.html" type="text/html" rel="copyright"/>
+</feed>
+

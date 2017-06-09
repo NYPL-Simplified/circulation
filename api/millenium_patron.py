@@ -64,8 +64,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
     ]
     
-    def __init__(self, library_id, integration):
-        super(MilleniumPatronAPI, self).__init__(library_id, integration)
+    def __init__(self, library, integration):
+        super(MilleniumPatronAPI, self).__init__(library, integration)
         url = integration.url
         if not url:
             raise CannotLoadConfiguration(

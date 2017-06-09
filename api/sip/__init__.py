@@ -31,7 +31,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
     }
 
-    def __init__(self, library_id, integration, client=None, connect=True):
+    def __init__(self, library, integration, client=None, connect=True):
         """An object capable of communicating with a SIP server.
 
         :param server: Hostname of the SIP server.
@@ -66,7 +66,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         during testing.
         """
         super(SIP2AuthenticationProvider, self).__init__(
-            library_id, integration
+            library, integration
         )
         try:
             server = None

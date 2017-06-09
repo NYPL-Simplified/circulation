@@ -17,6 +17,7 @@ from api.circulation import (
     CirculationAPI,
 )
 from api.circulation_exceptions import *
+from api.config import Configuration
 
 from . import (
     DatabaseTest,
@@ -25,6 +26,7 @@ from . import (
 
 from core.model import (
     Collection,
+    ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
@@ -79,10 +81,11 @@ class TestOverdriveAPI(OverdriveAPITest):
         patron = self._patron()
         # If the patron has used a particular email address to put
         # books on hold, use that email address, not the site default.
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            eq_("foo@bar.com", 
-                self.api.default_notification_email_address(patron, 'pin'))
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            self._default_library).value = "notifications@example.com"
+        eq_("foo@bar.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
         # hold, their JSON object has no `lastHoldEmail` key. In this
@@ -90,16 +93,14 @@ class TestOverdriveAPI(OverdriveAPITest):
         patron_with_no_email = dict(patron_with_email)
         del patron_with_no_email['lastHoldEmail']
         self.api.queue_response(200, content=patron_with_no_email)
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            eq_("notifications@example.com", 
-                self.api.default_notification_email_address(patron, 'pin'))
+        eq_("notifications@example.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
-            # If there's an error getting the information, use the
-            # site default.
-            self.api.queue_response(404)
-            eq_("notifications@example.com", 
-                self.api.default_notification_email_address(patron, 'pin'))
+        # If there's an error getting the information, use the
+        # site default.
+        self.api.queue_response(404)
+        eq_("notifications@example.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
     def test_place_hold_raises_exception_if_patron_over_hold_limit(self):
         over_hold_limit = self.error_message(

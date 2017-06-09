@@ -47,7 +47,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
 
-        provider = p(self._default_library.id, integration, connect=False)
+        provider = p(self._default_library, integration, connect=False)
 
         # A SIPClient was initialized based on the integration values.
         client = provider.client
@@ -61,14 +61,14 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
-        provider = p(self._default_library.id, integration, connect=False)
+        provider = p(self._default_library, integration, connect=False)
         eq_(1234, provider.client.target_port)
         
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
         client = MockSIPClient()
         auth = SIP2AuthenticationProvider(
-            self._default_library.id, integration, client=client
+            self._default_library, integration, client=client
         )
 
         # Some examples taken from a Sierra SIP API.
@@ -183,7 +183,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             RemoteIntegrationException,
             "Error accessing unknown server: Doom!",
             SIP2AuthenticationProvider,
-            self._default_library.id, integration, client=CannotConnect
+            self._default_library, integration, client=CannotConnect
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -197,7 +197,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         integration = self._external_integration(self._str)
         provider = SIP2AuthenticationProvider(
-            self._default_library.id, integration, client=client
+            self._default_library, integration, client=client
         )
         provider.client.target_server = 'server.local'
         assert_raises_regexp(

@@ -14,6 +14,7 @@ from core.model import (
     CirculationEvent,
     Collection,
     CollectionMissing,
+    ConfigurationSetting,
     ExternalIntegration,
     Identifier,
     DataSource,
@@ -282,7 +283,7 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            max_fines = Configuration.max_outstanding_fines()
+            max_fines = Configuration.max_outstanding_fines(patron.library)
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 
@@ -848,8 +849,9 @@ class BaseCirculationAPI(object):
         """What email address should be used to notify this patron
         of changes?
         """
-        return Configuration.default_notification_email_address()
-
+        return ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
+        ).value
 
     def checkin(self, patron, pin, licensepool):
         """  Return a book early.  

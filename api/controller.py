@@ -84,7 +84,6 @@ from circulation_exceptions import *
 from opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
-    PreloadFeed,
 )
 from annotations import (
   AnnotationWriter,
@@ -142,14 +141,16 @@ class CirculationManager(object):
                 sys.exit()
         self._db = _db
         self.testing = testing
+        library = Library.instance(self._db)
+        self.library_id = library.id
         if isinstance(lanes, LaneList):
             lanes = lanes
         else:
-            lanes = make_lanes(_db, lanes)
+            lanes = make_lanes(library, lanes)
         self.top_level_lane = self.create_top_level_lane(lanes)
 
         self.auth = Authenticator(self._db)
-        self.setup_circulation(Library.instance(self._db))
+        self.setup_circulation(library)
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -160,6 +161,10 @@ class CirculationManager(object):
 
         self.opds_authentication_documents = {}
 
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+    
     @property
     def external_search(self):
         """Retrieve or create a connection to the search interface.
@@ -174,7 +179,7 @@ class CirculationManager(object):
     def create_top_level_lane(self, lanelist):
         name = 'All Books'
         return Lane(
-            self._db, name,
+            self.library, name,
             display_name=name,
             parent=None,
             sublanes=lanelist.lanes,
@@ -505,16 +510,6 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'], 
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
-        )
-        return feed_response(opds_feed)
-
-    def preload(self):
-        this_url = url_for("preload", library_short_name=flask.request.library.short_name, _external=True)
-
-        annotator = self.manager.annotator(None)
-        opds_feed = PreloadFeed.page(
-            self._db, "Content to Preload", this_url,
-            annotator=annotator,
         )
         return feed_response(opds_feed)
 
@@ -992,7 +987,7 @@ class WorkController(CirculationManagerController):
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            self._db, contributor_name, languages=languages, audiences=audiences
+            self.manager.library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1049,7 +1044,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                self._db, work, lane_name, novelist_api=novelist_api
+                self.manager.library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1084,7 +1079,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self._db, work, lane_name, novelist_api=novelist_api
+                self.manager.library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1141,7 +1136,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(self._db, series_name=series_name,
+        lane = SeriesLane(self.manager.library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)

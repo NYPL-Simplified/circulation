@@ -431,14 +431,6 @@ class CirculationManagerAnnotator(Annotator):
         )
         feed.add_link_to_feed(feed.feed, **search_link)
 
-        # Add preload link
-        preload_url = dict(
-            rel='http://librarysimplified.org/terms/rel/preload',
-            type='application/atom+xml;profile=opds-catalog;kind=acquisition',
-            href=self.url_for('preload', library_short_name=self.library.short_name, _external=True),
-        )
-        feed.add_link_to_feed(feed.feed, **preload_url)
-
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",
             type=OPDSFeed.ACQUISITION_FEED_TYPE,
@@ -456,7 +448,7 @@ class CirculationManagerAnnotator(Annotator):
     def add_configuration_links(self, feed):
         _db = Session.object_session(self.library)
         for rel in self.CONFIGURATION_LINKS:
-            setting = ConfigurationSetting.for_library(_db, rel, self.library)
+            setting = ConfigurationSetting.for_library(rel, self.library)
             if setting.value:
                 d = dict(href=setting.value, type="text/html", rel=rel)
                 if isinstance(feed, OPDSFeed):
@@ -929,39 +921,3 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             tags.append(self.user_profile_management_protocol_link)
             for tag in tags:
                 feed.feed.append(tag)
-
-class PreloadFeed(AcquisitionFeed):
-
-    @classmethod
-    def page(cls, _db, title, url, annotator=None,
-             use_materialized_works=True):
-
-        """Create a feed of content to preload on devices."""
-        configured_content = Configuration.policy(Configuration.PRELOADED_CONTENT)
-
-        identifiers = [Identifier.parse_urn(_db, urn)[0] for urn in configured_content]
-        identifier_ids = [identifier.id for identifier in identifiers]
-
-        if use_materialized_works:
-            from core.model import MaterializedWork
-            q = _db.query(MaterializedWork)
-            q = q.filter(MaterializedWork.primary_identifier_id.in_(identifier_ids))
-
-            # Avoid eager loading of objects that are contained in the 
-            # materialized view.
-            q = q.options(
-                lazyload(MaterializedWork.license_pool, LicensePool.data_source),
-                lazyload(MaterializedWork.license_pool, LicensePool.identifier),
-                lazyload(MaterializedWork.license_pool, LicensePool.presentation_edition),
-            )
-        else:
-            q = _db.query(Work).join(Work.presentation_edition)
-            q = q.filter(Edition.primary_identifier_id.in_(identifier_ids))
-
-        works = q.all()
-        feed = cls(_db, title, url, works, annotator)
-
-        annotator.annotate_feed(feed, None)
-        content = unicode(feed)
-        return content
-        
