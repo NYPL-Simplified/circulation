@@ -132,24 +132,21 @@ class Facets(FacetConstants):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = library.enabled_facets(
+            order_facets = self.library.enabled_facets(
                 Facets.ORDER_FACET_GROUP_NAME
             )
             yield order_facets
 
-            availability_facets = library.enabled_facets(
+            availability_facets = self.library.enabled_facets(
                 Facets.AVAILABILITY_FACET_GROUP_NAME
             )
             yield availability_facets
 
-            collection_facets = library.enabled_facets(
+            collection_facets = self.library.enabled_facets(
                 Facets.COLLECTION_FACET_GROUP_NAME
             )
             yield collection_facets
 
-    def enabled_facets(self, key):
-        return self.library.setting(key).json_value
-            
     @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
@@ -1271,8 +1268,7 @@ class Lane(object):
         )
         
         # If we don't allow holds, hide any books with no available copies.
-        allow_holds = self.library.setting(Configuration.ALLOW_HOLDS).bool_value
-        if allow_holds:
+        if not self.library.allow_holds:
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
@@ -1440,8 +1436,10 @@ class Lane(object):
                 (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL),
                 (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
         ):
-            facets = Facets(collection=collection, availability=availability,
-                            order=Facets.ORDER_RANDOM)
+            facets = Facets(
+                self.library, collection=collection, availability=availability,
+                order=Facets.ORDER_RANDOM
+            )
             if use_materialized_works:
                 query = self.materialized_works(facets=facets)
             else:

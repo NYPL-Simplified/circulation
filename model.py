@@ -8795,23 +8795,39 @@ class Library(Base):
     @property
     def allow_holds(self):
         """Does this library allow patrons to put items on hold?"""
-        return self.setting(self.ALLOW_HOLDS).bool_value
+        value = self.setting(self.ALLOW_HOLDS).bool_value
+        if value is None:
+            # If the library has not set a value for this setting,
+            # holds are allowed.
+            value = True
+        return value
     
     def enabled_facets(self, group_name):
         """Look up the enabled facets for a given facet group."""
-        key = self.ENABLED_FACETS_KEY_PREFIX + group_name
-        value = library.setting(key).json_value
+        setting = self.enabled_facets_setting(group_name)
+        try:
+            value = setting.json_value
+        except ValueError, e:
+            logging.error("Invalid list of enabled facets for %s: %s",
+                          group_name, setting.value)
         if value is None:
             value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
         return value
 
+    def enabled_facets_setting(self, group_name):
+        key = self.ENABLED_FACETS_KEY_PREFIX + group_name
+        return self.setting(key)
+    
     def default_facet(self, group_name):
         """Look up the default facet for a given facet group."""
-        key = self.DEFAULT_FACET_KEY_PREFIX + group_name
-        value = self.setting(key).value
+        value = self.default_facet_setting(group_name).value
         if not value:
             value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name)
         return value
+
+    def default_facet_setting(self, group_name):
+        key = self.DEFAULT_FACET_KEY_PREFIX + group_name
+        return self.setting(key)
     
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
