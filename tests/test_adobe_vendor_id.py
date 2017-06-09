@@ -66,7 +66,7 @@ class TestVendorIDModel(VendorIDTest):
         integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
         integration.setting(provider.TEST_PASSWORD).value = "password"
         self.authenticator = SimpleAuthenticationProvider(
-            self._default_library.id, integration
+            self._default_library, integration
         )
         
         self.model = AdobeVendorIDModel(self._db, self.authenticator,

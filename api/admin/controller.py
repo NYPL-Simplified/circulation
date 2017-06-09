@@ -977,7 +977,7 @@ class SettingsController(CirculationManagerController):
 
         for setting in settings:
             value = flask.request.form.get(setting['key'], None)
-            ConfigurationSetting.for_library(self._db, setting['key'], library).value = value
+            ConfigurationSetting.for_library(setting['key'], library).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)

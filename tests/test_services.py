@@ -20,6 +20,7 @@ from api.simple_authentication import (
 )
 
 from core.model import (
+    ConfigurationSetting,
     DataSource,
     ExternalIntegration,
     Library,
@@ -70,7 +71,7 @@ class TestServiceStatusMonitor(DatabaseTest):
         provider = SimpleAuthenticationProvider
         integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
         integration.setting(provider.TEST_PASSWORD).value = "password"
-        self.authenticator = provider(library.id, integration)
+        self.authenticator = provider(library, integration)
         return LibraryAuthenticator(self._db, library, self.authenticator)
 
     def test_test_patron(self):
@@ -178,7 +179,8 @@ class TestServiceStatusMonitor(DatabaseTest):
         edition, lp = self._edition(
             with_license_pool=True, collection=overdrive_collection
         )
-        self._default_library.collections.append(overdrive_collection)
+        library = self._default_library
+        library.collections.append(overdrive_collection)
 
         # Test a scenario where we get information for every
         # relevant collection in the library.
@@ -204,12 +206,11 @@ class TestServiceStatusMonitor(DatabaseTest):
         everything_succeeds = {ExternalIntegration.OVERDRIVE : CheckoutSuccess}
 
         auth = self.mock_auth
-        status = ServiceStatus(
-            self._default_library, auth=auth, api_map=everything_succeeds
-        )
-        with temp_config() as config:
-            config[Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS] = "a@b"
-            response = status.checkout_status(lp.identifier)
+        status = ServiceStatus(library, auth=auth, api_map=everything_succeeds)
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
+        ).value = "a@b"
+        response = status.checkout_status(lp.identifier)
 
         # The ServiceStatus object was able to run its test.
         for value in response.values():
@@ -230,12 +231,8 @@ class TestServiceStatusMonitor(DatabaseTest):
                 "Oops! We put the book on hold instead of borrowing it."
                 return None, object(), True
         no_loan_created = {ExternalIntegration.OVERDRIVE : NoLoanCreated}
-        status = ServiceStatus(
-            self._default_library, auth=auth, api_map=no_loan_created
-        )            
-        with temp_config() as config:
-            config[Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS] = "a@b"
-            response = status.checkout_status(lp.identifier)
+        status = ServiceStatus(library, auth=auth, api_map=no_loan_created)
+        response = status.checkout_status(lp.identifier)
         assert 'FAILURE: No loan created during checkout' in response.values()
 
         # Next: The 'revoke' operation fails on an API level.
@@ -244,12 +241,8 @@ class TestServiceStatusMonitor(DatabaseTest):
                 "Simulate an error during loan revocation."
                 raise Exception("Doomed to fail!")
         revoke_fail = {ExternalIntegration.OVERDRIVE : RevokeFail}
-        status = ServiceStatus(
-            self._default_library, auth=auth, api_map=revoke_fail
-        )            
-        with temp_config() as config:
-            config[Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS] = "a@b"
-            response = status.checkout_status(lp.identifier)
+        status = ServiceStatus(library, auth=auth, api_map=revoke_fail)
+        response = status.checkout_status(lp.identifier)
         assert 'FAILURE: Doomed to fail!' in response.values()
 
         # But at least we got through the borrow and fulfill steps.

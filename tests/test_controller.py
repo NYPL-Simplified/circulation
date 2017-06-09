@@ -502,10 +502,10 @@ class TestBaseController(CirculationControllerTest):
                 }
             )
 
-            patron._external_type = '10'
+            patron.external_type = '10'
             eq_(None, self.controller.apply_borrowing_policy(patron, pool))
 
-            patron._external_type = '152'
+            patron.external_type = '152'
             problem = self.controller.apply_borrowing_policy(patron, pool)
             eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
@@ -538,12 +538,12 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
+        self.default_patron.external_type = "1"
         with temp_config() as config:
-            # Patrons whose authorization identifiers start with 'unittest'
-            # get sent to the Adult Fiction lane.
+            # Patrons of external type '1' get sent to the Adult
+            # Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "unittest": ["eng", "Adult Fiction"]},
-                Configuration.EXTERNAL_TYPE_REGULAR_EXPRESSION : "^(unittest)",
+                Configuration.ROOT_LANE_POLICY : { "1": ["eng", "Adult Fiction"]},
             }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -557,7 +557,7 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/eng/Adult%20Fiction", response.headers['location'])
 
             # Now those patrons get sent to the top-level lane.
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "unittest": None }
+            config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
@@ -1043,48 +1043,41 @@ class TestLoanController(CirculationControllerTest):
         )
         pool.open_access = False
 
-        with self.temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
-            }
+        ConfigurationSetting.for_library(
+            Configuration.MAX_OUTSTANDING_FINES, self._default_library).value = "$0.50"
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
 
-            with self.request_context_with_library(
-                    "/", headers=dict(Authorization=self.valid_auth)):
-
-                # The patron's credentials are valid, but they have a lot
-                # of fines.
-                patron = self.manager.loans.authenticated_patron_from_request()
-                patron.fines = Decimal("12345678.90")
-                response = self.manager.loans.borrow(
-                    pool.identifier.type, pool.identifier.identifier)
+            # The patron's credentials are valid, but they have a lot
+            # of fines.
+            patron = self.manager.loans.authenticated_patron_from_request()
+            patron.fines = Decimal("12345678.90")
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
                 
-                eq_(403, response.status_code)
-                eq_(OUTSTANDING_FINES.uri, response.uri)
-                assert "$12345678.90 outstanding" in response.detail
+            eq_(403, response.status_code)
+            eq_(OUTSTANDING_FINES.uri, response.uri)
+            assert "$12345678.90 outstanding" in response.detail
 
         # Reduce the patron's fines, and there's no problem.
-        with self.temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MAX_OUTSTANDING_FINES : "$0.50"
-            }
-            with self.request_context_with_library(
-                    "/", headers=dict(Authorization=self.valid_auth)):
-                patron = self.manager.loans.authenticated_patron_from_request()
-                patron.fines = Decimal("0.49")
-                self.manager.circulation.queue_checkout(
-                    pool,
-                    LoanInfo(
-                        pool.collection, pool.data_source.name,
-                        pool.identifier.type,
-                        pool.identifier.identifier,
-                        datetime.datetime.utcnow(),
-                        datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
-                    )
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            patron = self.manager.loans.authenticated_patron_from_request()
+            patron.fines = Decimal("0.49")
+            self.manager.circulation.queue_checkout(
+                pool,
+                LoanInfo(
+                    pool.collection, pool.data_source.name,
+                    pool.identifier.type,
+                    pool.identifier.identifier,
+                    datetime.datetime.utcnow(),
+                    datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
-                response = self.manager.loans.borrow(
-                    pool.identifier.type, pool.identifier.identifier)
+            )
+            response = self.manager.loans.borrow(
+                pool.identifier.type, pool.identifier.identifier)
                 
-                eq_(201, response.status_code)
+            eq_(201, response.status_code)
 
     def test_3m_cant_revoke_hold_if_reserved(self):
          threem_edition, pool = self._edition(
@@ -1952,7 +1945,7 @@ class TestFeedController(CirculationControllerTest):
                            (CirculationManagerAnnotator.COPYRIGHT, "c"),
                            (CirculationManagerAnnotator.ABOUT, "d"),
                            ]:
-            ConfigurationSetting.for_library(self._db, rel, self._default_library).value = value
+            ConfigurationSetting.for_library(rel, self._default_library).value = value
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
@@ -2019,9 +2012,10 @@ class TestFeedController(CirculationControllerTest):
             )            
 
     def test_groups(self):
+        ConfigurationSetting.sitewide(
+            self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
         with temp_config() as config:
             config[Configuration.POLICIES] = {
-                Configuration.GROUPS_MAX_AGE_POLICY : 10,
                 Configuration.MINIMUM_FEATURED_QUALITY: 0,
                 Configuration.FEATURED_LANE_SIZE: 2,
             }
@@ -2076,21 +2070,6 @@ class TestFeedController(CirculationControllerTest):
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
 
-    def test_preload(self):
-        SessionManager.refresh_materialized_views(self._db)
-
-        with temp_config() as config:
-            urn = self.english_2.presentation_edition.primary_identifier.urn
-            config[Configuration.POLICIES] = {
-                Configuration.PRELOADED_CONTENT : [urn]
-            }
-
-            with self.request_context_with_library("/"):
-                response = self.manager.opds_feeds.preload()
-
-                assert self.english_1.title not in response.data
-                assert self.english_2.title in response.data
-                assert self.french_1.author not in response.data
 
 class TestAnalyticsController(CirculationControllerTest):
     def setup(self):

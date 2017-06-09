@@ -18,9 +18,9 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     """
     NAME = "Simple Authentication Provider"
 
-    def __init__(self, library_id, integration):
+    def __init__(self, library, integration):
         super(SimpleAuthenticationProvider, self).__init__(
-            library_id, integration,
+            library, integration,
         )
         self.test_identifier = integration.setting(self.TEST_IDENTIFIER).value
         self.test_password = integration.setting(self.TEST_PASSWORD).value
