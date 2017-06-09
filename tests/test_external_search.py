@@ -531,8 +531,8 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on media
 
-        book_lane = Lane(self._db, "Books", media=Edition.BOOK_MEDIUM)
-        audio_lane = Lane(self._db, "Audio", media=Edition.AUDIO_MEDIUM)
+        book_lane = Lane(self._default_library, "Books", media=Edition.BOOK_MEDIUM)
+        audio_lane = Lane(self._default_library, "Audio", media=Edition.AUDIO_MEDIUM)
 
         results = self.search.query_works("pride and prejudice", book_lane.media, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -547,9 +547,9 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on languages
 
-        english_lane = Lane(self._db, "English", languages="en")
-        spanish_lane = Lane(self._db, "Spanish", languages="es")
-        both_lane = Lane(self._db, "Both", languages=["en", "es"])
+        english_lane = Lane(self._default_library, "English", languages="en")
+        spanish_lane = Lane(self._default_library, "Spanish", languages="es")
+        both_lane = Lane(self._default_library, "Both", languages=["en", "es"])
 
         results = self.search.query_works("sherlock", None, english_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -568,9 +568,9 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on exclude languages
 
-        no_english_lane = Lane(self._db, "English", exclude_languages="en")
-        no_spanish_lane = Lane(self._db, "Spanish", exclude_languages="es")
-        neither_lane = Lane(self._db, "Both", exclude_languages=["en", "es"])
+        no_english_lane = Lane(self._default_library, "English", exclude_languages="en")
+        no_spanish_lane = Lane(self._default_library, "Spanish", exclude_languages="es")
+        neither_lane = Lane(self._default_library, "Both", exclude_languages=["en", "es"])
 
         results = self.search.query_works("sherlock", None, None, no_english_lane.exclude_languages, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -589,9 +589,9 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on fiction
 
-        fiction_lane = Lane(self._db, "fiction", fiction=True)
-        nonfiction_lane = Lane(self._db, "nonfiction", fiction=False)
-        both_lane = Lane(self._db, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        fiction_lane = Lane(self._default_library, "fiction", fiction=True)
+        nonfiction_lane = Lane(self._default_library, "nonfiction", fiction=False)
+        both_lane = Lane(self._default_library, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
         results = self.search.query_works("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
@@ -610,10 +610,10 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on audience
 
-        adult_lane = Lane(self._db, "Adult", audiences=Classifier.AUDIENCE_ADULT)
-        ya_lane = Lane(self._db, "YA", audiences=Classifier.AUDIENCE_YOUNG_ADULT)
-        children_lane = Lane(self._db, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
-        ya_and_children_lane = Lane(self._db, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
+        adult_lane = Lane(self._default_library, "Adult", audiences=Classifier.AUDIENCE_ADULT)
+        ya_lane = Lane(self._default_library, "YA", audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        children_lane = Lane(self._default_library, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
+        ya_and_children_lane = Lane(self._default_library, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
 
         results = self.search.query_works("alice", None, None, None, None, adult_lane.audiences, None, None)
         hits = results["hits"]["hits"]
@@ -640,10 +640,10 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on age range
 
-        age_8_lane = Lane(self._db, "Age 8", age_range=[8, 8])
-        age_5_8_lane = Lane(self._db, "Age 5-8", age_range=[5, 8])
-        age_5_10_lane = Lane(self._db, "Age 5-10", age_range=[5, 10])
-        age_8_10_lane = Lane(self._db, "Age 8-10", age_range=[8, 10])
+        age_8_lane = Lane(self._default_library, "Age 8", age_range=[8, 8])
+        age_5_8_lane = Lane(self._default_library, "Age 5-8", age_range=[5, 8])
+        age_5_10_lane = Lane(self._default_library, "Age 5-10", age_range=[5, 10])
+        age_8_10_lane = Lane(self._default_library, "Age 8-10", age_range=[8, 10])
 
         results = self.search.query_works("president", None, None, None, None, None, age_8_lane.age_range, None)
         hits = results["hits"]["hits"]
@@ -686,9 +686,9 @@ class TestExternalSearch(ExternalSearchTest):
 
         # Filters on genre
 
-        biography_lane = Lane(self._db, "Biography", genres=["Biography & Memoir"])
-        fantasy_lane = Lane(self._db, "Fantasy", genres=["Fantasy"])
-        both_lane = Lane(self._db, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        biography_lane = Lane(self._default_library, "Biography", genres=["Biography & Memoir"])
+        fantasy_lane = Lane(self._default_library, "Fantasy", genres=["Fantasy"])
+        both_lane = Lane(self._default_library, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
         results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
@@ -865,7 +865,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         search = DummyExternalSearchIndex()
 
         lane = Lane(
-            self._db, "For Ages 5-10", 
+            self._default_library, "For Ages 5-10", 
             age_range=[5,10]
         )
         filter = search.make_filter(
@@ -885,7 +885,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         search = DummyExternalSearchIndex()
 
         lane = Lane(
-            self._db, "english or spanish", 
+            self._default_library, "english or spanish", 
             languages=set(['eng', 'spa']),
         )
         filter = search.make_filter(
@@ -904,7 +904,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         search = DummyExternalSearchIndex()
 
         lane = Lane(
-            self._db, "Not english or spanish", 
+            self._default_library, "Not english or spanish", 
             exclude_languages=set(['eng', 'spa']),
         )
         filter = search.make_filter(

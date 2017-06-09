@@ -892,6 +892,8 @@ class Lane(object):
     @classmethod
     def from_description(cls, library, parent, description):
         genre = None
+        if not isinstance(library, Library):
+            raise ValueError("Expected library, got %r" % library)
         _db = Session.object_session(library)
         if isinstance(description, Lane):
             # The lane has already been created.
