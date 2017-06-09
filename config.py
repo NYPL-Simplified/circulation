@@ -55,10 +55,14 @@ class Configuration(object):
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
+    # TODO: These policies should be converted to per-library
+    # ConfigurationSettings. Since they affect how feeds are
+    # generated, this can only happen once lane configuration happens
+    # in the database.
     HOLD_POLICY = "holds"
     HOLD_POLICY_ALLOW = "allow"
     HOLD_POLICY_HIDE = "hide"
-
+    
     LANES_POLICY = "lanes"
 
     # Facet policies
@@ -86,17 +90,6 @@ class Configuration(object):
 
     # Lane policies
     DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
-    CACHE_FOREVER = 'forever'
-
-    PAGE_MAX_AGE_POLICY = "default_page_max_age" 
-    DEFAULT_PAGE_MAX_AGE = 1200
-
-    GROUPS_MAX_AGE_POLICY = "default_groups_max_age" 
-    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
-
-    # Loan policies
-    DEFAULT_LOAN_PERIOD = "default_loan_period"
-    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
 
     ANALYTICS_POLICY = "analytics"
 
@@ -201,6 +194,9 @@ class Configuration(object):
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
+    # TODO: This needs to be turned into a per-Library
+    # ConfigurationSetting, but it's not practical to do so until lane
+    # configuration is moved into the database.
     @classmethod
     def hold_policy(cls):
         return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
@@ -222,24 +218,6 @@ class Configuration(object):
         return policy[cls.DEFAULT_FACET_KEY][group_name]
 
     @classmethod
-    def page_max_age(cls):
-        value = cls.policy(
-            cls.PAGE_MAX_AGE_POLICY, cls.DEFAULT_PAGE_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
-
-    @classmethod
-    def groups_max_age(cls):
-        value = cls.policy(
-            cls.GROUPS_MAX_AGE_POLICY, cls.DEFAULT_GROUPS_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
-
-    @classmethod
     def base_opds_authentication_document(cls):
         return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
 
@@ -248,14 +226,20 @@ class Configuration(object):
         default_logging = {}
         return cls.get(cls.LOGGING, default_logging)
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def minimum_featured_quality(cls):
         return float(cls.policy(cls.MINIMUM_FEATURED_QUALITY, 0.65))
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def featured_lane_size(cls):
         return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
 
+    # TODO: Needs to be a per-library ConfigurationSetting once
+    # lanes are configured in database.
     @classmethod
     def show_staff_picks_on_top_level(cls):
         return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)

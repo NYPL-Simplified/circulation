@@ -36,8 +36,11 @@ from model import (
     DeliveryMechanism,
     Edition,
     Genre,
+    get_one,
+    Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    Session,
     Work,
     WorkGenre,
 )
@@ -422,6 +425,10 @@ class Lane(object):
     MINIMUM_SAMPLE_SIZE = None
 
     @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+    
+    @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.
 
@@ -496,7 +503,7 @@ class Lane(object):
             lane.debug(level+1)
 
     def __init__(self, 
-                 _db, 
+                 library,
                  full_name,
                  display_name=None,
 
@@ -531,15 +538,21 @@ class Lane(object):
                  searchable=False,
                  invisible=False,
                  ):
+        if not isinstance(library, Library):
+            raise ValueError("Expected Library in Lane constructor, got %r" % library)
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
-        self._db = _db
+        self._db = Session.object_session(library)
+        self.library_id = library.id
+        self.collection_ids = [
+            collection.id for collection in library.collections
+        ]
         self.default_for_language = False
         self.searchable = searchable
         self.invisible = invisible
         self.license_source = license_source
-
+        
         self.log = logging.getLogger("Lane %s" % self.name)
 
         # This controls which feeds to display when showing this lane
@@ -595,7 +608,7 @@ class Lane(object):
 
         # Best-seller and staff pick lanes go at the top.
         base_args = dict(
-            _db=self._db, parent=self, include_all=False, genres=genres,
+            library=self.library, parent=self, include_all=False, genres=genres,
             exclude_genres=exclude_genres, fiction=fiction, 
             audiences=audiences, age_range=age_range,
             appeals=appeals, languages=languages, 
@@ -766,7 +779,7 @@ class Lane(object):
                     if subgenre in full_exclude_genres:
                         continue
                     sublane = Lane(
-                            self._db, full_name=subgenre.name,
+                            self.library, full_name=subgenre.name,
                             parent=self, genres=[subgenre],
                             subgenre_behavior=self.IN_SUBLANES
                     )
@@ -784,10 +797,10 @@ class Lane(object):
                 self.sublanes.add(sl)
         elif sublanes:
             self.sublanes = LaneList.from_description(
-                _db, self, sublanes
+                self.library, self, sublanes
             )
         else:
-            self.sublanes = LaneList.from_description(_db, self, [])
+            self.sublanes = LaneList.from_description(self.library, self, [])
 
     def include_staff_picks(self, **base_args):
         """Includes a Staff Picks sublane to the base/top of this lane."""
@@ -877,8 +890,11 @@ class Lane(object):
         return audiences      
 
     @classmethod
-    def from_description(cls, _db, parent, description):
+    def from_description(cls, library, parent, description):
         genre = None
+        if not isinstance(library, Library):
+            raise ValueError("Expected library, got %r" % library)
+        _db = Session.object_session(library)
         if isinstance(description, Lane):
             # The lane has already been created.
             description.parent = parent
@@ -887,11 +903,11 @@ class Lane(object):
             if description.get('suppress_lane'):
                 return None
             # Invoke the constructor
-            return Lane(_db, parent=parent, **description)
+            return Lane(library, parent=parent, **description)
         else:
             # This is a lane for a specific genre.
             genre, genredata = Lane.load_genre(_db, description)
-            return Lane(_db, genre.name, parent=parent, genres=genre)
+            return Lane(library, genre.name, parent=parent, genres=genre)
 
     @classmethod
     def load_genre(cls, _db, descriptor):
@@ -1027,7 +1043,8 @@ class Lane(object):
         * Have a delivery mechanism that can be rendered by the
           default client.
 
-        * Have an unsuppressed license pool.
+        * Have an unsuppressed license pool that belongs to one of the
+          available collections.
         """
 
         q = self._db.query(Work).join(Work.presentation_edition)
@@ -1206,12 +1223,12 @@ class Lane(object):
 
         return q
 
-    @classmethod
     def only_show_ready_deliverable_works(
-            cls, query, work_model, show_suppressed=False
+            self, query, work_model, show_suppressed=False
     ):
-        """Restrict a query to show only presentation-ready
-        works which the default client can fulfill.
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
 
         Note that this assumes the query has an active join against
         LicensePool.
@@ -1242,6 +1259,11 @@ class Lane(object):
                 or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
         )
 
+        # Only find books in an appropriate collection.
+        query = query.filter(
+            LicensePool.collection_id.in_(self.collection_ids)
+        )
+        
         # If we don't allow holds, hide any books with no available copies.
         hold_policy = Configuration.hold_policy()
         if hold_policy == Configuration.HOLD_POLICY_HIDE:
@@ -1390,7 +1412,6 @@ class Lane(object):
         books = []
         featured_subquery = None
         target_size = Configuration.featured_lane_size()
-
         # If this lane (or its ancestors) is a CustomList, look for any
         # featured works that were set on the list itself.
         list_books, work_id_column = self.list_featured_works(
@@ -1538,11 +1559,11 @@ class LaneList(object):
         )       
 
     @classmethod
-    def from_description(cls, _db, parent_lane, description):
+    def from_description(cls, library, parent_lane, description):
         lanes = LaneList(parent_lane)
         description = description or []
         for lane_description in description:
-            lane = Lane.from_description(_db, parent_lane, lane_description)
+            lane = Lane.from_description(library, parent_lane, lane_description)
 
             def _add_recursively(l):
                 lanes.add(l)
@@ -1661,7 +1682,7 @@ class QueryGeneratedLane(Lane):
         """
         raise NotImplementedError()
 
-def make_lanes(_db, definitions=None):
+def make_lanes(library, definitions=None):
 
     definitions = definitions or Configuration.policy(
         Configuration.LANES_POLICY
@@ -1671,4 +1692,4 @@ def make_lanes(_db, definitions=None):
         return None
 
     lanes = [Lane(_db=_db, **definition) for definition in definitions]
-    return LaneList.from_description(_db, None, lanes)
+    return LaneList.from_description(library, None, lanes)

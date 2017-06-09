@@ -32,6 +32,7 @@ from classifier import Classifier
 from model import (
     BaseMaterializedWork,
     CachedFeed,
+    ConfigurationSetting,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -522,7 +523,8 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True):
+             force_refresh=False, use_materialized_works=True,
+    ):
         """Create a feed representing one page of works from a given lane.
 
         :return: CachedFeed (if use_cache is True) or unicode
@@ -672,6 +674,37 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
 
+    CACHE_FOREVER = 'forever'
+
+    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    DEFAULT_NONGROUPED_MAX_AGE = 1200
+
+    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+    DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
+            
+    @classmethod
+    def grouped_max_age(cls, _db):
+        "The maximum cache time for a grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, cls.GROUPED_MAX_AGE_POLICY).int_value
+        if value is None:
+            value = cls.DEFAULT_GROUPED_MAX_AGE
+        return value
+
+    @classmethod
+    def nongrouped_max_age(cls, _db):
+        "The maximum cache time for a non-grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, cls.NONGROUPED_MAX_AGE_POLICY).int_value
+        if value is cls.CACHE_FOREVER:
+            logging.error(
+                "Non-grouped acquisition feed cannot be cached forever."
+            )
+            value = None
+        if value is None:
+            value = cls.DEFAULT_NONGROUPED_MAX_AGE
+        return value
+            
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
@@ -1076,9 +1109,13 @@ class AcquisitionFeed(OPDSFeed):
         if license_pool.open_access:
             default_loan_period = default_reservation_period = None
         else:
-            ds = license_pool.data_source
-            default_loan_period = ds.default_loan_period
-            default_reservation_period = ds.default_reservation_period
+            collection = license_pool.collection
+            default_loan_period = datetime.timedelta(
+                collection.default_loan_period
+            )
+            default_reservation_period = datetime.timedelta(
+                collection.default_reservation_period
+            )
         if loan:
             status = 'available'
             since = loan.start

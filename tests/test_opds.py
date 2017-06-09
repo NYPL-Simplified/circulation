@@ -19,6 +19,7 @@ from config import (
 )
 from model import (
     CachedFeed,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -349,7 +350,7 @@ class TestOPDS(DatabaseTest):
         super(TestOPDS, self).setup()
 
         self.lanes = LaneList.from_description(
-            self._db,
+            self._default_library,
             None,
             [dict(full_name="Fiction",
                   fiction=True,
@@ -372,8 +373,8 @@ class TestOPDS(DatabaseTest):
         )
 
         mock_top_level = Lane(
-            self._db, '', display_name='', sublanes=self.lanes.lanes,
-            include_all=False, invisible=True
+            self._default_library, '', display_name='',
+            sublanes=self.lanes.lanes, include_all=False, invisible=True
         )
 
         class FakeConf(object):
@@ -452,7 +453,7 @@ class TestOPDS(DatabaseTest):
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
-        lane = Lane(self._db, "lane")
+        lane = Lane(self._default_library, "lane")
         facets = Facets.default()
 
         cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
@@ -872,33 +873,25 @@ class TestOPDS(DatabaseTest):
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
+
         with temp_config() as config:
             config['policies'] = {}
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
-            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
+
             annotator = TestAnnotatorWithGroup()
 
-            # By policy, group feeds are cached forever, which means
-            # an attempt to generate them will fail. You'll get a
-            # page-type feed as a consolation prize.
-
-            feed = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=False, use_materialized_works=False
-            )
-            eq_(CachedFeed.PAGE_TYPE, feed.type)
             cached_groups = AcquisitionFeed.groups(
                 self._db, "test", self._url, fantasy_lane, annotator, 
                 force_refresh=True, use_materialized_works=False
             )
             parsed = feedparser.parse(cached_groups.content)
-
+            
             # There are two entries, one for each work.
             e1, e2 = parsed['entries']
 
             # Each entry has one and only one link.
             [l1], [l2] = e1['links'], e2['links']
-
+            
             # Those links are 'collection' links that classify the
             # works under their subgenres.
             assert all([l['rel'] == 'collection' for l in (l1, l2)])
@@ -952,7 +945,7 @@ class TestOPDS(DatabaseTest):
         feed has no books in the groups.
         """
         
-        test_lane = Lane(self._db, "Test Lane", genres=['Mystery'])
+        test_lane = Lane(self._default_library, "Test Lane", genres=['Mystery'])
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
@@ -962,7 +955,6 @@ class TestOPDS(DatabaseTest):
         with temp_config() as config:
             config['policies'] = {}
             config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
-            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
             annotator = TestAnnotator()
 
             feed = AcquisitionFeed.groups(
@@ -1059,33 +1051,33 @@ class TestOPDS(DatabaseTest):
                 pagination=Pagination.default(), use_materialized_works=False
             )
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.PAGE_MAX_AGE_POLICY : 10
-            }
+        af = AcquisitionFeed
+        policy = ConfigurationSetting.sitewide(
+            self._db, af.NONGROUPED_MAX_AGE_POLICY)
+        policy.value = "10"
 
-            cached1 = make_page()
-            assert work1.title in cached1.content
-            old_timestamp = cached1.timestamp
+        cached1 = make_page()
+        assert work1.title in cached1.content
+        old_timestamp = cached1.timestamp
 
-            work2 = self._work(
-                title="A Brand New Title", 
-                genre=Epic_Fantasy, with_open_access_download=True
-            )
+        work2 = self._work(
+            title="A Brand New Title", 
+            genre=Epic_Fantasy, with_open_access_download=True
+        )
 
-            # The new work does not show up in the feed because 
-            # we get the old cached version.
-            cached2 = make_page()
-            assert work2.title not in cached2.content
-            assert cached2.timestamp == old_timestamp
+        # The new work does not show up in the feed because 
+        # we get the old cached version.
+        cached2 = make_page()
+        assert work2.title not in cached2.content
+        assert cached2.timestamp == old_timestamp
             
-            # Change the policy to disable caching, and we get
-            # a brand new page with the new work.
-            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 0
+        # Change the policy to disable caching, and we get
+        # a brand new page with the new work.
+        policy.value = "0"
 
-            cached3 = make_page()
-            assert cached3.timestamp > old_timestamp
-            assert work2.title in cached3.content
+        cached3 = make_page()
+        assert cached3.timestamp > old_timestamp
+        assert work2.title in cached3.content
 
 
 class TestAcquisitionFeed(DatabaseTest):
