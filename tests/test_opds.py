@@ -161,7 +161,7 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
 
     def test_group_uri_with_flattened_lane(self):
         spanish_lane = Lane(
-            self._db, "Spanish", languages="spa"
+            self._default_library, "Spanish", languages="spa"
         )
         flat_spanish_lane = dict({
             "lane": spanish_lane,
@@ -182,16 +182,16 @@ class TestCirculationManagerAnnotator(WithVendorIDTest):
 
     def test_lane_url(self):
         everything_lane = Lane(
-            self._db, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+            self._default_library, "Everything", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
         fantasy_lane_with_sublanes = Lane(
-            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            self._default_library, "Fantasy", genres=[Fantasy], languages="eng", 
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes=[Urban_Fantasy],
             parent=everything_lane)
 
         fantasy_lane_without_sublanes = Lane(
-            self._db, "Fantasy", genres=[Fantasy], languages="eng", 
+            self._default_library, "Fantasy", genres=[Fantasy], languages="eng", 
             subgenre_behavior=Lane.IN_SAME_LANE,
             parent=everything_lane)
 
@@ -317,8 +317,8 @@ class TestOPDS(WithVendorIDTest):
 
     def setup(self):
         super(TestOPDS, self).setup()
-        parent = Lane(self._db, "Fiction", languages=["eng"], fiction=True)
-        self.lane = Lane(self._db, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
+        parent = Lane(self._default_library, "Fiction", languages=["eng"], fiction=True)
+        self.lane = Lane(self._default_library, "Fantasy", languages=["eng"], genres=[Fantasy], parent=parent)
         self.annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
 
         # Initialize library with Adobe Vendor ID details
@@ -326,7 +326,7 @@ class TestOPDS(WithVendorIDTest):
         self._default_library.library_registry_shared_secret = "s3cr3t5"
 
         # A QueryGeneratedLane to test code that handles it differently.
-        self.contributor_lane = ContributorLane(self._db, "Someone", languages=["eng"], audiences=None)
+        self.contributor_lane = ContributorLane(self._default_library, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
@@ -396,7 +396,7 @@ class TestOPDS(WithVendorIDTest):
 
     def get_parsed_feed(self, works, lane=None):
         if not lane:
-            lane = Lane(self._db, "Main Lane")
+            lane = Lane(self._default_library, "Main Lane")
         feed = AcquisitionFeed(
             self._db, "test", "url", works,
             CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)

@@ -155,7 +155,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         )
 
         self.initialize_library(_db)
-
+        
         # Create a simple authentication integration for this library,
         # unless it already has a way to authenticate patrons
         # (in which case we would just screw things up).
@@ -186,7 +186,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                     self.MOCK_ADOBE_CONFIGURATION
                 )
             }
-            lanes = make_lanes_default(_db)
+            lanes = make_lanes_default(self.library)
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
