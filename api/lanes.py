@@ -623,15 +623,14 @@ class ContributorLane(QueryGeneratedLane):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
+        self.contributor_name = contributor_name
+        full_name = display_name = contributor_name
         super(ContributorLane, self).__init__(
             library, full_name, display_name=display_name, parent=parent,
             audiences=audiences, languages=languages, searchable=False,
         )
-        self.contributor_name = contributor_name
         self.contributors = self._db.query(Contributor)\
                 .filter(or_(*self.contributor_name_clauses)).all()
-
-        full_name = display_name = self.contributor_name
 
     @property
     def url_arguments(self):
