@@ -532,7 +532,7 @@ class AcquisitionFeed(OPDSFeed):
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
-        facets = facets or Facets.default(self.library)
+        facets = facets or Facets.default(lane.library)
         pagination = pagination or Pagination.default()
 
         cached = None

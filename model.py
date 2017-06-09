@@ -8821,7 +8821,7 @@ class Library(Base):
         """Look up the default facet for a given facet group."""
         value = self.default_facet_setting(group_name).value
         if not value:
-            value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name)
+            value = FacetConstants.DEFAULT_FACET.get(group_name)
         return value
 
     def default_facet_setting(self, group_name):

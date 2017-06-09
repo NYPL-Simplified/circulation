@@ -466,20 +466,21 @@ class TestOPDS(DatabaseTest):
         eq_("http://the-url.com/", self_link['href'])
         facet_links = self.links(by_title, AcquisitionFeed.FACET_REL)
         
-        order_facets = Configuration.enabled_facets(
+        library = self._default_library
+        order_facets = library.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        availability_facets = Configuration.enabled_facets(
+        availability_facets = library.enabled_facets(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection_facets = Configuration.enabled_facets(
+        collection_facets = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
         def link_for_facets(facets):
             return [x for x in facet_links if facets.query_string in x['href']]
 
-        facets = Facets(None, None, None)
+        facets = Facets(library, None, None, None)
         for i1, i2, new_facets, selected in facets.facet_groups:            
             links = link_for_facets(new_facets)
             if selected:
