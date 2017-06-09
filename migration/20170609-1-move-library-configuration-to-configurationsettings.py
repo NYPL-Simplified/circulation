@@ -113,7 +113,7 @@ try:
     secret_key = Configuration.get('secret_key')
     if secret_key:
         secret_setting = ConfigurationSetting.sitewide(
-            _db, OAuthAuthenticationProvider.BEARER_TOKEN_SIGNING_SECRET
+            _db, Configuration.SECRET_KEY
         )
         secret_setting.value = secret_key
     
