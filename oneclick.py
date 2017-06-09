@@ -91,11 +91,6 @@ class OneClickAPI(object):
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = (base_url + self.API_VERSION).encode("utf8")
 
-        # expiration defaults are OneClick-general
-        self.ebook_loan_length = collection.external_integration.setting('ebook_loan_length').value or '21'
-        self.eaudio_loan_length = collection.external_integration.setting('eaudio_loan_length').value or '21'
-
-
     @classmethod
     def create_identifier_strings(cls, identifiers):
         identifier_strings = []

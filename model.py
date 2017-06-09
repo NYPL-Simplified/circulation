@@ -218,6 +218,22 @@ class SessionManager(object):
         if not connection:
             connection = engine.connect()
 
+        # If the pgcrypto extension is not installed, log an error but
+        # don't prevent startup -- on some systems this won't be a problem
+        # in practice.
+        query = select(
+            [literal_column('extname')]
+        ).select_from(
+            table('pg_extension')
+        ).where(
+            literal_column('extname')=='pgcrypto'
+        )
+        result = list(connection.execute(query))
+        if not result:
+            logging.error(
+                """The Postgres pgcrypto extension is not installed. Features such as password-based admin authentication will not work. You can install the extension by running "CREATE EXTENSION IF NOT EXISTS pgcrypto;" as superuser."""
+            )
+        
         # Check if the recursive equivalents function exists already.
         query = select(
             [literal_column('proname')]
@@ -410,7 +426,7 @@ class Patron(Base):
     # Depending on library policy it may be possible to automatically
     # derive the patron's account type from their authorization
     # identifier.
-    _external_type = Column(Unicode, index=True, name="external_type")
+    external_type = Column(Unicode, index=True)
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
@@ -468,7 +484,6 @@ class Patron(Base):
     )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -481,20 +496,6 @@ class Patron(Base):
         holds = [hold.work for hold in self.holds if hold.work]
         loans = self.works_on_loan()
         return set(holds + loans)
-
-    @property
-    def external_type(self):
-        if self.authorization_identifier and not self._external_type:
-            policy = Configuration.policy(
-                self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
-            if policy:
-                match = re.compile(policy).search(
-                    self.authorization_identifier)
-                if match:
-                    groups = match.groups()
-                    if groups:
-                        self._external_type = groups[0]
-        return self._external_type
 
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
@@ -933,35 +934,6 @@ class DataSource(Base):
     @property
     def uri(self):
         return self.URI_PREFIX + urllib.quote(self.name)
-
-    # These are pretty standard values but each library needs to
-    # define the policy they've negotiated in their configuration.
-    default_default_loan_period = datetime.timedelta(days=21)
-    default_default_reservation_period = datetime.timedelta(days=3)
-
-    def _datetime_config_value(self, key, default):
-        integration = Configuration.integration(self.name)
-        if not integration:
-            return default
-        value = integration.get(key)
-        if not value:
-            return default
-        value = int(value)
-        return datetime.timedelta(days=value)
-
-    @property
-    def default_loan_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_LOAN_PERIOD,
-            self.default_default_loan_period
-        )
-
-    @property
-    def default_reservation_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_RESERVATION_PERIOD,
-            self.default_default_reservation_period
-        )
 
     @classmethod
     def license_source_for(cls, _db, identifier):
@@ -5854,16 +5826,16 @@ class CachedFeed(Base):
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
+        from opds import AcquisitionFeed
         if max_age is None:
             if lane and hasattr(lane, 'MAX_CACHE_AGE'):
                 max_age = lane.MAX_CACHE_AGE
             elif type == cls.GROUPS_TYPE:
-                max_age = Configuration.groups_max_age()
+                max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
-                max_age = Configuration.page_max_age()
+                max_age = AcquisitionFeed.nongrouped_max_age(_db)
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
-
         work = None
         if lane:
             lane_name = unicode(lane.name)
@@ -5905,7 +5877,7 @@ class CachedFeed(Base):
             # cached feed as stale.
             return feed, False
 
-        if max_age is Configuration.CACHE_FOREVER:
+        if max_age is AcquisitionFeed.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
@@ -8793,6 +8765,22 @@ class Library(Base):
             value = unicode(value)
         self._library_registry_short_name = value
 
+    def setting(self, key):
+        """Find or create a ConfigurationSetting on this Library.
+
+        :param key: Name of the setting.
+        :return: A ConfigurationSetting
+        """
+        return ConfigurationSetting.for_library(
+            key, self
+        )
+
+    # Some specific per-library configuration settings.
+
+    # The name of the per-library regular expression used to derive a patron's
+    # external_type from their authorization_identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+        
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
@@ -9001,9 +8989,8 @@ class ExternalIntegration(Base):
         :param key: Name of the setting.
         :return: A ConfigurationSetting
         """
-        _db = Session.object_session(self)
         return ConfigurationSetting.for_externalintegration(
-            _db, key, self
+            key, self
         )
 
     def explain(self, include_password=False):
@@ -9065,20 +9052,36 @@ class ConfigurationSetting(Base):
     )
 
     @classmethod
+    def sitewide_secret(cls, _db, key):
+        """Find or create a sitewide shared secret.
+
+        The value of this setting doesn't matter, only that it's
+        unique across the site and that it's always available.
+        """
+        secret = ConfigurationSetting.sitewide(_db, key)
+        if not secret.value:
+            secret.value = os.urandom(24).encode('hex')
+            # Commit to get this in the database ASAP.
+            _db.commit()
+        return secret.value
+    
+    @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
         return cls.for_library_and_externalintegration(_db, key, None, None)
 
     @classmethod
-    def for_library(cls, _db, key, library):
+    def for_library(cls, key, library):
         """Find or create a ConfigurationSetting for the given Library."""
+        _db = Session.object_session(library)
         return cls.for_library_and_externalintegration(_db, key, library, None)
 
     @classmethod
-    def for_externalintegration(cls, _db, key, externalintegration):
+    def for_externalintegration(cls, key, externalintegration):
         """Find or create a ConfigurationSetting for the given
         ExternalIntegration.
         """
+        _db = Session.object_session(externalintegration)
         return cls.for_library_and_externalintegration(
             _db, key, None, externalintegration
         )
@@ -9097,6 +9100,19 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+    MEANS_YES = set(['true', 't', 'yes', 'y'])
+    @property
+    def bool_value(self):
+        """Turn the value into a boolean if possible.
+
+        :return: A boolean, or None if there is no value.
+        """
+        if self.value:
+            if self.value.lower() in self.MEANS_YES:
+                return True
+            return False
+        return None
+        
     @property
     def int_value(self):
         """Turn the value into an int if possible.
@@ -9262,6 +9278,53 @@ class Collection(Base):
         for child in self.children:
             child.protocol = new_protocol
 
+    # TODO: The default loan period needs to be expanded to handle
+    # different defaults for different media types (e.g. on Overdrive
+    # the default loan period for audiobooks is 14 days, and for video
+    # it's 5 days). This isn't a high priority because the license
+    # source generally tells us when each loan will end.
+    DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
+    STANDARD_DEFAULT_LOAN_PERIOD = 21
+        
+    @hybrid_property
+    def default_loan_period(self):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
+        collection has it for this number of days.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_LOAN_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_LOAN_PERIOD
+        )
+
+    @default_loan_period.setter
+    def set_default_loan_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_LOAN_PERIOD_KEY).value = str(new_value)
+
+    DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
+    STANDARD_DEFAULT_RESERVATION_PERIOD = 3
+            
+    @hybrid_property
+    def default_reservation_period(self):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who puts an item on hold has this many days to
+        check it out before it goes to the next person in line.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+        )
+
+    @default_reservation_period.setter
+    def set_default_reservation_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
+            
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 

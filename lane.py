@@ -539,7 +539,7 @@ class Lane(object):
         self.searchable = searchable
         self.invisible = invisible
         self.license_source = license_source
-
+        
         self.log = logging.getLogger("Lane %s" % self.name)
 
         # This controls which feeds to display when showing this lane
@@ -1390,7 +1390,6 @@ class Lane(object):
         books = []
         featured_subquery = None
         target_size = Configuration.featured_lane_size()
-
         # If this lane (or its ancestors) is a CustomList, look for any
         # featured works that were set on the list itself.
         list_books, work_id_column = self.list_featured_works(
