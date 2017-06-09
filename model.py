@@ -8907,7 +8907,7 @@ class ExternalIntegration(Base):
 
     # These integrations are associated with external services such as
     # S3 that provide access to static or cached OPDS feeds.
-    OPDS_GOAL = u'opds'
+    OPDS_FEED_GOAL = u'opds_feeds'
 
     # These integrations are associated with external services such as
     # S3 that provide access to open access content.

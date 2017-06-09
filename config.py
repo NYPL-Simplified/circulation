@@ -132,12 +132,6 @@ class Configuration(object):
     MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
     FEATURED_LANE_SIZE = "featured_lane_size"
 
-    S3_INTEGRATION = u"S3"
-    S3_ACCESS_KEY = u"access_key"
-    S3_SECRET_KEY = u"secret_key"
-    S3_OPEN_ACCESS_CONTENT_BUCKET = u"open_access_content_bucket"
-    S3_BOOK_COVERS_BUCKET = u"book_covers_bucket"
-
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
     SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
 
@@ -182,11 +176,6 @@ class Configuration(object):
                 "Integration '%s' did not define a required 'url'!" % name
             )
         return v
-
-    @classmethod
-    def s3_bucket(cls, bucket_name):
-        integration = cls.integration(cls.S3_INTEGRATION)
-        return integration[bucket_name]
 
     @classmethod
     def policy(cls, name, default=None, required=False):

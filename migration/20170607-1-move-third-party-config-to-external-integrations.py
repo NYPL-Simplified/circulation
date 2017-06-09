@@ -39,31 +39,33 @@ try:
     # Import CDN configuration.
     cdn_conf = Configuration.integration(u'CDN')
     if cdn_conf:
-        cdn_goals = [EI.BOOK_COVERS_GOAL, EI.OPDS_GOAL, EI.OA_CONTENT_GOAL]
-        cdns = set([])
-        for k, v in cdn_conf.items():
-            if k in cdn_goals:
-                cdn, is_new = get_one_or_create(
-                    _db, EI, protocol=EI.CDN, goal=unicode(k),
-                    url=unicode(v)
-                )
-                log_import(cdn, is_new)
-                cdns.add(cdn)
-            else:
-                raise ValueError('No ExternalIntegration goal for %s' % k)
 
-        for cdn in cdns:
-            cdn.libraries = LIBRARIES
+        cdn_goals = {
+            'book_covers' : EI.BOOK_COVERS_GOAL,
+            'open_access_books' : EI.OA_CONTENT_GOAL,
+            'opds' : EI.OPDS_FEED_GOAL
+        }
+
+        for k, v in cdn_conf.items():
+            if not k in cdn_goals:
+                log.warn('No ExternalIntegration goal for "%s" CDN' % k)
+                continue
+
+            goal = cdn_goals.get(k)
+            cdn, is_new = get_one_or_create(
+                _db, EI, protocol=EI.CDN, goal=goal,
+                url=unicode(v)
+            )
+            log_import(cdn, is_new)
 
     # Import Elasticsearch configuration.
     elasticsearch_conf = Configuration.integration(u'Elasticsearch')
     if elasticsearch_conf:
-        url = elasticsearch_conf.get(Configuration.URL)
-        works_index = elasticsearch_conf.get(Configuration.ELASTICSEARCH_INDEX_KEY)
+        url = elasticsearch_conf.get('url')
+        works_index = elasticsearch_conf.get(ExternalSearchIndex.WORKS_INDEX_KEY)
 
         integration, is_new = get_one_or_create(
-            _db, EI, protocol=ExternalSearchIndex.ELASTICSEARCH,
-            goal=EI.SEARCH_GOAL
+            _db, EI, protocol=EI.ELASTICSEARCH, goal=EI.SEARCH_GOAL
         )
 
         if url:
@@ -73,7 +75,35 @@ try:
                 ExternalSearchIndex.WORKS_INDEX_KEY, works_index
             )
 
-        log_import(integration)
+        log_import(integration, is_new)
+
+    # Import S3 configuration.
+    s3_conf = Configuration.integration('S3')
+    if s3_conf:
+        username = s3_conf.get('access_key')
+        password = s3_conf.get('secret_key')
+        del s3_conf['access_key']
+        del s3_conf['secret_key']
+
+        s3_goals = {
+            'book_covers_bucket' : EI.BOOK_COVERS_GOAL,
+            'open_access_content_bucket' : EI.OA_CONTENT_GOAL,
+            'static_feed_bucket' : EI.OPDS_FEED_GOAL,
+        }
+
+        for k, v in s3_conf.items():
+            if not k in s3_goals:
+                log.warn('No ExternalIntegration goal for "%s" S3 bucket' % k)
+                continue
+
+            goal = s3_goals.get(k)
+            integration, is_new = get_one_or_create(
+                _db, EI, protocol=EI.S3, goal=goal,
+                username=unicode(username),
+                password=unicode(password),
+                url=unicode(v)
+            )
+            log_import(integration, is_new)
 
 finally:
     _db.commit()

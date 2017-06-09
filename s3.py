@@ -7,22 +7,39 @@ import urllib
 from util.mirror import MirrorUploader
 
 import logging
-from config import Configuration
 from requests.exceptions import (
-    ConnectionError, 
+    ConnectionError,
     HTTPError,
 )
 
 class S3Uploader(MirrorUploader):
 
-    def __init__(self, access_key=None, secret_key=None, pool=None):
+    def __init__(self, _db, goal, access_key=None, secret_key=None, pool=None):
         if pool:
             self.pool = pool
-        else:
-            integration = Configuration.integration(Configuration.S3_INTEGRATION)
-            access_key = access_key or integration[Configuration.S3_ACCESS_KEY]
-            secret_key = secret_key or integration[Configuration.S3_SECRET_KEY]
+        elif access_key or secret_key:
+            if not (access_key and secret_key):
+                raise ValueError(
+                    "Cannot create S3Uploader without both"
+                    " access_key and secret_key"
+                )
             self.pool = tinys3.Pool(access_key, secret_key)
+        else:
+            if not _db and goal:
+                raise ValueError(
+                    "Cannot create S3Uploader without both a database"
+                    " session and a goal value."
+                )
+
+            from model import ExternalIntegration
+            integration = ExternalIntegration.lookup(
+                _db, ExternalIntegration.S3, goal=goal
+            )
+            if not integration and integration.username and integration.password:
+                raise ValueError(
+                    "S3 for goal '%s' is not properly configured" % goal
+                )
+            self.pool = tinys3.Pool(integration.username, integration.password)
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
