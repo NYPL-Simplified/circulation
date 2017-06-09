@@ -109,6 +109,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
     LanguageCodes,
@@ -8780,7 +8781,38 @@ class Library(Base):
     # The name of the per-library regular expression used to derive a patron's
     # external_type from their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
-        
+
+    # The name of the per-library configuration policy that controls whether
+    # books may be put on hold.
+    ALLOW_HOLDS = "allow_holds"
+    
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
+    @property
+    def allow_holds(self):
+        """Does this library allow patrons to put items on hold?"""
+        return self.setting(self.ALLOW_HOLDS).bool_value
+    
+    def enabled_facets(self, group_name):
+        """Look up the enabled facets for a given facet group."""
+        key = self.ENABLED_FACETS_KEY_PREFIX + group_name
+        value = library.setting(key).json_value
+        if value is None:
+            value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
+        return value
+
+    def default_facet(self, group_name):
+        """Look up the default facet for a given facet group."""
+        key = self.DEFAULT_FACET_KEY_PREFIX + group_name
+        value = self.setting(key).value
+        if not value:
+            value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name)
+        return value
+    
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.

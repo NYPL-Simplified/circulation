@@ -48,3 +48,25 @@ class FacetConstants(object):
         COLLECTION_MAIN : "Main Collection",
         COLLECTION_FEATURED : "Popular Books",
     }
+
+    # Unless a library offers an alternate configuration, patrons will
+    # see these facet groups.
+    DEFAULT_ENABLED_FACETS = {
+        ORDER_FACET_GROUP_NAME : [
+            ORDER_AUTHOR, ORDER_TITLE, ORDER_ADDED_TO_COLLECTION
+        ],
+        AVAILABILITY_FACET_GROUP_NAME : [
+            AVAILABLE_ALL, AVAILABLE_NOW, AVAILABLE_OPEN_ACCESS
+        ],
+        COLLECTION_FACET_GROUP_NAME : [
+            COLLECTION_FULL, COLLECTION_MAIN, COLLECTION_FEATURED
+        ]
+    }
+
+    # Unless a library offers an alternate configuration, these
+    # facets will be the default selection for the facet groups.
+    DEFAULT_FACET = {
+        ORDER_FACET_GROUP_NAME : ORDER_AUTHOR,
+        AVAILABILITY_FACET_GROUP_NAME : AVAILABLE_ALL,
+        COLLECTION_FACET_GROUP_NAME : COLLECTION_MAIN,
+    }

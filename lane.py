@@ -51,39 +51,41 @@ import elasticsearch
 class Facets(FacetConstants):
 
     @classmethod
-    def default(cls):
+    def default(cls, library):
         return cls(
+            library,
             collection=cls.COLLECTION_MAIN,
             availability=cls.AVAILABLE_ALL,
             order=cls.ORDER_AUTHOR
         )
-
-    def __init__(self, collection, availability, order,
+    
+    def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
+        """
+        :param collection: This is not a Collection object; it's a value for
+        the 'collection' facet, e.g. 'main' or 'featured'.
+        """
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or Configuration.default_facet(
+        collection = collection or library.default_facet(
             self.COLLECTION_FACET_GROUP_NAME
         )
-        availability = availability or Configuration.default_facet(
+        availability = availability or library.default_facet(
             self.AVAILABILITY_FACET_GROUP_NAME
         )
-        order = order or Configuration.default_facet(
-            self.ORDER_FACET_GROUP_NAME
-        )
+        order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        hold_policy = Configuration.hold_policy()
-        if (availability == self.AVAILABLE_ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
+        if (availability == self.AVAILABLE_ALL and not library.allow_holds):
             # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
+            # library configuration says to hide books that aren't
             # available.
             availability = self.AVAILABLE_NOW
 
+        self.library = library
         self.collection = collection
         self.availability = availability
         self.order = order
@@ -96,7 +98,8 @@ class Facets(FacetConstants):
 
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
-        return Facets(collection or self.collection, 
+        return Facets(self.library,
+                      collection or self.collection, 
                       availability or self.availability, 
                       order or self.order,
                       enabled_facets=self.facets_enabled_at_init)
@@ -129,21 +132,24 @@ class Facets(FacetConstants):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = Configuration.enabled_facets(
+            order_facets = library.enabled_facets(
                 Facets.ORDER_FACET_GROUP_NAME
             )
             yield order_facets
 
-            availability_facets = Configuration.enabled_facets(
+            availability_facets = library.enabled_facets(
                 Facets.AVAILABILITY_FACET_GROUP_NAME
             )
             yield availability_facets
 
-            collection_facets = Configuration.enabled_facets(
+            collection_facets = library.enabled_facets(
                 Facets.COLLECTION_FACET_GROUP_NAME
             )
             yield collection_facets
 
+    def enabled_facets(self, key):
+        return self.library.setting(key).json_value
+            
     @property
     def facet_groups(self):
         """Yield a list of 4-tuples 
@@ -1265,8 +1271,8 @@ class Lane(object):
         )
         
         # If we don't allow holds, hide any books with no available copies.
-        hold_policy = Configuration.hold_policy()
-        if hold_policy == Configuration.HOLD_POLICY_HIDE:
+        allow_holds = self.library.setting(Configuration.ALLOW_HOLDS).bool_value
+        if allow_holds:
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
