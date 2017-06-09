@@ -186,7 +186,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                     self.MOCK_ADOBE_CONFIGURATION
                 )
             }
-            lanes = make_lanes_default(_db)
+            lanes = make_lanes_default(self._default_library)
             self.manager = TestCirculationManager(
                 _db, lanes=lanes, testing=True
             )
