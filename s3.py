@@ -35,7 +35,9 @@ class S3Uploader(MirrorUploader):
             integration = ExternalIntegration.lookup(
                 _db, ExternalIntegration.S3, goal=goal
             )
-            if not integration and integration.username and integration.password:
+            if not (integration and integration.username
+                    and integration.password
+            ):
                 raise ValueError(
                     "S3 for goal '%s' is not properly configured" % goal
                 )
@@ -58,15 +60,10 @@ class S3Uploader(MirrorUploader):
         return url + path
 
     @classmethod
-    def cover_image_root(cls, data_source, scaled_size=None):
+    def cover_image_root(cls, bucket, data_source, scaled_size=None):
         """The root URL to the S3 location of cover images for
         the given data source.
         """
-        bucket = Configuration.s3_bucket(Configuration.S3_BOOK_COVERS_BUCKET)
-        return cls._cover_image_root(bucket, data_source, scaled_size)
-
-    @classmethod
-    def _cover_image_root(cls, bucket, data_source, scaled_size):
         if scaled_size:
             path = "/scaled/%d/" % scaled_size
         else:
@@ -83,17 +80,10 @@ class S3Uploader(MirrorUploader):
         return url
 
     @classmethod
-    def content_root(cls, open_access=True):
+    def content_root(cls, bucket, open_access=True):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        bucket = Configuration.s3_bucket(
-            Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET
-        )
-        return cls._content_root(bucket, open_access)
-
-    @classmethod
-    def _content_root(cls, bucket, open_access):
         if not open_access:
             raise NotImplementedError()
         return cls.url(bucket, '/')
@@ -214,7 +204,7 @@ class DummyS3Uploader(S3Uploader):
 
     @classmethod
     def cover_image_root(cls, data_source, scaled_size=None):
-        return cls._cover_image_root(
+        return S3Uploader.cover_image_root(
             'test.cover.bucket', data_source, scaled_size)
 
     @classmethod
@@ -222,7 +212,7 @@ class DummyS3Uploader(S3Uploader):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        return cls._content_root('test.content.bucket', open_access)
+        return S3Uploader.content_root('test.content.bucket', open_access)
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)

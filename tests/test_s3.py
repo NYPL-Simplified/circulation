@@ -72,7 +72,7 @@ class TestUpload(DatabaseTest):
 
         # 'Upload' it to S3.
         s3pool = MockS3Pool()
-        s3 = S3Uploader(None, pool=s3pool)
+        s3 = S3Uploader(None, None, pool=s3pool)
         s3.mirror_one(hyperlink.resource.representation)
         [[filename, data, bucket, media_type, ignore]] = s3pool.uploads
 
