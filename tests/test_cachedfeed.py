@@ -31,7 +31,7 @@ from . import (
 class TestCachedFeed(DatabaseTest):
 
     def test_lifecycle(self):
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
         lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
 
@@ -64,7 +64,7 @@ class TestCachedFeed(DatabaseTest):
         eq_(True, fresh)
 
     def test_fetch_ignores_feeds_without_content(self):
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
         lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
 
@@ -92,7 +92,7 @@ class TestCachedFeed(DatabaseTest):
 
     def test_refusal_to_create_expensive_feed(self):
         
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
         lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
 

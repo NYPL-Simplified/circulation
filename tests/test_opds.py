@@ -453,7 +453,7 @@ class TestOPDS(DatabaseTest):
         work = self._work(with_open_access_download=True)
 
         lane = Lane(self._default_library, "lane")
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
 
         cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
                                     lane, TestAnnotator, facets=facets)
@@ -797,7 +797,7 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
 
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):

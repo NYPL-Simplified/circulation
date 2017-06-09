@@ -6469,9 +6469,8 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (Configuration.hold_policy() 
-            != Configuration.HOLD_POLICY_ALLOW):
-            raise PolicyException("Holds are disabled on this system.")
+        if not patron.library.allow_holds:
+            raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
