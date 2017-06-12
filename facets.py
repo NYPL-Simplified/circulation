@@ -70,3 +70,46 @@ class FacetConstants(object):
         AVAILABILITY_FACET_GROUP_NAME : AVAILABLE_ALL,
         COLLECTION_FACET_GROUP_NAME : COLLECTION_MAIN,
     }
+
+
+class FacetConfig(object):
+    """A class that implements the facet-related methods of
+    Library, and allows modifications to the enabled
+    and default facets. For use when a controller needs to
+    use a facet configuration different from the site-wide
+    facets. 
+    """
+    @classmethod
+    def from_library(cls, library):
+
+        enabled_facets = dict()
+        for group in FacetConstants.DEFAULT_ENABLED_FACETS.keys():
+            enabled_facets[group] = library.enabled_facets(group)
+
+        default_facets = dict()
+        for group in FacetConstants.DEFAULT_FACET.keys():
+            default_facets[group] = library.default_facet(group)
+        
+        return FacetConfig(enabled_facets, default_facets)
+
+    def __init__(self, enabled_facets, default_facets):
+        self._enabled_facets = enabled_facets
+        self._default_facets = default_facets
+
+    def enabled_facets(self, group_name):
+        return self._enabled_facets.get(group_name)
+
+    def default_facet(self, group_name):
+        return self._default_facets.get(group_name)
+
+    def enable_facet(self, group_name, facet):
+        self._enabled_facets.setdefault(group_name, [])
+        if facet not in self._enabled_facets[group_name]:
+            self._enabled_facets[group_name] += [facet]
+
+    def set_default_facet(self, group_name, facet):
+        """Add `facet` to the list of possible values for `group_name`, even
+        if the library does not have that facet configured.
+        """
+        self.enable_facet(group_name, facet)
+        self._default_facets[group_name] = facet
