@@ -461,32 +461,27 @@ class TestBaseController(CirculationControllerTest):
     def test_apply_borrowing_policy_when_holds_prohibited(self):
         with self.request_context_with_library("/"):
             patron = self.controller.authenticated_patron(self.valid_credentials)
-            with temp_config() as config:
-                config[Configuration.POLICIES] = {
-                    Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-                }
-                work = self._work(with_license_pool=True,
-                                  with_open_access_download=True)
-                [pool] = work.license_pools
-                pool.licenses_available = 0
-            
-                # This is an open-access work, so there's no problem.
-                eq_(True, pool.open_access)
+            # This library does not allow holds.
+            library = self._default_library
+            library.setting(library.ALLOW_HOLDS).value = "False"
 
-                # Open-access books still be borrowed even if they have no
-                # 'licenses' available.
-                problem = self.controller.apply_borrowing_policy(
-                    patron, pool
-                )
-                eq_(None, problem)
+            # This is an open-access work.
+            work = self._work(with_license_pool=True,
+                              with_open_access_download=True)
+            [pool] = work.license_pools
+            pool.licenses_available = 0
+            eq_(True, pool.open_access)
 
-                # But if it weren't an open-access work, there'd be a big
-                # problem.
-                pool.open_access = False
-                problem = self.controller.apply_borrowing_policy(
-                    patron, pool
-                )
-                eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
+            # It can still be borrowed even though it has no
+            # 'licenses' available.
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+            eq_(None, problem)
+
+            # If it weren't an open-access work, there'd be a big
+            # problem.
+            pool.open_access = False
+            problem = self.controller.apply_borrowing_policy(patron, pool)
+            eq_(FORBIDDEN_BY_POLICY.uri, problem.uri)
 
     def test_apply_borrowing_policy_for_audience_restriction(self):
         with self.request_context_with_library("/"):

@@ -371,10 +371,9 @@ class CirculationManagerController(BaseCirculationManagerController):
                 status_code=451
             )
 
-        if (license_pool.licenses_available == 0 and
-            not license_pool.open_access and
-            Configuration.hold_policy() !=
-            Configuration.HOLD_POLICY_ALLOW
+        if (not patron.library.allow_holds and
+            license_pool.licenses_available == 0 and
+            not license_pool.open_access
         ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
