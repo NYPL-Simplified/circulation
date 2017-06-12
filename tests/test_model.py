@@ -5722,6 +5722,16 @@ class TestConfigurationSetting(DatabaseTest):
         number.value = "tra la la"
         assert_raises(ValueError, lambda: number.int_value)
 
+    def test_float_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234.5"
+        eq_(1234.5, number.float_value)
+
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.float_value)
+        
     def test_json_value(self):
         jsondata = ConfigurationSetting.sitewide(self._db, "json")
         eq_(None, jsondata.int_value)
