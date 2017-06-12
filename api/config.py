@@ -9,6 +9,7 @@ from core.config import (
     temp_config as core_temp_config,
 )
 from core.util import MoneyUtility
+from core.lane import Facets
 from core.model import ConfigurationSetting
 
 
@@ -115,18 +116,22 @@ def temp_config(new_config=None, replacement_classes=None):
 
 class FacetConfig(object):
     """A class that implements the facet-related methods of
-    Configuration, and allows modifications to the enabled
+    Library, and allows modifications to the enabled
     and default facets. For use when a controller needs to
     use a facet configuration different from the site-wide
     facets. 
     """
     @classmethod
-    def from_config(cls):
-        facet_policy = Configuration.policy(Configuration.FACET_POLICY, default=dict())
-        enabled_facets = deepcopy(facet_policy.get(Configuration.ENABLED_FACETS_KEY,
-                                               Configuration.DEFAULT_ENABLED_FACETS))
-        default_facets = deepcopy(facet_policy.get(Configuration.DEFAULT_FACET_KEY,
-                                               Configuration.DEFAULT_FACET))
+    def from_library(cls, library):
+
+        enabled_facets = dict()
+        for group in Facets.DEFAULT_ENABLED_FACETS.keys():
+            enabled_facets[group] = library.enabled_facets(group)
+
+        default_facets = dict()
+        for group in Facets.DEFAULT_FACET.keys():
+            default_facets[group] = library.default_facet(group)
+        
         return FacetConfig(enabled_facets, default_facets)
 
     def __init__(self, enabled_facets, default_facets):
@@ -145,6 +150,9 @@ class FacetConfig(object):
             self._enabled_facets[group_name] += [facet]
 
     def set_default_facet(self, group_name, facet):
+        """Add `facet` to the list of possible values for `group_name`, even
+        if the library does not have that facet configured.
+        """
         self.enable_facet(group_name, facet)
         self._default_facets[group_name] = facet
 

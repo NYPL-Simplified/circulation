@@ -1142,14 +1142,15 @@ class WorkController(CirculationManagerController):
         )
         annotator = self.manager.annotator(lane)
 
-        # This has special handling of facets because a series can
-        # be ordered by series position, as well as the regular enabled
-        # facets.
-        facet_config = FacetConfig.from_config()
-        facet_config.set_default_facet(Facets.ORDER_FACET_GROUP_NAME,
-                                       Facets.ORDER_SERIES_POSITION)
-
-        facets = load_facets_from_request(config=facet_config)
+        # In addition to the orderings enabled for this library, a
+        # series collection may be ordered by series position, and is
+        # ordered that way by default.
+        facet_config = FacetConfig.from_library(self.manager.library)
+        facet_config.set_default_facet(
+            Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
+        )
+        
+        facets = load_facets_from_request(facet_config=facet_config)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()
