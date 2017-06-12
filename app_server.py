@@ -123,7 +123,7 @@ def load_facets(library, order, availability, collection):
             _("I don't know how to order a feed by '%(order)s'", order=order),
             400
         )
-    availability_facets = config.enabled_facets(
+    availability_facets = library.enabled_facets(
         Facets.AVAILABILITY_FACET_GROUP_NAME
     )
     if availability and not availability in availability_facets:

@@ -205,15 +205,18 @@ class TestComplaintController(DatabaseTest):
         eq_("foo", complaint.source)
         eq_("bar", complaint.detail)
 
-class TestLoadMethods(object):
+
+class TestLoadMethods(DatabaseTest):
 
     def setup(self):
+        super(TestLoadMethods, self).setup()
         self.app = Flask(__name__)
         Babel(self.app)
 
 
     def test_load_facets_from_request(self):
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
+            flask.request.library = self._default_library
             facets = load_facets_from_request()
             eq_(Facets.ORDER_TITLE, facets.order)
             # Enabled facets are passed in to the newly created Facets,
@@ -221,6 +224,7 @@ class TestLoadMethods(object):
             assert facets.facets_enabled_at_init != None
 
         with self.app.test_request_context('/?order=bad_facet'):
+            flask.request.library = self._default_library
             problemdetail = load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
 
