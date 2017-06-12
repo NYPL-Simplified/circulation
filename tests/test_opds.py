@@ -941,35 +941,33 @@ class TestOPDS(DatabaseTest):
         """Test that a page feed is returned when the requested groups
         feed has no books in the groups.
         """
-        
-        test_lane = Lane(self._default_library, "Test Lane", genres=['Mystery'])
+        library = self._default_library
+        test_lane = Lane(library, "Test Lane", genres=['Mystery'])
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
 
-        with temp_config() as config:
-            config['policies'] = {}
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
-            annotator = TestAnnotator()
+        library.setting(library.FEATURED_LANE_SIZE).value = 2
+        annotator = TestAnnotator()
 
-            feed = AcquisitionFeed.groups(
-                self._db, "test", self._url, test_lane, annotator,
-                force_refresh=True, use_materialized_works=False
-            )
+        feed = AcquisitionFeed.groups(
+            self._db, "test", self._url, test_lane, annotator,
+            force_refresh=True, use_materialized_works=False
+        )
 
-            # The feed is filed as a groups feed, even though in
-            # form it is a page feed.
-            eq_(CachedFeed.GROUPS_TYPE, feed.type)
+        # The feed is filed as a groups feed, even though in
+        # form it is a page feed.
+        eq_(CachedFeed.GROUPS_TYPE, feed.type)
 
-            parsed = feedparser.parse(feed.content)
+        parsed = feedparser.parse(feed.content)
 
-            # There are two entries, one for each work.
-            e1, e2 = parsed['entries']
+        # There are two entries, one for each work.
+        e1, e2 = parsed['entries']
 
-            # The entries have no links (no collection links).
-            assert all('links' not in entry for entry in [e1, e2])
+        # The entries have no links (no collection links).
+        assert all('links' not in entry for entry in [e1, e2])
 
     def test_search_feed(self):
         """Test the ability to create a paginated feed of works for a given
