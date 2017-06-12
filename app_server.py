@@ -91,10 +91,19 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request(config=Configuration):
-    """Figure out which Facets object this request is asking for."""
-    arg = flask.request.args.get
+def load_facets_from_request(facet_config=None):
+    """Figure out which Facets object this request is asking for.
 
+    The active request must have the `library` member set to a Library
+    object.
+
+    :param facet_config: An object to use instead of the request Library
+    when deciding which facets are enabled.
+    """
+    arg = flask.request.args.get
+    library = flask.request.library
+    config = facet_config or library
+    
     g = Facets.ORDER_FACET_GROUP_NAME
     order = arg(g, config.default_facet(g))
 
@@ -103,7 +112,8 @@ def load_facets_from_request(config=Configuration):
 
     g = Facets.COLLECTION_FACET_GROUP_NAME
     collection = arg(g, config.default_facet(g))
-    return load_facets(order, availability, collection, config)
+    return load_facets(library, order, availability, collection,
+                       facet_config=facet_config)
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     """Figure out which Pagination object this request is asking for."""
@@ -112,11 +122,10 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
-def load_facets(order, availability, collection, config=Configuration):
+def load_facets(library, order, availability, collection, facet_config=None):
     """Turn user input into a Facets object."""
-    order_facets = config.enabled_facets(
-        Facets.ORDER_FACET_GROUP_NAME
-    )
+    config = facet_config or library
+    order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
     if order and not order in order_facets:
         return INVALID_INPUT.detailed(
             _("I don't know how to order a feed by '%(order)s'", order=order),
@@ -136,7 +145,7 @@ def load_facets(order, availability, collection, config=Configuration):
     )
     if collection and not collection in collection_facets:
         return INVALID_INPUT.detailed(
-            _("I don't understand which collection '%(collection)s' refers to.", collection=collection),
+            _("I don't understand what '%(collection)s' refers to.", collection=collection),
             400
         )
     
@@ -147,8 +156,8 @@ def load_facets(order, availability, collection, config=Configuration):
     }
 
     return Facets(
-        collection=collection, availability=availability, order=order,
-        enabled_facets=enabled_facets
+        library=library, collection=collection, availability=availability,
+        order=order, enabled_facets=enabled_facets
     )
 
 def load_pagination(size, offset):

@@ -1449,6 +1449,7 @@ class TestLicensePool(DatabaseTest):
         eq_(False, better(no_resource, gutenberg_1))
 
     def test_with_complaint(self):
+        library = self._default_library
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
@@ -1520,7 +1521,7 @@ class TestLicensePool(DatabaseTest):
             with_open_access_download=True)
 
         # excludes resolved complaints by default
-        results = LicensePool.with_complaint(self._db).all()
+        results = LicensePool.with_complaint(library).all()
 
         eq_(2, len(results))
         eq_(lp1.id, results[0][0].id)
@@ -1529,7 +1530,7 @@ class TestLicensePool(DatabaseTest):
         eq_(1, results[1][1])
 
         # include resolved complaints this time
-        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
+        more_results = LicensePool.with_complaint(library, resolved=None).all()
 
         eq_(3, len(more_results))
         eq_(lp1.id, more_results[0][0].id)
@@ -1540,13 +1541,24 @@ class TestLicensePool(DatabaseTest):
         eq_(1, more_results[2][1])
 
         # show only resolved complaints
-        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        resolved_results = LicensePool.with_complaint(
+            library, resolved=True).all()
         lp_ids = set([result[0].id for result in resolved_results])
         counts = set([result[1] for result in resolved_results])
         
         eq_(3, len(resolved_results))
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
+
+        # This library has none of the license pools that have complaints,
+        # so passing it in to with_complaint() gives no results.
+        library2 = self._library()
+        eq_(0, LicensePool.with_complaint(library2).count())
+
+        # If we add the default library's collection to this new library,
+        # we start getting the same results.
+        library2.collections.extend(library.collections)
+        eq_(3, LicensePool.with_complaint(library2, resolved=None).count())
 
     def test_editions_in_priority_order(self):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
@@ -3665,40 +3677,33 @@ class TestHold(DatabaseTest):
         patron = self._patron()
         edition = self._edition()
         pool = self._licensepool(edition)
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            hold, is_new = pool.on_hold_to(patron, now, later, 4)
-            eq_(True, is_new)
-            eq_(now, hold.start)
-            eq_(None, hold.end)
-            eq_(4, hold.position)
+        self._default_library.setting(Library.ALLOW_HOLDS).value = True
+        hold, is_new = pool.on_hold_to(patron, now, later, 4)
+        eq_(True, is_new)
+        eq_(now, hold.start)
+        eq_(None, hold.end)
+        eq_(4, hold.position)
 
-            # Now update the position to 0. It's the patron's turn
-            # to check out the book.
-            hold, is_new = pool.on_hold_to(patron, now, later, 0)
-            eq_(False, is_new)
-            eq_(now, hold.start)
-            # The patron has until `hold.end` to actually check out the book.
-            eq_(later, hold.end)
-            eq_(0, hold.position)
+        # Now update the position to 0. It's the patron's turn
+        # to check out the book.
+        hold, is_new = pool.on_hold_to(patron, now, later, 0)
+        eq_(False, is_new)
+        eq_(now, hold.start)
+        # The patron has until `hold.end` to actually check out the book.
+        eq_(later, hold.end)
+        eq_(0, hold.position)
 
     def test_holds_not_allowed(self):
         patron = self._patron()
         edition = self._edition()
         pool = self._licensepool(edition)
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-        
-            assert_raises_regexp(
-                PolicyException,
-                "Holds are disabled on this system.",
-                pool.on_hold_to, patron, datetime.datetime.now(), 4
-            )
+        self._default_library.setting(Library.ALLOW_HOLDS).value = False
+        assert_raises_regexp(
+            PolicyException,
+            "Holds are disabled for this library.",
+            pool.on_hold_to, patron, datetime.datetime.now(), 4
+        )
         
     def test_work(self):
         # We don't need to test the functionality--that's tested in
@@ -5717,6 +5722,16 @@ class TestConfigurationSetting(DatabaseTest):
         number.value = "tra la la"
         assert_raises(ValueError, lambda: number.int_value)
 
+    def test_float_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234.5"
+        eq_(1234.5, number.float_value)
+
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.float_value)
+        
     def test_json_value(self):
         jsondata = ConfigurationSetting.sitewide(self._db, "json")
         eq_(None, jsondata.int_value)

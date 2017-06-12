@@ -1,4 +1,5 @@
 import datetime
+import json
 
 from nose.tools import (
     eq_,
@@ -36,6 +37,7 @@ from model import (
     Edition,
     Genre,
     Identifier,
+    Library,
     LicensePool,
     SessionManager,
     Work,
@@ -43,11 +45,19 @@ from model import (
 )
 
 
-class TestFacets(object):
+class TestFacets(DatabaseTest):
 
+    def _configure_facets(self, library, enabled, default):
+        """Set facet configuration for the given Library."""
+        for key, values in enabled.items():
+            library.enabled_facets_setting(key).value = json.dumps(values)
+        for key, value in default.items():
+            library.default_facet_setting(key).value = value
+    
     def test_facet_groups(self):
 
         facets = Facets(
+            self._default_library,
             Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
         )
         all_groups = list(facets.facet_groups)
@@ -63,34 +73,33 @@ class TestFacets(object):
             selected
         )
 
-        test_facet_policy = {
-            "enabled" : {
+        test_enabled_facets = {
                 Facets.ORDER_FACET_GROUP_NAME : [
                     Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
                 ],
                 Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
                 Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
-            },
-            "default" : {
-                Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
-                Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
-                Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
-            }
         }
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.FACET_POLICY : test_facet_policy
-            }
-            facets = Facets(None, None, Facets.ORDER_TITLE)
-            all_groups = list(facets.facet_groups)
-
-            # We have disabled almost all the facets, so the list of
-            # facet transitions includes only two items.
-            #
-            # 'Sort by title' was selected, and it shows up as the selected
-            # item in this facet group.
-            expect = [['order', 'title', True], ['order', 'work_id', False]]
-            eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+        test_default_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
+        }
+        library = self._default_library
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+            
+        facets = Facets(self._default_library,
+                        None, None, Facets.ORDER_TITLE)
+        all_groups = list(facets.facet_groups)
+        # We have disabled almost all the facets, so the list of
+        # facet transitions includes only two items.
+        #
+        # 'Sort by title' was selected, and it shows up as the selected
+        # item in this facet group.
+        expect = [['order', 'title', True], ['order', 'work_id', False]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
     def test_facets_can_be_enabled_at_initialization(self):
         enabled_facets = {
@@ -100,10 +109,13 @@ class TestFacets(object):
             Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
             Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
         }
-
+        library = self._default_library
+        self._configure_facets(library, enabled_facets, {})
+        
         # Create a new Facets object with these facets enabled,
         # no matter the Configuration.
         facets = Facets(
+            self._default_library,
             Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
             Facets.ORDER_TITLE, enabled_facets=enabled_facets
         )
@@ -155,6 +167,7 @@ class TestFacets(object):
 
         def order(facet, work, edition, ascending=None):
             f = Facets(
+                self._default_library,
                 collection=Facets.COLLECTION_FULL, 
                 availability=Facets.AVAILABLE_ALL,
                 order=facet,
@@ -239,65 +252,56 @@ class TestFacetsApply(DatabaseTest):
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
         ):
-            f = Facets(collection, available, order)
+            f = Facets(self._default_library, collection, available, order)
             return f.apply(self._db, qu)
 
         # When holds are allowed, we can find all works by asking
         # for everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-
-            everything = facetify()
-            eq_(4, everything.count())
+        library = self._default_library
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        everything = facetify()
+        eq_(4, everything.count())
 
         # If we disallow holds, we lose one book even when we ask for
         # everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-            everything = facetify()
-            eq_(3, everything.count())
-            assert licensed_high not in everything
+        library.setting(Library.ALLOW_HOLDS).value = "False"
+        everything = facetify()
+        eq_(3, everything.count())
+        assert licensed_high not in everything
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            # Even when holds are allowed, if we restrict to books
-            # currently available we lose the unavailable book.
-            available_now = facetify(available=Facets.AVAILABLE_NOW)
-            eq_(3, available_now.count())
-            assert licensed_high not in available_now
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        # Even when holds are allowed, if we restrict to books
+        # currently available we lose the unavailable book.
+        available_now = facetify(available=Facets.AVAILABLE_NOW)
+        eq_(3, available_now.count())
+        assert licensed_high not in available_now
 
-            # If we restrict to open-access books we lose two books.
-            open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
-            eq_(2, open_access.count())
-            assert licensed_high not in open_access
-            assert licensed_low not in open_access
+        # If we restrict to open-access books we lose two books.
+        open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
+        eq_(2, open_access.count())
+        assert licensed_high not in open_access
+        assert licensed_low not in open_access
 
-            # If we restrict to the main collection we lose the low-quality
-            # open-access book.
-            main_collection = facetify(collection=Facets.COLLECTION_MAIN)
-            eq_(3, main_collection.count())
-            assert open_access_low not in main_collection
+        # If we restrict to the main collection we lose the low-quality
+        # open-access book.
+        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
+        eq_(3, main_collection.count())
+        assert open_access_low not in main_collection
 
-            # If we restrict to the featured collection we lose both
-            # low-quality books.
-            featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
-            eq_(2, featured_collection.count())
-            assert open_access_low not in featured_collection
-            assert licensed_low not in featured_collection
+        # If we restrict to the featured collection we lose both
+        # low-quality books.
+        featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
+        eq_(2, featured_collection.count())
+        assert open_access_low not in featured_collection
+        assert licensed_low not in featured_collection
 
-            title_order = facetify(order=Facets.ORDER_TITLE)
-            eq_([open_access_high, open_access_low, licensed_high, licensed_low],
-                title_order.all())
+        title_order = facetify(order=Facets.ORDER_TITLE)
+        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
+            title_order.all())
 
-            random_order = facetify(order=Facets.ORDER_RANDOM)
-            eq_([licensed_low, open_access_high, licensed_high, open_access_low],
-                random_order.all())
+        random_order = facetify(order=Facets.ORDER_RANDOM)
+        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
+            random_order.all())
 
 
 class TestLane(DatabaseTest):
@@ -417,12 +421,10 @@ class TestLanes(DatabaseTest):
                                    sampled_works=None):
             featured_works = None
             featured_materialized_works = None
-            with temp_config() as config:
-                config[Configuration.POLICIES] = {
-                    Configuration.FEATURED_LANE_SIZE : size
-                }
-                featured_works = lane.featured_works(use_materialized_works=False)
-                featured_materialized_works = lane.featured_works()
+            library = self._default_library
+            library.setting(library.FEATURED_LANE_SIZE).value = size
+            featured_works = lane.featured_works(use_materialized_works=False)
+            featured_materialized_works = lane.featured_works()
 
             expected_length = expected_length
             if expected_length == None:
@@ -1183,7 +1185,8 @@ class TestFilters(DatabaseTest):
         # only_show_ready_deliverable_works filters out everything but
         # w1 (owned licenses), w6 (open-access), w7 (available
         # licenses), and w8 (available licenses, weird delivery mechanism).
-        lane = Lane(self._default_library, self._str)
+        library = self._default_library
+        lane = Lane(library, self._str)
         q = lane.only_show_ready_deliverable_works(orig_q, Work)
         eq_(set([w1, w6, w7, w8]), set(q.all()))
 
@@ -1194,27 +1197,24 @@ class TestFilters(DatabaseTest):
         eq_(set([w1, w4, w6, w7, w8]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-
-            # w1 no longer shows up, because although we own licenses, 
-            #  no copies are available.
-            # w4 is open-access but it's suppressed, so it still doesn't 
-            #  show up.
-            # w6 still shows up because it's an open-access work.
-            # w7 and w8 show up because we own licenses and copies are
-            #  available.
-            q = lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(set([w6, w7, w8]), set(q.all()))
+        library.setting(Library.ALLOW_HOLDS).value = "False"
+        # w1 no longer shows up, because although we own licenses, 
+        #  no copies are available.
+        # w4 is open-access but it's suppressed, so it still doesn't 
+        #  show up.
+        # w6 still shows up because it's an open-access work.
+        # w7 and w8 show up because we own licenses and copies are
+        #  available.
+        q = lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w6, w7, w8]), set(q.all()))
 
         # If we add the second collection to the library, its works
         # start showing up. (But we have to recreate the Lane object
         # because it only looks at the library's collections during
         # construction.)
-        self._default_library.collections.append(collection2)
-        lane = Lane(self._default_library, self._str)
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        library.collections.append(collection2)
+        lane = Lane(library, self._str)
         q = lane.only_show_ready_deliverable_works(orig_q, Work)
         eq_(set([w1, w6, w7, w8, w9]), set(q.all()))
         

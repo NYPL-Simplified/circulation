@@ -109,6 +109,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
     LanguageCodes,
@@ -5811,6 +5812,11 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
+    # Every feed is associated with a Library.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    
     # A feed may be associated with a Work.
     work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
@@ -5866,6 +5872,7 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_name=lane_name,
+            library=lane.library,
             work=work,
             type=type,
             languages=languages_key,
@@ -5928,7 +5935,8 @@ class CachedFeed(Base):
 
 
 Index(
-    "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
+    "ix_cachedfeeds_library_id_lane_name_type_facets_pagination",
+    CachedFeed.library_id, CachedFeed.lane_name, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
 
@@ -6103,15 +6111,21 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db, resolved=False):
+    def with_complaint(cls, library, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
+        _db = Session.object_session(library)
         subquery = _db.query(
                 LicensePool.id,
                 func.count(LicensePool.id).label("complaint_count")
-            ).\
-            select_from(LicensePool).\
-            join(LicensePool.complaints).\
-            group_by(LicensePool.id)
+            ).select_from(LicensePool).join(
+                LicensePool.collection).join(
+                    Collection.libraries).filter(
+                        Library.id==library.id
+                    ).join(
+                        LicensePool.complaints
+                    ).group_by(
+                        LicensePool.id
+                    )
 
         if resolved == False:
             subquery = subquery.filter(Complaint.resolved == None)
@@ -6468,9 +6482,8 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (Configuration.hold_policy() 
-            != Configuration.HOLD_POLICY_ALLOW):
-            raise PolicyException("Holds are disabled on this system.")
+        if not patron.library.allow_holds:
+            raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
@@ -8719,6 +8732,12 @@ class Library(Base):
         'Patron', backref='library', cascade="all, delete, delete-orphan"
     )
 
+    # A Library may have many CachedFeeds.
+    cachedfeeds = relationship(
+        "CachedFeed", backref="library",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
+    
     # A Library may have many ExternalIntegrations.
     integrations = relationship(
         "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
@@ -8780,7 +8799,80 @@ class Library(Base):
     # The name of the per-library regular expression used to derive a patron's
     # external_type from their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    # The name of the per-library configuration policy that controls whether
+    # books may be put on hold.
+    ALLOW_HOLDS = "allow_holds"
+    
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
+    # Each library may set a minimum quality for the books that show
+    # up in the 'featured' lanes that show up on the front page.
+    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+
+    # Each library may configure the maximum number of books in the
+    # 'featured' lanes.
+    FEATURED_LANE_SIZE = "featured_lane_size"
+    
+    @property
+    def allow_holds(self):
+        """Does this library allow patrons to put items on hold?"""
+        value = self.setting(self.ALLOW_HOLDS).bool_value
+        if value is None:
+            # If the library has not set a value for this setting,
+            # holds are allowed.
+            value = True
+        return value
+
+    @property
+    def minimum_featured_quality(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.MINIMUM_FEATURED_QUALITY).float_value
+        if value is None:
+            value = 0.65
+        return value
+            
+    @property
+    def featured_lane_size(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.FEATURED_LANE_SIZE).int_value
+        if value is None:
+            value = 15
+        return value
         
+    def enabled_facets(self, group_name):
+        """Look up the enabled facets for a given facet group."""
+        setting = self.enabled_facets_setting(group_name)
+        try:
+            value = setting.json_value
+        except ValueError, e:
+            logging.error("Invalid list of enabled facets for %s: %s",
+                          group_name, setting.value)
+        if value is None:
+            value = list(
+                FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
+            )
+        return value
+
+    def enabled_facets_setting(self, group_name):
+        key = self.ENABLED_FACETS_KEY_PREFIX + group_name
+        return self.setting(key)
+    
+    def default_facet(self, group_name):
+        """Look up the default facet for a given facet group."""
+        value = self.default_facet_setting(group_name).value
+        if not value:
+            value = FacetConstants.DEFAULT_FACET.get(group_name)
+        return value
+
+    def default_facet_setting(self, group_name):
+        key = self.DEFAULT_FACET_KEY_PREFIX + group_name
+        return self.setting(key)
+    
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
@@ -9125,6 +9217,18 @@ class ConfigurationSetting(Base):
             return int(self.value)
         return None
 
+    @property
+    def float_value(self):
+        """Turn the value into an float if possible.
+
+        :return: A float, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to a float.
+        """
+        if self.value:
+            return float(self.value)
+        return None
+    
     @property
     def json_value(self):
         """Interpret the value as JSON if possible.

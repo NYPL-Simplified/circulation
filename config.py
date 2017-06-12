@@ -5,7 +5,6 @@ import os
 import json
 import logging
 import copy
-from facets import FacetConstants as Facets
 from util import LanguageCodes
 
 class CannotLoadConfiguration(Exception):
@@ -51,42 +50,11 @@ class Configuration(object):
     LOG_DATA_FORMAT = "format"
 
     DATA_DIRECTORY = "data_directory"
-
+    
     # Policies, mostly circulation specific
     POLICIES = "policies"
-
-    # TODO: These policies should be converted to per-library
-    # ConfigurationSettings. Since they affect how feeds are
-    # generated, this can only happen once lane configuration happens
-    # in the database.
-    HOLD_POLICY = "holds"
-    HOLD_POLICY_ALLOW = "allow"
-    HOLD_POLICY_HIDE = "hide"
-    
+   
     LANES_POLICY = "lanes"
-
-    # Facet policies
-    FACET_POLICY = 'facets'
-    ENABLED_FACETS_KEY = 'enabled'
-    DEFAULT_FACET_KEY = 'default'
-
-    DEFAULT_ENABLED_FACETS = {
-        Facets.ORDER_FACET_GROUP_NAME : [
-            Facets.ORDER_AUTHOR, Facets.ORDER_TITLE, Facets.ORDER_ADDED_TO_COLLECTION
-        ],
-        Facets.AVAILABILITY_FACET_GROUP_NAME : [
-            Facets.AVAILABLE_ALL, Facets.AVAILABLE_NOW, Facets.AVAILABLE_OPEN_ACCESS
-        ],
-        Facets.COLLECTION_FACET_GROUP_NAME : [
-            Facets.COLLECTION_FULL, Facets.COLLECTION_MAIN, Facets.COLLECTION_FEATURED
-        ]
-    }
-
-    DEFAULT_FACET = {
-        Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_AUTHOR,
-        Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
-        Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_MAIN,
-    }
 
     # Lane policies
     DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
@@ -125,9 +93,6 @@ class Configuration(object):
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
-    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
-    FEATURED_LANE_SIZE = "featured_lane_size"
-
     S3_INTEGRATION = u"S3"
     S3_ACCESS_KEY = u"access_key"
     S3_SECRET_KEY = u"secret_key"
@@ -137,8 +102,7 @@ class Configuration(object):
     CDN_INTEGRATION = u"CDN"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
-    SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
-
+    
     # General getters
 
     @classmethod
@@ -214,29 +178,6 @@ class Configuration(object):
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
-    # TODO: This needs to be turned into a per-Library
-    # ConfigurationSetting, but it's not practical to do so until lane
-    # configuration is moved into the database.
-    @classmethod
-    def hold_policy(cls):
-        return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
-
-    @classmethod
-    def enabled_facets(cls, group_name):
-        """Look up the enabled facets for a given facet group."""
-        policy = cls.policy(cls.FACET_POLICY)
-        if not policy or not cls.ENABLED_FACETS_KEY in policy:
-            return cls.DEFAULT_ENABLED_FACETS[group_name]
-        return policy[cls.ENABLED_FACETS_KEY][group_name]
-
-    @classmethod
-    def default_facet(cls, group_name):
-        """Look up the default facet for a given facet group."""
-        policy = cls.policy(cls.FACET_POLICY)
-        if not policy or not cls.DEFAULT_FACET_KEY in policy:
-            return cls.DEFAULT_FACET[group_name]
-        return policy[cls.DEFAULT_FACET_KEY][group_name]
-
     @classmethod
     def base_opds_authentication_document(cls):
         return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
@@ -245,24 +186,6 @@ class Configuration(object):
     def logging_policy(cls):
         default_logging = {}
         return cls.get(cls.LOGGING, default_logging)
-
-    # TODO: Needs to be a per-library ConfigurationSetting once
-    # lanes are configured in database.
-    @classmethod
-    def minimum_featured_quality(cls):
-        return float(cls.policy(cls.MINIMUM_FEATURED_QUALITY, 0.65))
-
-    # TODO: Needs to be a per-library ConfigurationSetting once
-    # lanes are configured in database.
-    @classmethod
-    def featured_lane_size(cls):
-        return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
-
-    # TODO: Needs to be a per-library ConfigurationSetting once
-    # lanes are configured in database.
-    @classmethod
-    def show_staff_picks_on_top_level(cls):
-        return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
 
     @classmethod
     def localization_languages(cls):
