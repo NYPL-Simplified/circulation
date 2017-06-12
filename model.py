@@ -5812,6 +5812,11 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
+    # Every feed is associated with a Library.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    
     # A feed may be associated with a Work.
     work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
@@ -5867,6 +5872,7 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_name=lane_name,
+            library=lane.library,
             work=work,
             type=type,
             languages=languages_key,
@@ -5929,7 +5935,8 @@ class CachedFeed(Base):
 
 
 Index(
-    "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
+    "ix_cachedfeeds_library_id_lane_name_type_facets_pagination",
+    CachedFeed.library_id, CachedFeed.lane_name, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
 
@@ -8725,6 +8732,12 @@ class Library(Base):
         'Patron', backref='library', cascade="all, delete, delete-orphan"
     )
 
+    # A Library may have many CachedFeeds.
+    cachedfeeds = relationship(
+        "CachedFeed", backref="library",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
+    
     # A Library may have many ExternalIntegrations.
     integrations = relationship(
         "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
