@@ -2009,7 +2009,7 @@ class TestFeedController(CirculationControllerTest):
     def test_groups(self):
         ConfigurationSetting.sitewide(
             self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
-        library = self._library
+        library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
         library.setting(library.FEATURED_LANE_SIZE).value = 2
         for i in range(2):
