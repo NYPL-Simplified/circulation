@@ -6104,15 +6104,21 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db, resolved=False):
+    def with_complaint(cls, library, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
+        _db = Session.object_session(library)
         subquery = _db.query(
                 LicensePool.id,
                 func.count(LicensePool.id).label("complaint_count")
-            ).\
-            select_from(LicensePool).\
-            join(LicensePool.complaints).\
-            group_by(LicensePool.id)
+            ).select_from(LicensePool).join(
+                LicensePool.collection).join(
+                    Collection.libraries).filter(
+                        Library.id==library.id
+                    ).join(
+                        LicensePool.complaints
+                    ).group_by(
+                        LicensePool.id
+                    )
 
         if resolved == False:
             subquery = subquery.filter(Complaint.resolved == None)

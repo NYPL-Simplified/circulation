@@ -1449,6 +1449,7 @@ class TestLicensePool(DatabaseTest):
         eq_(False, better(no_resource, gutenberg_1))
 
     def test_with_complaint(self):
+        library = self._default_library
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
@@ -1520,7 +1521,7 @@ class TestLicensePool(DatabaseTest):
             with_open_access_download=True)
 
         # excludes resolved complaints by default
-        results = LicensePool.with_complaint(self._db).all()
+        results = LicensePool.with_complaint(library).all()
 
         eq_(2, len(results))
         eq_(lp1.id, results[0][0].id)
@@ -1529,7 +1530,7 @@ class TestLicensePool(DatabaseTest):
         eq_(1, results[1][1])
 
         # include resolved complaints this time
-        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
+        more_results = LicensePool.with_complaint(library, resolved=None).all()
 
         eq_(3, len(more_results))
         eq_(lp1.id, more_results[0][0].id)
@@ -1540,13 +1541,24 @@ class TestLicensePool(DatabaseTest):
         eq_(1, more_results[2][1])
 
         # show only resolved complaints
-        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        resolved_results = LicensePool.with_complaint(
+            library, resolved=True).all()
         lp_ids = set([result[0].id for result in resolved_results])
         counts = set([result[1] for result in resolved_results])
         
         eq_(3, len(resolved_results))
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
+
+        # This library has none of the license pools that have complaints,
+        # so passing it in to with_complaint() gives no results.
+        library2 = self._library()
+        eq_(0, LicensePool.with_complaint(library2).count())
+
+        # If we add the default library's collection to this new library,
+        # we start getting the same results.
+        library2.collections.extend(library.collections)
+        eq_(3, LicensePool.with_complaint(library2, resolved=None).count())
 
     def test_editions_in_priority_order(self):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
