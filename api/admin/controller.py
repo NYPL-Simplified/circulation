@@ -672,7 +672,7 @@ class FeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
         opds_feed = AdminFeed.complaints(
-            _db=self._db, title="Complaints",
+            library=flask.request.library, title="Complaints",
             url=this_url, annotator=annotator,
             pagination=pagination
         )

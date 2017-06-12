@@ -47,12 +47,29 @@ try:
             ConfigurationSetting.for_library(key, library).value = value
 
     # Copy maximum fines into each library.
-    key = 'max_outstanding_fines'
-    value = Configuration.policy(key)
-    if value:
-        for library in libraries:
-            ConfigurationSetting.for_library(key, library).value = value
+    for key in ['max_outstanding_fines', 'minimum_featured_quality',
+                'featured_lane_size']:
+        value = Configuration.policy(key)
+        if value:
+            for library in libraries:
+                ConfigurationSetting.for_library(key, library).value = value
 
+    # Convert the string hold_policy into the boolean allow_holds.
+    hold_policy = Configuration.policy('holds')
+    if hold_policy == 'hide':
+        for library in libraries:
+            library.setting("allow_holds").value = "False"
+
+    # Copy facet configuration
+    facet_policy = Configuration.policy("facets", default={})
+    enabled = facet_policy.get("enabled", {})
+    default = facet_policy.get("default", {})
+    for library in libraries:
+        for k, v in enabled.items():
+            library.enabled_facets_setting(k).value = json.dumps(v)
+        for k, v in default.items():
+            library.default_facet_setting(k).value = v
+            
     # Copy external type regular expression into each collection for each
     # library.
     key = 'external_type_regular_expression'
