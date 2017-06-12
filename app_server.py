@@ -92,7 +92,11 @@ def _make_response(content, content_type, cache_for):
                                         "Cache-Control": cache_control})
 
 def load_facets_from_request():
-    """Figure out which Facets object this request is asking for."""
+    """Figure out which Facets object this request is asking for.
+
+    The active request must have the `library` member set to a Library
+    object.
+    """
     arg = flask.request.args.get
     library = flask.request.library
     
