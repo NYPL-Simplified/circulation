@@ -35,6 +35,7 @@ from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
 )
+from core.facets import FacetConfig
 from core.lane import (
     Facets, 
     Pagination,
@@ -98,7 +99,6 @@ from authenticator import (
 from config import (
     Configuration, 
     CannotLoadConfiguration,
-    FacetConfig,
 )
 
 from lanes import (
