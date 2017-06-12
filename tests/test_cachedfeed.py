@@ -98,7 +98,7 @@ class TestCachedFeed(DatabaseTest):
 
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets,
                      pagination, None)
-        
+
         # If we ask for a group feed that will be cached forever, and it's
         # not around, we'll get a page feed instead.
         feed, fresh = CachedFeed.fetch(
