@@ -1,4 +1,5 @@
 import json
+import flask
 from flask import Flask
 from flask_babel import (
     Babel,
