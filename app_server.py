@@ -97,7 +97,7 @@ def load_facets_from_request(facet_config=None):
     The active request must have the `library` member set to a Library
     object.
 
-    :param config: An object to use instead of the request Library
+    :param facet_config: An object to use instead of the request Library
     when deciding which facets are enabled.
     """
     arg = flask.request.args.get

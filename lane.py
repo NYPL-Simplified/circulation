@@ -1674,7 +1674,7 @@ class QueryGeneratedLane(Lane):
         if not query:
             return []
 
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         return self.randomized_sample_works(
             query, target_size=target_size, use_min_size=True
         )
