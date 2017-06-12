@@ -20,6 +20,7 @@ class TestFacetConfig(DatabaseTest):
         # enabled_facets() and default_facet() the same as the Library
         # does.
         config = FacetConfig.from_library(library)
+        assert Facets.ORDER_RANDOM not in config.enabled_facets(order_by)
         for group in Facets.DEFAULT_FACET.keys():
             eq_(config.enabled_facets(group),
                 library.enabled_facets(group))

@@ -8853,7 +8853,9 @@ class Library(Base):
             logging.error("Invalid list of enabled facets for %s: %s",
                           group_name, setting.value)
         if value is None:
-            value = FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
+            value = list(
+                FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
+            )
         return value
 
     def enabled_facets_setting(self, group_name):
