@@ -3,7 +3,7 @@ drop index if exists ix_cachedfeeds_lane_name_type_facets_pagination;
 
 -- Add library_id as a foreign key
 alter table cachedfeeds add column library_id integer;
-alter table cachedfeeds add constraint coveragerecords_collection_id_fkey
+alter table cachedfeeds add constraint cachedfeeds_library_id_fkey
     foreign key (library_id) references libraries(id);
 
 create index "ix_cachedfeeds_library_id_lane_name_type_facets_pagination"
