@@ -2009,30 +2009,27 @@ class TestFeedController(CirculationControllerTest):
     def test_groups(self):
         ConfigurationSetting.sitewide(
             self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.MINIMUM_FEATURED_QUALITY: 0,
-                Configuration.FEATURED_LANE_SIZE: 2,
-            }
-
-            for i in range(2):
-                self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
-                self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
+        library = self._library
+        library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
+        library.setting(library.FEATURED_LANE_SIZE).value = 2
+        for i in range(2):
+            self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
+            self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
         
-            SessionManager.refresh_materialized_views(self._db)
-            with self.request_context_with_library("/"):
-                response = self.manager.opds_feeds.groups(None, None)
+        SessionManager.refresh_materialized_views(self._db)
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.groups(None, None)
 
-                feed = feedparser.parse(response.data)
-                entries = feed['entries']
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
 
-                counter = Counter()
-                for entry in entries:
-                    links = [x for x in entry.links if x['rel'] == 'collection']
-                    for link in links:
-                        counter[link['title']] += 1
-                eq_(2, counter['Nonfiction'])
-                eq_(2, counter['Fiction'])
+            counter = Counter()
+            for entry in entries:
+                links = [x for x in entry.links if x['rel'] == 'collection']
+                for link in links:
+                    counter[link['title']] += 1
+            eq_(2, counter['Nonfiction'])
+            eq_(2, counter['Fiction'])
 
     def test_search(self):
         # Put two works into the search index
