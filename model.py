@@ -8791,6 +8791,14 @@ class Library(Base):
     ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
     DEFAULT_FACET_KEY_PREFIX = "facets_default_"
 
+    # Each library may set a minimum quality for the books that show
+    # up in the 'featured' lanes that show up on the front page.
+    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+
+    # Each library may configure the maximum number of books in the
+    # 'featured' lanes.
+    FEATURED_LANE_SIZE = "featured_lane_size"
+    
     @property
     def allow_holds(self):
         """Does this library allow patrons to put items on hold?"""
@@ -8800,7 +8808,23 @@ class Library(Base):
             # holds are allowed.
             value = True
         return value
-    
+
+    @property
+    def minimum_featured_quality(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.MINIMUM_FEATURED_QUALITY).float_value
+        if value is None:
+            value = 0.65
+        return value
+            
+    @property
+    def featured_lane_size(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.FEATURED_LANE_SIZE).int_value
+        if value is None:
+            value = 15
+        return value
+        
     def enabled_facets(self, group_name):
         """Look up the enabled facets for a given facet group."""
         setting = self.enabled_facets_setting(group_name)
@@ -9172,6 +9196,18 @@ class ConfigurationSetting(Base):
             return int(self.value)
         return None
 
+    @property
+    def float_value(self):
+        """Turn the value into an float if possible.
+
+        :return: A float, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to a float.
+        """
+        if self.value:
+            return float(self.value)
+        return None
+    
     @property
     def json_value(self):
         """Interpret the value as JSON if possible.

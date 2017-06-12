@@ -421,12 +421,10 @@ class TestLanes(DatabaseTest):
                                    sampled_works=None):
             featured_works = None
             featured_materialized_works = None
-            with temp_config() as config:
-                config[Configuration.POLICIES] = {
-                    Configuration.FEATURED_LANE_SIZE : size
-                }
-                featured_works = lane.featured_works(use_materialized_works=False)
-                featured_materialized_works = lane.featured_works()
+            library = self._default_library
+            library.setting(library.FEATURED_LANE_SIZE).value = size
+            featured_works = lane.featured_works(use_materialized_works=False)
+            featured_materialized_works = lane.featured_works()
 
             expected_length = expected_length
             if expected_length == None:

@@ -286,10 +286,10 @@ class Facets(FacetConstants):
             )
             q = q.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than
-            # MINIMUM_FEATURED_QUALITY.
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
             q = q.filter(
-                work_model.quality >= Configuration.minimum_featured_quality()
+                work_model.quality >= self.library.minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
@@ -1413,7 +1413,7 @@ class Lane(object):
         """
         books = []
         featured_subquery = None
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         # If this lane (or its ancestors) is a CustomList, look for any
         # featured works that were set on the list itself.
         list_books, work_id_column = self.list_featured_works(
@@ -1475,7 +1475,7 @@ class Lane(object):
         """Returns the featured books for a lane descended from CustomList(s)"""
         books = list()
         work_id_column = None
-        target_size = target_size or Configuration.featured_lane_size()
+        target_size = target_size or self.library.featured_lane_size
 
         if self.list_featured_works_query:
             subquery = self.list_featured_works_query.with_labels().subquery()
