@@ -872,71 +872,70 @@ class TestOPDS(DatabaseTest):
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
 
-        with temp_config() as config:
-            config['policies'] = {}
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
+        library = self._default_library
+        library.setting(library.FEATURED_LANE_SIZE).value = 2
 
-            annotator = TestAnnotatorWithGroup()
+        annotator = TestAnnotatorWithGroup()
 
-            cached_groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=True, use_materialized_works=False
-            )
-            parsed = feedparser.parse(cached_groups.content)
+        cached_groups = AcquisitionFeed.groups(
+            self._db, "test", self._url, fantasy_lane, annotator, 
+            force_refresh=True, use_materialized_works=False
+        )
+        parsed = feedparser.parse(cached_groups.content)
             
-            # There are two entries, one for each work.
-            e1, e2 = parsed['entries']
+        # There are two entries, one for each work.
+        e1, e2 = parsed['entries']
 
-            # Each entry has one and only one link.
-            [l1], [l2] = e1['links'], e2['links']
+        # Each entry has one and only one link.
+        [l1], [l2] = e1['links'], e2['links']
             
-            # Those links are 'collection' links that classify the
-            # works under their subgenres.
-            assert all([l['rel'] == 'collection' for l in (l1, l2)])
+        # Those links are 'collection' links that classify the
+        # works under their subgenres.
+        assert all([l['rel'] == 'collection' for l in (l1, l2)])
 
-            eq_(l1['href'], 'http://group/Epic Fantasy')
-            eq_(l1['title'], 'Group Title for Epic Fantasy!')
-            eq_(l2['href'], 'http://group/Urban Fantasy')
-            eq_(l2['title'], 'Group Title for Urban Fantasy!')
+        eq_(l1['href'], 'http://group/Epic Fantasy')
+        eq_(l1['title'], 'Group Title for Epic Fantasy!')
+        eq_(l2['href'], 'http://group/Urban Fantasy')
+        eq_(l2['title'], 'Group Title for Urban Fantasy!')
 
-            # The feed itself has an 'up' link which points to the
-            # groups for Fiction, and a 'start' link which points to
-            # the top-level groups feed.
-            [up_link] = self.links(parsed['feed'], 'up')
-            eq_("http://groups/Fiction", up_link['href'])
-            eq_("Fiction", up_link['title'])
+        # The feed itself has an 'up' link which points to the
+        # groups for Fiction, and a 'start' link which points to
+        # the top-level groups feed.
+        [up_link] = self.links(parsed['feed'], 'up')
+        eq_("http://groups/Fiction", up_link['href'])
+        eq_("Fiction", up_link['title'])
 
-            [start_link] = self.links(parsed['feed'], 'start')
-            eq_("http://groups/", start_link['href'])
-            eq_(annotator.top_level_title(), start_link['title'])
+        [start_link] = self.links(parsed['feed'], 'start')
+        eq_("http://groups/", start_link['href'])
+        eq_(annotator.top_level_title(), start_link['title'])
 
-            # The feed has breadcrumb links
-            ancestors = fantasy_lane.visible_ancestors()
-            root = ET.fromstring(cached_groups.content)
-            breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-            links = breadcrumbs.getchildren()
-            eq_(len(ancestors) + 1, len(links))
-            eq_(annotator.top_level_title(), links[0].get("title"))
-            eq_(annotator.default_lane_url(), links[0].get("href"))
-            for i, lane in enumerate(reversed(ancestors)):
-                eq_(lane.display_name, links[i+1].get("title"))
-                eq_(annotator.lane_url(lane), links[i+1].get("href"))
+        # The feed has breadcrumb links
+        ancestors = fantasy_lane.visible_ancestors()
+        root = ET.fromstring(cached_groups.content)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
+        links = breadcrumbs.getchildren()
+        eq_(len(ancestors) + 1, len(links))
+        eq_(annotator.top_level_title(), links[0].get("title"))
+        eq_(annotator.default_lane_url(), links[0].get("href"))
+        for i, lane in enumerate(reversed(ancestors)):
+            eq_(lane.display_name, links[i+1].get("title"))
+            eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
-            # When a feed is created without a cache_type of NO_CACHE,
-            # CachedFeeds aren't used.
-            old_cache_count = self._db.query(CachedFeed).count()
-            raw_groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
-            )
+        # When a feed is created without a cache_type of NO_CACHE,
+        # CachedFeeds aren't used.
+        old_cache_count = self._db.query(CachedFeed).count()
+        raw_groups = AcquisitionFeed.groups(
+            self._db, "test", self._url, fantasy_lane, annotator,
+            cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
+        )
 
-            # Unicode is returned instead of a CachedFeed object.
-            eq_(True, isinstance(raw_groups, unicode))
-            # No new CachedFeeds have been created.
-            eq_(old_cache_count, self._db.query(CachedFeed).count())
-            # The entries in the feed are the same as they were when
-            # they were cached before.
-            eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
+        # Unicode is returned instead of a CachedFeed object.
+        eq_(True, isinstance(raw_groups, unicode))
+        # No new CachedFeeds have been created.
+        eq_(old_cache_count, self._db.query(CachedFeed).count())
+        # The entries in the feed are the same as they were when
+        # they were cached before.
+        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         """Test that a page feed is returned when the requested groups
