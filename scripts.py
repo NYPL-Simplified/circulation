@@ -464,14 +464,14 @@ class LibraryInputScript(InputScript):
         return parser
 
     @classmethod
-    def look_up_libraries(cls, _db, parsed, stdin_patron_strings, *args, **kwargs):
-        """Turn patron identifiers as specified on the command line into real
+    def look_up_libraries(cls, _db, parsed, stdin_library_strings, *args, **kwargs):
+        """Turn library names as specified on the command line into real
         Library objects.
         """
         if _db:
-            library_strings = parsed.identifiers
+            library_strings = parsed.libraries
             if stdin_library_strings:
-                library_strings += stdin_patron_strings
+                library_strings += stdin_library_strings
             parsed.libraries = cls.parse_library_list(
                 _db, library_strings, *args, **kwargs
             )
@@ -491,13 +491,13 @@ class LibraryInputScript(InputScript):
         """
         if len(arguments) == 0:
             return []
-        patrons = []
+        libraries = []
         for arg in arguments:
             if not arg:
                 continue
             for field in (Library.short_name, Library.name):
                 try:
-                    patron = _db.query(Library).filter(field==arg).one()
+                    library = _db.query(Library).filter(field==arg).one()
                 except NoResultFound:
                     continue
                 except MultipleResultsFound:
@@ -509,7 +509,7 @@ class LibraryInputScript(InputScript):
                 logging.warn(
                     "Could not find library %s", arg
                 )
-        return library
+        return libraries
 
     def do_run(self, *args, **kwargs):
         parsed = self.parse_command_line(self._db, *args, **kwargs)

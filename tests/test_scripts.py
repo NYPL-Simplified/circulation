@@ -49,6 +49,7 @@ from scripts import (
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
+    LibraryInputScript,
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
@@ -337,7 +338,60 @@ class TestPatronInputScript(DatabaseTest):
         eq_(True, p1.processed)
         eq_(True, p2.processed)
         eq_(False, p3.processed)
-        
+
+
+class TestLibraryInputScript(DatabaseTest):
+
+    def test_parse_library_list(self):
+        """Test that libraries can be identified with their full name or short name."""
+        l1 = self._library()
+        l2 = self._library()
+        args = [l1.name, 'no-such-library', '', l2.short_name]
+        libraries = LibraryInputScript.parse_library_list(
+            self._db, args
+        )
+        eq_([l1, l2], libraries)
+
+        eq_([], LibraryInputScript.parse_library_list(self._db, []))
+
+    def test_parse_command_line(self):
+        l1 = self._library()
+        l2 = self._library()
+        # We pass in one library identifier on the command line...
+        cmd_args = [l1.name]
+        # ...and another one into standard input.
+        stdin = MockStdin(l2.name)
+        parsed = LibraryInputScript.parse_command_line(
+            self._db, cmd_args, stdin
+        )
+        eq_([l1, l2], parsed.libraries)
+
+    def test_parse_command_line_no_identifiers(self):
+        parsed = LibraryInputScript.parse_command_line(
+            self._db, [], MockStdin()
+        )
+        eq_([], parsed.libraries)
+
+
+    def test_do_run(self):
+        """Test that LibraryInputScript.do_run() calls process_library()
+        for every library designated by the command-line arguments.
+        """
+        class MockLibraryInputScript(LibraryInputScript):
+            def process_library(self, library):
+                library.processed = True
+        l1 = self._library()
+        l2 = self._library()
+        l3 = self._library()
+        l3.processed = False
+        cmd_args = [l1.name]
+        stdin = MockStdin(l2.name)
+        script = MockLibraryInputScript(self._db)
+        script.do_run(cmd_args=cmd_args, stdin=stdin)
+        eq_(True, l1.processed)
+        eq_(True, l2.processed)
+        eq_(False, l3.processed)
+
         
 class TestRunCoverageProviderScript(DatabaseTest):
 
