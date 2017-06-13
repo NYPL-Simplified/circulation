@@ -52,6 +52,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    LibraryInputScript,
     PatronInputScript,
     RunMonitorScript,
 )
@@ -279,10 +280,12 @@ class UpdateStaffPicksScript(Script):
                              representation.media_type)
         return StringIO(representation.content)
 
-class LaneSweeperScript(Script):
-    """Do something to each lane in the application."""
+
+class LaneSweeperScript(LibraryInputScript):
+    """Do something to each lane in a library."""
 
     def __init__(self, _db=None, testing=False):
+        _db = _db or self._db
         super(LaneSweeperScript, self).__init__(_db)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -292,14 +295,13 @@ class LaneSweeperScript(Script):
         self.base_url = Configuration.integration_url(
             Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
         )
-        self.library = app.manager.top_level_lane.library
         
-    def run(self):
+    def process_library(self, library):
         begin = time.time()
         client = self.app.test_client()
         ctx = self.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = [self.app.manager.top_level_lane]
+        queue = [self.app.manager.top_level_lanes[library.id]]
         while queue:
             new_queue = []
             self.log.debug("Beginning of loop: %d lanes to process", len(queue))
@@ -428,12 +430,13 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return cached_feeds
         
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
-    """Cache the first two pages of every facet list for this lane."""
+    """Cache the first two pages of every relevant facet list for this lane."""
 
     name = "Cache OPDS feeds"
 
     @classmethod
     def facet_settings(cls, library, group_name):
+        set_trace()
         enabled = library.enabled_facets(group_name)
         default = library.default_facet(group_name)
         return enabled, default
@@ -482,41 +485,21 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             action='append',
             default=[],
         )
-
+        
         default_pages = 2
         parser.add_argument(
             '--pages',
-            help="Number of pages to cache for each collection. Default: %d" % default_pages,
+            help="Number of pages to cache for each facet. Default: %d" % default_pages,
             type=int,
             default=default_pages
         )
         return parser
-
-    def filter_facets(self, values, group_name):
-        allowable = self.library.enabled_facets(group_name)
-        default = self.library.default_facet(group_name)
-        if not values:
-            return [default]
-        
-        filtered = []
-        for v in values:
-            if v in allowable:
-                filtered.append(v)
-            else:
-                self.log.warn('Ignoring unrecognized value "%s"', v)
-        return filtered
-
+    
     def parse_args(self, cmd_args=None):
         parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
-        self.orders = self.filter_facets(
-            parsed.order, Facets.ORDER_FACET_GROUP_NAME
-        )
-        self.availabilities = self.filter_facets(
-            parsed.availability, Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
-        self.collections = self.filter_facets(
-            parsed.collection, Facets.COLLECTION_FACET_GROUP_NAME
-        )
+        self.orders = parsed.order
+        self.availabilities = parsed.availability
+        self.collections = parsed.collection
         self.pages = parsed.pages
         return parsed
         
@@ -531,27 +514,35 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             lane_name = None
 
         url = self.app.manager.cdn_url_for(
-            "feed", languages=lane.languages, lane_name=lane_name
+            "feed", languages=lane.languages, lane_name=lane_name,
         )
-
-        order_facets = self.library.enabled_facets(
+        library = lane.library
+        orders = library.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        availability = self.library.default_facet(
+        availabilities = library.enabled_facets(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection = self.library.default_facet(
+        collections = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
-        for sort_order in self.orders:
+        for order in self.orders:
+            if order not in orders:
+                logging.warn("Ignoring unsupported ordering %s" % order)
             for availability in self.availabilities:
+                if availability not in availabilities:
+                    logging.warn("Ignoring unsupported availability %s" % availability)
+
                 for collection in self.collections:
+                    if collection not in availabilities:
+                        logging.warn("Ignoring unsupported collection %s" % collection)
+
                     pagination = Pagination.default()
                     facets = Facets(
-                        library=self.library, collection=collection,
+                        library=library, collection=collection,
                         availability=availability,
-                        order=sort_order, order_ascending=True
+                        order=order, order_ascending=True
                     )
                     title = lane.display_name
                     for pagenum in range(0, self.pages):

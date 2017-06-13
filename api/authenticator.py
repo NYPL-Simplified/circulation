@@ -347,6 +347,8 @@ class Authenticator(object):
     def __init__(self, _db):
         self.library_authenticators = {}
 
+        if not _db:
+            set_trace()
         for library in _db.query(Library):
             self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library)
 
