@@ -141,16 +141,37 @@ class CirculationManager(object):
                 sys.exit()
         self._db = _db
         self.testing = testing
-        library = Library.instance(self._db)
-        self.library_id = library.id
-        if isinstance(lanes, LaneList):
-            lanes = lanes
-        else:
-            lanes = make_lanes(library, lanes)
-        self.top_level_lane = self.create_top_level_lane(lanes)
-
         self.auth = Authenticator(self._db)
-        self.setup_circulation(library)
+        # Track the Lane configuration for each library by mapping its
+        # short name to the top-level lane.
+        self.top_level_lanes = {}
+
+        # Create a CirculationAPI for each library.
+        self.circulation_apis = {}
+
+        for library in _db.query(Library):
+            if isinstance(lanes, LaneList):
+                if not self.testing:
+                    raise CannotLoadConfiguration(
+                        "Cannot pass Lane objects into CirculationManager when not in testing mode."
+                    )
+                lanes = lanes
+                # TODO: This is no longer supported since different
+                # libraries need different Lane objects, even if the
+                # lane layout is the same.
+            else:
+                lanes = make_lanes(library, lanes)
+            
+            self.top_level_lanes[library.id] = (
+                self.create_top_level_lane(
+                    library, lanes
+                )
+            )
+
+            self.circulation_apis[library.id] = self.setup_circulation(
+                library
+            )
+            
         self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -176,10 +197,10 @@ class CirculationManager(object):
             self.__external_search = self.setup_search()
         return self.__external_search
 
-    def create_top_level_lane(self, lanelist):
+    def create_top_level_lane(self, library, lanelist):
         name = 'All Books'
         return Lane(
-            self.library, name,
+            library, name,
             display_name=name,
             parent=None,
             sublanes=lanelist.lanes,
@@ -222,8 +243,8 @@ class CirculationManager(object):
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        self.circulation = cls(library)
-
+        return cls(library)
+        
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
         self.index_controller = IndexController(self)
@@ -281,6 +302,12 @@ class CirculationManager(object):
 
 class CirculationManagerController(BaseCirculationManagerController):
 
+    @property
+    def circulation(self):
+        """Return the appropriate CirculationAPI for the request Library."""
+        library_id = flask.request.library.id
+        return self.manager.circulation_apis[library_id]
+    
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
         if language_key is None and name is None:

@@ -15,7 +15,6 @@ class BaseCirculationManagerController(object):
         """:param manager: A CirculationManager object."""
         self.manager = manager
         self._db = self.manager._db
-        self.circulation = self.manager.circulation
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 

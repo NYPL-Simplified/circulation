@@ -103,6 +103,24 @@ from core.analytics import Analytics
 
 class TestCirculationManager(CirculationManager):
 
+    def __init__(self, _default_library_id, *args, **kwargs):
+        super(TestCirculationManager, self).__init__(*args, **kwargs)
+        self._default_library_id = _default_library_id
+
+    @property
+    def circulation(self):
+        """Shorthand for the CirculationAPI object associated with
+        the default library.
+        """
+        return self.circulation_apis[self._default_library_id]
+
+    @property
+    def top_level_lane(self):
+        """Shorthand for the CirculationAPI object associated with
+        the default library.
+        """
+        return self.top_level_lanes[self._default_library_id]
+        
     def cdn_url_for(self, view, *args, **kwargs):
         base_url = url_for(view, *args, **kwargs)
         return cdnify(base_url, {"": "http://cdn/"})
@@ -188,7 +206,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             }
             lanes = make_lanes_default(self.library)
             self.manager = TestCirculationManager(
-                _db, lanes=lanes, testing=True
+                self.library.id, _db, lanes=lanes, testing=True
             )
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
