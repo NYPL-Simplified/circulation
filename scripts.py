@@ -439,6 +439,90 @@ class PatronInputScript(InputScript):
         raise NotImplementedError()
 
 
+class LibraryInputScript(InputScript):
+    """A script that operates on one or more Libraries."""
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+                           *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        if stdin:
+            stdin = cls.read_stdin_lines(stdin)
+        return cls.look_up_libraries(_db, parsed, stdin, *args, **kwargs)
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        library_names = sorted(l.short_name for l in _db.query(Library))
+        library_names = '"' + '", "'.join(library_names) + '"'
+        parser.add_argument(
+            'libraries',
+            help='Name of a specific library to process. Libraries on this system: %s' % library_names
+            metavar='SHORT_NAME', nargs='*'
+        )
+        return parser
+
+    @classmethod
+    def look_up_libraries(cls, _db, parsed, stdin_patron_strings, *args, **kwargs):
+        """Turn patron identifiers as specified on the command line into real
+        Library objects.
+        """
+        if _db:
+            library_strings = parsed.identifiers
+            if stdin_library_strings:
+                library_strings += stdin_patron_strings
+            parsed.libraries = cls.parse_library_list(
+                _db, library_strings, *args, **kwargs
+            )
+        else:
+            # Database is not active yet. The script can call
+            # parse_library_list later if it wants to.
+            parsed.libraries = None
+        return parsed
+
+    @classmethod
+    def parse_library_list(cls, _db, arguments):
+        """Turn a list of library short names into a list of Library objects.
+
+        The list of arguments is probably derived from a command-line
+        parser such as the one defined in
+        LibraryInputScript.arg_parser().
+        """
+        if len(arguments) == 0:
+            return []
+        patrons = []
+        for arg in arguments:
+            if not arg:
+                continue
+            for field in (Library.short_name, Library.name):
+                try:
+                    patron = _db.query(Library).filter(field==arg).one()
+                except NoResultFound:
+                    continue
+                except MultipleResultsFound:
+                    continue
+                if library:
+                    libraries.append(library)
+                    break
+            else:
+                logging.warn(
+                    "Could not find library %s", arg
+                )
+        return library
+
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        self.process_libraries(parsed.libraries)
+
+    def process_libraries(self, libraries):
+        for library in libraries:
+            self.process_library(library)
+
+    def process_library(self, library):
+        raise NotImplementedError()
+
+
 class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
 
