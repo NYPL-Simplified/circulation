@@ -435,21 +435,16 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     name = "Cache OPDS feeds"
 
     @classmethod
-    def facet_settings(cls, library, group_name):
-        set_trace()
-        enabled = library.enabled_facets(group_name)
-        default = library.default_facet(group_name)
+    def facet_settings(cls, group_name):
+        enabled = Facets.DEFAULT_ENABLED_FACETS[group_name]
+        default = Facets.DEFAULT_FACET[group_name]
         return enabled, default
     
     @classmethod
     def arg_parser(cls, _db):
         parser = CacheRepresentationPerLane.arg_parser(_db)
 
-        library = Library.instance(_db)
-        
-        enabled, default = cls.facet_settings(
-            library, Facets.ORDER_FACET_GROUP_NAME
-        )
+        enabled, default = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
         order_help = 'Generate feeds for this ordering. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
         )
@@ -457,11 +452,11 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             '--order',
             help=order_help,
             action='append',
-            default=[],
+            default=[default],
         )
 
         enabled, default = cls.facet_settings(
-            library, Facets.AVAILABILITY_FACET_GROUP_NAME
+            Facets.AVAILABILITY_FACET_GROUP_NAME
         )
         availability_help = 'Generate feeds for this availability setting. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
@@ -470,11 +465,11 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             '--availability',
             help=availability_help,
             action='append',
-            default=[],
+            default=[default],
         )
 
         enabled, default = cls.facet_settings(
-            library, Facets.COLLECTION_FACET_GROUP_NAME
+            Facets.COLLECTION_FACET_GROUP_NAME
         )
         collection_help = 'Generate feeds for this collection within each lane. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
@@ -483,7 +478,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             '--collection',
             help=collection_help,
             action='append',
-            default=[],
+            default=[default],
         )
         
         default_pages = 2
@@ -497,6 +492,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     
     def parse_args(self, cmd_args=None):
         parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
+        set_trace()
         self.orders = parsed.order
         self.availabilities = parsed.availability
         self.collections = parsed.collection
@@ -517,9 +513,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             "feed", languages=lane.languages, lane_name=lane_name,
         )
         library = lane.library
-        orders = library.enabled_facets(
-            Facets.ORDER_FACET_GROUP_NAME
-        )
+        orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         availabilities = library.enabled_facets(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
