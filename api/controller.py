@@ -142,6 +142,8 @@ class CirculationManager(object):
         self._db = _db
         self.testing = testing
         self.auth = Authenticator(self._db)
+        self.__external_search = None
+        
         # Track the Lane configuration for each library by mapping its
         # short name to the top-level lane.
         self.top_level_lanes = {}
@@ -171,8 +173,6 @@ class CirculationManager(object):
             self.circulation_apis[library.id] = self.setup_circulation(
                 library
             )
-            
-        self.__external_search = None
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -181,10 +181,6 @@ class CirculationManager(object):
         self.setup_adobe_vendor_id()
 
         self.opds_authentication_documents = {}
-
-    @property
-    def library(self):
-        return get_one(self._db, Library, id=self.library_id)
     
     @property
     def external_search(self):
