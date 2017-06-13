@@ -156,41 +156,60 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
-        # Most tests can use self._default_library and
-        # self._default_collection, but some can't, because those objects
-        # are associated with the default database session.
+        # Most tests only need one library: self._default_library.
+        # Other tests need a different library (e.g. one created using the
+        # scoped database session), or more than one library. For that
+        # reason we call out to a helper method to create some number of
+        # libraries, then initialize each one.
         #
-        # NOTE: Any use of self._default_library below this point
-        # will cause the tests in TestScopedSession to hang.
-        self.library = self.make_default_library(_db)
-        self.collection = self.make_default_collection(_db, self.library)
-        
-        # Create the patron used by the dummy authentication mechanism.
-        self.default_patron, ignore = get_one_or_create(
-            _db, Patron,
-            library=self.library,
-            authorization_identifier="unittestuser",
-            create_method_kwargs=dict(
-                external_identifier="unittestuser"
-            )
-        )
+        # NOTE: Any reference to self._default_library below this point in
+        # this method will cause the tests in TestScopedSession to
+        # hang.
+        self.libraries = self.make_default_libraries(_db)
+        self.collections = [
+            self.make_default_collection(_db, library)
+            for library in self.libraries
+        ]
 
-        self.initialize_library(_db)
+        # The first library created is used as the default -- more of the
+        # time this is the same as self._default_library.
+        self.library = self.libraries[0]
+        self.collection = self.collections[0]
+
+        self.default_patrons = {}
+        for library in self.libraries:
+            # Initialize the library's library registry constants.
+            self.initialize_library(self.library, _db)            
         
-        # Create a simple authentication integration for this library,
-        # unless it already has a way to authenticate patrons
-        # (in which case we would just screw things up).
-        if not any([x for x in self.library.integrations if x.goal==
-                ExternalIntegration.PATRON_AUTH_GOAL]):
-            integration, ignore = create(
-                _db, ExternalIntegration,
-                protocol="api.simple_authentication",
-                goal=ExternalIntegration.PATRON_AUTH_GOAL
+            # Create the patron used by the dummy authentication mechanism.
+            default_patron, ignore = get_one_or_create(
+                _db, Patron,
+                library=library,
+                authorization_identifier="unittestuser",
+                create_method_kwargs=dict(
+                    external_identifier="unittestuser"
+                )
             )
-            p = BasicAuthenticationProvider
-            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
-            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
-            self.library.integrations.append(integration)
+            self.default_patrons[library] = default_patron
+                
+            # Create a simple authentication integration for this library,
+            # unless it already has a way to authenticate patrons
+            # (in which case we would just screw things up).
+            if not any([x for x in library.integrations if x.goal==
+                        ExternalIntegration.PATRON_AUTH_GOAL]):
+                integration, ignore = create(
+                    _db, ExternalIntegration,
+                    protocol="api.simple_authentication",
+                    goal=ExternalIntegration.PATRON_AUTH_GOAL
+                )
+                p = BasicAuthenticationProvider
+                integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+                integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+                library.integrations.append(integration)
+
+        # The test's default patron is the default patron for the first
+        # library returned by make_default_libraries.
+        self.default_patron = self.default_patrons[self.library]
         self.authdata = AuthdataUtility.from_config(_db)
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -214,8 +233,8 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
-    def make_default_library(self, _db):
-        return self._default_library
+    def make_default_libraries(self, _db):
+        return [self._default_library]
 
     def make_default_collection(self, _db, library):
         return self._default_collection
@@ -582,6 +601,23 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
+
+class TestMultipleLibraries(CirculationControllerTest):
+
+    def make_default_libraries(self, _db):
+        return [self._library() for x in range(2)]
+
+    def make_default_collection(self, _db, library):
+        collection, ignore = get_one_or_create(
+            _db, Collection, name=self._str + " (for multi-library test)",
+        )
+        collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
+        library.collections.append(collection)
+        return collection
+        
+    def test_multiple_libraries(self):
+        set_trace()
+        return
 
 class TestLoanController(CirculationControllerTest):
     def setup(self):
@@ -2384,11 +2420,11 @@ class TestScopedSession(ControllerTest):
         # This will call make_default_library and make_default_collection.
         super(TestScopedSession, self).setup(_db)
 
-    def make_default_library(self, _db):
+    def make_default_libraries(self, _db):
         """We need to create a new instance of the library that
         uses the scoped session.
         """
-        return Library.instance(_db)
+        return [Library.instance(_db)]
 
     def make_default_collection(self, _db, library):
         """We need to create a test collection that

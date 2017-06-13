@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import logging
 from collections import defaultdict
 import contextlib
@@ -43,12 +44,27 @@ class MockAdobeConfiguration(object):
         AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
     }
 
+    counter = 0
+    
     @classmethod
-    def initialize_library(cls, _db):
+    def _id(cls):
+        cls.counter += 1
+        return self.counter
+
+    @classmethod
+    def _str(cls):
+        return unicode(cls._id())
+    
+    @classmethod
+    def initialize_library(cls, library, _db):
         """Initialize the Library object with default data."""
-        library = Library.instance(_db)
-        library.library_registry_short_name = cls.LIBRARY_REGISTRY_SHORT_NAME
-        library.library_registry_shared_secret = cls.LIBRARY_REGISTRY_SHARED_SECRET
+        set_trace()
+        library.library_registry_short_name = (
+            cls.LIBRARY_REGISTRY_SHORT_NAME + cls._str()
+        )
+        library.library_registry_shared_secret = (
+            cls.LIBRARY_REGISTRY_SHARED_SECRET + cls._str()
+        )
 
     @contextlib.contextmanager
     def temp_config(self):
