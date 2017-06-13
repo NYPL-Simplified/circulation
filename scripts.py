@@ -472,9 +472,14 @@ class LibraryInputScript(InputScript):
             library_strings = parsed.libraries
             if stdin_library_strings:
                 library_strings += stdin_library_strings
-            parsed.libraries = cls.parse_library_list(
-                _db, library_strings, *args, **kwargs
-            )
+            if library_strings:
+                parsed.libraries = cls.parse_library_list(
+                    _db, library_strings, *args, **kwargs
+                )
+            else:
+                # No libraries are specified. We will be processing
+                # every library.
+                parsed.libraries = _db.query(Library).all()
         else:
             # Database is not active yet. The script can call
             # parse_library_list later if it wants to.

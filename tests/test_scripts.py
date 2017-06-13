@@ -367,10 +367,13 @@ class TestLibraryInputScript(DatabaseTest):
         eq_([l1, l2], parsed.libraries)
 
     def test_parse_command_line_no_identifiers(self):
-        parsed = LibraryInputScript.parse_command_line(
+        """If you don't specify any libraries on the command
+        line, we will process all libraries in the system.
+        """
+        parsed =LibraryInputScript.parse_command_line(
             self._db, [], MockStdin()
         )
-        eq_([], parsed.libraries)
+        eq_(self._db.query(Library).all(), parsed.libraries)
 
 
     def test_do_run(self):
