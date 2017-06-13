@@ -8936,7 +8936,7 @@ class ExternalIntegration(Base):
     # Integrations with METADATA_GOAL
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
-    NOVELIST = Configuration.NOVELIST_INTEGRATION
+    NOVELIST = u'NoveList Select'
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = Configuration.NYT_INTEGRATION
     METADATA_WRANGLER = u'Metadata Wrangler'
