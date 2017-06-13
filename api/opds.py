@@ -465,10 +465,7 @@ class CirculationManagerAnnotator(Annotator):
         can_borrow = False
         can_fulfill = False
         can_revoke = False
-        can_hold = (
-            Configuration.hold_policy() == 
-            Configuration.HOLD_POLICY_ALLOW
-        )
+        can_hold = self.library.allow_holds
 
         if active_loan:
             can_fulfill = True

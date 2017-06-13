@@ -597,7 +597,7 @@ class SeriesLane(QueryGeneratedLane):
         # regardless of work_model and existing joins.
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).order_by(work_edition.series_position, work_edition.title)
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         qu = qu.limit(target_size)
         return qu.all()
 

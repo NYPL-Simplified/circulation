@@ -35,6 +35,7 @@ from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
 )
+from core.facets import FacetConfig
 from core.lane import (
     Facets, 
     Pagination,
@@ -99,7 +100,6 @@ from authenticator import (
 from config import (
     Configuration, 
     CannotLoadConfiguration,
-    FacetConfig,
 )
 
 from lanes import (
@@ -379,10 +379,9 @@ class CirculationManagerController(BaseCirculationManagerController):
                 status_code=451
             )
 
-        if (license_pool.licenses_available == 0 and
-            not license_pool.open_access and
-            Configuration.hold_policy() !=
-            Configuration.HOLD_POLICY_ALLOW
+        if (not patron.library.allow_holds and
+            license_pool.licenses_available == 0 and
+            not license_pool.open_access
         ):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
@@ -1150,14 +1149,15 @@ class WorkController(CirculationManagerController):
         )
         annotator = self.manager.annotator(lane)
 
-        # This has special handling of facets because a series can
-        # be ordered by series position, as well as the regular enabled
-        # facets.
-        facet_config = FacetConfig.from_config()
-        facet_config.set_default_facet(Facets.ORDER_FACET_GROUP_NAME,
-                                       Facets.ORDER_SERIES_POSITION)
-
-        facets = load_facets_from_request(config=facet_config)
+        # In addition to the orderings enabled for this library, a
+        # series collection may be ordered by series position, and is
+        # ordered that way by default.
+        facet_config = FacetConfig.from_library(self.manager.library)
+        facet_config.set_default_facet(
+            Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
+        )
+        
+        facets = load_facets_from_request(facet_config=facet_config)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()

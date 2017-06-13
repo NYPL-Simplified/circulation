@@ -296,6 +296,8 @@ class LaneSweeperScript(Script):
         if not self.base_url:
             raise ValueError('No base url set for lane generation!')
 
+        self.library = app.manager.top_level_lane.library
+
     def run(self):
         begin = time.time()
         client = self.app.test_client()
@@ -328,7 +330,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     name = "Cache one representation per lane"
 
     @classmethod
-    def arg_parser(cls):
+    def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--language', 
@@ -354,7 +356,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         self.parse_args(cmd_args)
         
     def parse_args(self, cmd_args=None):
-        parser = self.arg_parser()
+        parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
         self.languages = []
         if parsed.language:
@@ -435,16 +437,20 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     name = "Cache OPDS feeds"
 
     @classmethod
-    def facet_settings(cls, group_name):
-        enabled = Configuration.enabled_facets(group_name)
-        default = Configuration.default_facet(group_name)
+    def facet_settings(cls, library, group_name):
+        enabled = library.enabled_facets(group_name)
+        default = library.default_facet(group_name)
         return enabled, default
     
     @classmethod
-    def arg_parser(cls):       
-        parser = CacheRepresentationPerLane.arg_parser()
+    def arg_parser(cls, _db):
+        parser = CacheRepresentationPerLane.arg_parser(_db)
 
-        enabled, default = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
+        library = Library.instance(_db)
+        
+        enabled, default = cls.facet_settings(
+            library, Facets.ORDER_FACET_GROUP_NAME
+        )
         order_help = 'Generate feeds for this ordering. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
         )
@@ -456,7 +462,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         )
 
         enabled, default = cls.facet_settings(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
+            library, Facets.AVAILABILITY_FACET_GROUP_NAME
         )
         availability_help = 'Generate feeds for this availability setting. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
@@ -469,7 +475,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         )
 
         enabled, default = cls.facet_settings(
-            Facets.COLLECTION_FACET_GROUP_NAME
+            library, Facets.COLLECTION_FACET_GROUP_NAME
         )
         collection_help = 'Generate feeds for this collection within each lane. Possible values: %s. Default: %s' % (
             ", ".join(enabled), default
@@ -491,8 +497,8 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         return parser
 
     def filter_facets(self, values, group_name):
-        allowable = Configuration.enabled_facets(group_name)
-        default = Configuration.default_facet(group_name)
+        allowable = self.library.enabled_facets(group_name)
+        default = self.library.default_facet(group_name)
         if not values:
             return [default]
         
@@ -532,13 +538,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             "feed", languages=lane.languages, lane_name=lane_name
         )
 
-        order_facets = Configuration.enabled_facets(
+        order_facets = self.library.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        availability = Configuration.default_facet(
+        availability = self.library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection = Configuration.default_facet(
+        collection = self.library.default_facet(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
@@ -547,7 +553,8 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                 for collection in self.collections:
                     pagination = Pagination.default()
                     facets = Facets(
-                        collection=collection, availability=availability,
+                        library=self.library, collection=collection,
+                        availability=availability,
                         order=sort_order, order_ascending=True
                     )
                     title = lane.display_name

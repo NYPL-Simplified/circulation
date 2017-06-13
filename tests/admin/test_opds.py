@@ -107,13 +107,13 @@ class TestOPDS(DatabaseTest):
             fiction=False,
             with_open_access_download=True)
 
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
         annotator = MockAnnotator(self._default_library)
 
         def make_page(pagination):
             return AdminFeed.complaints(
-                _db=self._db, title="Complaints",
+                library=self._default_library, title="Complaints",
                 url=self._url, annotator=annotator,
                 pagination=pagination
             )
