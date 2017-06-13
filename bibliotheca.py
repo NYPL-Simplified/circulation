@@ -202,7 +202,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
     @classmethod
     def mock_collection(self, _db):
         """Create a mock Bibliotheca collection for use in tests."""
-        library = Library.instance(_db)
+        library = get_one(_db, Library, short_name="default")
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Bibliotheca Collection", create_method_kwargs=dict(

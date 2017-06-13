@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import tempfile
+import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
@@ -133,6 +134,8 @@ class DatabaseTest(object):
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
 
+        self._default_library
+        
         # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
         # which pops an isbn off the list and messes tests up.  so exclude 
         # _ functions from participating.
@@ -704,7 +707,13 @@ class DatabaseTest(object):
         the default library.
         """
         if not hasattr(self, '_default__library'):
-            self._default__library = Library.instance(self._db)
+            self._default__library, ignore = get_one_or_create(
+                self._db, Library, create_method_kwargs=dict(
+                    uuid=unicode(uuid.uuid4()),
+                    short_name="default",
+                    name="default",
+                )
+            )
             self._default__library.collections.append(self._default_collection)
         return self._default__library
         
