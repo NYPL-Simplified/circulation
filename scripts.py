@@ -1253,7 +1253,7 @@ class NYTBestSellerListsScript(Script):
         self.include_history = include_history
     
     def do_run(self):
-        self.api = NYTBestSellerAPI(self._db)
+        self.api = NYTBestSellerAPI.from_config(self._db)
         self.data_source = DataSource.lookup(self._db, DataSource.NYT)
         # For every best-seller list...
         names = self.api.list_of_lists()

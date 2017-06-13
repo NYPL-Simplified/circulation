@@ -109,9 +109,6 @@ class Configuration(object):
 
     CONTENT_SERVER_INTEGRATION = u"Content Server"
 
-    NYT_INTEGRATION = u"New York Times"
-    NYT_BEST_SELLERS_API_KEY = u"best_sellers_api_key"
-
     AXIS_INTEGRATION = "Axis 360"
     ONECLICK_INTEGRATION = "OneClick"
     OVERDRIVE_INTEGRATION = "Overdrive"

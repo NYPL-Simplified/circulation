@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
 )
 
-from config import Configuration
+from config import CannotLoadConfiguration
 from opds_import import MetadataWranglerOPDSLookup
 
 from metadata_layer import (
@@ -23,6 +23,7 @@ from model import (
     get_one_or_create,
     CustomList,
     DataSource,
+    ExternalIntegration,
     Identifier,
     Representation,
 )
@@ -52,12 +53,26 @@ class NYTBestSellerAPI(NYTAPI):
     LIST_MAX_AGE = timedelta(days=1)
     HISTORICAL_LIST_MAX_AGE = timedelta(days=365)
 
+    @classmethod
+    def from_config(cls, _db, **kwargs):
+        integration = ExternalIntegration.lookup(
+            self._db, ExternalIntegration.NYT,
+            ExternalIntegration.METADATA_GOAL
+        )
+
+        if not integration:
+            message = "No ExternalIntegration found for the NYT."
+            raise CannotLoadConfiguration(message)
+
+        if not integration.password:
+            message = "NYT integration improperly configured."
+            raise CannotLoadConfiguration(message)
+
+        return cls(_db, api_key=integration.password, **kwargs)
+
     def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
         self._db = _db
-        integration = Configuration.integration(Configuration.NYT_INTEGRATION)
-        self.api_key = api_key or integration[
-            Configuration.NYT_BEST_SELLERS_API_KEY
-        ]
+        self.api_key = api_key
         self.do_get = do_get or Representation.simple_http_get
         if not metadata_client:
             metadata_client = MetadataWranglerOPDSLookup.from_config(self._db)

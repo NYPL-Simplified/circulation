@@ -8938,7 +8938,7 @@ class ExternalIntegration(Base):
     CONTENT_CAFE = u'Content Cafe'
     NOVELIST = u'NoveList Select'
     NYPL_SHADOWCAT = u'Shadowcat'
-    NYT = Configuration.NYT_INTEGRATION
+    NYT = u'New York Times'
     METADATA_WRANGLER = u'Metadata Wrangler'
 
     # Integrations for storage or cache with BOOK_COVERS_GOAL,
