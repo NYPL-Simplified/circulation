@@ -8923,7 +8923,7 @@ class ExternalIntegration(Base):
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
     ]
-    
+
     # Some integrations with LICENSE_GOAL imply that the data and
     # licenses come from a specific data source.
     DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
@@ -8940,6 +8940,7 @@ class ExternalIntegration(Base):
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = u'New York Times'
     METADATA_WRANGLER = u'Metadata Wrangler'
+    CONTENT_SERVER = u'Content Server'
 
     # Integrations for storage or cache with BOOK_COVERS_GOAL,
     # OPDS_GOAL, or OA_CONTENT_GOAL.
