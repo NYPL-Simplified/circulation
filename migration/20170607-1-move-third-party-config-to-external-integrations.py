@@ -14,8 +14,7 @@ sys.path.append(os.path.abspath(package_dir))
 from config import Configuration
 from external_search import ExternalSearchIndex
 from model import (
-    ConfigurationSetting,
-    ExternalIntegration,
+    ExternalIntegration as EI,
     Library,
     get_one_or_create,
     production_session,
@@ -28,8 +27,6 @@ def log_import(integration_or_setting, is_new):
         log.info("CREATED: %r" % integration_or_setting)
     else:
         log.info("%r already exists." % integration_or_setting)
-
-EI = ExternalIntegration
 
 try:
     Configuration.load()

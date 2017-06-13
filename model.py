@@ -8941,7 +8941,7 @@ class ExternalIntegration(Base):
     NOVELIST = Configuration.NOVELIST_INTEGRATION
     NYPL_SHADOWCAT = u'Shadowcat'
     NYT = Configuration.NYT_INTEGRATION
-    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
+    METADATA_WRANGLER = u'Metadata Wrangler'
 
     # Integrations for storage or cache with BOOK_COVERS_GOAL,
     # OPDS_GOAL, or OA_CONTENT_GOAL.
@@ -9073,9 +9073,6 @@ class ConfigurationSetting(Base):
     )
     key = Column(Unicode, index=True)
     value = Column(Unicode)
-
-    # Key for the base url of the app.
-    BASE_URL_KEY = 'base_url'
 
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),

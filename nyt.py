@@ -10,9 +10,10 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
-from opds_import import SimplifiedOPDSLookup
 
 from config import Configuration
+from opds_import import MetadataWranglerOPDSLookup
+
 from metadata_layer import (
     Metadata,
     IdentifierData,
@@ -59,9 +60,7 @@ class NYTBestSellerAPI(NYTAPI):
         ]
         self.do_get = do_get or Representation.simple_http_get
         if not metadata_client:
-            metadata_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION)
-            metadata_client = SimplifiedOPDSLookup(metadata_url)
+            metadata_client = MetadataWranglerOPDSLookup.from_config(self._db)
         self.metadata_client = metadata_client
 
     @property

@@ -104,9 +104,6 @@ class Configuration(object):
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    METADATA_WRANGLER_INTEGRATION = u"Metadata Wrangler"
-    METADATA_WRANGLER_CLIENT_ID = u"client_id"
-    METADATA_WRANGLER_CLIENT_SECRET = u"client_secret"
     CONTENT_SERVER_INTEGRATION = u"Content Server"
     CIRCULATION_MANAGER_INTEGRATION = u"Circulation Manager"
 

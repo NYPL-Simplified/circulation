@@ -13,13 +13,12 @@ import feedparser
 from lxml import etree
 import pkgutil
 from psycopg2.extras import NumericRange
+
 from . import (
     DatabaseTest,
 )
-from config import (
-    Configuration,
-    CannotLoadConfiguration
-)
+
+from config import CannotLoadConfiguration
 from opds_import import (
     AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,
@@ -83,6 +82,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         super(TestMetadataWranglerOPDSLookup, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL,
             username='abc', password='def', url="http://metadata.in"
         )
         self.collection = self._collection(
@@ -94,7 +94,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         when they configured for the ExternalIntegration
         """
 
-        lookup = MetadataWranglerOPDSLookup(self._db)
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db)
         eq_("abc", lookup.client_id)
         eq_("def", lookup.client_secret)
         eq_(True, lookup.authenticated)
@@ -102,18 +102,19 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         # An error is raised if only one value is set.
         self.integration.password = None
         assert_raises(
-            CannotLoadConfiguration, MetadataWranglerOPDSLookup, self._db
+            CannotLoadConfiguration, MetadataWranglerOPDSLookup.from_config,
+            self._db
         )
 
         # The details are None if client configuration isn't set at all.
         self.integration.username = None
-        lookup = MetadataWranglerOPDSLookup(self._db)
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db)
         eq_(None, lookup.client_id)
         eq_(None, lookup.client_secret)
         eq_(False, lookup.authenticated)
 
     def test_get_collection_url(self):
-        lookup = MetadataWranglerOPDSLookup(self._db)
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db)
 
         # If the lookup client doesn't have a Collection, an error is
         # raised.
@@ -137,7 +138,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
     def test_lookup_endpoint(self):
         # A Collection-specific endpoint is returned if authentication
         # and a Collection is available.
-        lookup = MetadataWranglerOPDSLookup(self._db, collection=self.collection)
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db, collection=self.collection)
 
         expected = self.collection.metadata_identifier + '/lookup'
         eq_(expected, lookup.lookup_endpoint)
@@ -169,7 +170,9 @@ class OPDSImporterTest(DatabaseTest):
         # Set an ExternalIntegration for the metadata_client used
         # in the OPDSImporter.
         self.service = self._external_integration(
-            ExternalIntegration.METADATA_WRANGLER, url="http://localhost"
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL,
+            url="http://localhost"
         )
         
 
