@@ -491,26 +491,26 @@ class TestOPDS(VendorIDTest):
 
     def test_work_entry_includes_recommendations_link(self):
         work = self._work(with_open_access_download=True)
-        with temp_config() as config:
-            NoveListAPI.IS_CONFIGURED = None
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : "library",
-                Configuration.NOVELIST_PASSWORD : "yep"
-            }
-            feed = self.get_parsed_feed([work])
-            [entry] = feed.entries
-            expected_rel_and_partial = dict(recommendations='/recommendations')
-            self.assert_link_on_entry(
-                entry, link_type=OPDSFeed.ACQUISITION_FEED_TYPE,
-                partials_by_rel=expected_rel_and_partial)
 
         # If NoveList Select isn't configured, there's no recommendations link.
-        with temp_config() as config:
-            NoveListAPI.IS_CONFIGURED = None
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-            feed = self.get_parsed_feed([work])
-            [entry] = feed.entries
-            eq_([], filter(lambda l: l.rel=='recommendations', entry.links))
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        eq_([], filter(lambda l: l.rel=='recommendations', entry.links))
+
+        # There's a recommendation link when configuration is found, though!
+        NoveListAPI.IS_CONFIGURED = None
+        self._external_integration(
+            ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL, username=u'library',
+            password=u'sure', libraries=[self._default_library]
+        )
+
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        expected_rel_and_partial = dict(recommendations='/recommendations')
+        self.assert_link_on_entry(
+            entry, link_type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            partials_by_rel=expected_rel_and_partial)
 
     def test_work_entry_includes_annotations_link(self):
         work = self._work(with_open_access_download=True)

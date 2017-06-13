@@ -19,10 +19,12 @@ from core.metadata_layer import (
 )
 from core.model import (
     DataSource,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Measurement,
     Representation,
+    Session,
     Subject,
 )
 from core.util import TitleProcessor
@@ -30,6 +32,8 @@ from core.util import TitleProcessor
 class NoveListAPI(object):
 
     IS_CONFIGURED = None
+    __library = None
+
     log = logging.getLogger("NoveList API")
     version = "2.2"
 
@@ -43,24 +47,33 @@ class NoveListAPI(object):
     MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
 
     @classmethod
-    def from_config(cls, _db):
-        config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
-        profile, password = cls.values()
+    def from_config(cls, library):
+        profile, password = cls.values(library)
         if not (profile and password):
             raise ValueError("No NoveList client configured.")
+
+        _db = Session.object_session(library)
         return cls(_db, profile, password)
 
     @classmethod
-    def values(cls):
-        config = Configuration.integration(Configuration.NOVELIST_INTEGRATION)
-        profile = config.get(Configuration.NOVELIST_PROFILE)
-        password = config.get(Configuration.NOVELIST_PASSWORD)
+    def values(cls, library):
+        _db = Session.object_session(library)
+
+        integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.NOVELIST,
+            ExternalIntegration.METADATA_GOAL, library=library
+        )
+        if not integration:
+            return (None, None)
+
+        profile = integration.username
+        password = integration.password
         return (profile, password)
 
     @classmethod
-    def is_configured(cls):
-        if cls.IS_CONFIGURED is None:
-            profile, password = cls.values()
+    def is_configured(cls, library):
+        if cls.IS_CONFIGURED is None or library != cls.__library:
+            profile, password = cls.values(library)
             cls.IS_CONFIGURED = bool(profile and password)
         return cls.IS_CONFIGURED
 

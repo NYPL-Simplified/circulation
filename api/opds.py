@@ -286,7 +286,7 @@ class CirculationManagerAnnotator(Annotator):
         if work.series:
             self.add_series_link(work, feed, entry)
 
-        if NoveListAPI.is_configured():
+        if NoveListAPI.is_configured(self.library):
             # If NoveList Select is configured, there might be
             # recommendations, too.
             feed.add_link_to_entry(
@@ -304,7 +304,7 @@ class CirculationManagerAnnotator(Annotator):
             )
 
         # Add a link for related books if available.
-        if self.related_books_available(work):
+        if self.related_books_available(work, self.library):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
@@ -334,7 +334,7 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     @classmethod
-    def related_books_available(cls, work):
+    def related_books_available(cls, work, library):
         """:return: bool asserting whether related books might exist for
         a particular Work
         """
@@ -347,7 +347,7 @@ class CirculationManagerAnnotator(Annotator):
 
         contributions = edition.contributions
         series = edition.series
-        return contributions or series or NoveListAPI.is_configured()
+        return contributions or series or NoveListAPI.is_configured(library)
 
     def language_and_audience_key_from_work(self, work):
         language_key = work.language

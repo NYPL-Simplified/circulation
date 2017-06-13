@@ -59,6 +59,19 @@ try:
         )
         log_import(integration, is_new)
 
+    # Import NoveList Select configuration.
+    novelist = Configuration.integration('NoveList Select')
+    if novelist:
+        username = novelist.get('profile')
+        password = novelist.get('password')
+
+        integration, is_new = get_one_or_create(
+            _db, EI, protocol=EI.NOVELIST, goal=EI.METADATA_GOAL,
+            username=username, password=password
+        )
+        integration.libraries.extend(LIBRARIES)
+        log_import(integration, is_new)
+
     # Import Adobe Vendor ID configuration.
     adobe_conf = Configuration.integration('Adobe Vendor ID')
     if adobe_conf:
