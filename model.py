@@ -8908,7 +8908,11 @@ class ExternalIntegration(Base):
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
     ANALYTICS_GOAL = u'analytics'
-    
+
+    # These integrations are associated with external services such as
+    # Adobe Vendor ID, which manage access to DRM-dependent content.
+    DRM_GOAL = u'drm'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -8929,12 +8933,6 @@ class ExternalIntegration(Base):
         ONE_CLICK : DataSource.ONECLICK
     }
 
-    # TODO: Goals for the following.
-    # * The Library Simplified application components
-    #   themselves. (what's the actual goal here?)
-    # * Adobe Vendor ID server
-
-        
     # Integrations with METADATA_GOAL
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
@@ -8950,6 +8948,9 @@ class ExternalIntegration(Base):
     
     # Integrations with SEARCH_GOAL
     ELASTICSEARCH = u'Elasticsearch'
+
+    # Integrations with DRM_GOAL
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
 
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
