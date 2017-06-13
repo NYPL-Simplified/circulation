@@ -51,39 +51,41 @@ import elasticsearch
 class Facets(FacetConstants):
 
     @classmethod
-    def default(cls):
+    def default(cls, library):
         return cls(
+            library,
             collection=cls.COLLECTION_MAIN,
             availability=cls.AVAILABLE_ALL,
             order=cls.ORDER_AUTHOR
         )
-
-    def __init__(self, collection, availability, order,
+    
+    def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
+        """
+        :param collection: This is not a Collection object; it's a value for
+        the 'collection' facet, e.g. 'main' or 'featured'.
+        """
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or Configuration.default_facet(
+        collection = collection or library.default_facet(
             self.COLLECTION_FACET_GROUP_NAME
         )
-        availability = availability or Configuration.default_facet(
+        availability = availability or library.default_facet(
             self.AVAILABILITY_FACET_GROUP_NAME
         )
-        order = order or Configuration.default_facet(
-            self.ORDER_FACET_GROUP_NAME
-        )
+        order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        hold_policy = Configuration.hold_policy()
-        if (availability == self.AVAILABLE_ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
+        if (availability == self.AVAILABLE_ALL and not library.allow_holds):
             # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
+            # library configuration says to hide books that aren't
             # available.
             availability = self.AVAILABLE_NOW
 
+        self.library = library
         self.collection = collection
         self.availability = availability
         self.order = order
@@ -96,7 +98,8 @@ class Facets(FacetConstants):
 
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
-        return Facets(collection or self.collection, 
+        return Facets(self.library,
+                      collection or self.collection, 
                       availability or self.availability, 
                       order or self.order,
                       enabled_facets=self.facets_enabled_at_init)
@@ -129,17 +132,17 @@ class Facets(FacetConstants):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = Configuration.enabled_facets(
+            order_facets = self.library.enabled_facets(
                 Facets.ORDER_FACET_GROUP_NAME
             )
             yield order_facets
 
-            availability_facets = Configuration.enabled_facets(
+            availability_facets = self.library.enabled_facets(
                 Facets.AVAILABILITY_FACET_GROUP_NAME
             )
             yield availability_facets
 
-            collection_facets = Configuration.enabled_facets(
+            collection_facets = self.library.enabled_facets(
                 Facets.COLLECTION_FACET_GROUP_NAME
             )
             yield collection_facets
@@ -283,10 +286,10 @@ class Facets(FacetConstants):
             )
             q = q.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than
-            # MINIMUM_FEATURED_QUALITY.
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
             q = q.filter(
-                work_model.quality >= Configuration.minimum_featured_quality()
+                work_model.quality >= self.library.minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
@@ -1265,8 +1268,7 @@ class Lane(object):
         )
         
         # If we don't allow holds, hide any books with no available copies.
-        hold_policy = Configuration.hold_policy()
-        if hold_policy == Configuration.HOLD_POLICY_HIDE:
+        if not self.library.allow_holds:
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
@@ -1411,7 +1413,7 @@ class Lane(object):
         """
         books = []
         featured_subquery = None
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         # If this lane (or its ancestors) is a CustomList, look for any
         # featured works that were set on the list itself.
         list_books, work_id_column = self.list_featured_works(
@@ -1434,8 +1436,10 @@ class Lane(object):
                 (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL),
                 (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
         ):
-            facets = Facets(collection=collection, availability=availability,
-                            order=Facets.ORDER_RANDOM)
+            facets = Facets(
+                self.library, collection=collection, availability=availability,
+                order=Facets.ORDER_RANDOM
+            )
             if use_materialized_works:
                 query = self.materialized_works(facets=facets)
             else:
@@ -1471,7 +1475,7 @@ class Lane(object):
         """Returns the featured books for a lane descended from CustomList(s)"""
         books = list()
         work_id_column = None
-        target_size = target_size or Configuration.featured_lane_size()
+        target_size = target_size or self.library.featured_lane_size
 
         if self.list_featured_works_query:
             subquery = self.list_featured_works_query.with_labels().subquery()
@@ -1670,7 +1674,7 @@ class QueryGeneratedLane(Lane):
         if not query:
             return []
 
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         return self.randomized_sample_works(
             query, target_size=target_size, use_min_size=True
         )
