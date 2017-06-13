@@ -719,10 +719,10 @@ class CirculationManagerAnnotator(Annotator):
             
             # Generate a <drm:licensor> tag that can feed into the
             # Vendor ID service.
-            return self.adobe_id_tags(_db, patron)
+            return self.adobe_id_tags(patron)
         return []
    
-    def adobe_id_tags(self, _db, patron_identifier):
+    def adobe_id_tags(self, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
         explain how to get an Adobe ID for this patron, and how to
         manage their list of device IDs.
@@ -743,7 +743,7 @@ class CirculationManagerAnnotator(Annotator):
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
-            authdata = AuthdataUtility.from_config(_db)
+            authdata = AuthdataUtility.from_config(self.library)
             if authdata:
                 # TODO: We would like to call encode() here, and have
                 # the client use a JWT as authdata, but we can't,
@@ -889,8 +889,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         This allows us to deregister an Adobe ID, in preparation for
         logout, even if there is no active loan that requires one.
         """
-        _db = Session.object_session(patron)
-        tags = copy.deepcopy(self.adobe_id_tags(_db, patron))
+        tags = copy.deepcopy(self.adobe_id_tags(patron))
         attr = '{%s}scheme' % OPDSFeed.DRM_NS
         for tag in tags:
             tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"

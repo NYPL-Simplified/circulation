@@ -44,6 +44,7 @@ from core.lane import (
 from core.model import (
     get_one,
     get_one_or_create,
+    production_session,
     Admin,
     Annotation,
     CachedFeed,
@@ -51,13 +52,13 @@ from core.model import (
     Collection,
     Complaint,
     DataSource,
+    ExternalIntegration,
     Hold,
     Identifier,
     Library,
     LicensePool,
     Loan,
     LicensePoolDeliveryMechanism,
-    production_session,
     PatronProfileStorage,
     Representation,
     Session,
@@ -157,7 +158,7 @@ class CirculationManager(object):
         )
 
         self.setup_controllers()
-        self.setup_adobe_vendor_id()
+        self.setup_adobe_vendor_id(library)
 
         self.opds_authentication_documents = {}
 
@@ -238,38 +239,46 @@ class CirculationManager(object):
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
-    def setup_adobe_vendor_id(self):
+    def setup_adobe_vendor_id(self, library):
         """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
         for the DRM Device Management Protocol.
         """
-        adobe = Configuration.integration(
-            Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        _db = Session.object_session(library)
+        adobe = ExternalIntegration.lookup(
+            _db, ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, library=library
         )
 
-        # Relatively few libraries will have this setup.
-        vendor_id = adobe.get(Configuration.ADOBE_VENDOR_ID)
-        node_value = adobe.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
-        if vendor_id and node_value:
-            self.adobe_vendor_id = AdobeVendorIDController(
-                self._db,
-                vendor_id,
-                node_value,
-                self.auth
-            )
-        else:
-            self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
-            self.adobe_vendor_id = None
+        warning = (
+            'Adobe Vendor ID controller is disabled due to missing or'
+            ' incomplete configuration. This is probably nothing to'
+            ' worry about.'
+        )
+
+        if adobe:
+            # Relatively few libraries will have this setup.
+            vendor_id = adobe.username
+            node_value = adobe.password
+            if vendor_id and node_value:
+                self.adobe_vendor_id = AdobeVendorIDController(
+                    library,
+                    vendor_id,
+                    node_value,
+                    self.auth
+                )
+            else:
+                self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
+                self.adobe_vendor_id = None
 
         # But almost all libraries will have this setup.
         library = Library.instance(self._db)
         if library.library_registry_shared_secret:
             try:
-                authdata = AuthdataUtility.from_config(self._db)
+                authdata = AuthdataUtility.from_config(library)
                 self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
                 self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
 
-            
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         return CirculationManagerAnnotator(

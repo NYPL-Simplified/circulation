@@ -24,10 +24,6 @@ class Configuration(CoreConfiguration):
 
     ROOT_LANE_POLICY = "root_lane"
 
-    ADOBE_VENDOR_ID_INTEGRATION = u"Adobe Vendor ID"
-    ADOBE_VENDOR_ID = u"vendor_id"
-    ADOBE_VENDOR_ID_NODE_VALUE = u"node_value"
-
     PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
 
     # The name of the sitewide secret used to sign cookies for admin login.

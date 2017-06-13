@@ -1,8 +1,14 @@
+import contextlib
+import json
 import logging
 from collections import defaultdict
-import contextlib
+from nose.tools import set_trace
+
+from core.testing import DatabaseTest
+
 from core.model import (
     DataSource,
+    ExternalIntegration,
     Identifier,
     Library,
     Loan,
@@ -20,46 +26,63 @@ from api.config import (
 )
 from api.adobe_vendor_id import AuthdataUtility
 
-class MockAdobeConfiguration(object):
-    """Contains the constants necessary to set up an Adobe
-    AuthdataUtility.  This is used in test_adobe_vendor_id.py (to test
-    the basic functionality) and test_controller.py (to create an
-    AdobeVendorIDController for use in testing.)
-    """
-    
+class VendorIDTest(DatabaseTest):
+    """Sets up an Adobe Vendor ID integration."""
+
     TEST_NODE_VALUE = 114740953091845
-    TEST_VENDOR_ID = "vendor id"
-    TEST_LIBRARY_URI = "http://me/"
-    TEST_OTHER_LIBRARY_URI = "http://you/"
+    TEST_VENDOR_ID = u"vendor id"
+    TEST_LIBRARY_URI = u"http://me/"
+    TEST_OTHER_LIBRARY_URI = u"http://you/"
     TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
 
-    LIBRARY_REGISTRY_SHORT_NAME = 'LBRY'
-    LIBRARY_REGISTRY_SHARED_SECRET = 'some secret'
-    
-    MOCK_ADOBE_CONFIGURATION = {
-        Configuration.ADOBE_VENDOR_ID: TEST_VENDOR_ID,
-        Configuration.ADOBE_VENDOR_ID_NODE_VALUE: TEST_NODE_VALUE,
-        AuthdataUtility.LIBRARY_URI_KEY: TEST_LIBRARY_URI,
-        AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
-    }
+    LIBRARY_REGISTRY_SHORT_NAME = u'LBRY'
+    LIBRARY_REGISTRY_SHARED_SECRET = u'some secret'
 
-    @classmethod
-    def initialize_library(cls, _db):
+    def setup(self, _db=None):
+        super(VendorIDTest, self).setup()
+
+        if not _db:
+            # So long as we're not testing a scoped session, create
+            # the Adobe Vendor ID credentials.
+            self.adobe_vendor_id = self._external_integration(
+                ExternalIntegration.ADOBE_VENDOR_ID,
+                ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID)
+            self.set_main_library_adobe_config(self._default_library)
+
+        _db = _db or self._db
+        self.initialize_library(_db)
+
+    def initialize_library(self, _db):
         """Initialize the Library object with default data."""
         library = Library.instance(_db)
-        library.library_registry_short_name = cls.LIBRARY_REGISTRY_SHORT_NAME
-        library.library_registry_shared_secret = cls.LIBRARY_REGISTRY_SHARED_SECRET
+        library.library_registry_short_name = self.LIBRARY_REGISTRY_SHORT_NAME
+        library.library_registry_shared_secret = self.LIBRARY_REGISTRY_SHARED_SECRET
+        return library
 
-    @contextlib.contextmanager
-    def temp_config(self):
-        """Configure a basic Vendor ID Service setup."""
-        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][name] = dict(
-                self.MOCK_ADOBE_CONFIGURATION
-            )
-            self.initialize_library(self._db)
-            yield config
+    def set_main_library_adobe_config(self, library):
+        library.library_registry_short_name = self.LIBRARY_REGISTRY_SHORT_NAME
+        self.adobe_vendor_id.password = self.TEST_NODE_VALUE
+        self.adobe_vendor_id.url = self.TEST_LIBRARY_URI
+
+        if library not in self.adobe_vendor_id.libraries:
+            self.adobe_vendor_id.libraries.append(library)
+
+        other_libraries = json.dumps(self.TEST_OTHER_LIBRARIES)
+        self.adobe_vendor_id.set_setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
+        )
+
+    def set_dependent_library_adobe_config(self, library):
+        library.library_registry_short_name = u'you'
+        self.adobe_vendor_id.password = None
+        self.adobe_vendor_id.url = self.TEST_OTHER_LIBRARY_URI
+
+        if library not in self.adobe_vendor_id.libraries:
+            self.adobe_vendor_id.libraries.append(library)
+
+        self.adobe_vendor_id.set_setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY, None
+        )
 
 
 class MockRemoteAPI(BaseCirculationAPI):

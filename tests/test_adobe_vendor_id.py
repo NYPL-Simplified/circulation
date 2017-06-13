@@ -1,4 +1,5 @@
 import base64
+import json
 from nose.tools import (
     set_trace,
     eq_,
@@ -25,11 +26,7 @@ from api.adobe_vendor_id import (
 )
 
 from api.opds import CirculationManagerAnnotator
-from api.testing import MockAdobeConfiguration
-
-from . import (
-    DatabaseTest,
-)
+from api.testing import VendorIDTest
 
 from core.model import (
     Credential,
@@ -47,9 +44,6 @@ from api.config import (
 )
 
 from api.simple_authentication import SimpleAuthenticationProvider       
-
-class VendorIDTest(DatabaseTest, MockAdobeConfiguration):
-    pass
 
 
 class TestVendorIDModel(VendorIDTest):
@@ -69,8 +63,8 @@ class TestVendorIDModel(VendorIDTest):
             self._default_library, integration
         )
         
-        self.model = AdobeVendorIDModel(self._db, self.authenticator,
-                                        self.TEST_NODE_VALUE)
+        self.model = AdobeVendorIDModel(
+            self._default_library, self.authenticator, self.TEST_NODE_VALUE)
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
 
         self.bob_patron = self.authenticator.authenticated_patron(
@@ -84,9 +78,8 @@ class TestVendorIDModel(VendorIDTest):
         assert u.endswith('685b35c00f05')
 
     def test_uuid_and_label_respects_existing_id(self):
-        with self.temp_config():
-            uuid, label = self.model.uuid_and_label(self.bob_patron)
-            uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
+        uuid2, label2 = self.model.uuid_and_label(self.bob_patron)
         eq_(uuid, uuid2)
         eq_(label, label2)
 
@@ -105,8 +98,7 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # Now uuid_and_label works.
-        with self.temp_config():
-            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
         eq_("Delegated account ID A dummy value", label)
 
@@ -133,8 +125,7 @@ class TestVendorIDModel(VendorIDTest):
         # If the DelegatedPatronIdentifier and the Credential
         # have different values, the DelegatedPatronIdentifier wins.
         old_style_credential.credential = "A different value."
-        with self.temp_config():
-            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
         
         # We can even delete the old-style Credential, and
@@ -142,8 +133,7 @@ class TestVendorIDModel(VendorIDTest):
         # it.
         self._db.delete(old_style_credential)
         self._db.commit()
-        with self.temp_config():
-            uuid, label = self.model.uuid_and_label(self.bob_patron)
+        uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
 
         
@@ -173,10 +163,9 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # Pass in a URI and identifier and you get a UUID and a label.
-        with self.temp_config() as config:
-            uuid, label = self.model.to_delegated_patron_identifier_uuid(
-                foreign_uri, foreign_identifier
-            )
+        uuid, label = self.model.to_delegated_patron_identifier_uuid(
+            foreign_uri, foreign_identifier
+        )
 
         # We can't test a specific value for the UUID but we can test the label.
         eq_("Delegated account ID " + uuid, label)
@@ -197,34 +186,28 @@ class TestVendorIDModel(VendorIDTest):
         # Here's a library that delegates to another library's vendor
         # ID. It can't issue Adobe IDs, but it can generate a JWT for
         # one of its patrons.
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
-                Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
-                AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
-            }
-            library = Library.instance(self._db)
-            library.library_registry_short_name = "You"
-            library.library_registry_shared_secret = "secret2"
-            
-            utility = AuthdataUtility.from_config(self._db)
-            vendor_id, jwt = utility.encode("Foreign patron")
+        library = Library.instance(self._db)
+        self.set_dependent_library_adobe_config(library)
+        library.library_registry_shared_secret = u'secret2'
+        utility = AuthdataUtility.from_config(library)
+        vendor_id, jwt = utility.encode("Foreign patron")
 
         # Here's another library that issues Adobe IDs for that
         # first library.
-        with self.temp_config():
-            utility = AuthdataUtility.from_config(self._db)
-            eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
+        self.set_main_library_adobe_config(library)
+        utility = AuthdataUtility.from_config(library)
+        eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
-            # Because this library shares the other library's secret,
-            # it can decode a JWT issued by the other library, and
-            # issue an Adobe ID (UUID).
-            uuid, label = self.model.authdata_lookup(jwt)
+        # Because this library shares the other library's secret,
+        # it can decode a JWT issued by the other library, and
+        # issue an Adobe ID (UUID).
+        uuid, label = self.model.authdata_lookup(jwt)
 
-            # We get the same result if we smuggle the JWT into
-            # a username/password lookup as the username.
-            uuid2, label2 = self.model.standard_lookup(dict(username=jwt))
-            eq_(uuid2, uuid)
-            eq_(label2, label)
+        # We get the same result if we smuggle the JWT into
+        # a username/password lookup as the username.
+        uuid2, label2 = self.model.standard_lookup(dict(username=jwt))
+        eq_(uuid2, uuid)
+        eq_(label2, label)
             
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
@@ -243,33 +226,30 @@ class TestVendorIDModel(VendorIDTest):
         # Here's a library that delegates to another library's vendor
         # ID. It can't issue Adobe IDs, but it can generate a short
         # client token for one of its patrons.
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.ADOBE_VENDOR_ID_INTEGRATION] = {
-                Configuration.ADOBE_VENDOR_ID: self.TEST_VENDOR_ID,
-                AuthdataUtility.LIBRARY_URI_KEY: self.TEST_OTHER_LIBRARY_URI,
-            }
-            library = Library.instance(self._db)
-            library.library_registry_short_name = "You"
-            library.library_registry_shared_secret = "secret2"
-            
-            utility = AuthdataUtility.from_config(self._db)
-            vendor_id, short_client_token = utility.encode_short_client_token(
-                "Foreign patron"
-            )
+        library = Library.instance(self._db)
+        library.library_registry_short_name = "You"
+        library.library_registry_shared_secret = "secret2"
+        self.set_dependent_library_adobe_config(library)
+
+        utility = AuthdataUtility.from_config(library)
+        vendor_id, short_client_token = utility.encode_short_client_token(
+            "Foreign patron"
+        )
 
         # Here's another library that issues Adobe IDs for that
         # first library.
-        with self.temp_config():
-            utility = AuthdataUtility.from_config(self._db)
-            eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
+        library.library_registry_short_name = "BANANA"
+        self.set_main_library_adobe_config(library)
+        utility = AuthdataUtility.from_config(library)
+        eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
-            # Because this library shares the other library's secret,
-            # it can decode a short client token issued by the other library,
-            # and issue an Adobe ID (UUID).
-            token, signature = short_client_token.rsplit("|", 1)
-            uuid, label = self.model.short_client_token_lookup(
-                token, signature
-            )
+        # Because this library shares the other library's secret,
+        # it can decode a short client token issued by the other library,
+        # and issue an Adobe ID (UUID).
+        token, signature = short_client_token.rsplit("|", 1)
+        uuid, label = self.model.short_client_token_lookup(
+            token, signature
+        )
             
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
@@ -286,22 +266,19 @@ class TestVendorIDModel(VendorIDTest):
         # (That's because standard_lookup calls short_client_token_lookup
         # behind the scenes.)
         credentials = dict(username=token, password=signature)
-        with self.temp_config():
-            new_uuid, new_label = self.model.standard_lookup(credentials)
+        new_uuid, new_label = self.model.standard_lookup(credentials)
         eq_(new_uuid, uuid)
         eq_(new_label, label)
         
     def test_short_client_token_lookup_delegated_patron_identifier_failure(self):
-        with self.temp_config():
-            uuid, label = self.model.short_client_token_lookup(
-                "bad token", "bad signature"
-            )
+        uuid, label = self.model.short_client_token_lookup(
+            "bad token", "bad signature"
+        )
         eq_(None, uuid)
         eq_(None, label)
         
     def test_username_password_lookup_success(self):
-        with self.temp_config():
-            urn, label = self.model.standard_lookup(self.credentials)
+        urn, label = self.model.standard_lookup(self.credentials)
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -340,8 +317,7 @@ class TestVendorIDModel(VendorIDTest):
 
         # Use that token to perform a lookup of Bob's Adobe Vendor ID
         # UUID.
-        with self.temp_config():
-            urn, label = self.model.authdata_lookup(token.credential)
+        urn, label = self.model.authdata_lookup(token.credential)
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -376,10 +352,9 @@ class TestVendorIDModel(VendorIDTest):
         # Adobe to authenticate him via that token, so it passes in
         # the token credential as the 'username' and leaves the
         # password blank.
-        with self.temp_config():
-            urn, label = self.model.standard_lookup(
-                dict(username=token.credential)
-            )
+        urn, label = self.model.standard_lookup(
+            dict(username=token.credential)
+        )
 
         # There is now an anonymized identifier associated with Bob's
         # patron account.
@@ -403,15 +378,13 @@ class TestVendorIDModel(VendorIDTest):
         eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
         # A future attempt to authenticate with the token will succeed.
-        with self.temp_config():
-            urn, label = self.model.standard_lookup(
-                dict(username=token.credential)
-            )
+        urn, label = self.model.standard_lookup(
+            dict(username=token.credential)
+        )
         eq_(urn, bob_delegated_patron_identifier.delegated_identifier)
 
     def test_authdata_lookup_failure_no_token(self):
-        with self.temp_config():
-            urn, label = self.model.authdata_lookup("nosuchauthdata")
+        urn, label = self.model.authdata_lookup("nosuchauthdata")
         eq_(None, urn)
         eq_(None, label)
 
@@ -423,14 +396,12 @@ class TestVendorIDModel(VendorIDTest):
         )
 
         # But we look up a different token and get nothing.
-        with self.temp_config():
-            urn, label = self.model.authdata_lookup("nosuchauthdata")
+        urn, label = self.model.authdata_lookup("nosuchauthdata")
         eq_(None, urn)
         eq_(None, label)
 
     def test_urn_to_label_success(self):
-        with self.temp_config():
-            urn, label = self.model.standard_lookup(self.credentials)
+        urn, label = self.model.standard_lookup(self.credentials)
         label2 = self.model.urn_to_label(urn)
         eq_(label, label2)
         eq_("Delegated account ID %s" % urn, label)
@@ -601,84 +572,81 @@ class TestAuthdataUtility(VendorIDTest):
         )
 
     def test_from_config(self):
-        name = Configuration.ADOBE_VENDOR_ID_INTEGRATION
+        utility = AuthdataUtility.from_config(self._default_library)
 
-        # If there is no Adobe Vendor ID integration set up,
-        # from_config() returns None.
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS] = {}
-            eq_(None, AuthdataUtility.from_config(self._db))
-            
-        with self.temp_config() as config:
-            # Test success
-            utility = AuthdataUtility.from_config(self._db)
+        library = Library.instance(self._db)
+        eq_("LBRY", library.library_registry_short_name)
+        eq_("some secret", library.library_registry_shared_secret)
 
-            library = Library.instance(self._db)
-            eq_("LBRY", library.library_registry_short_name)
-            eq_("some secret", library.library_registry_shared_secret)
-            
-            eq_(self.TEST_VENDOR_ID, utility.vendor_id)
-            eq_(self.TEST_LIBRARY_URI, utility.library_uri)
-            eq_(
-                {self.TEST_OTHER_LIBRARY_URI : "secret2",
-                 self.TEST_LIBRARY_URI : "some secret"},
-                utility.secrets_by_library_uri
-            )
-            
-            # Library short names get uppercased.
-            eq_("LBRY", library.library_registry_short_name)
-            eq_(
-                {"LBRY": self.TEST_LIBRARY_URI,
-                 "YOU" : self.TEST_OTHER_LIBRARY_URI },
-                utility.library_uris_by_short_name
-            )
-            
-            # If an integration is set up but incomplete, from_config
-            # raises CannotLoadConfiguration.
-            integration = config[Configuration.INTEGRATIONS][name]
-            del integration[Configuration.ADOBE_VENDOR_ID]
-            assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config,
-                self._db
-            )
-            integration[Configuration.ADOBE_VENDOR_ID] = self.TEST_VENDOR_ID
+        eq_(self.TEST_VENDOR_ID, utility.vendor_id)
+        eq_(self.TEST_LIBRARY_URI, utility.library_uri)
+        eq_(
+            {self.TEST_OTHER_LIBRARY_URI : "secret2",
+             self.TEST_LIBRARY_URI : "some secret"},
+            utility.secrets_by_library_uri
+        )
 
-            del integration[AuthdataUtility.LIBRARY_URI_KEY]
-            assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
-            )
-            integration[AuthdataUtility.LIBRARY_URI_KEY] = self.TEST_LIBRARY_URI
+        # Library short names get uppercased.
+        eq_("LBRY", library.library_registry_short_name)
+        eq_(
+            {"LBRY": self.TEST_LIBRARY_URI,
+             "YOU" : self.TEST_OTHER_LIBRARY_URI },
+            utility.library_uris_by_short_name
+        )
 
-            old_short_name = library.library_registry_short_name
-            library.library_registry_short_name = None
-            assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
-            )
-            library.library_registry_short_name = old_short_name
+        # If an integration is set up but incomplete, from_config
+        # raises CannotLoadConfiguration.
+        self.adobe_vendor_id.username = None
+        assert_raises(
+            CannotLoadConfiguration, AuthdataUtility.from_config,
+            library
+        )
+        self.adobe_vendor_id.username = self.TEST_VENDOR_ID
 
-            old_secret = library.library_registry_shared_secret
-            library.library_registry_shared_secret = None
-            assert_raises(
-                CannotLoadConfiguration, AuthdataUtility.from_config, self._db
-            )
-            library.library_registry_shared_secret = old_secret
-            
-            # If other libraries are not configured, that's fine.
-            del integration[AuthdataUtility.OTHER_LIBRARIES_KEY]
-            authdata = AuthdataUtility.from_config(self._db)
-            eq_({self.TEST_LIBRARY_URI : "some secret"}, authdata.secrets_by_library_uri)
-            eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
+        self.adobe_vendor_id.url = None
+        assert_raises(
+            CannotLoadConfiguration, AuthdataUtility.from_config, library
+        )
+        self.adobe_vendor_id.url = self.TEST_LIBRARY_URI
+
+        old_short_name = library.library_registry_short_name
+        library.library_registry_short_name = None
+        assert_raises(
+            CannotLoadConfiguration, AuthdataUtility.from_config, library
+        )
+        library.library_registry_short_name = old_short_name
+
+        old_secret = library.library_registry_shared_secret
+        library.library_registry_shared_secret = None
+        assert_raises(
+            CannotLoadConfiguration, AuthdataUtility.from_config, library
+        )
+        library.library_registry_shared_secret = old_secret
+
+        # If other libraries are not configured, that's fine.
+        self.adobe_vendor_id.set_setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY, None
+        )
+        authdata = AuthdataUtility.from_config(library)
+        eq_({self.TEST_LIBRARY_URI : "some secret"}, authdata.secrets_by_library_uri)
+        eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
 
         # Short library names are case-insensitive. If the
         # configuration has the same library short name twice, you
         # can't create an AuthdataUtility.
-        with self.temp_config() as config:
-            integration = config[Configuration.INTEGRATIONS][name]
-            integration[AuthdataUtility.OTHER_LIBRARIES_KEY] = {
+        self.adobe_vendor_id.set_setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY,
+            json.dumps({
                 "http://a/" : ("a", "secret1"),
                 "http://b/" : ("A", "secret2"),
-            }
-            assert_raises(ValueError, AuthdataUtility.from_config, self._db)
+            })
+        )
+        assert_raises(ValueError, AuthdataUtility.from_config, library)
+
+        # If there is no Adobe Vendor ID integration set up,
+        # from_config() returns None.
+        self._db.delete(self.adobe_vendor_id)
+        eq_(None, AuthdataUtility.from_config(library))
             
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"
@@ -1040,7 +1008,7 @@ class TestAuthdataUtility(VendorIDTest):
         # An integration-level test:
         # AdobeVendorIDModel.to_delegated_patron_identifier_uuid works
         # now.
-        model = AdobeVendorIDModel(self._db, None, None)
+        model = AdobeVendorIDModel(self._default_library, None, None)
         uuid, label = model.to_delegated_patron_identifier_uuid(
             self.authdata.library_uri, new_credential.credential
         )

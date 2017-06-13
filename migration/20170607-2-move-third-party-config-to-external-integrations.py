@@ -60,17 +60,20 @@ try:
         log_import(integration, is_new)
 
     # Import Adobe Vendor ID configuration.
-    adobe_conf = Configuration.integration(Configuration.ADOBE_VENDOR_ID_INTEGRATION)
+    adobe_conf = Configuration.integration('Adobe Vendor ID')
     if adobe_conf:
-        log_import(Configuration.ADOBE_VENDOR_ID_INTEGRATION)
-        adobe, ignore = get_one_or_create(
-            _db, ExternalIntegration, provider=ExternalIntegration.ADOBE_VENDOR_ID
+        integration, is_new = get_one_or_create(
+            _db, EI, protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL
         )
 
-        adobe.username = adobe_conf.get(Configuration.ADOBE_VENDOR_ID)
-        node_value = adobe_conf.get(Configuration.ADOBE_VENDOR_ID_NODE_VALUE)
-        if node_value:
-            adobe.set_setting(u"node_value", node_value)
+        integration.username = adobe_conf.get('vendor_id')
+        integration.password = adobe_conf.get('node_value')
+
+        other_libraries = adobe_conf.get('other_libraries')
+        if other_libraries:
+            other_libraries = unicode(json.dumps(other_libraries))
+        integration.set_setting(u'other_libraries', other_libraries)
+        integration.libraries.extend(LIBRARIES)
 
     # Import Google OAuth configuration.
     google_oauth_conf = AdminConfiguration.integration(AdminConfiguration.GOOGLE_OAUTH_INTEGRATION)

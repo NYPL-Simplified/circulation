@@ -93,7 +93,7 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.testing import MockAdobeConfiguration
+from api.testing import VendorIDTest
 from lxml import etree
 import random
 import json
@@ -101,7 +101,7 @@ import urllib
 from core.analytics import Analytics
 
 
-class ControllerTest(DatabaseTest, MockAdobeConfiguration):
+class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
@@ -116,8 +116,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     )
     
     def setup(self, _db=None):
-        super(ControllerTest, self).setup()
-
+        super(ControllerTest, self).setup(_db=_db)
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -148,8 +147,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             )
         )
 
-        self.initialize_library(_db)
-
         # Create a CDN for testing purposes.
         cdn = self._external_integration(
             ExternalIntegration.CDN, goal="", url="http://cdn"
@@ -169,7 +166,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
             self.library.integrations.append(integration)
-        self.authdata = AuthdataUtility.from_config(_db)
+        self.authdata = AuthdataUtility.from_config(self.library)
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://test-circulation-manager/'
@@ -180,11 +177,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
                 }
-            }
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.ADOBE_VENDOR_ID_INTEGRATION : dict(
-                    self.MOCK_ADOBE_CONFIGURATION
-                )
             }
 
             lanes = make_lanes_default(self.library)
@@ -730,9 +722,8 @@ class TestLoanController(CirculationControllerTest):
                     datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
-            with self.temp_config():
-                response = self.manager.loans.borrow(
-                    identifier.type, identifier.identifier)
+            response = self.manager.loans.borrow(
+                identifier.type, identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=pool)
@@ -1101,8 +1092,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            with self.temp_config() as config:
-                response = self.manager.loans.sync()
+            response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
@@ -1148,8 +1138,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            with self.temp_config() as config:
-                response = self.manager.loans.sync()
+            response = self.manager.loans.sync()
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -1585,15 +1574,13 @@ class TestWorkController(CirculationControllerTest):
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(9, len(facet_links))
 
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.recommendations(
+                self.identifier.type, self.identifier.identifier
+            )
 
-        with temp_config() as config:
-            with self.request_context_with_library('/'):
-                config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-                response = self.manager.work_controller.recommendations(
-                    self.identifier.type, self.identifier.identifier
-                )
-            eq_(404, response.status_code)
-            eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
 
@@ -1680,20 +1667,18 @@ class TestWorkController(CirculationControllerTest):
 
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
-        with temp_config() as config:
-            # Don't set NoveList Integration.
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
 
-            # Remove contribution.
-            [contribution] = self.edition.contributions
-            [original, role] = [contribution.contributor, contribution.role]
-            self._db.delete(contribution)
-            self._db.commit()
+        # Remove contribution.
+        [contribution] = self.edition.contributions
+        [original, role] = [contribution.contributor, contribution.role]
+        self._db.delete(contribution)
+        self._db.commit()
 
-            with self.request_context_with_library('/'):
-                response = self.manager.work_controller.related(
-                    self.identifier.type, self.identifier.identifier
-                )
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.related(
+                self.identifier.type, self.identifier.identifier
+            )
+
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
