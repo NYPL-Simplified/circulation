@@ -100,22 +100,18 @@ try:
         integration.libraries.extend(LIBRARIES)
 
     # Import Google OAuth configuration.
-    google_oauth_conf = AdminConfiguration.integration(AdminConfiguration.GOOGLE_OAUTH_INTEGRATION)
+    google_oauth_conf = Configuration.integration('Google OAuth')
     if google_oauth_conf:
-        log_import(AdminConfiguration.GOOGLE_OAUTH_INTEGRATION)
-        admin_auth_service, ignore = get_one_or_create(
-            _db, ExternalIntegration, provider=ExternalIntegration.GOOGLE_OAUTH
+        integration, is_new = get_one_or_create(
+            _db, EI, protocol=EI.GOOGLE_OAUTH, goal=EI.ADMIN_AUTH_GOAL,
         )
 
-        admin_auth_service.url = google_oauth_conf.get("web", {}).get("auth_uri")
-        admin_auth_service.username = google_oauth_conf.get("web", {}).get("client_id")
-        admin_auth_service.password = google_oauth_conf.get("web", {}).get("client_secret")
+        integration.url = google_oauth_conf.get("web", {}).get("auth_uri")
+        integration.username = google_oauth_conf.get("web", {}).get("client_id")
+        integration.password = google_oauth_conf.get("web", {}).get("client_secret")
 
-        auth_domain = Configuration.policy(AdminConfiguration.ADMIN_AUTH_DOMAIN)
-        admin_auth_service.type = ExternalIntegration.ADMIN_AUTH_TYPE
+        auth_domain = Configuration.policy('admin_authentication_domain')
         if auth_domain:
-            admin_auth_service.set_setting("domains", json.dumps([auth_domain]))
-
             integration.set_setting(u'domains', json.dumps([auth_domain]))
 
         log_import(integration, is_new)
