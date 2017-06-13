@@ -75,7 +75,7 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
         super(MetadataWranglerCollectionUpdateMonitor, self).__init__(
             _db, collection
         )
-        self.lookup = lookup or MetadataWranglerOPDSLookup(
+        self.lookup = lookup or MetadataWranglerOPDSLookup.from_config(
             self._db, collection=collection
         )
 

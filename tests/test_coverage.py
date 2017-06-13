@@ -92,7 +92,8 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # And create an ExternalIntegration for the metadata_client object.
         self._external_integration(
-            ExternalIntegration.METADATA_WRANGLER, url=self._url
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url
         )
 
         self._default_collection.external_integration.set_setting(
@@ -216,7 +217,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
     def create_provider(self, **kwargs):
-        lookup = MockMetadataWranglerOPDSLookup(self._db, self.collection)
+        lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
         return MetadataWranglerCoverageProvider(
             self.collection, lookup, **kwargs
         )
@@ -225,7 +226,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         super(TestMetadataWranglerCoverageProvider, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
-            url=self._url, username=u'abc', password=u'def'
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url,
+            username=u'abc', password=u'def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
@@ -355,13 +357,16 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         super(MetadataWranglerCollectionManagerTest, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
-            url=self._url, username=u'abc', password=u'def'
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url,
+            username=u'abc', password=u'def'
         )
         self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
         self.collection = self._collection(
             protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
-        self.lookup = MockMetadataWranglerOPDSLookup(self._db, collection=self.collection)
+        self.lookup = MockMetadataWranglerOPDSLookup.from_config(
+            self._db, collection=self.collection
+        )
 
     def opds_feed_identifiers(self):
         """Creates three Identifiers to use for testing with a sample OPDS file."""

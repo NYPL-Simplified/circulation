@@ -151,7 +151,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     
     def __init__(self, collection, lookup_client=None, **kwargs):
         _db = Session.object_session(collection)
-        lookup_client = lookup_client or MetadataWranglerOPDSLookup(
+        lookup_client = lookup_client or MetadataWranglerOPDSLookup.from_config(
             _db, collection=collection
         )
 

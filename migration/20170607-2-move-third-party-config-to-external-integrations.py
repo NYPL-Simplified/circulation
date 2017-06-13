@@ -13,23 +13,41 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.model import (
-    ExternalIntegration,
+    ConfigurationSetting,
+    ExternalIntegration as EI,
+    Library,
     get_one_or_create,
     production_session,
 )
 
 from api.config import Configuration
-from api.admin.config import Configuration as AdminConfiguration
-
 
 log = logging.getLogger(name="Circulation manager configuration import")
 
-def log_import(service_name):
-    log.info("Importing configuration for %s" % service_name)
+def log_import(integration_or_setting, is_new):
+    if is_new:
+        log.info("CREATED: %r" % integration_or_setting)
+    else:
+        log.info("%r already exists." % integration_or_setting)
 
 try:
     Configuration.load()
     _db = production_session()
+    LIBRARIES = _db.query(Library).all()
+
+    # Import Metadata Wrangler configuration.
+    metadata_wrangler_conf = Configuration.integration('Metadata Wrangler')
+
+    if metadata_wrangler_conf:
+        url = metadata_wrangler_conf.get('url')
+        username = metadata_wrangler_conf.get('client_id')
+        password = metadata_wrangler_conf.get('client_secret')
+
+        integration, is_new = get_one_or_create(
+            _db, EI, protocol=EI.METADATA_WRANGLER, goal=EI.METADATA_GOAL,
+            url=url, username=username, password=password
+        )
+        log_import(integration, is_new)
 
     # Import Adobe Vendor ID configuration.
     adobe_conf = Configuration.integration(Configuration.ADOBE_VENDOR_ID_INTEGRATION)

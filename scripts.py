@@ -33,6 +33,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     get_one,
     Hold,
     Hyperlink,
@@ -60,7 +61,7 @@ from core.lane import (
     Facets,
 )
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
 )
 from core.opds import (
@@ -114,12 +115,10 @@ class CreateWorksForIdentifiersScript(Script):
     name = "Create works for identifiers"
 
     def __init__(self, metadata_web_app_url=None):
-        self.metadata_url = (
-            metadata_web_app_url or Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-            )
-        )
-        self.lookup = SimplifiedOPDSLookup(self.metadata_url)
+        if metadata_web_app_url:
+            self.lookup = MetadataWranglerOPDSLookup(metadata_web_app_url)
+        else:
+            self.lookup = MetadataWranglerOPDSLookup.from_config(_db)
 
     def run(self):
 

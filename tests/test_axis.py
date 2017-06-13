@@ -26,6 +26,10 @@ from core.metadata_layer import (
     SubjectData,
 )
 
+from core.opds_import import(
+    MockMetadataWranglerOPDSLookup
+)
+
 from api.axis import (
     Axis360CirculationMonitor,
     Axis360API,
@@ -185,7 +189,8 @@ class TestCirculationMonitor(Axis360Test):
                 ['core.local_analytics_provider'], config
             )
             monitor = Axis360CirculationMonitor(
-                self.collection, api_class=MockAxis360API
+                self.collection, api_class=MockAxis360API,
+                metadata_client=MockMetadataWranglerOPDSLookup('url')
             )
             edition, license_pool = monitor.process_book(
                 self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
@@ -258,7 +263,8 @@ class TestCirculationMonitor(Axis360Test):
         )
         metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
         monitor = Axis360CirculationMonitor(
-            self.collection, api_class=MockAxis360API
+            self.collection, api_class=MockAxis360API,
+            metadata_client=MockMetadataWranglerOPDSLookup('url')
         )
         edition, licensepool = monitor.process_book(
             metadata, self.AVAILABILITY_DATA
