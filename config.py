@@ -52,6 +52,9 @@ class Configuration(object):
 
     DATA_DIRECTORY = "data_directory"
 
+    # ConfigurationSetting key  for the base url of the app.
+    BASE_URL_KEY = u'base_url'
+
     # Policies, mostly circulation specific
     POLICIES = "policies"
 
@@ -105,7 +108,6 @@ class Configuration(object):
     DATABASE_TEST_URL = "test_url"
 
     CONTENT_SERVER_INTEGRATION = u"Content Server"
-    CIRCULATION_MANAGER_INTEGRATION = u"Circulation Manager"
 
     NYT_INTEGRATION = u"New York Times"
     NYT_BEST_SELLERS_API_KEY = u"best_sellers_api_key"
