@@ -706,7 +706,6 @@ class DatabaseTest(object):
         """
         if not hasattr(self, '_default__library'):
             self._default__library = self.make_default_library(self._db)
-            self._default__library.collections.append(self._default_collection)
         return self._default__library
         
     @property
@@ -720,7 +719,7 @@ class DatabaseTest(object):
         saves time.
         """
         if not hasattr(self, '_default__collection'):
-            self._default__collection = self.make_default_collection(self._db)
+            [self._default__collection] = self._default_library.collections
         return self._default__collection
 
     @classmethod
@@ -737,24 +736,16 @@ class DatabaseTest(object):
                 name="default",
             )
         )
-        library.collections.append(cls.make_default_collection(_db))
-        return library
-        
-    @classmethod
-    def make_default_collection(cls, _db):
-        """Ensure that the default collection exists in the given database.
-
-        This can be called by code intended for use in testing but not actually
-        within a DatabaseTest subclass.
-        """
         collection, ignore = get_one_or_create(
             _db, Collection, name="Default Collection"
         )
         integration = collection.create_external_integration(
             ExternalIntegration.OPDS_IMPORT
         )
-        return collection
-    
+        if collection not in library.collections:
+            library.collections.append(collection)
+        return library
+            
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         
