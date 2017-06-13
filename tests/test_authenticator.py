@@ -905,59 +905,57 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][
-                Configuration.CIRCULATION_MANAGER_INTEGRATION
-            ] = dict(url="http://circulation-manager/")
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://circulation-manager/'
 
-            with self.app.test_request_context("/"):        
-                doc = json.loads(authenticator.create_authentication_document())
-                # The main thing we need to test is that the
-                # sub-documents are assembled properly and placed in the
-                # right position.
-                providers = doc['providers']
-                basic_doc = providers[basic.URI]
-                expect_basic = basic.authentication_provider_document(library.short_name)
-                eq_(expect_basic, basic_doc)
+        with self.app.test_request_context("/"):
+            doc = json.loads(authenticator.create_authentication_document())
+            # The main thing we need to test is that the
+            # sub-documents are assembled properly and placed in the
+            # right position.
+            providers = doc['providers']
+            basic_doc = providers[basic.URI]
+            expect_basic = basic.authentication_provider_document(library.short_name)
+            eq_(expect_basic, basic_doc)
+
+            oauth_doc = providers[oauth.URI]
+            expect_oauth = oauth.authentication_provider_document(library.short_name)
+            eq_(expect_oauth, oauth_doc)
+
+            # We also need to test that the library's name and UUID
+            # were placed in the document.
+            eq_("A Fabulous Library", doc['name'])
+            eq_(expect_uuid, doc['id'])
             
-                oauth_doc = providers[oauth.URI]
-                expect_oauth = oauth.authentication_provider_document(library.short_name)
-                eq_(expect_oauth, oauth_doc)
+            # We also need to test that the links got pulled in
+            # from the configuration.
+            links = doc['links']
+            eq_("http://terms", links['terms-of-service']['href'])
+            eq_("http://privacy", links['privacy-policy']['href'])
+            eq_("http://copyright", links['copyright']['href'])
+            eq_("http://about", links['about']['href'])
+            eq_("http://license/", links['license']['href'])
 
-                # We also need to test that the library's name and UUID
-                # were placed in the document.
-                eq_("A Fabulous Library", doc['name'])
-                eq_(expect_uuid, doc['id'])
-                
-                # We also need to test that the links got pulled in
-                # from the configuration.
-                links = doc['links']
-                eq_("http://terms", links['terms-of-service']['href'])
-                eq_("http://privacy", links['privacy-policy']['href'])
-                eq_("http://copyright", links['copyright']['href'])
-                eq_("http://about", links['about']['href'])
-                eq_("http://license/", links['license']['href'])
-                
-                # While we're in this context, let's also test
-                # create_authentication_headers.
+            # While we're in this context, let's also test
+            # create_authentication_headers.
 
-                # So long as the authenticator includes a basic auth
-                # provider, that provider's .authentication_header is used
-                # for WWW-Authenticate.
-                headers = authenticator.create_authentication_headers()
-                eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
-                eq_(basic.authentication_header, headers['WWW-Authenticate'])
+            # So long as the authenticator includes a basic auth
+            # provider, that provider's .authentication_header is used
+            # for WWW-Authenticate.
+            headers = authenticator.create_authentication_headers()
+            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+            eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
-                # If the authenticator does not include a basic auth provider,
-                # no WWW-Authenticate header is provided. 
-                authenticator = LibraryAuthenticator(
-                    _db=self._db,
-                    library=library,
-                    oauth_providers=[oauth],
-                    bearer_token_signing_secret='secret'
-                )
-                headers = authenticator.create_authentication_headers()
-                assert 'WWW-Authenticate' not in headers
+            # If the authenticator does not include a basic auth provider,
+            # no WWW-Authenticate header is provided.
+            authenticator = LibraryAuthenticator(
+                _db=self._db,
+                library=library,
+                oauth_providers=[oauth],
+                bearer_token_signing_secret='secret'
+            )
+            headers = authenticator.create_authentication_headers()
+            assert 'WWW-Authenticate' not in headers
 
 class TestAuthenticationProvider(AuthenticatorTest):
 

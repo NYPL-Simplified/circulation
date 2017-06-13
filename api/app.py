@@ -12,7 +12,10 @@ from flask import (
 from flask_sqlalchemy_session import flask_scoped_session
 from sqlalchemy.orm import sessionmaker
 from config import Configuration
-from core.model import SessionManager
+from core.model import (
+    ConfigurationSetting,
+    SessionManager,
+)
 from core.util import LanguageCodes
 from flask.ext.babel import Babel
 
@@ -38,9 +41,9 @@ app.config['DEBUG'] = debug
 app.debug = debug
 
 def run():
-    url = Configuration.integration_url(
-        Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True)
-    scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+    base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
+    base_url = base_url.value or u'http://localhost:6500/'
+    scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(base_url)
     if ':' in netloc:
         host, port = netloc.split(':')
         port = int(port)

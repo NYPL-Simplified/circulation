@@ -27,6 +27,7 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
+    ConfigurationSetting,
     Contribution,
     Credential,
     CustomList,
@@ -288,9 +289,12 @@ class LaneSweeperScript(Script):
         del os.environ['AUTOINITIALIZE']
         app.manager = CirculationManager(_db, testing=testing)
         self.app = app
-        self.base_url = Configuration.integration_url(
-            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
-        )
+
+        self.base_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        ).value
+        if not self.base_url:
+            raise ValueError('No base url set for lane generation!')
 
     def run(self):
         begin = time.time()

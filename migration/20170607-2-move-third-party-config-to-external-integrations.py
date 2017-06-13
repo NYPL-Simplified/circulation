@@ -35,6 +35,16 @@ try:
     _db = production_session()
     LIBRARIES = _db.query(Library).all()
 
+    # Import Circulation Manager base url.
+    circ_manager_conf = Configuration.integration('Circulation Manager')
+    if circ_manager_conf:
+        url = circ_manager_conf.get('url')
+        if url:
+            setting = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
+            is_new = setting.value
+            setting.value = unicode(url)
+            log_import(setting, is_new)
+
     # Import Metadata Wrangler configuration.
     metadata_wrangler_conf = Configuration.integration('Metadata Wrangler')
 

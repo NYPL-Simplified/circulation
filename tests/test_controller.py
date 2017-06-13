@@ -170,6 +170,10 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
             self.library.integrations.append(integration)
         self.authdata = AuthdataUtility.from_config(_db)
+
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://test-circulation-manager/'
+
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.LANGUAGE_POLICY : {
@@ -178,9 +182,6 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                 }
             }
             config[Configuration.INTEGRATIONS] = {
-                Configuration.CIRCULATION_MANAGER_INTEGRATION : {
-                    "url": 'http://test-circulation-manager/'
-                },
                 Configuration.ADOBE_VENDOR_ID_INTEGRATION : dict(
                     self.MOCK_ADOBE_CONFIGURATION
                 )
@@ -208,6 +209,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         with self.app.test_request_context(route, *args, **kwargs) as c:
             flask.request.library = library
             yield c
+
 
 class CirculationControllerTest(ControllerTest):
 
@@ -269,26 +271,21 @@ class TestBaseController(CirculationControllerTest):
             value = self.controller.authenticated_patron(self.valid_credentials)
             assert isinstance(value, Patron)
 
-
     def test_authentication_sends_proper_headers(self):
 
         # Make sure the realm header has quotes around the realm name.  
         # Without quotes, some iOS versions don't recognize the header value.
-        
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.CIRCULATION_MANAGER_INTEGRATION: {
-                    Configuration.URL: "http://url"
-                }
-            }
 
-            with self.request_context_with_library("/"):
-                response = self.controller.authenticate()
-                eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://url'
 
-            with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
-                response = self.controller.authenticate()
-                eq_(None, response.headers.get("WWW-Authenticate"))
+        with self.request_context_with_library("/"):
+            response = self.controller.authenticate()
+            eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+
+        with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
+            response = self.controller.authenticate()
+            eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
         eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
@@ -625,7 +622,6 @@ class TestLoanController(CirculationControllerTest):
                 self.default_patron, pools
             )
             eq_((hold, other_pool), result)
-
 
     def test_borrow_success(self):
         with self.request_context_with_library(
@@ -2072,7 +2068,6 @@ class TestFeedController(CirculationControllerTest):
 
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
-
 
 
 class TestAnalyticsController(CirculationControllerTest):
