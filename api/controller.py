@@ -310,10 +310,13 @@ class CirculationManagerController(BaseCirculationManagerController):
     
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
-        if language_key is None and name is None:
-            return self.manager.top_level_lane
+        library_id = flask.request.library.id
+        top_level_lane = self.manager.top_level_lanes[library_id]
 
-        lanelist = self.manager.top_level_lane.sublanes
+        if language_key is None and name is None:
+            return top_level_lane
+
+        lanelist = top_level_lane.sublanes
         if not language_key in lanelist.by_languages:
             return NO_SUCH_LANE.detailed(
                 _("Unrecognized language key: %(language_key)s", language_key=language_key)
