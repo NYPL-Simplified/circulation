@@ -25,7 +25,7 @@ from core.model import (
     Session,
 )
 from util.patron import PatronUtility
-from core.util import cdnify
+from core.util.cdn import cdnify
 from config import Configuration
 
 class CirculationInfo(object):
