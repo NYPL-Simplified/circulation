@@ -8994,9 +8994,25 @@ class ExternalIntegration(Base):
             self.protocol, self.goal, len(self.settings), self.id)
 
     @classmethod
-    def lookup(cls, _db, protocol, goal=None):
-        integration = get_one(_db, cls, protocol=protocol, goal=goal)
-        return integration
+    def lookup(cls, _db, protocol, goal, library=None):
+        integrations = _db.query(cls).filter(
+            cls.protocol==protocol, cls.goal==goal
+        ).all()
+
+        if library:
+            integrations = filter(lambda i: library in i.libraries, integrations)
+
+        if len(integrations) > 1:
+            logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
+
+        if filter(lambda i: i.libraries, integrations) and not library:
+            raise ValueError(
+                'This ExternalIntegration requires a library and none was provided.'
+            )
+
+        if not integrations:
+            return None
+        return integrations[0]
 
     @classmethod
     def admin_authentication(cls, _db):
