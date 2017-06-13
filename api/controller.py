@@ -290,9 +290,13 @@ class CirculationManager(object):
             
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
+        if lane:
+            library = lane.library
+        else:
+            library = flask.request.library
         return CirculationManagerAnnotator(
-            self.circulation, lane, flask.request.library, top_level_title='All Books',
-            *args, **kwargs
+            self.circulation_apis[library.id], lane, library,
+            top_level_title='All Books', *args, **kwargs
         )
 
 
@@ -1006,14 +1010,14 @@ class WorkController(CirculationManagerController):
 
     def contributor(self, contributor_name, languages, audiences):
         """Serve a feed of books written by a particular author"""
-
+        library = flask.request.library
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            self.manager.library, contributor_name, languages=languages, audiences=audiences
+            library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1070,7 +1074,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                self.manager.library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1105,7 +1109,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self.manager.library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1157,12 +1161,12 @@ class WorkController(CirculationManagerController):
 
     def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""
-
+        library = flask.request.library
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(self.manager.library, series_name=series_name,
+        lane = SeriesLane(library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)
@@ -1170,7 +1174,7 @@ class WorkController(CirculationManagerController):
         # In addition to the orderings enabled for this library, a
         # series collection may be ordered by series position, and is
         # ordered that way by default.
-        facet_config = FacetConfig.from_library(self.manager.library)
+        facet_config = FacetConfig.from_library(library)
         facet_config.set_default_facet(
             Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
         )

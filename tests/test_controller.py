@@ -108,14 +108,14 @@ class TestCirculationManager(CirculationManager):
         self._default_library_id = _default_library_id
 
     @property
-    def circulation(self):
+    def d_circulation(self):
         """Shorthand for the CirculationAPI object associated with
         the default library.
         """
         return self.circulation_apis[self._default_library_id]
 
     @property
-    def top_level_lane(self):
+    def d_top_level_lane(self):
         """Shorthand for the CirculationAPI object associated with
         the default library.
         """
@@ -312,30 +312,32 @@ class TestBaseController(CirculationControllerTest):
                 eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
-        eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
-        chinese = self.controller.load_lane('chi', None)
-        eq_("Chinese", chinese.name)
-        eq_("Chinese", chinese.display_name)
-        eq_(["chi"], chinese.languages)
+        with self.request_context_with_library("/"):
+            eq_(self.manager.d_top_level_lane,
+                self.controller.load_lane(None, None))
+            chinese = self.controller.load_lane('chi', None)
+            eq_("Chinese", chinese.name)
+            eq_("Chinese", chinese.display_name)
+            eq_(["chi"], chinese.languages)
 
-        english_sf = self.controller.load_lane('eng', "Science Fiction")
-        eq_("Science Fiction", english_sf.display_name)
-        eq_(["eng"], english_sf.languages)
+            english_sf = self.controller.load_lane('eng', "Science Fiction")
+            eq_("Science Fiction", english_sf.display_name)
+            eq_(["eng"], english_sf.languages)
 
-        # __ is converted to /
-        english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-        eq_("Suspense/Thriller", english_thriller.name)
+            # __ is converted to /
+            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
+            eq_("Suspense/Thriller", english_thriller.name)
 
-        # Unlike with Chinese, there is no lane that contains all English books.
-        english = self.controller.load_lane('eng', None)
-        eq_(english.uri, NO_SUCH_LANE.uri)
+            # Unlike with Chinese, there is no lane that contains all English books.
+            english = self.controller.load_lane('eng', None)
+            eq_(english.uri, NO_SUCH_LANE.uri)
 
-        no_such_language = self.controller.load_lane('o10', None)
-        eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-        eq_("Unrecognized language key: o10", no_such_language.detail)
+            no_such_language = self.controller.load_lane('o10', None)
+            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
+            eq_("Unrecognized language key: o10", no_such_language.detail)
 
-        no_such_lane = self.controller.load_lane('eng', 'No such lane')
-        eq_("No such lane: No such lane", no_such_lane.detail)
+            no_such_lane = self.controller.load_lane('eng', 'No such lane')
+            eq_("No such lane: No such lane", no_such_lane.detail)
 
     def test_load_licensepools(self):
 
@@ -739,7 +741,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool,
                 LoanInfo(
                     pool.collection, pool.data_source.name,
@@ -781,7 +783,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(set(expects), set(fulfillment_links))
 
             # Now let's try to fulfill the loan using the streaming mechanism.
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -820,7 +822,7 @@ class TestLoanController(CirculationControllerTest):
             http = DummyHTTPClient()
             http.queue_response(200, content="I am an ACSM file")
 
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -841,7 +843,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(mech1, loan.fulfillment)
 
             # But we can still fulfill the streaming mechanism again.
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -895,10 +897,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, NoAvailableCopies()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool,
                 HoldInfo(
                     pool.collection, pool.data_source.name,
@@ -936,10 +938,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, AlreadyOnHold()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool, HoldInfo(
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
@@ -973,7 +975,7 @@ class TestLoanController(CirculationControllerTest):
          with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
              self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(
+             self.manager.d_circulation.queue_checkout(
                  pool, NotFoundOnRemote()
              )
              response = self.manager.loans.borrow(
@@ -1002,7 +1004,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              loan, newly_created = self.pool.loan_to(patron)
 
-             self.manager.circulation.queue_checkin(self.pool, True)
+             self.manager.d_circulation.queue_checkin(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.id)
 
@@ -1014,7 +1016,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = self.pool.on_hold_to(patron, position=0)
 
-             self.manager.circulation.queue_release_hold(self.pool, True)
+             self.manager.d_circulation.queue_release_hold(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.id)
 
@@ -1034,10 +1036,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, NoAvailableCopies()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
@@ -1080,7 +1082,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             patron.fines = Decimal("0.49")
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool,
                 LoanInfo(
                     pool.collection, pool.data_source.name,
@@ -1148,14 +1150,14 @@ class TestLoanController(CirculationControllerTest):
         bibliotheca_pool.licenses_available = 0
         bibliotheca_pool.open_access = False
         
-        self.manager.circulation.add_remote_loan(
+        self.manager.d_circulation.add_remote_loan(
             overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
-        self.manager.circulation.add_remote_hold(
+        self.manager.d_circulation.add_remote_hold(
             bibliotheca_pool.collection, bibliotheca_pool.data_source,
             bibliotheca_pool.identifier.type,
             bibliotheca_pool.identifier.identifier,
