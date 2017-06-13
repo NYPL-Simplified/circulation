@@ -86,7 +86,7 @@ class BaseCirculationManagerController(object):
         if library_short_name:
             library = get_one(self._db, Library, short_name=library_short_name)
         else:
-            library = Library.instance(self._db)
+            set_trace()
         
         if not library:
             return LIBRARY_NOT_FOUND
