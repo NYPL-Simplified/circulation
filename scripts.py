@@ -443,13 +443,11 @@ class LibraryInputScript(InputScript):
     """A script that operates on one or more Libraries."""
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+    def parse_command_line(cls, _db=None, cmd_args=None, 
                            *args, **kwargs):
         parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
-        if stdin:
-            stdin = cls.read_stdin_lines(stdin)
-        return cls.look_up_libraries(_db, parsed, stdin, *args, **kwargs)
+        return cls.look_up_libraries(_db, parsed, *args, **kwargs)
 
     @classmethod
     def arg_parser(cls, _db):
@@ -464,14 +462,12 @@ class LibraryInputScript(InputScript):
         return parser
 
     @classmethod
-    def look_up_libraries(cls, _db, parsed, stdin_library_strings, *args, **kwargs):
+    def look_up_libraries(cls, _db, parsed, *args, **kwargs):
         """Turn library names as specified on the command line into real
         Library objects.
         """
         if _db:
             library_strings = parsed.libraries
-            if stdin_library_strings:
-                library_strings += stdin_library_strings
             if library_strings:
                 parsed.libraries = cls.parse_library_list(
                     _db, library_strings, *args, **kwargs

@@ -48,6 +48,9 @@ from metadata_layer import (
 from config import Configuration
 from coverage import BibliographicCoverageProvider
 
+from testing import DatabaseTest
+
+
 class Axis360API(object):
 
     PRODUCTION_BASE_URL = "https://axis360api.baker-taylor.com/Services/VendorAPI/"
@@ -192,7 +195,7 @@ class MockAxis360API(Axis360API):
     @classmethod
     def mock_collection(self, _db):
         """Create a mock Axis 360 collection for use in tests."""
-        library = get_one(_db, Library, short_name="default")
+        library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Axis 360 Collection",

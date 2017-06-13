@@ -134,8 +134,6 @@ class DatabaseTest(object):
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
 
-        self._default_library
-        
         # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
         # which pops an isbn off the list and messes tests up.  so exclude 
         # _ functions from participating.
@@ -698,7 +696,7 @@ class DatabaseTest(object):
         integration.username = username
         integration.password = password
         return collection
-
+        
     @property
     def _default_library(self):
         """A Library that will only be created once throughout a given test.
@@ -707,13 +705,7 @@ class DatabaseTest(object):
         the default library.
         """
         if not hasattr(self, '_default__library'):
-            self._default__library, ignore = get_one_or_create(
-                self._db, Library, create_method_kwargs=dict(
-                    uuid=unicode(uuid.uuid4()),
-                    short_name="default",
-                    name="default",
-                )
-            )
+            self._default__library = self.make_default_library(self._db)
             self._default__library.collections.append(self._default_collection)
         return self._default__library
         
@@ -728,8 +720,40 @@ class DatabaseTest(object):
         saves time.
         """
         if not hasattr(self, '_default__collection'):
-            self._default__collection = self._collection()
+            self._default__collection = self.make_default_collection(self._db)
         return self._default__collection
+
+    @classmethod
+    def make_default_library(cls, _db):
+        """Ensure that the default library exists in the given database.
+
+        This can be called by code intended for use in testing but not actually
+        within a DatabaseTest subclass.
+        """
+        library, ignore = get_one_or_create(
+            _db, Library, create_method_kwargs=dict(
+                uuid=unicode(uuid.uuid4()),
+                short_name="default",
+                name="default",
+            )
+        )
+        library.collections.append(cls.make_default_collection(_db))
+        return library
+        
+    @classmethod
+    def make_default_collection(cls, _db):
+        """Ensure that the default collection exists in the given database.
+
+        This can be called by code intended for use in testing but not actually
+        within a DatabaseTest subclass.
+        """
+        collection, ignore = get_one_or_create(
+            _db, Collection, name="Default Collection"
+        )
+        integration = collection.create_external_integration(
+            ExternalIntegration.OPDS_IMPORT
+        )
+        return collection
     
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)

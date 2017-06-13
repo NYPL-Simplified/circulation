@@ -356,22 +356,19 @@ class TestLibraryInputScript(DatabaseTest):
 
     def test_parse_command_line(self):
         l1 = self._library()
-        l2 = self._library()
         # We pass in one library identifier on the command line...
         cmd_args = [l1.name]
-        # ...and another one into standard input.
-        stdin = MockStdin(l2.name)
-        parsed = LibraryInputScript.parse_command_line(
-            self._db, cmd_args, stdin
-        )
-        eq_([l1, l2], parsed.libraries)
+        parsed = LibraryInputScript.parse_command_line(self._db, cmd_args)
+
+        # And here it is.
+        eq_([l1], parsed.libraries)
 
     def test_parse_command_line_no_identifiers(self):
         """If you don't specify any libraries on the command
         line, we will process all libraries in the system.
         """
         parsed =LibraryInputScript.parse_command_line(
-            self._db, [], MockStdin()
+            self._db, []
         )
         eq_(self._db.query(Library).all(), parsed.libraries)
 
@@ -385,15 +382,12 @@ class TestLibraryInputScript(DatabaseTest):
                 library.processed = True
         l1 = self._library()
         l2 = self._library()
-        l3 = self._library()
-        l3.processed = False
+        l2.processed = False
         cmd_args = [l1.name]
-        stdin = MockStdin(l2.name)
         script = MockLibraryInputScript(self._db)
-        script.do_run(cmd_args=cmd_args, stdin=stdin)
+        script.do_run(cmd_args=cmd_args)
         eq_(True, l1.processed)
-        eq_(True, l2.processed)
-        eq_(False, l3.processed)
+        eq_(False, l2.processed)
 
         
 class TestRunCoverageProviderScript(DatabaseTest):

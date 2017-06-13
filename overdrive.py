@@ -56,6 +56,8 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from testing import DatabaseTest
+
 from util.http import (
     HTTP,
     BadResponseException,
@@ -394,7 +396,7 @@ class MockOverdriveAPI(OverdriveAPI):
     @classmethod
     def mock_collection(self, _db):
         """Create a mock Overdrive collection for use in tests."""
-        library = get_one(_db, Library, short_name="default")
+        library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
                 name="Test Overdrive Collection",
