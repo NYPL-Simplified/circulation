@@ -5,10 +5,23 @@ util_dir = os.path.split(__file__)[0]
 core_dir = os.path.split(util_dir)[0]
 
 import urlparse
-from s3 import S3Uploader
 
 def cdnify(_db, url):
     scheme, netloc, path, query, fragment = urlparse.urlsplit(url)
+
+    # TODO: Find a better way to import from model in core.util when
+    # using the parent directory (e.g. circulation) or move cdnify into
+    # an OPDS- or controller-focused class or file.
+    if not core_dir in sys.path:
+        # Imports modules from core, even though it's not in the
+        # python path.
+        sys.path.insert(0, core_dir)
+        from s3 import S3Uploader
+        from model import ExternalIntegration
+        sys.path = sys.path[1:]
+    else:
+        from s3 import S3Uploader
+        from model import ExternalIntegration
 
     if netloc == 's3.amazonaws.com':
         # This is a URL like "http://s3.amazonaws.com/bucket/foo".
@@ -16,16 +29,6 @@ def cdnify(_db, url):
         # i.e. treat the bucket name as the netloc.
         bucket, path = S3Uploader.bucket_and_filename(url)
         netloc = bucket
-
-    # TODO: Find a better way to import from model in core.util when
-    # using the parent directory (e.g. circulation) or move cdnify into
-    # an OPDS- or controller-focused class or file.
-    if not core_dir in sys.path:
-        sys.path.insert(0, core_dir)
-        from model import ExternalIntegration
-        sys.path = sys.path[1:]
-    else:
-        from model import ExternalIntegration
 
     cdn = ExternalIntegration.lookup(
         _db, ExternalIntegration.CDN, goal=netloc
