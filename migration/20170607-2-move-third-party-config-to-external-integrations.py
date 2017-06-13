@@ -59,6 +59,16 @@ try:
         )
         log_import(integration, is_new)
 
+    # Import Content Server configuration.
+    content_server_conf = Configuration.integration('Content Server')
+    if content_server_conf:
+        content_server_url = content_server_conf.get('url')
+        if content_server_url:
+            integration, is_new = get_one_or_create(
+                _db, EI, protocol=EI.CONTENT_SERVER, goal=EI.METADATA_GOAL,
+                url=url
+            )
+
     # Import NoveList Select configuration.
     novelist = Configuration.integration('NoveList Select')
     if novelist:
@@ -96,7 +106,7 @@ try:
         other_libraries = adobe_conf.get('other_libraries')
         if other_libraries:
             other_libraries = unicode(json.dumps(other_libraries))
-        integration.set_setting(u'other_libraries', other_libraries)
+            integration.set_setting(u'other_libraries', other_libraries)
         integration.libraries.extend(LIBRARIES)
 
     # Import Google OAuth configuration.
@@ -121,7 +131,7 @@ try:
     patron_web_client_url = patron_web_client_conf.get('url')
     if patron_web_client_url:
         setting = ConfigurationSetting.sitewide(
-            _db, ExternalIntegration.PATRON_WEB_CLIENT)
+            _db, Configuration.PATRON_WEB_CLIENT_URL)
         is_new = setting.value == None
         setting.value = patron_web_client_url
         log_import(setting, is_new)
