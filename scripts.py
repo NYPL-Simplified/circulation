@@ -436,49 +436,42 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
 
     @classmethod
     def facet_settings(cls, group_name):
-        enabled = Facets.DEFAULT_ENABLED_FACETS[group_name]
-        default = Facets.DEFAULT_FACET[group_name]
-        return enabled, default
+        return Facets.DEFAULT_ENABLED_FACETS[group_name]
     
     @classmethod
     def arg_parser(cls, _db):
         parser = CacheRepresentationPerLane.arg_parser(_db)
-
-        enabled, default = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
-        order_help = 'Generate feeds for this ordering. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+        enabled = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
+        order_help = 'Generate feeds for this ordering. Possible values: %s.' % (
+            ", ".join(enabled)
         )
         parser.add_argument(
             '--order',
             help=order_help,
             action='append',
-            default=[default],
+            default=[],
         )
 
-        enabled, default = cls.facet_settings(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
-        availability_help = 'Generate feeds for this availability setting. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+        enabled = cls.facet_settings(Facets.AVAILABILITY_FACET_GROUP_NAME)
+        availability_help = 'Generate feeds for this availability setting. Possible values: %s.' % (
+            ", ".join(enabled)
         )
         parser.add_argument(
             '--availability',
             help=availability_help,
             action='append',
-            default=[default],
+            default=[],
         )
 
-        enabled, default = cls.facet_settings(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )
-        collection_help = 'Generate feeds for this collection within each lane. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+        enabled = cls.facet_settings(Facets.COLLECTION_FACET_GROUP_NAME)
+        collection_help = 'Generate feeds for this collection within each lane. Possible values: %s.' % (
+            ", ".join(enabled)
         )
         parser.add_argument(
             '--collection',
             help=collection_help,
             action='append',
-            default=[default],
+            default=[],
         )
         
         default_pages = 2
@@ -492,13 +485,12 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     
     def parse_args(self, cmd_args=None):
         parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
-        set_trace()
         self.orders = parsed.order
         self.availabilities = parsed.availability
         self.collections = parsed.collection
         self.pages = parsed.pages
         return parsed
-        
+
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
@@ -513,23 +505,36 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             "feed", languages=lane.languages, lane_name=lane_name,
         )
         library = lane.library
-        orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
-        availabilities = library.enabled_facets(
+
+        default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
+        allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
+        chosen_orders = self.orders or [default_order]
+        
+        default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collections = library.enabled_facets(
+        allowed_availabilities = library.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        chosen_availabilities = self.availabilities or [default_availability]
+        
+        default_collection = library.default_facet(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        allowed_collections = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
-
-        for order in self.orders:
-            if order not in orders:
+        chosen_collections = self.collections or [default_collection]
+        
+        for order in chosen_orders:
+            if order not in allowed_orders:
                 logging.warn("Ignoring unsupported ordering %s" % order)
-            for availability in self.availabilities:
-                if availability not in availabilities:
+            for availability in chosen_availabilities:
+                if availability not in allowed_availabilities:
                     logging.warn("Ignoring unsupported availability %s" % availability)
 
-                for collection in self.collections:
-                    if collection not in availabilities:
+                for collection in chosen_collections:
+                    if collection not in allowed_availabilities:
                         logging.warn("Ignoring unsupported collection %s" % collection)
 
                     pagination = Pagination.default()
