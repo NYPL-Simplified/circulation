@@ -72,6 +72,17 @@ try:
         integration.libraries.extend(LIBRARIES)
         log_import(integration, is_new)
 
+    # Import NYT configuration.
+    nyt_conf = Configuration.integration(u'New York Times')
+    if nyt_conf:
+        password = nyt_conf.get('best_sellers_api_key')
+
+        integration, is_new = get_one_or_create(
+            _db, EI, protocol=EI.NYT, goal=EI.METADATA_GOAL,
+            password=password
+        )
+        log_import(integration, is_new)
+
     # Import Adobe Vendor ID configuration.
     adobe_conf = Configuration.integration('Adobe Vendor ID')
     if adobe_conf:
