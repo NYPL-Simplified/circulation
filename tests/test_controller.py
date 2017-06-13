@@ -159,6 +159,9 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # Most tests can use self._default_library and
         # self._default_collection, but some can't, because those objects
         # are associated with the default database session.
+        #
+        # NOTE: Any use of self._default_library below this point
+        # will cause the tests in TestScopedSession to hang.
         self.library = self.make_default_library(_db)
         self.collection = self.make_default_collection(_db, self.library)
         
