@@ -173,12 +173,14 @@ class CirculationManager(object):
             self.circulation_apis[library.id] = self.setup_circulation(
                 library
             )
+            # TODO: Uncomment this once Adobe vendor ID supports multiple
+            # libraries.
+            # self.setup_adobe_vendor_id(library)
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
 
         self.setup_controllers()
-        self.setup_adobe_vendor_id()
 
         self.opds_authentication_documents = {}
     
@@ -256,7 +258,7 @@ class CirculationManager(object):
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
-    def setup_adobe_vendor_id(self):
+    def setup_adobe_vendor_id(self, library):
         """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
         for the DRM Device Management Protocol.
         """
@@ -279,7 +281,6 @@ class CirculationManager(object):
             self.adobe_vendor_id = None
 
         # But almost all libraries will have this setup.
-        library = Library.instance(self._db)
         if library.library_registry_shared_secret:
             try:
                 authdata = AuthdataUtility.from_config(self._db)

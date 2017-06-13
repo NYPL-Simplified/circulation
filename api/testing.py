@@ -26,6 +26,9 @@ class MockAdobeConfiguration(object):
     AuthdataUtility.  This is used in test_adobe_vendor_id.py (to test
     the basic functionality) and test_controller.py (to create an
     AdobeVendorIDController for use in testing.)
+
+    NOTE: It's assumed that this class is mixed in alongside
+    DatabaseTest.
     """
     
     TEST_NODE_VALUE = 114740953091845
@@ -45,25 +48,14 @@ class MockAdobeConfiguration(object):
     }
 
     counter = 0
-    
-    @classmethod
-    def _id(cls):
-        cls.counter += 1
-        return self.counter
-
-    @classmethod
-    def _str(cls):
-        return unicode(cls._id())
-    
-    @classmethod
-    def initialize_library(cls, library, _db):
+        
+    def initialize_library(self, library, _db):
         """Initialize the Library object with default data."""
-        set_trace()
         library.library_registry_short_name = (
-            cls.LIBRARY_REGISTRY_SHORT_NAME + cls._str()
+            self.LIBRARY_REGISTRY_SHORT_NAME + self._str
         )
         library.library_registry_shared_secret = (
-            cls.LIBRARY_REGISTRY_SHARED_SECRET + cls._str()
+            self.LIBRARY_REGISTRY_SHARED_SECRET + self._str
         )
 
     @contextlib.contextmanager

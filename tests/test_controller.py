@@ -615,10 +615,22 @@ class TestMultipleLibraries(CirculationControllerTest):
         library.collections.append(collection)
         return collection
         
-    def test_multiple_libraries(self):
-        set_trace()
-        return
-
+    def test_authentication(self):
+        """It's possible to authenticate with multiple libraries and make a
+        request that runs in the context of each different library.
+        """
+        l1, l2 = self.libraries
+        assert l1 != l2
+        for library in self.libraries:
+            headers = dict(Authorization=self.valid_auth)
+            with self.request_context_with_library(
+                    "/", headers=headers, library=library):
+                patron = self.manager.loans.authenticated_patron_from_request()
+                eq_(library, patron.library)
+                response = self.manager.index_controller()
+                eq_("http://cdn/%s/groups/" % library.short_name,
+                    response.headers['location'])
+            
 class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
