@@ -445,7 +445,7 @@ class LibraryInputScript(InputScript):
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
                            *args, **kwargs):
-        parser = cls.arg_parser()
+        parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
         if stdin:
             stdin = cls.read_stdin_lines(stdin)
@@ -458,7 +458,7 @@ class LibraryInputScript(InputScript):
         library_names = '"' + '", "'.join(library_names) + '"'
         parser.add_argument(
             'libraries',
-            help='Name of a specific library to process. Libraries on this system: %s' % library_names
+            help='Name of a specific library to process. Libraries on this system: %s' % library_names,
             metavar='SHORT_NAME', nargs='*'
         )
         return parser
