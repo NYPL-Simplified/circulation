@@ -45,6 +45,13 @@ from core.classifier import (
 )
 from datetime import date, datetime, timedelta
 
+from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.millenium_patron import MilleniumPatronAPI
+from api.sip import SIP2AuthenticationProvider
+from api.firstbook import FirstBookAuthenticationAPI
+from api.clever import CleverAuthenticationAPI
+
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -1107,6 +1114,15 @@ class TestDashboardController(AdminControllerTest):
 
 class TestSettingsController(AdminControllerTest):
 
+    def setup(self):
+        super(TestSettingsController, self).setup()
+        # Delete any existing patron auth services created by controller test setup.
+        for auth_service in self._db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
+         ):
+            self._db.delete(auth_service)
+
+
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
         library = get_one(self._db, Library)
@@ -1655,4 +1671,361 @@ class TestSettingsController(AdminControllerTest):
         new_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="new password").all()
         eq_([admin], new_password_matches)
 
+    def test_patron_auth_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.get("patron_auth_services"), [])
+            protocols = response.get("protocols")
+            eq_(5, len(protocols))
+            eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
+            assert "fields" in protocols[0]
+            assert "library_fields" in protocols[0]
+        
+    def test_patron_auth_services_get_with_simple_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "user"
+        auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "pass"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(SimpleAuthenticationProvider.__module__, service.get("protocol"))
+            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
+            eq_("pass", service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD))
+            eq_([], service.get("libraries"))
+
+        auth_service.libraries += [self._default_library]
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_(None, library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            self._default_library, auth_service,
+        ).value = "^(u)"
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+        
+    def test_patron_auth_services_get_with_millenium_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=MilleniumPatronAPI.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "user"
+        auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "pass"
+        auth_service.setting(BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION).value = "u*"
+        auth_service.setting(BasicAuthenticationProvider.PASSWORD_REGULAR_EXPRESSION).value = "p*"
+        auth_service.libraries += [self._default_library]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            self._default_library, auth_service,
+        ).value = "^(u)"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(MilleniumPatronAPI.__module__, service.get("protocol"))
+            eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
+            eq_("pass", service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD))
+            eq_("u*", service.get("settings").get(BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION))
+            eq_("p*", service.get("settings").get(BasicAuthenticationProvider.PASSWORD_REGULAR_EXPRESSION))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+
+    def test_patron_auth_services_get_with_sip2_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SIP2AuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting("url").value = "url"
+        auth_service.setting(SIP2AuthenticationProvider.PORT).value = "1234"
+        auth_service.setting("username").value = "user"
+        auth_service.setting("password").value = "pass"
+        auth_service.setting(SIP2AuthenticationProvider.LOCATION_CODE).value = "5"
+        auth_service.setting(SIP2AuthenticationProvider.FIELD_SEPARATOR).value = ","
+
+        auth_service.libraries += [self._default_library]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            self._default_library, auth_service,
+        ).value = "^(u)"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(SIP2AuthenticationProvider.__module__, service.get("protocol"))
+            eq_("url", service.get("settings").get("url"))
+            eq_("1234", service.get("settings").get(SIP2AuthenticationProvider.PORT))
+            eq_("user", service.get("settings").get("username"))
+            eq_("pass", service.get("settings").get("password"))
+            eq_("5", service.get("settings").get(SIP2AuthenticationProvider.LOCATION_CODE))
+            eq_(",", service.get("settings").get(SIP2AuthenticationProvider.FIELD_SEPARATOR))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+
+    def test_patron_auth_services_get_with_firstbook_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=FirstBookAuthenticationAPI.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting("url").value = "url"
+        auth_service.setting("password").value = "pass"
+        auth_service.libraries += [self._default_library]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            self._default_library, auth_service,
+        ).value = "^(u)"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(FirstBookAuthenticationAPI.__module__, service.get("protocol"))
+            eq_("url", service.get("settings").get("url"))
+            eq_("pass", service.get("settings").get("password"))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
+
+    def test_patron_auth_services_get_with_clever_auth_service(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=CleverAuthenticationAPI.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting("username").value = "user"
+        auth_service.setting("password").value = "pass"
+        auth_service.libraries += [self._default_library]
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            [service] = response.get("patron_auth_services")
+
+            eq_(auth_service.id, service.get("id"))
+            eq_(CleverAuthenticationAPI.__module__, service.get("protocol"))
+            eq_("user", service.get("settings").get("username"))
+            eq_("pass", service.get("settings").get("password"))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+
+    def test_patron_auth_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, MISSING_PATRON_AUTH_SERVICE)
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", auth_service.id),
+                ("protocol", SIP2AuthenticationProvider.__module__),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL)
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=MilleniumPatronAPI.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", auth_service.id),
+                ("protocol", MilleniumPatronAPI.__module__),
+                (MilleniumPatronAPI.AUTHENTICATION_MODE, "Invalid mode"),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.uri, INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.uri)
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", auth_service.id),
+                ("protocol", SimpleAuthenticationProvider.__module__),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.uri, INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.uri)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                ("libraries", json.dumps([{ "short_name": "not-a-library" }])),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        auth_service.libraries += [library]
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                ("libraries", json.dumps([{ "short_name": library.short_name }])),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
+
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                ("libraries", json.dumps([{
+                    "short_name": library.short_name,
+                    AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
+                }])),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
+
+    def test_patron_auth_services_post_create(self):
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                ("libraries", json.dumps([{
+                    "short_name": library.short_name,
+                    AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
+                }])),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.status_code, 201)
+
+        auth_service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+        eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
+        eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
+        eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
+        eq_([library], auth_service.libraries)
+        eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+                library, auth_service).value)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", MilleniumPatronAPI.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.status_code, 201)
+
+        auth_service2 = get_one(self._db, ExternalIntegration,
+                               goal=ExternalIntegration.PATRON_AUTH_GOAL,
+                               protocol=MilleniumPatronAPI.__module__)
+        assert auth_service2 != auth_service
+        eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
+        eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
+        eq_(MilleniumPatronAPI.PIN_AUTHENTICATION_MODE,
+            auth_service2.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value)
+        eq_(None, auth_service2.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value)
+        eq_([], auth_service2.libraries)
+
+    def test_admin_auth_services_post_edit(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "old_user"
+        auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "old_password"
+        auth_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", auth_service.id),
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
+                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                ("libraries", json.dumps([{
+                    "short_name": l2.short_name,
+                    AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
+                }])),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response.status_code, 200)
+
+        eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
+        eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
+        eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
+        eq_([l2], auth_service.libraries)
+        eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+                l2, auth_service).value)
 

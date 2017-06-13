@@ -1,5 +1,6 @@
 from datetime import datetime
 from nose.tools import set_trace
+from flask.ext.babel import lazy_gettext as _
 from api.authenticator import (
     BasicAuthenticationProvider,
     PatronData,
@@ -18,6 +19,15 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     PORT = "port"
     LOCATION_CODE = "location code"
     FIELD_SEPARATOR = "field separator"
+    
+    SETTINGS = [
+        { "key": "url", "label": _("URL") },
+        { "key": PORT, "label": _("Port") },
+        { "key": "username", "label": _("Login User ID") },
+        { "key": "password", "label": _("Login Password") },
+        { "key": LOCATION_CODE, "label": _("Location Code") },
+        { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
+    ] + BasicAuthenticationProvider.SETTINGS
     
 
     # Most of the time, a patron who is blocked will be blocked with

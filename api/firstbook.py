@@ -22,6 +22,10 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
     NAME = 'First Book'
 
+    DESCRIPTION = _("""
+        An authentication service for Open eBooks that authenticates
+        using access codes and PINs.""")
+
     LOGIN_LABEL = _("Access Code")
 
     # If FirstBook sends this message it means they accepted the
@@ -33,6 +37,11 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # are valid.
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
+    
+    SETTINGS = [
+        { "key": "url", "label": _("URL") },
+        { "key": "password", "label": _("Key") },
+    ] + BasicAuthenticationProvider.SETTINGS
     
     log = logging.getLogger("First Book authentication API")
 

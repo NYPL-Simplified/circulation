@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 import datetime
+from flask.ext.babel import lazy_gettext as _
 
 from authenticator import (
     BasicAuthenticationProvider,
@@ -17,6 +18,11 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     manager before connecting it to an ILS.
     """
     NAME = "Simple Authentication Provider"
+
+    DESCRIPTION = _("""
+        An internal authentication service that authenticates a single patron.
+        This is useful for testing a circulation manager before connecting
+        it to an ILS.""")
 
     def __init__(self, library, integration):
         super(SimpleAuthenticationProvider, self).__init__(
