@@ -179,7 +179,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         self.default_patrons = {}
         for library in self.libraries:
             # Initialize the library's library registry constants.
-            self.initialize_library(self.library, _db)            
+            self.initialize_library(self.library)
         
             # Create the patron used by the dummy authentication mechanism.
             default_patron, ignore = get_one_or_create(

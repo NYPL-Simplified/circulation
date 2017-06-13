@@ -49,7 +49,7 @@ class MockAdobeConfiguration(object):
 
     counter = 0
         
-    def initialize_library(self, library, _db):
+    def initialize_library(self, library):
         """Initialize the Library object with default data."""
         library.library_registry_short_name = (
             self.LIBRARY_REGISTRY_SHORT_NAME + self._str
@@ -66,8 +66,9 @@ class MockAdobeConfiguration(object):
             config[Configuration.INTEGRATIONS][name] = dict(
                 self.MOCK_ADOBE_CONFIGURATION
             )
-            self.initialize_library(self._db)
-            yield config
+            for library in self._db.query(Library):
+                self.initialize_library(library)
+                yield config
 
 
 class MockRemoteAPI(BaseCirculationAPI):
