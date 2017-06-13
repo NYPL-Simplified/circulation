@@ -17,6 +17,7 @@ from core.app_server import (
     ErrorHandler,
     returns_problem_detail,
 )
+from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
 from opds import (
     CirculationManagerAnnotator,
@@ -91,15 +92,18 @@ def requires_auth(f):
             return f(*args, **kwargs)
     return decorated
 
-patron_web_integration = Configuration.integration(Configuration.PATRON_WEB_CLIENT_INTEGRATION)
-if patron_web_integration:
+patron_web_url = None
+if (hasattr(app, 'manager') and hasattr(app.manager, '_db')):
+    patron_web_url = ConfigurationSetting.sitewide(
+        app.manager._db, Configuration.PATRON_WEB_CLIENT_URL).value
+
+if patron_web_url:
     # The allows_patron_web decorator will add Cross-Origin Resource Sharing
     # (CORS) headers to routes that will be used by the patron web interface.
     # This is necessary for a JS app on a different domain to make requests.
     #
     # The partial function sets the arguments to the cross_origin decorator,
     # since they're the same for all routes that use it.
-    patron_web_url = patron_web_integration.get(Configuration.URL)
     allows_patron_web = partial(
         cross_origin,
         origins=[patron_web_url],

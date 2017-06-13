@@ -24,18 +24,19 @@ class Configuration(CoreConfiguration):
 
     ROOT_LANE_POLICY = "root_lane"
 
-    PATRON_WEB_CLIENT_INTEGRATION = u"Patron Web Client"
+    # The name of the sitewide url that points to the patron web catalog.
+    PATRON_WEB_CLIENT_URL = u"Patron Web Client"
 
     # The name of the sitewide secret used to sign cookies for admin login.
-    SECRET_KEY = "secret_key"
+    SECRET_KEY = u"secret_key"
 
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
-    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+    MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
 
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
     
     @classmethod
     def lending_policy(cls):

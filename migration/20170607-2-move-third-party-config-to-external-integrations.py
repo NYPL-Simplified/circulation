@@ -41,7 +41,7 @@ try:
         url = circ_manager_conf.get('url')
         if url:
             setting = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
-            is_new = setting.value
+            is_new = setting.value == None
             setting.value = unicode(url)
             log_import(setting, is_new)
 
@@ -116,26 +116,19 @@ try:
         if auth_domain:
             admin_auth_service.set_setting("domains", json.dumps([auth_domain]))
 
+            integration.set_setting(u'domains', json.dumps([auth_domain]))
+
+        log_import(integration, is_new)
+
     # Import Patron Web Client configuration.
-    patron_web_client_conf = Configuration.integration(Configuration.PATRON_WEB_CLIENT_INTEGRATION)
-    if patron_web_client_conf:
-        log_import(Configuration.PATRON_WEB_CLIENT_INTEGRATION)
-        service, ignore = get_one_or_create(
-            _db, ExternalIntegration, provider=ExternalIntegration.PATRON_WEB_CLIENT
-        )
-
-        service.url = patron_web_client_conf.get(Configuration.URL)
-
-    # Import Staff Picks configuration.
-    staff_picks_conf = Configuration.integration(Configuration.STAFF_PICKS_INTEGRATION)
-    if staff_picks_conf:
-        log_import(Configuration.STAFF_PICKS_INTEGRATION)
-        service, ignore = get_one_or_create(
-            _db, ExternalIntegration, provider=ExternalIntegration.STAFF_PICKS
-        )
-        service.url = staff_picks_conf.get(Configuration.URL)
-        del staff_picks_conf[Configuration.URL]
-        [service.set_setting(k, v) for k, v in staff_picks_conf.items()]
+    patron_web_client_conf = Configuration.integration(u'Patron Web Client', {})
+    patron_web_client_url = patron_web_client_conf.get('url')
+    if patron_web_client_url:
+        setting = ConfigurationSetting.sitewide(
+            _db, ExternalIntegration.PATRON_WEB_CLIENT)
+        is_new = setting.value == None
+        setting.value = patron_web_client_url
+        log_import(setting, is_new)
 finally:
     _db.commit()
     _db.close()
