@@ -1227,8 +1227,9 @@ class TestConfigureCollectionScript(DatabaseTest):
         eq_([collection], l2.collections)
         eq_([], l3.collections)
 
-        # One CollectionSetting was set on the collection.
-        [setting] = collection.external_integration.settings
+        # One CollectionSetting was set on the collection, in addition
+        # to url, username, and password.
+        setting = collection.external_integration.setting("library_id")
         eq_("library_id", setting.key)
         eq_("1234", setting.value)
 

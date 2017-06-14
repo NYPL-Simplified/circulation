@@ -5552,7 +5552,7 @@ class TestLibrary(DatabaseTest):
         library.integrations.append(integration)
         
         data = library.explain()
-        eq_("""Library UUID: "uuid"
+        eq_(u"""Library UUID: "uuid"
 Name: "The Library"
 Short name: "Short"
 Short name (for library registry): "SHORT"
@@ -5560,8 +5560,8 @@ Short name (for library registry): "SHORT"
 External integrations:
 ----------------------
 Protocol/Goal: protocol/goal
-URL: http://url/
-Username: someuser
+url=http://url/
+username=someuser
 somesetting=somevalue
 """,
             "\n".join(data)
@@ -5569,7 +5569,7 @@ somesetting=somevalue
         
         with_secrets = library.explain(True)
         assert 'Shared secret (for library registry): "secret"' in with_secrets
-        assert 'Password: somepass' in with_secrets
+        assert 'password=somepass' in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
@@ -5624,15 +5624,15 @@ class TestExternalIntegration(DatabaseTest):
         integration.setting("somesetting").value = "somevalue"
         
         data = integration.explain()
-        eq_("""Protocol/Goal: protocol/goal
-URL: http://url/
-Username: someuser
+        eq_(u"""Protocol/Goal: protocol/goal
+url=http://url/
+username=someuser
 somesetting=somevalue""",
             "\n".join(data)
         )
         
         with_secrets = integration.explain(True)
-        assert 'Password: somepass' in with_secrets
+        assert 'password=somepass' in with_secrets
 
 
 class TestConfigurationSetting(DatabaseTest):
@@ -5865,15 +5865,15 @@ class TestCollection(DatabaseTest):
              'Protocol: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
-             'URL: "url"',
-             'Username: "username"',
+             'Setting "url": "url"',
+             'Setting "username": "username"',
              'Setting "setting": "value"'
         ],
             data
         )
 
         with_password = self.collection.explain(include_password=True)
-        assert 'Password: "password"' in with_password
+        assert 'Setting "password": "password"' in with_password
 
         # If the collection is the child of another collection,
         # its parent is mentioned.

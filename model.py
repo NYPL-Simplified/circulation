@@ -9030,6 +9030,19 @@ class ExternalIntegration(Base):
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
+    # Keys for common configuration settings
+
+    # If there is a special URL to use for access to this API,
+    # put it here.
+    URL = "url"
+
+    # If access requires authentication, these settings represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    USERNAME = "username"
+    PASSWORD = "password"
+
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
@@ -9040,17 +9053,6 @@ class ExternalIntegration(Base):
     # Basically, the protocol is the 'how' and the goal is the 'why'.
     protocol = Column(Unicode, nullable=False)
     goal = Column(Unicode, nullable=True)
-
-    # If there is a special URL to use for access to this API,
-    # put it here.
-    url = Column(Unicode, nullable=True)
-
-    # If access requires authentication, these fields represent the
-    # username/password or key/secret combination necessary to
-    # authenticate. If there's a secret but no key, it's stored in
-    # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
 
     # Any additional configuration information goes into
     # ConfigurationSettings.
@@ -9085,6 +9087,30 @@ class ExternalIntegration(Base):
             key, self
         )
 
+    @hybrid_property
+    def url(self):
+        return self.setting(self.URL).value
+
+    @url.setter
+    def set_url(self, new_url):
+        self.set_setting(self.URL, new_url)
+
+    @hybrid_property
+    def username(self):
+        return self.setting(self.USERNAME).value
+
+    @username.setter
+    def set_username(self, new_username):
+        self.set_setting(self.USERNAME, new_username)
+
+    @hybrid_property
+    def password(self):
+        return self.setting(self.PASSWORD).value
+
+    @password.setter
+    def set_password(self, new_password):
+        return self.set_setting(self.PASSWORD, new_password)
+
     def explain(self, include_password=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
@@ -9096,14 +9122,9 @@ class ExternalIntegration(Base):
         """
         lines = []
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
-        if self.url:
-            lines.append("URL: %s" % self.url)
-        if self.username:
-            lines.append("Username: %s" % self.username)
-        if self.password and include_password:
-            lines.append("Password: %s" % self.password)
         for setting in self.settings:
-            lines.append("%s=%s" % (setting.key, setting.value))
+            if (setting.key != self.PASSWORD) or include_password:
+                lines.append("%s=%s" % (setting.key, setting.value))
         return lines
 
 class ConfigurationSetting(Base):
@@ -9575,14 +9596,9 @@ class Collection(Base):
             lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        if integration.url:
-            lines.append('URL: "%s"' % integration.url)
-        if integration.username:
-            lines.append('Username: "%s"' % integration.username)
-        if integration.password and include_password:
-            lines.append('Password: "%s"' % integration.password)
         for setting in integration.settings:
-            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+            if (setting.key != ExternalIntegration.PASSWORD) or include_password:
+                lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
     def catalog_identifier(self, _db, identifier):
