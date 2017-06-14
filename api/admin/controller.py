@@ -1010,6 +1010,8 @@ class SettingsController(CirculationManagerController):
                 { "key": "website_id", "label": _("Website ID") },
                 { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
                 { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
@@ -1019,6 +1021,8 @@ class SettingsController(CirculationManagerController):
                 { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
                 { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
                 { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
@@ -1029,6 +1033,8 @@ class SettingsController(CirculationManagerController):
                 { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
                 { "key": "external_account_id", "label": _("Library ID") },
                 { "key": ExternalIntegration.URL, "label": _("Server") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
@@ -1038,6 +1044,8 @@ class SettingsController(CirculationManagerController):
                 { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
                 { "key": "external_account_id", "label": _("Library ID") },
                 { "key": ExternalIntegration.URL, "label": _("URL") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
