@@ -1008,38 +1008,44 @@ class SettingsController(CirculationManagerController):
             "fields": [
                 { "key": "external_account_id", "label": _("Library ID") },
                 { "key": "website_id", "label": _("Website ID") },
-                { "key": "username", "label": _("Client Key") },
-                { "key": "password", "label": _("Client Secret") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.BIBLIOTHECA,
             "fields": [
-                { "key": "username", "label": _("Account ID") },
-                { "key": "password", "label": _("Account Key") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
                 { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.AXIS_360,
             "fields": [
-                { "key": "username", "label": _("Username") },
-                { "key": "password", "label": _("Password") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Username") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
                 { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("Server") },
+                { "key": ExternalIntegration.URL, "label": _("Server") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.ONE_CLICK,
             "fields": [
-                { "key": "password", "label": _("Basic Token") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
                 { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("URL") },
-                { "key": "ebook_loan_length", "label": _("eBook Loan Length") },
-                { "key": "eaudio_loan_length", "label": _("eAudio Loan Length") },
+                { "key": ExternalIntegration.URL, "label": _("URL") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
@@ -1051,9 +1057,6 @@ class SettingsController(CirculationManagerController):
                     protocol=c.protocol,
                     libraries=[library.short_name for library in c.libraries],
                     external_account_id=c.external_account_id,
-                    url=c.external_integration.url,
-                    username=c.external_integration.username,
-                    password=c.external_integration.password,
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
@@ -1108,12 +1111,6 @@ class SettingsController(CirculationManagerController):
 
             if key == "external_account_id":
                 collection.external_account_id = value
-            elif key == "username":
-                collection.external_integration.username = value
-            elif key == "password":
-                collection.external_integration.password = value
-            elif key == "url":
-                collection.external_integration.url = value
             else:
                 collection.external_integration.setting(key).value = value
 
@@ -1274,12 +1271,6 @@ class SettingsController(CirculationManagerController):
                     libraries.append(library_info)
 
                 settings = { setting.key: setting.value for setting in auth_service.settings if setting.library_id == None}
-                if auth_service.url:
-                    settings["url"] = auth_service.url
-                if auth_service.username:
-                    settings["username"] = auth_service.username
-                if auth_service.password:
-                    settings["password"] = auth_service.password
 
                 auth_services.append(
                     dict(
@@ -1335,14 +1326,7 @@ class SettingsController(CirculationManagerController):
                 return INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.detailed(
                     _("The patron authentication service is missing a required field: %(field)s",
                       field=field.get("label")))
-            if key == "url":
-                auth_service.url = value
-            elif key == "username":
-                auth_service.username = value
-            elif key == "password":
-                auth_service.password = value
-            else:
-                auth_service.setting(key).value = value
+            auth_service.setting(key).value = value
 
 
         auth_service.libraries = []

@@ -379,7 +379,7 @@ def admin_view(collection=None, book=None, **kwargs):
     else:
         home_url = None
 
-    csrf_token = app.manager.admin_sign_in_controller.generate_csrf_token()
+    csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
 
     show_circ_events_download = (
         "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
