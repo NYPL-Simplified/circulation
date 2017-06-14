@@ -144,7 +144,7 @@ class Script(object):
 
     def load_configuration(self):
         if not Configuration.instance:
-            Configuration.load()
+            Configuration.load(self._db)
 
 
 class RunMonitorScript(Script):

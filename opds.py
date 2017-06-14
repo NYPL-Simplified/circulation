@@ -27,6 +27,7 @@ import requests
 
 from lxml import builder, etree
 
+from cdn import cdnify
 from config import Configuration
 from classifier import Classifier
 from model import (
@@ -54,7 +55,6 @@ from util.opds_writer import (
     OPDSFeed, 
     OPDSMessage,
 )
-from util.cdn import cdnify
 
 class UnfulfillableWork(Exception):
     """Raise this exception when it turns out a Work currently cannot be
@@ -119,10 +119,10 @@ class Annotator(object):
         if work:
             _db = Session.object_session(work)
             if work.cover_thumbnail_url:
-                thumbnails = [cdnify(_db, work.cover_thumbnail_url)]
+                thumbnails = [cdnify(work.cover_thumbnail_url)]
 
             if work.cover_full_url:
-                full = [cdnify(_db, work.cover_full_url)]
+                full = [cdnify(work.cover_full_url)]
         return thumbnails, full
 
     @classmethod

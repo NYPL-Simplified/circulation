@@ -753,14 +753,13 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_full_url = "http://full.com/a"
 
         # Create some CDNS.
-        self._external_integration(
-            ExternalIntegration.CDN, goal=u'thumbnail.com', url=u'http://foo/'
-        )
-        self._external_integration(
-            ExternalIntegration.CDN, goal=u'full.com', url=u'http://bar/'
-        )
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+                'thumbnail.com' : 'http://foo/',
+                'full.com' : 'http://bar/'
+            }
+            work.calculate_opds_entries(verbose=False)
 
-        work.calculate_opds_entries(verbose=False)
         feed = feedparser.parse(work.simple_opds_entry)
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if
                         'image' in x['rel']])

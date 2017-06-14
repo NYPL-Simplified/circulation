@@ -5,8 +5,10 @@ from nose.tools import (
 )
 from . import DatabaseTest
 
+from config import Configuration, temp_config
 from model import ExternalIntegration
-from util.cdn import cdnify
+from cdn import cdnify
+
 
 class TestCDN(DatabaseTest):
 
@@ -14,12 +16,10 @@ class TestCDN(DatabaseTest):
         self.ceq(url, url, cdns)
 
     def ceq(self, expect, url, cdns):
-        if cdns:
-            for goal, cdn_url in cdns.items():
-                self._external_integration(
-                    ExternalIntegration.CDN, goal=goal, url=cdn_url
-                )
-        eq_(expect, cdnify(self._db, url))
+        cdns = cdns or {}
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = cdns
+            eq_(expect, cdnify(url))
 
     def test_no_cdns(self):
         url = "http://foo/"

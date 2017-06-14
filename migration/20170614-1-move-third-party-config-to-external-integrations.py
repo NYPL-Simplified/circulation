@@ -50,8 +50,7 @@ try:
 
             goal = cdn_goals.get(k)
             cdn, is_new = get_one_or_create(
-                _db, EI, protocol=EI.CDN, goal=goal,
-                url=unicode(v)
+                _db, EI, protocol=EI.CDN, goal=goal, url=unicode(v)
             )
             log_import(cdn, is_new)
 

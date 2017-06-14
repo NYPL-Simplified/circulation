@@ -12,8 +12,6 @@ import string
 from sqlalchemy import distinct
 from sqlalchemy.sql.functions import func
 
-from cdn import cdnify
-
 def batch(iterable, size=1):
     """Split up `iterable` into batches of size `size`."""
 

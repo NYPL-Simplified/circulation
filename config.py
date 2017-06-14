@@ -127,6 +127,11 @@ class Configuration(object):
         return v
 
     @classmethod
+    def cdns(cls):
+        from model import ExternalIntegration
+        return cls.integration(ExternalIntegration.CDN)
+
+    @classmethod
     def policy(cls, name, default=None, required=False):
         """Find a policy configuration by name."""
         v = cls.get(cls.POLICIES, {}).get(name, default)
@@ -151,6 +156,30 @@ class Configuration(object):
         return cls.get(cls.DATA_DIRECTORY)
 
     @classmethod
+    def load_cdns(cls, _db, config_instance=None):
+        from model import ExternalIntegration as EI
+        CDN_GOAL_KEY = {
+            EI.BOOK_COVERS_GOAL : 'book_covers',
+            EI.OA_CONTENT_GOAL : 'open_access_books',
+            EI.OPDS_FEED_GOAL : 'opds'
+        }
+
+        cdns = _db.query(EI).filter(EI.protocol==EI.CDN).all()
+        if not cdns:
+            return
+
+        cdn_integration = dict()
+        for cdn in cdns:
+            netloc = CDN_GOAL_KEY.get(cdn.goal)
+            if not netloc:
+                continue
+
+            cdn_integration[netloc] = cdn.url
+
+        config_instance = config_instance or cls.instance
+        cls.instance[EI.CDN] = cdn_integration
+
+    @classmethod
     def base_opds_authentication_document(cls):
         return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
 
@@ -165,7 +194,7 @@ class Configuration(object):
         return [LanguageCodes.three_to_two[l] for l in languages]
     
     @classmethod
-    def load(cls):
+    def load(cls, _db=None):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
             raise CannotLoadConfiguration(
@@ -181,6 +210,10 @@ class Configuration(object):
                     config_path, e)
             )
         cls.instance = configuration
+
+        if _db:
+            cls.load_cdns(_db)
+
         return configuration
 
     @classmethod
