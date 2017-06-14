@@ -19,6 +19,7 @@ from core.model import (
     get_one_or_create,
     Credential,
     DataSource,
+    ExternalIntegration,
     Patron,
 )
 from core.util.http import HTTP
@@ -60,8 +61,8 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         OAuth provider.""")
 
     SETTINGS = [
-        { "key": "username", "label": _("Client ID") },
-        { "key": "password", "label": _("Client Secret") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
     ] + OAuthAuthenticationProvider.SETTINGS
 
     # Unlike other authentication providers, external type regular expression

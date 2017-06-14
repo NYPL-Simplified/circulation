@@ -1430,8 +1430,8 @@ class TestSettingsController(AdminControllerTest):
         eq_([collection], l2.collections)
         eq_([], l3.collections)
 
-        # One CollectionSetting was set on the collection.
-        [setting] = collection.external_integration.settings
+        # One additional setting was set on the collection.
+        setting = collection.external_integration.setting("website_id")
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1465,8 +1465,8 @@ class TestSettingsController(AdminControllerTest):
         # A library now has access to the collection.
         eq_([collection], l1.collections)
 
-        # One CollectionSetting was set on the collection.
-        [setting] = collection.external_integration.settings
+        # One additional setting was set on the collection.
+        setting = collection.external_integration.setting("website_id")
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1582,7 +1582,7 @@ class TestSettingsController(AdminControllerTest):
         eq_("username", auth_service.username)
         eq_("password", auth_service.password)
 
-        [setting] = auth_service.settings
+        setting = auth_service.setting("domains")
         eq_("domains", setting.key)
         eq_(["nypl.org", "gmail.com"], json.loads(setting.value))
 
@@ -1611,7 +1611,7 @@ class TestSettingsController(AdminControllerTest):
 
         eq_("url2", auth_service.url)
         eq_("user2", auth_service.username)
-        [setting] = auth_service.settings
+        setting = auth_service.setting("domains")
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
 
@@ -1758,10 +1758,10 @@ class TestSettingsController(AdminControllerTest):
             protocol=SIP2AuthenticationProvider.__module__,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        auth_service.setting("url").value = "url"
+        auth_service.url = "url"
         auth_service.setting(SIP2AuthenticationProvider.PORT).value = "1234"
-        auth_service.setting("username").value = "user"
-        auth_service.setting("password").value = "pass"
+        auth_service.username = "user"
+        auth_service.password = "pass"
         auth_service.setting(SIP2AuthenticationProvider.LOCATION_CODE).value = "5"
         auth_service.setting(SIP2AuthenticationProvider.FIELD_SEPARATOR).value = ","
 
@@ -1777,10 +1777,10 @@ class TestSettingsController(AdminControllerTest):
 
             eq_(auth_service.id, service.get("id"))
             eq_(SIP2AuthenticationProvider.__module__, service.get("protocol"))
-            eq_("url", service.get("settings").get("url"))
+            eq_("url", service.get("settings").get(ExternalIntegration.URL))
             eq_("1234", service.get("settings").get(SIP2AuthenticationProvider.PORT))
-            eq_("user", service.get("settings").get("username"))
-            eq_("pass", service.get("settings").get("password"))
+            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
+            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
             eq_("5", service.get("settings").get(SIP2AuthenticationProvider.LOCATION_CODE))
             eq_(",", service.get("settings").get(SIP2AuthenticationProvider.FIELD_SEPARATOR))
             [library] = service.get("libraries")
@@ -1793,8 +1793,8 @@ class TestSettingsController(AdminControllerTest):
             protocol=FirstBookAuthenticationAPI.__module__,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        auth_service.setting("url").value = "url"
-        auth_service.setting("password").value = "pass"
+        auth_service.url = "url"
+        auth_service.password = "pass"
         auth_service.libraries += [self._default_library]
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
@@ -1807,8 +1807,8 @@ class TestSettingsController(AdminControllerTest):
 
             eq_(auth_service.id, service.get("id"))
             eq_(FirstBookAuthenticationAPI.__module__, service.get("protocol"))
-            eq_("url", service.get("settings").get("url"))
-            eq_("pass", service.get("settings").get("password"))
+            eq_("url", service.get("settings").get(ExternalIntegration.URL))
+            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
@@ -1819,8 +1819,8 @@ class TestSettingsController(AdminControllerTest):
             protocol=CleverAuthenticationAPI.__module__,
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
-        auth_service.setting("username").value = "user"
-        auth_service.setting("password").value = "pass"
+        auth_service.username = "user"
+        auth_service.password = "pass"
         auth_service.libraries += [self._default_library]
 
         with self.app.test_request_context("/"):
@@ -1829,8 +1829,8 @@ class TestSettingsController(AdminControllerTest):
 
             eq_(auth_service.id, service.get("id"))
             eq_(CleverAuthenticationAPI.__module__, service.get("protocol"))
-            eq_("user", service.get("settings").get("username"))
-            eq_("pass", service.get("settings").get("password"))
+            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
+            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 

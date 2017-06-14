@@ -15,6 +15,7 @@ import urlparse
 import urllib
 from core.model import (
     get_one_or_create,
+    ExternalIntegration,
     Patron,
 )
 
@@ -39,8 +40,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
     
     SETTINGS = [
-        { "key": "url", "label": _("URL") },
-        { "key": "password", "label": _("Key") },
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Key") },
     ] + BasicAuthenticationProvider.SETTINGS
     
     log = logging.getLogger("First Book authentication API")

@@ -8,6 +8,7 @@ from api.authenticator import (
 from api.sip.client import SIPClient
 from core.util.http import RemoteIntegrationException
 from core.util import MoneyUtility
+from core.model import ExternalIntegration
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -21,10 +22,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     FIELD_SEPARATOR = "field separator"
     
     SETTINGS = [
-        { "key": "url", "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL") },
         { "key": PORT, "label": _("Port") },
-        { "key": "username", "label": _("Login User ID") },
-        { "key": "password", "label": _("Login Password") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
         { "key": LOCATION_CODE, "label": _("Location Code") },
         { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
     ] + BasicAuthenticationProvider.SETTINGS
