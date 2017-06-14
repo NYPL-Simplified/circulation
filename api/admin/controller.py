@@ -6,6 +6,7 @@ import base64
 import random
 import uuid
 import json
+import re
 
 import flask
 from flask import (
@@ -16,6 +17,7 @@ from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
 
 from core.model import (
+    create,
     get_one,
     get_one_or_create,
     Admin,
@@ -72,6 +74,13 @@ from datetime import datetime, timedelta
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
+
+from api.authenticator import AuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.millenium_patron import MilleniumPatronAPI
+from api.sip import SIP2AuthenticationProvider
+from api.firstbook import FirstBookAuthenticationAPI
+from api.clever import CleverAuthenticationAPI
 
 
 def setup_admin_controllers(manager):
@@ -1217,6 +1226,171 @@ class SettingsController(CirculationManagerController):
         except ProgrammingError as e:
             self._db.rollback()
             return MISSING_PGCRYPTO_EXTENSION
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def patron_auth_services(self):
+        protocols = []
+
+        for provider in [SimpleAuthenticationProvider,
+                         MilleniumPatronAPI,
+                         SIP2AuthenticationProvider,
+                         FirstBookAuthenticationAPI,
+                         CleverAuthenticationAPI,
+                        ]:
+            protocols.append({
+                "name": provider.__module__,
+                "label": provider.NAME,
+                "description": provider.DESCRIPTION,
+                "fields": provider.SETTINGS,
+                "library_fields": provider.LIBRARY_SETTINGS,
+            })
+
+        basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
+                                MilleniumPatronAPI.__module__,
+                                SIP2AuthenticationProvider.__module__,
+                                FirstBookAuthenticationAPI.__module__,
+                               ]
+
+        if flask.request.method == 'GET':
+            auth_services = []
+            for auth_service in self._db.query(ExternalIntegration).filter(
+                ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL):
+
+                [protocol] = [p for p in protocols if p.get("name") == auth_service.protocol]
+                libraries = []
+                for library in auth_service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    for field in protocol.get("library_fields"):
+                        key = field.get("key")
+                        value = ConfigurationSetting.for_library_and_externalintegration(
+                            self._db, key, library, auth_service
+                        ).value
+                        if value:
+                            library_info[key] = value
+                    libraries.append(library_info)
+
+                settings = { setting.key: setting.value for setting in auth_service.settings if setting.library_id == None}
+                if auth_service.url:
+                    settings["url"] = auth_service.url
+                if auth_service.username:
+                    settings["username"] = auth_service.username
+                if auth_service.password:
+                    settings["password"] = auth_service.password
+
+                auth_services.append(
+                    dict(
+                        id=auth_service.id,
+                        protocol=auth_service.protocol,
+                        settings=settings,
+                        libraries=libraries,
+                    )
+                )
+
+            return dict(
+                patron_auth_services=auth_services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL
+
+        is_new = False
+        if id:
+            auth_service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+            if not auth_service:
+                return MISSING_PATRON_AUTH_SERVICE
+            if protocol != auth_service.protocol:
+                return CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL
+        else:
+            if protocol:
+                auth_service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.PATRON_AUTH_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        fields = protocol.get("fields")
+
+        for field in fields:
+            key = field.get("key")
+            value = flask.request.form.get(key)
+            if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
+                self._db.rollback()
+                return INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(field)s is invalid.",
+                    field=field.get("label"),
+                ))
+            if not value and not field.get("optional"):
+                # Roll back any changes to the integration that have already been made.
+                self._db.rollback()
+                return INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.detailed(
+                    _("The patron authentication service is missing a required field: %(field)s",
+                      field=field.get("label")))
+            if key == "url":
+                auth_service.url = value
+            elif key == "username":
+                auth_service.username = value
+            elif key == "password":
+                auth_service.password = value
+            else:
+                auth_service.setting(key).value = value
+
+
+        auth_service.libraries = []
+
+        libraries = []
+        if flask.request.form.get("libraries"):
+            libraries = json.loads(flask.request.form.get("libraries"))
+
+        for library_info in libraries:
+            library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+            if not library:
+                self._db.rollback()
+                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the patron authentication service to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+            if protocol.get("name") in basic_auth_protocols:
+                # Each library can only have one basic auth service.
+                for integration in library.integrations:
+                    if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols and integration.protocol != protocol:
+                        self._db.rollback()
+                        return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
+                            "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
+                            library=library.short_name,
+                        ))
+
+            auth_service.libraries += [library]
+            for field in protocol.get("library_fields"):
+                key = field.get("key")
+                value = library_info.get(key)
+                if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
+                    self._db.rollback()
+                    return INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(field)s is invalid.",
+                        field=field.get("label"),
+                    ))
+                if not value and not field.get("optional"):
+                    self._db.rollback()
+                    return INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.detailed(
+                        _("The patron authentication service is missing a required field: %(field)s for library %(library)s",
+                          field=field.get("label"),
+                          library=library.short_name,
+                          ))
+                if key == AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION and value:
+                    try:
+                        re.compile(value)
+                    except Exception, e:
+                        self._db.rollback()
+                        return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
+                ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, auth_service).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)

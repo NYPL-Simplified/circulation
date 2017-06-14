@@ -211,3 +211,59 @@ MISSING_PGCRYPTO_EXTENSION = pd(
     title=_("Missing pgcrypto database extension"),
     detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
 )
+
+MISSING_PATRON_AUTH_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-patron-auth-service",
+    status_code=404,
+    title=_("Missing patron authentication service"),
+    detail=_("The specific patron authentication service does not exist."),
+)
+
+UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/unknown-patron-auth-service-protocol",
+    status_code=400,
+    title=_("Unknown patron authentication service protocol"),
+    detail=_("The protocol is not one of the known patron authentication service protocols."),
+)
+
+CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-patron-auth-service-protocol",
+    status_code=400,
+    title=_("Cannot change patron authentication service protocol"),
+    detail=_("A patron authentication service's protocol can't be changed once it has been set."),
+)
+
+NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-protocol-for-new-patron-auth-service",
+    status_code=400,
+    title=_("No protocol for new patron authentication service"),
+    detail=_("The specified patron authentication service doesn't exist. You can create it, but you must specify a protocol."),
+)
+
+INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-patron-auth-service-configuration",
+    status_code=400,
+    title=_("Incomplete patron authentication service configuration"),
+    detail=_("The patron authentication service's configuration is missing a required field."),
+)
+
+INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-patron-auth-service-configuration-option",
+    status_code=400,
+    title=_("Invalid patron authentication service configuration option"),
+    detail=_("The patron authentication service's configuration has an invalid value."),
+)
+
+INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-external-type-regular-expression",
+    status_code=400,
+    title=_("Invalid external type regular expression"),
+    detail=_("The specified external type regular expression does not compile."),
+)
+
+MULTIPLE_BASIC_AUTH_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-basic-auth-services",
+    status_code=400,
+    title=_("Multiple basic authentication services"),
+    detail=_("Each library can only have one patron authentication service using basic auth."),
+)

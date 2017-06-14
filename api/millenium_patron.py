@@ -6,6 +6,7 @@ from urllib import urlencode
 import datetime
 import requests
 from money import Money
+from flask.ext.babel import lazy_gettext as _
 
 from core.util.xmlparser import XMLParser
 from authenticator import (
@@ -63,6 +64,23 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     AUTHENTICATION_MODES = [
         PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
     ]
+
+    SETTINGS = [
+        { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
+          "type": "select", "options": [
+              { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
+              { "key": "false", "label": _("Ignore Certificate Problems (For temporary testing only)") },
+          ]
+        },
+        { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"), "optional": True },
+        { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
+          "type": "select",
+          "options": [
+              { "key": PIN_AUTHENTICATION_MODE, "label": _("PIN") },
+              { "key": FAMILY_NAME_AUTHENTICATION_MODE, "label": _("Family Name") },
+          ]
+        }
+    ] + BasicAuthenticationProvider.SETTINGS
     
     def __init__(self, library, integration):
         super(MilleniumPatronAPI, self).__init__(library, integration)
