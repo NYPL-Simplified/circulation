@@ -14,7 +14,7 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    def __init__(self, _db, goal, access_key=None, secret_key=None, pool=None):
+    def __init__(self, _db, goal=None, access_key=None, secret_key=None, pool=None):
         if pool:
             self.pool = pool
         elif access_key or secret_key:
@@ -25,22 +25,35 @@ class S3Uploader(MirrorUploader):
                 )
             self.pool = tinys3.Pool(access_key, secret_key)
         else:
-            if not _db and goal:
+            if not _db:
                 raise ValueError(
-                    "Cannot create S3Uploader without both a database"
-                    " session and a goal value."
-                )
+                    "Cannot create S3Uploader without a database session")
 
             from model import ExternalIntegration
-            integration = ExternalIntegration.lookup(
-                _db, ExternalIntegration.S3, goal=goal
+            qu = _db.query(ExternalIntegration).filter(
+                ExternalIntegration.protocol==ExternalIntegration.S3
             )
-            if not (integration and integration.username
-                    and integration.password
-            ):
+
+            # TODO: Right now we connect to the same S3 account for all
+            # accepted buckets and use the S3Uploader to access all
+            # three willy-nilly. If this changes, goal will no longer
+            # be an optional value.
+            message = ""
+            if goal:
+                message += " for goal '%s'" % goal
+                qu = qu.filter(ExternalIntegration.goal==goal)
+
+            integrations = qu.all()
+            if not integrations:
                 raise ValueError(
-                    "S3 for goal '%s' is not properly configured" % goal
+                    "No S3 ExternalIntegration found%s" % message)
+
+            integration = integrations[0]
+            if not (integration.username and integration.password):
+                raise ValueError(
+                    "S3%s is not properly configured" % message
                 )
+
             self.pool = tinys3.Pool(integration.username, integration.password)
 
     S3_HOSTNAME = "s3.amazonaws.com"
