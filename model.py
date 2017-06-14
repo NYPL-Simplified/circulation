@@ -9089,13 +9089,14 @@ class ExternalIntegration(Base):
 
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):
-        integrations = _db.query(cls).filter(
+        integrations = _db.query(cls).outerjoin(cls.libraries).filter(
             cls.protocol==protocol, cls.goal==goal
-        ).all()
+        )
 
         if library:
-            integrations = filter(lambda i: library in i.libraries, integrations)
+            integrations = integrations.filter(Library.id==library.id)
 
+        integrations = integrations.all()
         if len(integrations) > 1:
             logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
 

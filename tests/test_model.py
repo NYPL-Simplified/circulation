@@ -5634,6 +5634,28 @@ somesetting=somevalue""",
         with_secrets = integration.explain(True)
         assert 'Password: somepass' in with_secrets
 
+    def test_lookup(self):
+        # ExternalIntegrations can be looked up.
+        ei1 = self._external_integration('protocol', 'goal')
+        result = ExternalIntegration.lookup(self._db, 'protocol', 'goal')
+        eq_(ei1, result)
+
+        # Give the ExternalIntegrations a particular Library.
+        ei1.libraries.append(self._default_library)
+        lib1 = self._library()
+        lib2 = self._library()
+        ei2 = self._external_integration('protocol', 'goal', libraries=[lib1, lib2])
+
+        # If we don't lookup with a library, an error will be raised.
+        assert_raises(
+            ValueError, ExternalIntegration.lookup, self._db,
+            'protocol', 'goal'
+        )
+
+        # But with a library, everything is fine.
+        result = ExternalIntegration.lookup(self._db, 'protocol', 'goal', library=lib2)
+        eq_(ei2, result)
+
 
 class TestConfigurationSetting(DatabaseTest):
 
