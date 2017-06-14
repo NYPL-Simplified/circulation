@@ -642,34 +642,8 @@ class ShowLibrariesScript(Script):
                     )
                 )
             )
-            output.write("\n")
-
-class ConfigureSiteScript(Script):
-    """View or change site-wide settings."""
-    name = "Change site-wide settings"
-
-    @classmethod
-    def arg_parser(cls, _db):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--setting',
-            help='Set a site-wide setting, such as default_ungrouped_feed_max_age. Format: --setting="default_ungrouped_feed_max_age=1200"',
-            action="append",
-        )
-
-    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
-        _db = _db or self._db
-        args = self.parse_command_line(_db, cmd_args=cmd_args)
-        if args.setting:
-            for setting in args.setting:
-                if not '=' in setting:
-                    raise ValueError(
-                        'Incorrect format for setting: "%s". Should be "key=value"'
-                        % setting
-                    )
-                key, value = setting.split('=', 1)
-                integration.setting(key).value = value
-
+            output.write("\n")            
+                    
 
 class ConfigureLibraryScript(Script):
     """Create a library or change its settings."""
