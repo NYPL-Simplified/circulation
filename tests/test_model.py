@@ -5549,10 +5549,20 @@ class TestLibrary(DatabaseTest):
         integration.username = "someuser"
         integration.password = "somepass"
         integration.setting("somesetting").value = "somevalue"
+
+        # Different libraries specialize this integration differently.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library, integration
+        ).value = "value for library1"
+        
+        library2 = self._library()
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value for library2"
+        
         library.integrations.append(integration)
         
-        data = library.explain()
-        eq_("""Library UUID: "uuid"
+        expect = """Library UUID: "uuid"
 Name: "The Library"
 Short name: "Short"
 Short name (for library registry): "SHORT"
@@ -5562,10 +5572,11 @@ External integrations:
 Protocol/Goal: protocol/goal
 URL: http://url/
 Username: someuser
-somesetting=somevalue
-""",
-            "\n".join(data)
-        )
+library-specific='value for library1' (applies only to The Library)
+somesetting='somevalue'
+"""
+        actual = library.explain()
+        eq_(expect, "\n".join(actual))
         
         with_secrets = library.explain(True)
         assert 'Shared secret (for library registry): "secret"' in with_secrets
@@ -5622,18 +5633,45 @@ class TestExternalIntegration(DatabaseTest):
         integration.username = "someuser"
         integration.password = "somepass"
         integration.setting("somesetting").value = "somevalue"
+
+        # Two different libraries have slightly different
+        # configurations for this integration.
+        self._default_library.name = "First Library"
+        self._default_library.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", self._default_library, integration
+        ).value = "value1"
         
-        data = integration.explain()
-        eq_("""Protocol/Goal: protocol/goal
+        library2 = self._library()
+        library2.name = "Second Library"
+        library2.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value2"
+
+        # If we decline to pass in a library, we get information about how
+        # each library in the system configures this integration.
+
+        expect = """Protocol/Goal: protocol/goal
 URL: http://url/
 Username: someuser
-somesetting=somevalue""",
-            "\n".join(data)
-        )
+library-specific='value1' (applies only to First Library)
+library-specific='value2' (applies only to Second Library)
+somesetting='somevalue'"""
+        actual = integration.explain()
+        eq_(expect, "\n".join(actual))
+
+        # If we pass in a library, we only get information about
+        # how that specific library configures the integration.
+        for_library_2 = "\n".join(integration.explain(library=library2))
+        assert "applies only to First Library" not in for_library_2
+        assert "applies only to Second Library" in for_library_2
         
-        with_secrets = integration.explain(True)
+        # If we pass in True for include_password, we see the passwords.
+        with_secrets = integration.explain(include_password=True)
         assert 'Password: somepass' in with_secrets
 
+        
 
 class TestConfigurationSetting(DatabaseTest):
 
