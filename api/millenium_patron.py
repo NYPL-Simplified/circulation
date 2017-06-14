@@ -66,7 +66,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     ]
 
     SETTINGS = [
-        { "key": VERIFY_CERTIFICATE, "label": _("Verify Certificate"), "optional": True },
+        { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
+          "type": "select", "options": [
+              { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
+              { "key": "false", "label": _("Ignore Certificate Problems (For temporary testing only)") },
+          ]
+        },
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"), "optional": True },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
           "type": "select",

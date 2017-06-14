@@ -1974,6 +1974,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", MilleniumPatronAPI.__module__),
                 (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
                 (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
+                (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
@@ -1985,6 +1986,8 @@ class TestSettingsController(AdminControllerTest):
         assert auth_service2 != auth_service
         eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
+        eq_("true",
+            auth_service2.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value)
         eq_(MilleniumPatronAPI.PIN_AUTHENTICATION_MODE,
             auth_service2.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value)
         eq_(None, auth_service2.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value)
