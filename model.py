@@ -9184,7 +9184,26 @@ class ConfigurationSetting(Base):
             # Commit to get this in the database ASAP.
             _db.commit()
         return secret.value
-    
+
+    @classmethod
+    def explain(cls, _db, include_secrets=False):
+        """Explain all site-wide ConfigurationSettings."""
+        lines = []
+        site_wide_settings = []
+        
+        for setting in _db.query(ConfigurationSetting).filter(
+                ConfigurationSetting.library==None).filter(
+                    ConfigurationSetting.external_integration==None):
+            if not include_secrets and setting.key.endswith("_secret"):
+                continue
+            site_wide_settings.append(setting)
+        if site_wide_settings:
+            lines.append("Site-wide configuration settings:")
+            lines.append("---------------------------------")
+        for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            lines.append("%s='%s'" % (setting.key, setting.value))
+        return lines
+
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""

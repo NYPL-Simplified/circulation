@@ -5779,6 +5779,28 @@ class TestConfigurationSetting(DatabaseTest):
 
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
+
+    def test_explain(self):
+        """Test that ConfigurationSetting.explain gives information
+        about all site-wide configuration settings.
+        """
+        ConfigurationSetting.sitewide(self._db, "a_secret").value = "1"
+        ConfigurationSetting.sitewide(self._db, "nonsecret_setting").value = "2"
+
+        integration = self._external_integration("a protocol", "a goal")
+        
+        actual = ConfigurationSetting.explain(self._db, include_secrets=True)
+        expect = """Site-wide configuration settings:
+---------------------------------
+a_secret='1'
+nonsecret_setting='2'"""
+        eq_(expect, "\n".join(actual))
+        
+        without_secrets = "\n".join(ConfigurationSetting.explain(
+            self._db, include_secrets=False
+        ))
+        assert 'a_secret' not in without_secrets
+        assert 'nonsecret_setting' in without_secrets
         
 class TestCollection(DatabaseTest):
 
