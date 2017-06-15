@@ -1,2 +1,2 @@
 #!/bin/sh
-TESTING=true nosetests tests
+TESTING=true PYTHONWARNINGS=ignore nosetests --nocapture -w tests

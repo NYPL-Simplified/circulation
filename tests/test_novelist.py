@@ -36,6 +36,10 @@ class TestNoveListAPI(DatabaseTest):
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
 
+    def teardown(self):
+        NoveListAPI.IS_CONFIGURED = None
+        super(TestNoveListAPI, self).teardown()
+
     def sample_data(self, filename):
         return sample_data(filename, 'novelist')
 
