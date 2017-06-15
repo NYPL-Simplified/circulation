@@ -94,8 +94,8 @@ class Configuration(CoreConfiguration):
         return MoneyUtility.parse(max_fines)
     
     @classmethod
-    def load(cls):
-        CoreConfiguration.load()
+    def load(cls, _db=None):
+        CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
 
 @contextlib.contextmanager

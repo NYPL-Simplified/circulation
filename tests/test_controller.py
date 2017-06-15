@@ -147,10 +147,9 @@ class ControllerTest(VendorIDTest):
             )
         )
 
-        # Create a CDN for testing purposes.
-        cdn = self._external_integration(
-            ExternalIntegration.CDN, goal="", url="http://cdn"
-        )
+        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+            "" : "http://cdn"
+        }
 
         # Create a simple authentication integration for this library,
         # unless it already has a way to authenticate patrons

@@ -103,7 +103,7 @@ from core.axis import Axis360BibliographicCoverageProvider
 class Script(CoreScript):
     def load_config(self):
         if not Configuration.instance:
-            Configuration.load()
+            Configuration.load(self._db)
 
 class CreateWorksForIdentifiersScript(Script):
 

@@ -8,7 +8,7 @@ import uuid
 
 from sqlalchemy.orm import lazyload
 
-from config import Configuration
+from core.cdn import cdnify
 from core.classifier import Classifier
 from core.opds import (
     Annotator,
@@ -37,7 +37,6 @@ from core.lane import (
     QueryGeneratedLane,
 )
 from core.app_server import cdn_url_for
-from core.util.cdn import cdnify
 
 from adobe_vendor_id import AuthdataUtility
 from annotations import AnnotationWriter
@@ -97,8 +96,7 @@ class CirculationManagerAnnotator(Annotator):
         if self.test_mode:
             return self.test_url_for(True, *args, **kwargs)
         else:
-            _db = Session.object_session(self.library)
-            return cdn_url_for(_db, *args, **kwargs)
+            return cdn_url_for(*args, **kwargs)
 
     def test_url_for(self, cdn=False, *args, **kwargs):
         # Generate a plausible-looking URL that doesn't depend on Flask
@@ -775,7 +773,7 @@ class CirculationManagerAnnotator(Annotator):
         
     def open_access_link(self, lpdm):
         _db = Session.object_session(self.library)
-        url = cdnify(_db, lpdm.resource.url)
+        url = cdnify(lpdm.resource.url)
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
         rep = lpdm.resource.representation
         if rep and rep.media_type:

@@ -42,6 +42,11 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 
+from core.opds import (
+    AcquisitionFeed,
+    UnfulfillableWork,
+)
+
 from core.opds_import import (
     OPDSXMLParser
 )
@@ -50,20 +55,17 @@ from api.circulation import (
     CirculationAPI,
     FulfillmentInfo,
 )
-
+from api.config import (
+    Configuration,
+    temp_config,
+)
 from api.opds import (
     CirculationManagerAnnotator,
     CirculationManagerLoanAndHoldAnnotator,
 )
 
 from api.testing import VendorIDTest
-
-from core.opds import (
-    AcquisitionFeed,
-    UnfulfillableWork,
-)
 from api.adobe_vendor_id import AuthdataUtility
-
 from api.novelist import NoveListAPI
 from api.lanes import ContributorLane
 import jwt
@@ -122,11 +124,12 @@ class TestCirculationManagerAnnotator(VendorIDTest):
 
         # If we have a CDN set up for open-access links, the CDN hostname
         # replaces the original hostname.
-        self._external_integration(
-            ExternalIntegration.CDN,
-            goal=u'foo.com', url=u'https://cdn.com/'
-        )
-        link_tag = self.annotator.open_access_link(lpdm)
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+                'foo.com' : 'https://cdn.com/'
+            }
+            link_tag = self.annotator.open_access_link(lpdm)
+
         link_url = link_tag.get('href')
         eq_("https://cdn.com/thefile.epub", link_url)
 
