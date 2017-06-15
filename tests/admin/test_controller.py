@@ -43,6 +43,7 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
+from core.opds import AcquisitionFeed
 from datetime import date, datetime, timedelta
 
 from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
@@ -1122,6 +1123,11 @@ class TestSettingsController(AdminControllerTest):
          ):
             self._db.delete(auth_service)
 
+        # Delete any existing sitewide ConfigurationSettings.
+        for setting in self._db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.library_id==None).filter(
+            ConfigurationSetting.external_integration_id==None):
+            self._db.delete(setting)
 
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -1637,7 +1643,7 @@ class TestSettingsController(AdminControllerTest):
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
 
-    def test_individual_admins(self):
+    def test_individual_admins_get(self):
         # There are two admins that can sign in with passwords.
         admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
         admin1.password = "pass1"
@@ -2015,7 +2021,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, auth_service2.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value)
         eq_([], auth_service2.libraries)
 
-    def test_admin_auth_services_post_edit(self):
+    def test_patron_auth_services_post_edit(self):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
         )
@@ -2053,4 +2059,74 @@ class TestSettingsController(AdminControllerTest):
         eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
                 l2, auth_service).value)
+
+    def test_sitewide_settings_get(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            settings = response.get("settings")
+            fields = response.get("fields")
+
+            eq_([], settings)
+            keys = [f.get("key") for f in fields]
+            assert AcquisitionFeed.GROUPED_MAX_AGE_POLICY in keys
+            assert AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY in keys
+            assert Configuration.SECRET_KEY in keys
+
+        ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 0
+        ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "secret"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            settings = response.get("settings")
+            fields = response.get("fields")
+
+            eq_(2, len(settings))
+            settings_by_key = { s.get("key") : s.get("value") for s in settings }
+            eq_("0", settings_by_key.get(AcquisitionFeed.GROUPED_MAX_AGE_POLICY))
+            eq_("secret", settings_by_key.get(Configuration.SECRET_KEY))
+            keys = [f.get("key") for f in fields]
+            assert AcquisitionFeed.GROUPED_MAX_AGE_POLICY in keys
+            assert AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY in keys
+            assert Configuration.SECRET_KEY in keys
+
+    def test_sitewide_settings_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            eq_(response, MISSING_SITEWIDE_SETTING_KEY)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("key", Configuration.SECRET_KEY),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
+
+    def test_sitewide_settings_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
+                ("value", "10"),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            eq_(response.status_code, 200)
+
+        # The setting was created.
+        setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
+        eq_("10", setting.value)
+
+    def test_sitewide_settings_post_edit(self):
+        setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
+        setting.value = "10"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
+                ("value", "20"),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_settings()
+            eq_(response.status_code, 200)
+
+        # The setting was changed.
+        eq_("20", setting.value)
 

@@ -267,3 +267,17 @@ MULTIPLE_BASIC_AUTH_SERVICES = pd(
     title=_("Multiple basic authentication services"),
     detail=_("Each library can only have one patron authentication service using basic auth."),
 )
+
+MISSING_SITEWIDE_SETTING_KEY = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-key",
+    status_code=400,
+    title=_("Missing sitewide setting key"),
+    detail=_("A key is required to change a sitewide setting."),
+)
+
+MISSING_SITEWIDE_SETTING_VALUE = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-value",
+    status_code=400,
+    title=_("Missing sitewide setting value"),
+    detail=_("A value is required to change a sitewide setting."),
+)
