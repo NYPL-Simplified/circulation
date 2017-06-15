@@ -60,6 +60,18 @@ class TestNoveListAPI(DatabaseTest):
         self.integration.username = None
         assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
 
+    def test_is_configured(self):
+        # If an ExternalIntegration exists, the API is_configured
+        eq_(True, NoveListAPI.is_configured(self._default_library))
+        # A class variable is set to reduce future database requests.
+        eq_(self._default_library.id, NoveListAPI._configuration_library_id)
+
+        # If an ExternalIntegration doesn't exist for the library, it is not.
+        library = self._library()
+        eq_(False, NoveListAPI.is_configured(library))
+        # And the class variable is updated.
+        eq_(library.id, NoveListAPI._configuration_library_id)
+
     def test_review_response(self):
         invalid_credential_response = (403, {}, 'HTML Access Denied page')
         assert_raises(Exception, self.novelist.review_response, invalid_credential_response)
