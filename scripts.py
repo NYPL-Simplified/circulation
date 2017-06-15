@@ -697,7 +697,7 @@ class ConfigureSiteScript(Script):
                     )
                 else:
                     ConfigurationSetting.sitewide(_db, key).value = value
-                    _db.commit()
+            _db.commit()
         settings = _db.query(ConfigurationSetting).filter(
             ConfigurationSetting.library==None).filter(
                 ConfigurationSetting.external_integration==None
