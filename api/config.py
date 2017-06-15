@@ -2,6 +2,7 @@ import re
 from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
+from flask.ext.babel import lazy_gettext as _
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -11,7 +12,6 @@ from core.config import (
 from core.util import MoneyUtility
 from core.lane import Facets
 from core.model import ConfigurationSetting
-
 
 class Configuration(CoreConfiguration):
 
@@ -38,6 +38,59 @@ class Configuration(CoreConfiguration):
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
+
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
+
+    # Names of the library-wide link settings.
+    TERMS_OF_SERVICE = 'terms-of-service'
+    PRIVACY_POLICY = 'privacy-policy'
+    COPYRIGHT = 'copyright'
+    ABOUT = 'about'
+    LICENSE = 'license'
+
+    SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
+        {
+            "key": BEARER_TOKEN_SIGNING_SECRET,
+            "label": _("Internal signing secret for OAuth bearer tokens"),
+        },
+        {
+            "key": SECRET_KEY,
+            "label": _("Internal secret key for admin interface cookies"),
+        },
+    ]
+
+    LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
+        {
+            "key": MAX_OUTSTANDING_FINES,
+            "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
+        },
+        {
+            "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            "label": _("Default email address to use when notifying patrons of changes"),
+        },
+        {
+            "key": TERMS_OF_SERVICE,
+            "label": _("Terms of Service URL"),
+        },
+        {
+            "key": PRIVACY_POLICY,
+            "label": _("Privacy Policy URL"),
+        },
+        {
+            "key": COPYRIGHT,
+            "label": _("Copyright URL"),
+        },
+        {
+            "key": ABOUT,
+            "label": _("About URL"),
+        },
+        {
+            "key": LICENSE,
+            "label": _("License URL"),
+        },
+    ]
     
     @classmethod
     def lending_policy(cls):
