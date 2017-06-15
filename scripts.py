@@ -56,7 +56,6 @@ from model import (
     WorkGenre,
 )
 from monitor import SubjectAssignmentMonitor
-from nyt import NYTBestSellerAPI
 from monitor import CollectionMonitor
 from opds_import import (
     OPDSImportMonitor,
@@ -1244,35 +1243,6 @@ class OPDSImportScript(CollectionInputScript):
                 force_reimport=parsed.force
             )
             monitor.run()
-
-
-class NYTBestSellerListsScript(Script):
-
-    def __init__(self, include_history=False):
-        super(NYTBestSellerListsScript, self).__init__()
-        self.include_history = include_history
-    
-    def do_run(self):
-        self.api = NYTBestSellerAPI.from_config(self._db)
-        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
-        # For every best-seller list...
-        names = self.api.list_of_lists()
-        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
-
-            name = l['list_name_encoded']
-            self.log.info("Handling list %s" % name)
-            best = self.api.best_seller_list(l)
-
-            if self.include_history:
-                self.api.fill_in_history(best)
-            else:
-                self.api.update(best)
-
-            # Mirror the list to the database.
-            customlist = best.to_customlist(self._db)
-            self.log.info(
-                "Now %s entries in the list.", len(customlist.entries))
-            self._db.commit()
 
 
 class RefreshMaterializedViewsScript(Script):
