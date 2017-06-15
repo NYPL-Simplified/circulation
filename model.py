@@ -8752,6 +8752,9 @@ class Library(Base):
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    # Keys for Library-specific ConfigurationSettings.
+    WEBSITE_KEY = u'website'
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -9005,9 +9008,6 @@ class ExternalIntegration(Base):
     # Adobe Vendor ID, which manage access to DRM-dependent content.
     DRM_GOAL = u'drm'
 
-    # These integrations are associated with the Library Registry.
-    REGISTRATION_GOAL = u'registration'
-
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9047,8 +9047,6 @@ class ExternalIntegration(Base):
 
     # Integrations with DRM_GOAL
     ADOBE_VENDOR_ID = u'Adobe Vendor ID'
-
-    # Integrations with REGISTRATION_GOAL
     LIBRARY_REGISTRY = u'Library Registry'
 
     # Integrations with ANALYTICS_GOAL
