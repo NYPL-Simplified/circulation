@@ -630,10 +630,10 @@ class AuthdataUtility(object):
 
         # This is used to _encode_ short client tokens.
         self.short_name = library_short_name.upper()
-        
+
         # This is used to encode both JWTs and short client tokens.
         self.secret = secret
-        
+
         # This is used by the delegation authority to _decode_ JWTs.
         self.secrets_by_library_uri = {}
         self.secrets_by_library_uri[self.library_uri] = secret
@@ -664,8 +664,8 @@ class AuthdataUtility(object):
             self.secret
         )
 
-    LIBRARY_URI_KEY = u'library_uri'
-    OTHER_LIBRARIES_KEY = 'other_libraries'
+    VENDOR_ID_KEY = u'vendor_id'
+    OTHER_LIBRARIES_KEY = u'other_libraries'
 
     @classmethod
     def from_config(cls, library):
@@ -678,21 +678,28 @@ class AuthdataUtility(object):
         incompletely configured.
         """
         _db = Session.object_session(library)
-        integration = ExternalIntegration.lookup(
+        registry_integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.LIBRARY_REGISTRY,
+            ExternalIntegration.REGISTRATION_GOAL, library=library
+        )
+
+        adobe_integration = ExternalIntegration.lookup(
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
         )
 
-        if not integration:
+        if not registry_integration:
             return None
 
-        vendor_id = integration.username
-        library_uri = integration.url
-        library_short_name = library.library_registry_short_name
-        secret = library.library_registry_shared_secret
+        vendor_id = registry_integration.setting(cls.VENDOR_ID_KEY).value
+        library_uri = registry_integration.url
+        library_short_name = registry_integration.username
+        secret = registry_integration.password
 
-        other_libraries = integration.setting(cls.OTHER_LIBRARIES_KEY).json_value
-        other_libraries = other_libraries or {}
+        other_libraries = None
+        if adobe_integration:
+            other_libraries = adobe_integration.setting(cls.OTHER_LIBRARIES_KEY).json_value
+        other_libraries = other_libraries or dict()
 
         if (not vendor_id or not library_uri
             or not library_short_name or not secret

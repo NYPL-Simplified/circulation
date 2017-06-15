@@ -20,6 +20,7 @@ from core.model import (
     production_session,
 )
 
+from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
 
 log = logging.getLogger(name="Circulation manager configuration import")
@@ -33,7 +34,7 @@ def log_import(integration_or_setting, is_new):
 try:
     Configuration.load()
     _db = production_session()
-    LIBRARIES = _db.query(Library).all()
+    LIBRARIES = _db.query(Library).all() or [Library.instance(_db)]
 
     # Import Circulation Manager base url.
     circ_manager_conf = Configuration.integration('Circulation Manager')
@@ -96,18 +97,76 @@ try:
     # Import Adobe Vendor ID configuration.
     adobe_conf = Configuration.integration('Adobe Vendor ID')
     if adobe_conf:
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL
-        )
-
-        integration.username = adobe_conf.get('vendor_id')
-        integration.password = adobe_conf.get('node_value')
-
+        vendor_id = adobe_conf.get('vendor_id')
+        node_value = adobe_conf.get('node_value')
         other_libraries = adobe_conf.get('other_libraries')
-        if other_libraries:
-            other_libraries = unicode(json.dumps(other_libraries))
-            integration.set_setting(u'other_libraries', other_libraries)
-        integration.libraries.extend(LIBRARIES)
+
+        if node_value:
+            node_libraries = LIBRARIES
+            if len(node_libraries) > 1:
+                # There's more than one library on this server.
+                # Get the one that isn't listed as an "other" in the
+                # JSON config.
+                other_lib_names = [v[0].upper() for k, v in other_libraries.items()]
+                node_libraries = filter(
+                    lambda l: l.library_registry_short_name not in other_lib_names,
+                    LIBRARIES
+                )
+
+                if len(node_libraries) > 1:
+                    # There's still more than one library that claims to be
+                    # an Adobe Vendor ID. As if.
+                    raise ValueError(
+                        "It's unclear which Library has access to the"
+                        "Adobe Vendor ID")
+
+            node_library = node_libraries[0]
+            integration, is_new = get_one_or_create(
+                _db, EI, protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL,
+            )
+            integration.username = vendor_id
+            integration.password = node_value
+
+            if other_libraries:
+                other_libraries = unicode(json.dumps(other_libraries))
+                integration.set_setting(u'other_libraries', other_libraries)
+            integration.libraries.append(node_library)
+            log_import(integration, is_new)
+
+        unnamed_libraries = filter(
+            lambda l: not l.library_registry_short_name, LIBRARIES
+        )
+        if len(unnamed_libraries) > 1:
+            # More than one library is missing its short_name. We
+            # can't give more than one Library the same short_name,
+            # so error out for fixin'.
+            raise ValueError(
+                'There are more unregistered libraries in the database'
+                'than the  configuration JSON can identify for the Library Registry.'
+            )
+        else:
+            for library in LIBRARIES:
+                short_name = library.library_registry_short_name
+                short_name = short_name or adobe_conf.get('library_short_name')
+                if short_name:
+                    short_name = short_name.upper()
+
+                shared_secret = library.library_registry_shared_secret
+                shared_secret = shared_secret or adobe_conf.get('authdata_secret')
+
+                library_url = adobe_conf.get('library_uri')
+
+                integration, is_new = get_one_or_create(
+                    _db, EI, protocol=EI.LIBRARY_REGISTRY,
+                    goal=EI.REGISTRATION_GOAL, username=short_name,
+                    password=shared_secret, url=library_url
+                )
+
+                integration.set_setting(
+                    AuthdataUtility.VENDOR_ID_KEY, vendor_id
+                )
+
+                integration.libraries.append(library)
 
     # Import Google OAuth configuration.
     google_oauth_conf = Configuration.integration('Google OAuth')

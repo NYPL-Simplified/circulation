@@ -237,7 +237,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         """When vendor ID delegation is not configured, adobe_id_tags()
         returns an empty list.
         """
-        self._db.delete(self.adobe_vendor_id)
+        self._db.delete(self.registry_integration)
         eq_([], self.annotator.adobe_id_tags("patron identifier"))
 
     def test_adobe_id_tags_when_vendor_id_configured(self):
@@ -261,7 +261,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         token = token.text
         authdata = AuthdataUtility.from_config(self._default_library)
         decoded = authdata.decode_short_client_token(token)
-        eq_((self.adobe_vendor_id.url, patron_identifier), decoded)
+        eq_((self.registry_integration.url, patron_identifier), decoded)
 
         eq_("link", device_management_link.tag)
         eq_("http://librarysimplified.org/terms/drm/rel/devices",
@@ -561,7 +561,7 @@ class TestOPDS(VendorIDTest):
         eq_(self.adobe_vendor_id.username,
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
-        expected = self._default_library.library_registry_short_name.upper()
+        expected = self.registry_integration.username
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
         eq_("{http://www.w3.org/2005/Atom}link",

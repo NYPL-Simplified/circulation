@@ -271,8 +271,11 @@ class CirculationManager(object):
                 self.adobe_vendor_id = None
 
         # But almost all libraries will have this setup.
-        library = Library.instance(self._db)
-        if library.library_registry_shared_secret:
+        registry = ExternalIntegration.lookup(
+            _db, ExternalIntegration.LIBRARY_REGISTRY,
+            ExternalIntegration.REGISTRATION_GOAL, library=library
+        )
+        if registry:
             try:
                 authdata = AuthdataUtility.from_config(library)
                 self.adobe_device_management = DeviceManagementProtocolController(self)

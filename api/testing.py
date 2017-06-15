@@ -43,11 +43,19 @@ class VendorIDTest(DatabaseTest):
 
         if not _db:
             # So long as we're not testing a scoped session, create
-            # the Adobe Vendor ID credentials.
+            # the Adobe Vendor ID and Library Registry credentials.
             self.adobe_vendor_id = self._external_integration(
                 ExternalIntegration.ADOBE_VENDOR_ID,
                 ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID)
             self.set_main_library_adobe_config(self._default_library)
+
+            self.registry_integration = self._external_integration(
+                ExternalIntegration.LIBRARY_REGISTRY,
+                ExternalIntegration.REGISTRATION_GOAL,
+                libraries=[self._default_library]
+            )
+            self.set_main_registry_configuration(self._default_library)
+
 
         _db = _db or self._db
         self.initialize_library(_db)
@@ -60,29 +68,41 @@ class VendorIDTest(DatabaseTest):
         return library
 
     def set_main_library_adobe_config(self, library):
-        library.library_registry_short_name = self.LIBRARY_REGISTRY_SHORT_NAME
         self.adobe_vendor_id.password = self.TEST_NODE_VALUE
-        self.adobe_vendor_id.url = self.TEST_LIBRARY_URI
-
-        if library not in self.adobe_vendor_id.libraries:
-            self.adobe_vendor_id.libraries.append(library)
 
         other_libraries = json.dumps(self.TEST_OTHER_LIBRARIES)
         self.adobe_vendor_id.set_setting(
             AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
         )
 
-    def set_dependent_library_adobe_config(self, library):
-        library.library_registry_short_name = u'you'
-        self.adobe_vendor_id.password = None
-        self.adobe_vendor_id.url = self.TEST_OTHER_LIBRARY_URI
-
         if library not in self.adobe_vendor_id.libraries:
             self.adobe_vendor_id.libraries.append(library)
 
-        self.adobe_vendor_id.set_setting(
-            AuthdataUtility.OTHER_LIBRARIES_KEY, None
+    def set_main_registry_configuration(self, library):
+        self.registry_integration.url = self.TEST_LIBRARY_URI
+        self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
+        self.registry_integration.password = self.LIBRARY_REGISTRY_SHARED_SECRET
+
+        self.registry_integration.set_setting(
+            AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
         )
+
+        if library not in self.registry_integration.libraries:
+            self.registry_integration.libraries.append(library)
+
+    def dependent_library_registry_integration(self, library):
+        registration = self._external_integration(
+            ExternalIntegration.LIBRARY_REGISTRY,
+            ExternalIntegration.REGISTRATION_GOAL,
+            username='you', password='secret2',
+            url=self.TEST_OTHER_LIBRARY_URI, libraries=[library]
+        )
+
+        registration.set_setting(
+            AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
+        )
+
+        return registration
 
 
 class MockRemoteAPI(BaseCirculationAPI):

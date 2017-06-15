@@ -186,16 +186,14 @@ class TestVendorIDModel(VendorIDTest):
         # Here's a library that delegates to another library's vendor
         # ID. It can't issue Adobe IDs, but it can generate a JWT for
         # one of its patrons.
-        library = Library.instance(self._db)
-        self.set_dependent_library_adobe_config(library)
-        library.library_registry_shared_secret = u'secret2'
-        utility = AuthdataUtility.from_config(library)
+        secondary_library = self._library()
+        registration = self.dependent_library_registry_integration(secondary_library)
+        utility = AuthdataUtility.from_config(secondary_library)
         vendor_id, jwt = utility.encode("Foreign patron")
 
-        # Here's another library that issues Adobe IDs for that
-        # first library.
-        self.set_main_library_adobe_config(library)
-        utility = AuthdataUtility.from_config(library)
+        # Here's the AuthdataUtility for a default library that issues
+        # Adobe IDs for that first library.
+        utility = AuthdataUtility.from_config(self._default_library)
         eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
         # Because this library shares the other library's secret,
@@ -226,21 +224,16 @@ class TestVendorIDModel(VendorIDTest):
         # Here's a library that delegates to another library's vendor
         # ID. It can't issue Adobe IDs, but it can generate a short
         # client token for one of its patrons.
-        library = Library.instance(self._db)
-        library.library_registry_short_name = "You"
-        library.library_registry_shared_secret = "secret2"
-        self.set_dependent_library_adobe_config(library)
-
-        utility = AuthdataUtility.from_config(library)
+        secondary_library = self._library()
+        self.dependent_library_registry_integration(secondary_library)
+        utility = AuthdataUtility.from_config(secondary_library)
         vendor_id, short_client_token = utility.encode_short_client_token(
             "Foreign patron"
         )
 
-        # Here's another library that issues Adobe IDs for that
-        # first library.
-        library.library_registry_short_name = "BANANA"
-        self.set_main_library_adobe_config(library)
-        utility = AuthdataUtility.from_config(library)
+        # Here's the AuthdataUtility for a default library that issues
+        # Adobe IDs for that first library.
+        utility = AuthdataUtility.from_config(self._default_library)
         eq_("secret2", utility.secrets_by_library_uri[self.TEST_OTHER_LIBRARY_URI])
 
         # Because this library shares the other library's secret,
@@ -575,8 +568,12 @@ class TestAuthdataUtility(VendorIDTest):
         utility = AuthdataUtility.from_config(self._default_library)
 
         library = Library.instance(self._db)
-        eq_("LBRY", library.library_registry_short_name)
-        eq_("some secret", library.library_registry_shared_secret)
+        registry_integration = ExternalIntegration.lookup(
+            self._db, ExternalIntegration.LIBRARY_REGISTRY,
+            ExternalIntegration.REGISTRATION_GOAL, library=library
+        )
+        eq_("LBRY", registry_integration.username)
+        eq_("some secret", registry_integration.password)
 
         eq_(self.TEST_VENDOR_ID, utility.vendor_id)
         eq_(self.TEST_LIBRARY_URI, utility.library_uri)
@@ -596,32 +593,32 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
-        self.adobe_vendor_id.username = None
+        self.registry_integration.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config,
             library
         )
-        self.adobe_vendor_id.username = self.TEST_VENDOR_ID
+        self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
 
-        self.adobe_vendor_id.url = None
+        self.registry_integration.url = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.adobe_vendor_id.url = self.TEST_LIBRARY_URI
+        self.registry_integration.url = self.TEST_LIBRARY_URI
 
-        old_short_name = library.library_registry_short_name
-        library.library_registry_short_name = None
+        old_short_name = self.registry_integration.username
+        self.registry_integration.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        library.library_registry_short_name = old_short_name
+        self.registry_integration.username = old_short_name
 
-        old_secret = library.library_registry_shared_secret
-        library.library_registry_shared_secret = None
+        old_secret = self.registry_integration.password
+        self.registry_integration.password = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        library.library_registry_shared_secret = old_secret
+        self.registry_integration.password = old_secret
 
         # If other libraries are not configured, that's fine.
         self.adobe_vendor_id.set_setting(
@@ -645,7 +642,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
-        self._db.delete(self.adobe_vendor_id)
+        self._db.delete(self.registry_integration)
         eq_(None, AuthdataUtility.from_config(library))
             
     def test_decode_round_trip(self):        
