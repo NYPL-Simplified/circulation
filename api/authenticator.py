@@ -1277,7 +1277,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
 
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
-    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
+    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
 
     @classmethod
     def bearer_token_signing_secret(cls, _db):

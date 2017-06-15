@@ -919,14 +919,6 @@ class DashboardController(CirculationManagerController):
 class SettingsController(CirculationManagerController):
 
     def libraries(self):
-        settings = [
-            { "key": AdminAnnotator.TERMS_OF_SERVICE, "label": _("Terms of Service URL") },
-            { "key": AdminAnnotator.PRIVACY_POLICY, "label": _("Privacy Policy URL") },
-            { "key": AdminAnnotator.COPYRIGHT, "label": _("Copyright URL") },
-            { "key": AdminAnnotator.ABOUT, "label": _("About URL") },
-            { "key": AdminAnnotator.LICENSE, "label": _("License URL") },
-        ]
-
         if flask.request.method == 'GET':
             libraries = [
                 dict(
@@ -939,7 +931,7 @@ class SettingsController(CirculationManagerController):
                 )
                 for library in self._db.query(Library).order_by(Library.name).all()
             ]
-            return dict(libraries=libraries, settings=settings)
+            return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
 
         library_uuid = flask.request.form.get("uuid")
@@ -984,7 +976,7 @@ class SettingsController(CirculationManagerController):
         if registry_shared_secret:
             library.library_registry_shared_secret = registry_shared_secret
 
-        for setting in settings:
+        for setting in Configuration.LIBRARY_SETTINGS:
             value = flask.request.form.get(setting['key'], None)
             ConfigurationSetting.for_library(setting['key'], library).value = value
 
@@ -1382,22 +1374,16 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def sitewide_settings(self):
-        setting_keys = [
-            { "key": AcquisitionFeed.GROUPED_MAX_AGE_POLICY, "label": _("Grouped feed max age") },
-            { "key": AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY, "label": _("Nongrouped feed max age") },
-            { "key": Configuration.SECRET_KEY, "label": _("Internal secret key for admin interface cookies") },
-        ]
-
         if flask.request.method == 'GET':
             settings = []
-            for s in setting_keys:
+            for s in Configuration.SITEWIDE_SETTINGS:
                 setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
                 if setting.value:
                     settings += [{ "key": setting.key, "value": setting.value }]
 
             return dict(
                 settings=settings,
-                fields=setting_keys,
+                fields=Configuration.SITEWIDE_SETTINGS,
             )
 
         key = flask.request.form.get("key")
