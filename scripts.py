@@ -646,25 +646,7 @@ class ShowLibrariesScript(Script):
             output.write("\n")            
                     
 
-class ConfigurationScript(Script):
-
-    @classmethod
-    def is_secret(self, key):
-        """Does this configuration key look like its value is a secret?
-
-        This will have to do in the absence of programmatic ways of
-        saying that a certain setting should be treated as secret.
-        """
-        return any(
-            key == x or
-            key.startswith('%s_' % x) or
-            key.endswith('_%s' % x) or
-            ("_%s_" %x) in key
-            for x in ('secret', 'password')
-        )
-
-            
-class ConfigureSiteScript(ConfigurationScript):
+class ConfigureSiteScript(Script):
     """View or update site-wide configuration."""
     @classmethod
     def arg_parser(cls):
@@ -803,8 +785,8 @@ class ShowCollectionsScript(Script):
             help='Only display information for the collection with the given name',
         )
         parser.add_argument(
-            '--show-password',
-            help='Display collection passwords.',
+            '--show-secrets',
+            help='Display secret values such as passwords.',
             action='store_true'
         )
         return parser
@@ -822,7 +804,7 @@ class ShowCollectionsScript(Script):
         for collection in collections:
             output.write(
                 "\n".join(
-                    collection.explain(include_password=args.show_password)
+                    collection.explain(include_secrets=args.show_secrets)
                 )
             )
             output.write("\n")

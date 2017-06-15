@@ -1155,8 +1155,8 @@ class TestShowCollectionsScript(DatabaseTest):
         # on both collections.
         output = StringIO()
         ShowCollectionsScript().do_run(self._db, output=output)
-        expect_1 = "\n".join(c1.explain(include_password=False))
-        expect_2 = "\n".join(c2.explain(include_password=False))
+        expect_1 = "\n".join(c1.explain(include_secrets=False))
+        expect_2 = "\n".join(c2.explain(include_secrets=False))
         
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
@@ -1174,11 +1174,11 @@ class TestShowCollectionsScript(DatabaseTest):
         output = StringIO()
         ShowCollectionsScript().do_run(
             self._db,
-            cmd_args=["--show-password"],
+            cmd_args=["--show-secrets"],
             output=output
         )
-        expect_1 = "\n".join(c1.explain(include_password=True))
-        expect_2 = "\n".join(c2.explain(include_password=True))
+        expect_1 = "\n".join(c1.explain(include_secrets=True))
+        expect_2 = "\n".join(c2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
