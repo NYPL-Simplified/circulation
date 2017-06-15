@@ -45,6 +45,7 @@ from scripts import (
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureLibraryScript,
+    ConfigureSiteScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
@@ -1014,6 +1015,39 @@ class TestShowLibrariesScript(DatabaseTest):
         expect_1 = "\n".join(l1.explain(include_secrets=True))
         expect_2 = "\n".join(l2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+class TestConfigureSiteScript(DatabaseTest):
+
+    def test_settings(self):
+        script = ConfigureSiteScript()
+        output = StringIO()
+        script.do_run(
+            self._db, [
+                "--setting=setting1=value1",
+                "--setting=setting2=[1,2,\"3\"]",
+                "--setting=secret_setting=secretvalue",
+            ],
+            output
+        )
+        # The secret was set, but is not shown.
+        eq_("""Current site-wide settings:
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
+
+        # If we run again with --show-secrets, the secret is shown.
+        output = StringIO()
+        script.do_run(self._db, ["--show-secrets"], output)
+        eq_("""Current site-wide settings:
+secret_setting='secretvalue'
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
 
 
 class TestConfigureLibraryScript(DatabaseTest):

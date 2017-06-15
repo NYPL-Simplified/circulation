@@ -8909,7 +8909,8 @@ class Library(Base):
             lines.append("Configuration settings:")
             lines.append("-----------------------")
         for setting in settings:
-            lines.append("%s='%s'" % (setting.key, setting.value))
+            if include_secrets or not setting.is_secret:
+                lines.append("%s='%s'" % (setting.key, setting.value))
             
         integrations = list(self.integrations)
         if integrations:
@@ -8918,7 +8919,7 @@ class Library(Base):
             lines.append("----------------------")
         for integration in integrations:
             lines.extend(
-                integration.explain(self, include_password=include_secrets)
+                integration.explain(self, include_secrets=include_secrets)
             )
             lines.append("")
         return lines
@@ -9123,14 +9124,14 @@ class ExternalIntegration(Base):
     def set_password(self, new_password):
         return self.set_setting(self.PASSWORD, new_password)
 
-    def explain(self, library=None, include_password=False):
+    def explain(self, library=None, include_secrets=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
 
         :param library: Include additional settings imposed upon this
            ExternalIntegration by the given Library.
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
@@ -9151,7 +9152,7 @@ class ExternalIntegration(Base):
                 explanation = "%s (applies only to %s)" % (
                     explanation, setting.library.name
                 )
-            if (setting.key != self.PASSWORD) or include_password:
+            if include_secrets or not setting.is_secret:
                 lines.append(explanation)
         return lines
 
@@ -9191,7 +9192,7 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
-
+    
     @classmethod
     def sitewide_secret(cls, _db, key):
         """Find or create a sitewide shared secret.
@@ -9260,6 +9261,27 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+
+    @classmethod
+    def _is_secret(self, key):
+        """Should the value of the given key be treated as secret?
+
+        This will have to do, in the absence of programmatic ways of
+        saying that a specific setting should be treated as secret.
+        """
+        return any(
+            key == x or
+            key.startswith('%s_' % x) or
+            key.endswith('_%s' % x) or
+            ("_%s_" %x) in key
+            for x in ('secret', 'password')
+        )
+
+    @property
+    def is_secret(self):
+        """Should the value of this key be treated as secret?"""
+        return self._is_secret(self.key)
+    
     MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property
     def bool_value(self):
@@ -9622,12 +9644,12 @@ class Collection(Base):
 
         return collection, is_new
 
-    def explain(self, include_password=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
@@ -9644,7 +9666,7 @@ class Collection(Base):
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
         for setting in integration.settings:
-            if (setting.key != ExternalIntegration.PASSWORD) or include_password:
+            if include_secrets or not setting.is_secret:
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 

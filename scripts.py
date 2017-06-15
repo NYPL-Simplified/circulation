@@ -37,7 +37,8 @@ from model import (
     get_one_or_create,
     production_session,
     Collection,
-    Complaint, 
+    Complaint,
+    ConfigurationSetting,
     Contributor, 
     CoverageRecord, 
     CustomList,
@@ -645,6 +646,66 @@ class ShowLibrariesScript(Script):
             output.write("\n")            
                     
 
+class ConfigurationScript(Script):
+
+    @classmethod
+    def is_secret(self, key):
+        """Does this configuration key look like its value is a secret?
+
+        This will have to do in the absence of programmatic ways of
+        saying that a certain setting should be treated as secret.
+        """
+        return any(
+            key == x or
+            key.startswith('%s_' % x) or
+            key.endswith('_%s' % x) or
+            ("_%s_" %x) in key
+            for x in ('secret', 'password')
+        )
+
+            
+class ConfigureSiteScript(ConfigurationScript):
+    """View or update site-wide configuration."""
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+    
+        parser.add_argument(
+            '--show-secrets',
+            help="Include secrets when displaying site settings.",
+            action="store_true",
+            default=False
+        )
+    
+        parser.add_argument(
+            '--setting',
+            help='Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"',
+            action="append",
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.setting:
+            for setting in args.setting:
+                if not '=' in setting:
+                    raise ValueError(
+                        'Incorrect format for setting: "%s". Should be "key=value"'
+                        % setting
+                    )
+                key, value = setting.split('=', 1)
+                ConfigurationSetting.sitewide(_db, key).value = value
+        settings = _db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.library==None).filter(
+                ConfigurationSetting.external_integration==None
+            ).order_by(ConfigurationSetting.key)
+        output.write("Current site-wide settings:\n")
+        for setting in settings:
+            if args.show_secrets or not self.is_secret(setting.key):
+                output.write("%s='%s'\n" % (setting.key, setting.value))
+            
+            
 class ConfigureLibraryScript(Script):
     """Create a library or change its settings."""
     name = "Change a library's settings"

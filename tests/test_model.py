@@ -5674,6 +5674,24 @@ username='someuser'"""
 
 class TestConfigurationSetting(DatabaseTest):
 
+    def test_is_secret(self):
+        """Some configuration settings are considered secrets, 
+        and some are not.
+        """
+        m = ConfigurationSetting._is_secret
+        eq_(True, m('secret'))
+        eq_(True, m('password'))
+        eq_(True, m('its_a_secret_to_everybody'))
+        eq_(True, m('the_password'))
+        eq_(True, m('password_for_the_account'))
+        eq_(False, m('public_information'))
+
+        eq_(True,
+            ConfigurationSetting.sitewide(self._db, "secret_key").is_secret)
+        eq_(False,
+            ConfigurationSetting.sitewide(self._db, "public_key").is_secret)
+
+        
     def test_duplicate(self):
         """You can't have two ConfigurationSettings for the same key,
         library, and external integration.
