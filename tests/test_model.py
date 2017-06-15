@@ -5667,8 +5667,8 @@ username='someuser'"""
         assert "applies only to First Library" not in for_library_2
         assert "applies only to Second Library" in for_library_2
         
-        # If we pass in True for include_password, we see the passwords.
-        with_secrets = integration.explain(include_password=True)
+        # If we pass in True for include_secrets, we see the passwords.
+        with_secrets = integration.explain(include_secrets=True)
         assert "password='somepass'" in with_secrets
         
 
@@ -5949,7 +5949,7 @@ class TestCollection(DatabaseTest):
             data
         )
 
-        with_password = self.collection.explain(include_password=True)
+        with_password = self.collection.explain(include_secrets=True)
         assert 'Setting "password": "password"' in with_password
 
         # If the collection is the child of another collection,
