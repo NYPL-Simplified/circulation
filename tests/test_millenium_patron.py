@@ -399,3 +399,10 @@ class TestMilleniumPatronAPI(DatabaseTest):
         self.api = MockAPI(auth_mode = "family_name")
         self.api.enqueue("dump.success.html")
         eq_(False, self.api.remote_authenticate("44444444444447", "wrong name"))
+
+    def test_remote_patron_lookup_no_such_patron(self):
+        """Test for no such patron using last name authentication"""
+        self.api = MockAPI(auth_mode = "family_name")
+        self.api.enqueue("dump.no such barcode.html")
+        patrondata = PatronData(authorization_identifier="bad barcode")
+        eq_(None, self.api.remote_patron_lookup(patrondata))
