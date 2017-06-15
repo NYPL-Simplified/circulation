@@ -22,11 +22,8 @@ from model import (
 
 log = logging.getLogger(name="Core configuration import")
 
-def log_import(integration_or_setting, is_new):
-    if is_new:
-        log.info("CREATED: %r" % integration_or_setting)
-    else:
-        log.info("%r already exists." % integration_or_setting)
+def log_import(integration_or_setting):
+    log.info("CREATED: %r" % integration_or_setting)
 
 try:
     Configuration.load()
@@ -35,7 +32,7 @@ try:
 
     # Import CDN configuration.
     cdn_conf = Configuration.integration(u'CDN')
-    if cdn_conf:
+    if cdn_conf and isinstance(cdn_conf, dict):
 
         cdn_goals = {
             'book_covers' : EI.BOOK_COVERS_GOAL,
@@ -49,10 +46,10 @@ try:
                 continue
 
             goal = cdn_goals.get(k)
-            cdn, is_new = get_one_or_create(
-                _db, EI, protocol=EI.CDN, goal=goal, url=unicode(v)
-            )
-            log_import(cdn, is_new)
+            cdn = EI(protocol=EI.CDN, goal=goal)
+            _db.add(cdn)
+            cdn.url
+            log_import(cdn)
 
     # Import Elasticsearch configuration.
     elasticsearch_conf = Configuration.integration(u'Elasticsearch')
@@ -60,9 +57,8 @@ try:
         url = elasticsearch_conf.get('url')
         works_index = elasticsearch_conf.get(ExternalSearchIndex.WORKS_INDEX_KEY)
 
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.ELASTICSEARCH, goal=EI.SEARCH_GOAL
-        )
+        integration = EI(protocol=EI.ELASTICSEARCH, goal=EI.SEARCH_GOAL)
+        _db.add(integration)
 
         if url:
             integration.url = unicode(url)
@@ -71,7 +67,7 @@ try:
                 ExternalSearchIndex.WORKS_INDEX_KEY, works_index
             )
 
-        log_import(integration, is_new)
+        log_import(integration)
 
     # Import S3 configuration.
     s3_conf = Configuration.integration('S3')
@@ -93,13 +89,13 @@ try:
                 continue
 
             goal = s3_goals.get(k)
-            integration, is_new = get_one_or_create(
-                _db, EI, protocol=EI.S3, goal=goal,
-                username=unicode(username),
-                password=unicode(password),
-                url=unicode(v)
-            )
-            log_import(integration, is_new)
+            integration = EI(protocol=EI.S3, goal=goal)
+            _db.add(integration)
+            integration.username = unicode(username)
+            integration.password = unicode(password)
+            integration.url = unicode(v)
+
+            log_import(integration)
 
 finally:
     _db.commit()
