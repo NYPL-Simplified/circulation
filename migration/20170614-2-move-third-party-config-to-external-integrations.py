@@ -25,11 +25,8 @@ from api.config import Configuration
 
 log = logging.getLogger(name="Circulation manager configuration import")
 
-def log_import(integration_or_setting, is_new):
-    if is_new:
-        log.info("CREATED: %r" % integration_or_setting)
-    else:
-        log.info("%r already exists." % integration_or_setting)
+def log_import(integration_or_setting):
+    log.info("CREATED: %r" % integration_or_setting)
 
 try:
     Configuration.load()
@@ -42,47 +39,43 @@ try:
         url = circ_manager_conf.get('url')
         if url:
             setting = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
-            is_new = setting.value == None
             setting.value = unicode(url)
-            log_import(setting, is_new)
+            log_import(setting)
 
     # Import Metadata Wrangler configuration.
     metadata_wrangler_conf = Configuration.integration('Metadata Wrangler')
 
     if metadata_wrangler_conf:
-        url = metadata_wrangler_conf.get('url')
-        username = metadata_wrangler_conf.get('client_id')
-        password = metadata_wrangler_conf.get('client_secret')
+        integration = EI(protocol=EI.METADATA_WRANGLER, goal=EI.METADATA_GOAL)
+        _db.add(integration)
 
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.METADATA_WRANGLER, goal=EI.METADATA_GOAL,
-            url=url, username=username, password=password
-        )
-        log_import(integration, is_new)
+        integration.url = metadata_wrangler_conf.get('url')
+        integration.username = metadata_wrangler_conf.get('client_id')
+        integration.password = metadata_wrangler_conf.get('client_secret')
+
+        log_import(integration)
 
     # Import NoveList Select configuration.
     novelist = Configuration.integration('NoveList Select')
     if novelist:
-        username = novelist.get('profile')
-        password = novelist.get('password')
+        integration = EI(protocol=EI.NOVELIST, goal=EI.METADATA_GOAL)
+        _db.add(integration)
 
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.NOVELIST, goal=EI.METADATA_GOAL,
-            username=username, password=password
-        )
+        integration.username = novelist.get('profile')
+        integration.password = novelist.get('password')
+
         integration.libraries.extend(LIBRARIES)
-        log_import(integration, is_new)
+        log_import(integration)
 
     # Import NYT configuration.
     nyt_conf = Configuration.integration(u'New York Times')
     if nyt_conf:
-        password = nyt_conf.get('best_sellers_api_key')
+        integration = EI(protocol=EI.NYT, goal=EI.METADATA_GOAL)
+        _db.add(integration)
 
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.NYT, goal=EI.METADATA_GOAL,
-            password=password
-        )
-        log_import(integration, is_new)
+        integration.password = nyt_conf.get('best_sellers_api_key')
+
+        log_import(integration)
 
     # Import Adobe Vendor ID configuration.
     adobe_conf = Configuration.integration('Adobe Vendor ID')
@@ -92,28 +85,10 @@ try:
         other_libraries = adobe_conf.get('other_libraries')
 
         if node_value:
-            node_libraries = LIBRARIES
-            if len(node_libraries) > 1:
-                # There's more than one library on this server.
-                # Get the one that isn't listed as an "other" in the
-                # JSON config.
-                other_lib_names = [v[0].upper() for k, v in other_libraries.items()]
-                node_libraries = filter(
-                    lambda l: l.library_registry_short_name not in other_lib_names,
-                    LIBRARIES
-                )
+            node_library = Library.instance(_db)
+            integration = EI(protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL)
+            _db.add(integration)
 
-                if len(node_libraries) > 1:
-                    # There's still more than one library that claims to be
-                    # an Adobe Vendor ID. As if.
-                    raise ValueError(
-                        "It's unclear which Library has access to the"
-                        "Adobe Vendor ID")
-
-            node_library = node_libraries[0]
-            integration, is_new = get_one_or_create(
-                _db, EI, protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL,
-            )
             integration.username = vendor_id
             integration.password = node_value
 
@@ -121,39 +96,36 @@ try:
                 other_libraries = unicode(json.dumps(other_libraries))
                 integration.set_setting(u'other_libraries', other_libraries)
             integration.libraries.append(node_library)
-            log_import(integration, is_new)
+            log_import(integration)
 
         for library in LIBRARIES:
+            integration = EI(protocol=EI.LIBRARY_REGISTRY, goal=EI.DRM_GOAL)
+            _db.add(integration)
+
             short_name = library.library_registry_short_name
             short_name = short_name or adobe_conf.get('library_short_name')
             if short_name:
-                short_name = short_name.upper()
+                integration.username = short_name.upper()
 
             shared_secret = library.library_registry_shared_secret
             shared_secret = shared_secret or adobe_conf.get('authdata_secret')
-
-            library_url = adobe_conf.get('library_uri')
-            ConfigurationSetting.for_library(
-                Library.WEBSITE_KEY, library).value = library_url
-
-            integration, is_new = get_one_or_create(
-                _db, EI, protocol=EI.LIBRARY_REGISTRY,
-                goal=EI.DRM_GOAL, username=short_name,
-                password=shared_secret
-            )
+            integration.password = shared_secret
 
             integration.set_setting(
                 AuthdataUtility.VENDOR_ID_KEY, vendor_id
             )
+
+            library_url = adobe_conf.get('library_uri')
+            ConfigurationSetting.for_library(
+                Library.WEBSITE_KEY, library).value = library_url
 
             integration.libraries.append(library)
 
     # Import Google OAuth configuration.
     google_oauth_conf = Configuration.integration('Google OAuth')
     if google_oauth_conf:
-        integration, is_new = get_one_or_create(
-            _db, EI, protocol=EI.GOOGLE_OAUTH, goal=EI.ADMIN_AUTH_GOAL,
-        )
+        integration = EI(protocol=EI.GOOGLE_OAUTH, goal=EI.ADMIN_AUTH_GOAL)
+        _db.add(integration)
 
         integration.url = google_oauth_conf.get("web", {}).get("auth_uri")
         integration.username = google_oauth_conf.get("web", {}).get("client_id")
@@ -163,7 +135,7 @@ try:
         if auth_domain:
             integration.set_setting(u'domains', json.dumps([auth_domain]))
 
-        log_import(integration, is_new)
+        log_import(integration)
 
     # Import Patron Web Client configuration.
     patron_web_client_conf = Configuration.integration(u'Patron Web Client', {})
@@ -171,9 +143,8 @@ try:
     if patron_web_client_url:
         setting = ConfigurationSetting.sitewide(
             _db, Configuration.PATRON_WEB_CLIENT_URL)
-        is_new = setting.value == None
         setting.value = patron_web_client_url
-        log_import(setting, is_new)
+        log_import(setting)
 finally:
     _db.commit()
     _db.close()
