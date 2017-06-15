@@ -5656,8 +5656,8 @@ class TestExternalIntegration(DatabaseTest):
 library-specific='value1' (applies only to First Library)
 library-specific='value2' (applies only to Second Library)
 somesetting='somevalue'
-url=http://url/
-username=someuser"""
+url='http://url/'
+username='someuser'"""
         actual = integration.explain()
         eq_(expect, "\n".join(actual))
 
@@ -5669,7 +5669,7 @@ username=someuser"""
         
         # If we pass in True for include_password, we see the passwords.
         with_secrets = integration.explain(include_password=True)
-        assert 'password=somepass' in with_secrets
+        assert "password='somepass'" in with_secrets
         
 
 class TestConfigurationSetting(DatabaseTest):
