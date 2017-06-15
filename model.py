@@ -9075,14 +9075,14 @@ class ExternalIntegration(Base):
 
     # If there is a special URL to use for access to this API,
     # put it here.
-    URL = "url"
+    URL = u"url"
 
     # If access requires authentication, these settings represent the
     # username/password or key/secret combination necessary to
     # authenticate. If there's a secret but no key, it's stored in
     # 'password'.
-    USERNAME = "username"
-    PASSWORD = "password"
+    USERNAME = u"username"
+    PASSWORD = u"password"
 
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
