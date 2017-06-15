@@ -9095,6 +9095,10 @@ class ExternalIntegration(Base):
     protocol = Column(Unicode, nullable=False)
     goal = Column(Unicode, nullable=True)
 
+    # A unique name for this ExternalIntegration. This is primarily
+    # used to identify ExternalIntegrations from command-line scripts.
+    name = Column(Unicode, nullable=True, unique=True)
+    
     # Any additional configuration information goes into
     # ConfigurationSettings.
     settings = relationship(
@@ -9185,6 +9189,9 @@ class ExternalIntegration(Base):
         :return: A list of explanatory strings.
         """
         lines = []
+        lines.append("ID: %s" % self.id)
+        if self.name:
+            lines.append("Name: %s" % self.name)
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
 
         def key(setting):

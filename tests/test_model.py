@@ -5569,12 +5569,13 @@ Short name (for library registry): "SHORT"
 
 External integrations:
 ----------------------
+ID: %s
 Protocol/Goal: protocol/goal
 library-specific='value for library1' (applies only to The Library)
 somesetting='somevalue'
 url='http://url/'
 username='someuser'
-"""
+""" % integration.id
         actual = library.explain()
         eq_(expect, "\n".join(actual))
         
@@ -5629,6 +5630,7 @@ class TestExternalIntegration(DatabaseTest):
         integration = self._external_integration(
             "protocol", "goal"
         )
+        integration.name = "The Integration"
         integration.url = "http://url/"
         integration.username = "someuser"
         integration.password = "somepass"
@@ -5652,12 +5654,14 @@ class TestExternalIntegration(DatabaseTest):
         # If we decline to pass in a library, we get information about how
         # each library in the system configures this integration.
 
-        expect = """Protocol/Goal: protocol/goal
+        expect = """ID: %s
+Name: The Integration
+Protocol/Goal: protocol/goal
 library-specific='value1' (applies only to First Library)
 library-specific='value2' (applies only to Second Library)
 somesetting='somevalue'
 url='http://url/'
-username='someuser'"""
+username='someuser'""" % integration.id
         actual = integration.explain()
         eq_(expect, "\n".join(actual))
 
