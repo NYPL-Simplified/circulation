@@ -45,6 +45,7 @@ from scripts import (
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureLibraryScript,
+    ConfigureSiteScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
@@ -1016,6 +1017,39 @@ class TestShowLibrariesScript(DatabaseTest):
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
+class TestConfigureSiteScript(DatabaseTest):
+
+    def test_settings(self):
+        script = ConfigureSiteScript()
+        output = StringIO()
+        script.do_run(
+            self._db, [
+                "--setting=setting1=value1",
+                "--setting=setting2=[1,2,\"3\"]",
+                "--setting=secret_setting=secretvalue",
+            ],
+            output
+        )
+        # The secret was set, but is not shown.
+        eq_("""Current site-wide settings:
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
+
+        # If we run again with --show-secrets, the secret is shown.
+        output = StringIO()
+        script.do_run(self._db, ["--show-secrets"], output)
+        eq_("""Current site-wide settings:
+secret_setting='secretvalue'
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
+
+
 class TestConfigureLibraryScript(DatabaseTest):
     
     def test_bad_arguments(self):
@@ -1121,8 +1155,8 @@ class TestShowCollectionsScript(DatabaseTest):
         # on both collections.
         output = StringIO()
         ShowCollectionsScript().do_run(self._db, output=output)
-        expect_1 = "\n".join(c1.explain(include_password=False))
-        expect_2 = "\n".join(c2.explain(include_password=False))
+        expect_1 = "\n".join(c1.explain(include_secrets=False))
+        expect_2 = "\n".join(c2.explain(include_secrets=False))
         
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
@@ -1140,11 +1174,11 @@ class TestShowCollectionsScript(DatabaseTest):
         output = StringIO()
         ShowCollectionsScript().do_run(
             self._db,
-            cmd_args=["--show-password"],
+            cmd_args=["--show-secrets"],
             output=output
         )
-        expect_1 = "\n".join(c1.explain(include_password=True))
-        expect_2 = "\n".join(c2.explain(include_password=True))
+        expect_1 = "\n".join(c1.explain(include_secrets=True))
+        expect_2 = "\n".join(c2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
