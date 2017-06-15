@@ -46,11 +46,11 @@ from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
 
-    TERMS_OF_SERVICE = 'terms-of-service'
-    PRIVACY_POLICY = 'privacy-policy'
-    COPYRIGHT = 'copyright'
-    ABOUT = 'about'
-    LICENSE = 'license'
+    TERMS_OF_SERVICE = Configuration.TERMS_OF_SERVICE
+    PRIVACY_POLICY = Configuration.PRIVACY_POLICY
+    COPYRIGHT = Configuration.COPYRIGHT
+    ABOUT = Configuration.ABOUT
+    LICENSE = Configuration.LICENSE
    
     CONFIGURATION_LINKS = [
         TERMS_OF_SERVICE,
