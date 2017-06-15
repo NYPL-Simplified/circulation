@@ -273,7 +273,7 @@ class CirculationManager(object):
         # But almost all libraries will have this setup.
         registry = ExternalIntegration.lookup(
             _db, ExternalIntegration.LIBRARY_REGISTRY,
-            ExternalIntegration.REGISTRATION_GOAL, library=library
+            ExternalIntegration.DRM_GOAL, library=library
         )
         if registry:
             try:

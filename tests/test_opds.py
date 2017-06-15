@@ -261,7 +261,9 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         token = token.text
         authdata = AuthdataUtility.from_config(self._default_library)
         decoded = authdata.decode_short_client_token(token)
-        eq_((self.registry_integration.url, patron_identifier), decoded)
+        expected_url = ConfigurationSetting.for_library(
+            Library.WEBSITE_KEY, self._default_library).value
+        eq_((expected_url, patron_identifier), decoded)
 
         eq_("link", device_management_link.tag)
         eq_("http://librarysimplified.org/terms/drm/rel/devices",

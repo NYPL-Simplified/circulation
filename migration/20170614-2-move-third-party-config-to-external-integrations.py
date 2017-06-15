@@ -133,40 +133,30 @@ try:
             integration.libraries.append(node_library)
             log_import(integration, is_new)
 
-        unnamed_libraries = filter(
-            lambda l: not l.library_registry_short_name, LIBRARIES
-        )
-        if len(unnamed_libraries) > 1:
-            # More than one library is missing its short_name. We
-            # can't give more than one Library the same short_name,
-            # so error out for fixin'.
-            raise ValueError(
-                'There are more unregistered libraries in the database'
-                'than the  configuration JSON can identify for the Library Registry.'
+        for library in LIBRARIES:
+            short_name = library.library_registry_short_name
+            short_name = short_name or adobe_conf.get('library_short_name')
+            if short_name:
+                short_name = short_name.upper()
+
+            shared_secret = library.library_registry_shared_secret
+            shared_secret = shared_secret or adobe_conf.get('authdata_secret')
+
+            library_url = adobe_conf.get('library_uri')
+            ConfigurationSetting.for_library(
+                Library.WEBSITE_KEY, library).value = library_url
+
+            integration, is_new = get_one_or_create(
+                _db, EI, protocol=EI.LIBRARY_REGISTRY,
+                goal=EI.DRM_GOAL, username=short_name,
+                password=shared_secret
             )
-        else:
-            for library in LIBRARIES:
-                short_name = library.library_registry_short_name
-                short_name = short_name or adobe_conf.get('library_short_name')
-                if short_name:
-                    short_name = short_name.upper()
 
-                shared_secret = library.library_registry_shared_secret
-                shared_secret = shared_secret or adobe_conf.get('authdata_secret')
+            integration.set_setting(
+                AuthdataUtility.VENDOR_ID_KEY, vendor_id
+            )
 
-                library_url = adobe_conf.get('library_uri')
-
-                integration, is_new = get_one_or_create(
-                    _db, EI, protocol=EI.LIBRARY_REGISTRY,
-                    goal=EI.REGISTRATION_GOAL, username=short_name,
-                    password=shared_secret, url=library_url
-                )
-
-                integration.set_setting(
-                    AuthdataUtility.VENDOR_ID_KEY, vendor_id
-                )
-
-                integration.libraries.append(library)
+            integration.libraries.append(library)
 
     # Import Google OAuth configuration.
     google_oauth_conf = Configuration.integration('Google OAuth')

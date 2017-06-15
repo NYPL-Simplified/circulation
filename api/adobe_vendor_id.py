@@ -22,6 +22,7 @@ from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
 from core.model import (
     get_one,
+    ConfigurationSetting,
     Credential,
     DataSource,
     DelegatedPatronIdentifier,
@@ -680,23 +681,23 @@ class AuthdataUtility(object):
         _db = Session.object_session(library)
         registry_integration = ExternalIntegration.lookup(
             _db, ExternalIntegration.LIBRARY_REGISTRY,
-            ExternalIntegration.REGISTRATION_GOAL, library=library
-        )
-
-        adobe_integration = ExternalIntegration.lookup(
-            _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
         )
+
+        library_uri = ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value
 
         if not registry_integration:
             return None
 
         vendor_id = registry_integration.setting(cls.VENDOR_ID_KEY).value
-        library_uri = registry_integration.url
         library_short_name = registry_integration.username
         secret = registry_integration.password
 
         other_libraries = None
+        adobe_integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, library=library
+        )
         if adobe_integration:
             other_libraries = adobe_integration.setting(cls.OTHER_LIBRARIES_KEY).json_value
         other_libraries = other_libraries or dict()
@@ -705,11 +706,9 @@ class AuthdataUtility(object):
             or not library_short_name or not secret
         ):
             raise CannotLoadConfiguration(
-                "Adobe Vendor ID configuration is incomplete. "
-                "vendor_id as ExternalIntegration.username,"
-                "library_uri as ExternalIntegration.url,"
-                "library.library_registry_short_name and "
-                "library.library_registry_shared_secret must all be defined.")
+                "Library Registry configuration is incomplete. "
+                "vendor_id, library_uri, username, and"
+                "password must all be defined.")
         if '|' in library_short_name:
             raise CannotLoadConfiguration(
                 "Library short name cannot contain the pipe character."

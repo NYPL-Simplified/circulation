@@ -29,6 +29,7 @@ from api.opds import CirculationManagerAnnotator
 from api.testing import VendorIDTest
 
 from core.model import (
+    ConfigurationSetting,
     Credential,
     DataSource,
     DelegatedPatronIdentifier,
@@ -570,7 +571,7 @@ class TestAuthdataUtility(VendorIDTest):
         library = Library.instance(self._db)
         registry_integration = ExternalIntegration.lookup(
             self._db, ExternalIntegration.LIBRARY_REGISTRY,
-            ExternalIntegration.REGISTRATION_GOAL, library=library
+            ExternalIntegration.DRM_GOAL, library=library
         )
         eq_("LBRY", registry_integration.username)
         eq_("some secret", registry_integration.password)
@@ -600,11 +601,12 @@ class TestAuthdataUtility(VendorIDTest):
         )
         self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
 
-        self.registry_integration.url = None
+        ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.registry_integration.url = self.TEST_LIBRARY_URI
+        ConfigurationSetting.for_library(
+            Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
 
         old_short_name = self.registry_integration.username
         self.registry_integration.username = None

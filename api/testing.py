@@ -7,6 +7,7 @@ from nose.tools import set_trace
 from core.testing import DatabaseTest
 
 from core.model import (
+    ConfigurationSetting,
     DataSource,
     ExternalIntegration,
     Identifier,
@@ -51,7 +52,7 @@ class VendorIDTest(DatabaseTest):
 
             self.registry_integration = self._external_integration(
                 ExternalIntegration.LIBRARY_REGISTRY,
-                ExternalIntegration.REGISTRATION_GOAL,
+                ExternalIntegration.DRM_GOAL,
                 libraries=[self._default_library]
             )
             self.set_main_registry_configuration(self._default_library)
@@ -79,7 +80,6 @@ class VendorIDTest(DatabaseTest):
             self.adobe_vendor_id.libraries.append(library)
 
     def set_main_registry_configuration(self, library):
-        self.registry_integration.url = self.TEST_LIBRARY_URI
         self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
         self.registry_integration.password = self.LIBRARY_REGISTRY_SHARED_SECRET
 
@@ -87,20 +87,25 @@ class VendorIDTest(DatabaseTest):
             AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
         )
 
+        ConfigurationSetting.for_library(
+            Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
+
         if library not in self.registry_integration.libraries:
             self.registry_integration.libraries.append(library)
 
     def dependent_library_registry_integration(self, library):
         registration = self._external_integration(
             ExternalIntegration.LIBRARY_REGISTRY,
-            ExternalIntegration.REGISTRATION_GOAL,
-            username='you', password='secret2',
-            url=self.TEST_OTHER_LIBRARY_URI, libraries=[library]
+            ExternalIntegration.DRM_GOAL,
+            username='you', password='secret2', libraries=[library]
         )
 
         registration.set_setting(
             AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
         )
+
+        ConfigurationSetting.for_library(
+            Library.WEBSITE_KEY, library).value = self.TEST_OTHER_LIBRARY_URI
 
         return registration
 
