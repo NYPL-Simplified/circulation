@@ -60,16 +60,6 @@ try:
         )
         log_import(integration, is_new)
 
-    # Import Content Server configuration.
-    content_server_conf = Configuration.integration('Content Server')
-    if content_server_conf:
-        content_server_url = content_server_conf.get('url')
-        if content_server_url:
-            integration, is_new = get_one_or_create(
-                _db, EI, protocol=EI.CONTENT_SERVER, goal=EI.METADATA_GOAL,
-                url=url
-            )
-
     # Import NoveList Select configuration.
     novelist = Configuration.integration('NoveList Select')
     if novelist:
