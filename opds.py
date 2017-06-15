@@ -679,10 +679,10 @@ class AcquisitionFeed(OPDSFeed):
 
     CACHE_FOREVER = 'forever'
 
-    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    NONGROUPED_MAX_AGE_POLICY = Configuration.NONGROUPED_MAX_AGE_POLICY
     DEFAULT_NONGROUPED_MAX_AGE = 1200
 
-    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+    GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
     DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
             
     @classmethod
