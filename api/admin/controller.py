@@ -1380,3 +1380,35 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 201)
         else:
             return Response(unicode(_("Success")), 200)
+
+    def sitewide_settings(self):
+        setting_keys = [
+            { "key": AcquisitionFeed.GROUPED_MAX_AGE_POLICY, "label": _("Grouped feed max age") },
+            { "key": AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY, "label": _("Nongrouped feed max age") },
+            { "key": Configuration.SECRET_KEY, "label": _("Internal secret key for admin interface cookies") },
+        ]
+
+        if flask.request.method == 'GET':
+            settings = []
+            for s in setting_keys:
+                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
+                if setting.value:
+                    settings += [{ "key": setting.key, "value": setting.value }]
+
+            return dict(
+                settings=settings,
+                fields=setting_keys,
+            )
+
+        key = flask.request.form.get("key")
+        if not key:
+            return MISSING_SITEWIDE_SETTING_KEY
+
+        value = flask.request.form.get("value")
+        if not value:
+            return MISSING_SITEWIDE_SETTING_VALUE
+
+        setting = ConfigurationSetting.sitewide(self._db, key)
+        setting.value = value
+        return Response(unicode(_("Success")), 200)
+
