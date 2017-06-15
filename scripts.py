@@ -684,7 +684,7 @@ class ConfigureSiteScript(Script):
             ).order_by(ConfigurationSetting.key)
         output.write("Current site-wide settings:\n")
         for setting in settings:
-            if args.show_secrets or not self.is_secret(setting.key):
+            if args.show_secrets or not setting.is_secret:
                 output.write("%s='%s'\n" % (setting.key, setting.value))
             
             
