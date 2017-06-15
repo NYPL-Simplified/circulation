@@ -154,8 +154,8 @@ class MockOAuth(OAuthAuthenticationProvider):
         integration, ignore = create(
             _db, ExternalIntegration, protocol="OAuth",
             goal=ExternalIntegration.PATRON_AUTH_GOAL,
-            username=name
         )
+        integration.username = name
         integration.password = ""
         integration.setting(self.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
         super(MockOAuth, self).__init__(library, integration)
@@ -472,8 +472,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # Only a basic auth provider.
         millenium = self._external_integration(
             "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
-            url="http://url/"
         )
+        millenium.url = "http://url/"
         self._default_library.integrations.append(millenium)
 
         auth = LibraryAuthenticator.from_config(self._db, self._default_library)
@@ -487,14 +487,16 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # A basic auth provider and an oauth provider.
         firstbook = self._external_integration(
             "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
-            url="http://url/", password="secret"
         )
+        firstbook.url = "http://url/"
+        firstbook.password = "secret"
         library.integrations.append(firstbook)
         
         oauth = self._external_integration(
             "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
-            username="client_id", password="client_secret"
         )
+        oauth.username = "client_id"
+        oauth.password = "client_secret"
         library.integrations.append(oauth)
 
         auth = LibraryAuthenticator.from_config(self._db, library)
@@ -560,8 +562,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
     def test_register_provider_basic_auth(self):
         firstbook = self._external_integration(
             "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
-            url="http://url/", password="secret"
         )
+        firstbook.url = "http://url/"
+        firstbook.password = "secret"
         self._default_library.integrations.append(firstbook)
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
         auth.register_provider(firstbook)
@@ -572,8 +575,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
     def test_register_oauth_provider(self):
         oauth = self._external_integration(
             "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
-            username="client_id", password="client_secret"
         )
+        oauth.username = "client_id"
+        oauth.password = "client_secret"
         self._default_library.integrations.append(oauth)
         auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
         auth.register_provider(oauth)

@@ -6,6 +6,7 @@ import base64
 import random
 import uuid
 import json
+import re
 
 import flask
 from flask import (
@@ -16,6 +17,7 @@ from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
 
 from core.model import (
+    create,
     get_one,
     get_one_or_create,
     Admin,
@@ -72,6 +74,13 @@ from datetime import datetime, timedelta
 from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
+
+from api.authenticator import AuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.millenium_patron import MilleniumPatronAPI
+from api.sip import SIP2AuthenticationProvider
+from api.firstbook import FirstBookAuthenticationAPI
+from api.clever import CleverAuthenticationAPI
 
 
 def setup_admin_controllers(manager):
@@ -999,38 +1008,44 @@ class SettingsController(CirculationManagerController):
             "fields": [
                 { "key": "external_account_id", "label": _("Library ID") },
                 { "key": "website_id", "label": _("Website ID") },
-                { "key": "username", "label": _("Client Key") },
-                { "key": "password", "label": _("Client Secret") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.BIBLIOTHECA,
             "fields": [
-                { "key": "username", "label": _("Account ID") },
-                { "key": "password", "label": _("Account Key") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
                 { "key": "external_account_id", "label": _("Library ID") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.AXIS_360,
             "fields": [
-                { "key": "username", "label": _("Username") },
-                { "key": "password", "label": _("Password") },
+                { "key": ExternalIntegration.USERNAME, "label": _("Username") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
                 { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("Server") },
+                { "key": ExternalIntegration.URL, "label": _("Server") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
         protocols.append({
             "name": ExternalIntegration.ONE_CLICK,
             "fields": [
-                { "key": "password", "label": _("Basic Token") },
+                { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
                 { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("URL") },
-                { "key": "ebook_loan_length", "label": _("eBook Loan Length") },
-                { "key": "eaudio_loan_length", "label": _("eAudio Loan Length") },
+                { "key": ExternalIntegration.URL, "label": _("URL") },
+                { "key": "default_loan_period", "label": _("Default Loan Period") },
+                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
             ],
         })
 
@@ -1042,9 +1057,6 @@ class SettingsController(CirculationManagerController):
                     protocol=c.protocol,
                     libraries=[library.short_name for library in c.libraries],
                     external_account_id=c.external_account_id,
-                    url=c.external_integration.url,
-                    username=c.external_integration.username,
-                    password=c.external_integration.password,
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
@@ -1099,12 +1111,6 @@ class SettingsController(CirculationManagerController):
 
             if key == "external_account_id":
                 collection.external_account_id = value
-            elif key == "username":
-                collection.external_integration.username = value
-            elif key == "password":
-                collection.external_integration.password = value
-            elif key == "url":
-                collection.external_integration.url = value
             else:
                 collection.external_integration.setting(key).value = value
 
@@ -1222,3 +1228,187 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 201)
         else:
             return Response(unicode(_("Success")), 200)
+
+    def patron_auth_services(self):
+        protocols = []
+
+        for provider in [SimpleAuthenticationProvider,
+                         MilleniumPatronAPI,
+                         SIP2AuthenticationProvider,
+                         FirstBookAuthenticationAPI,
+                         CleverAuthenticationAPI,
+                        ]:
+            protocols.append({
+                "name": provider.__module__,
+                "label": provider.NAME,
+                "description": provider.DESCRIPTION,
+                "fields": provider.SETTINGS,
+                "library_fields": provider.LIBRARY_SETTINGS,
+            })
+
+        basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
+                                MilleniumPatronAPI.__module__,
+                                SIP2AuthenticationProvider.__module__,
+                                FirstBookAuthenticationAPI.__module__,
+                               ]
+
+        if flask.request.method == 'GET':
+            auth_services = []
+            for auth_service in self._db.query(ExternalIntegration).filter(
+                ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL):
+
+                [protocol] = [p for p in protocols if p.get("name") == auth_service.protocol]
+                libraries = []
+                for library in auth_service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    for field in protocol.get("library_fields"):
+                        key = field.get("key")
+                        value = ConfigurationSetting.for_library_and_externalintegration(
+                            self._db, key, library, auth_service
+                        ).value
+                        if value:
+                            library_info[key] = value
+                    libraries.append(library_info)
+
+                settings = { setting.key: setting.value for setting in auth_service.settings if setting.library_id == None}
+
+                auth_services.append(
+                    dict(
+                        id=auth_service.id,
+                        protocol=auth_service.protocol,
+                        settings=settings,
+                        libraries=libraries,
+                    )
+                )
+
+            return dict(
+                patron_auth_services=auth_services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL
+
+        is_new = False
+        if id:
+            auth_service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+            if not auth_service:
+                return MISSING_PATRON_AUTH_SERVICE
+            if protocol != auth_service.protocol:
+                return CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL
+        else:
+            if protocol:
+                auth_service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.PATRON_AUTH_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        fields = protocol.get("fields")
+
+        for field in fields:
+            key = field.get("key")
+            value = flask.request.form.get(key)
+            if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
+                self._db.rollback()
+                return INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(field)s is invalid.",
+                    field=field.get("label"),
+                ))
+            if not value and not field.get("optional"):
+                # Roll back any changes to the integration that have already been made.
+                self._db.rollback()
+                return INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.detailed(
+                    _("The patron authentication service is missing a required field: %(field)s",
+                      field=field.get("label")))
+            auth_service.setting(key).value = value
+
+
+        auth_service.libraries = []
+
+        libraries = []
+        if flask.request.form.get("libraries"):
+            libraries = json.loads(flask.request.form.get("libraries"))
+
+        for library_info in libraries:
+            library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+            if not library:
+                self._db.rollback()
+                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the patron authentication service to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+            if protocol.get("name") in basic_auth_protocols:
+                # Each library can only have one basic auth service.
+                for integration in library.integrations:
+                    if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols and integration.protocol != protocol:
+                        self._db.rollback()
+                        return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
+                            "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
+                            library=library.short_name,
+                        ))
+
+            auth_service.libraries += [library]
+            for field in protocol.get("library_fields"):
+                key = field.get("key")
+                value = library_info.get(key)
+                if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
+                    self._db.rollback()
+                    return INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(field)s is invalid.",
+                        field=field.get("label"),
+                    ))
+                if not value and not field.get("optional"):
+                    self._db.rollback()
+                    return INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.detailed(
+                        _("The patron authentication service is missing a required field: %(field)s for library %(library)s",
+                          field=field.get("label"),
+                          library=library.short_name,
+                          ))
+                if key == AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION and value:
+                    try:
+                        re.compile(value)
+                    except Exception, e:
+                        self._db.rollback()
+                        return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
+                ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, auth_service).value = value
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def sitewide_settings(self):
+        setting_keys = [
+            { "key": AcquisitionFeed.GROUPED_MAX_AGE_POLICY, "label": _("Grouped feed max age") },
+            { "key": AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY, "label": _("Nongrouped feed max age") },
+            { "key": Configuration.SECRET_KEY, "label": _("Internal secret key for admin interface cookies") },
+        ]
+
+        if flask.request.method == 'GET':
+            settings = []
+            for s in setting_keys:
+                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
+                if setting.value:
+                    settings += [{ "key": setting.key, "value": setting.value }]
+
+            return dict(
+                settings=settings,
+                fields=setting_keys,
+            )
+
+        key = flask.request.form.get("key")
+        if not key:
+            return MISSING_SITEWIDE_SETTING_KEY
+
+        value = flask.request.form.get("value")
+        if not value:
+            return MISSING_SITEWIDE_SETTING_VALUE
+
+        setting = ConfigurationSetting.sitewide(self._db, key)
+        setting.value = value
+        return Response(unicode(_("Success")), 200)
+
