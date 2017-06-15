@@ -221,7 +221,8 @@ class Configuration(object):
         if _db:
             cls.load_cdns(_db)
         else:
-            cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
+            if not cls.integration('CDN'):
+                cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
 
         return configuration
 
