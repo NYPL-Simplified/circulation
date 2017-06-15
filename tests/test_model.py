@@ -5570,17 +5570,17 @@ Short name (for library registry): "SHORT"
 External integrations:
 ----------------------
 Protocol/Goal: protocol/goal
-URL: http://url/
-Username: someuser
 library-specific='value for library1' (applies only to The Library)
 somesetting='somevalue'
+url='http://url/'
+username='someuser'
 """
         actual = library.explain()
         eq_(expect, "\n".join(actual))
         
         with_secrets = library.explain(True)
         assert 'Shared secret (for library registry): "secret"' in with_secrets
-        assert 'Password: somepass' in with_secrets
+        assert "password='somepass'" in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
@@ -5653,11 +5653,11 @@ class TestExternalIntegration(DatabaseTest):
         # each library in the system configures this integration.
 
         expect = """Protocol/Goal: protocol/goal
-URL: http://url/
-Username: someuser
 library-specific='value1' (applies only to First Library)
 library-specific='value2' (applies only to Second Library)
-somesetting='somevalue'"""
+somesetting='somevalue'
+url=http://url/
+username=someuser"""
         actual = integration.explain()
         eq_(expect, "\n".join(actual))
 
@@ -5669,8 +5669,7 @@ somesetting='somevalue'"""
         
         # If we pass in True for include_password, we see the passwords.
         with_secrets = integration.explain(include_password=True)
-        assert 'Password: somepass' in with_secrets
-
+        assert 'password=somepass' in with_secrets
         
 
 class TestConfigurationSetting(DatabaseTest):
@@ -5925,15 +5924,15 @@ class TestCollection(DatabaseTest):
              'Protocol: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
-             'URL: "url"',
-             'Username: "username"',
+             'Setting "url": "url"',
+             'Setting "username": "username"',
              'Setting "setting": "value"'
         ],
             data
         )
 
         with_password = self.collection.explain(include_password=True)
-        assert 'Password: "password"' in with_password
+        assert 'Setting "password": "password"' in with_password
 
         # If the collection is the child of another collection,
         # its parent is mentioned.
