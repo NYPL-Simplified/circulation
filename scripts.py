@@ -648,6 +648,12 @@ class ShowLibrariesScript(Script):
 
 class ConfigureSiteScript(Script):
     """View or update site-wide configuration."""
+
+    def __init__(self, _db=None, config=Configuration):
+        self.config = config
+        super(ConfigureSiteScript, self).__init__(_db=_db)
+
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
@@ -664,6 +670,13 @@ class ConfigureSiteScript(Script):
             help='Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"',
             action="append",
         )
+
+        parser.add_argument(
+            '--force', 
+            help="Set a site-wide setting even if the key isn't a known setting.",
+            dest='force', action='store_true'
+        )
+
         return parser
 
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
@@ -677,7 +690,14 @@ class ConfigureSiteScript(Script):
                         % setting
                     )
                 key, value = setting.split('=', 1)
-                ConfigurationSetting.sitewide(_db, key).value = value
+                if not args.force and not key in [s.get("key") for s in self.config.SITEWIDE_SETTINGS]:
+                    raise ValueError(
+                        "'%s' is not a known site-wide setting. Use --force to set it anyway."
+                        % key
+                    )
+                else:
+                    ConfigurationSetting.sitewide(_db, key).value = value
+                    _db.commit()
         settings = _db.query(ConfigurationSetting).filter(
             ConfigurationSetting.library==None).filter(
                 ConfigurationSetting.external_integration==None

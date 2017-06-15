@@ -26,6 +26,7 @@ from model import (
     get_one,
     Collection,
     Complaint, 
+    ConfigurationSetting,
     Contributor, 
     CustomList,
     DataSource,
@@ -1019,8 +1020,37 @@ class TestShowLibrariesScript(DatabaseTest):
 
 class TestConfigureSiteScript(DatabaseTest):
 
-    def test_settings(self):
+    def test_unknown_setting(self):
         script = ConfigureSiteScript()
+        assert_raises_regexp(
+            ValueError,
+            "'setting1' is not a known site-wide setting. Use --force to set it anyway.",
+            script.do_run, self._db, [
+                "--setting=setting1=value1"
+            ]
+        )
+
+        eq_(None, ConfigurationSetting.sitewide(self._db, "setting1").value)
+
+        # Running with --force sets the setting.
+        script.do_run(
+            self._db, [
+                "--setting=setting1=value1",
+                "--force",
+            ]
+        )
+
+        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
+
+    def test_settings(self):
+        class TestConfig(object):
+            SITEWIDE_SETTINGS = [
+                { "key": "setting1" },
+                { "key": "setting2" },
+                { "key": "secret_setting" },
+            ]
+
+        script = ConfigureSiteScript(config=TestConfig)
         output = StringIO()
         script.do_run(
             self._db, [
@@ -1037,6 +1067,9 @@ setting2='[1,2,"3"]'
 """,
             output.getvalue()
         )
+        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
+        eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
+        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "secret_setting").value)
 
         # If we run again with --show-secrets, the secret is shown.
         output = StringIO()
