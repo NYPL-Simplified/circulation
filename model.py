@@ -8788,7 +8788,7 @@ class Library(Base):
                 )
             value = unicode(value)
         self._library_registry_short_name = value
-
+        
     def setting(self, key):
         """Find or create a ConfigurationSetting on this Library.
 
@@ -8906,13 +8906,26 @@ class Library(Base):
                 self.library_registry_shared_secret
             )
 
+        # Find all ConfigurationSettings that are set on the library
+        # itself and are not on the library + an external integration.
+        settings = [x for x in self.settings if not x.external_integration]
+        if settings:
+            lines.append("")
+            lines.append("Configuration settings:")
+            lines.append("-----------------------")
+        for setting in settings:
+            if include_secrets or not setting.is_secret:
+                lines.append("%s='%s'" % (setting.key, setting.value))
+            
         integrations = list(self.integrations)
         if integrations:
             lines.append("")
             lines.append("External integrations:")
             lines.append("----------------------")
         for integration in integrations:
-            lines.extend(integration.explain(include_secrets))
+            lines.extend(
+                integration.explain(self, include_secrets=include_secrets)
+            )
             lines.append("")
         return lines
 
@@ -9058,6 +9071,19 @@ class ExternalIntegration(Base):
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
 
+    # Keys for common configuration settings
+
+    # If there is a special URL to use for access to this API,
+    # put it here.
+    URL = "url"
+
+    # If access requires authentication, these settings represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    USERNAME = "username"
+    PASSWORD = "password"
+
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
@@ -9068,17 +9094,6 @@ class ExternalIntegration(Base):
     # Basically, the protocol is the 'how' and the goal is the 'why'.
     protocol = Column(Unicode, nullable=False)
     goal = Column(Unicode, nullable=True)
-
-    # If there is a special URL to use for access to this API,
-    # put it here.
-    url = Column(Unicode, nullable=True)
-
-    # If access requires authentication, these fields represent the
-    # username/password or key/secret combination necessary to
-    # authenticate. If there's a secret but no key, it's stored in
-    # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
 
     # Any additional configuration information goes into
     # ConfigurationSettings.
@@ -9134,25 +9149,60 @@ class ExternalIntegration(Base):
             key, self
         )
 
-    def explain(self, include_password=False):
+    @hybrid_property
+    def url(self):
+        return self.setting(self.URL).value
+
+    @url.setter
+    def set_url(self, new_url):
+        self.set_setting(self.URL, new_url)
+
+    @hybrid_property
+    def username(self):
+        return self.setting(self.USERNAME).value
+
+    @username.setter
+    def set_username(self, new_username):
+        self.set_setting(self.USERNAME, new_username)
+
+    @hybrid_property
+    def password(self):
+        return self.setting(self.PASSWORD).value
+
+    @password.setter
+    def set_password(self, new_password):
+        return self.set_setting(self.PASSWORD, new_password)
+
+    def explain(self, library=None, include_secrets=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param library: Include additional settings imposed upon this
+           ExternalIntegration by the given Library.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
         lines = []
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
-        if self.url:
-            lines.append("URL: %s" % self.url)
-        if self.username:
-            lines.append("Username: %s" % self.username)
-        if self.password and include_password:
-            lines.append("Password: %s" % self.password)
-        for setting in self.settings:
-            lines.append("%s=%s" % (setting.key, setting.value))
+
+        def key(setting):
+            if setting.library:
+                return setting.key, setting.library.name
+            return (setting.key, None)
+        for setting in sorted(self.settings, key=key):
+            if library and setting.library and setting.library != library:
+                # This is a different library's specialization of
+                # this integration. Ignore it.
+                continue
+            explanation = "%s='%s'" % (setting.key, setting.value)
+            if setting.library:
+                explanation = "%s (applies only to %s)" % (
+                    explanation, setting.library.name
+                )
+            if include_secrets or not setting.is_secret:
+                lines.append(explanation)
         return lines
 
 
@@ -9210,7 +9260,26 @@ class ConfigurationSetting(Base):
             # Commit to get this in the database ASAP.
             _db.commit()
         return secret.value
-    
+
+    @classmethod
+    def explain(cls, _db, include_secrets=False):
+        """Explain all site-wide ConfigurationSettings."""
+        lines = []
+        site_wide_settings = []
+        
+        for setting in _db.query(ConfigurationSetting).filter(
+                ConfigurationSetting.library==None).filter(
+                    ConfigurationSetting.external_integration==None):
+            if not include_secrets and setting.key.endswith("_secret"):
+                continue
+            site_wide_settings.append(setting)
+        if site_wide_settings:
+            lines.append("Site-wide configuration settings:")
+            lines.append("---------------------------------")
+        for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            lines.append("%s='%s'" % (setting.key, setting.value))
+        return lines
+
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
@@ -9246,6 +9315,27 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+
+    @classmethod
+    def _is_secret(self, key):
+        """Should the value of the given key be treated as secret?
+
+        This will have to do, in the absence of programmatic ways of
+        saying that a specific setting should be treated as secret.
+        """
+        return any(
+            key == x or
+            key.startswith('%s_' % x) or
+            key.endswith('_%s' % x) or
+            ("_%s_" %x) in key
+            for x in ('secret', 'password')
+        )
+
+    @property
+    def is_secret(self):
+        """Should the value of this key be treated as secret?"""
+        return self._is_secret(self.key)
+    
     MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property
     def bool_value(self):
@@ -9608,12 +9698,12 @@ class Collection(Base):
 
         return collection, is_new
 
-    def explain(self, include_password=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
@@ -9629,14 +9719,9 @@ class Collection(Base):
             lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        if integration.url:
-            lines.append('URL: "%s"' % integration.url)
-        if integration.username:
-            lines.append('Username: "%s"' % integration.username)
-        if integration.password and include_password:
-            lines.append('Password: "%s"' % integration.password)
         for setting in integration.settings:
-            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+            if include_secrets or not setting.is_secret:
+                lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
     def catalog_identifier(self, _db, identifier):
