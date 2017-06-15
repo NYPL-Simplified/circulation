@@ -34,7 +34,6 @@ from model import (
 )
 from cdn import cdnify
 from classifier import Classifier
-from config import Configuration
 from lane import (
     Facets,
     Pagination,

@@ -83,7 +83,9 @@ class Configuration(object):
     THREEM_INTEGRATION = "3M"
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
-    
+
+    UNINITIALIZED_CDNS = object()
+
     # General getters
 
     @classmethod
@@ -129,7 +131,12 @@ class Configuration(object):
     @classmethod
     def cdns(cls):
         from model import ExternalIntegration
-        return cls.integration(ExternalIntegration.CDN)
+        cdns = cls.integration(ExternalIntegration.CDN)
+        if cdns == cls.UNINITIALIZED_CDNS:
+            raise CannotLoadConfiguration(
+                'CDN configuration has not been loaded from the database'
+            )
+        return cdns
 
     @classmethod
     def policy(cls, name, default=None, required=False):
@@ -213,6 +220,8 @@ class Configuration(object):
 
         if _db:
             cls.load_cdns(_db)
+        else:
+            cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
 
         return configuration
 

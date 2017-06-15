@@ -8,7 +8,7 @@ from s3 import S3Uploader
 
 def cdnify(url, cdns=None):
     """Turn local URLs into CDN URLs"""
-    cdns = Configuration.cdns()
+    cdns = cdns or Configuration.cdns()
     if not cdns:
         # No CDNs configured
         return url
