@@ -5549,10 +5549,20 @@ class TestLibrary(DatabaseTest):
         integration.username = "someuser"
         integration.password = "somepass"
         integration.setting("somesetting").value = "somevalue"
+
+        # Different libraries specialize this integration differently.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library, integration
+        ).value = "value for library1"
+        
+        library2 = self._library()
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value for library2"
+        
         library.integrations.append(integration)
         
-        data = library.explain()
-        eq_(u"""Library UUID: "uuid"
+        expect = """Library UUID: "uuid"
 Name: "The Library"
 Short name: "Short"
 Short name (for library registry): "SHORT"
@@ -5560,16 +5570,17 @@ Short name (for library registry): "SHORT"
 External integrations:
 ----------------------
 Protocol/Goal: protocol/goal
-url=http://url/
-username=someuser
-somesetting=somevalue
-""",
-            "\n".join(data)
-        )
+library-specific='value for library1' (applies only to The Library)
+somesetting='somevalue'
+url='http://url/'
+username='someuser'
+"""
+        actual = library.explain()
+        eq_(expect, "\n".join(actual))
         
         with_secrets = library.explain(True)
         assert 'Shared secret (for library registry): "secret"' in with_secrets
-        assert 'password=somepass' in with_secrets
+        assert "password='somepass'" in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
@@ -5622,18 +5633,44 @@ class TestExternalIntegration(DatabaseTest):
         integration.username = "someuser"
         integration.password = "somepass"
         integration.setting("somesetting").value = "somevalue"
-        
-        data = integration.explain()
-        eq_(u"""Protocol/Goal: protocol/goal
-url=http://url/
-username=someuser
-somesetting=somevalue""",
-            "\n".join(data)
-        )
-        
-        with_secrets = integration.explain(True)
-        assert 'password=somepass' in with_secrets
 
+        # Two different libraries have slightly different
+        # configurations for this integration.
+        self._default_library.name = "First Library"
+        self._default_library.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", self._default_library, integration
+        ).value = "value1"
+        
+        library2 = self._library()
+        library2.name = "Second Library"
+        library2.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value2"
+
+        # If we decline to pass in a library, we get information about how
+        # each library in the system configures this integration.
+
+        expect = """Protocol/Goal: protocol/goal
+library-specific='value1' (applies only to First Library)
+library-specific='value2' (applies only to Second Library)
+somesetting='somevalue'
+url='http://url/'
+username='someuser'"""
+        actual = integration.explain()
+        eq_(expect, "\n".join(actual))
+
+        # If we pass in a library, we only get information about
+        # how that specific library configures the integration.
+        for_library_2 = "\n".join(integration.explain(library=library2))
+        assert "applies only to First Library" not in for_library_2
+        assert "applies only to Second Library" in for_library_2
+        
+        # If we pass in True for include_password, we see the passwords.
+        with_secrets = integration.explain(include_password=True)
+        assert "password='somepass'" in with_secrets
+        
 
 class TestConfigurationSetting(DatabaseTest):
 
@@ -5741,6 +5778,28 @@ class TestConfigurationSetting(DatabaseTest):
 
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
+
+    def test_explain(self):
+        """Test that ConfigurationSetting.explain gives information
+        about all site-wide configuration settings.
+        """
+        ConfigurationSetting.sitewide(self._db, "a_secret").value = "1"
+        ConfigurationSetting.sitewide(self._db, "nonsecret_setting").value = "2"
+
+        integration = self._external_integration("a protocol", "a goal")
+        
+        actual = ConfigurationSetting.explain(self._db, include_secrets=True)
+        expect = """Site-wide configuration settings:
+---------------------------------
+a_secret='1'
+nonsecret_setting='2'"""
+        eq_(expect, "\n".join(actual))
+        
+        without_secrets = "\n".join(ConfigurationSetting.explain(
+            self._db, include_secrets=False
+        ))
+        assert 'a_secret' not in without_secrets
+        assert 'nonsecret_setting' in without_secrets
         
 class TestCollection(DatabaseTest):
 

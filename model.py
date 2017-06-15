@@ -8783,7 +8783,7 @@ class Library(Base):
                 )
             value = unicode(value)
         self._library_registry_short_name = value
-
+        
     def setting(self, key):
         """Find or create a ConfigurationSetting on this Library.
 
@@ -8901,13 +8901,25 @@ class Library(Base):
                 self.library_registry_shared_secret
             )
 
+        # Find all ConfigurationSettings that are set on the library
+        # itself and are not on the library + an external integration.
+        settings = [x for x in self.settings if not x.external_integration]
+        if settings:
+            lines.append("")
+            lines.append("Configuration settings:")
+            lines.append("-----------------------")
+        for setting in settings:
+            lines.append("%s='%s'" % (setting.key, setting.value))
+            
         integrations = list(self.integrations)
         if integrations:
             lines.append("")
             lines.append("External integrations:")
             lines.append("----------------------")
         for integration in integrations:
-            lines.extend(integration.explain(include_secrets))
+            lines.extend(
+                integration.explain(self, include_password=include_secrets)
+            )
             lines.append("")
         return lines
 
@@ -9111,10 +9123,12 @@ class ExternalIntegration(Base):
     def set_password(self, new_password):
         return self.set_setting(self.PASSWORD, new_password)
 
-    def explain(self, include_password=False):
+    def explain(self, library=None, include_password=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
 
+        :param library: Include additional settings imposed upon this
+           ExternalIntegration by the given Library.
         :param include_password: For security reasons,
            the password (if any) is not displayed by default.
 
@@ -9122,9 +9136,23 @@ class ExternalIntegration(Base):
         """
         lines = []
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
-        for setting in self.settings:
+
+        def key(setting):
+            if setting.library:
+                return setting.key, setting.library.name
+            return (setting.key, None)
+        for setting in sorted(self.settings, key=key):
+            if library and setting.library and setting.library != library:
+                # This is a different library's specialization of
+                # this integration. Ignore it.
+                continue
+            explanation = "%s='%s'" % (setting.key, setting.value)
+            if setting.library:
+                explanation = "%s (applies only to %s)" % (
+                    explanation, setting.library.name
+                )
             if (setting.key != self.PASSWORD) or include_password:
-                lines.append("%s=%s" % (setting.key, setting.value))
+                lines.append(explanation)
         return lines
 
 class ConfigurationSetting(Base):
@@ -9177,7 +9205,26 @@ class ConfigurationSetting(Base):
             # Commit to get this in the database ASAP.
             _db.commit()
         return secret.value
-    
+
+    @classmethod
+    def explain(cls, _db, include_secrets=False):
+        """Explain all site-wide ConfigurationSettings."""
+        lines = []
+        site_wide_settings = []
+        
+        for setting in _db.query(ConfigurationSetting).filter(
+                ConfigurationSetting.library==None).filter(
+                    ConfigurationSetting.external_integration==None):
+            if not include_secrets and setting.key.endswith("_secret"):
+                continue
+            site_wide_settings.append(setting)
+        if site_wide_settings:
+            lines.append("Site-wide configuration settings:")
+            lines.append("---------------------------------")
+        for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            lines.append("%s='%s'" % (setting.key, setting.value))
+        return lines
+
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""

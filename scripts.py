@@ -642,9 +642,9 @@ class ShowLibrariesScript(Script):
                     )
                 )
             )
-            output.write("\n")
+            output.write("\n")            
+                    
 
-        
 class ConfigureLibraryScript(Script):
     """Create a library or change its settings."""
     name = "Change a library's settings"
