@@ -19,6 +19,7 @@ from core.model import (
     get_one_or_create,
     Credential,
     DataSource,
+    ExternalIntegration,
     Patron,
 )
 from core.util.http import HTTP
@@ -54,6 +55,21 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     URI = "http://librarysimplified.org/terms/auth/clever"
 
     NAME = 'Clever'
+
+    DESCRIPTION = _("""
+        An authentication service for Open eBooks that uses Clever as an
+        OAuth provider.""")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ] + OAuthAuthenticationProvider.SETTINGS
+
+    # Unlike other authentication providers, external type regular expression
+    # doesn't make sense for Clever. This removes the LIBRARY_SETTINGS from the
+    # parent class.
+    LIBRARY_SETTINGS = []
+
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 

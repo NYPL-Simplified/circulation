@@ -684,21 +684,44 @@ class AuthenticationProvider(object):
     """
 
     # NOTE: Each subclass MUST define an attribute called NAME, which
-    # is used to configure that subclass in the configuration file,
+    # is displayed in the admin interface when configuring patron auth,
     # used to create the name of the log channel used by this
     # subclass, used to distinguish between tokens from different
     # OAuth providers, etc.
+
+    # Each subclass SHOULD define an attribute called DESCRIPTION, which
+    # is displayed in the admin interface when an admin is configuring
+    # the authentication provider.
+    DESCRIPTION = ""
 
     # Each subclass MUST define a value for URI. This is used in the
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     URI = None
 
+    # Each authentication mechanism may have a list of SETTINGS that
+    # must be configured for that mechanism, and may have a list of
+    # LIBRARY_SETTINGS that must be configured for each library using that
+    # mechanism. Each setting must have a key that is used to store the
+    # setting in the database, and a label that is displayed when configuring
+    # the authentication mechanism in the admin interface.
+    # For example: { "key": "username", "label": _("Client ID") }.
+    # A setting is required by default, but may have "optional" set to True.
+
+    SETTINGS = []
+
     # Each library and authentication mechanism may have a regular
     # expression for deriving a patron's external type from their
     # authentication identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
+    LIBRARY_SETTINGS = [
+        { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
+          "label": _("External Type Regular Expression"),
+          "optional": True,
+        }
+    ]
+
     def __init__(self, library, integration):
         """Basic constructor.
         
@@ -926,6 +949,13 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # with the authenticator or with the way we have it configured.
     TEST_IDENTIFIER = 'test_identifier'
     TEST_PASSWORD = 'test_password'
+
+    SETTINGS = [
+        { "key": IDENTIFIER_REGULAR_EXPRESSION, "label": _("Identifier Regular Expression"), "optional": True },
+        { "key": PASSWORD_REGULAR_EXPRESSION, "label": _("Password Regular Expression"), "optional": True },
+        { "key": TEST_IDENTIFIER, "label": _("Test Identifier") },
+        { "key": TEST_PASSWORD, "label": _("Test Password") },
+    ] + AuthenticationProvider.SETTINGS
     
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
@@ -1240,6 +1270,10 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
 
     # This is the default value for that configuration setting.
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
+
+    SETTINGS = [
+        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires"), "optional": True },
+    ] + AuthenticationProvider.SETTINGS
 
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
