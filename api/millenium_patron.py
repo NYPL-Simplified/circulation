@@ -101,7 +101,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             url = self.root + path
             response = self.request(url)
             data = dict(self._extract_text_nodes(response.content))
-            if data.get('REDCOD') == '0':
+            if data.get('ERROR_MESSAGE_FIELD') is None:
               dump_name = data.get(self.PERSONAL_NAME_FIELD)
               dump_name = dump_name.split(',')[0]
               if dump_name.upper() == password.upper():
