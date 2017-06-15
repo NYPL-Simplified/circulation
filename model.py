@@ -8807,7 +8807,7 @@ class Library(Base):
 
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
-    ALLOW_HOLDS = "allow_holds"
+    ALLOW_HOLDS = Configuration.ALLOW_HOLDS
     
     # Each facet group has two associated per-library keys: one
     # configuring which facets are enabled for that facet group, and
@@ -8817,11 +8817,11 @@ class Library(Base):
 
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.
-    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+    MINIMUM_FEATURED_QUALITY = Configuration.MINIMUM_FEATURED_QUALITY
 
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
-    FEATURED_LANE_SIZE = "featured_lane_size"
+    FEATURED_LANE_SIZE = Configuration.FEATURED_LANE_SIZE
     
     @property
     def allow_holds(self):

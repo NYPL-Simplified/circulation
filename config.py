@@ -6,6 +6,7 @@ import json
 import logging
 import copy
 from util import LanguageCodes
+from flask.ext.babel import lazy_gettext as _
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -85,6 +86,58 @@ class Configuration(object):
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
 
     UNINITIALIZED_CDNS = object()
+
+    BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
+
+
+    # The names of the site-wide configuration settings that determine
+    # feed cache time.
+    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+
+    # The name of the per-library configuration policy that controls whether
+    # books may be put on hold.
+    ALLOW_HOLDS = "allow_holds"
+
+    # Each library may set a minimum quality for the books that show
+    # up in the 'featured' lanes that show up on the front page.
+    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+
+    # Each library may configure the maximum number of books in the
+    # 'featured' lanes.
+    FEATURED_LANE_SIZE = "featured_lane_size"
+
+    # The name of the per-library per-patron authentication integration
+    # regular expression used to derive a patron's external_type from
+    # their authorization_identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    SITEWIDE_SETTINGS = [
+        {
+            "key": NONGROUPED_MAX_AGE_POLICY,
+            "label": _("Cache time for paginated OPDS feeds"),
+        },
+        {
+            "key": GROUPED_MAX_AGE_POLICY,
+            "label": _("Cache time for grouped OPDS feeds")
+        },
+    ]
+
+    LIBRARY_SETTINGS = [
+        {
+            "key": ALLOW_HOLDS,
+            "label": _("Allow books to be put on hold"),
+        },
+        {
+            "key": FEATURED_LANE_SIZE,
+            "label": _("Maximum number of books in the 'featured' lanes"),
+        },
+        {
+            "key": MINIMUM_FEATURED_QUALITY,
+            "label": _("Minimum quality for books that show up in 'featured' lanes"),
+        },
+    ]
+
 
     # General getters
 
