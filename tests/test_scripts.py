@@ -62,6 +62,7 @@ from scripts import (
     RunMonitorScript,
     Script,
     ShowCollectionsScript,
+    ShowIntegrationsScript,
     ShowLibrariesScript,
     WorkProcessingScript,
 )
@@ -1336,6 +1337,58 @@ class TestConfigureCollectionScript(DatabaseTest):
         
         eq_(expect, output.getvalue())
 
+
+class TestShowIntegrationsScript(DatabaseTest):
+
+    def test_with_no_integrations(self):
+        output = StringIO()
+        ShowIntegrationsScript().do_run(self._db, output=output)
+        eq_("No integrations found.\n", output.getvalue())
+
+    def test_with_multiple_integrations(self):
+        i1 = self._external_integration(
+            name="Integration 1",
+            goal="Goal",
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+        i1.password="a"
+        i2 = self._external_integration(
+            name="Integration 2",
+            goal="Goal",
+            protocol=ExternalIntegration.BIBLIOTHECA
+        )
+        i2.password="b"
+
+        # The output of this script is the result of running explain()
+        # on both integrations.
+        output = StringIO()
+        ShowIntegrationsScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(i1.explain(include_secrets=False))
+        expect_2 = "\n".join(i2.explain(include_secrets=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+        # We can tell the script to only list a single integration.
+        output = StringIO()
+        ShowIntegrationsScript().do_run(
+            self._db,
+            cmd_args=["--name=Integration 2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the integration secrets
+        output = StringIO()
+        ShowIntegrationsScript().do_run(
+            self._db,
+            cmd_args=["--show-secrets"],
+            output=output
+        )
+        expect_1 = "\n".join(i1.explain(include_secrets=True))
+        expect_2 = "\n".join(i2.explain(include_secrets=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        
 
 class TestConfigureIntegrationScript(DatabaseTest):
     
