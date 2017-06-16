@@ -719,6 +719,10 @@ class AuthenticationProvider(object):
     # authenticate with the ILS but not be considered a patron of
     # _this_ library. This setting contains the rule for determining
     # whether an identifier is valid for a specific library.
+    #
+    # Usually this is a prefix string which is compared against the
+    # patron's identifiers, but if the string starts with a carat (^)
+    # it will be interpreted as a regular expression.
     PATRON_IDENTIFIER_RESTRICTION = 'patron_identifier_restriction'
     
     LIBRARY_SETTINGS = [
@@ -727,7 +731,7 @@ class AuthenticationProvider(object):
           "optional": True,
         },
         { "key": PATRON_IDENTIFIER_RESTRICTION,
-          "label": _("Patron identifier restriction"),
+          "label": _("Patron identifier prefix"),
           "optional": True,
         }
     ]

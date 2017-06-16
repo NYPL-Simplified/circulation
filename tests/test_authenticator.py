@@ -1167,7 +1167,9 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(True, m(None, None))
         eq_(True, m("12345a", "1234"))
         eq_(True, m("a1234", re.compile("1234")))
-
+        eq_(True, m("123", re.compile("^(12|34)")))
+        eq_(True, m("345", re.compile("^(12|34)")))
+        
         eq_(False, m(None, "1234"))
         eq_(False, m(None, re.compile(".*")))
         eq_(False, m("a1234", "1234"))
