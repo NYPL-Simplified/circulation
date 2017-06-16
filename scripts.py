@@ -649,7 +649,7 @@ class ShowLibrariesScript(Script):
 class ConfigurationSettingScript(Script):
 
     @classmethod
-    def _parse_setting(self, value):
+    def _parse_setting(self, setting):
         """Parse a command-line setting option into a key-value pair."""
         if not '=' in setting:
             raise ValueError(
@@ -658,6 +658,7 @@ class ConfigurationSettingScript(Script):
             )
         return setting.split('=', 1)
 
+    @classmethod
     def add_setting_argument(self, parser, help):
         """Modify an ArgumentParser to indicate that the script takes 
         command-line settings.
@@ -694,7 +695,7 @@ class ConfigureSiteScript(ConfigurationSettingScript):
             default=False
         )
     
-        self.add_setting_argument(
+        cls.add_setting_argument(
             parser,
             'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"'
         )
@@ -759,7 +760,7 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
             help='Set the library registry shared secret to a random value.',
             action='store_true',
         )
-        self.add_setting_argument(
+        cls.add_setting_argument(
             parser,
             'Set a per-library setting, such as terms-of-service. Format: --setting="terms-of-service=https://example.library/tos"',
         )
@@ -951,7 +952,8 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
             '--password',
             help='Use this password to authenticate with the license protocol. Sometimes called a "secret".',
         )
-        self.add_setting_argument(
+        cls.add_setting_argument(
+            parser,
             'Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
         )
         library_names = cls._library_names(_db)
@@ -1051,7 +1053,8 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         parser.add_argument(
             '--goal', help='Goal of the integration',
         )
-        self.add_setting_argument(
+        cls.add_setting_argument(
+            parser,
             'Set a configuration value on the integration. Format: --setting="key=value"'
         )        
         return parser
