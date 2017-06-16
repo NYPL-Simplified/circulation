@@ -27,6 +27,7 @@ import requests
 
 from lxml import builder, etree
 
+from cdn import cdnify
 from config import Configuration
 from classifier import Classifier
 from model import (
@@ -54,7 +55,6 @@ from util.opds_writer import (
     OPDSFeed, 
     OPDSMessage,
 )
-from util.cdn import cdnify
 
 class UnfulfillableWork(Exception):
     """Raise this exception when it turns out a Work currently cannot be
@@ -116,16 +116,13 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdns = Configuration.cdns()
         if work:
+            _db = Session.object_session(work)
             if work.cover_thumbnail_url:
-                thumb = work.cover_thumbnail_url
-                old_thumb = thumb
-                thumbnails = [cdnify(thumb, cdns)]
+                thumbnails = [cdnify(work.cover_thumbnail_url)]
 
             if work.cover_full_url:
-                full = work.cover_full_url
-                full = [cdnify(full, cdns)]
+                full = [cdnify(work.cover_full_url)]
         return thumbnails, full
 
     @classmethod
@@ -679,10 +676,10 @@ class AcquisitionFeed(OPDSFeed):
 
     CACHE_FOREVER = 'forever'
 
-    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    NONGROUPED_MAX_AGE_POLICY = Configuration.NONGROUPED_MAX_AGE_POLICY
     DEFAULT_NONGROUPED_MAX_AGE = 1200
 
-    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+    GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
     DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
             
     @classmethod

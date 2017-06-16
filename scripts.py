@@ -37,7 +37,8 @@ from model import (
     get_one_or_create,
     production_session,
     Collection,
-    Complaint, 
+    Complaint,
+    ConfigurationSetting,
     Contributor, 
     CoverageRecord, 
     CustomList,
@@ -55,9 +56,7 @@ from model import (
     WorkCoverageRecord,
     WorkGenre,
 )
-from external_search import ExternalSearchIndex
 from monitor import SubjectAssignmentMonitor
-from nyt import NYTBestSellerAPI
 from monitor import CollectionMonitor
 from opds_import import (
     OPDSImportMonitor,
@@ -145,7 +144,7 @@ class Script(object):
 
     def load_configuration(self):
         if not Configuration.instance:
-            Configuration.load()
+            Configuration.load(self._db)
 
 
 class RunMonitorScript(Script):
@@ -727,9 +726,71 @@ class ShowLibrariesScript(Script):
                     )
                 )
             )
-            output.write("\n")
+            output.write("\n")            
+                    
 
-        
+class ConfigureSiteScript(Script):
+    """View or update site-wide configuration."""
+
+    def __init__(self, _db=None, config=Configuration):
+        self.config = config
+        super(ConfigureSiteScript, self).__init__(_db=_db)
+
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+    
+        parser.add_argument(
+            '--show-secrets',
+            help="Include secrets when displaying site settings.",
+            action="store_true",
+            default=False
+        )
+    
+        parser.add_argument(
+            '--setting',
+            help='Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"',
+            action="append",
+        )
+
+        parser.add_argument(
+            '--force', 
+            help="Set a site-wide setting even if the key isn't a known setting.",
+            dest='force', action='store_true'
+        )
+
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.setting:
+            for setting in args.setting:
+                if not '=' in setting:
+                    raise ValueError(
+                        'Incorrect format for setting: "%s". Should be "key=value"'
+                        % setting
+                    )
+                key, value = setting.split('=', 1)
+                if not args.force and not key in [s.get("key") for s in self.config.SITEWIDE_SETTINGS]:
+                    raise ValueError(
+                        "'%s' is not a known site-wide setting. Use --force to set it anyway."
+                        % key
+                    )
+                else:
+                    ConfigurationSetting.sitewide(_db, key).value = value
+            _db.commit()
+        settings = _db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.library==None).filter(
+                ConfigurationSetting.external_integration==None
+            ).order_by(ConfigurationSetting.key)
+        output.write("Current site-wide settings:\n")
+        for setting in settings:
+            if args.show_secrets or not setting.is_secret:
+                output.write("%s='%s'\n" % (setting.key, setting.value))
+            
+            
 class ConfigureLibraryScript(Script):
     """Create a library or change its settings."""
     name = "Change a library's settings"
@@ -827,8 +888,8 @@ class ShowCollectionsScript(Script):
             help='Only display information for the collection with the given name',
         )
         parser.add_argument(
-            '--show-password',
-            help='Display collection passwords.',
+            '--show-secrets',
+            help='Display secret values such as passwords.',
             action='store_true'
         )
         return parser
@@ -846,7 +907,7 @@ class ShowCollectionsScript(Script):
         for collection in collections:
             output.write(
                 "\n".join(
-                    collection.explain(include_password=args.show_password)
+                    collection.explain(include_secrets=args.show_secrets)
                 )
             )
             output.write("\n")
@@ -1330,35 +1391,6 @@ class OPDSImportScript(CollectionInputScript):
                 force_reimport=parsed.force
             )
             monitor.run()
-
-
-class NYTBestSellerListsScript(Script):
-
-    def __init__(self, include_history=False):
-        super(NYTBestSellerListsScript, self).__init__()
-        self.include_history = include_history
-    
-    def do_run(self):
-        self.api = NYTBestSellerAPI(self._db)
-        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
-        # For every best-seller list...
-        names = self.api.list_of_lists()
-        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
-
-            name = l['list_name_encoded']
-            self.log.info("Handling list %s" % name)
-            best = self.api.best_seller_list(l)
-
-            if self.include_history:
-                self.api.fill_in_history(best)
-            else:
-                self.api.update(best)
-
-            # Mirror the list to the database.
-            customlist = best.to_customlist(self._db)
-            self.log.info(
-                "Now %s entries in the list.", len(customlist.entries))
-            self._db.commit()
 
 
 class RefreshMaterializedViewsScript(Script):

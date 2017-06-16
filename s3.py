@@ -7,22 +7,54 @@ import urllib
 from util.mirror import MirrorUploader
 
 import logging
-from config import Configuration
 from requests.exceptions import (
-    ConnectionError, 
+    ConnectionError,
     HTTPError,
 )
 
 class S3Uploader(MirrorUploader):
 
-    def __init__(self, access_key=None, secret_key=None, pool=None):
+    def __init__(self, _db, goal=None, access_key=None, secret_key=None, pool=None):
         if pool:
             self.pool = pool
-        else:
-            integration = Configuration.integration(Configuration.S3_INTEGRATION)
-            access_key = access_key or integration[Configuration.S3_ACCESS_KEY]
-            secret_key = secret_key or integration[Configuration.S3_SECRET_KEY]
+        elif access_key or secret_key:
+            if not (access_key and secret_key):
+                raise ValueError(
+                    "Cannot create S3Uploader without both"
+                    " access_key and secret_key"
+                )
             self.pool = tinys3.Pool(access_key, secret_key)
+        else:
+            if not _db:
+                raise ValueError(
+                    "Cannot create S3Uploader without a database session")
+
+            from model import ExternalIntegration
+            qu = _db.query(ExternalIntegration).filter(
+                ExternalIntegration.protocol==ExternalIntegration.S3
+            )
+
+            # TODO: Right now we connect to the same S3 account for all
+            # accepted buckets and use the S3Uploader to access all
+            # three willy-nilly. If this changes, goal will no longer
+            # be an optional value.
+            message = ""
+            if goal:
+                message += " for goal '%s'" % goal
+                qu = qu.filter(ExternalIntegration.goal==goal)
+
+            integrations = qu.all()
+            if not integrations:
+                raise ValueError(
+                    "No S3 ExternalIntegration found%s" % message)
+
+            integration = integrations[0]
+            if not (integration.username and integration.password):
+                raise ValueError(
+                    "S3%s is not properly configured" % message
+                )
+
+            self.pool = tinys3.Pool(integration.username, integration.password)
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
@@ -41,15 +73,10 @@ class S3Uploader(MirrorUploader):
         return url + path
 
     @classmethod
-    def cover_image_root(cls, data_source, scaled_size=None):
+    def cover_image_root(cls, bucket, data_source, scaled_size=None):
         """The root URL to the S3 location of cover images for
         the given data source.
         """
-        bucket = Configuration.s3_bucket(Configuration.S3_BOOK_COVERS_BUCKET)
-        return cls._cover_image_root(bucket, data_source, scaled_size)
-
-    @classmethod
-    def _cover_image_root(cls, bucket, data_source, scaled_size):
         if scaled_size:
             path = "/scaled/%d/" % scaled_size
         else:
@@ -66,17 +93,10 @@ class S3Uploader(MirrorUploader):
         return url
 
     @classmethod
-    def content_root(cls, open_access=True):
+    def content_root(cls, bucket, open_access=True):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        bucket = Configuration.s3_bucket(
-            Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET
-        )
-        return cls._content_root(bucket, open_access)
-
-    @classmethod
-    def _content_root(cls, bucket, open_access):
         if not open_access:
             raise NotImplementedError()
         return cls.url(bucket, '/')
@@ -197,7 +217,7 @@ class DummyS3Uploader(S3Uploader):
 
     @classmethod
     def cover_image_root(cls, data_source, scaled_size=None):
-        return cls._cover_image_root(
+        return S3Uploader.cover_image_root(
             'test.cover.bucket', data_source, scaled_size)
 
     @classmethod
@@ -205,7 +225,7 @@ class DummyS3Uploader(S3Uploader):
         """The root URL to the S3 location of hosted content of
         the given type.
         """
-        return cls._content_root('test.content.bucket', open_access)
+        return S3Uploader.content_root('test.content.bucket', open_access)
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)

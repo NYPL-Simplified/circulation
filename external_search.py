@@ -13,7 +13,10 @@ import re
 import time
 
 class ExternalSearchIndex(object):
-    
+
+    WORKS_INDEX_KEY = u'works_index'
+    WORKS_ALIAS_KEY = u'works_alias'
+
     work_document_type = 'work-type'
     __client = None
 
@@ -29,27 +32,24 @@ class ExternalSearchIndex(object):
         """
         cls.__client = None
 
-    def __init__(self, url=None, works_index=None):
+    def __init__(self, _db, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
+        integration = None
 
         if not ExternalSearchIndex.__client:
-            if not url or not works_index:
-                integration = Configuration.integration(
-                    Configuration.ELASTICSEARCH_INTEGRATION, 
+            if _db and (not url or not works_index):
+                from model import ExternalIntegration
+                integration = ExternalIntegration.lookup(
+                    _db, ExternalIntegration.ELASTICSEARCH,
+                    goal=ExternalIntegration.SEARCH_GOAL
                 )
 
+                url = url or integration.url
                 if not works_index:
-                    works_index = integration.get(
-                        Configuration.ELASTICSEARCH_INDEX_KEY
-                    )
-
-                if not url:
-                    if not integration:
-                        return
-                    url = integration[Configuration.URL]
+                    works_index = integration.setting(self.WORKS_INDEX_KEY).value
 
             if not url:
                 raise Exception("Cannot connect to Elasticsearch cluster.")
@@ -71,10 +71,39 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         self.set_works_index_and_alias(works_index)
+        self.update_integration_settings(integration)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
+
+    def update_integration_settings(self, integration, force=False):
+        """Updates the integration with an appropriate index and alias
+        setting if the index and alias have been updated.
+        """
+        if not integration or not (self.works_index and self.works_alias):
+            return
+
+        if self.works_index==self.works_alias:
+            # An index is being used as the alias. There is no alias
+            # to update with.
+            return
+
+        if integration.setting(self.WORKS_ALIAS_KEY).value and not force:
+            # This integration already has an alias and we don't want to
+            # force an update.
+            return
+
+        index_or_alias = [self.works_index, self.works_alias]
+        if (integration.setting(self.WORKS_INDEX_KEY).value not in index_or_alias
+            and not force
+        ):
+            # This ExternalSearchIndex was created for a different index and
+            # alias, and we don't want to force an update.
+            return
+
+        integration.setting(self.WORKS_INDEX_KEY).value = unicode(self.works_index)
+        integration.setting(self.WORKS_ALIAS_KEY).value = unicode(self.works_alias)
 
     def set_works_index_and_alias(self, current_alias):
         """Finds or creates the works_index and works_alias based on

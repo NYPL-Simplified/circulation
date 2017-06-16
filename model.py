@@ -4124,7 +4124,9 @@ class Work(Base):
 
 
     def update_external_index(self, client, add_coverage_record=True):
-        client = client or ExternalSearchIndex()
+        if not client:
+            _db = Session.object_session(self)
+            client = ExternalSearchIndex(_db)
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -8750,6 +8752,9 @@ class Library(Base):
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    # Keys for Library-specific ConfigurationSettings.
+    WEBSITE_KEY = u'website'
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -8783,7 +8788,7 @@ class Library(Base):
                 )
             value = unicode(value)
         self._library_registry_short_name = value
-
+        
     def setting(self, key):
         """Find or create a ConfigurationSetting on this Library.
 
@@ -8802,7 +8807,7 @@ class Library(Base):
 
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
-    ALLOW_HOLDS = "allow_holds"
+    ALLOW_HOLDS = Configuration.ALLOW_HOLDS
     
     # Each facet group has two associated per-library keys: one
     # configuring which facets are enabled for that facet group, and
@@ -8812,11 +8817,11 @@ class Library(Base):
 
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.
-    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+    MINIMUM_FEATURED_QUALITY = Configuration.MINIMUM_FEATURED_QUALITY
 
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
-    FEATURED_LANE_SIZE = "featured_lane_size"
+    FEATURED_LANE_SIZE = Configuration.FEATURED_LANE_SIZE
     
     @property
     def allow_holds(self):
@@ -8901,13 +8906,26 @@ class Library(Base):
                 self.library_registry_shared_secret
             )
 
+        # Find all ConfigurationSettings that are set on the library
+        # itself and are not on the library + an external integration.
+        settings = [x for x in self.settings if not x.external_integration]
+        if settings:
+            lines.append("")
+            lines.append("Configuration settings:")
+            lines.append("-----------------------")
+        for setting in settings:
+            if include_secrets or not setting.is_secret:
+                lines.append("%s='%s'" % (setting.key, setting.value))
+            
         integrations = list(self.integrations)
         if integrations:
             lines.append("")
             lines.append("External integrations:")
             lines.append("----------------------")
         for integration in integrations:
-            lines.extend(integration.explain(include_secrets))
+            lines.extend(
+                integration.explain(self, include_secrets=include_secrets)
+            )
             lines.append("")
         return lines
 
@@ -8963,26 +8981,50 @@ class ExternalIntegration(Base):
     #
     # These integrations are associated with external services such as
     # Google Enterprise which authenticate library administrators.
-    ADMIN_AUTH_GOAL = 'admin_auth'
+    ADMIN_AUTH_GOAL = u'admin_auth'
 
     # These integrations are associated with external services such as
     # SIP2 which authenticate library patrons. Other constants related
     # to this are defined in the circulation manager.
-    PATRON_AUTH_GOAL = 'patron_auth'
+    PATRON_AUTH_GOAL = u'patron_auth'
 
     # These integrations are associated with external services such
     # as Overdrive which provide access to books.
-    LICENSE_GOAL = 'licenses'
+    LICENSE_GOAL = u'licenses'
 
     # These integrations are associated with external services such as
     # the metadata wrangler, which provide information about books,
     # but not the books themselves.
-    METADATA_GOAL = 'metadata'
+    METADATA_GOAL = u'metadata'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to book covers.
+    BOOK_COVERS_GOAL = u'book_covers'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to static or cached OPDS feeds.
+    OPDS_FEED_GOAL = u'opds_feeds'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to open access content.
+    OA_CONTENT_GOAL = u'open_access_books'
+
+    # These integrations are associated with external services like
+    # Cloudfront or other CDNs that mirror and/or cache certain domains.
+    CDN_GOAL = u'CDN'
+
+    # These integrations are associated with external services such as
+    # Elasticsearch that provide indexed search.
+    SEARCH_GOAL = u'search'
 
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
-    ANALYTICS_GOAL = 'analytics'
-    
+    ANALYTICS_GOAL = u'analytics'
+
+    # These integrations are associated with external services such as
+    # Adobe Vendor ID, which manage access to DRM-dependent content.
+    DRM_GOAL = u'drm'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -8993,7 +9035,7 @@ class ExternalIntegration(Base):
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
     ]
-    
+
     # Some integrations with LICENSE_GOAL imply that the data and
     # licenses come from a specific data source.
     DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
@@ -9003,24 +9045,29 @@ class ExternalIntegration(Base):
         ONE_CLICK : DataSource.ONECLICK
     }
 
-    # TODO: Goals for the following.
-    # * The Library Simplified application components
-    #   themselves. (what's the actual goal here?)
-    # * Search services (e.g. protocol="Elasticsearch")
-    # * Cover images (e.g. protocol="HTTP" or protocol="S3")
-    # * Open-access content (e.g. protocol="HTTP" or protocol="S3")
-    # * Adobe Vendor ID server
-
-        
     # Integrations with METADATA_GOAL
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
-    NOVELIST = Configuration.NOVELIST_INTEGRATION
+    NOVELIST = u'NoveList Select'
     NYPL_SHADOWCAT = u'Shadowcat'
-    NYT = Configuration.NYT_INTEGRATION
-    STAFF_PICKS = u'Staff Picks'
-    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
-    
+    NYT = u'New York Times'
+    METADATA_WRANGLER = u'Metadata Wrangler'
+    CONTENT_SERVER = u'Content Server'
+
+    # Integrations for storage or cache with BOOK_COVERS_GOAL,
+    # OPDS_GOAL, or OA_CONTENT_GOAL
+    S3 = u'S3'
+
+    # Integrations with CDN_GOAL
+    CDN = u'CDN'
+
+    # Integrations with SEARCH_GOAL
+    ELASTICSEARCH = u'Elasticsearch'
+
+    # Integrations with DRM_GOAL
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+    SHORT_CLIENT_TOKEN = u'Short Client Token'
+
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
 
@@ -9029,6 +9076,19 @@ class ExternalIntegration(Base):
 
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
+
+    # Keys for common configuration settings
+
+    # If there is a special URL to use for access to this API,
+    # put it here.
+    URL = u"url"
+
+    # If access requires authentication, these settings represent the
+    # username/password or key/secret combination necessary to
+    # authenticate. If there's a secret but no key, it's stored in
+    # 'password'.
+    USERNAME = u"username"
+    PASSWORD = u"password"
 
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
@@ -9041,28 +9101,42 @@ class ExternalIntegration(Base):
     protocol = Column(Unicode, nullable=False)
     goal = Column(Unicode, nullable=True)
 
-    # If there is a special URL to use for access to this API,
-    # put it here.
-    url = Column(Unicode, nullable=True)
-
-    # If access requires authentication, these fields represent the
-    # username/password or key/secret combination necessary to
-    # authenticate. If there's a secret but no key, it's stored in
-    # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
-
+    # A unique name for this ExternalIntegration. This is primarily
+    # used to identify ExternalIntegrations from command-line scripts.
+    name = Column(Unicode, nullable=True, unique=True)
+    
     # Any additional configuration information goes into
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-    
+
+    def __repr__(self):
+        return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
+            self.protocol, self.goal, len(self.settings), self.id)
+
     @classmethod
-    def lookup(cls, _db, protocol, goal=None):
-        integration = get_one(_db, cls, protocol=protocol, goal=goal)
-        return integration
+    def lookup(cls, _db, protocol, goal, library=None):
+        integrations = _db.query(cls).outerjoin(cls.libraries).filter(
+            cls.protocol==protocol, cls.goal==goal
+        )
+
+        if library:
+            integrations = integrations.filter(Library.id==library.id)
+
+        integrations = integrations.all()
+        if len(integrations) > 1:
+            logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
+
+        if filter(lambda i: i.libraries, integrations) and not library:
+            raise ValueError(
+                'This ExternalIntegration requires a library and none was provided.'
+            )
+
+        if not integrations:
+            return None
+        return integrations[0]
 
     @classmethod
     def admin_authentication(cls, _db):
@@ -9085,26 +9159,65 @@ class ExternalIntegration(Base):
             key, self
         )
 
-    def explain(self, include_password=False):
+    @hybrid_property
+    def url(self):
+        return self.setting(self.URL).value
+
+    @url.setter
+    def set_url(self, new_url):
+        self.set_setting(self.URL, new_url)
+
+    @hybrid_property
+    def username(self):
+        return self.setting(self.USERNAME).value
+
+    @username.setter
+    def set_username(self, new_username):
+        self.set_setting(self.USERNAME, new_username)
+
+    @hybrid_property
+    def password(self):
+        return self.setting(self.PASSWORD).value
+
+    @password.setter
+    def set_password(self, new_password):
+        return self.set_setting(self.PASSWORD, new_password)
+
+    def explain(self, library=None, include_secrets=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param library: Include additional settings imposed upon this
+           ExternalIntegration by the given Library.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
         lines = []
+        lines.append("ID: %s" % self.id)
+        if self.name:
+            lines.append("Name: %s" % self.name)
         lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
-        if self.url:
-            lines.append("URL: %s" % self.url)
-        if self.username:
-            lines.append("Username: %s" % self.username)
-        if self.password and include_password:
-            lines.append("Password: %s" % self.password)
-        for setting in self.settings:
-            lines.append("%s=%s" % (setting.key, setting.value))
+
+        def key(setting):
+            if setting.library:
+                return setting.key, setting.library.name
+            return (setting.key, None)
+        for setting in sorted(self.settings, key=key):
+            if library and setting.library and setting.library != library:
+                # This is a different library's specialization of
+                # this integration. Ignore it.
+                continue
+            explanation = "%s='%s'" % (setting.key, setting.value)
+            if setting.library:
+                explanation = "%s (applies only to %s)" % (
+                    explanation, setting.library.name
+                )
+            if include_secrets or not setting.is_secret:
+                lines.append(explanation)
         return lines
+
 
 class ConfigurationSetting(Base):
     """An extra piece of site configuration.
@@ -9143,6 +9256,10 @@ class ConfigurationSetting(Base):
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
 
+    def __repr__(self):
+        return u'<ConfigurationSetting: key=%s, ID=%d>' % (
+            self.key, self.id)
+
     @classmethod
     def sitewide_secret(cls, _db, key):
         """Find or create a sitewide shared secret.
@@ -9156,7 +9273,26 @@ class ConfigurationSetting(Base):
             # Commit to get this in the database ASAP.
             _db.commit()
         return secret.value
-    
+
+    @classmethod
+    def explain(cls, _db, include_secrets=False):
+        """Explain all site-wide ConfigurationSettings."""
+        lines = []
+        site_wide_settings = []
+        
+        for setting in _db.query(ConfigurationSetting).filter(
+                ConfigurationSetting.library==None).filter(
+                    ConfigurationSetting.external_integration==None):
+            if not include_secrets and setting.key.endswith("_secret"):
+                continue
+            site_wide_settings.append(setting)
+        if site_wide_settings:
+            lines.append("Site-wide configuration settings:")
+            lines.append("---------------------------------")
+        for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            lines.append("%s='%s'" % (setting.key, setting.value))
+        return lines
+
     @classmethod
     def sitewide(cls, _db, key):
         """Find or create a sitewide ConfigurationSetting."""
@@ -9192,6 +9328,27 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+
+    @classmethod
+    def _is_secret(self, key):
+        """Should the value of the given key be treated as secret?
+
+        This will have to do, in the absence of programmatic ways of
+        saying that a specific setting should be treated as secret.
+        """
+        return any(
+            key == x or
+            key.startswith('%s_' % x) or
+            key.endswith('_%s' % x) or
+            ("_%s_" %x) in key
+            for x in ('secret', 'password')
+        )
+
+    @property
+    def is_secret(self):
+        """Should the value of this key be treated as secret?"""
+        return self._is_secret(self.key)
+    
     MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property
     def bool_value(self):
@@ -9241,7 +9398,7 @@ class ConfigurationSetting(Base):
             return json.loads(self.value)
         return None
 
-    
+
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
@@ -9253,7 +9410,10 @@ class Collection(Base):
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
     DATA_SOURCE_NAME_SETTING = u'data_source'
-    
+
+    # For use in forms that edit Collections.
+    EXTERNAL_ACCOUNT_ID_KEY = u'external_account_id'
+
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
     # called a "library ID".
@@ -9263,9 +9423,10 @@ class Collection(Base):
     # authentication information, or additional configuration goes
     # into the external integration, as does the 'protocol', which
     # designates the integration technique we will use to actually get
-    # the metadata and licenses.
+    # the metadata and licenses. Each Collection has a distinct
+    # ExternalIntegration.
     external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
+        Integer, ForeignKey('externalintegrations.id'), unique=True, index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
@@ -9554,12 +9715,12 @@ class Collection(Base):
 
         return collection, is_new
 
-    def explain(self, include_password=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
@@ -9575,14 +9736,9 @@ class Collection(Base):
             lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        if integration.url:
-            lines.append('URL: "%s"' % integration.url)
-        if integration.username:
-            lines.append('Username: "%s"' % integration.username)
-        if integration.password and include_password:
-            lines.append('Password: "%s"' % integration.password)
         for setting in integration.settings:
-            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+            if include_secrets or not setting.is_secret:
+                lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
     def catalog_identifier(self, _db, identifier):

@@ -10,13 +10,12 @@ from psycopg2.extras import NumericRange
 from . import (
     DatabaseTest,
 )
-from config import (
-    temp_config,
-    Configuration,
-)
 
 from lane import Lane
-from model import Edition
+from model import (
+    Edition,
+    ExternalIntegration,
+)
 from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
@@ -29,17 +28,20 @@ class ExternalSearchTest(DatabaseTest):
 
     def setup(self):
         super(ExternalSearchTest, self).setup()
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {}
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.URL] = "http://localhost:9200"
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION][Configuration.ELASTICSEARCH_INDEX_KEY] = "test_index-v0"
 
-            try:
-                self.search = ExternalSearchIndex()
-            except Exception as e:
-                self.search = None
-                print "Unable to set up elasticsearch index, search tests will be skipped."
-                print e
+        self.integration = self._external_integration(
+            ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+            url=u'http://localhost:9200',
+            settings={ExternalSearchIndex.WORKS_INDEX_KEY : u'test_index-v0'}
+        )
+
+        try:
+            self.search = ExternalSearchIndex(self._db)
+        except Exception as e:
+            self.search = None
+            print "Unable to set up elasticsearch index, search tests will be skipped."
+            print e
 
     def teardown(self):
         if self.search:
@@ -251,13 +253,8 @@ class TestExternalSearch(ExternalSearchTest):
         # won't be reassigned. Instead, search will occur against the
         # index itself.
         ExternalSearchIndex.reset()
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][Configuration.ELASTICSEARCH_INTEGRATION] = {
-                Configuration.URL : "http://localhost:9200",
-                Configuration.ELASTICSEARCH_INDEX_KEY : "test_index-v100"
-            }
-
-            self.search = ExternalSearchIndex()
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_KEY, u'test_index-v100')
+        self.search = ExternalSearchIndex(self._db)
 
         eq_('test_index-v100', self.search.works_index)
         eq_('test_index-v100', self.search.works_alias)

@@ -12,6 +12,7 @@ import urllib
 from urlparse import urlparse, urljoin
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
+from flask.ext.babel import lazy_gettext as _
 
 from lxml import builder, etree
 
@@ -80,8 +81,12 @@ class SimplifiedOPDSLookup(object):
             )
 
     @classmethod
-    def from_provider(cls, _db, provider):
-        integration = ExternalIntegration.lookup(_db, provider)
+    def from_protocol(cls, _db, protocol,
+                      goal=ExternalIntegration.LICENSE_GOAL, library=None
+    ):
+        integration = ExternalIntegration.lookup(
+            _db, protocol, goal, library=library
+        )
         if not integration or not integration.url:
             return None
         return cls(integration.url)
@@ -120,10 +125,13 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     UPDATES_ENDPOINT = 'updates'
     CANONICALIZE_ENDPOINT = 'canonical-author-name'
 
-    def __init__(self, _db, collection=None):
+    @classmethod
+    def from_config(cls, _db, collection=None):
         integration = ExternalIntegration.lookup(
-            _db, protocol=ExternalIntegration.METADATA_WRANGLER
+            _db, ExternalIntegration.METADATA_WRANGLER,
+            ExternalIntegration.METADATA_GOAL
         )
+
         if not integration:
             raise CannotLoadConfiguration(
                 "No ExternalIntegration found for the Metadata Wrangler.")
@@ -131,14 +139,19 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         if not integration.url:
             raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
 
-        if ((integration.username or integration.password) and not
-            (integration.username and integration.password)):
+        return cls(
+            integration.url, username=integration.username,
+            password=integration.password, collection=collection
+        )
+
+    def __init__(self, url, username=None, password=None, collection=None):
+        if ((username or password) and not (username and password)):
             # We have one portion fo the authentiction details, but not both.
             raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
 
-        super(MetadataWranglerOPDSLookup, self).__init__(integration.url)
-        self.client_id = integration.username
-        self.client_secret = integration.password
+        super(MetadataWranglerOPDSLookup, self).__init__(url)
+        self.client_id = username
+        self.client_secret = password
         self.collection = collection
 
     @property
@@ -275,7 +288,15 @@ class OPDSImporter(object):
 
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
-   
+
+    NAME = ExternalIntegration.OPDS_IMPORT
+    FIELDS = [
+        {
+            "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
+            "label": _("URL"),
+        }
+    ]
+
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
@@ -325,7 +346,7 @@ class OPDSImporter(object):
             data_source_name = data_source_name or DataSource.METADATA_WRANGLER
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = metadata_client or MetadataWranglerOPDSLookup(_db, collection=collection)
+        self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
@@ -1490,7 +1511,7 @@ class OPDSImporterWithS3Mirror(OPDSImporter):
     def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
         if 'mirror' not in kwargs:
-            kwargs['mirror'] = S3Uploader()
+            kwargs['mirror'] = S3Uploader(_db)
         super(OPDSImporterWithS3Mirror, self).__init__(
             _db, default_data_source, **kwargs
         )
