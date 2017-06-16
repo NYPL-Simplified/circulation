@@ -9350,7 +9350,10 @@ class Collection(Base):
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
     DATA_SOURCE_NAME_SETTING = u'data_source'
-    
+
+    # For use in forms that edit Collections.
+    EXTERNAL_ACCOUNT_ID_KEY = u'external_account_id'
+
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
     # called a "library ID".
@@ -9360,9 +9363,10 @@ class Collection(Base):
     # authentication information, or additional configuration goes
     # into the external integration, as does the 'protocol', which
     # designates the integration technique we will use to actually get
-    # the metadata and licenses.
+    # the metadata and licenses. Each Collection has a distinct
+    # ExternalIntegration.
     external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
+        Integer, ForeignKey('externalintegrations.id'), unique=True, index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
