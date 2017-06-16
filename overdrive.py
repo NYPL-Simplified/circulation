@@ -107,6 +107,8 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
+    WEBSITE_ID = "website_id"
+
    
     def __init__(self, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
@@ -131,7 +133,7 @@ class OverdriveAPI(object):
             
         self.client_key = collection.external_integration.username.encode("utf8")
         self.client_secret = collection.external_integration.password.encode("utf8")
-        self.website_id = collection.external_integration.setting('website_id').value.encode("utf8")
+        self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value.encode("utf8")
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):

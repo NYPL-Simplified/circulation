@@ -12,6 +12,7 @@ import urllib
 from urlparse import urlparse, urljoin
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
+from flask.ext.babel import lazy_gettext as _
 
 from lxml import builder, etree
 
@@ -287,7 +288,15 @@ class OPDSImporter(object):
 
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
-   
+
+    NAME = ExternalIntegration.OPDS_IMPORT
+    FIELDS = [
+        {
+            "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
+            "label": _("URL"),
+        }
+    ]
+
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
