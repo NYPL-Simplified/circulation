@@ -45,6 +45,7 @@ from scripts import (
     CheckContributorNamesInDB, 
     CollectionInputScript,
     ConfigureCollectionScript,
+    ConfigureIntegrationScript,
     ConfigureLibraryScript,
     ConfigureSiteScript,
     CustomListManagementScript,
@@ -1334,6 +1335,61 @@ class TestConfigureCollectionScript(DatabaseTest):
                   + "\n".join(collection.explain()) + "\n")
         
         eq_(expect, output.getvalue())
+
+
+class TestConfigureIntegrationScript(DatabaseTest):
+    
+    def test_load_integration(self):
+        m = ConfigureIntegrationScript._integration
+
+        assert_raises_regexp(
+            ValueError,
+            "An integration must by identified by either ID, name, or the combination of protocol and goal.",
+            m, self._db, None, None, "protocol", None
+        )
+
+        integration = self._external_integration(
+            protocol="Protocol", goal="Goal"
+        )
+        integration.name = "An integration"
+        eq_(integration,
+            m(self._db, integration.id, None, None, None)
+        )
+
+        eq_(integration,
+            m(self._db, None, integration.name, None, None)
+        )
+
+        eq_(integration,
+            m(self._db, None, None, "Protocol", "Goal")
+        )
+
+        # An integration may be created given a protocol and goal.
+        integration2 = m(self._db, None, None, "Protocol", "Goal2")
+        assert integration2 != integration
+        eq_("Protocol", integration2.protocol)
+        eq_("Goal2", integration2.goal)
+        
+    def test_add_settings(self):
+        script = ConfigureIntegrationScript()
+        output = StringIO()
+
+        script.do_run(
+            self._db, [
+                "--protocol=aprotocol",
+                "--goal=agoal",
+                "--setting=akey=avalue",
+            ],
+            output
+        )
+
+        # An ExternalIntegration was created and configured.
+        integration = get_one(self._db, ExternalIntegration,
+                              protocol="aprotocol", goal="agoal")
+
+        expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
+       
 
 class TestCollectionInputScript(DatabaseTest):
     """Test the ability to name collections on the command line."""

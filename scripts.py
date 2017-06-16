@@ -1058,22 +1058,15 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
             'Set a configuration value on the integration. Format: --setting="key=value"'
         )        
         return parser
-    
-    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
-        _db = _db or self._db
-        args = self.parse_command_line(_db, cmd_args=cmd_args)
 
-        # Find or create the integration
-        protocol = None
-        id = args.id
-        name = args.name
-        protocol = args.protocol
-        goal = args.goal
-
+    @classmethod
+    def _integration(self, _db, id, name, protocol, goal):
+        """Find or create the ExternalIntegration referred to."""
         if not id and not name and not (protocol and goal):
             raise ValueError(
                 "An integration must by identified by either ID, name, or the combination of protocol and goal."
             )
+        integration = None
         if id:
             integration = get_one(
                 _db, ExternalIntegration, ExternalIntegration.id==id
@@ -1086,6 +1079,19 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
             integration, is_new = get_one_or_create(
                 _db, ExternalIntegration, protocol=protocol, goal=goal
             )
+        return integration
+        
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the integration
+        protocol = None
+        id = args.id
+        name = args.name
+        protocol = args.protocol
+        goal = args.goal
+        integration = self._integration(_db, id, name, protocol, goal)
         self.apply_settings(args.setting, integration)
 
         _db.commit()
