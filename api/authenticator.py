@@ -714,10 +714,24 @@ class AuthenticationProvider(object):
     # expression for deriving a patron's external type from their
     # authentication identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    # When multiple libraries share an ILS, a person may be able to
+    # authenticate with the ILS but not be considered a patron of
+    # _this_ library. This setting contains the rule for determining
+    # whether an identifier is valid for a specific library.
+    #
+    # Usually this is a prefix string which is compared against the
+    # patron's identifiers, but if the string starts with a carat (^)
+    # it will be interpreted as a regular expression.
+    PATRON_IDENTIFIER_RESTRICTION = 'patron_identifier_restriction'
     
     LIBRARY_SETTINGS = [
         { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
           "label": _("External Type Regular Expression"),
+          "optional": True,
+        },
+        { "key": PATRON_IDENTIFIER_RESTRICTION,
+          "label": _("Patron identifier prefix"),
           "optional": True,
         }
     ]
@@ -762,7 +776,50 @@ class AuthenticationProvider(object):
                 regexp = None
         self.external_type_regular_expression = regexp
 
-            
+        restriction = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.PATRON_IDENTIFIER_RESTRICTION, library, integration
+        ).value
+        if restriction and restriction.startswith("^"):
+            # Interpret the value a regular expression
+            try:
+                restriction = re.compile(restriction)
+            except Exception, e:
+                self.log.error(
+                    "Could not interpret identifier restriction as a regular expression: %r", e
+                )
+        self.patron_identifier_restriction = restriction
+
+    @classmethod
+    def _restriction_matches(cls, identifier, restriction):
+        """Does the given patron identifier match the given 
+        patron identifier restriction?
+        """
+        if not restriction:
+            # No restriction -- anything matches.
+            return True
+        if not identifier:
+            # No identifier -- it won't match any restriction.
+            return False
+        if isinstance(restriction, basestring):
+            # It's a prefix string.
+            if not identifier.startswith(restriction):
+                # The prefix doesn't match.
+                return False
+        else:
+            # It's a regexp.
+            if not restriction.search(identifier):
+                # The regex doesn't match.
+                return False
+        return True
+        
+    def patron_identifier_restriction_matches(self, identifier):
+        """Does the given patron identifier match the configured
+        patron identifier restriction?
+        """
+        return self._restriction_matches(
+            identifier, self.patron_identifier_restriction
+        )
+    
     def library(self, _db):
         return get_one(_db, Library, self.library_id)
     
@@ -1019,10 +1076,17 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """
         username = credentials.get('username')
         password = credentials.get('password')
-        if not self.server_side_validation(username, password):
+        server_side_validation_result = self.server_side_validation(
+            username, password
+        )
+        if not server_side_validation_result:
+            # False => None
+            server_side_validation_result = None
+        if (not server_side_validation_result
+            or isinstance(server_side_validation_result, ProblemDetail)):
             # The credentials are prima facie invalid and do not
             # need to be checked with the source of truth.
-            return None
+            return server_side_validation_result
 
         # Check these credentials with the source of truth.
         patrondata = self.remote_authenticate(username, password)
@@ -1117,8 +1181,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             valid = valid and password is not None and (
                 self.password_re.match(password) is not None
             )
+        if not self.patron_identifier_restriction_matches(username):
+            valid = PATRON_OF_ANOTHER_LIBRARY
         return valid
-        
+    
     def remote_authenticate(self, username, password):
         """Does the source of truth approve of these credentials?
 
@@ -1412,7 +1478,16 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         patrondata = self.remote_patron_lookup(token)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-        
+
+        for identifier in patrondata.authorization_identifiers:
+            if self.patron_identifier_restriction_matches(identifier):
+                break
+        else:
+            # None of the patron's authorization identifiers match.
+            # This patron was able to validate with the OAuth provider,
+            # but they are not a patron of _this_ library.
+            return PATRON_OF_ANOTHER_LIBRARY
+            
         # Convert the PatronData into a Patron object.
         patron, is_new = patrondata.get_or_create_patron(
             _db, self.library_id
