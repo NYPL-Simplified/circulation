@@ -23,7 +23,7 @@ from core.monitor import (
 )
 
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup
 )
 
 from core.model import (
@@ -42,13 +42,13 @@ from core.model import (
     Session,
 )
 
+
 from core.coverage import (
     BibliographicCoverageProvider,
     CoverageFailure,
 )
 
 from authenticator import Authenticator
-from config import Configuration
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
@@ -256,11 +256,10 @@ class Axis360CirculationMonitor(CollectionMonitor):
         else:
             self.api = api_class(collection)
         if not metadata_client:
-            metadata_wrangler_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
+            metadata_client = MetadataWranglerOPDSLookup.from_config(
+                _db, collection=collection
             )
-            if metadata_wrangler_url:
-                metadata_client = SimplifiedOPDSLookup(metadata_wrangler_url)
+
         self.metadata_client = metadata_client
         self.bibliographic_coverage_provider = (
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)

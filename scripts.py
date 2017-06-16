@@ -27,12 +27,14 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
+    ConfigurationSetting,
     Contribution,
     Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     get_one,
     Hold,
     Hyperlink,
@@ -60,7 +62,7 @@ from core.lane import (
     Facets,
 )
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
 )
 from core.opds import (
@@ -95,12 +97,13 @@ from api.bibliotheca import (
 from api.axis import (
     Axis360API,
 )
+from api.nyt import NYTBestSellerAPI
 from core.axis import Axis360BibliographicCoverageProvider
 
 class Script(CoreScript):
     def load_config(self):
         if not Configuration.instance:
-            Configuration.load()
+            Configuration.load(self._db)
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -114,12 +117,10 @@ class CreateWorksForIdentifiersScript(Script):
     name = "Create works for identifiers"
 
     def __init__(self, metadata_web_app_url=None):
-        self.metadata_url = (
-            metadata_web_app_url or Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-            )
-        )
-        self.lookup = SimplifiedOPDSLookup(self.metadata_url)
+        if metadata_web_app_url:
+            self.lookup = MetadataWranglerOPDSLookup(metadata_web_app_url)
+        else:
+            self.lookup = MetadataWranglerOPDSLookup.from_config(_db)
 
     def run(self):
 
@@ -192,7 +193,7 @@ class MetadataCalculationScript(Script):
 
     def run(self):
         q = self.q()
-        search_index_client = ExternalSearchIndex()
+        search_index_client = ExternalSearchIndex(self._db)
         self.log.info("Attempting to repair metadata for %d works" % q.count())
 
         success = 0
@@ -289,11 +290,15 @@ class LaneSweeperScript(Script):
         del os.environ['AUTOINITIALIZE']
         app.manager = CirculationManager(_db, testing=testing)
         self.app = app
-        self.base_url = Configuration.integration_url(
-            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
-        )
+
+        self.base_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        ).value
+        if not self.base_url:
+            raise ValueError('No base url set for lane generation!')
+
         self.library = app.manager.top_level_lane.library
-        
+
     def run(self):
         begin = time.time()
         client = self.app.test_client()
@@ -795,7 +800,7 @@ class InstanceInitializationScript(Script):
     def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
         if not ignore_search:
-            search_client = ExternalSearchIndex()
+            search_client = ExternalSearchIndex(self._db)
 
         # Set a timestamp that represents the new database's version.
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
@@ -874,3 +879,32 @@ class LoanReaperScript(Script):
                 print counter
                 self._db.commit()
         self._db.commit()
+
+
+class NYTBestSellerListsScript(Script):
+
+    def __init__(self, include_history=False):
+        super(NYTBestSellerListsScript, self).__init__()
+        self.include_history = include_history
+
+    def do_run(self):
+        self.api = NYTBestSellerAPI.from_config(self._db)
+        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
+        # For every best-seller list...
+        names = self.api.list_of_lists()
+        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
+
+            name = l['list_name_encoded']
+            self.log.info("Handling list %s" % name)
+            best = self.api.best_seller_list(l)
+
+            if self.include_history:
+                self.api.fill_in_history(best)
+            else:
+                self.api.update(best)
+
+            # Mirror the list to the database.
+            customlist = best.to_customlist(self._db)
+            self.log.info(
+                "Now %s entries in the list.", len(customlist.entries))
+            self._db.commit()

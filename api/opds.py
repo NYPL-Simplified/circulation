@@ -8,7 +8,7 @@ import uuid
 
 from sqlalchemy.orm import lazyload
 
-from config import Configuration
+from core.cdn import cdnify
 from core.classifier import Classifier
 from core.opds import (
     Annotator,
@@ -37,11 +37,11 @@ from core.lane import (
     QueryGeneratedLane,
 )
 from core.app_server import cdn_url_for
-from core.util.cdn import cdnify
 
 from adobe_vendor_id import AuthdataUtility
 from annotations import AnnotationWriter
 from circulation import BaseCirculationAPI
+from config import Configuration
 from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
@@ -285,7 +285,7 @@ class CirculationManagerAnnotator(Annotator):
         if work.series:
             self.add_series_link(work, feed, entry)
 
-        if NoveListAPI.is_configured():
+        if NoveListAPI.is_configured(self.library):
             # If NoveList Select is configured, there might be
             # recommendations, too.
             feed.add_link_to_entry(
@@ -303,7 +303,7 @@ class CirculationManagerAnnotator(Annotator):
             )
 
         # Add a link for related books if available.
-        if self.related_books_available(work):
+        if self.related_books_available(work, self.library):
             feed.add_link_to_entry(
                 entry,
                 rel='related',
@@ -333,7 +333,7 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     @classmethod
-    def related_books_available(cls, work):
+    def related_books_available(cls, work, library):
         """:return: bool asserting whether related books might exist for
         a particular Work
         """
@@ -346,7 +346,7 @@ class CirculationManagerAnnotator(Annotator):
 
         contributions = edition.contributions
         series = edition.series
-        return contributions or series or NoveListAPI.is_configured()
+        return contributions or series or NoveListAPI.is_configured(library)
 
     def language_and_audience_key_from_work(self, work):
         language_key = work.language
@@ -715,10 +715,10 @@ class CirculationManagerAnnotator(Annotator):
             
             # Generate a <drm:licensor> tag that can feed into the
             # Vendor ID service.
-            return self.adobe_id_tags(_db, patron)
+            return self.adobe_id_tags(patron)
         return []
    
-    def adobe_id_tags(self, _db, patron_identifier):
+    def adobe_id_tags(self, patron_identifier):
         """Construct tags using the DRM Extensions for OPDS standard that
         explain how to get an Adobe ID for this patron, and how to
         manage their list of device IDs.
@@ -739,7 +739,7 @@ class CirculationManagerAnnotator(Annotator):
         cached = self._adobe_id_tags.get(patron_identifier)
         if cached is None:
             cached = []
-            authdata = AuthdataUtility.from_config(_db)
+            authdata = AuthdataUtility.from_config(self.library)
             if authdata:
                 # TODO: We would like to call encode() here, and have
                 # the client use a JWT as authdata, but we can't,
@@ -773,7 +773,8 @@ class CirculationManagerAnnotator(Annotator):
         return cached
         
     def open_access_link(self, lpdm):
-        url = cdnify(lpdm.resource.url, Configuration.cdns())
+        _db = Session.object_session(self.library)
+        url = cdnify(lpdm.resource.url)
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
         rep = lpdm.resource.representation
         if rep and rep.media_type:
@@ -884,8 +885,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
         This allows us to deregister an Adobe ID, in preparation for
         logout, even if there is no active loan that requires one.
         """
-        _db = Session.object_session(patron)
-        tags = copy.deepcopy(self.adobe_id_tags(_db, patron))
+        tags = copy.deepcopy(self.adobe_id_tags(patron))
         attr = '{%s}scheme' % OPDSFeed.DRM_NS
         for tag in tags:
             tag.attrib[attr] = "http://librarysimplified.org/terms/drm/scheme/ACS"

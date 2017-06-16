@@ -55,6 +55,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # Setup authentication and Metadata Wrangler details.
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
+            ExternalIntegration.METADATA_GOAL,
             username=u'abc', password=u'def', url=self._url
         )
 
@@ -76,7 +77,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
 
         # Queue some data to be found.
         data = sample_data('metadata_isbn_response.opds', 'opds')
-        lookup = MockMetadataWranglerOPDSLookup(self._db, collection)
+        lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, collection)
         lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
