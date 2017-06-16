@@ -9009,6 +9009,10 @@ class ExternalIntegration(Base):
     # S3 that provide access to open access content.
     OA_CONTENT_GOAL = u'open_access_books'
 
+    # These integrations are associated with external services like
+    # Cloudfront or other CDNs that mirror and/or cache certain domains.
+    CDN_GOAL = u'CDN'
+
     # These integrations are associated with external services such as
     # Elasticsearch that provide indexed search.
     SEARCH_GOAL = u'search'
@@ -9051,10 +9055,12 @@ class ExternalIntegration(Base):
     CONTENT_SERVER = u'Content Server'
 
     # Integrations for storage or cache with BOOK_COVERS_GOAL,
-    # OPDS_GOAL, or OA_CONTENT_GOAL.
-    CDN = u'CDN'
+    # OPDS_GOAL, or OA_CONTENT_GOAL
     S3 = u'S3'
-    
+
+    # Integrations with CDN_GOAL
+    CDN = u'CDN'
+
     # Integrations with SEARCH_GOAL
     ELASTICSEARCH = u'Elasticsearch'
 

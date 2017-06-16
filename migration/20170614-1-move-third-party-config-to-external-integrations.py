@@ -32,23 +32,13 @@ try:
 
     # Import CDN configuration.
     cdn_conf = Configuration.integration(u'CDN')
+
     if cdn_conf and isinstance(cdn_conf, dict):
-
-        cdn_goals = {
-            'book_covers' : EI.BOOK_COVERS_GOAL,
-            'open_access_books' : EI.OA_CONTENT_GOAL,
-            'opds' : EI.OPDS_FEED_GOAL
-        }
-
         for k, v in cdn_conf.items():
-            if not k in cdn_goals:
-                log.warn('No ExternalIntegration goal for "%s" CDN' % k)
-                continue
-
-            goal = cdn_goals.get(k)
-            cdn = EI(protocol=EI.CDN, goal=goal)
+            cdn = EI(protocol=EI.CDN, goal=EI.CDN_GOAL)
             _db.add(cdn)
-            cdn.url
+            cdn.url = unicode(v)
+            cdn.mirror_domain = unicode(k)
             log_import(cdn)
 
     # Import Elasticsearch configuration.

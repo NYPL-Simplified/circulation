@@ -52,7 +52,7 @@ class Configuration(object):
 
     DATA_DIRECTORY = "data_directory"
 
-    # ConfigurationSetting key  for the base url of the app.
+    # ConfigurationSetting key for the base url of the app.
     BASE_URL_KEY = u'base_url'
 
     # Policies, mostly circulation specific
@@ -83,7 +83,8 @@ class Configuration(object):
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
-    BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
+    # ConfigurationSEtting key for a CDN's mirror domain
+    CDN_MIRROR_DOMAIN_KEY = u'mirror_domain'
 
     UNINITIALIZED_CDNS = object()
 
@@ -218,26 +219,14 @@ class Configuration(object):
     @classmethod
     def load_cdns(cls, _db, config_instance=None):
         from model import ExternalIntegration as EI
-        CDN_GOAL_KEY = {
-            EI.BOOK_COVERS_GOAL : 'book_covers',
-            EI.OA_CONTENT_GOAL : 'open_access_books',
-            EI.OPDS_FEED_GOAL : 'opds'
-        }
-
-        cdns = _db.query(EI).filter(EI.protocol==EI.CDN).all()
-        if not cdns:
-            return
+        cdns = _db.query(EI).filter(goal=EI.CDN_GOAL).all()
 
         cdn_integration = dict()
         for cdn in cdns:
-            netloc = CDN_GOAL_KEY.get(cdn.goal)
-            if not netloc:
-                continue
-
-            cdn_integration[netloc] = cdn.url
+            cdn_integration[cdn.setting(cls.CDN_MIRROR_DOMAIN_KEY).value] = cdn.url
 
         config_instance = config_instance or cls.instance
-        cls.instance[EI.CDN] = cdn_integration
+        config_instance[EI.CDN] = cdn_integration
 
     @classmethod
     def base_opds_authentication_document(cls):
