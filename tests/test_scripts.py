@@ -1124,6 +1124,7 @@ class TestConfigureLibraryScript(DatabaseTest):
                 "--name=Library 1",
                 "--library-registry-shared-secret=foo",
                 "--library-registry-short-name=nyl1",
+                '--setting=customkey=value',
             ],
             output
         )
@@ -1134,6 +1135,7 @@ class TestConfigureLibraryScript(DatabaseTest):
         eq_("L1", library.short_name)
         eq_("foo", library.library_registry_shared_secret)
         eq_("NYL1", library.library_registry_short_name)
+        eq_("value", library.setting("customkey").value)
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
 
