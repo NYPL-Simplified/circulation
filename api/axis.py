@@ -66,7 +66,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("Server") },
-    ]
+    ] + BaseCirculationAPI.FIELDS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
