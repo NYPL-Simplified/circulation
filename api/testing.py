@@ -36,8 +36,8 @@ class VendorIDTest(DatabaseTest):
     TEST_OTHER_LIBRARY_URI = u"http://you/"
     TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
 
-    LIBRARY_REGISTRY_SHORT_NAME = u'LBRY'
-    LIBRARY_REGISTRY_SHARED_SECRET = u'some secret'
+    TEST_SHORT_NAME = u'LBRY'
+    TEST_SHARED_SECRET = u'some secret'
 
     def setup(self, _db=None):
         super(VendorIDTest, self).setup()
@@ -50,12 +50,12 @@ class VendorIDTest(DatabaseTest):
                 ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID)
             self.set_main_library_adobe_config(self._default_library)
 
-            self.registry_integration = self._external_integration(
-                ExternalIntegration.LIBRARY_REGISTRY,
+            self.short_client_token = self._external_integration(
+                ExternalIntegration.SHORT_CLIENT_TOKEN,
                 ExternalIntegration.DRM_GOAL,
                 libraries=[self._default_library]
             )
-            self.set_main_registry_configuration(self._default_library)
+            self.set_main_short_client_token_configuration(self._default_library)
 
 
         _db = _db or self._db
@@ -63,10 +63,7 @@ class VendorIDTest(DatabaseTest):
 
     def initialize_library(self, _db):
         """Initialize the Library object with default data."""
-        library = Library.instance(_db)
-        library.library_registry_short_name = self.LIBRARY_REGISTRY_SHORT_NAME
-        library.library_registry_shared_secret = self.LIBRARY_REGISTRY_SHARED_SECRET
-        return library
+        return Library.instance(_db)
 
     def set_main_library_adobe_config(self, library):
         self.adobe_vendor_id.password = self.TEST_NODE_VALUE
@@ -79,35 +76,35 @@ class VendorIDTest(DatabaseTest):
         if library not in self.adobe_vendor_id.libraries:
             self.adobe_vendor_id.libraries.append(library)
 
-    def set_main_registry_configuration(self, library):
-        self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
-        self.registry_integration.password = self.LIBRARY_REGISTRY_SHARED_SECRET
+    def set_main_short_client_token_configuration(self, library):
+        self.short_client_token.username = self.TEST_SHORT_NAME
+        self.short_client_token.password = self.TEST_SHARED_SECRET
 
-        self.registry_integration.set_setting(
+        self.short_client_token.set_setting(
             AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
         )
 
         ConfigurationSetting.for_library(
             Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
 
-        if library not in self.registry_integration.libraries:
-            self.registry_integration.libraries.append(library)
+        if library not in self.short_client_token.libraries:
+            self.short_client_token.libraries.append(library)
 
-    def dependent_library_registry_integration(self, library):
-        registration = self._external_integration(
-            ExternalIntegration.LIBRARY_REGISTRY,
+    def dependent_library_short_client_token(self, library):
+        short_client_token = self._external_integration(
+            ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL,
             username='you', password='secret2', libraries=[library]
         )
 
-        registration.set_setting(
+        short_client_token.set_setting(
             AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
         )
 
         ConfigurationSetting.for_library(
             Library.WEBSITE_KEY, library).value = self.TEST_OTHER_LIBRARY_URI
 
-        return registration
+        return short_client_token
 
 
 class MockRemoteAPI(BaseCirculationAPI):

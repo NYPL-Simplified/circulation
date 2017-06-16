@@ -679,19 +679,19 @@ class AuthdataUtility(object):
         incompletely configured.
         """
         _db = Session.object_session(library)
-        registry_integration = ExternalIntegration.lookup(
-            _db, ExternalIntegration.LIBRARY_REGISTRY,
+        short_client_token = ExternalIntegration.lookup(
+            _db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
 
         library_uri = ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value
 
-        if not registry_integration:
+        if not short_client_token:
             return None
 
-        vendor_id = registry_integration.setting(cls.VENDOR_ID_KEY).value
-        library_short_name = registry_integration.username
-        secret = registry_integration.password
+        vendor_id = short_client_token.setting(cls.VENDOR_ID_KEY).value
+        library_short_name = short_client_token.username
+        secret = short_client_token.password
 
         other_libraries = None
         adobe_integration = ExternalIntegration.lookup(

@@ -99,7 +99,7 @@ try:
             log_import(integration)
 
         for library in LIBRARIES:
-            integration = EI(protocol=EI.LIBRARY_REGISTRY, goal=EI.DRM_GOAL)
+            integration = EI(protocol=EI.SHORT_CLIENT_TOKEN, goal=EI.DRM_GOAL)
             _db.add(integration)
 
             short_name = library.library_registry_short_name

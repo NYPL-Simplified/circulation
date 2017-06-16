@@ -188,7 +188,7 @@ class TestVendorIDModel(VendorIDTest):
         # ID. It can't issue Adobe IDs, but it can generate a JWT for
         # one of its patrons.
         secondary_library = self._library()
-        registration = self.dependent_library_registry_integration(secondary_library)
+        self.dependent_library_short_client_token(secondary_library)
         utility = AuthdataUtility.from_config(secondary_library)
         vendor_id, jwt = utility.encode("Foreign patron")
 
@@ -226,7 +226,7 @@ class TestVendorIDModel(VendorIDTest):
         # ID. It can't issue Adobe IDs, but it can generate a short
         # client token for one of its patrons.
         secondary_library = self._library()
-        self.dependent_library_registry_integration(secondary_library)
+        self.dependent_library_short_client_token(secondary_library)
         utility = AuthdataUtility.from_config(secondary_library)
         vendor_id, short_client_token = utility.encode_short_client_token(
             "Foreign patron"
@@ -569,12 +569,12 @@ class TestAuthdataUtility(VendorIDTest):
         utility = AuthdataUtility.from_config(self._default_library)
 
         library = Library.instance(self._db)
-        registry_integration = ExternalIntegration.lookup(
-            self._db, ExternalIntegration.LIBRARY_REGISTRY,
+        short_client_token = ExternalIntegration.lookup(
+            self._db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
-        eq_("LBRY", registry_integration.username)
-        eq_("some secret", registry_integration.password)
+        eq_("LBRY", short_client_token.username)
+        eq_("some secret", short_client_token.password)
 
         eq_(self.TEST_VENDOR_ID, utility.vendor_id)
         eq_(self.TEST_LIBRARY_URI, utility.library_uri)
@@ -584,8 +584,6 @@ class TestAuthdataUtility(VendorIDTest):
             utility.secrets_by_library_uri
         )
 
-        # Library short names get uppercased.
-        eq_("LBRY", library.library_registry_short_name)
         eq_(
             {"LBRY": self.TEST_LIBRARY_URI,
              "YOU" : self.TEST_OTHER_LIBRARY_URI },
@@ -594,12 +592,12 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
-        self.registry_integration.username = None
+        self.short_client_token.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config,
             library
         )
-        self.registry_integration.username = self.LIBRARY_REGISTRY_SHORT_NAME
+        self.short_client_token.username = self.TEST_SHORT_NAME
 
         ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value = None
         assert_raises(
@@ -608,19 +606,19 @@ class TestAuthdataUtility(VendorIDTest):
         ConfigurationSetting.for_library(
             Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
 
-        old_short_name = self.registry_integration.username
-        self.registry_integration.username = None
+        old_short_name = self.short_client_token.username
+        self.short_client_token.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.registry_integration.username = old_short_name
+        self.short_client_token.username = old_short_name
 
-        old_secret = self.registry_integration.password
-        self.registry_integration.password = None
+        old_secret = self.short_client_token.password
+        self.short_client_token.password = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.registry_integration.password = old_secret
+        self.short_client_token.password = old_secret
 
         # If other libraries are not configured, that's fine.
         self.adobe_vendor_id.set_setting(
@@ -644,7 +642,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
-        self._db.delete(self.registry_integration)
+        self._db.delete(self.short_client_token)
         eq_(None, AuthdataUtility.from_config(library))
             
     def test_decode_round_trip(self):        
