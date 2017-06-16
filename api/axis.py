@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
-
+from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree
@@ -29,10 +29,12 @@ from core.opds_import import (
 from core.model import (
     CirculationEvent,
     get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Representation,
@@ -57,6 +59,14 @@ from circulation_exceptions import *
 
 
 class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
+
+    NAME = ExternalIntegration.AXIS_360
+    FIELDS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Username") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.URL, "label": _("Server") },
+    ] + BaseCirculationAPI.FIELDS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 

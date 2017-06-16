@@ -3,6 +3,7 @@ import datetime
 import json
 import requests
 import flask
+from flask.ext.babel import lazy_gettext as _
 
 from sqlalchemy.orm import contains_eager
 
@@ -46,6 +47,14 @@ from circulation_exceptions import *
 from core.analytics import Analytics
 
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
+
+    NAME = ExternalIntegration.OVERDRIVE
+    FIELDS = [
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ] + BaseCirculationAPI.FIELDS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
 
