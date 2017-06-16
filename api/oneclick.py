@@ -6,6 +6,7 @@ import json;
 import os
 import requests
 import uuid
+from flask.ext.babel import lazy_gettext as _
 
 from circulation import (
     BaseCirculationAPI, 
@@ -31,9 +32,11 @@ from core.metadata_layer import (
 )
 
 from core.model import (
-    CirculationEvent, 
+    CirculationEvent,
+    Collection,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier, 
     LicensePool,
     Patron,
@@ -52,7 +55,12 @@ from core.util.http import (
 
 class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
-    NAME = "OneClick"
+    NAME = ExternalIntegration.ONE_CLICK
+    FIELDS = [
+        { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+    ]
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 

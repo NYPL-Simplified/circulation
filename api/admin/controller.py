@@ -82,6 +82,11 @@ from api.sip import SIP2AuthenticationProvider
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
+from core.opds_import import OPDSImporter
+from api.overdrive import OverdriveAPI
+from api.bibliotheca import BibliothecaAPI
+from api.axis import Axis360API
+from api.oneclick import OneClickAPI
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -987,59 +992,16 @@ class SettingsController(CirculationManagerController):
 
     def collections(self):
         protocols = []
-        
-        protocols.append({
-            "name": ExternalIntegration.OPDS_IMPORT,
-            "fields": [
-                { "key": "external_account_id", "label": _("URL") },
-            ],
-        })
-
-        protocols.append({
-            "name": ExternalIntegration.OVERDRIVE,
-            "fields": [
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "website_id", "label": _("Website ID") },
-                { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
-                { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
-                { "key": "default_loan_period", "label": _("Default Loan Period") },
-                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
-            ],
-        })
-
-        protocols.append({
-            "name": ExternalIntegration.BIBLIOTHECA,
-            "fields": [
-                { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
-                { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "default_loan_period", "label": _("Default Loan Period") },
-                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
-            ],
-        })
-
-        protocols.append({
-            "name": ExternalIntegration.AXIS_360,
-            "fields": [
-                { "key": ExternalIntegration.USERNAME, "label": _("Username") },
-                { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": ExternalIntegration.URL, "label": _("Server") },
-                { "key": "default_loan_period", "label": _("Default Loan Period") },
-                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
-            ],
-        })
-
-        protocols.append({
-            "name": ExternalIntegration.ONE_CLICK,
-            "fields": [
-                { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": ExternalIntegration.URL, "label": _("URL") },
-                { "key": "default_loan_period", "label": _("Default Loan Period") },
-                { "key": "default_reservation_period", "label": _("Default Reservation Period") },
-            ],
-        })
+        for license_api in [OPDSImporter,
+                            OverdriveAPI,
+                            BibliothecaAPI,
+                            Axis360API,
+                            OneClickAPI,
+                           ]:
+            protocols.append({
+                "name": license_api.NAME,
+                "fields": license_api.FIELDS,
+            })
 
         if flask.request.method == 'GET':
             collections = []

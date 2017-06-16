@@ -6,6 +6,7 @@ import datetime
 import os
 import re
 import logging
+from flask.ext.babel import lazy_gettext as _
 
 from nose.tools import set_trace
 
@@ -19,9 +20,11 @@ from circulation import (
 )
 from core.model import (
     CirculationEvent,
+    Collection,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     get_one,
     Identifier,
     LicensePool,
@@ -51,6 +54,13 @@ from circulation_exceptions import *
 from core.analytics import Analytics
 
 class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
+
+    NAME = ExternalIntegration.BIBLIOTHECA
+    FIELDS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+    ] + BaseCirculationAPI.FIELDS
 
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False

@@ -808,6 +808,14 @@ class CirculationAPI(object):
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
 
+    DEFAULT_LOAN_PERIOD = "default_loan_period"
+    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+
+    FIELDS = [
+        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period") },
+        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period") },
+    ]
+
     BORROW_STEP = 'borrow'
     FULFILL_STEP = 'fulfill'
 
