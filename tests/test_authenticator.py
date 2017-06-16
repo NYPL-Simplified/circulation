@@ -149,8 +149,13 @@ class MockOAuth(OAuthAuthenticationProvider):
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
-    def __init__(self, library, name="Mock OAuth"):
+    def __init__(self, library, name="Mock OAuth", integration=None):
         _db = Session.object_session(library)
+        integration = integration or self._mock_integration(_db, name)
+        super(MockOAuth, self).__init__(library, integration)
+
+    @classmethod
+    def _mock_integration(self, _db, name):
         integration, ignore = create(
             _db, ExternalIntegration, protocol="OAuth",
             goal=ExternalIntegration.PATRON_AUTH_GOAL,
@@ -158,7 +163,8 @@ class MockOAuth(OAuthAuthenticationProvider):
         integration.username = name
         integration.password = ""
         integration.setting(self.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
-        super(MockOAuth, self).__init__(library, integration)
+        return integration
+
 
 class AuthenticatorTest(DatabaseTest):
 
@@ -1661,8 +1667,19 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
             def remote_patron_lookup(self, bearer_token):
                 return mock_patrondata
-            
-        oauth = CallbackImplementation(self._default_library)
+
+        integration = CallbackImplementation._mock_integration(
+            self._db, "Mock OAuth"
+        )
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, CallbackImplementation.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
+        )
+        setting.value="123"
+
+        oauth = CallbackImplementation(
+            self._default_library, integration=integration
+        )
         credential, patron, patrondata = oauth.oauth_callback(
             self._db, "a code"
         )
@@ -1684,6 +1701,12 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         # has been passed along.
         eq_(mock_patrondata, patrondata)
         eq_("The User", patrondata.personal_name)
+
+        # A patron whose identifier doesn't match the patron
+        # identifier restriction is treated as a patron of a different
+        # library.
+        mock_patrondata.set_authorization_identifier("abcd")
+        eq_(PATRON_OF_ANOTHER_LIBRARY, oauth.oauth_callback(self._db, "a code"))
         
     def test_authentication_provider_document(self):
         # We're about to call url_for, so we must create an
