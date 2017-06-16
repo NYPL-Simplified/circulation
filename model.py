@@ -9350,7 +9350,10 @@ class Collection(Base):
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
     DATA_SOURCE_NAME_SETTING = u'data_source'
-    
+
+    # For use in forms that edit Collections.
+    EXTERNAL_ACCOUNT_ID_KEY = u'external_account_id'
+
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
     # called a "library ID".
