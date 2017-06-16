@@ -1499,7 +1499,7 @@ class OPDSImportMonitor(CollectionMonitor):
 class OPDSImporterWithS3Mirror(OPDSImporter):
     """OPDS Importer that mirrors content to S3."""
 
-    def __init__(self, _db, goal, default_data_source, **kwargs):
+    def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
         if 'mirror' not in kwargs:
             kwargs['mirror'] = S3Uploader(_db)
