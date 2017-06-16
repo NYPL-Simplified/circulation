@@ -14,6 +14,8 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
+    __buckets__ = None
+
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
     STATIC_OPDS_FEED_BUCKET_KEY = u'static_feed_bucket'
@@ -37,6 +39,12 @@ class S3Uploader(MirrorUploader):
             raise ValueError('Multiple S3 ExternalIntegrations found')
 
         [integration] = integrations
+
+        cls.__buckets__ = dict()
+        for setting in integration.settings:
+            if setting.key not in set([EI.PASSWORD, EI.USERNAME]):
+                cls.__buckets__[setting.key] = setting.value
+
         return cls(integration.username, integration.password)
 
     def __init__(self, access_key=None, secret_key=None, pool=None):
@@ -61,6 +69,15 @@ class S3Uploader(MirrorUploader):
         if not url.endswith('/'):
             url += '/'
         return url + path
+
+    @classmethod
+    def get_bucket(cls, bucket_key):
+        if not cls.__buckets__ or not cls.__buckets__.get(bucket_key):
+            raise ValueError(
+                "No S3 bucket found for '%s'. Use S3Uploader.from_config"
+                " to load S3 bucket settings from database." % bucket_key)
+
+        return cls.__buckets__.get(bucket_key)
 
     @classmethod
     def cover_image_root(cls, bucket, data_source, scaled_size=None):
@@ -95,13 +112,17 @@ class S3Uploader(MirrorUploader):
     def book_url(cls, identifier, extension='.epub', open_access=True, 
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
-        root = cls.content_root(open_access)
+        bucket = cls.get_bucket(cls.OA_CONTENT_BUCKET_KEY)
+        root = cls.content_root(bucket, open_access)
+
         if not extension.startswith('.'):
             extension = '.' + extension
+
         if title:
             filename = "%s/%s" % (identifier.identifier, title)
         else:
             filename = identifier.identifier
+
         args = [identifier.type, filename]
         args = [urllib.quote(x.encode('utf-8')) for x in args]
         if data_source:
@@ -109,13 +130,16 @@ class S3Uploader(MirrorUploader):
             template = "%s/%s/%s%s"
         else:
             template = "%s/%s%s"
+
         return root + template % tuple(args + [extension])
 
     @classmethod
     def cover_image_url(cls, data_source, identifier, filename=None,
                         scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
-        root = cls.cover_image_root(data_source, scaled_size)
+        bucket = cls.get_bucket(cls.BOOK_COVERS_BUCKET_KEY)
+        root = cls.cover_image_root(bucket, data_source, scaled_size)
+
         args = [identifier.type, identifier.identifier, filename]
         args = [urllib.quote(x) for x in args]
         return root + "%s/%s/%s" % tuple(args)

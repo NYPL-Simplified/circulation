@@ -55,6 +55,34 @@ class TestS3URLGeneration(DatabaseTest):
             S3Uploader.from_config, self._db
         )
 
+    def test_get_buckets(self):
+        # When no buckets have been set, it raises an error.
+        assert_raises_regexp(
+            ValueError, 'No S3 bucket found', S3Uploader.get_bucket,
+            S3Uploader.OA_CONTENT_BUCKET_KEY
+        )
+
+        # So let's use an ExternalIntegration to set some buckets.
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL,
+            username='access', password='secret', settings={
+                S3Uploader.OA_CONTENT_BUCKET_KEY : 'banana',
+                S3Uploader.BOOK_COVERS_BUCKET_KEY : 'bucket'
+            }
+        )
+        S3Uploader.from_config(self._db)
+
+        # Now we can get a bucket from the cached class variable.
+        eq_('banana', S3Uploader.get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
+        eq_('bucket', S3Uploader.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+
+        # Despite our new buckets, if a requested bucket isn't set,
+        # an error ir raised.
+        assert_raises_regexp(
+            ValueError, 'No S3 bucket found', S3Uploader.get_bucket,
+            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY
+        )
+
     def test_content_root(self):
         bucket = u'test-open-access-s3-bucket'
         eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
