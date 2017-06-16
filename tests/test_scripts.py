@@ -1418,10 +1418,11 @@ class TestConfigureIntegrationScript(DatabaseTest):
         )
 
         # An integration may be created given a protocol and goal.
-        integration2 = m(self._db, None, None, "Protocol", "Goal2")
+        integration2 = m(self._db, None, "I exist now", "Protocol", "Goal2")
         assert integration2 != integration
         eq_("Protocol", integration2.protocol)
         eq_("Goal2", integration2.goal)
+        eq_("I exist now", integration2.name)
         
     def test_add_settings(self):
         script = ConfigureIntegrationScript()

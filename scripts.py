@@ -1068,17 +1068,15 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
             )
         integration = None
         if id:
-            integration = get_one(
-                _db, ExternalIntegration, ExternalIntegration.id==id
-            )
+            integration = get_one(_db, ExternalIntegration, id==id)
         if not integration and name:
-            integration = get_one(
-                _db, ExternalIntegration, ExternalIntegration.name==name
-            )
+            integration = get_one(_db, ExternalIntegration, name=name)
         if not integration and (protocol and goal):
             integration, is_new = get_one_or_create(
                 _db, ExternalIntegration, protocol=protocol, goal=goal
             )
+        if name:
+            integration.name = name
         return integration
         
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
