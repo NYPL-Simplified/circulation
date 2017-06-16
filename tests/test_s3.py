@@ -4,6 +4,7 @@ from PIL import Image
 from StringIO import StringIO
 from nose.tools import (
     set_trace,
+    assert_raises_regexp,
     eq_,
 )
 from . import (
@@ -23,22 +24,44 @@ from s3 import (
 
 class TestS3URLGeneration(DatabaseTest):
 
+    def test_from_config(self):
+        # If there's no configuration for S3, an error is raised.
+        assert_raises_regexp(
+            ValueError, 'No S3 ExternalIntegration found',
+            S3Uploader.from_config, self._db
+        )
+
+        # Without an access_key and secret_key, an error is raised
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL
+        )
+        assert_raises_regexp(
+            ValueError, 'without both access_key and secret_key',
+            S3Uploader.from_config, self._db
+        )
+
+        # Otherwise, it builds just fine.
+        integration.username = 'your-access-key'
+        integration.password = 'your-secret-key'
+        uploader = S3Uploader.from_config(self._db)
+        eq_(True, isinstance(uploader, S3Uploader))
+
+        # Well, unless there are multiple S3 integrations, and it
+        # doesn't know which one to choose!
+        duplicate = self._external_integration(ExternalIntegration.S3)
+        duplicate.goal=ExternalIntegration.STORAGE_GOAL
+        assert_raises_regexp(
+            ValueError, 'Multiple S3 ExternalIntegrations found',
+            S3Uploader.from_config, self._db
+        )
+
     def test_content_root(self):
         bucket = u'test-open-access-s3-bucket'
-        self._external_integration(
-            ExternalIntegration.S3,
-            goal=ExternalIntegration.OA_CONTENT_GOAL,
-            url=bucket,
-        )
         eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
             S3Uploader.content_root(bucket))
 
     def test_cover_image_root(self):
         bucket = u'test-book-covers-s3-bucket'
-        self._external_integration(
-            ExternalIntegration.S3,
-            goal=ExternalIntegration.BOOK_COVERS_GOAL,
-            url=bucket)
 
         gutenberg_illustrated = DataSource.lookup(
             self._db, DataSource.GUTENBERG_COVER_GENERATOR)

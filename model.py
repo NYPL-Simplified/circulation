@@ -8999,15 +8999,7 @@ class ExternalIntegration(Base):
 
     # These integrations are associated with external services such as
     # S3 that provide access to book covers.
-    BOOK_COVERS_GOAL = u'book_covers'
-
-    # These integrations are associated with external services such as
-    # S3 that provide access to static or cached OPDS feeds.
-    OPDS_FEED_GOAL = u'opds_feeds'
-
-    # These integrations are associated with external services such as
-    # S3 that provide access to open access content.
-    OA_CONTENT_GOAL = u'open_access_books'
+    STORAGE_GOAL = u'storage'
 
     # These integrations are associated with external services like
     # Cloudfront or other CDNs that mirror and/or cache certain domains.
@@ -9054,8 +9046,7 @@ class ExternalIntegration(Base):
     METADATA_WRANGLER = u'Metadata Wrangler'
     CONTENT_SERVER = u'Content Server'
 
-    # Integrations for storage or cache with BOOK_COVERS_GOAL,
-    # OPDS_GOAL, or OA_CONTENT_GOAL
+    # Integrations with STORAGE_GOAL
     S3 = u'S3'
 
     # Integrations with CDN_GOAL

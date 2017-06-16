@@ -1511,7 +1511,7 @@ class OPDSImporterWithS3Mirror(OPDSImporter):
     def __init__(self, _db, default_data_source, **kwargs):
         kwargs = dict(kwargs)
         if 'mirror' not in kwargs:
-            kwargs['mirror'] = S3Uploader(_db)
+            kwargs['mirror'] = S3Uploader.from_config(_db)
         super(OPDSImporterWithS3Mirror, self).__init__(
             _db, default_data_source, **kwargs
         )

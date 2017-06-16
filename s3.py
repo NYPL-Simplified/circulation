@@ -1,9 +1,9 @@
-from nose.tools import set_trace
-from cStringIO import StringIO
 import tinys3
 import os
-from urlparse import urlsplit
 import urllib
+from nose.tools import set_trace
+from sqlalchemy.orm.session import Session
+from urlparse import urlsplit
 from util.mirror import MirrorUploader
 
 import logging
@@ -14,50 +14,40 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    def __init__(self, _db, goal=None, access_key=None, secret_key=None, pool=None):
-        if pool:
-            self.pool = pool
-        elif access_key or secret_key:
-            if not (access_key and secret_key):
-                raise ValueError(
-                    "Cannot create S3Uploader without both"
-                    " access_key and secret_key"
-                )
-            self.pool = tinys3.Pool(access_key, secret_key)
-        else:
-            if not _db:
-                raise ValueError(
-                    "Cannot create S3Uploader without a database session")
-
-            from model import ExternalIntegration
-            qu = _db.query(ExternalIntegration).filter(
-                ExternalIntegration.protocol==ExternalIntegration.S3
-            )
-
-            # TODO: Right now we connect to the same S3 account for all
-            # accepted buckets and use the S3Uploader to access all
-            # three willy-nilly. If this changes, goal will no longer
-            # be an optional value.
-            message = ""
-            if goal:
-                message += " for goal '%s'" % goal
-                qu = qu.filter(ExternalIntegration.goal==goal)
-
-            integrations = qu.all()
-            if not integrations:
-                raise ValueError(
-                    "No S3 ExternalIntegration found%s" % message)
-
-            integration = integrations[0]
-            if not (integration.username and integration.password):
-                raise ValueError(
-                    "S3%s is not properly configured" % message
-                )
-
-            self.pool = tinys3.Pool(integration.username, integration.password)
+    BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
+    OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
+    STATIC_OPDS_FEED_BUCKET_KEY = u'static_feed_bucket'
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
+
+    @classmethod
+    def from_config(cls, _db):
+        from model import ExternalIntegration as EI
+        integrations = _db.query(EI).filter(
+            EI.protocol==EI.S3, EI.goal==EI.STORAGE_GOAL).all()
+
+        if not integrations:
+            raise ValueError('No S3 ExternalIntegration found')
+
+        if len(integrations) > 1:
+            # Right now the S3Uploader doesn't distinguish usage between
+            # S3 accounts. If two account integrations are found, raise
+            # an error.
+            raise ValueError('Multiple S3 ExternalIntegrations found')
+
+        [integration] = integrations
+        return cls(integration.username, integration.password)
+
+    def __init__(self, access_key=None, secret_key=None, pool=None):
+        self.pool = pool
+        if not self.pool:
+            if not (access_key and secret_key):
+                raise ValueError(
+                    'Cannot create S3Uploader without both'
+                    ' access_key and secret_key.'
+                )
+            self.pool = tinys3.Pool(access_key, secret_key)
 
     @classmethod
     def url(cls, bucket, path):

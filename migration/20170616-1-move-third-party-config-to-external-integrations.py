@@ -20,6 +20,8 @@ from model import (
     production_session,
 )
 
+from s3 import S3Uploader
+
 log = logging.getLogger(name="Core configuration import")
 
 def log_import(integration_or_setting):
@@ -67,25 +69,23 @@ try:
         del s3_conf['access_key']
         del s3_conf['secret_key']
 
-        s3_goals = {
-            'book_covers_bucket' : EI.BOOK_COVERS_GOAL,
-            'open_access_content_bucket' : EI.OA_CONTENT_GOAL,
-            'static_feed_bucket' : EI.OPDS_FEED_GOAL,
-        }
+        integration = EI(protocol=EI.S3, goal=EI.STORAGE_GOAL)
+        _db.add(integration)
+        integration.username = username
+        integration.password = password
 
+        S3_SETTINGS = [
+            S3Uploader.BOOK_COVERS_BUCKET_KEY,
+            S3Uploader.OA_CONTENT_BUCKET_KEY,
+            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY,
+        ]
         for k, v in s3_conf.items():
-            if not k in s3_goals:
+            if not k in S3_SETTINGS:
                 log.warn('No ExternalIntegration goal for "%s" S3 bucket' % k)
                 continue
+            integration.setting(unicode(k)).value = unicode(v)
 
-            goal = s3_goals.get(k)
-            integration = EI(protocol=EI.S3, goal=goal)
-            _db.add(integration)
-            integration.username = unicode(username)
-            integration.password = unicode(password)
-            integration.url = unicode(v)
-
-            log_import(integration)
+        log_import(integration)
 
 finally:
     _db.commit()
