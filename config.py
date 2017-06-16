@@ -51,7 +51,10 @@ class Configuration(object):
     LOG_DATA_FORMAT = "format"
 
     DATA_DIRECTORY = "data_directory"
-    
+
+    # ConfigurationSetting key for the base url of the app.
+    BASE_URL_KEY = u'base_url'
+
     # Policies, mostly circulation specific
     POLICIES = "policies"
    
@@ -73,34 +76,17 @@ class Configuration(object):
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    ELASTICSEARCH_INTEGRATION = u"Elasticsearch"
-    ELASTICSEARCH_INDEX_KEY = u"works_index"
-
-    METADATA_WRANGLER_INTEGRATION = u"Metadata Wrangler"
-    METADATA_WRANGLER_CLIENT_ID = u"client_id"
-    METADATA_WRANGLER_CLIENT_SECRET = u"client_secret"
     CONTENT_SERVER_INTEGRATION = u"Content Server"
-    CIRCULATION_MANAGER_INTEGRATION = u"Circulation Manager"
-
-    NYT_INTEGRATION = u"New York Times"
-    NYT_BEST_SELLERS_API_KEY = u"best_sellers_api_key"
-
-    NOVELIST_INTEGRATION = u"NoveList Select"
-    NOVELIST_PROFILE = u"profile"
-    NOVELIST_PASSWORD = u"password"
 
     AXIS_INTEGRATION = "Axis 360"
     ONECLICK_INTEGRATION = "OneClick"
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
-    S3_INTEGRATION = u"S3"
-    S3_ACCESS_KEY = u"access_key"
-    S3_SECRET_KEY = u"secret_key"
-    S3_OPEN_ACCESS_CONTENT_BUCKET = u"open_access_content_bucket"
-    S3_BOOK_COVERS_BUCKET = u"book_covers_bucket"
+    # ConfigurationSEtting key for a CDN's mirror domain
+    CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
-    CDN_INTEGRATION = u"CDN"
+    UNINITIALIZED_CDNS = object()
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
 
@@ -198,12 +184,13 @@ class Configuration(object):
 
     @classmethod
     def cdns(cls):
-        return cls.integration(cls.CDN_INTEGRATION)
-
-    @classmethod
-    def s3_bucket(cls, bucket_name):
-        integration = cls.integration(cls.S3_INTEGRATION)
-        return integration[bucket_name]
+        from model import ExternalIntegration
+        cdns = cls.integration(ExternalIntegration.CDN)
+        if cdns == cls.UNINITIALIZED_CDNS:
+            raise CannotLoadConfiguration(
+                'CDN configuration has not been loaded from the database'
+            )
+        return cdns
 
     @classmethod
     def policy(cls, name, default=None, required=False):
@@ -230,6 +217,18 @@ class Configuration(object):
         return cls.get(cls.DATA_DIRECTORY)
 
     @classmethod
+    def load_cdns(cls, _db, config_instance=None):
+        from model import ExternalIntegration as EI
+        cdns = _db.query(EI).filter(goal=EI.CDN_GOAL).all()
+
+        cdn_integration = dict()
+        for cdn in cdns:
+            cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
+
+        config_instance = config_instance or cls.instance
+        config_instance[EI.CDN] = cdn_integration
+
+    @classmethod
     def base_opds_authentication_document(cls):
         return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
 
@@ -244,7 +243,7 @@ class Configuration(object):
         return [LanguageCodes.three_to_two[l] for l in languages]
     
     @classmethod
-    def load(cls):
+    def load(cls, _db=None):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
         if not cfv in os.environ:
             raise CannotLoadConfiguration(
@@ -260,6 +259,13 @@ class Configuration(object):
                     config_path, e)
             )
         cls.instance = configuration
+
+        if _db:
+            cls.load_cdns(_db)
+        else:
+            if not cls.integration('CDN'):
+                cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
+
         return configuration
 
     @classmethod

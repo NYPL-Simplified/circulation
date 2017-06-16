@@ -32,19 +32,18 @@ from model import (
     Identifier,
     Patron,
 )
-from util.cdn import cdnify
+from cdn import cdnify
 from classifier import Classifier
-from config import Configuration
 from lane import (
     Facets,
     Pagination,
 )
 from problem_details import *
 
-cdns = Configuration.cdns()
+
 def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
-    return cdnify(base_url, cdns)
+    return cdnify(base_url)
 
 def load_lending_policy(policy):
     if not policy:

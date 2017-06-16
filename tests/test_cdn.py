@@ -3,16 +3,23 @@ from nose.tools import (
     eq_, 
     set_trace,
 )
+from . import DatabaseTest
 
-from util.cdn import cdnify
+from config import Configuration, temp_config
+from model import ExternalIntegration
+from cdn import cdnify
 
-class TestCDN(object):
+
+class TestCDN(DatabaseTest):
 
     def unchanged(self, url, cdns):
         self.ceq(url, url, cdns)
 
     def ceq(self, expect, url, cdns):
-        eq_(expect, cdnify(url, cdns))
+        cdns = cdns or {}
+        with temp_config() as config:
+            config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = cdns
+            eq_(expect, cdnify(url))
 
     def test_no_cdns(self):
         url = "http://foo/"

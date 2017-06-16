@@ -4124,7 +4124,9 @@ class Work(Base):
 
 
     def update_external_index(self, client, add_coverage_record=True):
-        client = client or ExternalSearchIndex()
+        if not client:
+            _db = Session.object_session(self)
+            client = ExternalSearchIndex(_db)
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -8750,6 +8752,9 @@ class Library(Base):
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    # Keys for Library-specific ConfigurationSettings.
+    WEBSITE_KEY = u'website'
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -8976,26 +8981,50 @@ class ExternalIntegration(Base):
     #
     # These integrations are associated with external services such as
     # Google Enterprise which authenticate library administrators.
-    ADMIN_AUTH_GOAL = 'admin_auth'
+    ADMIN_AUTH_GOAL = u'admin_auth'
 
     # These integrations are associated with external services such as
     # SIP2 which authenticate library patrons. Other constants related
     # to this are defined in the circulation manager.
-    PATRON_AUTH_GOAL = 'patron_auth'
+    PATRON_AUTH_GOAL = u'patron_auth'
 
     # These integrations are associated with external services such
     # as Overdrive which provide access to books.
-    LICENSE_GOAL = 'licenses'
+    LICENSE_GOAL = u'licenses'
 
     # These integrations are associated with external services such as
     # the metadata wrangler, which provide information about books,
     # but not the books themselves.
-    METADATA_GOAL = 'metadata'
+    METADATA_GOAL = u'metadata'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to book covers.
+    BOOK_COVERS_GOAL = u'book_covers'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to static or cached OPDS feeds.
+    OPDS_FEED_GOAL = u'opds_feeds'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to open access content.
+    OA_CONTENT_GOAL = u'open_access_books'
+
+    # These integrations are associated with external services like
+    # Cloudfront or other CDNs that mirror and/or cache certain domains.
+    CDN_GOAL = u'CDN'
+
+    # These integrations are associated with external services such as
+    # Elasticsearch that provide indexed search.
+    SEARCH_GOAL = u'search'
 
     # These integrations are associated with external services such as
     # Google Analytics, which receive analytics events.
-    ANALYTICS_GOAL = 'analytics'
-    
+    ANALYTICS_GOAL = u'analytics'
+
+    # These integrations are associated with external services such as
+    # Adobe Vendor ID, which manage access to DRM-dependent content.
+    DRM_GOAL = u'drm'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9006,7 +9035,7 @@ class ExternalIntegration(Base):
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
     ]
-    
+
     # Some integrations with LICENSE_GOAL imply that the data and
     # licenses come from a specific data source.
     DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
@@ -9016,24 +9045,29 @@ class ExternalIntegration(Base):
         ONE_CLICK : DataSource.ONECLICK
     }
 
-    # TODO: Goals for the following.
-    # * The Library Simplified application components
-    #   themselves. (what's the actual goal here?)
-    # * Search services (e.g. protocol="Elasticsearch")
-    # * Cover images (e.g. protocol="HTTP" or protocol="S3")
-    # * Open-access content (e.g. protocol="HTTP" or protocol="S3")
-    # * Adobe Vendor ID server
-
-        
     # Integrations with METADATA_GOAL
     BIBBLIO = u'Bibblio'
     CONTENT_CAFE = u'Content Cafe'
-    NOVELIST = Configuration.NOVELIST_INTEGRATION
+    NOVELIST = u'NoveList Select'
     NYPL_SHADOWCAT = u'Shadowcat'
-    NYT = Configuration.NYT_INTEGRATION
-    STAFF_PICKS = u'Staff Picks'
-    METADATA_WRANGLER = Configuration.METADATA_WRANGLER_INTEGRATION
-    
+    NYT = u'New York Times'
+    METADATA_WRANGLER = u'Metadata Wrangler'
+    CONTENT_SERVER = u'Content Server'
+
+    # Integrations for storage or cache with BOOK_COVERS_GOAL,
+    # OPDS_GOAL, or OA_CONTENT_GOAL
+    S3 = u'S3'
+
+    # Integrations with CDN_GOAL
+    CDN = u'CDN'
+
+    # Integrations with SEARCH_GOAL
+    ELASTICSEARCH = u'Elasticsearch'
+
+    # Integrations with DRM_GOAL
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+    SHORT_CLIENT_TOKEN = u'Short Client Token'
+
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
 
@@ -9047,14 +9081,14 @@ class ExternalIntegration(Base):
 
     # If there is a special URL to use for access to this API,
     # put it here.
-    URL = "url"
+    URL = u"url"
 
     # If access requires authentication, these settings represent the
     # username/password or key/secret combination necessary to
     # authenticate. If there's a secret but no key, it's stored in
     # 'password'.
-    USERNAME = "username"
-    PASSWORD = "password"
+    USERNAME = u"username"
+    PASSWORD = u"password"
 
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
@@ -9077,11 +9111,32 @@ class ExternalIntegration(Base):
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-    
+
+    def __repr__(self):
+        return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
+            self.protocol, self.goal, len(self.settings), self.id)
+
     @classmethod
-    def lookup(cls, _db, protocol, goal=None):
-        integration = get_one(_db, cls, protocol=protocol, goal=goal)
-        return integration
+    def lookup(cls, _db, protocol, goal, library=None):
+        integrations = _db.query(cls).outerjoin(cls.libraries).filter(
+            cls.protocol==protocol, cls.goal==goal
+        )
+
+        if library:
+            integrations = integrations.filter(Library.id==library.id)
+
+        integrations = integrations.all()
+        if len(integrations) > 1:
+            logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
+
+        if filter(lambda i: i.libraries, integrations) and not library:
+            raise ValueError(
+                'This ExternalIntegration requires a library and none was provided.'
+            )
+
+        if not integrations:
+            return None
+        return integrations[0]
 
     @classmethod
     def admin_authentication(cls, _db):
@@ -9163,6 +9218,7 @@ class ExternalIntegration(Base):
                 lines.append(explanation)
         return lines
 
+
 class ConfigurationSetting(Base):
     """An extra piece of site configuration.
 
@@ -9199,7 +9255,11 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
-    
+
+    def __repr__(self):
+        return u'<ConfigurationSetting: key=%s, ID=%d>' % (
+            self.key, self.id)
+
     @classmethod
     def sitewide_secret(cls, _db, key):
         """Find or create a sitewide shared secret.
@@ -9338,7 +9398,7 @@ class ConfigurationSetting(Base):
             return json.loads(self.value)
         return None
 
-    
+
 class Collection(Base):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
