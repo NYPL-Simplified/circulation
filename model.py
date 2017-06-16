@@ -9066,7 +9066,7 @@ class ExternalIntegration(Base):
 
     # Integrations with DRM_GOAL
     ADOBE_VENDOR_ID = u'Adobe Vendor ID'
-    LIBRARY_REGISTRY = u'Library Registry'
+    SHORT_CLIENT_TOKEN = u'Short Client Token'
 
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
