@@ -149,8 +149,13 @@ class MockOAuth(OAuthAuthenticationProvider):
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
-    def __init__(self, library, name="Mock OAuth"):
+    def __init__(self, library, name="Mock OAuth", integration=None):
         _db = Session.object_session(library)
+        integration = integration or self._mock_integration(_db, name)
+        super(MockOAuth, self).__init__(library, integration)
+
+    @classmethod
+    def _mock_integration(self, _db, name):
         integration, ignore = create(
             _db, ExternalIntegration, protocol="OAuth",
             goal=ExternalIntegration.PATRON_AUTH_GOAL,
@@ -158,7 +163,8 @@ class MockOAuth(OAuthAuthenticationProvider):
         integration.username = name
         integration.password = ""
         integration.setting(self.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
-        super(MockOAuth, self).__init__(library, integration)
+        return integration
+
 
 class AuthenticatorTest(DatabaseTest):
 
@@ -1157,6 +1163,58 @@ class TestAuthenticationProvider(AuthenticatorTest):
         provider = MockProvider(library, integration)
         eq_(None, provider.external_type_regular_expression)
 
+    def test_restriction_matches(self):
+        """Test the behavior of the patron identifier restriction 
+        algorithm.
+        """
+        m = AuthenticationProvider._restriction_matches
+        eq_(True, m(None, None))
+        eq_(True, m("12345a", "1234"))
+        eq_(True, m("a1234", re.compile("1234")))
+        eq_(True, m("123", re.compile("^(12|34)")))
+        eq_(True, m("345", re.compile("^(12|34)")))
+        
+        eq_(False, m(None, "1234"))
+        eq_(False, m(None, re.compile(".*")))
+        eq_(False, m("a1234", "1234"))
+        eq_(False, m("abc", re.compile("^bc")))
+        
+    def test_patron_identifier_restriction_matches(self):
+        """Test the patron_identifier_restriction_matches method."""
+        provider = self.mock_basic()
+        provider.patron_identifier_restriction = re.compile("23[46]5")
+        m = provider.patron_identifier_restriction_matches
+        eq_(True, m("23456"))
+        eq_(True, m("2365"))
+        eq_(False, m("2375"))
+
+        provider.patron_identifier_restriction = "2345"
+        eq_(True, m("23456"))
+        eq_(False, m("123456"))
+
+    def test_patron_identifier_restriction(self):
+        library = self._default_library
+        integration = self._external_integration(self._str)
+
+        class MockProvider(AuthenticationProvider):
+            NAME = "Just a mock"
+        
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MockProvider.PATRON_IDENTIFIER_RESTRICTION,
+            library, integration
+        )
+
+        # If the setting value starts with a carat, it's turned into a
+        # regular expression.
+        setting.value = "^abcd"
+        provider = MockProvider(library, integration)
+        eq_("^abcd", provider.patron_identifier_restriction.pattern)
+
+        # Otherwise, it's a regular string that is used as a prefix.
+        setting.value = "abcd"
+        provider = MockProvider(library, integration)
+        eq_("abcd", provider.patron_identifier_restriction)
+
 
 class TestBasicAuthenticationProvider(AuthenticatorTest):
 
@@ -1241,10 +1299,25 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(False, provider.server_side_validation("ood", "barbecue"))
         eq_(False, provider.server_side_validation(None, None))
 
+        # Now test the identifier restriction for a specific library.
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, b.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
+        )
+        identifier_restriction.value = "food"
+        provider = b(self._default_library, integration)
+        eq_(True, provider.server_side_validation("food", "barbecue"))
+        eq_(True, provider.server_side_validation("foodie", "barbecue"))
+        eq_(PATRON_OF_ANOTHER_LIBRARY,
+            provider.server_side_validation("foo", "bar"))
+        
         # It's okay not to provide anything for server side validation.
         # The default settings will be used.
         integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
         integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction.value = None
         provider = b(self._default_library, integration)
         eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION.pattern,
             provider.identifier_re.pattern)
@@ -1592,8 +1665,19 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
             def remote_patron_lookup(self, bearer_token):
                 return mock_patrondata
-            
-        oauth = CallbackImplementation(self._default_library)
+
+        integration = CallbackImplementation._mock_integration(
+            self._db, "Mock OAuth"
+        )
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, CallbackImplementation.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
+        )
+        setting.value="123"
+
+        oauth = CallbackImplementation(
+            self._default_library, integration=integration
+        )
         credential, patron, patrondata = oauth.oauth_callback(
             self._db, "a code"
         )
@@ -1615,6 +1699,12 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         # has been passed along.
         eq_(mock_patrondata, patrondata)
         eq_("The User", patrondata.personal_name)
+
+        # A patron whose identifier doesn't match the patron
+        # identifier restriction is treated as a patron of a different
+        # library.
+        mock_patrondata.set_authorization_identifier("abcd")
+        eq_(PATRON_OF_ANOTHER_LIBRARY, oauth.oauth_callback(self._db, "a code"))
         
     def test_authentication_provider_document(self):
         # We're about to call url_for, so we must create an

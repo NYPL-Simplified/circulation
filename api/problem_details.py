@@ -260,3 +260,10 @@ LIBRARY_NOT_FOUND = pd(
     title=_("Library not found."),
     detail=_("No library with the requested name on this server."),
 )
+
+PATRON_OF_ANOTHER_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/patron-of-another-library",
+    status_code=404,
+    title=_("Wrong library"),
+    detail=_("You are not a patron of the selected library."),
+)
