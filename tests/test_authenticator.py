@@ -1159,6 +1159,56 @@ class TestAuthenticationProvider(AuthenticatorTest):
         provider = MockProvider(library, integration)
         eq_(None, provider.external_type_regular_expression)
 
+    def test_restriction_matches(self):
+        """Test the behavior of the patron identifier restriction 
+        algorithm.
+        """
+        m = AuthenticationProvider._restriction_matches
+        eq_(True, m(None, None))
+        eq_(True, m("12345a", "1234"))
+        eq_(True, m("a1234", re.compile("1234")))
+
+        eq_(False, m(None, "1234"))
+        eq_(False, m(None, re.compile(".*")))
+        eq_(False, m("a1234", "1234"))
+        eq_(False, m("abc", re.compile("^bc")))
+        
+    def test_patron_identifier_restriction_matches(self):
+        """Test the patron_identifier_restriction_matches method."""
+        provider = self.mock_basic()
+        provider.patron_identifier_restriction = re.compile("23[46]5")
+        m = provider.patron_identifier_restriction_matches
+        eq_(True, m("23456"))
+        eq_(True, m("2365"))
+        eq_(False, m("2375"))
+
+        provider.patron_identifier_restriction = "2345"
+        eq_(True, m("23456"))
+        eq_(False, m("123456"))
+
+    def test_patron_identifier_restriction_initialization(self):
+        library = self._default_library
+        integration = self._external_integration(self._str)
+
+        class MockProvider(AuthenticationProvider):
+            NAME = "Just a mock"
+        
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MockProvider.PATRON_IDENTIFIER_RESTRICTION,
+            library, integration
+        )
+
+        # If the setting value starts with a carat, it's turned into a
+        # regular expression.
+        setting.value = "^abcd"
+        provider = MockProvider(library, integration)
+        eq_("^abcd", provider.patron_identifier_restriction.pattern)
+
+        # Otherwise, it's a regular string that is used as a prefix.
+        setting.value = "abcd"
+        provider = MockProvider(library, integration)
+        eq_("abcd", provider.patron_identifier_restriction)
+
 
 class TestBasicAuthenticationProvider(AuthenticatorTest):
 
