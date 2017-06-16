@@ -38,7 +38,7 @@ try:
             cdn = EI(protocol=EI.CDN, goal=EI.CDN_GOAL)
             _db.add(cdn)
             cdn.url = unicode(v)
-            cdn.setting(Configuration.CDN_MIRROR_DOMAIN_KEY).value = unicode(k)
+            cdn.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = unicode(k)
             log_import(cdn)
 
     # Import Elasticsearch configuration.

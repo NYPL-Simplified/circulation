@@ -84,7 +84,7 @@ class Configuration(object):
     THREEM_INTEGRATION = "3M"
 
     # ConfigurationSEtting key for a CDN's mirror domain
-    CDN_MIRROR_DOMAIN_KEY = u'mirror_domain'
+    CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
     UNINITIALIZED_CDNS = object()
 
@@ -223,7 +223,7 @@ class Configuration(object):
 
         cdn_integration = dict()
         for cdn in cdns:
-            cdn_integration[cdn.setting(cls.CDN_MIRROR_DOMAIN_KEY).value] = cdn.url
+            cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
 
         config_instance = config_instance or cls.instance
         config_instance[EI.CDN] = cdn_integration
