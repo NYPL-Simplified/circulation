@@ -1182,7 +1182,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 self.password_re.match(password) is not None
             )
         if not self.patron_identifier_restriction_matches(username):
-            value = PATRON_OF_ANOTHER_LIBRARY
+            valid = PATRON_OF_ANOTHER_LIBRARY
         return valid
     
     def remote_authenticate(self, username, password):

@@ -1188,7 +1188,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(True, m("23456"))
         eq_(False, m("123456"))
 
-    def test_patron_identifier_restriction_initialization(self):
+    def test_patron_identifier_restriction(self):
         library = self._default_library
         integration = self._external_integration(self._str)
 
@@ -1295,10 +1295,25 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(False, provider.server_side_validation("ood", "barbecue"))
         eq_(False, provider.server_side_validation(None, None))
 
+        # Now test the identifier restriction for a specific library.
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, b.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
+        )
+        identifier_restriction.value = "food"
+        provider = b(self._default_library, integration)
+        eq_(True, provider.server_side_validation("food", "barbecue"))
+        eq_(True, provider.server_side_validation("foodie", "barbecue"))
+        eq_(PATRON_OF_ANOTHER_LIBRARY,
+            provider.server_side_validation("foo", "bar"))
+        
         # It's okay not to provide anything for server side validation.
         # The default settings will be used.
         integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
         integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction.value = None
         provider = b(self._default_library, integration)
         eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION.pattern,
             provider.identifier_re.pattern)
