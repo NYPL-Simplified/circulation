@@ -41,6 +41,7 @@ from core.app_server import cdn_url_for
 from adobe_vendor_id import AuthdataUtility
 from annotations import AnnotationWriter
 from circulation import BaseCirculationAPI
+from config import Configuration
 from novelist import NoveListAPI
 
 class CirculationManagerAnnotator(Annotator):
