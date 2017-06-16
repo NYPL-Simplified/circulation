@@ -9363,9 +9363,10 @@ class Collection(Base):
     # authentication information, or additional configuration goes
     # into the external integration, as does the 'protocol', which
     # designates the integration technique we will use to actually get
-    # the metadata and licenses.
+    # the metadata and licenses. Each Collection has a distinct
+    # ExternalIntegration.
     external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
+        Integer, ForeignKey('externalintegrations.id'), unique=True, index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
