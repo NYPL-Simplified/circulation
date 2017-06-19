@@ -24,6 +24,13 @@ from s3 import (
 
 class TestS3URLGeneration(DatabaseTest):
 
+    def teardown(self):
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        super(TestS3URLGeneration, self).teardown()
+
+    def test_initializes_with_uninitialized_buckets(self):
+        eq_(S3Uploader.UNINITIALIZED_BUCKETS, S3Uploader.__buckets__)
+
     def test_from_config(self):
         # If there's no configuration for S3, an error is raised.
         assert_raises_regexp(
@@ -49,7 +56,7 @@ class TestS3URLGeneration(DatabaseTest):
         # Well, unless there are multiple S3 integrations, and it
         # doesn't know which one to choose!
         duplicate = self._external_integration(ExternalIntegration.S3)
-        duplicate.goal=ExternalIntegration.STORAGE_GOAL
+        duplicate.goal = ExternalIntegration.STORAGE_GOAL
         assert_raises_regexp(
             ValueError, 'Multiple S3 ExternalIntegrations found',
             S3Uploader.from_config, self._db
@@ -58,8 +65,8 @@ class TestS3URLGeneration(DatabaseTest):
     def test_get_buckets(self):
         # When no buckets have been set, it raises an error.
         assert_raises_regexp(
-            ValueError, 'No S3 bucket found', S3Uploader.get_bucket,
-            S3Uploader.OA_CONTENT_BUCKET_KEY
+            ValueError, 'have not been initialized and no database session',
+            S3Uploader.get_bucket, S3Uploader.OA_CONTENT_BUCKET_KEY
         )
 
         # So let's use an ExternalIntegration to set some buckets.
@@ -70,10 +77,18 @@ class TestS3URLGeneration(DatabaseTest):
                 S3Uploader.BOOK_COVERS_BUCKET_KEY : 'bucket'
             }
         )
-        S3Uploader.from_config(self._db)
 
-        # Now we can get a bucket from the cached class variable.
-        eq_('banana', S3Uploader.get_bucket(S3Uploader.OA_CONTENT_BUCKET_KEY))
+        # If an object from the database is given, the buckets
+        # will be initialized, even though they hadn't been yet.
+        identifier = self._identifier()
+        result = S3Uploader.get_bucket(
+            S3Uploader.OA_CONTENT_BUCKET_KEY, sessioned_object=identifier
+        )
+        eq_('banana', result)
+
+        # Generating the S3Uploader from_config also gives us S3 buckets.
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        S3Uploader.from_config(self._db)
         eq_('bucket', S3Uploader.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
         # Despite our new buckets, if a requested bucket isn't set,
