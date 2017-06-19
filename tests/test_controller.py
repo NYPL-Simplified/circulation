@@ -118,7 +118,7 @@ class ControllerTest(VendorIDTest):
         username="unittestuser", password="unittestpassword"
     )
     
-    def setup(self, _db=None, initialize_adobe=True):
+    def setup(self, _db=None):
         super(ControllerTest, self).setup()
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
@@ -155,11 +155,6 @@ class ControllerTest(VendorIDTest):
         self.collection = self.collections[0]
 
         self.default_patrons = {}
-
-        # The default library gets an Adobe Vendor ID integration.
-        # All libraries get Short Client Token integrations.
-        if initialize_adobe:
-            self.initialize_adobe(self.library, self.libraries)
         
         for library in self.libraries:
             # Create the patron used by the dummy authentication mechanism.
@@ -2171,6 +2166,8 @@ class TestDeviceManagementProtocolController(ControllerTest):
     def setup(self):
         super(TestDeviceManagementProtocolController, self).setup()
         self.auth = dict(Authorization=self.valid_auth)
+        self.initialize_adobe(self.library, self.libraries)
+        self.manager.setup_adobe_vendor_id(self.library)
         self.controller = self.manager.adobe_device_management
         
     def _create_credential(self):
