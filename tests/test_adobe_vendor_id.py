@@ -60,9 +60,13 @@ class TestVendorIDModel(VendorIDTest):
         self.short_client_token_library = self._library(
             short_name="shortclienttoken"
         )
+
+        # Initialize the Adobe-specific ExternalIntegrations for both
+        # libraries.
         self.initialize_adobe(
             self.vendor_id_library, [self.short_client_token_library]
         )
+        
         # Set up a simple authentication provider that validates
         # one specific patron.
         integration = self._external_integration(self._str)

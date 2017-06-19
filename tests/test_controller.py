@@ -93,7 +93,10 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.testing import VendorIDTest
+from api.testing import (
+    VendorIDTest,
+    MockCirculationAPI,
+)
 from lxml import etree
 import random
 import json
@@ -155,7 +158,7 @@ class ControllerTest(VendorIDTest):
 
         # The default library gets an Adobe Vendor ID integration.
         # All libraries get Short Client Token integrations.
-        self.initialize_adobe(_db, self.library, self.libraries)
+        self.initialize_adobe(self.library, self.libraries)
         
         for library in self.libraries:
             # Create the patron used by the dummy authentication mechanism.
@@ -187,7 +190,6 @@ class ControllerTest(VendorIDTest):
         # The test's default patron is the default patron for the first
         # library returned by make_default_libraries.
         self.default_patron = self.default_patrons[self.library]
-        self.authdata = AuthdataUtility.from_config(self.library)
 
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
             "" : "http://cdn"
@@ -224,6 +226,15 @@ class ControllerTest(VendorIDTest):
             self.manager = CirculationManager(
                 _db, lanes=lanes, testing=True
             )
+
+            # Set CirculationAPI and top-level lane for the default
+            # library, for convenience in tests.
+            self.manager.d_circulation = self.manager.circulation_apis[
+                self.library.id
+            ]
+            self.manager.d_top_level_lane = self.manager.top_level_lanes[
+                self.library.id
+            ]
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
 
@@ -547,9 +558,9 @@ class TestBaseController(CirculationControllerTest):
             eq_(self._default_library, flask.request.library)
 
         with self.app.test_request_context("/"):
-            value = self.controller.library_for_request(None)
-            eq_(self._default_library, value)
-            eq_(self._default_library, flask.request.library)
+            assert_raises(
+                ValueError, self.controller.library_for_request, None
+            )
 
 
 class TestIndexController(CirculationControllerTest):

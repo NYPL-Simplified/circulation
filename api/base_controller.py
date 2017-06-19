@@ -86,7 +86,9 @@ class BaseCirculationManagerController(object):
         if library_short_name:
             library = get_one(self._db, Library, short_name=library_short_name)
         else:
-            raise Exception("No library_short_name provided!")
+            # TODO: It should be possible to designate one library
+            # as the default.
+            raise ValueError("No library_short_name provided!")
         
         if not library:
             return LIBRARY_NOT_FOUND
