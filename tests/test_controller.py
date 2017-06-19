@@ -118,7 +118,7 @@ class ControllerTest(VendorIDTest):
         username="unittestuser", password="unittestpassword"
     )
     
-    def setup(self, _db=None):
+    def setup(self, _db=None, initialize_adobe=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
@@ -158,7 +158,8 @@ class ControllerTest(VendorIDTest):
 
         # The default library gets an Adobe Vendor ID integration.
         # All libraries get Short Client Token integrations.
-        self.initialize_adobe(self.library, self.libraries)
+        if initialize_adobe:
+            self.initialize_adobe(self.library, self.libraries)
         
         for library in self.libraries:
             # Create the patron used by the dummy authentication mechanism.
@@ -2428,13 +2429,13 @@ class TestScopedSession(ControllerTest):
         from api.app import _db
 
         # This will call make_default_library and make_default_collection.
-        super(TestScopedSession, self).setup(_db)
+        super(TestScopedSession, self).setup(_db, initialize_adobe=False)
 
     def make_default_libraries(self, _db):
         libraries = []
         for i in range(2):
             name = self._str + " (for scoped session)"
-            library, ignore = create(_db, Library, short_name=name)
+            library, ignore = get_one_or_create(_db, Library, short_name=name)
             libraries.append(library)
         return libraries
 

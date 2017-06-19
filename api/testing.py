@@ -42,7 +42,8 @@ class VendorIDTest(DatabaseTest):
     TEST_SHORT_NAME = u'LBRY'
     TEST_SHARED_SECRET = u'some secret'
     
-    def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
+    def initialize_adobe(self, vendor_id_library, short_token_libraries=[],
+                         _db=None):
         """Initialize an Adobe Vendor ID integration and a number of
         Short Client Token integrations.
 
