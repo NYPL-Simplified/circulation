@@ -761,9 +761,8 @@ class DatabaseTest(object):
         library, ignore = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
                 uuid=unicode(uuid.uuid4()),
-                short_name="default",
                 name="default",
-            )
+            ), short_name="default"
         )
         collection, ignore = get_one_or_create(
             _db, Collection, name="Default Collection"
