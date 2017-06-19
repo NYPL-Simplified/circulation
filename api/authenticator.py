@@ -686,21 +686,58 @@ class AuthenticationProvider(object):
     """
 
     # NOTE: Each subclass MUST define an attribute called NAME, which
-    # is used to configure that subclass in the configuration file,
+    # is displayed in the admin interface when configuring patron auth,
     # used to create the name of the log channel used by this
     # subclass, used to distinguish between tokens from different
     # OAuth providers, etc.
+
+    # Each subclass SHOULD define an attribute called DESCRIPTION, which
+    # is displayed in the admin interface when an admin is configuring
+    # the authentication provider.
+    DESCRIPTION = ""
 
     # Each subclass MUST define a value for URI. This is used in the
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     URI = None
 
+    # Each authentication mechanism may have a list of SETTINGS that
+    # must be configured for that mechanism, and may have a list of
+    # LIBRARY_SETTINGS that must be configured for each library using that
+    # mechanism. Each setting must have a key that is used to store the
+    # setting in the database, and a label that is displayed when configuring
+    # the authentication mechanism in the admin interface.
+    # For example: { "key": "username", "label": _("Client ID") }.
+    # A setting is required by default, but may have "optional" set to True.
+
+    SETTINGS = []
+
     # Each library and authentication mechanism may have a regular
     # expression for deriving a patron's external type from their
     # authentication identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    # When multiple libraries share an ILS, a person may be able to
+    # authenticate with the ILS but not be considered a patron of
+    # _this_ library. This setting contains the rule for determining
+    # whether an identifier is valid for a specific library.
+    #
+    # Usually this is a prefix string which is compared against the
+    # patron's identifiers, but if the string starts with a carat (^)
+    # it will be interpreted as a regular expression.
+    PATRON_IDENTIFIER_RESTRICTION = 'patron_identifier_restriction'
     
+    LIBRARY_SETTINGS = [
+        { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
+          "label": _("External Type Regular Expression"),
+          "optional": True,
+        },
+        { "key": PATRON_IDENTIFIER_RESTRICTION,
+          "label": _("Patron identifier prefix"),
+          "optional": True,
+        }
+    ]
+
     def __init__(self, library, integration):
         """Basic constructor.
         
@@ -741,7 +778,50 @@ class AuthenticationProvider(object):
                 regexp = None
         self.external_type_regular_expression = regexp
 
-            
+        restriction = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.PATRON_IDENTIFIER_RESTRICTION, library, integration
+        ).value
+        if restriction and restriction.startswith("^"):
+            # Interpret the value a regular expression
+            try:
+                restriction = re.compile(restriction)
+            except Exception, e:
+                self.log.error(
+                    "Could not interpret identifier restriction as a regular expression: %r", e
+                )
+        self.patron_identifier_restriction = restriction
+
+    @classmethod
+    def _restriction_matches(cls, identifier, restriction):
+        """Does the given patron identifier match the given 
+        patron identifier restriction?
+        """
+        if not restriction:
+            # No restriction -- anything matches.
+            return True
+        if not identifier:
+            # No identifier -- it won't match any restriction.
+            return False
+        if isinstance(restriction, basestring):
+            # It's a prefix string.
+            if not identifier.startswith(restriction):
+                # The prefix doesn't match.
+                return False
+        else:
+            # It's a regexp.
+            if not restriction.search(identifier):
+                # The regex doesn't match.
+                return False
+        return True
+        
+    def patron_identifier_restriction_matches(self, identifier):
+        """Does the given patron identifier match the configured
+        patron identifier restriction?
+        """
+        return self._restriction_matches(
+            identifier, self.patron_identifier_restriction
+        )
+    
     def library(self, _db):
         return get_one(_db, Library, self.library_id)
     
@@ -928,6 +1008,13 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # with the authenticator or with the way we have it configured.
     TEST_IDENTIFIER = 'test_identifier'
     TEST_PASSWORD = 'test_password'
+
+    SETTINGS = [
+        { "key": IDENTIFIER_REGULAR_EXPRESSION, "label": _("Identifier Regular Expression"), "optional": True },
+        { "key": PASSWORD_REGULAR_EXPRESSION, "label": _("Password Regular Expression"), "optional": True },
+        { "key": TEST_IDENTIFIER, "label": _("Test Identifier") },
+        { "key": TEST_PASSWORD, "label": _("Test Password") },
+    ] + AuthenticationProvider.SETTINGS
     
     # Used in the constructor to signify that the default argument
     # value for the class should be used (as distinct from None, which
@@ -991,10 +1078,17 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """
         username = credentials.get('username')
         password = credentials.get('password')
-        if not self.server_side_validation(username, password):
+        server_side_validation_result = self.server_side_validation(
+            username, password
+        )
+        if not server_side_validation_result:
+            # False => None
+            server_side_validation_result = None
+        if (not server_side_validation_result
+            or isinstance(server_side_validation_result, ProblemDetail)):
             # The credentials are prima facie invalid and do not
             # need to be checked with the source of truth.
-            return None
+            return server_side_validation_result
 
         # Check these credentials with the source of truth.
         patrondata = self.remote_authenticate(username, password)
@@ -1089,8 +1183,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             valid = valid and password is not None and (
                 self.password_re.match(password) is not None
             )
+        if not self.patron_identifier_restriction_matches(username):
+            valid = PATRON_OF_ANOTHER_LIBRARY
         return valid
-        
+    
     def remote_authenticate(self, username, password):
         """Does the source of truth approve of these credentials?
 
@@ -1243,9 +1339,13 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # This is the default value for that configuration setting.
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
 
+    SETTINGS = [
+        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires"), "optional": True },
+    ] + AuthenticationProvider.SETTINGS
+
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
-    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
+    BEARER_TOKEN_SIGNING_SECRET = Configuration.BEARER_TOKEN_SIGNING_SECRET
 
     @classmethod
     def bearer_token_signing_secret(cls, _db):
@@ -1380,7 +1480,16 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         patrondata = self.remote_patron_lookup(token)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-        
+
+        for identifier in patrondata.authorization_identifiers:
+            if self.patron_identifier_restriction_matches(identifier):
+                break
+        else:
+            # None of the patron's authorization identifiers match.
+            # This patron was able to validate with the OAuth provider,
+            # but they are not a patron of _this_ library.
+            return PATRON_OF_ANOTHER_LIBRARY
+            
         # Convert the PatronData into a Patron object.
         patron, is_new = patrondata.get_or_create_patron(
             _db, self.library_id

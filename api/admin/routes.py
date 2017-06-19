@@ -327,6 +327,30 @@ def individual_admins():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def patron_auth_services():
+    data = app.manager.admin_settings_controller.patron_auth_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def sitewide_settings():
+    data = app.manager.admin_settings_controller.sitewide_settings()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -367,7 +391,7 @@ def admin_view(collection=None, book=None, **kwargs):
     else:
         home_url = None
 
-    csrf_token = app.manager.admin_sign_in_controller.generate_csrf_token()
+    csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
 
     show_circ_events_download = (
         "core.local_analytics_provider" in (Configuration.policy("analytics") or [])

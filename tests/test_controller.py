@@ -83,7 +83,6 @@ from api.circulation import (
 from api.novelist import MockNoveListAPI
 from api.adobe_vendor_id import AuthdataUtility
 from api.lanes import make_lanes_default
-from core.util.cdn import cdnify
 import base64
 import feedparser
 from core.opds import (
@@ -94,38 +93,15 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.testing import MockAdobeConfiguration
+from api.testing import VendorIDTest
 from lxml import etree
 import random
 import json
 import urllib
 from core.analytics import Analytics
 
-class TestCirculationManager(CirculationManager):
 
-    def __init__(self, _default_library_id, *args, **kwargs):
-        super(TestCirculationManager, self).__init__(*args, **kwargs)
-        self._default_library_id = _default_library_id
-
-    @property
-    def d_circulation(self):
-        """Shorthand for the CirculationAPI object associated with
-        the default library.
-        """
-        return self.circulation_apis[self._default_library_id]
-
-    @property
-    def d_top_level_lane(self):
-        """Shorthand for the CirculationAPI object associated with
-        the default library.
-        """
-        return self.top_level_lanes[self._default_library_id]
-        
-    def cdn_url_for(self, view, *args, **kwargs):
-        base_url = url_for(view, *args, **kwargs)
-        return cdnify(base_url, {"": "http://cdn/"})
-
-class ControllerTest(DatabaseTest, MockAdobeConfiguration):
+class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
 
     # Authorization headers that will succeed (or fail) against the
@@ -140,8 +116,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
     )
     
     def setup(self, _db=None):
-        super(ControllerTest, self).setup()
-
+        super(ControllerTest, self).setup(_db=_db)
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -211,6 +186,30 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         # library returned by make_default_libraries.
         self.default_patron = self.default_patrons[self.library]
         self.authdata = AuthdataUtility.from_config(_db)
+
+        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+            "" : "http://cdn"
+        }
+
+        # Create a simple authentication integration for this library,
+        # unless it already has a way to authenticate patrons
+        # (in which case we would just screw things up).
+        if not any([x for x in self.library.integrations if x.goal==
+                ExternalIntegration.PATRON_AUTH_GOAL]):
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol="api.simple_authentication",
+                goal=ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            p = BasicAuthenticationProvider
+            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            self.library.integrations.append(integration)
+        self.authdata = AuthdataUtility.from_config(self.library)
+
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://test-circulation-manager/'
+
         with temp_config() as config:
             config[Configuration.POLICIES] = {
                 Configuration.LANGUAGE_POLICY : {
@@ -218,17 +217,10 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
                 }
             }
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.CIRCULATION_MANAGER_INTEGRATION : {
-                    "url": 'http://test-circulation-manager/'
-                },
-                Configuration.ADOBE_VENDOR_ID_INTEGRATION : dict(
-                    self.MOCK_ADOBE_CONFIGURATION
-                )
-            }
+
             lanes = make_lanes_default(self.library)
-            self.manager = TestCirculationManager(
-                self.library.id, _db, lanes=lanes, testing=True
+            self.manager = CirculationManager(
+                _db, lanes=lanes, testing=True
             )
             app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
@@ -248,6 +240,7 @@ class ControllerTest(DatabaseTest, MockAdobeConfiguration):
         with self.app.test_request_context(route, *args, **kwargs) as c:
             flask.request.library = library
             yield c
+
 
 class CirculationControllerTest(ControllerTest):
 
@@ -309,26 +302,21 @@ class TestBaseController(CirculationControllerTest):
             value = self.controller.authenticated_patron(self.valid_credentials)
             assert isinstance(value, Patron)
 
-
     def test_authentication_sends_proper_headers(self):
 
         # Make sure the realm header has quotes around the realm name.  
         # Without quotes, some iOS versions don't recognize the header value.
-        
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS] = {
-                Configuration.CIRCULATION_MANAGER_INTEGRATION: {
-                    Configuration.URL: "http://url"
-                }
-            }
 
-            with self.request_context_with_library("/"):
-                response = self.controller.authenticate()
-                eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://url'
 
-            with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
-                response = self.controller.authenticate()
-                eq_(None, response.headers.get("WWW-Authenticate"))
+        with self.request_context_with_library("/"):
+            response = self.controller.authenticate()
+            eq_(response.headers['WWW-Authenticate'], u'Basic realm="Library card"')
+
+        with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
+            response = self.controller.authenticate()
+            eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
         with self.request_context_with_library("/"):
@@ -561,6 +549,7 @@ class TestBaseController(CirculationControllerTest):
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
 
+
 class TestIndexController(CirculationControllerTest):
     
     def test_simple_redirect(self):
@@ -691,7 +680,6 @@ class TestLoanController(CirculationControllerTest):
             )
             eq_((hold, other_pool), result)
 
-
     def test_borrow_success(self):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
@@ -799,9 +787,8 @@ class TestLoanController(CirculationControllerTest):
                     datetime.datetime.utcnow() + datetime.timedelta(seconds=3600),
                 )
             )
-            with self.temp_config():
-                response = self.manager.loans.borrow(
-                    identifier.type, identifier.identifier)
+            response = self.manager.loans.borrow(
+                identifier.type, identifier.identifier)
 
             # A loan has been created for this license pool.
             loan = get_one(self._db, Loan, license_pool=pool)
@@ -1170,8 +1157,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            with self.temp_config() as config:
-                response = self.manager.loans.sync()
+            response = self.manager.loans.sync()
             assert not "<entry>" in response.data
             assert response.headers['Cache-Control'].startswith('private,')
 
@@ -1217,8 +1203,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            with self.temp_config() as config:
-                response = self.manager.loans.sync()
+            response = self.manager.loans.sync()
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -1483,6 +1468,7 @@ class TestAnnotationController(CirculationControllerTest):
             # The annotation has been marked inactive.
             eq_(False, annotation.active)
 
+
 class TestWorkController(CirculationControllerTest):
     def setup(self):
         super(TestWorkController, self).setup()
@@ -1653,15 +1639,13 @@ class TestWorkController(CirculationControllerTest):
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(9, len(facet_links))
 
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.recommendations(
+                self.identifier.type, self.identifier.identifier
+            )
 
-        with temp_config() as config:
-            with self.request_context_with_library('/'):
-                config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-                response = self.manager.work_controller.recommendations(
-                    self.identifier.type, self.identifier.identifier
-                )
-            eq_(404, response.status_code)
-            eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
         another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
 
@@ -1748,20 +1732,18 @@ class TestWorkController(CirculationControllerTest):
 
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
-        with temp_config() as config:
-            # Don't set NoveList Integration.
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
 
-            # Remove contribution.
-            [contribution] = self.edition.contributions
-            [original, role] = [contribution.contributor, contribution.role]
-            self._db.delete(contribution)
-            self._db.commit()
+        # Remove contribution.
+        [contribution] = self.edition.contributions
+        [original, role] = [contribution.contributor, contribution.role]
+        self._db.delete(contribution)
+        self._db.commit()
 
-            with self.request_context_with_library('/'):
-                response = self.manager.work_controller.related(
-                    self.identifier.type, self.identifier.identifier
-                )
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.related(
+                self.identifier.type, self.identifier.identifier
+            )
+
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
@@ -1995,6 +1977,7 @@ class TestWorkController(CirculationControllerTest):
             feed = feedparser.parse(response.data)
             eq_(0, len(feed['entries']))
 
+
 class TestFeedController(CirculationControllerTest):
 
     BOOKS = list(CirculationControllerTest.BOOKS) + [
@@ -2167,6 +2150,7 @@ class TestAnalyticsController(CirculationControllerTest):
                     license_pool=self.lp
                 )
                 assert circulation_event != None
+
 
 class TestDeviceManagementProtocolController(ControllerTest):
 
@@ -2416,6 +2400,7 @@ class TestProfileController(ControllerTest):
             eq_(415, response.status_code)
             eq_("Expected vnd.librarysimplified/user-profile+json",
                 response.detail)
+
 
 class TestScopedSession(ControllerTest):
     """Test that in production scenarios (as opposed to normal unit tests)

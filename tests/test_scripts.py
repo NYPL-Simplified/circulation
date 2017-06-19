@@ -23,6 +23,7 @@ from core.lane import (
 )
 
 from core.model import (
+    ConfigurationSetting,
     Credential,
     DataSource,
     get_one,
@@ -91,6 +92,12 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
 
 class TestLaneScript(DatabaseTest):
 
+    def setup(self):
+        super(TestLaneScript, self).setup()
+        base_url_setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY)
+        base_url_setting.value = u'http://test-circulation-manager/'
+
     @contextlib.contextmanager
     def temp_config(self):
         """Create a temporary configuration with the bare-bones policies
@@ -102,10 +109,6 @@ class TestLaneScript(DatabaseTest):
                     Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
                     Configuration.SMALL_COLLECTION_LANGUAGES : 'fre',
                 }
-            }
-            circ_key = Configuration.CIRCULATION_MANAGER_INTEGRATION
-            config[Configuration.INTEGRATIONS][circ_key] = {
-                    "url": 'http://test-circulation-manager/'
             }
             yield config
 

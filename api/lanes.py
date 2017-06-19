@@ -531,7 +531,7 @@ class RecommendationLane(WorkBasedLane):
             library, work, full_name, display_name=display_name,
             parent=parent, searchable=False,
         )
-        self.api = novelist_api or NoveListAPI.from_config(self._db)
+        self.api = novelist_api or NoveListAPI.from_config(library)
         self.recommendations = self.fetch_recommendations()
 
     def fetch_recommendations(self):

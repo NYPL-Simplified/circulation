@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
-
+from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree
@@ -23,16 +23,18 @@ from core.monitor import (
 )
 
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup
 )
 
 from core.model import (
     CirculationEvent,
     get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Representation,
@@ -40,13 +42,13 @@ from core.model import (
     Session,
 )
 
+
 from core.coverage import (
     BibliographicCoverageProvider,
     CoverageFailure,
 )
 
 from authenticator import Authenticator
-from config import Configuration
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
@@ -57,6 +59,14 @@ from circulation_exceptions import *
 
 
 class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
+
+    NAME = ExternalIntegration.AXIS_360
+    FIELDS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Username") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.URL, "label": _("Server") },
+    ] + BaseCirculationAPI.FIELDS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
@@ -246,11 +256,10 @@ class Axis360CirculationMonitor(CollectionMonitor):
         else:
             self.api = api_class(collection)
         if not metadata_client:
-            metadata_wrangler_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
+            metadata_client = MetadataWranglerOPDSLookup.from_config(
+                _db, collection=collection
             )
-            if metadata_wrangler_url:
-                metadata_client = SimplifiedOPDSLookup(metadata_wrangler_url)
+
         self.metadata_client = metadata_client
         self.bibliographic_coverage_provider = (
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)
