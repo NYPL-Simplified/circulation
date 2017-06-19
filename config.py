@@ -8,6 +8,8 @@ import copy
 from util import LanguageCodes
 from flask.ext.babel import lazy_gettext as _
 
+from s3 import S3Uploader
+
 class CannotLoadConfiguration(Exception):
     pass
 
@@ -261,6 +263,7 @@ class Configuration(object):
         cls.instance = configuration
 
         if _db:
+            S3Uploader.initialize_buckets(_db)
             cls.load_cdns(_db)
         else:
             if not cls.integration('CDN'):

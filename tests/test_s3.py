@@ -4,6 +4,7 @@ from PIL import Image
 from StringIO import StringIO
 from nose.tools import (
     set_trace,
+    assert_raises_regexp,
     eq_,
 )
 from . import (
@@ -23,22 +24,87 @@ from s3 import (
 
 class TestS3URLGeneration(DatabaseTest):
 
+    def teardown(self):
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        super(TestS3URLGeneration, self).teardown()
+
+    def test_initializes_with_uninitialized_buckets(self):
+        eq_(S3Uploader.UNINITIALIZED_BUCKETS, S3Uploader.__buckets__)
+
+    def test_from_config(self):
+        # If there's no configuration for S3, an error is raised.
+        assert_raises_regexp(
+            ValueError, 'No S3 ExternalIntegration found',
+            S3Uploader.from_config, self._db
+        )
+
+        # Without an access_key and secret_key, an error is raised
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL
+        )
+        assert_raises_regexp(
+            ValueError, 'without both access_key and secret_key',
+            S3Uploader.from_config, self._db
+        )
+
+        # Otherwise, it builds just fine.
+        integration.username = 'your-access-key'
+        integration.password = 'your-secret-key'
+        uploader = S3Uploader.from_config(self._db)
+        eq_(True, isinstance(uploader, S3Uploader))
+
+        # Well, unless there are multiple S3 integrations, and it
+        # doesn't know which one to choose!
+        duplicate = self._external_integration(ExternalIntegration.S3)
+        duplicate.goal = ExternalIntegration.STORAGE_GOAL
+        assert_raises_regexp(
+            ValueError, 'Multiple S3 ExternalIntegrations found',
+            S3Uploader.from_config, self._db
+        )
+
+    def test_get_buckets(self):
+        # When no buckets have been set, it raises an error.
+        assert_raises_regexp(
+            ValueError, 'have not been initialized and no database session',
+            S3Uploader.get_bucket, S3Uploader.OA_CONTENT_BUCKET_KEY
+        )
+
+        # So let's use an ExternalIntegration to set some buckets.
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL,
+            username='access', password='secret', settings={
+                S3Uploader.OA_CONTENT_BUCKET_KEY : 'banana',
+                S3Uploader.BOOK_COVERS_BUCKET_KEY : 'bucket'
+            }
+        )
+
+        # If an object from the database is given, the buckets
+        # will be initialized, even though they hadn't been yet.
+        identifier = self._identifier()
+        result = S3Uploader.get_bucket(
+            S3Uploader.OA_CONTENT_BUCKET_KEY, sessioned_object=identifier
+        )
+        eq_('banana', result)
+
+        # Generating the S3Uploader from_config also gives us S3 buckets.
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        S3Uploader.from_config(self._db)
+        eq_('bucket', S3Uploader.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+
+        # Despite our new buckets, if a requested bucket isn't set,
+        # an error ir raised.
+        assert_raises_regexp(
+            ValueError, 'No S3 bucket found', S3Uploader.get_bucket,
+            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY
+        )
+
     def test_content_root(self):
         bucket = u'test-open-access-s3-bucket'
-        self._external_integration(
-            ExternalIntegration.S3,
-            goal=ExternalIntegration.OA_CONTENT_GOAL,
-            url=bucket,
-        )
         eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
             S3Uploader.content_root(bucket))
 
     def test_cover_image_root(self):
         bucket = u'test-book-covers-s3-bucket'
-        self._external_integration(
-            ExternalIntegration.S3,
-            goal=ExternalIntegration.BOOK_COVERS_GOAL,
-            url=bucket)
 
         gutenberg_illustrated = DataSource.lookup(
             self._db, DataSource.GUTENBERG_COVER_GENERATOR)
