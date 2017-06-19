@@ -128,7 +128,7 @@ class DatabaseTest(object):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
-
+        
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 2000
 
@@ -462,13 +462,13 @@ class DatabaseTest(object):
         return credential
     
     def _external_integration(self, protocol, goal=None, settings=None,
-                              libraries=None, **kwargs
+                              libraries=None, _db=None, **kwargs
     ):
         integration = None
-
+        _db = _db or self._db
         if not libraries:
             integration, ignore = get_one_or_create(
-                self._db, ExternalIntegration, protocol=protocol, goal=goal
+                _db, ExternalIntegration, protocol=protocol, goal=goal
             )
         else:
             if not isinstance(libraries, list):
@@ -478,7 +478,7 @@ class DatabaseTest(object):
             # libraries.
             for library in libraries:
                 integration = ExternalIntegration.lookup(
-                    self._db, protocol, goal, library=libraries[0]
+                    _db, protocol, goal, library=libraries[0]
                 )
                 if integration:
                     break
@@ -490,7 +490,7 @@ class DatabaseTest(object):
                     protocol=protocol, goal=goal,
                 )
                 integration.libraries.extend(libraries)
-                self._db.add(integration)
+                _db.add(integration)
 
         for attr, value in kwargs.items():
             setattr(integration, attr, value)
