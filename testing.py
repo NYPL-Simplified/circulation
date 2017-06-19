@@ -462,13 +462,12 @@ class DatabaseTest(object):
         return credential
     
     def _external_integration(self, protocol, goal=None, settings=None,
-                              libraries=None, _db=None, **kwargs
+                              libraries=None, **kwargs
     ):
         integration = None
-        _db = _db or self._db
         if not libraries:
             integration, ignore = get_one_or_create(
-                _db, ExternalIntegration, protocol=protocol, goal=goal
+                self._db, ExternalIntegration, protocol=protocol, goal=goal
             )
         else:
             if not isinstance(libraries, list):
@@ -478,7 +477,7 @@ class DatabaseTest(object):
             # libraries.
             for library in libraries:
                 integration = ExternalIntegration.lookup(
-                    _db, protocol, goal, library=libraries[0]
+                    self._db, protocol, goal, library=libraries[0]
                 )
                 if integration:
                     break
@@ -490,7 +489,7 @@ class DatabaseTest(object):
                     protocol=protocol, goal=goal,
                 )
                 integration.libraries.extend(libraries)
-                _db.add(integration)
+                self._db.add(integration)
 
         for attr, value in kwargs.items():
             setattr(integration, attr, value)
