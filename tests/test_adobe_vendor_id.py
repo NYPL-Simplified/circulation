@@ -211,7 +211,7 @@ class TestVendorIDModel(VendorIDTest):
 
         # The Vendor ID library knows the secret it shares with the
         # other library -- initialize_adobe() took care of that.
-        sct_library_uri = sct_library.setting(sct_library.WEBSITE_KEY).value
+        sct_library_uri = sct_library.setting(Configuration.WEBSITE_URL).value
         eq_("%s token secret" % sct_library.short_name,
             vendor_id_utility.secrets_by_library_uri[sct_library_uri]
         )
@@ -255,7 +255,7 @@ class TestVendorIDModel(VendorIDTest):
 
         # The Vendor ID library knows the secret it shares with the
         # other library -- initialize_adobe() took care of that.
-        sct_library_url = sct_library.setting(sct_library.WEBSITE_KEY).value
+        sct_library_url = sct_library.setting(Configuration.WEBSITE_URL).value
         eq_("%s token secret" % sct_library.short_name,
             vendor_id_utility.secrets_by_library_uri[sct_library_url]
         )
@@ -592,8 +592,8 @@ class TestAuthdataUtility(VendorIDTest):
         library = self._default_library
         library2 = self._library()
         self.initialize_adobe(library, [library2])
-        library_url = library.setting(library.WEBSITE_KEY).value
-        library2_url = library2.setting(library2.WEBSITE_KEY).value
+        library_url = library.setting(Configuration.WEBSITE_URL).value
+        library2_url = library2.setting(Configuration.WEBSITE_URL).value
         
         utility = AuthdataUtility.from_config(library)
 
@@ -628,7 +628,7 @@ class TestAuthdataUtility(VendorIDTest):
         )
         short_client_token.username = old_short_name
 
-        setting = library.setting(library.WEBSITE_KEY)
+        setting = library.setting(Configuration.WEBSITE_URL)
         old_value = setting.value
         setting.value = None
         assert_raises(

@@ -74,7 +74,7 @@ class VendorIDTest(DatabaseTest):
             short_client_token.username = short_name
             short_client_token.password = secret
 
-            library.setting(Library.WEBSITE_KEY).value = library_uri
+            library.setting(Configuration.WEBSITE_URL).value = library_uri
 
             # Each library knows which Adobe Vendor ID server it
             # gets its Adobe IDs from.
