@@ -93,7 +93,8 @@ class VendorIDTest(DatabaseTest):
                 
             # Each Short Client Token integration will be registered
             # with that Adobe Vendor ID server.
-            other_libraries[library_uri] = (short_name, secret)
+            if library != vendor_id_library:
+                other_libraries[library_uri] = (short_name, secret)
 
         # Tell the Adobe Vendor ID server about the other libraries.
         other_libraries = json.dumps(other_libraries)
