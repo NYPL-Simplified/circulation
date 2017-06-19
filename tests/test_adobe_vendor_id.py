@@ -206,7 +206,7 @@ class TestVendorIDModel(VendorIDTest):
         # The Vendor ID library knows the secret it shares with the
         # other library -- initialize_adobe() took care of that.
         sct_library_uri = sct_library.setting(sct_library.WEBSITE_KEY).value
-        eq_("%s token secret" % library.short_name,
+        eq_("%s token secret" % sct_library.short_name,
             vendor_id_utility.secrets_by_library_uri[sct_library_uri]
         )
 
