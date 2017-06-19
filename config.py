@@ -128,7 +128,7 @@ class Configuration(object):
 
     LIBRARY_SETTINGS = [
         {
-            "key": LIBRARY_WEBSITE,
+            "key": WEBSITE_URL,
             "label": _("URL of the library's website"),
         },
         {
