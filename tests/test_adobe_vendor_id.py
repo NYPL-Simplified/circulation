@@ -48,6 +48,8 @@ from api.simple_authentication import SimpleAuthenticationProvider
 
 class TestVendorIDModel(VendorIDTest):
 
+    TEST_NODE_VALUE = 114740953091845
+    
     credentials = dict(username="validpatron", password="password")
     
     def setup(self):
@@ -589,67 +591,74 @@ class TestAuthdataUtility(VendorIDTest):
     def test_from_config(self):
         library = self._default_library
         library2 = self._library()
+        self.initialize_adobe(library, [library2])
+        library_url = library.setting(library.WEBSITE_KEY).value
+        library2_url = library2.setting(library2.WEBSITE_KEY).value
         
-        utility = AuthdataUtility.from_config(library, [library2])
+        utility = AuthdataUtility.from_config(library)
 
         short_client_token = ExternalIntegration.lookup(
             self._db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
-        eq_(library.short_name + " token name", short_client_token.username)
+        eq_(library.short_name + "token", short_client_token.username)
         eq_(library.short_name + " token secret", short_client_token.password)
 
         eq_(self.TEST_VENDOR_ID, utility.vendor_id)
-        eq_(library.setting(library.WEBSITE_KEY), utility.library_uri)
+        eq_(library_url, utility.library_uri)
         eq_(
-            {self.TEST_OTHER_LIBRARY_URI : "secret2",
-             self.TEST_LIBRARY_URI : "some secret"},
+            {library2_url : "%s token secret" % library2.short_name,
+             library_url : "%s token secret" % library.short_name},
             utility.secrets_by_library_uri
         )
 
         eq_(
-            {"LBRY": self.TEST_LIBRARY_URI,
-             "YOU" : self.TEST_OTHER_LIBRARY_URI },
+            {"%sTOKEN" % library.short_name.upper() : library_url,
+             "%sTOKEN" % library2.short_name.upper() : library2_url },
             utility.library_uris_by_short_name
         )
 
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
-        self.short_client_token.username = None
+        old_short_name = short_client_token.username
+        short_client_token.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config,
             library
         )
-        self.short_client_token.username = self.TEST_SHORT_NAME
+        short_client_token.username = old_short_name
 
-        ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value = None
+        setting = library.setting(library.WEBSITE_KEY)
+        old_value = setting.value
+        setting.value = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        ConfigurationSetting.for_library(
-            Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
+        setting.value = old_value
 
-        old_short_name = self.short_client_token.username
-        self.short_client_token.username = None
+        short_client_token.username = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.short_client_token.username = old_short_name
+        short_client_token.username = old_short_name
 
-        old_secret = self.short_client_token.password
-        self.short_client_token.password = None
+        old_secret = short_client_token.password
+        short_client_token.password = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        self.short_client_token.password = old_secret
+        short_client_token.password = old_secret
 
-        # If other libraries are not configured, that's fine.
+        # If other libraries are not configured, that's fine. We'll
+        # only have a configuration for ourselves.
         self.adobe_vendor_id.set_setting(
             AuthdataUtility.OTHER_LIBRARIES_KEY, None
         )
         authdata = AuthdataUtility.from_config(library)
-        eq_({self.TEST_LIBRARY_URI : "some secret"}, authdata.secrets_by_library_uri)
-        eq_({"LBRY": self.TEST_LIBRARY_URI}, authdata.library_uris_by_short_name)
+        eq_({library_url : "%s token secret" % library.short_name},
+            authdata.secrets_by_library_uri)
+        eq_({"%sTOKEN" % library.short_name.upper(): library_url},
+            authdata.library_uris_by_short_name)
 
         # Short library names are case-insensitive. If the
         # configuration has the same library short name twice, you
@@ -665,7 +674,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
-        self._db.delete(self.short_client_token)
+        self._db.delete(short_client_token)
         eq_(None, AuthdataUtility.from_config(library))
             
     def test_decode_round_trip(self):        
@@ -1047,7 +1056,7 @@ class TestAuthdataUtility(VendorIDTest):
         eq_('Delegated account ID My Adobe ID', label)
        
 
-class TestDeviceManagementRequestHandler(TestAuthdataUtility):
+class TestDeviceManagementRequestHandler(VendorIDTest):
     
     def test_register_drm_device_identifier(self):
         credential = self._credential()

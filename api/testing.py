@@ -30,17 +30,11 @@ from api.config import (
 from api.adobe_vendor_id import AuthdataUtility
 
 class VendorIDTest(DatabaseTest):
-    """A DatabaseTest mix-in class that knows how to set up an Adobe Vendor
-    ID integration.
+    """A DatabaseTest that knows how to set up an Adobe Vendor ID
+    integration.
     """
-    TEST_NODE_VALUE = 114740953091845
+
     TEST_VENDOR_ID = u"vendor id"
-    TEST_LIBRARY_URI = u"http://me/"
-    TEST_OTHER_LIBRARY_URI = u"http://you/"
-    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
-       
-    TEST_SHORT_NAME = u'LBRY'
-    TEST_SHARED_SECRET = u'some secret'
     
     def initialize_adobe(self, vendor_id_library, short_token_libraries=[],
                          _db=None):
@@ -76,7 +70,7 @@ class VendorIDTest(DatabaseTest):
             # Each library will get a slightly different short
             # name and secret for generating Short Client Tokens.
             library_uri = self._url
-            short_name = library.short_name + " token name"
+            short_name = library.short_name + "token"
             secret = library.short_name + " token secret"
             short_client_token.username = short_name
             short_client_token.password = secret
