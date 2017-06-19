@@ -49,7 +49,6 @@ class VendorIDTest(DatabaseTest):
             self.adobe_vendor_id = self._external_integration(
                 ExternalIntegration.ADOBE_VENDOR_ID,
                 ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID)
-            self.set_main_library_adobe_config(self._default_library)
 
             other_libraries = dict()
             
@@ -90,7 +89,6 @@ class VendorIDTest(DatabaseTest):
         )
                 
         _db = _db or self._db
-        self.initialize_library(_db)
 
 
 class MockRemoteAPI(BaseCirculationAPI):
