@@ -46,6 +46,7 @@ class VendorIDTest(DatabaseTest):
         :param short_token_libraries: The Libraries that should have a
         Short Client Token integration.
         """
+        short_token_libraries = list(short_token_libraries)
         if not vendor_id_library in short_token_libraries:
             short_token_libraries.append(vendor_id_library)
         # The first library acts as an Adobe Vendor ID server.
