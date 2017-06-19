@@ -126,6 +126,10 @@ class Configuration(object):
 
     LIBRARY_SETTINGS = [
         {
+            "key": WEBSITE_KEY,
+            "label": _("URL of the library's website"),
+        },
+        {
             "key": ALLOW_HOLDS,
             "label": _("Allow books to be put on hold"),
         },
