@@ -431,17 +431,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every relevant facet list for this lane."""
 
     name = "Cache OPDS feeds"
-
-    @classmethod
-    def facet_settings(cls, group_name):
-        return Facets.DEFAULT_ENABLED_FACETS[group_name]
     
     @classmethod
     def arg_parser(cls, _db):
         parser = CacheRepresentationPerLane.arg_parser(_db)
-        enabled = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.ORDER_FACET_GROUP_NAME]
         order_help = 'Generate feeds for this ordering. Possible values: %s.' % (
-            ", ".join(enabled)
+            ", ".join(available)
         )
         parser.add_argument(
             '--order',
@@ -450,9 +446,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
-        enabled = cls.facet_settings(Facets.AVAILABILITY_FACET_GROUP_NAME)
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.AVAILABILITY_FACET_GROUP_NAME]
         availability_help = 'Generate feeds for this availability setting. Possible values: %s.' % (
-            ", ".join(enabled)
+            ", ".join(available)
         )
         parser.add_argument(
             '--availability',
@@ -461,9 +457,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
-        enabled = cls.facet_settings(Facets.COLLECTION_FACET_GROUP_NAME)
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.COLLECTION_FACET_GROUP_NAME]
         collection_help = 'Generate feeds for this collection within each lane. Possible values: %s.' % (
-            ", ".join(enabled)
+            ", ".join(available)
         )
         parser.add_argument(
             '--collection',

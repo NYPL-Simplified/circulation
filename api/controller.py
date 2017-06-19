@@ -159,9 +159,6 @@ class CirculationManager(object):
                         "Cannot pass Lane objects into CirculationManager when not in testing mode."
                     )
                 lanes = lanes
-                # TODO: This is no longer supported since different
-                # libraries need different Lane objects, even if the
-                # lane layout is the same.
             else:
                 lanes = make_lanes(library, lanes)
             
