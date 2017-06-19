@@ -30,7 +30,7 @@ from api.config import (
 from api.adobe_vendor_id import AuthdataUtility
 
 class VendorIDTest(DatabaseTest):
-    """A subclass of DatabaseTest that knows how to set up an Adobe Vendor
+    """A DatabaseTest mix-in class that knows how to set up an Adobe Vendor
     ID integration.
     """
     TEST_NODE_VALUE = 114740953091845
@@ -41,8 +41,8 @@ class VendorIDTest(DatabaseTest):
        
     TEST_SHORT_NAME = u'LBRY'
     TEST_SHARED_SECRET = u'some secret'
-
-    def initialize_adobe(self, _db, vendor_id_library, short_token_libraries):
+    
+    def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
         """Initialize an Adobe Vendor ID integration and a number of
         Short Client Token integrations.
 
@@ -52,14 +52,13 @@ class VendorIDTest(DatabaseTest):
         :param short_token_libraries: The Libraries that should have a
         Short Client Token integration.
         """
-        # So long as we're not testing a scoped session, create
-        # the Adobe Vendor ID and Library Registry credentials.
-
+        if not vendor_id_library in short_token_libraries:
+            short_token_libraries.append(vendor_id_library)
         # The first library acts as an Adobe Vendor ID server.
         self.adobe_vendor_id = self._external_integration(
             ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID,
-            libraries=[vendor_id_library], _db=_db
+            libraries=[vendor_id_library]
         )
             
         other_libraries = dict()
@@ -70,19 +69,18 @@ class VendorIDTest(DatabaseTest):
             short_client_token = self._external_integration(
                 ExternalIntegration.SHORT_CLIENT_TOKEN,
                 ExternalIntegration.DRM_GOAL,
-                libraries=[library], _db=_db
+                libraries=[library]
             )
 
             # Each library will get a slightly different short
             # name and secret for generating Short Client Tokens.
             library_uri = self._url
-            short_name = self._str
-            secret = self._str
+            short_name = library.short_name + " token name"
+            secret = library.short_name + " token secret"
             short_client_token.username = short_name
             short_client_token.password = secret
 
-            ConfigurationSetting.for_library_and_externalintegration(
-                _db, Library.WEBSITE_KEY, library, None).value = library_uri
+            library.setting(Library.WEBSITE_KEY).value = library_uri
 
             # Each library knows which Adobe Vendor ID server it
             # gets its Adobe IDs from.
@@ -101,7 +99,7 @@ class VendorIDTest(DatabaseTest):
         self.adobe_vendor_id.set_setting(
             AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
         )
-
+        
 
 class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):
