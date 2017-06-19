@@ -729,7 +729,37 @@ class ShowLibrariesScript(Script):
             output.write("\n")            
                     
 
-class ConfigureSiteScript(Script):
+class ConfigurationSettingScript(Script):
+
+    @classmethod
+    def _parse_setting(self, setting):
+        """Parse a command-line setting option into a key-value pair."""
+        if not '=' in setting:
+            raise ValueError(
+                'Incorrect format for setting: "%s". Should be "key=value"'
+                % setting
+            )
+        return setting.split('=', 1)
+
+    @classmethod
+    def add_setting_argument(self, parser, help):
+        """Modify an ArgumentParser to indicate that the script takes 
+        command-line settings.
+        """
+        parser.add_argument('--setting', help=help, action="append")
+    
+    def apply_settings(self, settings, obj):
+        """Treat `settings` as a list of command-line argument settings,
+        and apply each one to `obj`.
+        """
+        if not settings:
+            return None
+        for setting in settings:
+            key, value = self._parse_setting(setting)
+            obj.setting(key).value = value
+        
+            
+class ConfigureSiteScript(ConfigurationSettingScript):
     """View or update site-wide configuration."""
 
     def __init__(self, _db=None, config=Configuration):
@@ -748,10 +778,9 @@ class ConfigureSiteScript(Script):
             default=False
         )
     
-        parser.add_argument(
-            '--setting',
-            help='Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"',
-            action="append",
+        cls.add_setting_argument(
+            parser,
+            'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"'
         )
 
         parser.add_argument(
@@ -767,12 +796,7 @@ class ConfigureSiteScript(Script):
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         if args.setting:
             for setting in args.setting:
-                if not '=' in setting:
-                    raise ValueError(
-                        'Incorrect format for setting: "%s". Should be "key=value"'
-                        % setting
-                    )
-                key, value = setting.split('=', 1)
+                key, value = self._parse_setting(setting)
                 if not args.force and not key in [s.get("key") for s in self.config.SITEWIDE_SETTINGS]:
                     raise ValueError(
                         "'%s' is not a known site-wide setting. Use --force to set it anyway."
@@ -791,7 +815,7 @@ class ConfigureSiteScript(Script):
                 output.write("%s='%s'\n" % (setting.key, setting.value))
             
             
-class ConfigureLibraryScript(Script):
+class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
     name = "Change a library's settings"
 
@@ -818,6 +842,10 @@ class ConfigureLibraryScript(Script):
             '--random-library-registry-shared-secret',
             help='Set the library registry shared secret to a random value.',
             action='store_true',
+        )
+        cls.add_setting_argument(
+            parser,
+            'Set a per-library setting, such as terms-of-service. Format: --setting="terms-of-service=https://example.library/tos"',
         )
         return parser
 
@@ -870,6 +898,7 @@ class ConfigureLibraryScript(Script):
             library.library_registry_short_name = args.library_registry_short_name
         if args.library_registry_shared_secret:
             library.library_registry_shared_secret = args.library_registry_shared_secret
+        self.apply_settings(args.setting, library)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(library.explain()))
@@ -898,8 +927,15 @@ class ShowCollectionsScript(Script):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         if args.name:
-            collection = get_one(_db, Collection, name=args.name)
-            collections = [collection]
+            name = args.name
+            collection = get_one(_db, Collection, name=name)
+            if collection:
+                collections = [collection]
+            else:
+                output.write(
+                    "Could not locate collection by name: %s" % name
+                )
+                collections = []
         else:
             collections = _db.query(Collection).order_by(Collection.name).all()
         if not collections:
@@ -913,7 +949,54 @@ class ShowCollectionsScript(Script):
             output.write("\n")
 
 
-class ConfigureCollectionScript(Script):
+class ShowIntegrationsScript(Script):
+    """Show information about the external integrations on a server."""
+    
+    name = "List the external integrations on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Only display information for the integration with the given name or ID',
+        )
+        parser.add_argument(
+            '--show-secrets',
+            help='Display secret values such as passwords.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.name:
+            name = args.name
+            integration = get_one(_db, ExternalIntegration, name=name)
+            if not integration:
+                integration = get_one(_db, ExternalIntegration, id=name)
+            if integration:
+                integrations = [integration]
+            else:
+                output.write(
+                    "Could not locate integration by name or ID: %s\n" % args
+                )
+                integrations = []
+        else:
+            integrations = _db.query(ExternalIntegration).order_by(
+                ExternalIntegration.name, ExternalIntegration.id).all()
+        if not integrations:
+            output.write("No integrations found.\n")
+        for integration in integrations:
+            output.write(
+                "\n".join(
+                    integration.explain(include_secrets=args.show_secrets)
+                )
+            )
+            output.write("\n")
+
+
+class ConfigureCollectionScript(ConfigurationSettingScript):
     """Create a collection or change its settings."""
     name = "Change a collection's settings"
 
@@ -952,10 +1035,9 @@ class ConfigureCollectionScript(Script):
             '--password',
             help='Use this password to authenticate with the license protocol. Sometimes called a "secret".',
         )
-        parser.add_argument(
-            '--setting',
-            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
-            action="append",
+        cls.add_setting_argument(
+            parser,
+            'Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
         )
         library_names = cls._library_names(_db)
         if library_names:
@@ -1009,15 +1091,7 @@ class ConfigureCollectionScript(Script):
             integration.username = args.username
         if args.password:
             integration.password = args.password
-        if args.setting:
-            for setting in args.setting:
-                if not '=' in setting:
-                    raise ValueError(
-                        'Incorrect format for setting: "%s". Should be "key=value"'
-                        % setting
-                    )
-                key, value = setting.split('=', 1)
-                integration.setting(key).value = value
+        self.apply_settings(args.setting, integration)
 
         if hasattr(args, 'library'):
             for name in args.library:
@@ -1036,6 +1110,77 @@ class ConfigureCollectionScript(Script):
         output.write("\n")
 
 
+class ConfigureIntegrationScript(ConfigurationSettingScript):
+    """Create a integration or change its settings."""
+    name = "Create a site-wide integration or change an integration's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Name of the integration',
+        )
+        parser.add_argument(
+            '--id',
+            help='ID of the integration, if it has no name',
+        )
+        parser.add_argument(
+            '--protocol', help='Protocol used by the integration.',
+        )
+        parser.add_argument(
+            '--goal', help='Goal of the integration',
+        )
+        cls.add_setting_argument(
+            parser,
+            'Set a configuration value on the integration. Format: --setting="key=value"'
+        )        
+        return parser
+
+    @classmethod
+    def _integration(self, _db, id, name, protocol, goal):
+        """Find or create the ExternalIntegration referred to."""
+        if not id and not name and not (protocol and goal):
+            raise ValueError(
+                "An integration must by identified by either ID, name, or the combination of protocol and goal."
+            )
+        integration = None
+        if id:
+            integration = get_one(_db, ExternalIntegration, id==id)
+        if not integration and name:
+            integration = get_one(_db, ExternalIntegration, name=name)
+        if not integration and (protocol and goal):
+            integration, is_new = get_one_or_create(
+                _db, ExternalIntegration, protocol=protocol, goal=goal
+            )
+        if name:
+            integration.name = name
+        return integration
+        
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the integration
+        protocol = None
+        id = args.id
+        name = args.name
+        protocol = args.protocol
+        goal = args.goal
+        integration = self._integration(_db, id, name, protocol, goal)
+        self.apply_settings(args.setting, integration)
+
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(integration.explain()))
+        output.write("\n")
+
+        
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
