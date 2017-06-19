@@ -46,7 +46,7 @@ from api.config import (
 
 from api.simple_authentication import SimpleAuthenticationProvider       
 
-class TestVendorIDModel(DatabaseTest):
+class TestVendorIDModel(VendorIDTest):
 
     credentials = dict(username="validpatron", password="password")
     
