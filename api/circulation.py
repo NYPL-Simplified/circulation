@@ -9,6 +9,7 @@ import time
 from flask.ext.babel import lazy_gettext as _
 
 from core.analytics import Analytics
+from core.cdn import cdnify
 from core.model import (
     get_one,
     CirculationEvent,
@@ -25,7 +26,6 @@ from core.model import (
     Session,
 )
 from util.patron import PatronUtility
-from core.util.cdn import cdnify
 from config import Configuration
 
 class CirculationInfo(object):
@@ -541,8 +541,7 @@ class CirculationAPI(object):
             raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
-        cdns = Configuration.cdns()
-        content_link = cdnify(rep.url, cdns)
+        content_link = cdnify(rep.url)
         media_type = rep.media_type
         return FulfillmentInfo(
             licensepool.collection, licensepool.data_source,

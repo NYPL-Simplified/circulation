@@ -92,7 +92,7 @@ def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
         try:
-            manager.config = Configuration.load()
+            manager.config = Configuration.load(manager._db)
         except CannotLoadConfiguration, e:
             self.log.error("Could not load configuration file: %s" % e)
             sys.exit()
