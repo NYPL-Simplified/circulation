@@ -242,22 +242,16 @@ class S3Uploader(MirrorUploader):
 
 class DummyS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
+
+    __buckets__ = {
+       S3Uploader.BOOK_COVERS_BUCKET_KEY : 'test.cover.bucket',
+       S3Uploader.OA_CONTENT_BUCKET_KEY : 'test.content.bucket',
+    }
+
     def __init__(self, fail=False, *args, **kwargs):
         self.uploaded = []
         self.content = []
         self.fail = fail
-
-    @classmethod
-    def cover_image_root(cls, data_source, scaled_size=None):
-        return S3Uploader.cover_image_root(
-            'test.cover.bucket', data_source, scaled_size)
-
-    @classmethod
-    def content_root(cls, open_access=True):
-        """The root URL to the S3 location of hosted content of
-        the given type.
-        """
-        return S3Uploader.content_root('test.content.bucket', open_access)
 
     def mirror_batch(self, representations):
         self.uploaded.extend(representations)

@@ -263,8 +263,8 @@ class Configuration(object):
         cls.instance = configuration
 
         if _db:
-            cls.load_cdns(_db)
             S3Uploader.initialize_buckets(_db)
+            cls.load_cdns(_db)
         else:
             if not cls.integration('CDN'):
                 cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
