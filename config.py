@@ -113,7 +113,7 @@ class Configuration(object):
     # their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
-    LIBRARY_WEBSITE = u'website'
+    WEBSITE_URL = u'website'
     
     SITEWIDE_SETTINGS = [
         {
