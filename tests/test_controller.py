@@ -218,9 +218,8 @@ class ControllerTest(VendorIDTest):
                 }
             }
 
-            lanes = make_lanes_default(self.library)
             self.manager = CirculationManager(
-                _db, lanes=lanes, testing=True
+                _db, lanes=None, testing=True
             )
 
             # Set CirculationAPI and top-level lane for the default
@@ -2426,7 +2425,7 @@ class TestScopedSession(ControllerTest):
         from api.app import _db
 
         # This will call make_default_library and make_default_collection.
-        super(TestScopedSession, self).setup(_db, initialize_adobe=False)
+        super(TestScopedSession, self).setup(_db)
 
     def make_default_libraries(self, _db):
         libraries = []

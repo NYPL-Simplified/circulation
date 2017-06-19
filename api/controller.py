@@ -153,14 +153,7 @@ class CirculationManager(object):
         self.circulation_apis = {}
 
         for library in _db.query(Library):
-            if isinstance(lanes, LaneList):
-                if not self.testing:
-                    raise CannotLoadConfiguration(
-                        "Cannot pass Lane objects into CirculationManager when not in testing mode."
-                    )
-                lanes = lanes
-            else:
-                lanes = make_lanes(library, lanes)
+            lanes = make_lanes(library, lanes)
             
             self.top_level_lanes[library.id] = (
                 self.create_top_level_lane(
