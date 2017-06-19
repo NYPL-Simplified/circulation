@@ -523,14 +523,15 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         for order in chosen_orders:
             if order not in allowed_orders:
                 logging.warn("Ignoring unsupported ordering %s" % order)
+                continue
             for availability in chosen_availabilities:
                 if availability not in allowed_availabilities:
                     logging.warn("Ignoring unsupported availability %s" % availability)
-
+                    continue
                 for collection in chosen_collections:
                     if collection not in allowed_availabilities:
                         logging.warn("Ignoring unsupported collection %s" % collection)
-
+                        continue
                     pagination = Pagination.default()
                     facets = Facets(
                         library=library, collection=collection,
