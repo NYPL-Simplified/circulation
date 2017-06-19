@@ -152,8 +152,9 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         self.circulation_apis = {}
 
+        lane_descriptions = lanes
         for library in _db.query(Library):
-            lanes = make_lanes(library, lanes)
+            lanes = make_lanes(library, lane_descriptions)
             
             self.top_level_lanes[library.id] = (
                 self.create_top_level_lane(
