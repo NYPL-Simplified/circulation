@@ -747,7 +747,7 @@ class DatabaseTest(object):
         saves time.
         """
         if not hasattr(self, '_default__collection'):
-            [self._default__collection] = self._default_library.collections
+            self._default__collection = self._default_library.collections[0]
         return self._default__collection
 
     @classmethod
