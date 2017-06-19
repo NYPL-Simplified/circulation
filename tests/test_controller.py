@@ -116,7 +116,7 @@ class ControllerTest(VendorIDTest):
     )
     
     def setup(self, _db=None):
-        super(ControllerTest, self).setup(_db=_db)
+        super(ControllerTest, self).setup()
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -152,10 +152,12 @@ class ControllerTest(VendorIDTest):
         self.collection = self.collections[0]
 
         self.default_patrons = {}
-        for library in self.libraries:
-            # Initialize the library's library registry constants.
-            self.initialize_library(self.library)
+
+        # The default library gets an Adobe Vendor ID integration.
+        # All libraries get Short Client Token integrations.
+        self.initialize_adobe(_db, self.library, self.libraries)
         
+        for library in self.libraries:
             # Create the patron used by the dummy authentication mechanism.
             default_patron, ignore = get_one_or_create(
                 _db, Patron,
@@ -185,7 +187,7 @@ class ControllerTest(VendorIDTest):
         # The test's default patron is the default patron for the first
         # library returned by make_default_libraries.
         self.default_patron = self.default_patrons[self.library]
-        self.authdata = AuthdataUtility.from_config(_db)
+        self.authdata = AuthdataUtility.from_config(self.library)
 
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
             "" : "http://cdn"
@@ -2418,10 +2420,12 @@ class TestScopedSession(ControllerTest):
         super(TestScopedSession, self).setup(_db)
 
     def make_default_libraries(self, _db):
-        """We need to create a new instance of the library that
-        uses the scoped session.
-        """
-        return [Library.instance(_db)]
+        libraries = []
+        for i in range(2):
+            name = self._str + " (for scoped session)"
+            library, ignore = create(_db, Library, short_name=name)
+            libraries.append(library)
+        return libraries
 
     def make_default_collection(self, _db, library):
         """We need to create a test collection that
