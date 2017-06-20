@@ -966,7 +966,7 @@ class SettingsController(CirculationManagerController):
                 self._db, Library, uuid=library_uuid,
             )
             if not library:
-                return LIBRARY_NOT_FOUND
+                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
 
         if not library or short_name != library.short_name:
             # If you're adding a new short_name, either by editing an

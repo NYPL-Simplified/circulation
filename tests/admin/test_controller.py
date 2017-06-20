@@ -1213,7 +1213,7 @@ class TestSettingsController(AdminControllerTest):
                 ("short_name", "bpl"),
             ])
             response = self.manager.admin_settings_controller.libraries()
-            eq_(response, LIBRARY_NOT_FOUND)
+            eq_(response.uri, LIBRARY_NOT_FOUND.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([

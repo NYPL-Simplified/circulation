@@ -100,13 +100,6 @@ INVALID_SERIES_POSITION = pd(
     detail=_("The series position must be a number or blank."),
 )
 
-LIBRARY_NOT_FOUND = pd(
-    "http://librarysimplified.org/terms/problem/library-not-found",
-    status_code=404,
-    title=_("Library not found"),
-    detail=_("The specified library uuid does not exist."),
-)
-
 MISSING_LIBRARY_SHORT_NAME = pd(
     "http://librarysimplified.org/terms/problem/missing-library-short-name",
     status_code=400,
