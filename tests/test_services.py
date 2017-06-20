@@ -53,7 +53,6 @@ class TestServiceStatusMonitor(DatabaseTest):
 
     def test_init(self):
         # Test that ServiceStatus can create an Authenticator.
-
         integration = self._external_integration(
             "api.simple_authentication", goal=ExternalIntegration.PATRON_AUTH_GOAL
         )

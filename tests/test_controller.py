@@ -2417,7 +2417,7 @@ class TestScopedSession(ControllerTest):
         libraries = []
         for i in range(2):
             name = self._str + " (for scoped session)"
-            library, ignore = get_one_or_create(_db, Library, short_name=name)
+            library, ignore = create(_db, Library, short_name=name)
             libraries.append(library)
         return libraries
 
@@ -2425,7 +2425,7 @@ class TestScopedSession(ControllerTest):
         """We need to create a test collection that
         uses the scoped session.
         """
-        collection, ignore = get_one_or_create(
+        collection, ignore = create(
             _db, Collection, name=self._str + " (for scoped session)",
         )
         collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
