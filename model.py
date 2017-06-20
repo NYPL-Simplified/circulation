@@ -8809,8 +8809,8 @@ class Library(Base):
     # Each facet group has two associated per-library keys: one
     # configuring which facets are enabled for that facet group, and
     # one configuring which facet is the default.
-    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
-    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+    ENABLED_FACETS_KEY_PREFIX = Configuration.ENABLED_FACETS_KEY_PREFIX
+    DEFAULT_FACET_KEY_PREFIX = Configuration.DEFAULT_FACET_KEY_PREFIX
 
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.

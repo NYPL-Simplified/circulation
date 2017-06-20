@@ -5,12 +5,22 @@ class FacetConstants(object):
     COLLECTION_FULL = "full"
     COLLECTION_MAIN = "main"
     COLLECTION_FEATURED = "featured"
+    COLLECTION_FACETS = [
+        COLLECTION_FULL,
+        COLLECTION_MAIN,
+        COLLECTION_FEATURED,
+    ]
 
     # Subset the collection by availability.
     AVAILABILITY_FACET_GROUP_NAME = 'available'
     AVAILABLE_NOW = "now"
     AVAILABLE_ALL = "all"
     AVAILABLE_OPEN_ACCESS = "always"
+    AVAILABILITY_FACETS = [
+        AVAILABLE_NOW,
+        AVAILABLE_ALL,
+        AVAILABLE_OPEN_ACCESS,
+    ]
 
     # The names of the order facets.
     ORDER_FACET_GROUP_NAME = 'order'
@@ -21,9 +31,25 @@ class FacetConstants(object):
     ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
+    # Some order facets, like series and work id, 
+    # only make sense in certain contexts.
+    # These are the options that can be enabled
+    # for all feeds as a library-wide setting.
+    ORDER_FACETS = [
+        ORDER_TITLE,
+        ORDER_AUTHOR,
+        ORDER_ADDED_TO_COLLECTION,
+        ORDER_RANDOM,
+    ]
 
     ORDER_ASCENDING = "asc"
     ORDER_DESCENDING = "desc"
+
+    FACETS_BY_GROUP = {
+        COLLECTION_FACET_GROUP_NAME: COLLECTION_FACETS,
+        AVAILABILITY_FACET_GROUP_NAME: AVAILABILITY_FACETS,
+        ORDER_FACET_GROUP_NAME: ORDER_FACETS,
+    }
 
     GROUP_DISPLAY_TITLES = {
         ORDER_FACET_GROUP_NAME : "Sort by",

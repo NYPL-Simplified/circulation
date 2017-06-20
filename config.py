@@ -9,6 +9,7 @@ from util import LanguageCodes
 from flask.ext.babel import lazy_gettext as _
 
 from s3 import S3Uploader
+from facets import FacetConstants
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -109,7 +110,13 @@ class Configuration(object):
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
     FEATURED_LANE_SIZE = "featured_lane_size"
-    
+
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
     # The name of the per-library per-patron authentication integration
     # regular expression used to derive a patron's external_type from
     # their authorization_identifier.
@@ -145,6 +152,24 @@ class Configuration(object):
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
         },
+    ] + [
+        { "key": ENABLED_FACETS_KEY_PREFIX + group,
+          "label": _("Enabled %(group)s facets", group=display_name),
+          "type": "list",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
+    ] + [
+        { "key": DEFAULT_FACET_KEY_PREFIX + group,
+          "label": _("Default %(group)s facet", group=display_name),
+          "type": "select",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
 
@@ -227,7 +252,7 @@ class Configuration(object):
     @classmethod
     def load_cdns(cls, _db, config_instance=None):
         from model import ExternalIntegration as EI
-        cdns = _db.query(EI).filter(goal=EI.CDN_GOAL).all()
+        cdns = _db.query(EI).filter(EI.goal==EI.CDN_GOAL).all()
 
         cdn_integration = dict()
         for cdn in cdns:
