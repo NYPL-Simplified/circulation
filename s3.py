@@ -47,9 +47,6 @@ class S3Uploader(MirrorUploader):
         integrations = _db.query(EI).filter(
             EI.protocol==EI.S3, EI.goal==EI.STORAGE_GOAL).all()
 
-        if not integrations:
-            raise ValueError('No S3 ExternalIntegration found')
-
         if len(integrations) > 1:
             # Right now the S3Uploader doesn't distinguish usage between
             # S3 accounts. If two account integrations are found, raise
