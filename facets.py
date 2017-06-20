@@ -31,13 +31,14 @@ class FacetConstants(object):
     ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
+    # Some order facets, like series and work id, 
+    # only make sense in certain contexts.
+    # These are the options that can be enabled
+    # for all feeds as a library-wide setting.
     ORDER_FACETS = [
         ORDER_TITLE,
         ORDER_AUTHOR,
-        ORDER_LAST_UPDATE,
         ORDER_ADDED_TO_COLLECTION,
-        ORDER_SERIES_POSITION,
-        ORDER_WORK_ID,
         ORDER_RANDOM,
     ]
 
