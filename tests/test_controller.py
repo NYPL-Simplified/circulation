@@ -191,20 +191,6 @@ class ControllerTest(VendorIDTest):
             "" : "http://cdn"
         }
 
-        # Create a simple authentication integration for this library,
-        # unless it already has a way to authenticate patrons
-        # (in which case we would just screw things up).
-        if not any([x for x in self.library.integrations if x.goal==
-                ExternalIntegration.PATRON_AUTH_GOAL]):
-            integration, ignore = create(
-                _db, ExternalIntegration,
-                protocol="api.simple_authentication",
-                goal=ExternalIntegration.PATRON_AUTH_GOAL
-            )
-            p = BasicAuthenticationProvider
-            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
-            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
-            self.library.integrations.append(integration)
         self.authdata = AuthdataUtility.from_config(self.library)
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
