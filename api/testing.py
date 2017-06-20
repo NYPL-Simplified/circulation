@@ -55,7 +55,14 @@ class VendorIDTest(DatabaseTest):
             ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID,
             libraries=[vendor_id_library]
         )
-            
+
+        # Make it easy for this test to access the Short Client Token
+        # integration for a given Library.
+        self.short_client_token = {}
+
+        # As we give libraries their Short Client Token integrations,
+        # we build the 'other_libraries' setting we'll apply to the
+        # Adobe Vendor ID integration.
         other_libraries = dict()
             
         # Every library in the system can generate Short Client
@@ -83,7 +90,7 @@ class VendorIDTest(DatabaseTest):
                 AuthdataUtility.VENDOR_ID_KEY,
                 self.adobe_vendor_id.username
             )
-                
+            self.short_client_token[library] = short_client_token
             # Each Short Client Token integration will be registered
             # with that Adobe Vendor ID server.
             if library != vendor_id_library:

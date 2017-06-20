@@ -531,6 +531,7 @@ class TestOPDS(VendorIDTest):
         self.assert_link_on_entry(entry, partials_by_rel=rel_with_partials)
 
     def test_active_loan_feed(self):
+        self.initialize_adobe(self._default_library)
         patron = self._patron()
         cls = CirculationManagerLoanAndHoldAnnotator
         raw = cls.active_loans_for(None, patron, test_mode=True)
@@ -564,7 +565,7 @@ class TestOPDS(VendorIDTest):
         eq_(self.adobe_vendor_id.username,
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
-        expected = self.short_client_token.username
+        expected = self.short_client_token[self._default_library].username.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
         eq_("{http://www.w3.org/2005/Atom}link",
