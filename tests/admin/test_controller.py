@@ -1158,10 +1158,10 @@ class TestSettingsController(AdminControllerTest):
         ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, l2).value = 5
         ConfigurationSetting.for_library(
             Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, l2
-        ).value = FacetConstants.ORDER_LAST_UPDATE
+        ).value = FacetConstants.ORDER_RANDOM
         ConfigurationSetting.for_library(
             Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, l2
-        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE])
+        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.libraries()
@@ -1187,9 +1187,9 @@ class TestSettingsController(AdminControllerTest):
             eq_(3, len(libraries[1].get("settings").keys()))
             settings = libraries[1].get("settings")
             eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
-            eq_(FacetConstants.ORDER_LAST_UPDATE,
+            eq_(FacetConstants.ORDER_RANDOM,
                 settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
-            eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE],
+            eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM],
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
@@ -1241,10 +1241,10 @@ class TestSettingsController(AdminControllerTest):
                 ("library_registry_shared_secret", "secret"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
-                 FacetConstants.ORDER_LAST_UPDATE),
+                 FacetConstants.ORDER_RANDOM),
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_TITLE,
                  ''),
-                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_LAST_UPDATE,
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
                  ''),
             ])
             response = self.manager.admin_settings_controller.libraries()
@@ -1257,11 +1257,11 @@ class TestSettingsController(AdminControllerTest):
         eq_(library.library_registry_short_name, "NYPL")
         eq_(library.library_registry_shared_secret, "secret")
         eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
-        eq_(FacetConstants.ORDER_LAST_UPDATE,
+        eq_(FacetConstants.ORDER_RANDOM,
             ConfigurationSetting.for_library(
                 Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
-        eq_(json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE]),
+        eq_(json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM]),
             ConfigurationSetting.for_library(
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
@@ -1278,10 +1278,10 @@ class TestSettingsController(AdminControllerTest):
         ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value = 5
         ConfigurationSetting.for_library(
             Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, library
-        ).value = FacetConstants.ORDER_LAST_UPDATE
+        ).value = FacetConstants.ORDER_RANDOM
         ConfigurationSetting.for_library(
             Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, library
-        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE])
+        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1296,7 +1296,7 @@ class TestSettingsController(AdminControllerTest):
                  FacetConstants.ORDER_AUTHOR),
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_AUTHOR,
                  ''),
-                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_LAST_UPDATE,
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
                  ''),
             ])
             response = self.manager.admin_settings_controller.libraries()
@@ -1321,7 +1321,7 @@ class TestSettingsController(AdminControllerTest):
             ConfigurationSetting.for_library(
                 Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
-        eq_(json.dumps([FacetConstants.ORDER_AUTHOR, FacetConstants.ORDER_LAST_UPDATE]),
+        eq_(json.dumps([FacetConstants.ORDER_AUTHOR, FacetConstants.ORDER_RANDOM]),
             ConfigurationSetting.for_library(
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
