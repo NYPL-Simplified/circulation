@@ -529,7 +529,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                     logging.warn("Ignoring unsupported availability %s" % availability)
                     continue
                 for collection in chosen_collections:
-                    if collection not in allowed_availabilities:
+                    if collection not in allowed_collections:
                         logging.warn("Ignoring unsupported collection %s" % collection)
                         continue
                     pagination = Pagination.default()
