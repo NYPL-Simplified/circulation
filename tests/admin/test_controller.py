@@ -44,6 +44,7 @@ from core.classifier import (
     SimplifiedGenreClassifier
 )
 from core.opds import AcquisitionFeed
+from core.facets import FacetConstants
 from datetime import date, datetime, timedelta
 
 from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
@@ -1153,6 +1154,14 @@ class TestSettingsController(AdminControllerTest):
         l2, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
+        # L2 has some additional library-wide settings.
+        ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, l2).value = 5
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, l2
+        ).value = FacetConstants.ORDER_RANDOM
+        ConfigurationSetting.for_library(
+            Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, l2
+        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.libraries()
@@ -1173,6 +1182,15 @@ class TestSettingsController(AdminControllerTest):
 
             eq_(l1.library_registry_shared_secret, libraries[0].get("library_registry_shared_secret"))
             eq_(l2.library_registry_shared_secret, libraries[1].get("library_registry_shared_secret"))
+
+            eq_({}, libraries[0].get("settings"))
+            eq_(3, len(libraries[1].get("settings").keys()))
+            settings = libraries[1].get("settings")
+            eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
+            eq_(FacetConstants.ORDER_RANDOM,
+                settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
+            eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM],
+               settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
         library, ignore = get_one_or_create(
@@ -1221,6 +1239,13 @@ class TestSettingsController(AdminControllerTest):
                 ("short_name", "nypl"),
                 ("library_registry_short_name", "NYPL"),
                 ("library_registry_shared_secret", "secret"),
+                (Configuration.FEATURED_LANE_SIZE, "5"),
+                (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                 FacetConstants.ORDER_RANDOM),
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_TITLE,
+                 ''),
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
+                 ''),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 201)
@@ -1231,6 +1256,15 @@ class TestSettingsController(AdminControllerTest):
         eq_(library.short_name, "nypl")
         eq_(library.library_registry_short_name, "NYPL")
         eq_(library.library_registry_shared_secret, "secret")
+        eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
+        eq_(FacetConstants.ORDER_RANDOM,
+            ConfigurationSetting.for_library(
+                Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                library).value)
+        eq_(json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM]),
+            ConfigurationSetting.for_library(
+                Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                library).value)
 
     def test_libraries_post_edit(self):
         # A library already exists.
@@ -1241,6 +1275,14 @@ class TestSettingsController(AdminControllerTest):
         library.library_registry_short_name = None
         library.library_registry_shared_secret = None
 
+        ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value = 5
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, library
+        ).value = FacetConstants.ORDER_RANDOM
+        ConfigurationSetting.for_library(
+            Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, library
+        ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
@@ -1248,6 +1290,14 @@ class TestSettingsController(AdminControllerTest):
                 ("short_name", "nypl"),
                 ("library_registry_short_name", "NYPL"),
                 ("random_library_registry_shared_secret", ""),
+                (Configuration.FEATURED_LANE_SIZE, "20"),
+                (Configuration.MINIMUM_FEATURED_QUALITY, "0.9"),
+                (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                 FacetConstants.ORDER_AUTHOR),
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_AUTHOR,
+                 ''),
+                (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
+                 ''),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 200)
@@ -1263,6 +1313,19 @@ class TestSettingsController(AdminControllerTest):
         # converted into a hexadecimal number.
         assert library.library_registry_shared_secret != None
         int(library.library_registry_shared_secret, 16)
+
+        # The library-wide settings were updated.
+        eq_("20", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
+        eq_("0.9", ConfigurationSetting.for_library(Configuration.MINIMUM_FEATURED_QUALITY, library).value)
+        eq_(FacetConstants.ORDER_AUTHOR,
+            ConfigurationSetting.for_library(
+                Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                library).value)
+        eq_(json.dumps([FacetConstants.ORDER_AUTHOR, FacetConstants.ORDER_RANDOM]),
+            ConfigurationSetting.for_library(
+                Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
+                library).value)
+
         
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.

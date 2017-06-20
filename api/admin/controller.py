@@ -925,17 +925,24 @@ class SettingsController(CirculationManagerController):
 
     def libraries(self):
         if flask.request.method == 'GET':
-            libraries = [
-                dict(
+            libraries = []
+            for library in self._db.query(Library).order_by(Library.name):
+                settings = dict()
+                for setting in Configuration.LIBRARY_SETTINGS:
+                    if setting.get("type") == "list":
+                        value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    else:
+                        value = ConfigurationSetting.for_library(setting.get("key"), library).value
+                    if value:
+                        settings[setting.get("key")] = value
+                libraries += [dict(
                     uuid=library.uuid,
                     name=library.name,
                     short_name=library.short_name,
                     library_registry_short_name=library.library_registry_short_name,
                     library_registry_shared_secret=library.library_registry_shared_secret,
-                    settings={ setting.key: setting.value for setting in library.settings },
-                )
-                for library in self._db.query(Library).order_by(Library.name).all()
-            ]
+                    settings=settings,
+                )]
             return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
 
@@ -982,7 +989,14 @@ class SettingsController(CirculationManagerController):
             library.library_registry_shared_secret = registry_shared_secret
 
         for setting in Configuration.LIBRARY_SETTINGS:
-            value = flask.request.form.get(setting['key'], None)
+            if setting.get("type") == "list":
+                value = []
+                for option in setting.get("options"):
+                    if setting["key"] + "_" + option["key"] in flask.request.form:
+                        value += [option["key"]]
+                value = json.dumps(value)
+            else:
+                value = flask.request.form.get(setting['key'], None)
             ConfigurationSetting.for_library(setting['key'], library).value = value
 
         if is_new:
