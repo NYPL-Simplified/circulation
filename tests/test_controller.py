@@ -2463,10 +2463,9 @@ class TestScopedSession(ControllerTest):
         """
         with self.app.test_request_context(*args) as ctx:
             transaction = current_session.begin_nested()
-            if not hasattr(self.app, 'manager'):
-                self.app.manager = self.circulation_manager_setup(
-                    current_session
-                )
+            self.app.manager = self.circulation_manager_setup(
+                current_session
+            )
             yield ctx
             transaction.rollback()
 
