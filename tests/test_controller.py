@@ -14,7 +14,10 @@ from decimal import Decimal
 
 import flask
 from flask import url_for
-from flask_sqlalchemy_session import current_session
+from flask_sqlalchemy_session import (
+    current_session,
+    flask_scoped_session,
+)
 
 from . import DatabaseTest
 from api.config import (
@@ -118,7 +121,7 @@ class ControllerTest(VendorIDTest):
         username="unittestuser", password="unittestpassword"
     )
     
-    def setup(self, _db=None):
+    def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
@@ -134,27 +137,52 @@ class ControllerTest(VendorIDTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
-        # Most tests only need one library: self._default_library.
-        # Other tests need a different library (e.g. one created using the
-        # scoped database session), or more than one library. For that
-        # reason we call out to a helper method to create some number of
-        # libraries, then initialize each one.
-        #
-        # NOTE: Any reference to self._default_library below this point in
-        # this method will cause the tests in TestScopedSession to
-        # hang.
+        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+            "" : "http://cdn"
+        }
+        base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://test-circulation-manager/'
+        
+        # NOTE: Any reference to self._default_library below this
+        # point in this method will cause the tests in
+        # TestScopedSession to hang.
+        if set_up_circulation_manager:
+            app.manager = self.circulation_manager_setup(_db)
+
+    def circulation_manager_setup(self, _db):
+        """Set up initial Library arrangements for this test.
+        
+        Most tests only need one library: self._default_library.
+        Other tests need a different library (e.g. one created using the
+        scoped database session), or more than one library. For that
+        reason we call out to a helper method to create some number of
+        libraries, then initialize each one.
+        
+        NOTE: Any reference to self._default_library within this
+        method will cause the tests in TestScopedSession to hang.
+
+        This method sets values for self.libraries, self.collections,
+        and self.default_patrons. These data structures contain
+        information for all libraries. It also sets values for a
+        single library which can be used as a default: .library,
+        .collection, and .default_patron.
+
+        :param _db: The database session to use when creating the
+        library objects.
+
+        :return: a CirculationManager object.
+        """
         self.libraries = self.make_default_libraries(_db)
         self.collections = [
             self.make_default_collection(_db, library)
             for library in self.libraries
         ]
-
+        self.default_patrons = {}
+        
         # The first library created is used as the default -- more of the
         # time this is the same as self._default_library.
         self.library = self.libraries[0]
         self.collection = self.collections[0]
-
-        self.default_patrons = {}
         
         for library in self.libraries:
             # Create the patron used by the dummy authentication mechanism.
@@ -187,14 +215,7 @@ class ControllerTest(VendorIDTest):
         # library returned by make_default_libraries.
         self.default_patron = self.default_patrons[self.library]
 
-        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
-            "" : "http://cdn"
-        }
-
         self.authdata = AuthdataUtility.from_config(self.library)
-
-        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
-        base_url.value = u'http://test-circulation-manager/'
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -216,9 +237,9 @@ class ControllerTest(VendorIDTest):
             self.manager.d_top_level_lane = self.manager.top_level_lanes[
                 self.library.id
             ]
-            app.manager = self.manager
             self.controller = CirculationManagerController(self.manager)
-
+            return self.manager
+            
     def make_default_libraries(self, _db):
         return [self._default_library]
 
@@ -2409,22 +2430,13 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
-        self.scoped_session = _db
         
-        # This will call make_default_library and make_default_collection.
-        super(TestScopedSession, self).setup(_db)
-
-    def teardown(self):
-        super(TestScopedSession, self).teardown()
-
-        # Rather than try to scope the session used for initial setup
-        # in a way that's easy to roll back, we just delete all the
-        # items that were created during initial setup.
-        _db = self.scoped_session
-        for cls in (Library, Collection, ExternalIntegration):
-            for i in self.scoped_session.query(cls):
-                _db.delete(i)
-        _db.flush()
+        # We will be calling circulation_manager_setup ourselves,
+        # because we want objects like Libraries to be created in the
+        # scoped session.
+        super(TestScopedSession, self).setup(
+            _db, set_up_circulation_manager=False
+        )
         
     def make_default_libraries(self, _db):
         libraries = []
@@ -2452,11 +2464,16 @@ class TestScopedSession(ControllerTest):
         """
         with self.app.test_request_context(*args) as ctx:
             transaction = current_session.begin_nested()
+            if not hasattr(self.app, 'manager'):
+                self.app.manager = self.circulation_manager_setup(
+                    current_session
+                )
             yield ctx
             transaction.rollback()
 
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
+
         with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
             # from the one used by most unit tests or the one
@@ -2485,7 +2502,7 @@ class TestScopedSession(ControllerTest):
             # created the request-scoped session, because within the
             # context of a request, running database queries on that object
             # actually runs them against your request-scoped session.
-            [identifier] = self.app.manager._db.query(Identifier).all()
+            [identifier] = current_session.query(Identifier).all()
             eq_("1024", identifier.identifier)
 
             # But if we were to use flask_scoped_session to create a
@@ -2493,7 +2510,7 @@ class TestScopedSession(ControllerTest):
             # because it's running in a different database session.
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
-
+            
         # Once we exit the context of the Flask request, the
         # transaction is rolled back. The Identifier never actually
         # enters the database.
