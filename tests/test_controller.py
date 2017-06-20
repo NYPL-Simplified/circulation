@@ -238,8 +238,8 @@ class ControllerTest(VendorIDTest):
                 self.library.id
             ]
             self.controller = CirculationManagerController(self.manager)
-            return self.manager
-            
+        return self.manager
+
     def make_default_libraries(self, _db):
         return [self._default_library]
 
@@ -2430,7 +2430,6 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
-        
         # We will be calling circulation_manager_setup ourselves,
         # because we want objects like Libraries to be created in the
         # scoped session.
@@ -2509,7 +2508,6 @@ class TestScopedSession(ControllerTest):
             # brand new session, it would not see the Identifier,
             # because it's running in a different database session.
             new_session = self.app.manager._db.session_factory()
-            assert new_session != current_session
             eq_([], new_session.query(Identifier).all())
             
         # Once we exit the context of the Flask request, the
