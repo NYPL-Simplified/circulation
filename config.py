@@ -122,6 +122,8 @@ class Configuration(object):
     # their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
+    WEBSITE_URL = u'website'
+    
     SITEWIDE_SETTINGS = [
         {
             "key": NONGROUPED_MAX_AGE_POLICY,
@@ -134,6 +136,10 @@ class Configuration(object):
     ]
 
     LIBRARY_SETTINGS = [
+        {
+            "key": WEBSITE_URL,
+            "label": _("URL of the library's website"),
+        },
         {
             "key": ALLOW_HOLDS,
             "label": _("Allow books to be put on hold"),

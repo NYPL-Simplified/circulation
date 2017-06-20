@@ -5505,18 +5505,8 @@ class TestCustomListEntry(DatabaseTest):
 
 class TestLibrary(DatabaseTest):
 
-    def test_instance(self):
-
-        # There are no Library objects until we call instance().
-        eq_(0, self._db.query(Library).count())
-
-        # In the current release there will only ever be one library.
-        instance = Library.instance(self._db)
-        instance2 = Library.instance(self._db)
-        eq_(instance, instance2)
-
     def test_library_registry_short_name(self):
-        library = Library.instance(self._db)
+        library = self._default_library
 
         # Short name is always uppercased.
         library.library_registry_short_name = "foo"
@@ -5535,7 +5525,7 @@ class TestLibrary(DatabaseTest):
         """Test that Library.explain gives all relevant information
         about a Library.
         """
-        library = Library.instance(self._db)
+        library = self._default_library
         library.uuid = "uuid"
         library.name = "The Library"
         library.short_name = "Short"
@@ -5931,7 +5921,7 @@ class TestCollection(DatabaseTest):
         """Test that Collection.explain gives all relevant information
         about a Collection.
         """
-        library = Library.instance(self._db)
+        library = self._default_library
         library.short_name = "The only library"
         library.collections.append(self.collection)
         

@@ -53,7 +53,7 @@ from util.http import (
     HTTP,
 )
 
-
+from testing import DatabaseTest
 
 class OneClickAPI(object):
 
@@ -513,7 +513,7 @@ class MockOneClickAPI(OneClickAPI):
 
     @classmethod
     def mock_collection(self, _db):
-        library = Library.instance(_db)
+        library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test OneClick Collection",

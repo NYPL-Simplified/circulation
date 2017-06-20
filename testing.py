@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import tempfile
+import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
@@ -127,7 +128,7 @@ class DatabaseTest(object):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
-
+        
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 2000
 
@@ -464,7 +465,6 @@ class DatabaseTest(object):
                               libraries=None, **kwargs
     ):
         integration = None
-
         if not libraries:
             integration, ignore = get_one_or_create(
                 self._db, ExternalIntegration, protocol=protocol, goal=goal
@@ -724,7 +724,7 @@ class DatabaseTest(object):
         integration.username = username
         integration.password = password
         return collection
-
+        
     @property
     def _default_library(self):
         """A Library that will only be created once throughout a given test.
@@ -733,8 +733,7 @@ class DatabaseTest(object):
         the default library.
         """
         if not hasattr(self, '_default__library'):
-            self._default__library = Library.instance(self._db)
-            self._default__library.collections.append(self._default_collection)
+            self._default__library = self.make_default_library(self._db)
         return self._default__library
         
     @property
@@ -748,9 +747,32 @@ class DatabaseTest(object):
         saves time.
         """
         if not hasattr(self, '_default__collection'):
-            self._default__collection = self._collection()
+            self._default__collection = self._default_library.collections[0]
         return self._default__collection
-    
+
+    @classmethod
+    def make_default_library(cls, _db):
+        """Ensure that the default library exists in the given database.
+
+        This can be called by code intended for use in testing but not actually
+        within a DatabaseTest subclass.
+        """
+        library, ignore = get_one_or_create(
+            _db, Library, create_method_kwargs=dict(
+                uuid=unicode(uuid.uuid4()),
+                name="default",
+            ), short_name="default"
+        )
+        collection, ignore = get_one_or_create(
+            _db, Collection, name="Default Collection"
+        )
+        integration = collection.create_external_integration(
+            ExternalIntegration.OPDS_IMPORT
+        )
+        if collection not in library.collections:
+            library.collections.append(collection)
+        return library
+            
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         
