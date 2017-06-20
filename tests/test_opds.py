@@ -800,6 +800,7 @@ class TestOPDS(VendorIDTest):
         a generic drm:licensor tag, except with the drm:scheme attribute 
         set.
         """ 
+        self.initialize_adobe(self._default_library)
         annotator = CirculationManagerLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
         patron = self._patron()
         [feed_tag] = annotator.drm_device_registration_feed_tags(patron)
