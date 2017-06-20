@@ -1694,6 +1694,5 @@ def make_lanes(library, definitions=None):
     if not definitions:
         # A lane arrangement is required for lane making.
         return None
-
-    lanes = [Lane(_db=_db, **definition) for definition in definitions]
+    lanes = [Lane(library, **definition) for definition in definitions]
     return LaneList.from_description(library, None, lanes)

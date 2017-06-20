@@ -8752,9 +8752,6 @@ class Library(Base):
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
-
-    # Keys for Library-specific ConfigurationSettings.
-    WEBSITE_KEY = u'website'
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (

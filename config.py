@@ -109,12 +109,14 @@ class Configuration(object):
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
     FEATURED_LANE_SIZE = "featured_lane_size"
-
+    
     # The name of the per-library per-patron authentication integration
     # regular expression used to derive a patron's external_type from
     # their authorization_identifier.
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
+    WEBSITE_URL = u'website'
+    
     SITEWIDE_SETTINGS = [
         {
             "key": NONGROUPED_MAX_AGE_POLICY,
@@ -127,6 +129,10 @@ class Configuration(object):
     ]
 
     LIBRARY_SETTINGS = [
+        {
+            "key": WEBSITE_URL,
+            "label": _("URL of the library's website"),
+        },
         {
             "key": ALLOW_HOLDS,
             "label": _("Allow books to be put on hold"),

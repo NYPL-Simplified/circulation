@@ -46,6 +46,8 @@ from metadata_layer import (
     SubjectData,
 )
 
+from testing import DatabaseTest
+
 from util.http import HTTP
 from util.xmlparser import XMLParser
 
@@ -202,7 +204,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
     @classmethod
     def mock_collection(self, _db):
         """Create a mock Bibliotheca collection for use in tests."""
-        library = Library.instance(_db)
+        library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test Bibliotheca Collection", create_method_kwargs=dict(
