@@ -143,7 +143,7 @@ class Script(object):
             raise e
 
     def load_configuration(self):
-        if not Configuration.instance:
+        if not Configuration.loaded_from_database():
             Configuration.load(self._db)
 
 

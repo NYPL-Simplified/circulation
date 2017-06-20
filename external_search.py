@@ -1,7 +1,10 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
@@ -17,6 +20,8 @@ class ExternalSearchIndex(object):
     WORKS_INDEX_KEY = u'works_index'
     WORKS_ALIAS_KEY = u'works_alias'
 
+    DEFAULT_WORKS_ALIAS = u'works'
+    
     work_document_type = 'work-type'
     __client = None
 
@@ -47,12 +52,22 @@ class ExternalSearchIndex(object):
                     goal=ExternalIntegration.SEARCH_GOAL
                 )
 
+                if not integration:
+                    raise CannotLoadConfiguration(
+                        "No Elasticsearch integration configured."
+                    )
                 url = url or integration.url
                 if not works_index:
                     works_index = integration.setting(self.WORKS_INDEX_KEY).value
-
+                if not works_index:
+                    raise CannotLoadConfiguration(
+                        "Elasticsearch integration does not define %s" % self.WORKS_INDEX_KEY
+                    )
+                    
             if not url:
-                raise Exception("Cannot connect to Elasticsearch cluster.")
+                raise CannotLoadConfiguration(
+                    "No URL configured to Elasticsearch server."
+                )
             use_ssl = url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
@@ -110,8 +125,7 @@ class ExternalSearchIndex(object):
         provided configuration.
         """
         index_details = self.indices.get_alias(name=current_alias, ignore=[404])
-        found = not (index_details.get('status')==404 or 'error' in index_details)
-
+        found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
         def _set_works_index(name):
             self.works_index = self.__client.works_index = name
 
