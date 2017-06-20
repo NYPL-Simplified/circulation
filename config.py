@@ -225,7 +225,7 @@ class Configuration(object):
     @classmethod
     def load_cdns(cls, _db, config_instance=None):
         from model import ExternalIntegration as EI
-        cdns = _db.query(EI).filter(goal=EI.CDN_GOAL).all()
+        cdns = _db.query(EI).filter(EI.goal==EI.CDN_GOAL).all()
 
         cdn_integration = dict()
         for cdn in cdns:

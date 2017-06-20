@@ -145,7 +145,15 @@ class OverdriveAPI(object):
 
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
-        self.collection_token = self.get_library()['collectionToken']
+        library = self.get_library()
+        error = library.get('errorCode')
+        if error:
+            message = library.get('message')
+            raise CannotLoadConfiguration(
+                "Overdrive credentials are valid but could not fetch library: %s"
+                % message
+            )
+        self.collection_token = library['collectionToken']
 
     @property
     def collection(self):
