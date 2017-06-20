@@ -8809,8 +8809,8 @@ class Library(Base):
     # Each facet group has two associated per-library keys: one
     # configuring which facets are enabled for that facet group, and
     # one configuring which facet is the default.
-    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
-    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+    ENABLED_FACETS_KEY_PREFIX = Configuration.ENABLED_FACETS_KEY_PREFIX
+    DEFAULT_FACET_KEY_PREFIX = Configuration.DEFAULT_FACET_KEY_PREFIX
 
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.
@@ -8996,15 +8996,7 @@ class ExternalIntegration(Base):
 
     # These integrations are associated with external services such as
     # S3 that provide access to book covers.
-    BOOK_COVERS_GOAL = u'book_covers'
-
-    # These integrations are associated with external services such as
-    # S3 that provide access to static or cached OPDS feeds.
-    OPDS_FEED_GOAL = u'opds_feeds'
-
-    # These integrations are associated with external services such as
-    # S3 that provide access to open access content.
-    OA_CONTENT_GOAL = u'open_access_books'
+    STORAGE_GOAL = u'storage'
 
     # These integrations are associated with external services like
     # Cloudfront or other CDNs that mirror and/or cache certain domains.
@@ -9051,8 +9043,7 @@ class ExternalIntegration(Base):
     METADATA_WRANGLER = u'Metadata Wrangler'
     CONTENT_SERVER = u'Content Server'
 
-    # Integrations for storage or cache with BOOK_COVERS_GOAL,
-    # OPDS_GOAL, or OA_CONTENT_GOAL
+    # Integrations with STORAGE_GOAL
     S3 = u'S3'
 
     # Integrations with CDN_GOAL

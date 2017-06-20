@@ -8,6 +8,9 @@ import copy
 from util import LanguageCodes
 from flask.ext.babel import lazy_gettext as _
 
+from s3 import S3Uploader
+from facets import FacetConstants
+
 class CannotLoadConfiguration(Exception):
     pass
 
@@ -107,7 +110,13 @@ class Configuration(object):
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
     FEATURED_LANE_SIZE = "featured_lane_size"
-    
+
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
     # The name of the per-library per-patron authentication integration
     # regular expression used to derive a patron's external_type from
     # their authorization_identifier.
@@ -143,6 +152,24 @@ class Configuration(object):
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
         },
+    ] + [
+        { "key": ENABLED_FACETS_KEY_PREFIX + group,
+          "label": _("Enabled %(group)s facets", group=display_name),
+          "type": "list",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
+    ] + [
+        { "key": DEFAULT_FACET_KEY_PREFIX + group,
+          "label": _("Default %(group)s facet", group=display_name),
+          "type": "select",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
     # This is set once data is loaded from the database and inserted into
@@ -276,6 +303,7 @@ class Configuration(object):
         cls.instance = configuration
 
         if _db:
+            S3Uploader.initialize_buckets(_db)
             cls.load_cdns(_db)
             cls.instance[cls.LOADED_FROM_DATABASE] = True
         else:
