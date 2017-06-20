@@ -102,9 +102,23 @@ INVALID_SERIES_POSITION = pd(
 
 LIBRARY_NOT_FOUND = pd(
     "http://librarysimplified.org/terms/problem/library-not-found",
+    status_code=404,
+    title=_("Library not found"),
+    detail=_("The specified library uuid does not exist."),
+)
+
+MISSING_LIBRARY_SHORT_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-library-short-name",
     status_code=400,
-    title=_("Library not found."),
-    detail=_("Currently there can only be one library, and the request does not match the existing library."),
+    title=_("Missing library short name"),
+    detail=_("You must set a short name for the library."),
+)
+
+LIBRARY_SHORT_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/library-short-name-already-in-use",
+    status_code=400,
+    title=_("Library short name already in use"),
+    detail=_("The library short name must be unique, and there's already a library with the specified short name."),
 )
 
 CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET = pd(

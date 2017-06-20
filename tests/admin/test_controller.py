@@ -1193,6 +1193,13 @@ class TestSettingsController(AdminControllerTest):
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response, MISSING_LIBRARY_SHORT_NAME)
+
         library, ignore = get_one_or_create(
             self._db, Library
         )
@@ -1207,6 +1214,26 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, LIBRARY_NOT_FOUND)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+                ("short_name", "nypl"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
+
+        bpl, ignore = get_one_or_create(
+            self._db, Library, short_name="bpl"
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", bpl.uuid),
+                ("name", "Brooklyn Public Library"),
+                ("short_name", "nypl"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
         
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1228,11 +1255,6 @@ class TestSettingsController(AdminControllerTest):
             eq_(response, CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET)
 
     def test_libraries_post_create(self):
-        # Delete any existing library created by the controller test setup.
-        library = get_one(self._db, Library)
-        if library:
-            self._db.delete(library)
-            
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
@@ -1250,7 +1272,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 201)
 
-        library = get_one(self._db, Library)
+        library = get_one(self._db, Library, short_name="nypl")
 
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")

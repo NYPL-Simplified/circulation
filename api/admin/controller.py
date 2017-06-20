@@ -953,21 +953,32 @@ class SettingsController(CirculationManagerController):
         registry_shared_secret = flask.request.form.get("library_registry_shared_secret")
         use_random_registry_shared_secret = "random_library_registry_shared_secret" in flask.request.form
 
-        libraries = self._db.query(Library).all()
+        library = None
         is_new = False
 
-        if libraries:
-            # Currently there can only be one library, and one already exists.
-            [library] = libraries
-            if library.uuid != library_uuid:
-                return LIBRARY_NOT_FOUND
-        else:
-            library, is_new = get_one_or_create(
-                self._db, Library, create_method_kwargs=dict(
-                    uuid=str(uuid.uuid4()),
-                    short_name=short_name,
-                )
+        if not short_name:
+            return MISSING_LIBRARY_SHORT_NAME
+
+        if library_uuid:
+            # Library UUID is required when editing an existing library
+            # from the admin interface, and isn't present for new libraries.
+            library = get_one(
+                self._db, Library, uuid=library_uuid,
             )
+            if not library:
+                return LIBRARY_NOT_FOUND
+
+        if not library or short_name != library.short_name:
+            # If you're adding a new short_name, either by editing an
+            # existing library or creating a new library, it must be unique.
+            library_with_short_name = get_one(self._db, Library, short_name=short_name)
+            if library_with_short_name:
+                return LIBRARY_SHORT_NAME_ALREADY_IN_USE
+
+        if not library:
+            library, is_new = create(
+                self._db, Library, short_name=short_name,
+                uuid=str(uuid.uuid4()))
 
         if registry_shared_secret and use_random_registry_shared_secret:
             return CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET
