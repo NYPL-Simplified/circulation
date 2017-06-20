@@ -14,7 +14,10 @@ from decimal import Decimal
 
 import flask
 from flask import url_for
-from flask_sqlalchemy_session import current_session
+from flask_sqlalchemy_session import (
+    current_session,
+    flask_scoped_session,
+)
 
 from . import DatabaseTest
 from api.config import (
@@ -93,7 +96,10 @@ from core.util.opds_writer import (
 )
 from api.opds import CirculationManagerAnnotator
 from api.annotations import AnnotationWriter
-from api.testing import VendorIDTest
+from api.testing import (
+    VendorIDTest,
+    MockCirculationAPI,
+)
 from lxml import etree
 import random
 import json
@@ -115,8 +121,8 @@ class ControllerTest(VendorIDTest):
         username="unittestuser", password="unittestpassword"
     )
     
-    def setup(self, _db=None):
-        super(ControllerTest, self).setup(_db=_db)
+    def setup(self, _db=None, set_up_circulation_manager=True):
+        super(ControllerTest, self).setup()
         _db = _db or self._db
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
@@ -126,49 +132,90 @@ class ControllerTest(VendorIDTest):
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
-        # from previous tests wuold cause flask to roll back the db
+        # from previous tests would cause flask to roll back the db
         # when you entered a new request context, deleting rows that
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
-        # Most tests can use self._default_library and
-        # self._default_collection, but some can't, because those objects
-        # are associated with the default database session.
-        self.library = self.make_default_library(_db)
-        self.collection = self.make_default_collection(_db, self.library)
-
-        # Create the patron used by the dummy authentication mechanism.
-        self.default_patron, ignore = get_one_or_create(
-            _db, Patron,
-            library=self.library,
-            authorization_identifier="unittestuser",
-            create_method_kwargs=dict(
-                external_identifier="unittestuser"
-            )
-        )
-
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
             "" : "http://cdn"
         }
-
-        # Create a simple authentication integration for this library,
-        # unless it already has a way to authenticate patrons
-        # (in which case we would just screw things up).
-        if not any([x for x in self.library.integrations if x.goal==
-                ExternalIntegration.PATRON_AUTH_GOAL]):
-            integration, ignore = create(
-                _db, ExternalIntegration,
-                protocol="api.simple_authentication",
-                goal=ExternalIntegration.PATRON_AUTH_GOAL
-            )
-            p = BasicAuthenticationProvider
-            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
-            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
-            self.library.integrations.append(integration)
-        self.authdata = AuthdataUtility.from_config(self.library)
-
-        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://test-circulation-manager/'
+        
+        # NOTE: Any reference to self._default_library below this
+        # point in this method will cause the tests in
+        # TestScopedSession to hang.
+        if set_up_circulation_manager:
+            app.manager = self.circulation_manager_setup(_db)
+
+    def circulation_manager_setup(self, _db):
+        """Set up initial Library arrangements for this test.
+        
+        Most tests only need one library: self._default_library.
+        Other tests need a different library (e.g. one created using the
+        scoped database session), or more than one library. For that
+        reason we call out to a helper method to create some number of
+        libraries, then initialize each one.
+        
+        NOTE: Any reference to self._default_library within this
+        method will cause the tests in TestScopedSession to hang.
+
+        This method sets values for self.libraries, self.collections,
+        and self.default_patrons. These data structures contain
+        information for all libraries. It also sets values for a
+        single library which can be used as a default: .library,
+        .collection, and .default_patron.
+
+        :param _db: The database session to use when creating the
+        library objects.
+
+        :return: a CirculationManager object.
+        """
+        self.libraries = self.make_default_libraries(_db)
+        self.collections = [
+            self.make_default_collection(_db, library)
+            for library in self.libraries
+        ]
+        self.default_patrons = {}
+        
+        # The first library created is used as the default -- more of the
+        # time this is the same as self._default_library.
+        self.library = self.libraries[0]
+        self.collection = self.collections[0]
+        
+        for library in self.libraries:
+            # Create the patron used by the dummy authentication mechanism.
+            default_patron, ignore = get_one_or_create(
+                _db, Patron,
+                library=library,
+                authorization_identifier="unittestuser",
+                create_method_kwargs=dict(
+                    external_identifier="unittestuser"
+                )
+            )
+            self.default_patrons[library] = default_patron
+                
+            # Create a simple authentication integration for this library,
+            # unless it already has a way to authenticate patrons
+            # (in which case we would just screw things up).
+            if not any([x for x in library.integrations if x.goal==
+                        ExternalIntegration.PATRON_AUTH_GOAL]):
+                integration, ignore = create(
+                    _db, ExternalIntegration,
+                    protocol="api.simple_authentication",
+                    goal=ExternalIntegration.PATRON_AUTH_GOAL
+                )
+                p = BasicAuthenticationProvider
+                integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+                integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+                library.integrations.append(integration)
+
+        # The test's default patron is the default patron for the first
+        # library returned by make_default_libraries.
+        self.default_patron = self.default_patrons[self.library]
+
+        self.authdata = AuthdataUtility.from_config(self.library)
 
         with temp_config() as config:
             config[Configuration.POLICIES] = {
@@ -178,15 +225,23 @@ class ControllerTest(VendorIDTest):
                 }
             }
 
-            lanes = make_lanes_default(self.library)
             self.manager = CirculationManager(
-                _db, lanes=lanes, testing=True
+                _db, lanes=None, testing=True
             )
-            app.manager = self.manager
-            self.controller = CirculationManagerController(self.manager)
 
-    def make_default_library(self, _db):
-        return self._default_library
+            # Set CirculationAPI and top-level lane for the default
+            # library, for convenience in tests.
+            self.manager.d_circulation = self.manager.circulation_apis[
+                self.library.id
+            ]
+            self.manager.d_top_level_lane = self.manager.top_level_lanes[
+                self.library.id
+            ]
+            self.controller = CirculationManagerController(self.manager)
+        return self.manager
+
+    def make_default_libraries(self, _db):
+        return [self._default_library]
 
     def make_default_collection(self, _db, library):
         return self._default_collection
@@ -279,30 +334,32 @@ class TestBaseController(CirculationControllerTest):
             eq_(None, response.headers.get("WWW-Authenticate"))
 
     def test_load_lane(self):
-        eq_(self.manager.top_level_lane, self.controller.load_lane(None, None))
-        chinese = self.controller.load_lane('chi', None)
-        eq_("Chinese", chinese.name)
-        eq_("Chinese", chinese.display_name)
-        eq_(["chi"], chinese.languages)
+        with self.request_context_with_library("/"):
+            eq_(self.manager.d_top_level_lane,
+                self.controller.load_lane(None, None))
+            chinese = self.controller.load_lane('chi', None)
+            eq_("Chinese", chinese.name)
+            eq_("Chinese", chinese.display_name)
+            eq_(["chi"], chinese.languages)
 
-        english_sf = self.controller.load_lane('eng', "Science Fiction")
-        eq_("Science Fiction", english_sf.display_name)
-        eq_(["eng"], english_sf.languages)
+            english_sf = self.controller.load_lane('eng', "Science Fiction")
+            eq_("Science Fiction", english_sf.display_name)
+            eq_(["eng"], english_sf.languages)
 
-        # __ is converted to /
-        english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-        eq_("Suspense/Thriller", english_thriller.name)
+            # __ is converted to /
+            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
+            eq_("Suspense/Thriller", english_thriller.name)
 
-        # Unlike with Chinese, there is no lane that contains all English books.
-        english = self.controller.load_lane('eng', None)
-        eq_(english.uri, NO_SUCH_LANE.uri)
+            # Unlike with Chinese, there is no lane that contains all English books.
+            english = self.controller.load_lane('eng', None)
+            eq_(english.uri, NO_SUCH_LANE.uri)
 
-        no_such_language = self.controller.load_lane('o10', None)
-        eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-        eq_("Unrecognized language key: o10", no_such_language.detail)
+            no_such_language = self.controller.load_lane('o10', None)
+            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
+            eq_("Unrecognized language key: o10", no_such_language.detail)
 
-        no_such_lane = self.controller.load_lane('eng', 'No such lane')
-        eq_("No such lane: No such lane", no_such_lane.detail)
+            no_such_lane = self.controller.load_lane('eng', 'No such lane')
+            eq_("No such lane: No such lane", no_such_lane.detail)
 
     def test_load_licensepools(self):
 
@@ -503,9 +560,9 @@ class TestBaseController(CirculationControllerTest):
             eq_(self._default_library, flask.request.library)
 
         with self.app.test_request_context("/"):
-            value = self.controller.library_for_request(None)
-            eq_(self._default_library, value)
-            eq_(self._default_library, flask.request.library)
+            assert_raises(
+                ValueError, self.controller.library_for_request, None
+            )
 
 
 class TestIndexController(CirculationControllerTest):
@@ -549,6 +606,35 @@ class TestIndexController(CirculationControllerTest):
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
 
+class TestMultipleLibraries(CirculationControllerTest):
+
+    def make_default_libraries(self, _db):
+        return [self._library() for x in range(2)]
+
+    def make_default_collection(self, _db, library):
+        collection, ignore = get_one_or_create(
+            _db, Collection, name=self._str + " (for multi-library test)",
+        )
+        collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
+        library.collections.append(collection)
+        return collection
+        
+    def test_authentication(self):
+        """It's possible to authenticate with multiple libraries and make a
+        request that runs in the context of each different library.
+        """
+        l1, l2 = self.libraries
+        assert l1 != l2
+        for library in self.libraries:
+            headers = dict(Authorization=self.valid_auth)
+            with self.request_context_with_library(
+                    "/", headers=headers, library=library):
+                patron = self.manager.loans.authenticated_patron_from_request()
+                eq_(library, patron.library)
+                response = self.manager.index_controller()
+                eq_("http://cdn/%s/groups/" % library.short_name,
+                    response.headers['location'])
+            
 class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
@@ -706,7 +792,7 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool,
                 LoanInfo(
                     pool.collection, pool.data_source.name,
@@ -747,7 +833,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(set(expects), set(fulfillment_links))
 
             # Now let's try to fulfill the loan using the streaming mechanism.
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -786,7 +872,7 @@ class TestLoanController(CirculationControllerTest):
             http = DummyHTTPClient()
             http.queue_response(200, content="I am an ACSM file")
 
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -807,7 +893,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(mech1, loan.fulfillment)
 
             # But we can still fulfill the streaming mechanism again.
-            self.manager.circulation.queue_fulfill(
+            self.manager.d_circulation.queue_fulfill(
                 pool,
                 FulfillmentInfo(
                     pool.collection, pool.data_source.name,
@@ -861,10 +947,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, NoAvailableCopies()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool,
                 HoldInfo(
                     pool.collection, pool.data_source.name,
@@ -902,10 +988,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, AlreadyOnHold()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool, HoldInfo(
                     pool.collection, pool.data_source.name,
                     pool.identifier.type,
@@ -939,7 +1025,7 @@ class TestLoanController(CirculationControllerTest):
          with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
              self.manager.loans.authenticated_patron_from_request()
-             self.manager.circulation.queue_checkout(
+             self.manager.d_circulation.queue_checkout(
                  pool, NotFoundOnRemote()
              )
              response = self.manager.loans.borrow(
@@ -968,7 +1054,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              loan, newly_created = self.pool.loan_to(patron)
 
-             self.manager.circulation.queue_checkin(self.pool, True)
+             self.manager.d_circulation.queue_checkin(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.id)
 
@@ -980,7 +1066,7 @@ class TestLoanController(CirculationControllerTest):
              patron = self.manager.loans.authenticated_patron_from_request()
              hold, newly_created = self.pool.on_hold_to(patron, position=0)
 
-             self.manager.circulation.queue_release_hold(self.pool, True)
+             self.manager.d_circulation.queue_release_hold(self.pool, True)
 
              response = self.manager.loans.revoke(self.pool.id)
 
@@ -1000,10 +1086,10 @@ class TestLoanController(CirculationControllerTest):
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool, NoAvailableCopies()
             )
-            self.manager.circulation.queue_hold(
+            self.manager.d_circulation.queue_hold(
                 pool, PatronHoldLimitReached()
             )
             response = self.manager.loans.borrow(
@@ -1046,7 +1132,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             patron = self.manager.loans.authenticated_patron_from_request()
             patron.fines = Decimal("0.49")
-            self.manager.circulation.queue_checkout(
+            self.manager.d_circulation.queue_checkout(
                 pool,
                 LoanInfo(
                     pool.collection, pool.data_source.name,
@@ -1113,14 +1199,14 @@ class TestLoanController(CirculationControllerTest):
         bibliotheca_pool.licenses_available = 0
         bibliotheca_pool.open_access = False
         
-        self.manager.circulation.add_remote_loan(
+        self.manager.d_circulation.add_remote_loan(
             overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
             overdrive_pool.identifier.identifier,
             datetime.datetime.utcnow(),
             datetime.datetime.utcnow() + datetime.timedelta(seconds=3600)
         )
-        self.manager.circulation.add_remote_hold(
+        self.manager.d_circulation.add_remote_hold(
             bibliotheca_pool.collection, bibliotheca_pool.data_source,
             bibliotheca_pool.identifier.type,
             bibliotheca_pool.identifier.identifier,
@@ -2086,6 +2172,8 @@ class TestDeviceManagementProtocolController(ControllerTest):
     def setup(self):
         super(TestDeviceManagementProtocolController, self).setup()
         self.auth = dict(Authorization=self.valid_auth)
+        self.initialize_adobe(self.library, self.libraries)
+        self.manager.setup_adobe_vendor_id(self.library)
         self.controller = self.manager.adobe_device_management
         
     def _create_credential(self):
@@ -2342,21 +2430,26 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
-
-        # This will call make_default_library and make_default_collection.
-        super(TestScopedSession, self).setup(_db)
-
-    def make_default_library(self, _db):
-        """We need to create a new instance of the library that
-        uses the scoped session.
-        """
-        return Library.instance(_db)
+        # We will be calling circulation_manager_setup ourselves,
+        # because we want objects like Libraries to be created in the
+        # scoped session.
+        super(TestScopedSession, self).setup(
+            _db, set_up_circulation_manager=False
+        )
+        
+    def make_default_libraries(self, _db):
+        libraries = []
+        for i in range(2):
+            name = self._str + " (for scoped session)"
+            library, ignore = create(_db, Library, short_name=name)
+            libraries.append(library)
+        return libraries
 
     def make_default_collection(self, _db, library):
         """We need to create a test collection that
         uses the scoped session.
         """
-        collection, ignore = get_one_or_create(
+        collection, ignore = create(
             _db, Collection, name=self._str + " (for scoped session)",
         )
         collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
@@ -2370,11 +2463,15 @@ class TestScopedSession(ControllerTest):
         """
         with self.app.test_request_context(*args) as ctx:
             transaction = current_session.begin_nested()
+            self.app.manager = self.circulation_manager_setup(
+                current_session
+            )
             yield ctx
             transaction.rollback()
 
     def test_scoped_session(self):
         # Start a simulated request to the Flask app server.
+
         with self.test_request_context_and_transaction("/"):
             # Each request is given its own database session distinct
             # from the one used by most unit tests or the one
@@ -2411,7 +2508,7 @@ class TestScopedSession(ControllerTest):
             # because it's running in a different database session.
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
-
+            
         # Once we exit the context of the Flask request, the
         # transaction is rolled back. The Identifier never actually
         # enters the database.

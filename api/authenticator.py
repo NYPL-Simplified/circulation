@@ -378,16 +378,8 @@ class LibraryAuthenticator(object):
         """Initialize an Authenticator for the given Library based on its
         configured ExternalIntegrations.
         """
-
-        bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
-            _db
-        )
-
         # Start with an empty list of authenticators.
-        authenticator = cls(
-            _db=_db, library=library,
-            bearer_token_signing_secret=bearer_token_signing_secret
-        )
+        authenticator = cls(_db=_db, library=library)
 
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
@@ -401,7 +393,15 @@ class LibraryAuthenticator(object):
         # AuthenticationProvider.
         for integration in integrations:
             authenticator.register_provider(integration)
-                
+
+        if authenticator.oauth_providers_by_name:
+            # NOTE: this will immediately commit the database session,
+            # which may not be what you want during a test. To avoid
+            # this, you can create the bearer token signing secret as
+            # a regular site-wide ConfigurationSetting.
+            authenticator.bearer_token_signing_secret = OAuthAuthenticationProvider.bearer_token_signing_secret(
+                _db
+            )
         authenticator.assert_ready_for_oauth()
         return authenticator
 
