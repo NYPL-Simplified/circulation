@@ -2409,10 +2409,23 @@ class TestScopedSession(ControllerTest):
 
     def setup(self):
         from api.app import _db
-
+        self.scoped_session = _db
+        
         # This will call make_default_library and make_default_collection.
         super(TestScopedSession, self).setup(_db)
 
+    def teardown(self):
+        super(TestScopedSession, self).teardown()
+
+        # Rather than try to scope the session used for initial setup
+        # in a way that's easy to roll back, we just delete all the
+        # items that were created during initial setup.
+        _db = self.scoped_session
+        for cls in (Library, Collection, ExternalIntegration):
+            for i in self.scoped_session.query(cls):
+                _db.delete(i)
+        _db.flush()
+        
     def make_default_libraries(self, _db):
         libraries = []
         for i in range(2):
