@@ -1189,8 +1189,8 @@ class TestSettingsController(AdminControllerTest):
             eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
             eq_(FacetConstants.ORDER_LAST_UPDATE,
                 settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
-            eq([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE],
-               settings.get(Configuration.ENABLED_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
+            eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE],
+               settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
         library, ignore = get_one_or_create(
