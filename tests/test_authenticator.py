@@ -607,7 +607,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # without providing a secret.
         LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             basic_auth_provider=basic
         )
 
@@ -615,7 +615,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # provide a secret.
         LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth], bearer_token_signing_secret="foo"
         )
         
@@ -624,7 +624,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         assert_raises_regexp(
             LibraryAuthenticator,
             "OAuth providers are configured, but secret for signing bearer tokens is not.",
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth]
         )
         
@@ -638,7 +638,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             basic_auth_provider=basic, oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -652,7 +652,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         """
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             bearer_token_signing_secret='foo'
         )
         integration = self._external_integration(self._str)
@@ -694,7 +694,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             basic_auth_provider=basic
         )
         problem = authenticator.oauth_provider_lookup("provider1")
@@ -707,7 +707,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         oauth3 = MockOAuthAuthenticationProvider(self._default_library, "provider3")
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -789,7 +789,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
     def test_authenticated_patron_unsupported_mechanism(self):
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
         )
         problem = authenticator.authenticated_patron(
             self._db, object()
@@ -805,7 +805,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # if a Basic Auth authentication provider is configured.
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret="secret"
         )
@@ -818,7 +818,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # providers are configured.
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             basic_auth_provider=None, oauth_providers=[oauth],
             bearer_token_signing_secret="secret"
         )
@@ -832,7 +832,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         oauth2 = MockOAuthAuthenticationProvider(self._default_library, "oauth2")
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -865,7 +865,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         oauth = MockOAuthAuthenticationProvider(self._default_library, "oauth")
         authenticator = LibraryAuthenticator(
             _db=self._db,
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )

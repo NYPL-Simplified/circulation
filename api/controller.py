@@ -142,29 +142,36 @@ class CirculationManager(object):
                 sys.exit()
         self._db = _db
         self.testing = testing
-        library = Library.instance(self._db)
-        self.library_id = library.id
-        if isinstance(lanes, LaneList):
-            lanes = lanes
-        else:
-            lanes = make_lanes(library, lanes)
-        self.top_level_lane = self.create_top_level_lane(lanes)
-
         self.auth = Authenticator(self._db)
-        self.setup_circulation(library)
         self.__external_search = None
+        
+        # Track the Lane configuration for each library by mapping its
+        # short name to the top-level lane.
+        self.top_level_lanes = {}
+
+        # Create a CirculationAPI for each library.
+        self.circulation_apis = {}
+
+        lane_descriptions = lanes
+        for library in _db.query(Library):
+            lanes = make_lanes(library, lane_descriptions)
+            
+            self.top_level_lanes[library.id] = (
+                self.create_top_level_lane(
+                    library, lanes
+                )
+            )
+
+            self.circulation_apis[library.id] = self.setup_circulation(
+                library
+            )
+            self.setup_adobe_vendor_id(library)
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
 
         self.setup_controllers()
-        self.setup_adobe_vendor_id(library)
-
         self.opds_authentication_documents = {}
-
-    @property
-    def library(self):
-        return get_one(self._db, Library, id=self.library_id)
     
     @property
     def external_search(self):
@@ -177,10 +184,10 @@ class CirculationManager(object):
             self.__external_search = self.setup_search()
         return self.__external_search
 
-    def create_top_level_lane(self, lanelist):
+    def create_top_level_lane(self, library, lanelist):
         name = 'All Books'
         return Lane(
-            self.library, name,
+            library, name,
             display_name=name,
             parent=None,
             sublanes=lanelist.lanes,
@@ -222,8 +229,8 @@ class CirculationManager(object):
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        self.circulation = cls(library)
-
+        return cls(library)
+        
     def setup_controllers(self):
         """Set up all the controllers that will be used by the web app."""
         self.index_controller = IndexController(self)
@@ -284,20 +291,33 @@ class CirculationManager(object):
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
+        if lane:
+            library = lane.library
+        else:
+            library = flask.request.library
         return CirculationManagerAnnotator(
-            self.circulation, lane, flask.request.library, top_level_title='All Books',
-            *args, **kwargs
+            self.circulation_apis[library.id], lane, library,
+            top_level_title='All Books', *args, **kwargs
         )
 
 
 class CirculationManagerController(BaseCirculationManagerController):
 
+    @property
+    def circulation(self):
+        """Return the appropriate CirculationAPI for the request Library."""
+        library_id = flask.request.library.id
+        return self.manager.circulation_apis[library_id]
+    
     def load_lane(self, language_key, name):
         """Turn user input into a Lane object."""
-        if language_key is None and name is None:
-            return self.manager.top_level_lane
+        library_id = flask.request.library.id
+        top_level_lane = self.manager.top_level_lanes[library_id]
 
-        lanelist = self.manager.top_level_lane.sublanes
+        if language_key is None and name is None:
+            return top_level_lane
+
+        lanelist = top_level_lane.sublanes
         if not language_key in lanelist.by_languages:
             return NO_SUCH_LANE.detailed(
                 _("Unrecognized language key: %(language_key)s", language_key=language_key)
@@ -991,14 +1011,14 @@ class WorkController(CirculationManagerController):
 
     def contributor(self, contributor_name, languages, audiences):
         """Serve a feed of books written by a particular author"""
-
+        library = flask.request.library
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            self.manager.library, contributor_name, languages=languages, audiences=audiences
+            library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1055,7 +1075,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                self.manager.library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1090,7 +1110,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self.manager.library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1142,12 +1162,12 @@ class WorkController(CirculationManagerController):
 
     def series(self, series_name, languages, audiences):
         """Serve a feed of books in the same series as a given book."""
-
+        library = flask.request.library
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(self.manager.library, series_name=series_name,
+        lane = SeriesLane(library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)
@@ -1155,7 +1175,7 @@ class WorkController(CirculationManagerController):
         # In addition to the orderings enabled for this library, a
         # series collection may be ordered by series position, and is
         # ordered that way by default.
-        facet_config = FacetConfig.from_library(self.manager.library)
+        facet_config = FacetConfig.from_library(library)
         facet_config.set_default_facet(
             Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
         )

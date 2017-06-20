@@ -15,7 +15,6 @@ class BaseCirculationManagerController(object):
         """:param manager: A CirculationManager object."""
         self.manager = manager
         self._db = self.manager._db
-        self.circulation = self.manager.circulation
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 
@@ -87,7 +86,9 @@ class BaseCirculationManagerController(object):
         if library_short_name:
             library = get_one(self._db, Library, short_name=library_short_name)
         else:
-            library = Library.instance(self._db)
+            # TODO: It should be possible to designate one library
+            # as the default.
+            raise ValueError("No library_short_name provided!")
         
         if not library:
             return LIBRARY_NOT_FOUND

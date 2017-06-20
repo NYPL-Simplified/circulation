@@ -186,6 +186,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         fulfill link for an Adobe delivery mechanism includes instructions
         on how to get a Vendor ID.
         """
+        self.initialize_adobe(self._default_library)
         [pool] = self.work.license_pools
         identifier = pool.identifier
         patron = self._patron()
@@ -237,7 +238,6 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         """When vendor ID delegation is not configured, adobe_id_tags()
         returns an empty list.
         """
-        self._db.delete(self.short_client_token)
         eq_([], self.annotator.adobe_id_tags("patron identifier"))
 
     def test_adobe_id_tags_when_vendor_id_configured(self):
@@ -246,6 +246,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         the information necessary to get an Adobe ID and a link to the local
         DRM Device Management Protocol endpoint.
         """
+        self.initialize_adobe(self._default_library)
         patron_identifier = "patron identifier"
         [element] = self.annotator.adobe_id_tags(patron_identifier)
         eq_('{http://librarysimplified.org/terms/drm}licensor', element.tag)
@@ -262,7 +263,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         authdata = AuthdataUtility.from_config(self._default_library)
         decoded = authdata.decode_short_client_token(token)
         expected_url = ConfigurationSetting.for_library(
-            Library.WEBSITE_KEY, self._default_library).value
+            Configuration.WEBSITE_URL, self._default_library).value
         eq_((expected_url, patron_identifier), decoded)
 
         eq_("link", device_management_link.tag)
@@ -530,6 +531,7 @@ class TestOPDS(VendorIDTest):
         self.assert_link_on_entry(entry, partials_by_rel=rel_with_partials)
 
     def test_active_loan_feed(self):
+        self.initialize_adobe(self._default_library)
         patron = self._patron()
         cls = CirculationManagerLoanAndHoldAnnotator
         raw = cls.active_loans_for(None, patron, test_mode=True)
@@ -563,7 +565,7 @@ class TestOPDS(VendorIDTest):
         eq_(self.adobe_vendor_id.username,
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
-        expected = self.short_client_token.username
+        expected = self.short_client_token[self._default_library].username.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
         eq_("{http://www.w3.org/2005/Atom}link",
@@ -798,6 +800,7 @@ class TestOPDS(VendorIDTest):
         a generic drm:licensor tag, except with the drm:scheme attribute 
         set.
         """ 
+        self.initialize_adobe(self._default_library)
         annotator = CirculationManagerLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
         patron = self._patron()
         [feed_tag] = annotator.drm_device_registration_feed_tags(patron)

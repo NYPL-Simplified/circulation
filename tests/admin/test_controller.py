@@ -941,7 +941,7 @@ class TestDashboardController(AdminControllerTest):
 
         with self.request_context_with_library("/"):
             response = self.manager.admin_dashboard_controller.circulation_events()
-            url = AdminAnnotator(self.manager.circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
+            url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
         events = response['circulation_events']
         eq_(types[::-1], [event['type'] for event in events])
@@ -952,7 +952,7 @@ class TestDashboardController(AdminControllerTest):
         # request fewer events
         with self.request_context_with_library("/?num=2"):
             response = self.manager.admin_dashboard_controller.circulation_events()
-            url = AdminAnnotator(self.manager.circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
+            url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
         eq_(2, len(response['circulation_events']))
 
@@ -1352,20 +1352,20 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
-            collections = response.get("collections")
-            eq_(2, len(collections))
+            coll2, coll1 = sorted(
+                response.get("collections"), key = lambda c: c.get('name')
+            )
+            eq_(c1.name, coll1.get("name"))
+            eq_(c2.name, coll2.get("name"))
 
-            eq_(c1.name, collections[0].get("name"))
-            eq_(c2.name, collections[1].get("name"))
+            eq_(c1.protocol, coll1.get("protocol"))
+            eq_(c2.protocol, coll2.get("protocol"))
 
-            eq_(c1.protocol, collections[0].get("protocol"))
-            eq_(c2.protocol, collections[1].get("protocol"))
+            eq_(c1.external_account_id, coll1.get("external_account_id"))
+            eq_(c2.external_account_id, coll2.get("external_account_id"))
 
-            eq_(c1.external_account_id, collections[0].get("external_account_id"))
-            eq_(c2.external_account_id, collections[1].get("external_account_id"))
-
-            eq_(c1.external_integration.password, collections[0].get("password"))
-            eq_(c2.external_integration.password, collections[1].get("password"))
+            eq_(c1.external_integration.password, coll1.get("password"))
+            eq_(c2.external_integration.password, coll2.get("password"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):

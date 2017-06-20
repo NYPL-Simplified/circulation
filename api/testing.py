@@ -14,6 +14,7 @@ from core.model import (
     Library,
     Loan,
     Hold,
+    Session,
 )
 from api.circulation import (
     BaseCirculationAPI,
@@ -25,87 +26,82 @@ from api.config import (
     Configuration,
     temp_config,
 )
+
 from api.adobe_vendor_id import AuthdataUtility
 
 class VendorIDTest(DatabaseTest):
-    """Sets up an Adobe Vendor ID integration."""
+    """A DatabaseTest that knows how to set up an Adobe Vendor ID
+    integration.
+    """
 
-    TEST_NODE_VALUE = 114740953091845
     TEST_VENDOR_ID = u"vendor id"
-    TEST_LIBRARY_URI = u"http://me/"
-    TEST_OTHER_LIBRARY_URI = u"http://you/"
-    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
+    
+    def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
+        """Initialize an Adobe Vendor ID integration and a number of
+        Short Client Token integrations.
 
-    TEST_SHORT_NAME = u'LBRY'
-    TEST_SHARED_SECRET = u'some secret'
+        :param vendor_id_library: The Library that should have an
+        Adobe Vendor ID integration.
 
-    def setup(self, _db=None):
-        super(VendorIDTest, self).setup()
+        :param short_token_libraries: The Libraries that should have a
+        Short Client Token integration.
+        """
+        short_token_libraries = list(short_token_libraries)
+        if not vendor_id_library in short_token_libraries:
+            short_token_libraries.append(vendor_id_library)
+        # The first library acts as an Adobe Vendor ID server.
+        self.adobe_vendor_id = self._external_integration(
+            ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID,
+            libraries=[vendor_id_library]
+        )
 
-        if not _db:
-            # So long as we're not testing a scoped session, create
-            # the Adobe Vendor ID and Library Registry credentials.
-            self.adobe_vendor_id = self._external_integration(
-                ExternalIntegration.ADOBE_VENDOR_ID,
-                ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID)
-            self.set_main_library_adobe_config(self._default_library)
+        # Make it easy for this test to access the Short Client Token
+        # integration for a given Library.
+        self.short_client_token = {}
 
-            self.short_client_token = self._external_integration(
+        # As we give libraries their Short Client Token integrations,
+        # we build the 'other_libraries' setting we'll apply to the
+        # Adobe Vendor ID integration.
+        other_libraries = dict()
+            
+        # Every library in the system can generate Short Client
+        # Tokens.
+        for library in short_token_libraries:
+            short_client_token = self._external_integration(
                 ExternalIntegration.SHORT_CLIENT_TOKEN,
                 ExternalIntegration.DRM_GOAL,
-                libraries=[self._default_library]
+                libraries=[library]
             )
-            self.set_main_short_client_token_configuration(self._default_library)
 
+            # Each library will get a slightly different short
+            # name and secret for generating Short Client Tokens.
+            library_uri = self._url
+            short_name = library.short_name + "token"
+            secret = library.short_name + " token secret"
+            short_client_token.username = short_name
+            short_client_token.password = secret
 
-        _db = _db or self._db
-        self.initialize_library(_db)
+            library.setting(Configuration.WEBSITE_URL).value = library_uri
 
-    def initialize_library(self, _db):
-        """Initialize the Library object with default data."""
-        return Library.instance(_db)
+            # Each library knows which Adobe Vendor ID server it
+            # gets its Adobe IDs from.
+            short_client_token.set_setting(
+                AuthdataUtility.VENDOR_ID_KEY,
+                self.adobe_vendor_id.username
+            )
+            self.short_client_token[library] = short_client_token
+            # Each Short Client Token integration will be registered
+            # with that Adobe Vendor ID server.
+            if library != vendor_id_library:
+                other_libraries[library_uri] = (short_name, secret)
 
-    def set_main_library_adobe_config(self, library):
-        self.adobe_vendor_id.password = self.TEST_NODE_VALUE
-
-        other_libraries = json.dumps(self.TEST_OTHER_LIBRARIES)
+        # Tell the Adobe Vendor ID server about the other libraries.
+        other_libraries = json.dumps(other_libraries)
         self.adobe_vendor_id.set_setting(
             AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
         )
-
-        if library not in self.adobe_vendor_id.libraries:
-            self.adobe_vendor_id.libraries.append(library)
-
-    def set_main_short_client_token_configuration(self, library):
-        self.short_client_token.username = self.TEST_SHORT_NAME
-        self.short_client_token.password = self.TEST_SHARED_SECRET
-
-        self.short_client_token.set_setting(
-            AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
-        )
-
-        ConfigurationSetting.for_library(
-            Library.WEBSITE_KEY, library).value = self.TEST_LIBRARY_URI
-
-        if library not in self.short_client_token.libraries:
-            self.short_client_token.libraries.append(library)
-
-    def dependent_library_short_client_token(self, library):
-        short_client_token = self._external_integration(
-            ExternalIntegration.SHORT_CLIENT_TOKEN,
-            ExternalIntegration.DRM_GOAL,
-            username='you', password='secret2', libraries=[library]
-        )
-
-        short_client_token.set_setting(
-            AuthdataUtility.VENDOR_ID_KEY, self.TEST_VENDOR_ID
-        )
-
-        ConfigurationSetting.for_library(
-            Library.WEBSITE_KEY, library).value = self.TEST_OTHER_LIBRARY_URI
-
-        return short_client_token
-
+        
 
 class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):

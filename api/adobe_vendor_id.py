@@ -684,7 +684,8 @@ class AuthdataUtility(object):
             ExternalIntegration.DRM_GOAL, library=library
         )
 
-        library_uri = ConfigurationSetting.for_library(Library.WEBSITE_KEY, library).value
+        library_uri = ConfigurationSetting.for_library(
+            Configuration.WEBSITE_URL, library).value
 
         if not short_client_token:
             return None

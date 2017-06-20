@@ -157,25 +157,6 @@ class TestRepresentationPerLane(TestLaneScript):
 
 class TestCacheFacetListsPerLane(TestLaneScript):
 
-    def test_default_arguments(self):
-        with self.temp_config() as config:
-            # TODO: It would be more robust to set a standard
-            # facet configuration rather than relying on the default.
-            # This is what core/tests/test_lanes.py does.
-            #
-            # However, getting this to work requires changing the way
-            # the LaneSweeperScript is initialized. Currently the
-            # initialization of a CirculationManager object resets the
-            # current configuration to the default.
-            #
-            # In the absense of this ability we're just testing that
-            # there _are_ default values for these things -- we don't
-            # really care what they are.
-            script = CacheFacetListsPerLane(self._db, [], testing=True)
-            eq_(1, len(script.orders))
-            eq_(1, len(script.availabilities))
-            eq_(1, len(script.collections))
-
     def test_arguments(self):
         with self.temp_config() as config:
             script = CacheFacetListsPerLane(
