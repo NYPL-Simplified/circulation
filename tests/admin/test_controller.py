@@ -1188,7 +1188,7 @@ class TestSettingsController(AdminControllerTest):
             settings = libraries[1].get("settings")
             eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
             eq_(FacetConstants.ORDER_LAST_UPDATE,
-                settings.get(Configruation.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
+                settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_LAST_UPDATE],
                settings.get(Configuration.ENABLED_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
