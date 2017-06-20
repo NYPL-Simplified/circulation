@@ -386,7 +386,9 @@ def admin_view(collection=None, book=None, **kwargs):
                     quoted_book,
                     quoted_book.replace("/", "%2F"))
             return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
-        library = Library.instance(app.manager._db)
+        # TODO: Design the admin interface for multiple libraries.
+        # Until then, pick some library so the admin interface can run.
+        library = app.manager._db.query(Library).all()[0]
         home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
     else:
         home_url = None
