@@ -90,6 +90,7 @@ from api.oneclick import OneClickAPI
 
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
+from core.opds_import import MetadataWranglerOPDSLookup
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -1393,6 +1394,7 @@ class SettingsController(CirculationManagerController):
 
         for provider in [NYTBestSellerAPI,
                          NoveListAPI,
+                         MetadataWranglerOPDSLookup,
                         ]:
             protocols.append({
                 "name": provider.PROTOCOL,
