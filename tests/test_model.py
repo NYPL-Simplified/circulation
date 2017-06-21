@@ -5685,6 +5685,25 @@ class TestConfigurationSetting(DatabaseTest):
         eq_(False,
             ConfigurationSetting.sitewide(self._db, "public_key").is_secret)
 
+    def test_value_or_default(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        setting = integration.setting("key")
+        eq_(None, setting.value)
+        
+        # If the setting has no value, value_or_default sets the value to
+        # the default, and returns the default.
+        eq_("default value", setting.value_or_default("default value"))
+        eq_("default value", setting.value)
+
+        # Once the value is set, value_or_default returns the value.
+        eq_("default value", setting.value_or_default("new default"))
+        
+        # If the setting has any value at all, even the empty string,
+        # it's returned instead of the default.
+        setting.value = ""
+        eq_("", setting.value_or_default("default"))
         
     def test_duplicate(self):
         """You can't have two ConfigurationSettings for the same key,

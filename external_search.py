@@ -59,9 +59,9 @@ class ExternalSearchIndex(object):
                 url = url or integration.url
                 if not works_index:
                     setting = integration.setting(self.WORKS_INDEX_KEY).value
-                    if not setting.value:
-                        setting.value = self.DEFAULT_WORKS_INDEX
-                    works_index = setting.value
+                    works_index = setting.value_or_default(
+                        self.DEFAULT_WORKS_INDEX
+                    )
             if not url:
                 raise CannotLoadConfiguration(
                     "No URL configured to Elasticsearch server."
@@ -89,7 +89,7 @@ class ExternalSearchIndex(object):
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
-
+        
     def update_integration_settings(self, integration, force=False):
         """Updates the integration with an appropriate index and alias
         setting if the index and alias have been updated.
