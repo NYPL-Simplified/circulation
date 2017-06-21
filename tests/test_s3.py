@@ -34,9 +34,18 @@ class TestS3URLGeneration(DatabaseTest):
 
     def test_from_config(self):
         # If there's no configuration for S3, S3Uploader.from_config
-        # returns None.
-        eq_(None, S3Uploader.from_config(self._db))
+        # raises an exception.
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            'Required S3 integration is not configured',
+            S3Uploader.from_config, self._db
+        )
 
+        # Unless you pass in required=False, in which case you get
+        # None.
+        eq_(None, S3Uploader.from_config(self._db, required=False))
+
+        
         # If there is a configuration but it's misconfigured, an error
         # is raised.
         integration = self._external_integration(

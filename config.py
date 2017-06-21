@@ -305,7 +305,10 @@ class Configuration(object):
         if _db:
             s3_integration = S3Uploader.integration(_db)
             if s3_integration:
-                S3Uploader.initialize_buckets(_db)
+                # We don't know whether or not an S3 integration
+                # is required in this context, so we don't want an
+                # exception if it's not set up.
+                S3Uploader.from_config(_db, required=False)
                 
             cls.load_cdns(_db)
             cls.instance[cls.LOADED_FROM_DATABASE] = True
