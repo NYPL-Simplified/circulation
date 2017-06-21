@@ -1992,6 +1992,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
+                (ExternalIntegration.URL, "url"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, "Invalid mode"),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
@@ -2086,6 +2087,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", MilleniumPatronAPI.__module__),
+                (ExternalIntegration.URL, "url"),
                 (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
                 (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
@@ -2098,6 +2100,7 @@ class TestSettingsController(AdminControllerTest):
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
                                protocol=MilleniumPatronAPI.__module__)
         assert auth_service2 != auth_service
+        eq_("url", auth_service2.url)
         eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
         eq_("true",
