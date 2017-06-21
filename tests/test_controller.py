@@ -141,7 +141,7 @@ class ControllerTest(VendorIDTest):
                 }
             }
             yield config
-    
+            
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
@@ -425,34 +425,6 @@ class TestBaseController(CirculationControllerTest):
             response = self.controller.authenticate()
             eq_(None, response.headers.get("WWW-Authenticate"))
 
-    def test_load_lane(self):
-        with self.request_context_with_library("/"):
-            eq_(self.manager.d_top_level_lane,
-                self.controller.load_lane(None, None))
-            chinese = self.controller.load_lane('chi', None)
-            eq_("Chinese", chinese.name)
-            eq_("Chinese", chinese.display_name)
-            eq_(["chi"], chinese.languages)
-
-            english_sf = self.controller.load_lane('eng', "Science Fiction")
-            eq_("Science Fiction", english_sf.display_name)
-            eq_(["eng"], english_sf.languages)
-
-            # __ is converted to /
-            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-            eq_("Suspense/Thriller", english_thriller.name)
-
-            # Unlike with Chinese, there is no lane that contains all English books.
-            english = self.controller.load_lane('eng', None)
-            eq_(english.uri, NO_SUCH_LANE.uri)
-
-            no_such_language = self.controller.load_lane('o10', None)
-            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-            eq_("Unrecognized language key: o10", no_such_language.detail)
-
-            no_such_lane = self.controller.load_lane('eng', 'No such lane')
-            eq_("No such lane: No such lane", no_such_lane.detail)
-
     def test_load_licensepools(self):
 
         # Here's a Library that has two Collections.
@@ -656,6 +628,58 @@ class TestBaseController(CirculationControllerTest):
                 ValueError, self.controller.library_for_request, None
             )
 
+
+class FullLaneSetupTest(CirculationControllerTest):
+    """Most lane-based tests don't need the full multi-tier setup of lanes
+    that we would see in a real site. We use a smaller setup to save time
+    when running the test.
+
+    This class is for the tests that do need that full set of lanes.
+    """
+
+    @contextmanager
+    def default_config(self):
+        """A default lane configuration that creates a full
+        range of lanes.
+        """
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
+            yield config
+    
+    def test_load_lane(self):
+        with self.request_context_with_library("/"):
+            eq_(self.manager.d_top_level_lane,
+                self.controller.load_lane(None, None))
+            chinese = self.controller.load_lane('chi', None)
+            eq_("Chinese", chinese.name)
+            eq_("Chinese", chinese.display_name)
+            eq_(["chi"], chinese.languages)
+
+            english_sf = self.controller.load_lane('eng', "Science Fiction")
+            eq_("Science Fiction", english_sf.display_name)
+            eq_(["eng"], english_sf.languages)
+
+            # __ is converted to /
+            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
+            eq_("Suspense/Thriller", english_thriller.name)
+
+            # Unlike with Chinese, there is no lane that contains all English books.
+            english = self.controller.load_lane('eng', None)
+            eq_(english.uri, NO_SUCH_LANE.uri)
+
+            no_such_language = self.controller.load_lane('o10', None)
+            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
+            eq_("Unrecognized language key: o10", no_such_language.detail)
+
+            no_such_lane = self.controller.load_lane('eng', 'No such lane')
+            eq_("No such lane: No such lane", no_such_lane.detail)
+
+            
 
 class TestIndexController(CirculationControllerTest):
     
@@ -2173,11 +2197,15 @@ class TestFeedController(CirculationControllerTest):
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
         library.setting(library.FEATURED_LANE_SIZE).value = 2
-        for i in range(2):
-            self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
-            self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
         
         SessionManager.refresh_materialized_views(self._db)
+
+        # Initial setup gave us two English works and a French work.
+        # Load up with a couple more English works to show that
+        # the groups lane cuts off at FEATURED_LANE_SIZE.
+        for i in range(2):
+            self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
+        
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.groups(None, None)
 
@@ -2189,8 +2217,17 @@ class TestFeedController(CirculationControllerTest):
                 links = [x for x in entry.links if x['rel'] == 'collection']
                 for link in links:
                     counter[link['title']] += 1
-            eq_(2, counter['Nonfiction'])
-            eq_(2, counter['Fiction'])
+
+            # In default_config, the two top-level lanes are "English"
+            # (a language in SMALL_COLLECTION_LANGUAGES) and "Other
+            # Languages" (which covers TINY_COLLECTION_LANGUAGES).
+            #
+            # There are several English works, but we're cut off at
+            # two due to FEATURED_LANE_SIZE. There is one "Other
+            # Languages" work - the French work created when this test
+            # was initialized.
+            eq_(2, counter['English'])
+            eq_(1, counter['Other Languages'])
 
     def test_search(self):
         # Put two works into the search index
