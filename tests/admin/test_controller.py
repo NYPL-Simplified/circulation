@@ -54,6 +54,7 @@ from api.sip import SIP2AuthenticationProvider
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
+from api.novelist import NoveListAPI
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -1402,7 +1403,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "collection"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response, NO_PROTOCOL_FOR_NEW_COLLECTION)
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1410,7 +1411,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response, UNKNOWN_COLLECTION_PROTOCOL)
+            eq_(response, UNKNOWN_PROTOCOL)
 
         collection = self._collection(
             name="Collection 1",
@@ -1423,7 +1424,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", "Bibliotheca"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response, CANNOT_CHANGE_COLLECTION_PROTOCOL)
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
 
 
         with self.app.test_request_context("/", method="POST"):
@@ -1442,7 +1443,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", "OPDS Import"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response.uri, INCOMPLETE_COLLECTION_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1453,7 +1454,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response.uri, INCOMPLETE_COLLECTION_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1463,7 +1464,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response.uri, INCOMPLETE_COLLECTION_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1473,7 +1474,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response.uri, INCOMPLETE_COLLECTION_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1483,7 +1484,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
             ])
             response = self.manager.admin_settings_controller.collections()
-            eq_(response.uri, INCOMPLETE_COLLECTION_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
     def test_collections_post_create(self):
         l1, ignore = create(
@@ -1640,12 +1641,12 @@ class TestSettingsController(AdminControllerTest):
                 ("provider", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER)
+            eq_(response, UNKNOWN_PROTOCOL)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE)
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
     def test_admin_auth_services_post_errors_google_oauth(self):
         auth_service, ignore = create(
@@ -1657,14 +1658,14 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER)
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
         
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("provider", "Google OAuth"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response.uri, INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1747,7 +1748,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.individual_admins()
-            eq_(response.uri, INVALID_INDIVIDUAL_ADMIN_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
     def test_individual_admins_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1953,12 +1954,12 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response, UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL)
+            eq_(response, UNKNOWN_PROTOCOL)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE)
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1979,7 +1980,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SIP2AuthenticationProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response, CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL)
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -1991,10 +1992,11 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
+                (ExternalIntegration.URL, "url"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, "Invalid mode"),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response.uri, INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION.uri)
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -2008,7 +2010,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response.uri, INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION.uri)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -2085,6 +2087,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", MilleniumPatronAPI.__module__),
+                (ExternalIntegration.URL, "url"),
                 (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
                 (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
@@ -2097,6 +2100,7 @@ class TestSettingsController(AdminControllerTest):
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
                                protocol=MilleniumPatronAPI.__module__)
         assert auth_service2 != auth_service
+        eq_("url", auth_service2.url)
         eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
         eq_("true",
@@ -2214,4 +2218,157 @@ class TestSettingsController(AdminControllerTest):
 
         # The setting was changed.
         eq_("20", setting.value)
+
+    def test_metadata_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response.get("metadata_services"), [])
+            protocols = response.get("protocols")
+            assert NoveListAPI.NAME in [p.get("label") for p in protocols]
+            assert "fields" in protocols[0]
+        
+    def test_metadata_services_get_with_one_service(self):
+        novelist_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+        novelist_service.username = "user"
+        novelist_service.password = "pass"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.metadata_services()
+            [service] = response.get("metadata_services")
+
+            eq_(novelist_service.id, service.get("id"))
+            eq_(ExternalIntegration.NOVELIST, service.get("protocol"))
+            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
+            eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
+
+        novelist_service.libraries += [self._default_library]
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.metadata_services()
+            [service] = response.get("metadata_services")
+
+            eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library)
+        
+    def test_metadata_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response, MISSING_METADATA_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.NYT),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.NOVELIST),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.NOVELIST),
+                (ExternalIntegration.USERNAME, "user"),
+                (ExternalIntegration.PASSWORD, "pass"),
+                ("libraries", json.dumps(["not-a-library"])),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+
+    def test_metadata_services_post_create(self):
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.NOVELIST),
+                (ExternalIntegration.USERNAME, "user"),
+                (ExternalIntegration.PASSWORD, "pass"),
+                ("libraries", json.dumps(["L"])),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.METADATA_GOAL)
+        eq_(ExternalIntegration.NOVELIST, service.protocol)
+        eq_("user", service.username)
+        eq_("pass", service.password)
+        eq_([library], service.libraries)
+
+    def test_metadata_services_post_edit(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+
+        novelist_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+        novelist_service.username = "olduser"
+        novelist_service.password = "oldpass"
+        novelist_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", novelist_service.id),
+                ("protocol", ExternalIntegration.NOVELIST),
+                (ExternalIntegration.USERNAME, "user"),
+                (ExternalIntegration.PASSWORD, "pass"),
+                ("libraries", json.dumps(["L2"])),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response.status_code, 200)
+
+        eq_(ExternalIntegration.NOVELIST, novelist_service.protocol)
+        eq_("user", novelist_service.username)
+        eq_("pass", novelist_service.password)
+        eq_([l2], novelist_service.libraries)
 

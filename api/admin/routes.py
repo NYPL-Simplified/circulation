@@ -339,6 +339,18 @@ def patron_auth_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/metadata_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def metadata_services():
+    data = app.manager.admin_settings_controller.metadata_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin

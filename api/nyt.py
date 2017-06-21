@@ -10,6 +10,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from flask.ext.babel import lazy_gettext as _
 
 from config import CannotLoadConfiguration
 
@@ -44,6 +45,16 @@ class NYTAPI(object):
 
 class NYTBestSellerAPI(NYTAPI):
     
+    PROTOCOL = ExternalIntegration.NYT
+    NAME = _("NYT Best Seller API")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.PASSWORD, "label": _("API key") },
+    ]
+
+    # An NYT integration is shared by all libraries in a circulation manager.
+    SITEWIDE = True
+
     BASE_URL = "http://api.nytimes.com/svc/books/v3/lists"
 
     LIST_NAMES_URL = BASE_URL + "/names.json"
