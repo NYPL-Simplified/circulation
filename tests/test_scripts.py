@@ -1452,6 +1452,18 @@ class TestConfigureIntegrationScript(DatabaseTest):
             m, self._db, None, None, "protocol", None
         )
 
+        assert_raises_regexp(
+            ValueError,
+            "No integration with ID notanid.",
+            m, self._db, "notanid", None, None, None
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            'No integration with name "Unknown integration". To create it, you must also provide protocol and goal.',
+            m, self._db, None, "Unknown integration", None, None
+        )
+        
         integration = self._external_integration(
             protocol="Protocol", goal="Goal"
         )

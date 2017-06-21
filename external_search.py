@@ -58,8 +58,10 @@ class ExternalSearchIndex(object):
                     )
                 url = url or integration.url
                 if not works_index:
-                    works_index = integration.setting(self.WORKS_INDEX_KEY).value or self.DEFAULT_WORKS_INDEX
-                    
+                    setting = integration.setting(self.WORKS_INDEX_KEY).value
+                    if not setting.value:
+                        setting.value = self.DEFAULT_WORKS_INDEX
+                    works_index = setting.value
             if not url:
                 raise CannotLoadConfiguration(
                     "No URL configured to Elasticsearch server."
