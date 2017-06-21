@@ -120,6 +120,17 @@ class SimplifiedOPDSLookup(object):
 
 class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
+    PROTOCOL = ExternalIntegration.METADATA_WRANGLER
+    NAME = _("Library Simplified Metadata Wrangler")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ]
+
+    SITEWIDE = True
+
     ADD_ENDPOINT = 'add'
     REMOVE_ENDPOINT = 'remove'
     UPDATES_ENDPOINT = 'updates'
