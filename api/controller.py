@@ -133,6 +133,7 @@ class CirculationManager(object):
     def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
+        self._db = _db
 
         if not testing:
             try:
@@ -140,8 +141,21 @@ class CirculationManager(object):
             except CannotLoadConfiguration, e:
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
-        self._db = _db
+
         self.testing = testing
+        self.lane_descriptions = lanes
+        self.setup_one_time_controllers()
+        self.load_settings()
+        
+    def load_settings(self):
+        """Load all necessary configuration settings and external
+        integrations from the database.
+
+        This is called once when the CirculationManager is
+        initialized.  It may also be called later to reload the site
+        configuration after changes are made in the administrative
+        interface.
+        """
         self.auth = Authenticator(self._db)
         self.__external_search = None
         
@@ -152,9 +166,8 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         self.circulation_apis = {}
 
-        lane_descriptions = lanes
-        for library in _db.query(Library):
-            lanes = make_lanes(library, lane_descriptions)
+        for library in self._db.query(Library):
+            lanes = make_lanes(library, self.lane_descriptions)
             
             self.top_level_lanes[library.id] = (
                 self.create_top_level_lane(
@@ -170,7 +183,7 @@ class CirculationManager(object):
             Configuration.policy('lending', {})
         )
 
-        self.setup_controllers()
+        self.setup_configuration_dependent_controllers()
         self.opds_authentication_documents = {}
     
     @property
@@ -231,8 +244,12 @@ class CirculationManager(object):
             cls = CirculationAPI
         return cls(library)
         
-    def setup_controllers(self):
-        """Set up all the controllers that will be used by the web app."""
+    def setup_one_time_controllers(self):
+        """Set up all the controllers that will be used by the web app.
+
+        This method will be called only once, no matter how many times the
+        site configuration changes.
+        """
         self.index_controller = IndexController(self)
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
@@ -240,12 +257,19 @@ class CirculationManager(object):
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
-        self.oauth_controller = OAuthController(self.auth)
         self.profiles = ProfileController(self)
-        
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
+    def setup_configuration_dependent_controllers(self):
+        """Set up all the controllers that depend on the 
+        current site configuration.
+
+        This method will be called fresh every time the site
+        configuration changes.
+        """
+        self.oauth_controller = OAuthController(self.auth)        
+        
     def setup_adobe_vendor_id(self, library):
         """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
         for the DRM Device Management Protocol.
@@ -283,12 +307,20 @@ class CirculationManager(object):
             ExternalIntegration.DRM_GOAL, library=library
         )
         if registry:
+            # TODO: This is slighly wrong. We should be creating a
+            # DeviceManagementProtocolController if _any_ library has
+            # a valid Short Client Token configuration, and unsetting
+            # it if that's not true. Instead we're setting it fresh
+            # every time we encounter a library that has a valid
+            # configuration.  We also don't do a good job of handling
+            # the case where one library has a valid SCT configuration
+            # and another library does not.
             try:
                 authdata = AuthdataUtility.from_config(library)
                 self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
                 self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
-
+                
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         if lane:

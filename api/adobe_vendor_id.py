@@ -708,8 +708,8 @@ class AuthdataUtility(object):
         ):
             raise CannotLoadConfiguration(
                 "Library Registry configuration is incomplete. "
-                "vendor_id, library_uri, username, and"
-                "password must all be defined.")
+                "vendor_id, username, password and "
+                "Library website_url must all be defined.")
         if '|' in library_short_name:
             raise CannotLoadConfiguration(
                 "Library short name cannot contain the pipe character."
