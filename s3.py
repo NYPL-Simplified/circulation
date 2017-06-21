@@ -27,9 +27,16 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def from_config(cls, _db):
-        cls.initialize_buckets(_db)
-        return cls(integration.username, integration.password)
+        """Create an S3Uploader from site configuration.
 
+        :return: An S3Uploader if S3 is configured; otherwise None.
+        """
+        integration = cls.integration(_db)
+        if not integration:
+            return None
+        cls.initialize_buckets(_db)        
+        return cls(integration.username, integration.password)
+        
     def __init__(self, access_key=None, secret_key=None, pool=None):
         from config import CannotLoadConfiguration
         self.pool = pool

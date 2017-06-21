@@ -21,6 +21,7 @@ from s3 import (
     DummyS3Uploader,
     MockS3Pool,
 )
+from config import CannotLoadConfiguration
 
 class TestS3URLGeneration(DatabaseTest):
 
@@ -32,18 +33,17 @@ class TestS3URLGeneration(DatabaseTest):
         eq_(S3Uploader.UNINITIALIZED_BUCKETS, S3Uploader.__buckets__)
 
     def test_from_config(self):
-        # If there's no configuration for S3, an error is raised.
-        assert_raises_regexp(
-            ValueError, 'No S3 ExternalIntegration found',
-            S3Uploader.from_config, self._db
-        )
+        # If there's no configuration for S3, S3Uploader.from_config
+        # returns None.
+        eq_(None, S3Uploader.from_config(self._db))
 
-        # Without an access_key and secret_key, an error is raised
+        # If there is a configuration but it's misconfigured, an error
+        # is raised.
         integration = self._external_integration(
             ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL
         )
         assert_raises_regexp(
-            ValueError, 'without both access_key and secret_key',
+            CannotLoadConfiguration, 'without both access_key and secret_key',
             S3Uploader.from_config, self._db
         )
 
@@ -58,14 +58,14 @@ class TestS3URLGeneration(DatabaseTest):
         duplicate = self._external_integration(ExternalIntegration.S3)
         duplicate.goal = ExternalIntegration.STORAGE_GOAL
         assert_raises_regexp(
-            ValueError, 'Multiple S3 ExternalIntegrations found',
+            CannotLoadConfiguration, 'Multiple S3 ExternalIntegrations configured',
             S3Uploader.from_config, self._db
         )
 
     def test_get_buckets(self):
         # When no buckets have been set, it raises an error.
         assert_raises_regexp(
-            ValueError, 'have not been initialized and no database session',
+            CannotLoadConfiguration, 'have not been initialized and no database session',
             S3Uploader.get_bucket, S3Uploader.OA_CONTENT_BUCKET_KEY
         )
 
@@ -94,7 +94,7 @@ class TestS3URLGeneration(DatabaseTest):
         # Despite our new buckets, if a requested bucket isn't set,
         # an error ir raised.
         assert_raises_regexp(
-            ValueError, 'No S3 bucket found', S3Uploader.get_bucket,
+            CannotLoadConfiguration, 'No S3 bucket found', S3Uploader.get_bucket,
             S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY
         )
 
