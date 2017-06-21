@@ -40,11 +40,6 @@ class TestS3URLGeneration(DatabaseTest):
             'Required S3 integration is not configured',
             S3Uploader.from_config, self._db
         )
-
-        # Unless you pass in required=False, in which case you get
-        # None.
-        eq_(None, S3Uploader.from_config(self._db, required=False))
-
         
         # If there is a configuration but it's misconfigured, an error
         # is raised.
