@@ -57,7 +57,11 @@ from circulation_exceptions import *
 #TODO: Remove unnecessary imports (once the classes are more or less complete)
 
 class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
-    #TODO
+    #copied/moved from core/enki.py since the Enki API probably doesn't need to use core
+    PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
+    availability_endpoint = "ListAPI"
+    item_endpoint = "ItemAPI"
+
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
 
@@ -75,6 +79,7 @@ class EnkiCirculationMonitor(Monitor):
             default_start_time = self.VERY_LONG_AGO
         )
         self.batch_size = batch_size
+        #line 83-90 should be removable during refactoring
         metadata_wrangler_url = Configuration.integration_url(
                 Configuration.METADATA_WRANGLER_INTEGRATION
         )
@@ -144,9 +149,83 @@ class MockEnkiAPI(BaseMockEnkiAPI, EnkiAPI):
     #TODO
     pass
 
+#Copied from 3M. Eventually we might want to refactor
 class EnkiCollectionReaper(IdentifierSweepMonitor):
-    #TODO
-    pass
+        """Check for books that are in the local collection but have left the Enki collection."""
+    def __init__(self, _db, api=None, interval_seconds=3600*4):
+        super(EnkiCollectionReaper, self).__init__(
+            _db, "Enki Collection Reaper", interval_seconds, batch_size=25)
+        self._db = _db
+        if not api:
+            api = EnkiAPI.from_environment(_db)
+        self.api = api
+        self.data_source = DataSource.lookup(self._db, DataSource.ENKI)
+
+    def run(self):
+        self.api = EnkiAPI.from_environment(self._db)
+        self.data_source = DataSource.lookup(self._db, DataSource.ENKI)
+        super(EnkiCollectionReaper, self).run()
+
+    def identifier_query(self):
+        return self._db.query(Identifier).filter(
+            Identifier.type==Identifier.ENKI_ID)
+
+    def process_batch(self, identifiers):
+        identifiers_by_enki_id = dict()
+        enki_ids = set()
+        for identifier in identifiers:
+            enki_ids.add(identifier.identifier)
+            identifiers_by_enki_id[identifier.identifier] = identifier
+
+        identifiers_not_mentioned_by_enki= set(identifiers)
+        now = datetime.datetime.utcnow()
+
+        for circ in self.api.get_circulation_for(enki_ids):
+            if not circ:
+                continue
+            enki_id = circ[Identifier][Identifier.ENKI_ID]
+            identifier = identifiers_by_enki_id[enki_id]
+            identifiers_not_mentioned_by_enki.remove(identifier)
+
+            pool = identifier.licensed_through
+            if not pool:
+                # We don't have a license pool for this work. That
+                # shouldn't happen--how did we know about the
+                # identifier?--but it shouldn't be a big deal to
+                # create one.
+                pool, ignore = LicensePool.for_foreign_id(
+                    self._db, self.data_source, identifier.type,
+                    identifier.identifier)
+
+                # Enki books are never open-access.
+                pool.open_access = False
+                Analytics.collect_event(
+                    self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
+
+            self.api.apply_circulation_information_to_licensepool(circ, pool)
+
+        # At this point there may be some license pools left over
+        # that Enki doesn't know about.  This is a pretty reliable
+        # indication that we no longer own any licenses to the
+        # book.
+        for identifier in identifiers_not_mentioned_by_enki:
+            pool = identifier.licensed_through
+            if not pool:
+                continue
+            if pool.licenses_owned > 0:
+                if pool.presentation_edition:
+                    self.log.warn("Removing %s (%s) from circulation",
+                                  pool.presentation_edition.title, pool.presentation_edition.author)
+                else:
+                    self.log.warn(
+                        "Removing unknown work %s from circulation.",
+                        identifier.identifier
+                    )
+            pool.licenses_owned = 0
+            pool.licenses_available = 0
+            pool.licenses_reserved = 0
+            pool.patrons_in_hold_queue = 0
+            pool.last_checked = now
 
 class ResponseParser(EnkiParser):
     id_type = Identifier.ENKI_ID
