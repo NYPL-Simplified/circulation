@@ -9336,6 +9336,14 @@ class ConfigurationSetting(Base):
     def is_secret(self):
         """Should the value of this key be treated as secret?"""
         return self._is_secret(self.key)
+
+    def value_or_default(self, default):
+        """Return the value of this setting. If the value is None,
+        set it to `default` and return that instead.
+        """
+        if self.value is None:
+            self.value = default
+        return self.value
     
     MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property

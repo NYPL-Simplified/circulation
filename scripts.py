@@ -143,7 +143,7 @@ class Script(object):
             raise e
 
     def load_configuration(self):
-        if not Configuration.instance:
+        if not Configuration.loaded_from_database():
             Configuration.load(self._db)
 
 
@@ -1151,9 +1151,17 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
             )
         integration = None
         if id:
-            integration = get_one(_db, ExternalIntegration, id==id)
-        if not integration and name:
+            integration = get_one(
+                _db, ExternalIntegration, ExternalIntegration.id==id
+            )
+            if not integration:
+                raise ValueError("No integration with ID %s." % id)
+        if name:
             integration = get_one(_db, ExternalIntegration, name=name)
+            if not integration and not (protocol and goal):
+                raise ValueError(
+                    'No integration with name "%s". To create it, you must also provide protocol and goal.' % name
+                )
         if not integration and (protocol and goal):
             integration, is_new = get_one_or_create(
                 _db, ExternalIntegration, protocol=protocol, goal=goal

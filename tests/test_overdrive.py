@@ -20,6 +20,8 @@ from coverage import (
     CoverageFailure,
 )
 
+from config import CannotLoadConfiguration
+
 from model import (
     Collection,
     Contributor,
@@ -105,6 +107,20 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             self.api.get_library
         )
 
+    def test_error_getting_library(self):
+        class MisconfiguredOverdriveAPI(MockOverdriveAPI):
+            """This Overdrive client has valid credentials but the library
+            can't be found -- probably because the library ID is wrong."""
+            def get_library(self):
+                return {u'errorCode': u'Some error', u'message': u'Some message.', u'token': u'abc-def-ghi'}
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Overdrive credentials are valid but could not fetch library: Some message.",
+            MisconfiguredOverdriveAPI,
+            self.collection
+        )
+        
     def test_401_on_get_refreshes_bearer_token(self):
 
         eq_("bearer token", self.api.token)

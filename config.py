@@ -172,7 +172,17 @@ class Configuration(object):
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
+    # This is set once data is loaded from the database and inserted into
+    # the Configuration object.
+    LOADED_FROM_DATABASE = 'loaded_from_database'
 
+    @classmethod
+    def loaded_from_database(cls):
+        """Has the site configuration been loaded from the database yet?"""
+        return cls.instance and cls.instance.get(
+            cls.LOADED_FROM_DATABASE, False
+        )
+    
     # General getters
 
     @classmethod
@@ -253,7 +263,6 @@ class Configuration(object):
     def load_cdns(cls, _db, config_instance=None):
         from model import ExternalIntegration as EI
         cdns = _db.query(EI).filter(EI.goal==EI.CDN_GOAL).all()
-
         cdn_integration = dict()
         for cdn in cdns:
             cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
@@ -293,9 +302,9 @@ class Configuration(object):
             )
         cls.instance = configuration
 
-        if _db:
-            S3Uploader.initialize_buckets(_db)
+        if _db:               
             cls.load_cdns(_db)
+            cls.instance[cls.LOADED_FROM_DATABASE] = True
         else:
             if not cls.integration('CDN'):
                 cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
