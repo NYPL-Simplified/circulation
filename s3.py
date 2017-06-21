@@ -27,15 +27,15 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def from_config(cls, _db):
-        integration = cls.integration(_db)
         cls.initialize_buckets(_db)
         return cls(integration.username, integration.password)
 
     def __init__(self, access_key=None, secret_key=None, pool=None):
+        from config import CannotLoadConfiguration
         self.pool = pool
         if not self.pool:
             if not (access_key and secret_key):
-                raise ValueError(
+                raise CannotLoadConfiguration(
                     'Cannot create S3Uploader without both'
                     ' access_key and secret_key.'
                 )
@@ -43,25 +43,35 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def integration(cls, _db):
+        """Find the ExternalIntegration that configures this site's S3
+        uploader.
+
+        :return: None if there is no S3 configuration, otherwise an ExternalIntegration.
+        :raise: CannotLoadConfiguration if there are multiple S3 configurations.
+        """
         from model import ExternalIntegration as EI
         integrations = _db.query(EI).filter(
             EI.protocol==EI.S3, EI.goal==EI.STORAGE_GOAL).all()
 
+        from config import CannotLoadConfiguration
+        if not integrations:
+            return None
+        
         if len(integrations) > 1:
             # Right now the S3Uploader doesn't distinguish usage between
             # S3 accounts. If two account integrations are found, raise
             # an error.
-            raise ValueError('Multiple S3 ExternalIntegrations found')
+            raise CannotLoadConfiguration(
+                'Multiple S3 ExternalIntegrations configured'
+            )
 
-        if integrations:
-            return integrations[0]
-        else:
-            return None
+        return integrations[0]
 
     @classmethod
     def initialize_buckets(cls, _db):
         integration = cls.integration(_db)
         if not integration:
+            # No integration means nothing to initialize.
             return
         cls.__buckets__ = dict()
         for setting in integration.settings:
@@ -70,16 +80,17 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def get_bucket(cls, bucket_key, sessioned_object=None):
+        from config import CannotLoadConfiguration
         if cls.__buckets__ == cls.UNINITIALIZED_BUCKETS:
             if not sessioned_object:
-                raise ValueError(
+                raise CannotLoadConfiguration(
                     'S3 buckets have not been initialized and no'
                     ' database session is available')
             _db = Session.object_session(sessioned_object)
             cls.initialize_buckets(_db)
 
         if not cls.__buckets__ or not cls.__buckets__.get(bucket_key):
-            raise ValueError(
+            raise CannotLoadConfiguration(
                 "No S3 bucket found for '%s'. Use S3Uploader.from_config"
                 " to load S3 bucket settings from database." % bucket_key)
 

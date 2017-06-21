@@ -303,7 +303,10 @@ class Configuration(object):
         cls.instance = configuration
 
         if _db:
-            S3Uploader.initialize_buckets(_db)
+            s3_integration = S3Uploader.integration(_db)
+            if s3_integration:
+                S3Uploader.initialize_buckets(_db)
+                
             cls.load_cdns(_db)
             cls.instance[cls.LOADED_FROM_DATABASE] = True
         else:
