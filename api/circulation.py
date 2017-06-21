@@ -811,8 +811,8 @@ class BaseCirculationAPI(object):
     DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
 
     FIELDS = [
-        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period") },
-        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period") },
+        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period"), "optional": True },
+        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period"), "optional": True },
     ]
 
     BORROW_STEP = 'borrow'

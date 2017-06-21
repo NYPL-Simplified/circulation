@@ -1085,7 +1085,7 @@ class SettingsController(CirculationManagerController):
         for field in fields:
             key = field.get("key")
             value = flask.request.form.get(key)
-            if not value:
+            if not value and not field.get("optional"):
                 # Roll back any changes to the collection that have already been made.
                 self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
