@@ -53,12 +53,16 @@ class S3Uploader(MirrorUploader):
             # an error.
             raise ValueError('Multiple S3 ExternalIntegrations found')
 
-        return integrations[0]
+        if integrations:
+            return integrations[0]
+        else:
+            return None
 
     @classmethod
     def initialize_buckets(cls, _db):
         integration = cls.integration(_db)
-
+        if not integration:
+            return
         cls.__buckets__ = dict()
         for setting in integration.settings:
             if setting.key.endswith('_bucket'):
