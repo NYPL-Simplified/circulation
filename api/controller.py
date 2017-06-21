@@ -166,6 +166,8 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         self.circulation_apis = {}
 
+        self.adobe_vendor_id = None
+        self.adobe_device_management = None
         for library in self._db.query(Library):
             lanes = make_lanes(library, self.lane_descriptions)
             
@@ -178,7 +180,12 @@ class CirculationManager(object):
             self.circulation_apis[library.id] = self.setup_circulation(
                 library
             )
-            self.setup_adobe_vendor_id(library)
+            authdata = self.setup_adobe_vendor_id(library)
+            if authdata and not self.adobe_device_management:
+                # There's at least one library on this system that
+                # wants Vendor IDs. This means we need to advertise support
+                # for the Device Management Protocol.
+                self.adobe_device_management = DeviceManagementProtocolController(self)
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -271,8 +278,10 @@ class CirculationManager(object):
         self.oauth_controller = OAuthController(self.auth)        
         
     def setup_adobe_vendor_id(self, library):
-        """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
-        for the DRM Device Management Protocol.
+        """If this Library has an Adobe Vendor ID integration,
+        configure the controller for it.
+
+        :return: An Authdata object for `library`, if one could be created.
         """
         _db = Session.object_session(library)
         adobe = ExternalIntegration.lookup(
@@ -291,6 +300,10 @@ class CirculationManager(object):
             vendor_id = adobe.username
             node_value = adobe.password
             if vendor_id and node_value:
+                if self.adobe_vendor_id:
+                    self.log.warn(
+                        "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
+                    )
                 self.adobe_vendor_id = AdobeVendorIDController(
                     library,
                     vendor_id,
@@ -301,26 +314,22 @@ class CirculationManager(object):
                 self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
                 self.adobe_vendor_id = None
 
-        # But almost all libraries will have this setup.
+        # But almost all libraries will have a Short Client Token
+        # setup. We're not setting anything up here, but this is useful
+        # information for the calling code to have so it knows
+        # whether or not we should support the Device Management Protocol.
         registry = ExternalIntegration.lookup(
             _db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
+        authdata = None
         if registry:
-            # TODO: This is slighly wrong. We should be creating a
-            # DeviceManagementProtocolController if _any_ library has
-            # a valid Short Client Token configuration, and unsetting
-            # it if that's not true. Instead we're setting it fresh
-            # every time we encounter a library that has a valid
-            # configuration.  We also don't do a good job of handling
-            # the case where one library has a valid SCT configuration
-            # and another library does not.
             try:
                 authdata = AuthdataUtility.from_config(library)
-                self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
-                self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
-                
+                self.log.error("Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s" % e)
+        return authdata
+
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         if lane:

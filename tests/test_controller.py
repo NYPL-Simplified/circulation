@@ -319,20 +319,13 @@ class TestCirculationManager(CirculationControllerTest):
         # Now let's create a brand new library, never before seen.
         library = self._library()
         self.library_setup(library)
-        
+
         # In addition to the setup performed by library_set(), give it
         # a Short Client Token integration so we can verify that the
         # DeviceManagementProtocolController is recreated.
-        integration = self._external_integration(
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL, libraries=[library]
-        )
-        library.setting(Configuration.WEBSITE_URL).value = self._url
-        integration.setting(AuthdataUtility.VENDOR_ID_KEY).value = "a"
-        integration.username = "b"
-        integration.password = "password"
+        self.initialize_adobe(library, [library])
         
-        # And reload the CirculationManager...
+        # Then reload the CirculationManager...
         with self.default_config() as config:
             self.manager.load_settings()
         
@@ -2300,9 +2293,21 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
     def setup(self):
         super(TestDeviceManagementProtocolController, self).setup()
-        self.auth = dict(Authorization=self.valid_auth)
         self.initialize_adobe(self.library, self.libraries)
+        self.auth = dict(Authorization=self.valid_auth)
+
+        # Since our library doesn't have its Adobe configuration
+        # enabled, the Device Management Protocol controller has not
+        # been enabled.
+        eq_(None, self.manager.adobe_device_management)
+
+        # Set up the Adobe configuration for this library and
+        # reload the CirculationManager configuration.
         self.manager.setup_adobe_vendor_id(self.library)
+        self.manager.load_settings()
+
+        # Now the controller is enabled and we can use it in this
+        # test.
         self.controller = self.manager.adobe_device_management
         
     def _create_credential(self):
