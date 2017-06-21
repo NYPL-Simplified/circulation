@@ -135,25 +135,25 @@ MISSING_COLLECTION_NAME = pd(
     detail=_("You must identify the collection by its name."),
 )
 
-NO_PROTOCOL_FOR_NEW_COLLECTION = pd(
-    "http://librarysimplified.org/terms/problem/no-protocol-for-new-collection",
+NO_PROTOCOL_FOR_NEW_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-protocol-for-new-service",
     status_code=400,
-    title=_("No protocol for new collection"),
-    detail=_("The specified collection doesn't exist. You can create it, but you must specify a protocol."),
+    title=_("No protocol for new service"),
+    detail=_("The specified service doesn't exist. You can create it, but you must specify a protocol."),
 )
 
-UNKNOWN_COLLECTION_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/unknown-collection-protocol",
+UNKNOWN_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/unknown-protocol",
     status_code=400,
-    title=_("Unknown collection protocol"),
+    title=_("Unknown protocol"),
     detail=_("The protocol is not one of the known protocols."),
 )
 
-CANNOT_CHANGE_COLLECTION_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-collection-protocol",
+CANNOT_CHANGE_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-protocol",
     status_code=400,
-    title=_("Cannot change collection protocol"),
-    detail=_("A collection's protocol can't be changed once it has been set."),
+    title=_("Cannot change protocol"),
+    detail=_("A protocol can't be changed once it has been set."),
 )
 
 NO_SUCH_LIBRARY = pd(
@@ -163,39 +163,11 @@ NO_SUCH_LIBRARY = pd(
     detail=_("One of the libraries you attempted to add the collection to does not exist."),
 )
 
-INCOMPLETE_COLLECTION_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/incomplete-collection-configuration",
+INCOMPLETE_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-configuration",
     status_code=400,
-    title=_("Incomplete collection configuration"),
-    detail=_("The collection's configuration is missing a required field."),
-)
-
-UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER = pd(
-    "http://librarysimplified.org/terms/problem/unknown-admin-auth-service-provider",
-    status_code=400,
-    title=_("Unknown admin authentication service provider"),
-    detail=_("The provider is not one of the known admin authentication service providers."),
-)
-
-CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-admin-auth-service-provider",
-    status_code=400,
-    title=_("Cannot change admin authentication service provider"),
-    detail=_("An admin authentication service's provider can't be changed once it has been set."),
-)
-
-NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/no-provider-for-new-admin-auth-service",
-    status_code=400,
-    title=_("No provider for new admin authentication service"),
-    detail=_("The specified admin authentication service doesn't exist. You can create it, but you must specify a provider."),
-)
-
-INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/incomplete-admin-auth-service-configuration",
-    status_code=400,
-    title=_("Incomplete admin authentication service configuration"),
-    detail=_("The admin authentication service's configuration is missing a required field."),
+    title=_("Incomplete configuration"),
+    detail=_("The configuration is missing a required field."),
 )
 
 INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
@@ -203,13 +175,6 @@ INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
     status_code=400,
     title=_("Invalid admin authentication domain list"),
     detail=_("The admin authentication domain list isn't in a valid format."),
-)
-
-INVALID_INDIVIDUAL_ADMIN_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/invalid-individual-admin-configuration",
-    status_code=400,
-    title=_("Incomplete individual admin configuration"),
-    detail=_("The individual admin's configuration is missing a required field."),
 )
 
 MISSING_PGCRYPTO_EXTENSION = pd(
@@ -226,39 +191,11 @@ MISSING_PATRON_AUTH_SERVICE = pd(
     detail=_("The specific patron authentication service does not exist."),
 )
 
-UNKNOWN_PATRON_AUTH_SERVICE_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/unknown-patron-auth-service-protocol",
+INVALID_CONFIGURATION_OPTION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-configuration-option",
     status_code=400,
-    title=_("Unknown patron authentication service protocol"),
-    detail=_("The protocol is not one of the known patron authentication service protocols."),
-)
-
-CANNOT_CHANGE_PATRON_AUTH_SERVICE_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-patron-auth-service-protocol",
-    status_code=400,
-    title=_("Cannot change patron authentication service protocol"),
-    detail=_("A patron authentication service's protocol can't be changed once it has been set."),
-)
-
-NO_PROTOCOL_FOR_NEW_PATRON_AUTH_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/no-protocol-for-new-patron-auth-service",
-    status_code=400,
-    title=_("No protocol for new patron authentication service"),
-    detail=_("The specified patron authentication service doesn't exist. You can create it, but you must specify a protocol."),
-)
-
-INCOMPLETE_PATRON_AUTH_SERVICE_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/incomplete-patron-auth-service-configuration",
-    status_code=400,
-    title=_("Incomplete patron authentication service configuration"),
-    detail=_("The patron authentication service's configuration is missing a required field."),
-)
-
-INVALID_PATRON_AUTH_SERVICE_CONFIGURATION_OPTION = pd(
-    "http://librarysimplified.org/terms/problem/invalid-patron-auth-service-configuration-option",
-    status_code=400,
-    title=_("Invalid patron authentication service configuration option"),
-    detail=_("The patron authentication service's configuration has an invalid value."),
+    title=_("Invalid configuration option"),
+    detail=_("The configuration has an invalid value."),
 )
 
 INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
@@ -287,4 +224,11 @@ MISSING_SITEWIDE_SETTING_VALUE = pd(
     status_code=400,
     title=_("Missing sitewide setting value"),
     detail=_("A value is required to change a sitewide setting."),
+)
+
+MISSING_METADATA_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-metadata-service",
+    status_code=404,
+    title=_("Missing metadata service"),
+    detail=_("The specified metadata service does not exist."),
 )

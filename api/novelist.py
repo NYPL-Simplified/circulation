@@ -3,6 +3,7 @@ import logging
 import urllib
 from collections import Counter
 from nose.tools import set_trace
+from flask.ext.babel import lazy_gettext as _
 
 from core.config import Configuration
 from core.coverage import (
@@ -30,6 +31,18 @@ from core.model import (
 from core.util import TitleProcessor
 
 class NoveListAPI(object):
+
+    PROTOCOL = ExternalIntegration.NOVELIST
+    NAME = _("Novelist API")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+    ]
+
+    # Different libraries may have different NoveList integrations
+    # on the same circulation manager.
+    SITEWIDE = False
 
     IS_CONFIGURED = None
     _configuration_library_id = None
