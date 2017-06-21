@@ -20,7 +20,7 @@ class ExternalSearchIndex(object):
     WORKS_INDEX_KEY = u'works_index'
     WORKS_ALIAS_KEY = u'works_alias'
 
-    DEFAULT_WORKS_ALIAS = u'works'
+    DEFAULT_WORKS_INDEX = u'works'
     
     work_document_type = 'work-type'
     __client = None
@@ -58,11 +58,7 @@ class ExternalSearchIndex(object):
                     )
                 url = url or integration.url
                 if not works_index:
-                    works_index = integration.setting(self.WORKS_INDEX_KEY).value
-                if not works_index:
-                    raise CannotLoadConfiguration(
-                        "Elasticsearch integration does not define %s" % self.WORKS_INDEX_KEY
-                    )
+                    works_index = integration.setting(self.WORKS_INDEX_KEY).value or self.DEFAULT_WORKS_INDEX
                     
             if not url:
                 raise CannotLoadConfiguration(
