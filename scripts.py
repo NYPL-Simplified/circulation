@@ -1152,8 +1152,14 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         integration = None
         if id:
             integration = get_one(_db, ExternalIntegration, id==id)
-        if not integration and name:
+            if not integration:
+                "No integration with id %s."
+        if name:
             integration = get_one(_db, ExternalIntegration, name=name)
+            if not integration and not (protocol and goal):
+                raise ValueError(
+                    'No integration with name "%s". To create it, you must also provide protocol and goal.' % name
+                )
         if not integration and (protocol and goal):
             integration, is_new = get_one_or_create(
                 _db, ExternalIntegration, protocol=protocol, goal=goal
