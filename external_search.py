@@ -58,7 +58,7 @@ class ExternalSearchIndex(object):
                     )
                 url = url or integration.url
                 if not works_index:
-                    setting = integration.setting(self.WORKS_INDEX_KEY).value
+                    setting = integration.setting(self.WORKS_INDEX_KEY)
                     works_index = setting.value_or_default(
                         self.DEFAULT_WORKS_INDEX
                     )
