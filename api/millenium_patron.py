@@ -22,6 +22,7 @@ import re
 from core.model import (
     get_one,
     get_one_or_create,
+    ExternalIntegration,
     Patron,
 )
 from core.util.http import HTTP
@@ -66,6 +67,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     ]
 
     SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
         { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
           "type": "select", "options": [
               { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
