@@ -80,6 +80,7 @@ from model import (
     create,
     get_one,
     get_one_or_create,
+    site_configuration_has_changed,
 )
 from external_search import (
     DummyExternalSearchIndex,
@@ -5809,84 +5810,6 @@ class TestConfigurationSetting(DatabaseTest):
 
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
-
-    def test_configuration_setting_changed(self):
-        """Test the configuration_setting_changed() listener and its
-        effects on the Configuration object.
-        """
-        # Starting out, the database configuration has never been updated
-        # and we have never even checked whether it has been updated.
-        eq_(None, Configuration.database_configuration_last_update())
-        eq_(None,
-            Configuration.last_checked_for_database_configuration_update()
-        )
-
-        # The Timestamp tracking when the ConfigurationSettings last changed
-        # is unset.
-        timestamp_value = Timestamp.value(
-            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
-        )
-        eq_(None, timestamp_value)
-        
-        # Now let's set a ConfigurationSetting.
-        now = datetime.datetime.utcnow()
-        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
-
-        # The last update time has been modified, as has the time we
-        # checked on the last update time.
-        last_update = Configuration.database_configuration_last_update()
-        last_update_check = Configuration.last_checked_for_database_configuration_update()
-    
-        assert abs((last_update - now).total_seconds()) < 1
-        assert abs((last_update_check - now).total_seconds()) < 1
-        
-        # We can't have detected the last update before it happened,
-        # which means that last update check date is greater than the
-        # last update date itself.
-        assert last_update_check > last_update
-
-        # Absent a change to a ConfigurationSetting, calling
-        # Configuration.check_for_database_configuration_update will
-        # return False.
-        eq_(False,
-            Configuration.check_for_database_configuration_update(self._db))
-
-        # But let's be sneaky and update the timestamp directly,
-        # without triggering the listener on
-        # ConfigurationSetting.value. This simulates another process
-        # modifying a ConfigurationSetting -- their listener will
-        # activate and change the timestamp without informing us.
-        timestamp = Timestamp.stamp(
-            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
-        )
-        new_last_update = timestamp.timestamp
-
-        # Calling Configuration.check_for_database_configuration_update
-        # detects the change and returns True.
-        eq_(True, Configuration.check_for_database_configuration_update(
-            self._db))
-
-        # We ran another check, which set the last update time to the
-        # time in the timestamp.
-        eq_(new_last_update, Configuration.database_configuration_last_update())
-        new_check_time = Configuration.last_checked_for_database_configuration_update()
-        assert new_check_time > last_update_check
-
-        # If ConfigurationSettings are updated twice within the
-        # timeout period (default 1 second), the last update time is
-        # only set once, to avoid spamming the Timestamp with updates.
-        from model import site_configuration_has_changed
-        
-        # The high value for 'timeout' saves this code. If we decided
-        # that the timeout had expired and tried to check the
-        # Timestamp, the code would crash because we're not passing
-        # a database connection in.
-        site_configuration_has_changed(None, timeout=100)
-
-        # In fact, nothing has changed.
-        eq_(new_last_update, Configuration.database_configuration_last_update())
-        eq_(new_check_time,
-            Configuration.last_checked_for_database_configuration_update())
         
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
@@ -5909,7 +5832,151 @@ nonsecret_setting='2'"""
         ))
         assert 'a_secret' not in without_secrets
         assert 'nonsecret_setting' in without_secrets
+
+
+class TestSiteConfigurationHasChanged(DatabaseTest):
+
+    def test_site_configuration_has_changed(self):
+        """Test the site_configuration_has_changed() function and its
+        effects on the Configuration object.
+        """
+        # Starting out, the database configuration has never been updated
+        # and we have never even checked whether it has been updated.
+        eq_(None, Configuration.database_configuration_last_update())
+        eq_(None,
+            Configuration.last_checked_for_database_configuration_update()
+        )
+
+        # The Timestamp tracking when the ConfigurationSettings last changed
+        # is unset.
+        timestamp_value = Timestamp.value(
+            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
+        )
+        eq_(None, timestamp_value)
         
+        # Now let's call site_configuration_has_changed().
+        now = datetime.datetime.utcnow()
+        site_configuration_has_changed(self._db)
+
+        # The last update time has been modified, as has the time we
+        # checked on the last update time.
+        last_update = Configuration.database_configuration_last_update()
+        last_update_check = Configuration.last_checked_for_database_configuration_update()
+    
+        assert abs((last_update - now).total_seconds()) < 1
+        assert abs((last_update_check - now).total_seconds()) < 1
+        
+        # We can't have detected the last update before it happened,
+        # which means that last update check date is greater than the
+        # last update date itself.
+        assert last_update_check > last_update
+
+        # Absent another call to site_configuration_has_changed(),
+        # calling Configuration.check_for_database_configuration_update
+        # will return False.
+        eq_(False,
+            Configuration.check_for_database_configuration_update(self._db))
+
+        # But let's be sneaky and update the timestamp directly,
+        # without calling site_configuration_has_changed(). This
+        # simulates another process on a different machine calling
+        # site_cnofiguration_has_changed() -- they will know about the
+        # change but we won't be informed.
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
+        )
+        new_last_update = timestamp.timestamp
+
+        # Calling Configuration.check_for_database_configuration_update
+        # detects the change and returns True.
+        eq_(True, Configuration.check_for_database_configuration_update(
+            self._db))
+
+        # We ran another check, which set the last update time to the
+        # time in the timestamp.
+        eq_(new_last_update, Configuration.database_configuration_last_update())
+        new_check_time = Configuration.last_checked_for_database_configuration_update()
+        assert new_check_time > last_update_check
+
+        # If ConfigurationSettings are updated twice within the
+        # timeout period (default 1 second), the last update time is
+        # only set once, to avoid spamming the Timestamp with updates.
+        
+        # The high value for 'timeout' saves this code. If we decided
+        # that the timeout had expired and tried to check the
+        # Timestamp, the code would crash because we're not passing
+        # a database connection in.
+        site_configuration_has_changed(None, timeout=100)
+
+        # Nothing has changed -- how could it, with no database connection
+        # to modify anything?
+        eq_(new_last_update, Configuration.database_configuration_last_update())
+        eq_(new_check_time,
+            Configuration.last_checked_for_database_configuration_update())
+
+    # We don't test every event listener, but we do test one of each type.
+    def test_configuration_relevant_lifecycle_event_updates_configuration(self):
+        """When you modify a """
+        eq_(None, Configuration.database_configuration_last_update())
+        eq_(None,
+            Configuration.last_checked_for_database_configuration_update()
+        )
+
+        # Create a ConfigurationSetting and
+        # site_configuration_has_changed is called.
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
+        update2 = Configuration.database_configuration_last_update()
+        check2 = Configuration.last_checked_for_database_configuration_update()
+        assert(update2 is not None)
+        assert(check2 is not None)
+
+        # Get around the site_configuration_has_changed() timeout by
+        # destroying the evidence that it was just called.
+        for key in [
+                Configuration.DATABASE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE
+        ]:
+            if key in Configuration.instance:
+                del(Configuration.instance[key])
+        
+        # Modify an existing ConfigurationSetting and
+        # site_configuration_has_changed() is called again.
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
+        update3 = Configuration.database_configuration_last_update()
+        check3 = Configuration.last_checked_for_database_configuration_update()
+        assert(update3 > update2)
+        assert(check3 > check2)
+
+    def test_configuration_relevant_collection_change_updates_configuration(self):
+        eq_(None, Configuration.database_configuration_last_update())
+        eq_(None,
+            Configuration.last_checked_for_database_configuration_update()
+        )
+        # Create a library.
+        library = self._default_library
+        assert Configuration.database_configuration_last_update() is not None
+        assert Configuration.last_checked_for_database_configuration_update() is not None
+        collection = self._collection()
+        
+        # Get around the site_configuration_has_changed() timeout by
+        # destroying the evidence that it was just called.
+        for key in [
+                Configuration.DATABASE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE
+        ]:
+            if key in Configuration.instance:
+                del(Configuration.instance[key])
+
+        # Add the collection to the library, and
+        # site_configuration_has_changed() is called again.
+        library.collections.append(collection)
+
+        update2 = Configuration.database_configuration_last_update()
+        check2 = Configuration.last_checked_for_database_configuration_update()
+        assert(update2 is not None)
+        assert(check2 is not None)
+        
+    
 class TestCollection(DatabaseTest):
 
     def setup(self):
