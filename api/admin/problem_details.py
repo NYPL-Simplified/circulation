@@ -170,13 +170,6 @@ INCOMPLETE_CONFIGURATION = pd(
     detail=_("The configuration is missing a required field."),
 )
 
-INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
-    "http://librarysimplified.org/terms/problem/invalid-admin-auth-domain-list",
-    status_code=400,
-    title=_("Invalid admin authentication domain list"),
-    detail=_("The admin authentication domain list isn't in a valid format."),
-)
-
 MISSING_PGCRYPTO_EXTENSION = pd(
     "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
     status_code=500,
