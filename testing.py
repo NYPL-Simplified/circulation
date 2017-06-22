@@ -136,7 +136,7 @@ class DatabaseTest(object):
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
         self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
         self.search_mock.start()
-
+        
         # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
         # which pops an isbn off the list and messes tests up.  so exclude 
         # _ functions from participating.
@@ -154,6 +154,16 @@ class DatabaseTest(object):
         # test, whether in the session that was just closed or some
         # other session.
         self.transaction.rollback()
+
+        # Also roll back any record of those changes in the
+        # Configuration instance.
+        for key in [
+                Configuration.DATABASE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE
+        ]:
+            if key in Configuration.instance:
+                del(Configuration.instance[key])
+
         self.search_mock.stop()
 
     def shortDescription(self):

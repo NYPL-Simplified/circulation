@@ -9940,10 +9940,14 @@ def tuple_to_numericrange(t):
     return NumericRange(t[0], t[1], '[]')
         
 @event.listens_for(ConfigurationSetting.value, 'set')
-def configuration_changed(target, value, oldvalue, initiator):
-    now = Configuration.seconds_since_epoch(datetime.datetime.utcnow())
+def configuration_setting_changed(target, value, oldvalue, initiator, timeout=1):
+    """When a new value for ConfigurationSetting.value is set,
+    modify the Timestamp that keeps track of the last time the site's
+    configuration changed.
+    """
+    now = datetime.datetime.utcnow()
     last_update = Configuration.database_configuration_last_update()
-    if not last_update or last_update > now:
+    if not last_update or (now - last_update).total_seconds() > timeout:
         # The configuration last changed more than a second ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.

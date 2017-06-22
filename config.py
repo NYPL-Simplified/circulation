@@ -311,12 +311,6 @@ class Configuration(object):
             cls.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE, None
         )
 
-    EPOCH = datetime.datetime.utcfromtimestamp(0)
-    @classmethod
-    def seconds_since_epoch(cls, dt):
-        """Convert a datetime object into seconds since epoch."""
-        return (dt - cls.EPOCH).total_seconds()
-
     @classmethod
     def check_for_database_configuration_update(cls, _db, known_value=None):
         """Check whether the database configuration has been updated.
@@ -332,12 +326,13 @@ class Configuration(object):
         :return: True if the database configuration has been updated
         since the last time we checked; False if not.
         """
-        now = cls.seconds_since_epoch(datetime.datetime.utcnow())
+        now = datetime.datetime.utcnow()
 
         # Ask the database when was the last time the configuration
         # changed. Specifically, this is the last time the
         # configuration_changed() listener (defined in model.py) ran.
         if not known_value:
+            from core.model import Timestamp
             known_value = Timestamp.value(
                 _db, cls.DATABASE_CONFIGURATION_CHANGED, None
             )
@@ -345,7 +340,7 @@ class Configuration(object):
             # The database configuration has never changed.
             last_update = None
         else:
-            last_update = cls.seconds_since_epoch(known_value)
+            last_update = known_value
 
         # Update the Configuration object's record of the last update time.
         old_value = cls.instance.get(cls.DATABASE_CONFIGURATION_LAST_UPDATE)

@@ -5810,9 +5810,10 @@ class TestConfigurationSetting(DatabaseTest):
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
 
-    def test_configuration_update(self):
-        ci = Configuration.instance
-
+    def test_configuration_setting_changed(self):
+        """Test the configuration_setting_changed() listener and its
+        effects on the Configuration object.
+        """
         # Starting out, the database configuration has never been updated
         # and we have never even checked whether it has been updated.
         eq_(None, Configuration.database_configuration_last_update())
@@ -5820,24 +5821,72 @@ class TestConfigurationSetting(DatabaseTest):
             Configuration.last_checked_for_database_configuration_update()
         )
 
-        # Now let's set a setting.
-        now = Configuration.seconds_since_epoch(datetime.datetime.now())
+        # The Timestamp tracking when the ConfigurationSettings last changed
+        # is unset.
+        timestamp_value = Timestamp.value(
+            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
+        )
+        eq_(None, timestamp_value)
+        
+        # Now let's set a ConfigurationSetting.
+        now = datetime.datetime.utcnow()
         ConfigurationSetting.sitewide(self._db, "setting").value = "value"
 
+        # The last update time has been modified, as has the time we
+        # checked on the last update time.
         last_update = Configuration.database_configuration_last_update()
         last_update_check = Configuration.last_checked_for_database_configuration_update()
-
-        set_trace()
-        assert abs(last_update - now) < 1
-        assert abs(last_update_check - now) < 1
+    
+        assert abs((last_update - now).total_seconds()) < 1
+        assert abs((last_update_check - now).total_seconds()) < 1
         
-        # The last update check time is before the last update time,
-        # even though this doesn't make sense temporally. We set it this way
-        # to reduce the risk of missed updates.
+        # We can't have detected the last update before it happened,
+        # which means that last update check date is greater than the
+        # last update date itself.
         assert last_update_check > last_update
-        
-        set_trace()
-        pass
+
+        # Absent a change to a ConfigurationSetting, calling
+        # Configuration.check_for_database_configuration_update will
+        # return False.
+        eq_(False,
+            Configuration.check_for_database_configuration_update(self._db))
+
+        # But let's be sneaky and update the timestamp directly,
+        # without triggering the listener on
+        # ConfigurationSetting.value. This simulates another process
+        # modifying a ConfigurationSetting -- their listener will
+        # activate and change the timestamp without informing us.
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.DATABASE_CONFIGURATION_CHANGED, None
+        )
+        new_last_update = timestamp.timestamp
+
+        # Calling Configuration.check_for_database_configuration_update
+        # detects the change and returns True.
+        eq_(True, Configuration.check_for_database_configuration_update(
+            self._db))
+
+        # We ran another check, which set the last update time to the
+        # time in the timestamp.
+        eq_(new_last_update, Configuration.database_configuration_last_update())
+        new_check_time = Configuration.last_checked_for_database_configuration_update()
+        assert new_check_time > last_update_check
+
+        # If ConfigurationSettings are updated twice within the
+        # timeout period (default 1 second), the last update time is
+        # only set once, to avoid spamming the Timestamp with updates.
+        from model import configuration_setting_changed
+
+        # The high value for 'timeout' saves this code. If we decided
+        # that the timeout had expired and tried to modify the
+        # timestamp, the code would crash because we're not passing
+        # the right arguments in.
+        configuration_setting_changed(None, None, None, None, timeout=100)
+
+        # In fact, nothing has changed.
+        eq_(new_last_update, Configuration.database_configuration_last_update())
+        eq_(new_check_time,
+            Configuration.last_checked_for_database_configuration_update())
         
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
