@@ -8,7 +8,6 @@ import copy
 from util import LanguageCodes
 from flask.ext.babel import lazy_gettext as _
 
-from s3 import S3Uploader
 from facets import FacetConstants
 
 class CannotLoadConfiguration(Exception):
