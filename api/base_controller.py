@@ -83,6 +83,14 @@ class BaseCirculationManagerController(object):
         return Response(data, 401, headers)
 
     def library_for_request(self, library_short_name):
+        """Look up the library the user is trying to access.
+
+        Since this is called on pretty much every request, it's also
+        an appropriate time to check whether the site configuration
+        has been changed and needs to be updated.
+        """
+        self.manager.reload_settings_if_changed()
+        
         if library_short_name:
             library = get_one(self._db, Library, short_name=library_short_name)
         else:

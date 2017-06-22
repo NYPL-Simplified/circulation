@@ -621,6 +621,34 @@ class TestBaseController(CirculationControllerTest):
                 ValueError, self.controller.library_for_request, None
             )
 
+    def test_library_for_request_reloads_settings_if_necessary(self):
+
+        # We're about to change the shortname of the default library.
+        new_name = "newname" + self._str
+
+        # Before we make the change, a request to the library's new name
+        # will fail.
+        assert new_name not in self.manager.auth.library_authenticators
+        with self.app.test_request_context("/"):
+            problem = self.controller.library_for_request(new_name)
+            eq_(LIBRARY_NOT_FOUND, problem)
+
+        # Make the change, and the configuration settings are
+        # automatically reloaded to take the library's new name into
+        # account.
+        self._default_library.short_name = new_name
+        self._db.commit()
+
+        # Now we can use the same Controller and the same
+        # CirculationManager to call the library by its new name.
+        assert new_name in self.manager.auth.library_authenticators
+        with self.app.test_request_context("/"):
+            value = self.controller.library_for_request(
+                self._default_library.short_name
+            )
+            eq_(self._default_library, value)
+            eq_(self._default_library, flask.request.library)
+        
 
 class FullLaneSetupTest(CirculationControllerTest):
     """Most lane-based tests don't need the full multi-tier setup of lanes

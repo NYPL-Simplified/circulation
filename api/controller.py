@@ -146,6 +146,13 @@ class CirculationManager(object):
         self.lane_descriptions = lanes
         self.setup_one_time_controllers()
         self.load_settings()
+
+    def reload_settings_if_changed(self):
+        """If the site configuration has been updated, reload the
+        CirculationManager's configuration from the database.
+        """
+        if Configuration.check_for_site_configuration_update(self._db):
+            self.load_settings()
         
     def load_settings(self):
         """Load all necessary configuration settings and external
