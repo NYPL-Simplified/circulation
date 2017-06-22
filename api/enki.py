@@ -61,6 +61,7 @@ class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
     PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
     availability_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
+    lib = 1
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
@@ -145,6 +146,22 @@ class EnkiCirculationMonitor(Monitor):
 
         return edition, license_pool
 
+    def reaper_request(self, identifier):
+        print "Checking availability for " + str(identifier)
+        url = str(self.base_url) + str(self.item_endpoint)
+        args = dict()
+	    args['method'] = "getItem"
+	    args['recordid'] = identifier
+        args['size'] = small
+        args['lib'] = lib
+	    response = self.request(url, method='head', params=args)
+        if response.status_code != 200:
+            raise BadResponseException.bad_status_code(
+                self.full_url(url), response
+            )
+            print "This book is no longer available."
+        return response
+
 class MockEnkiAPI(BaseMockEnkiAPI, EnkiAPI):
     #TODO
     pass
@@ -154,7 +171,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
         """Check for books that are in the local collection but have left the Enki collection."""
     def __init__(self, _db, api=None, interval_seconds=3600*4):
         super(EnkiCollectionReaper, self).__init__(
-            _db, "Enki Collection Reaper", interval_seconds, batch_size=25)
+            _db, "Enki Collection Reaper", interval_seconds)
         self._db = _db
         if not api:
             api = EnkiAPI.from_environment(_db)
@@ -201,8 +218,6 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
                 pool.open_access = False
                 Analytics.collect_event(
                     self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
-
-            self.api.apply_circulation_information_to_licensepool(circ, pool)
 
         # At this point there may be some license pools left over
         # that Enki doesn't know about.  This is a pretty reliable
