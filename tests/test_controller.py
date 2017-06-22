@@ -2304,7 +2304,8 @@ class TestDeviceManagementProtocolController(ControllerTest):
         # Set up the Adobe configuration for this library and
         # reload the CirculationManager configuration.
         self.manager.setup_adobe_vendor_id(self.library)
-        self.manager.load_settings()
+        with self.default_config() as config:
+            self.manager.load_settings()
 
         # Now the controller is enabled and we can use it in this
         # test.
