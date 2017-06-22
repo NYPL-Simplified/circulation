@@ -39,10 +39,6 @@ class Configuration(object):
     log = logging.getLogger("Configuration file loader")
 
     instance = None
-
-    # The service associated with a Timestamp that tracks the last time
-    # a ConfigurationSetting's value changed in the database.
-    DATABASE_CONFIGURATION_CHANGED = "Database Configuration Changed"
     
     # Logging stuff
     LOGGING_LEVEL = "level"
@@ -294,6 +290,10 @@ class Configuration(object):
     # The last time we *checked* whether the database configuration had
     # changed.
     LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE = "last_checked_for_site_configuration_update"
+
+    # The name of the service associated with a Timestamp that tracks
+    # the last time the site's configuration changed in the database.
+    SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
     
     @classmethod
     def site_configuration_last_update(cls):
