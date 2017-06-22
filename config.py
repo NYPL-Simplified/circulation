@@ -297,7 +297,7 @@ class Configuration(object):
     
     @classmethod
     def site_configuration_last_update(cls):
-        """As far as we know, when is the last time the database configuration
+        """As far as we know, when is the last time the site configuration
         was updated?
         """
         return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
@@ -313,7 +313,7 @@ class Configuration(object):
 
     @classmethod
     def check_for_site_configuration_update(cls, _db, known_value=None):
-        """Check whether the database configuration has been updated.
+        """Check whether the site configuration has been updated.
 
         If it has, updates
         cls.instance[SITE_CONFIGURATION_LAST_UPDATE]. It's the
@@ -323,21 +323,22 @@ class Configuration(object):
         :param known_value: Use the given timestamp instead of checking
         with the database.
 
-        :return: True if the database configuration has been updated
+        :return: True if the site configuration was updated
         since the last time we checked; False if not.
         """
         now = datetime.datetime.utcnow()
 
-        # Ask the database when was the last time the configuration
-        # changed. Specifically, this is the last time the
-        # configuration_changed() listener (defined in model.py) ran.
+        # Ask the database when was the last time the site
+        # configuration changed. Specifically, this is the last time
+        # site_configuration_was_changed() (defined in model.py) was
+        # called.
         if not known_value:
             from core.model import Timestamp
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
         if not known_value:
-            # The database configuration has never changed.
+            # The site configuration has never changed.
             last_update = None
         else:
             last_update = known_value
