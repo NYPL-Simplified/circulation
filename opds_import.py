@@ -301,7 +301,7 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
 
     NAME = ExternalIntegration.OPDS_IMPORT
-    FIELDS = [
+    SETTINGS = [
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
