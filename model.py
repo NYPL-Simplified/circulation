@@ -9957,7 +9957,7 @@ def site_configuration_has_changed(_db, timeout=1):
 
     """
     now = datetime.datetime.utcnow()
-    last_update = Configuration.site_configuration_last_update()
+    last_update = Configuration._site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > timeout:
         # The configuration last changed more than `timeout` ago, which
         # means it's time to reset the Timestamp that says when the
@@ -9976,10 +9976,18 @@ def site_configuration_has_changed(_db, timeout=1):
             _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
         )
 
+        # Update the Configuration's record of when the configuration
+        # was updated. This will update our local record immediately
+        # without requiring a trip to the database.
+        Configuration.site_configuration_last_update(
+            _db, known_value=timestamp.timestamp
+        )
+
         if needs_commit:
             # We had to create a new database session. Commit it now.
             _db.commit()
-        
+
+            
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
 # configuration it gets from the database. These hooks will call

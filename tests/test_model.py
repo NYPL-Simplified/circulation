@@ -5871,12 +5871,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """Test the site_configuration_has_changed() function and its
         effects on the Configuration object.
         """
-        # Starting out, the database configuration has never been updated
-        # and we have never even checked whether it has been updated.
-        eq_(None, Configuration.site_configuration_last_update())
-        eq_(None,
-            Configuration.last_checked_for_site_configuration_update()
-        )
+        # Starting out, the database configuration has never been updated.
+        eq_(None, Configuration.site_configuration_last_update(self._db))
 
         # The Timestamp tracking when the ConfigurationSettings last changed
         # is unset.
@@ -5888,32 +5884,14 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Now let's call site_configuration_has_changed().
         now = datetime.datetime.utcnow()
         site_configuration_has_changed(self._db)
-
-        # The last update time has been modified, but the
-        # Configuration object has not yet checked in the database, so
-        # it doesn't know yet.
-        eq_(None, Configuration.site_configuration_last_update())
-        eq_(None, Configuration.last_checked_for_site_configuration_update())
-    
-        # Checking (by calling
-        # Configuration.check_for_site_configuration_update) will let
-        # the Configuration object figure out that things have
-        # changed.
-        eq_(True,
-            Configuration.check_for_site_configuration_update(self._db))
-
-        # Calling that method again will return False.
-        eq_(False,
-            Configuration.check_for_site_configuration_update(self._db))
         
         # Now that we called check_for_site_configuration_update, the
         # Configuration object knows some things about when the
         # configuration changed, and when we last checked it.
-        last_update = Configuration.site_configuration_last_update()
-        last_update_check = Configuration.last_checked_for_site_configuration_update()
+        last_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
         assert abs((last_update - now).total_seconds()) < 1
-        assert abs((last_update_check - now).total_seconds()) < 1
-        assert last_update_check > last_update
                 
         # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This
@@ -5928,20 +5906,15 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Calling Configuration.check_for_site_configuration_update
         # doesn't detect the change because by default we only go to
         # the database once a minute.
-        eq_(False, Configuration.check_for_site_configuration_update(
-            self._db))
+        eq_(last_update, Configuration.site_configuration_last_update(self._db))
 
         # Passing in a different timeout value forces the method to go
         # to the database and find the correct answer.
-        eq_(True, Configuration.check_for_site_configuration_update(
-            self._db, timeout=0))
+        newer_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert newer_update > last_update
         
-        # We ran another check, which set the last update time to the
-        # time in the timestamp.
-        eq_(new_last_update, Configuration.site_configuration_last_update())
-        new_check_time = Configuration.last_checked_for_site_configuration_update()
-        assert new_check_time > last_update_check
-
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
@@ -5954,9 +5927,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Nothing has changed -- how could it, with no database connection
         # to modify anything?
-        eq_(new_last_update, Configuration.site_configuration_last_update())
-        eq_(new_check_time,
-            Configuration.last_checked_for_site_configuration_update())
+        eq_(newer_update, Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):

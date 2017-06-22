@@ -294,14 +294,7 @@ class Configuration(object):
     # The name of the service associated with a Timestamp that tracks
     # the last time the site's configuration changed in the database.
     SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
-    
-    @classmethod
-    def site_configuration_last_update(cls):
-        """As far as we know, when is the last time the site configuration
-        was updated?
-        """
-        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
-        
+            
     @classmethod
     def last_checked_for_site_configuration_update(cls):
         """When was the last time we actually checked when the database
@@ -312,16 +305,16 @@ class Configuration(object):
         )
 
     @classmethod
-    def check_for_site_configuration_update(cls, _db, known_value=None,
-                                            timeout=60):
-        """Check whether the site configuration has been updated.
+    def site_configuration_last_update(cls, _db, known_value=None,
+                                       timeout=60):
+        """Check when the site configuration was last updated.
 
-        If it has, updates
-        cls.instance[SITE_CONFIGURATION_LAST_UPDATE]. It's the
-        application's responsibility to periodically check this value
-        and reload the configuration if appropriate.
+        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
+        It's the application's responsibility to periodically check
+        this value and reload the configuration if appropriate.
 
-        :param known_value: Use the given timestamp instead of checking
+        :param known_value: We know when the site configuration was
+        last updated--it's this timestamp. Use it instead of checking
         with the database.
 
         :param timeout: We will only call out to the database once in
@@ -329,8 +322,7 @@ class Configuration(object):
         number of seconds elapses, we will assume site configuration
         has not changed.
 
-        :return: True if the site configuration was updated
-        since the last time we checked; False if not.
+        :return: a datetime object.
         """
         now = datetime.datetime.utcnow()
 
@@ -338,10 +330,11 @@ class Configuration(object):
             cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
         )
 
-        if last_check and (now - last_check).total_seconds() < timeout:
+        if (not known_value
+            and last_check and (now - last_check).total_seconds() < timeout):
             # We went to the database less than [timeout] seconds ago.
             # Assume there has been no change.
-            return False
+            return cls._site_configuration_last_update()
         
         # Ask the database when was the last time the site
         # configuration changed. Specifically, this is the last time
@@ -359,15 +352,21 @@ class Configuration(object):
             last_update = known_value
 
         # Update the Configuration object's record of the last update time.
-        old_value = cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE)
         cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
         
         # Whether that record changed or not, the time at which we
         # _checked_ is going to be set to the current time.
         cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
 
-        return old_value != last_update
-        
+        return last_update
+
+    @classmethod
+    def _site_configuration_last_update(cls):
+        """Get the raw SITE_CONFIGURATION_LAST_UPDATE value,
+        without any attempt to find a fresher value from the database.
+        """
+        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
+    
     @classmethod
     def load(cls, _db=None):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
