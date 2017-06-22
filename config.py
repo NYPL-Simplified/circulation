@@ -289,34 +289,34 @@ class Configuration(object):
         return [LanguageCodes.three_to_two[l] for l in languages]
 
     # The last time the database configuration is known to have changed.
-    DATABASE_CONFIGURATION_LAST_UPDATE = "database_configuration_last_update"
+    SITE_CONFIGURATION_LAST_UPDATE = "site_configuration_last_update"
 
     # The last time we *checked* whether the database configuration had
     # changed.
-    LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE = "last_checked_for_database_configuration_update"
+    LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE = "last_checked_for_site_configuration_update"
     
     @classmethod
-    def database_configuration_last_update(cls):
+    def site_configuration_last_update(cls):
         """As far as we know, when is the last time the database configuration
         was updated?
         """
-        return cls.instance.get(cls.DATABASE_CONFIGURATION_LAST_UPDATE, None)
+        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
         
     @classmethod
-    def last_checked_for_database_configuration_update(cls):
+    def last_checked_for_site_configuration_update(cls):
         """When was the last time we actually checked when the database
         was updated?
         """
         return cls.instance.get(
-            cls.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE, None
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE, None
         )
 
     @classmethod
-    def check_for_database_configuration_update(cls, _db, known_value=None):
+    def check_for_site_configuration_update(cls, _db, known_value=None):
         """Check whether the database configuration has been updated.
 
         If it has, updates
-        cls.instance[DATABASE_CONFIGURATION_LAST_UPDATE]. It's the
+        cls.instance[SITE_CONFIGURATION_LAST_UPDATE]. It's the
         application's responsibility to periodically check this value
         and reload the configuration if appropriate.
 
@@ -334,7 +334,7 @@ class Configuration(object):
         if not known_value:
             from core.model import Timestamp
             known_value = Timestamp.value(
-                _db, cls.DATABASE_CONFIGURATION_CHANGED, None
+                _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
         if not known_value:
             # The database configuration has never changed.
@@ -343,12 +343,12 @@ class Configuration(object):
             last_update = known_value
 
         # Update the Configuration object's record of the last update time.
-        old_value = cls.instance.get(cls.DATABASE_CONFIGURATION_LAST_UPDATE)
-        cls.instance[cls.DATABASE_CONFIGURATION_LAST_UPDATE] = last_update
+        old_value = cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE)
+        cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
         
         # Whether that record changed or not, the time at which we
         # _checked_ is going to be set to the current time.
-        cls.instance[cls.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE] = now
+        cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
 
         return old_value != last_update
         

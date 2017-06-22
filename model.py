@@ -9956,7 +9956,7 @@ def site_configuration_has_changed(_db, timeout=1):
     recorded.
     """
     now = datetime.datetime.utcnow()
-    last_update = Configuration.database_configuration_last_update()
+    last_update = Configuration.site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > timeout:
         # The configuration last changed more than a second ago, which
         # means it's time to reset the Timestamp that says when the
@@ -9970,14 +9970,14 @@ def site_configuration_has_changed(_db, timeout=1):
             _db = Session(_db)
 
         timestamp = Timestamp.stamp(
-            _db, Configuration.DATABASE_CONFIGURATION_CHANGED, collection=None
+            _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
         )
 
         # We know the value just changed, so we can update our own
         # local record of when the value changed. This will stop this
         # code from running again if there's a second change to
         # ConfigurationSetting.value immediately after this one.
-        Configuration.check_for_database_configuration_update(
+        Configuration.check_for_site_configuration_update(
             _db, known_value=timestamp.timestamp
         )
 
