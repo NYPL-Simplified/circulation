@@ -191,6 +191,7 @@ class CirculationAPI(object):
         """
         self._db = Session.object_session(library)
         self.library = library
+        self.initialization_errors = dict()
         api_map = api_map or self.default_api_map
 
         # Each of the Library's relevant Collections is going to be
@@ -203,12 +204,19 @@ class CirculationAPI(object):
         # from any other Collections.
         self.collection_ids_for_sync = []
 
+        self.log = logging.getLogger("Circulation API")
         for collection in library.collections:
             if collection.protocol in api_map:
-                api = api_map[collection.protocol](collection)
+                try:
+                    api = api_map[collection.protocol](collection)
+                except CannotLoadConfiguration, e:
+                    self.log.error(
+                        "Error loading configuration for %s: %s",
+                        collection.name, e.message
+                    )
+                    self.initialization_errors[collection.id] = e
                 self.api_for_collection[collection] = api
                 self.collection_ids_for_sync.append(collection.id)
-        self.log = logging.getLogger("Circulation API")
 
     @property
     def default_api_map(self):

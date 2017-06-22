@@ -169,7 +169,9 @@ class CirculationManager(object):
         interface.
         """
         self.auth = Authenticator(self._db)
+
         self.__external_search = None
+        self.external_search_initialization_exception = None
         
         # Track the Lane configuration for each library by mapping its
         # short name to the top-level lane.
@@ -177,9 +179,10 @@ class CirculationManager(object):
 
         # Create a CirculationAPI for each library.
         self.circulation_apis = {}
-
+        
         self.adobe_vendor_id = None
         self.adobe_device_management = None
+        self.short_client_token_initialization_exception = dict()
         for library in self._db.query(Library):
             lanes = make_lanes(library, self.lane_descriptions)
             
@@ -213,7 +216,14 @@ class CirculationManager(object):
         affects searches, not the rest of the circulation manager.
         """
         if not self.__external_search:
-            self.__external_search = self.setup_search()
+            try:
+                self.__external_search = self.setup_search()
+                self.external_search_initialization_exception = None
+            except CannotLoadConfiguration, e:
+                self.log.error(
+                    "Exception loading search configuration: %s", e
+                )
+                self.external_search_initialization_exception = e
         return self.__external_search
 
     def create_top_level_lane(self, library, lanelist):
@@ -338,8 +348,13 @@ class CirculationManager(object):
         if registry:
             try:
                 authdata = AuthdataUtility.from_config(library)
+                self.short_client_token_initialization_exception = None
             except CannotLoadConfiguration, e:
-                self.log.error("Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s" % e)
+                self.short_client_token_initialization_exception[library.id] = e
+                self.log.error(
+                    "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s" %
+                    library.name, e
+                )
         return authdata
 
     def annotator(self, lane, *args, **kwargs):
