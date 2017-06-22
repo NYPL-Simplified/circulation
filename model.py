@@ -36,6 +36,7 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
+    event,
     func,
     MetaData,
     Table,
@@ -7288,6 +7289,15 @@ class Timestamp(Base):
         return message.encode("utf8")
 
     @classmethod
+    def value(self, _db, service, collection):
+        """Return the current value of the given Timestamp, if it exists.
+        """
+        stamp = get_one(_db, Timestamp, service=service, collection=collection)
+        if not stamp:
+            return None
+        return stamp.timestamp
+    
+    @classmethod
     def stamp(self, _db, service, collection, date=None):
         date = date or datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
@@ -9929,3 +9939,24 @@ def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
     return NumericRange(t[0], t[1], '[]')
         
+@event.listens_for(ConfigurationSetting.value, 'set')
+def configuration_changed(target, value, oldvalue, initiator):
+    now = Configuration.seconds_since_epoch(datetime.datetime.utcnow())
+    last_update = Configuration.database_configuration_last_update()
+    if not last_update or last_update > now:
+        # The configuration last changed more than a second ago, which
+        # means it's time to reset the Timestamp that says when the
+        # configuration last changed.
+        _db = Session.object_session(target)
+        timestamp = Timestamp.stamp(
+            _db, Configuration.DATABASE_CONFIGURATION_CHANGED, collection=None
+        )
+
+        # We know the value just changed, so we can update our own
+        # local record of when the value changed. This will stop this
+        # code from running again if there's a second change to
+        # ConfigurationSetting.value immediately after this one.
+        Configuration.check_for_database_configuration_update(
+            _db, known_value=timestamp.timestamp
+        )
+

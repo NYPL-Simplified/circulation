@@ -40,6 +40,10 @@ class Configuration(object):
 
     instance = None
 
+    # The service associated with a Timestamp that tracks the last time
+    # a ConfigurationSetting's value changed in the database.
+    DATABASE_CONFIGURATION_CHANGED = "Database Configuration Changed"
+    
     # Logging stuff
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
@@ -283,7 +287,76 @@ class Configuration(object):
     def localization_languages(cls):
         languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
         return [LanguageCodes.three_to_two[l] for l in languages]
+
+    # The last time the database configuration is known to have changed.
+    DATABASE_CONFIGURATION_LAST_UPDATE = "database_configuration_last_update"
+
+    # The last time we *checked* whether the database configuration had
+    # changed.
+    LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE = "last_checked_for_database_configuration_update"
     
+    @classmethod
+    def database_configuration_last_update(cls):
+        """As far as we know, when is the last time the database configuration
+        was updated?
+        """
+        return cls.instance.get(cls.DATABASE_CONFIGURATION_LAST_UPDATE, None)
+        
+    @classmethod
+    def last_checked_for_database_configuration_update(cls):
+        """When was the last time we actually checked when the database
+        was updated?
+        """
+        return cls.instance.get(
+            cls.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE, None
+        )
+
+    EPOCH = datetime.datetime.utcfromtimestamp(0)
+    @classmethod
+    def seconds_since_epoch(cls, dt):
+        """Convert a datetime object into seconds since epoch."""
+        return (dt - cls.EPOCH).total_seconds()
+
+    @classmethod
+    def check_for_database_configuration_update(cls, _db, known_value=None):
+        """Check whether the database configuration has been updated.
+
+        If it has, updates
+        cls.instance[DATABASE_CONFIGURATION_LAST_UPDATE]. It's the
+        application's responsibility to periodically check this value
+        and reload the configuration if appropriate.
+
+        :param known_value: Use the given timestamp instead of checking
+        with the database.
+
+        :return: True if the database configuration has been updated
+        since the last time we checked; False if not.
+        """
+        now = cls.seconds_since_epoch(datetime.datetime.utcnow())
+
+        # Ask the database when was the last time the configuration
+        # changed. Specifically, this is the last time the
+        # configuration_changed() listener (defined in model.py) ran.
+        if not known_value:
+            known_value = Timestamp.value(
+                _db, cls.DATABASE_CONFIGURATION_CHANGED, None
+            )
+        if not known_value:
+            # The database configuration has never changed.
+            last_update = None
+        else:
+            last_update = cls.seconds_since_epoch(known_value)
+
+        # Update the Configuration object's record of the last update time.
+        old_value = cls.instance.get(cls.DATABASE_CONFIGURATION_LAST_UPDATE)
+        cls.instance[cls.DATABASE_CONFIGURATION_LAST_UPDATE] = last_update
+        
+        # Whether that record changed or not, the time at which we
+        # _checked_ is going to be set to the current time.
+        cls.instance[cls.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE] = now
+
+        return old_value != last_update
+        
     @classmethod
     def load(cls, _db=None):
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
@@ -308,9 +381,9 @@ class Configuration(object):
         else:
             if not cls.integration('CDN'):
                 cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
-
+                
         return configuration
-
+    
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n")

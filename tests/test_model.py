@@ -5810,6 +5810,35 @@ class TestConfigurationSetting(DatabaseTest):
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
 
+    def test_configuration_update(self):
+        ci = Configuration.instance
+
+        # Starting out, the database configuration has never been updated
+        # and we have never even checked whether it has been updated.
+        eq_(None, Configuration.database_configuration_last_update())
+        eq_(None,
+            Configuration.last_checked_for_database_configuration_update()
+        )
+
+        # Now let's set a setting.
+        now = Configuration.seconds_since_epoch(datetime.datetime.now())
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
+
+        last_update = Configuration.database_configuration_last_update()
+        last_update_check = Configuration.last_checked_for_database_configuration_update()
+
+        set_trace()
+        assert abs(last_update - now) < 1
+        assert abs(last_update_check - now) < 1
+        
+        # The last update check time is before the last update time,
+        # even though this doesn't make sense temporally. We set it this way
+        # to reduce the risk of missed updates.
+        assert last_update_check > last_update
+        
+        set_trace()
+        pass
+        
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
         about all site-wide configuration settings.
