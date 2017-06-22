@@ -133,6 +133,7 @@ class CirculationManager(object):
     def __init__(self, _db, lanes=None, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
+        self._db = _db
 
         if not testing:
             try:
@@ -140,8 +141,21 @@ class CirculationManager(object):
             except CannotLoadConfiguration, e:
                 self.log.error("Could not load configuration file: %s" % e)
                 sys.exit()
-        self._db = _db
+
         self.testing = testing
+        self.lane_descriptions = lanes
+        self.setup_one_time_controllers()
+        self.load_settings()
+        
+    def load_settings(self):
+        """Load all necessary configuration settings and external
+        integrations from the database.
+
+        This is called once when the CirculationManager is
+        initialized.  It may also be called later to reload the site
+        configuration after changes are made in the administrative
+        interface.
+        """
         self.auth = Authenticator(self._db)
         self.__external_search = None
         
@@ -152,9 +166,10 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         self.circulation_apis = {}
 
-        lane_descriptions = lanes
-        for library in _db.query(Library):
-            lanes = make_lanes(library, lane_descriptions)
+        self.adobe_vendor_id = None
+        self.adobe_device_management = None
+        for library in self._db.query(Library):
+            lanes = make_lanes(library, self.lane_descriptions)
             
             self.top_level_lanes[library.id] = (
                 self.create_top_level_lane(
@@ -165,12 +180,17 @@ class CirculationManager(object):
             self.circulation_apis[library.id] = self.setup_circulation(
                 library
             )
-            self.setup_adobe_vendor_id(library)
+            authdata = self.setup_adobe_vendor_id(library)
+            if authdata and not self.adobe_device_management:
+                # There's at least one library on this system that
+                # wants Vendor IDs. This means we need to advertise support
+                # for the Device Management Protocol.
+                self.adobe_device_management = DeviceManagementProtocolController(self)
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
 
-        self.setup_controllers()
+        self.setup_configuration_dependent_controllers()
         self.opds_authentication_documents = {}
     
     @property
@@ -231,8 +251,12 @@ class CirculationManager(object):
             cls = CirculationAPI
         return cls(library)
         
-    def setup_controllers(self):
-        """Set up all the controllers that will be used by the web app."""
+    def setup_one_time_controllers(self):
+        """Set up all the controllers that will be used by the web app.
+
+        This method will be called only once, no matter how many times the
+        site configuration changes.
+        """
         self.index_controller = IndexController(self)
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
@@ -240,15 +264,24 @@ class CirculationManager(object):
         self.urn_lookup = URNLookupController(self._db)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
-        self.oauth_controller = OAuthController(self.auth)
         self.profiles = ProfileController(self)
-        
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
 
+    def setup_configuration_dependent_controllers(self):
+        """Set up all the controllers that depend on the 
+        current site configuration.
+
+        This method will be called fresh every time the site
+        configuration changes.
+        """
+        self.oauth_controller = OAuthController(self.auth)        
+        
     def setup_adobe_vendor_id(self, library):
-        """Set up the controllers for Adobe Vendor ID and our Adobe endpoint
-        for the DRM Device Management Protocol.
+        """If this Library has an Adobe Vendor ID integration,
+        configure the controller for it.
+
+        :return: An Authdata object for `library`, if one could be created.
         """
         _db = Session.object_session(library)
         adobe = ExternalIntegration.lookup(
@@ -267,6 +300,10 @@ class CirculationManager(object):
             vendor_id = adobe.username
             node_value = adobe.password
             if vendor_id and node_value:
+                if self.adobe_vendor_id:
+                    self.log.warn(
+                        "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
+                    )
                 self.adobe_vendor_id = AdobeVendorIDController(
                     library,
                     vendor_id,
@@ -277,17 +314,21 @@ class CirculationManager(object):
                 self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
                 self.adobe_vendor_id = None
 
-        # But almost all libraries will have this setup.
+        # But almost all libraries will have a Short Client Token
+        # setup. We're not setting anything up here, but this is useful
+        # information for the calling code to have so it knows
+        # whether or not we should support the Device Management Protocol.
         registry = ExternalIntegration.lookup(
             _db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
+        authdata = None
         if registry:
             try:
                 authdata = AuthdataUtility.from_config(library)
-                self.adobe_device_management = DeviceManagementProtocolController(self)
             except CannotLoadConfiguration, e:
-                self.log.warn("DRM Device Management Protocol controller is disabled due to missing or incomplete Adobe configuration. This may be cause for concern.")
+                self.log.error("Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s" % e)
+        return authdata
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""

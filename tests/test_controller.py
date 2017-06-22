@@ -30,7 +30,9 @@ from api.controller import (
     CirculationManagerController,
 )
 from api.authenticator import (
-    BasicAuthenticationProvider
+    BasicAuthenticationProvider,
+    OAuthController,
+    LibraryAuthenticator,
 )
 from core.app_server import (
     load_lending_policy
@@ -59,6 +61,7 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     PresentationCalculationPolicy,
     RightsStatus,
+    Session,
     get_one,
     get_one_or_create,
     create,
@@ -84,7 +87,10 @@ from api.circulation import (
     FulfillmentInfo,
 )
 from api.novelist import MockNoveListAPI
-from api.adobe_vendor_id import AuthdataUtility
+from api.adobe_vendor_id import (
+    AuthdataUtility,
+    DeviceManagementProtocolController,
+)
 from api.lanes import make_lanes_default
 import base64
 import feedparser
@@ -120,7 +126,22 @@ class ControllerTest(VendorIDTest):
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
     )
-    
+
+    @contextmanager
+    def default_config(self):
+        """A default lane configuration that creates a very small
+        number of lanes so that tests can run quickly.
+        """
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : '',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.TINY_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
+            yield config
+            
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
@@ -148,7 +169,7 @@ class ControllerTest(VendorIDTest):
         # TestScopedSession to hang.
         if set_up_circulation_manager:
             app.manager = self.circulation_manager_setup(_db)
-
+        
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
         
@@ -185,31 +206,7 @@ class ControllerTest(VendorIDTest):
         self.collection = self.collections[0]
         
         for library in self.libraries:
-            # Create the patron used by the dummy authentication mechanism.
-            default_patron, ignore = get_one_or_create(
-                _db, Patron,
-                library=library,
-                authorization_identifier="unittestuser",
-                create_method_kwargs=dict(
-                    external_identifier="unittestuser"
-                )
-            )
-            self.default_patrons[library] = default_patron
-                
-            # Create a simple authentication integration for this library,
-            # unless it already has a way to authenticate patrons
-            # (in which case we would just screw things up).
-            if not any([x for x in library.integrations if x.goal==
-                        ExternalIntegration.PATRON_AUTH_GOAL]):
-                integration, ignore = create(
-                    _db, ExternalIntegration,
-                    protocol="api.simple_authentication",
-                    goal=ExternalIntegration.PATRON_AUTH_GOAL
-                )
-                p = BasicAuthenticationProvider
-                integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
-                integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
-                library.integrations.append(integration)
+            self.library_setup(library)
 
         # The test's default patron is the default patron for the first
         # library returned by make_default_libraries.
@@ -217,14 +214,7 @@ class ControllerTest(VendorIDTest):
 
         self.authdata = AuthdataUtility.from_config(self.library)
 
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                }
-            }
-
+        with self.default_config() as config:
             self.manager = CirculationManager(
                 _db, lanes=None, testing=True
             )
@@ -240,6 +230,35 @@ class ControllerTest(VendorIDTest):
             self.controller = CirculationManagerController(self.manager)
         return self.manager
 
+    def library_setup(self, library):
+        """Do some basic setup for a library newly created by test code."""
+        _db = Session.object_session(library)
+        # Create the patron used by the dummy authentication mechanism.
+        default_patron, ignore = get_one_or_create(
+            _db, Patron,
+            library=library,
+            authorization_identifier="unittestuser",
+            create_method_kwargs=dict(
+                external_identifier="unittestuser"
+            )
+        )
+        self.default_patrons[library] = default_patron
+                
+        # Create a simple authentication integration for this library,
+        # unless it already has a way to authenticate patrons
+        # (in which case we would just screw things up).
+        if not any([x for x in library.integrations if x.goal==
+                    ExternalIntegration.PATRON_AUTH_GOAL]):
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol="api.simple_authentication",
+                goal=ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            p = BasicAuthenticationProvider
+            integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
+            integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
+            library.integrations.append(integration)
+    
     def make_default_libraries(self, _db):
         return [self._default_library]
 
@@ -273,6 +292,72 @@ class CirculationControllerTest(ControllerTest):
             setattr(self, variable_name, work)
             work.license_pools[0].collection = self.collection
 
+
+class TestCirculationManager(CirculationControllerTest):
+    """Test the CirculationManager object itself."""
+
+    def test_load_settings(self):
+        # Here's a CirculationManager which we've been using for a while.
+        manager = self.manager
+
+        # Certain fields of the CirculationManager have certain values
+        # which are about to be reloaded.
+        manager.__external_search = object()
+        manager.adobe_device_management = object()
+        manager.oauth_controller = object()
+        manager.auth = object()
+        manager.lending_policy = object()
+
+        # But some fields are _not_ about to be reloaded
+        index_controller = manager.index_controller
+        
+        # The CirculationManager has a top-level lane and a
+        # CirculationAPI for the default library, but no others.
+        eq_(1, len(manager.top_level_lanes))
+        eq_(1, len(manager.circulation_apis))
+
+        # Now let's create a brand new library, never before seen.
+        library = self._library()
+        self.library_setup(library)
+
+        # In addition to the setup performed by library_set(), give it
+        # a Short Client Token integration so we can verify that the
+        # DeviceManagementProtocolController is recreated.
+        self.initialize_adobe(library, [library])
+        
+        # Then reload the CirculationManager...
+        with self.default_config() as config:
+            self.manager.load_settings()
+        
+        # Now the new library has a top-level lane.
+        assert library.id in manager.top_level_lanes
+
+        # And a circulation API.
+        assert library.id in manager.circulation_apis
+
+        # The Authenticator has been reloaded with information about
+        # how to authenticate patrons of the new library.
+        assert isinstance(
+            manager.auth.library_authenticators[library.short_name],
+            LibraryAuthenticator
+        )
+        
+        # The ExternalSearch object has been reset.
+        assert isinstance(manager.external_search, DummyExternalSearchIndex)
+        
+        # So has the lending policy.
+        assert isinstance(manager.lending_policy, dict)
+        
+        # The OAuth controller has been recreated.
+        assert isinstance(manager.oauth_controller, OAuthController)
+
+        # So has the controller for the Device Management Protocol.
+        assert isinstance(manager.adobe_device_management,
+                          DeviceManagementProtocolController)
+
+        # Controllers that don't depend on site configuration
+        # have not been reloaded.
+        eq_(index_controller, manager.index_controller)
 
 class TestBaseController(CirculationControllerTest):
 
@@ -332,34 +417,6 @@ class TestBaseController(CirculationControllerTest):
         with self.request_context_with_library("/", headers={"X-Requested-With": "XMLHttpRequest"}):
             response = self.controller.authenticate()
             eq_(None, response.headers.get("WWW-Authenticate"))
-
-    def test_load_lane(self):
-        with self.request_context_with_library("/"):
-            eq_(self.manager.d_top_level_lane,
-                self.controller.load_lane(None, None))
-            chinese = self.controller.load_lane('chi', None)
-            eq_("Chinese", chinese.name)
-            eq_("Chinese", chinese.display_name)
-            eq_(["chi"], chinese.languages)
-
-            english_sf = self.controller.load_lane('eng', "Science Fiction")
-            eq_("Science Fiction", english_sf.display_name)
-            eq_(["eng"], english_sf.languages)
-
-            # __ is converted to /
-            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
-            eq_("Suspense/Thriller", english_thriller.name)
-
-            # Unlike with Chinese, there is no lane that contains all English books.
-            english = self.controller.load_lane('eng', None)
-            eq_(english.uri, NO_SUCH_LANE.uri)
-
-            no_such_language = self.controller.load_lane('o10', None)
-            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
-            eq_("Unrecognized language key: o10", no_such_language.detail)
-
-            no_such_lane = self.controller.load_lane('eng', 'No such lane')
-            eq_("No such lane: No such lane", no_such_lane.detail)
 
     def test_load_licensepools(self):
 
@@ -564,6 +621,58 @@ class TestBaseController(CirculationControllerTest):
                 ValueError, self.controller.library_for_request, None
             )
 
+
+class FullLaneSetupTest(CirculationControllerTest):
+    """Most lane-based tests don't need the full multi-tier setup of lanes
+    that we would see in a real site. We use a smaller setup to save time
+    when running the test.
+
+    This class is for the tests that do need that full set of lanes.
+    """
+
+    @contextmanager
+    def default_config(self):
+        """A default lane configuration that creates a full
+        range of lanes.
+        """
+        with temp_config() as config:
+            config[Configuration.POLICIES] = {
+                Configuration.LANGUAGE_POLICY : {
+                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
+                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
+                }
+            }
+            yield config
+    
+    def test_load_lane(self):
+        with self.request_context_with_library("/"):
+            eq_(self.manager.d_top_level_lane,
+                self.controller.load_lane(None, None))
+            chinese = self.controller.load_lane('chi', None)
+            eq_("Chinese", chinese.name)
+            eq_("Chinese", chinese.display_name)
+            eq_(["chi"], chinese.languages)
+
+            english_sf = self.controller.load_lane('eng', "Science Fiction")
+            eq_("Science Fiction", english_sf.display_name)
+            eq_(["eng"], english_sf.languages)
+
+            # __ is converted to /
+            english_thriller = self.controller.load_lane('eng', "Suspense__Thriller")
+            eq_("Suspense/Thriller", english_thriller.name)
+
+            # Unlike with Chinese, there is no lane that contains all English books.
+            english = self.controller.load_lane('eng', None)
+            eq_(english.uri, NO_SUCH_LANE.uri)
+
+            no_such_language = self.controller.load_lane('o10', None)
+            eq_(no_such_language.uri, NO_SUCH_LANE.uri)
+            eq_("Unrecognized language key: o10", no_such_language.detail)
+
+            no_such_lane = self.controller.load_lane('eng', 'No such lane')
+            eq_("No such lane: No such lane", no_such_lane.detail)
+
+            
 
 class TestIndexController(CirculationControllerTest):
     
@@ -2081,11 +2190,15 @@ class TestFeedController(CirculationControllerTest):
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
         library.setting(library.FEATURED_LANE_SIZE).value = 2
-        for i in range(2):
-            self._work("fiction work %i" % i, language="eng", fiction=True, with_open_access_download=True)
-            self._work("nonfiction work %i" % i, language="eng", fiction=False, with_open_access_download=True)
         
         SessionManager.refresh_materialized_views(self._db)
+
+        # Initial setup gave us two English works and a French work.
+        # Load up with a couple more English works to show that
+        # the groups lane cuts off at FEATURED_LANE_SIZE.
+        for i in range(2):
+            self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
+        
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.groups(None, None)
 
@@ -2097,8 +2210,17 @@ class TestFeedController(CirculationControllerTest):
                 links = [x for x in entry.links if x['rel'] == 'collection']
                 for link in links:
                     counter[link['title']] += 1
-            eq_(2, counter['Nonfiction'])
-            eq_(2, counter['Fiction'])
+
+            # In default_config, the two top-level lanes are "English"
+            # (a language in SMALL_COLLECTION_LANGUAGES) and "Other
+            # Languages" (which covers TINY_COLLECTION_LANGUAGES).
+            #
+            # There are several English works, but we're cut off at
+            # two due to FEATURED_LANE_SIZE. There is one "Other
+            # Languages" work - the French work created when this test
+            # was initialized.
+            eq_(2, counter['English'])
+            eq_(1, counter['Other Languages'])
 
     def test_search(self):
         # Put two works into the search index
@@ -2171,9 +2293,22 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
     def setup(self):
         super(TestDeviceManagementProtocolController, self).setup()
-        self.auth = dict(Authorization=self.valid_auth)
         self.initialize_adobe(self.library, self.libraries)
+        self.auth = dict(Authorization=self.valid_auth)
+
+        # Since our library doesn't have its Adobe configuration
+        # enabled, the Device Management Protocol controller has not
+        # been enabled.
+        eq_(None, self.manager.adobe_device_management)
+
+        # Set up the Adobe configuration for this library and
+        # reload the CirculationManager configuration.
         self.manager.setup_adobe_vendor_id(self.library)
+        with self.default_config() as config:
+            self.manager.load_settings()
+
+        # Now the controller is enabled and we can use it in this
+        # test.
         self.controller = self.manager.adobe_device_management
         
     def _create_credential(self):
