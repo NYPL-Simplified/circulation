@@ -348,7 +348,7 @@ class Configuration(object):
         # site_configuration_was_changed() (defined in model.py) was
         # called.
         if not known_value:
-            from core.model import Timestamp
+            from model import Timestamp
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )

@@ -35,6 +35,7 @@ from config import (
     temp_config,
 )
 
+import model
 from model import (
     Admin,
     Annotation,
@@ -5834,8 +5835,38 @@ nonsecret_setting='2'"""
         assert 'nonsecret_setting' in without_secrets
 
 
+
+        
 class TestSiteConfigurationHasChanged(DatabaseTest):
 
+    class MockSiteConfigurationHasChanged(object):
+        """Keep track of whether site_configuration_has_changed was
+        ever called.
+        """
+        def __init__(self):
+            self.was_called = False
+
+        def run(self, _db):
+            self.was_called = True
+            site_configuration_has_changed(_db)
+
+        def assert_was_called(self):
+            "Assert that `was_called` is True, then reset it for the next assertion."
+            assert self.was_called
+            self.was_called = False
+            
+    def setup(self):
+        super(TestSiteConfigurationHasChanged, self).setup()
+
+        # Mock model.site_configuration_has_changed
+        self.old_site_configuration_has_changed = model.site_configuration_has_changed
+        self.mock = self.MockSiteConfigurationHasChanged()
+        model.site_configuration_has_changed = self.mock.run
+
+    def teardown(self):
+        super(TestSiteConfigurationHasChanged, self).teardown()
+        model.site_configuration_has_changed = self.old_site_configuration_has_changed
+        
     def test_site_configuration_has_changed(self):
         """Test the site_configuration_has_changed() function and its
         effects on the Configuration object.
@@ -5858,29 +5889,36 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         now = datetime.datetime.utcnow()
         site_configuration_has_changed(self._db)
 
-        # The last update time has been modified, as has the time we
-        # checked on the last update time.
-        last_update = Configuration.site_configuration_last_update()
-        last_update_check = Configuration.last_checked_for_site_configuration_update()
+        # The last update time has been modified, but the
+        # Configuration object has not yet checked in the database, so
+        # it doesn't know yet.
+        eq_(None, Configuration.site_configuration_last_update())
+        eq_(None, Configuration.last_checked_for_site_configuration_update())
     
-        assert abs((last_update - now).total_seconds()) < 1
-        assert abs((last_update_check - now).total_seconds()) < 1
-        
-        # We can't have detected the last update before it happened,
-        # which means that last update check date is greater than the
-        # last update date itself.
-        assert last_update_check > last_update
-
-        # Absent another call to site_configuration_has_changed(),
-        # calling Configuration.check_for_site_configuration_update
-        # will return False.
-        eq_(False,
+        # Checking (by calling
+        # Configuration.check_for_site_configuration_update) will let
+        # the Configuration object figure out that things have
+        # changed.
+        eq_(True,
             Configuration.check_for_site_configuration_update(self._db))
 
-        # But let's be sneaky and update the timestamp directly,
+        # Calling that method again will return False.
+        eq_(False,
+            Configuration.check_for_site_configuration_update(self._db))
+        
+        # Now that we called check_for_site_configuration_update, the
+        # Configuration object knows some things about when the
+        # configuration changed, and when we last checked it.
+        last_update = Configuration.site_configuration_last_update()
+        last_update_check = Configuration.last_checked_for_site_configuration_update()
+        assert abs((last_update - now).total_seconds()) < 1
+        assert abs((last_update_check - now).total_seconds()) < 1
+        assert last_update_check > last_update
+                
+        # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This
         # simulates another process on a different machine calling
-        # site_cnofiguration_has_changed() -- they will know about the
+        # site_configuration_has_changed() -- they will know about the
         # change but we won't be informed.
         timestamp = Timestamp.stamp(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
@@ -5923,66 +5961,29 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):
         """When you create or modify a relevant item such as a
-        ConfigurationSetting.
-        """
-        eq_(None, Configuration.site_configuration_last_update())
-        eq_(None,
-            Configuration.last_checked_for_site_configuration_update()
-        )
-
-        # Create a ConfigurationSetting and
-        # site_configuration_has_changed is called.
+        ConfigurationSetting, site_configuration_has_changed is called.
+        """                
         ConfigurationSetting.sitewide(self._db, "setting").value = "value"
-        update2 = Configuration.site_configuration_last_update()
-        check2 = Configuration.last_checked_for_site_configuration_update()
-        assert(update2 is not None)
-        assert(check2 is not None)
-
-        # Get around the site_configuration_has_changed() timeout by
-        # destroying the evidence that it was just called.
-        for key in [
-                Configuration.SITE_CONFIGURATION_LAST_UPDATE,
-                Configuration.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
-        ]:
-            if key in Configuration.instance:
-                del(Configuration.instance[key])
+        self.mock.assert_was_called()
         
-        # Modify an existing ConfigurationSetting and
-        # site_configuration_has_changed() is called again.
         ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
-        update3 = Configuration.site_configuration_last_update()
-        check3 = Configuration.last_checked_for_site_configuration_update()
-        assert(update3 > update2)
-        assert(check3 > check2)
+        self.mock.assert_was_called()
 
     def test_configuration_relevant_collection_change_updates_configuration(self):
-        eq_(None, Configuration.site_configuration_last_update())
-        eq_(None,
-            Configuration.last_checked_for_site_configuration_update()
-        )
-        # Create a library.
+        """When you add a relevant item to a SQLAlchemy collection, such as
+        adding a Collection to library.collections,
+        site_configuration_has_changed is called.
+        """                
+
+        # Creating a library calls the method.
         library = self._default_library
-        assert Configuration.site_configuration_last_update() is not None
-        assert Configuration.last_checked_for_site_configuration_update() is not None
         collection = self._collection()
+        self.mock.assert_was_called()
         
-        # Get around the site_configuration_has_changed() timeout by
-        # destroying the evidence that it was just called.
-        for key in [
-                Configuration.SITE_CONFIGURATION_LAST_UPDATE,
-                Configuration.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
-        ]:
-            if key in Configuration.instance:
-                del(Configuration.instance[key])
-
         # Add the collection to the library, and
-        # site_configuration_has_changed() is called again.
+        # site_configuration_has_changed() is called.
         library.collections.append(collection)
-
-        update2 = Configuration.site_configuration_last_update()
-        check2 = Configuration.last_checked_for_site_configuration_update()
-        assert(update2 is not None)
-        assert(check2 is not None)
+        self.mock.assert_was_called()
         
     
 class TestCollection(DatabaseTest):

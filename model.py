@@ -9959,20 +9959,26 @@ def site_configuration_has_changed(_db, timeout=1):
     now = datetime.datetime.utcnow()
     last_update = Configuration.site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > timeout:
-        # The configuration last changed more than a second ago, which
+        # The configuration last changed more than `timeout` ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.
-
+        needs_commit = False
         # Convert something that might not be a Connection object into
         # a Connection object.
         if isinstance(_db, Base):
             _db = Session.object_session(_db)
         elif isinstance(_db, Connection):
             _db = Session(_db)
-
+            needs_commit = True
+            
+        # Update the timestamp.
         timestamp = Timestamp.stamp(
             _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
         )
+
+        if needs_commit:
+            # We had to create a new database session. Commit it now.
+            _db.commit()
         
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
@@ -10010,3 +10016,7 @@ def configuration_relevant_collection_change(target, value,  initiator):
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(connection)
+
+@event.listens_for(ConfigurationSetting.value, 'set')
+def configuration_setting_modified_event(target, value, oldvalue, initiator):
+    site_configuration_has_changed(target)
