@@ -10016,7 +10016,3 @@ def configuration_relevant_collection_change(target, value,  initiator):
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(connection)
-
-@event.listens_for(ConfigurationSetting.value, 'set')
-def configuration_setting_modified_event(target, value, oldvalue, initiator):
-    site_configuration_has_changed(target)
