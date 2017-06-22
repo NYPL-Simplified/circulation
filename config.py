@@ -39,7 +39,7 @@ class Configuration(object):
     log = logging.getLogger("Configuration file loader")
 
     instance = None
-
+    
     # Logging stuff
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
@@ -283,6 +283,89 @@ class Configuration(object):
     def localization_languages(cls):
         languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
         return [LanguageCodes.three_to_two[l] for l in languages]
+
+    # The last time the database configuration is known to have changed.
+    SITE_CONFIGURATION_LAST_UPDATE = "site_configuration_last_update"
+
+    # The last time we *checked* whether the database configuration had
+    # changed.
+    LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE = "last_checked_for_site_configuration_update"
+
+    # The name of the service associated with a Timestamp that tracks
+    # the last time the site's configuration changed in the database.
+    SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
+            
+    @classmethod
+    def last_checked_for_site_configuration_update(cls):
+        """When was the last time we actually checked when the database
+        was updated?
+        """
+        return cls.instance.get(
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE, None
+        )
+
+    @classmethod
+    def site_configuration_last_update(cls, _db, known_value=None,
+                                       timeout=60):
+        """Check when the site configuration was last updated.
+
+        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
+        It's the application's responsibility to periodically check
+        this value and reload the configuration if appropriate.
+
+        :param known_value: We know when the site configuration was
+        last updated--it's this timestamp. Use it instead of checking
+        with the database.
+
+        :param timeout: We will only call out to the database once in
+        this number of seconds. If we are asked again before this
+        number of seconds elapses, we will assume site configuration
+        has not changed.
+
+        :return: a datetime object.
+        """
+        now = datetime.datetime.utcnow()
+
+        last_check = cls.instance.get(
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
+        )
+
+        if (not known_value
+            and last_check and (now - last_check).total_seconds() < timeout):
+            # We went to the database less than [timeout] seconds ago.
+            # Assume there has been no change.
+            return cls._site_configuration_last_update()
+        
+        # Ask the database when was the last time the site
+        # configuration changed. Specifically, this is the last time
+        # site_configuration_was_changed() (defined in model.py) was
+        # called.
+        if not known_value:
+            from model import Timestamp
+            known_value = Timestamp.value(
+                _db, cls.SITE_CONFIGURATION_CHANGED, None
+            )
+        if not known_value:
+            # The site configuration has never changed.
+            last_update = None
+        else:
+            last_update = known_value
+
+        # Update the Configuration object's record of the last update time.
+        cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
+        
+        # Whether that record changed or not, the time at which we
+        # _checked_ is going to be set to the current time.
+        cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
+
+        return last_update
+
+    @classmethod
+    def _site_configuration_last_update(cls):
+        """Get the raw SITE_CONFIGURATION_LAST_UPDATE value,
+        without any attempt to find a fresher value from the database.
+        """
+        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
     
     @classmethod
     def load(cls, _db=None):
@@ -308,9 +391,9 @@ class Configuration(object):
         else:
             if not cls.integration('CDN'):
                 cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
-
+                
         return configuration
-
+    
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n")

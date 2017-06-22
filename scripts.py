@@ -55,6 +55,7 @@ from model import (
     Work,
     WorkCoverageRecord,
     WorkGenre,
+    site_configuration_has_changed,
 )
 from monitor import SubjectAssignmentMonitor
 from monitor import CollectionMonitor
@@ -757,7 +758,7 @@ class ConfigurationSettingScript(Script):
         for setting in settings:
             key, value = self._parse_setting(setting)
             obj.setting(key).value = value
-        
+            
             
 class ConfigureSiteScript(ConfigurationSettingScript):
     """View or update site-wide configuration."""
@@ -804,7 +805,6 @@ class ConfigureSiteScript(ConfigurationSettingScript):
                     )
                 else:
                     ConfigurationSetting.sitewide(_db, key).value = value
-            _db.commit()
         settings = _db.query(ConfigurationSetting).filter(
             ConfigurationSetting.library==None).filter(
                 ConfigurationSetting.external_integration==None
@@ -813,8 +813,9 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         for setting in settings:
             if args.show_secrets or not setting.is_secret:
                 output.write("%s='%s'\n" % (setting.key, setting.value))
-            
-            
+        site_configuration_has_changed(_db)
+        _db.commit()
+        
 class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
     name = "Change a library's settings"
@@ -899,6 +900,7 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
         if args.library_registry_shared_secret:
             library.library_registry_shared_secret = args.library_registry_shared_secret
         self.apply_settings(args.setting, library)
+        site_configuration_has_changed(_db)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(library.explain()))
@@ -1104,6 +1106,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
                     raise ValueError(message)
                 if collection not in library.collections:
                     library.collections.append(collection)
+        site_configuration_has_changed(_db)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(collection.explain()))
@@ -1182,7 +1185,7 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         goal = args.goal
         integration = self._integration(_db, id, name, protocol, goal)
         self.apply_settings(args.setting, integration)
-
+        site_configuration_has_changed(_db)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(integration.explain()))

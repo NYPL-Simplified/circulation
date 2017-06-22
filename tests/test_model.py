@@ -35,6 +35,7 @@ from config import (
     temp_config,
 )
 
+import model
 from model import (
     Admin,
     Annotation,
@@ -80,6 +81,7 @@ from model import (
     create,
     get_one,
     get_one_or_create,
+    site_configuration_has_changed,
 )
 from external_search import (
     DummyExternalSearchIndex,
@@ -5809,7 +5811,7 @@ class TestConfigurationSetting(DatabaseTest):
 
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
-
+        
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
         about all site-wide configuration settings.
@@ -5831,7 +5833,130 @@ nonsecret_setting='2'"""
         ))
         assert 'a_secret' not in without_secrets
         assert 'nonsecret_setting' in without_secrets
+
+
+
         
+class TestSiteConfigurationHasChanged(DatabaseTest):
+
+    class MockSiteConfigurationHasChanged(object):
+        """Keep track of whether site_configuration_has_changed was
+        ever called.
+        """
+        def __init__(self):
+            self.was_called = False
+
+        def run(self, _db):
+            self.was_called = True
+            site_configuration_has_changed(_db)
+
+        def assert_was_called(self):
+            "Assert that `was_called` is True, then reset it for the next assertion."
+            assert self.was_called
+            self.was_called = False
+            
+    def setup(self):
+        super(TestSiteConfigurationHasChanged, self).setup()
+
+        # Mock model.site_configuration_has_changed
+        self.old_site_configuration_has_changed = model.site_configuration_has_changed
+        self.mock = self.MockSiteConfigurationHasChanged()
+        model.site_configuration_has_changed = self.mock.run
+
+    def teardown(self):
+        super(TestSiteConfigurationHasChanged, self).teardown()
+        model.site_configuration_has_changed = self.old_site_configuration_has_changed
+        
+    def test_site_configuration_has_changed(self):
+        """Test the site_configuration_has_changed() function and its
+        effects on the Configuration object.
+        """
+        # Starting out, the database configuration has never been updated.
+        eq_(None, Configuration.site_configuration_last_update(self._db))
+
+        # The Timestamp tracking when the ConfigurationSettings last changed
+        # is unset.
+        timestamp_value = Timestamp.value(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        eq_(None, timestamp_value)
+        
+        # Now let's call site_configuration_has_changed().
+        now = datetime.datetime.utcnow()
+        site_configuration_has_changed(self._db)
+        
+        # Now that we called check_for_site_configuration_update, the
+        # Configuration object knows some things about when the
+        # configuration changed, and when we last checked it.
+        last_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert abs((last_update - now).total_seconds()) < 1
+                
+        # Let's be sneaky and update the timestamp directly,
+        # without calling site_configuration_has_changed(). This
+        # simulates another process on a different machine calling
+        # site_configuration_has_changed() -- they will know about the
+        # change but we won't be informed.
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        new_last_update = timestamp.timestamp
+
+        # Calling Configuration.check_for_site_configuration_update
+        # doesn't detect the change because by default we only go to
+        # the database once a minute.
+        eq_(last_update, Configuration.site_configuration_last_update(self._db))
+
+        # Passing in a different timeout value forces the method to go
+        # to the database and find the correct answer.
+        newer_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert newer_update > last_update
+        
+        # If ConfigurationSettings are updated twice within the
+        # timeout period (default 1 second), the last update time is
+        # only set once, to avoid spamming the Timestamp with updates.
+        
+        # The high value for 'timeout' saves this code. If we decided
+        # that the timeout had expired and tried to check the
+        # Timestamp, the code would crash because we're not passing
+        # a database connection in.
+        site_configuration_has_changed(None, timeout=100)
+
+        # Nothing has changed -- how could it, with no database connection
+        # to modify anything?
+        eq_(newer_update, Configuration.site_configuration_last_update(self._db))
+
+    # We don't test every event listener, but we do test one of each type.
+    def test_configuration_relevant_lifecycle_event_updates_configuration(self):
+        """When you create or modify a relevant item such as a
+        ConfigurationSetting, site_configuration_has_changed is called.
+        """                
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
+        self.mock.assert_was_called()
+        
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
+        self.mock.assert_was_called()
+
+    def test_configuration_relevant_collection_change_updates_configuration(self):
+        """When you add a relevant item to a SQLAlchemy collection, such as
+        adding a Collection to library.collections,
+        site_configuration_has_changed is called.
+        """                
+
+        # Creating a library calls the method.
+        library = self._default_library
+        collection = self._collection()
+        self.mock.assert_was_called()
+        
+        # Add the collection to the library, and
+        # site_configuration_has_changed() is called.
+        library.collections.append(collection)
+        self.mock.assert_was_called()
+        
+    
 class TestCollection(DatabaseTest):
 
     def setup(self):
@@ -5955,9 +6080,9 @@ class TestCollection(DatabaseTest):
              'Protocol: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
+             'Setting "setting": "value"',
              'Setting "url": "url"',
              'Setting "username": "username"',
-             'Setting "setting": "value"'
         ],
             data
         )
