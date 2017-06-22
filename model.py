@@ -9973,15 +9973,7 @@ def site_configuration_has_changed(_db, timeout=1):
         timestamp = Timestamp.stamp(
             _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
         )
-
-        # We know the value just changed, so we can update our own
-        # local record of when the value changed. This will stop this
-        # code from running again if there's a second change to
-        # ConfigurationSetting.value immediately after this one.
-        Configuration.check_for_site_configuration_update(
-            _db, known_value=timestamp.timestamp
-        )
-
+        
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
 # configuration it gets from the database. These hooks will call
