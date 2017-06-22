@@ -39,6 +39,7 @@ from core.app_server import (
 )
 from core.external_search import DummyExternalSearchIndex
 from core.metadata_layer import Metadata
+from core import model
 from core.model import (
     Annotation,
     Collection,
@@ -620,9 +621,9 @@ class TestBaseController(CirculationControllerTest):
             assert_raises(
                 ValueError, self.controller.library_for_request, None
             )
-
+            
     def test_library_for_request_reloads_settings_if_necessary(self):
-        
+
         # We're about to change the shortname of the default library.
         new_name = "newname" + self._str
 
@@ -634,11 +635,17 @@ class TestBaseController(CirculationControllerTest):
                 problem = self.controller.library_for_request(new_name)
                 eq_(LIBRARY_NOT_FOUND, problem)
 
+
         # Make the change.
         self._default_library.short_name = new_name
         self._db.commit()
 
-        # Just making the change was not enough to update the
+        # Bypass the 1-second timeout and make sure the site knows
+        # the configuration has actually changed.
+        model.site_configuration_has_changed(self._db, timeout=0)        
+        
+        # Just making the change and calling
+        # site_configuration_has_changed was not enough to update the
         # CirculationManager's settings.
         assert new_name not in self.manager.auth.library_authenticators
         
@@ -647,7 +654,8 @@ class TestBaseController(CirculationControllerTest):
         with self.default_config():
             with self.app.test_request_context("/"):
                 value = self.controller.library_for_request(new_name)
-
+                eq_(self._default_library, value)
+                
                 # An assertion that would have failed before works now.
                 assert new_name in self.manager.auth.library_authenticators
 
