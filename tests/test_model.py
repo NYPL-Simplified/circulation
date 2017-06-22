@@ -5875,13 +5875,13 @@ class TestConfigurationSetting(DatabaseTest):
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
-        from model import configuration_setting_changed
-
+        from model import site_configuration_has_changed
+        
         # The high value for 'timeout' saves this code. If we decided
-        # that the timeout had expired and tried to modify the
-        # timestamp, the code would crash because we're not passing
-        # the right arguments in.
-        configuration_setting_changed(None, None, None, None, timeout=100)
+        # that the timeout had expired and tried to check the
+        # Timestamp, the code would crash because we're not passing
+        # a database connection in.
+        site_configuration_has_changed(None, timeout=100)
 
         # In fact, nothing has changed.
         eq_(new_last_update, Configuration.database_configuration_last_update())
@@ -6033,9 +6033,9 @@ class TestCollection(DatabaseTest):
              'Protocol: "Overdrive"',
              'Used by library: "The only library"',
              'External account ID: "id"',
+             'Setting "setting": "value"',
              'Setting "url": "url"',
              'Setting "username": "username"',
-             'Setting "setting": "value"'
         ],
             data
         )

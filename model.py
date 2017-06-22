@@ -32,6 +32,7 @@ from PIL import (
 )
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
@@ -9742,7 +9743,7 @@ class Collection(Base):
             lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        for setting in integration.settings:
+        for setting in sorted(integration.settings, key=lambda x: x.key):
             if include_secrets or not setting.is_secret:
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
@@ -9938,12 +9939,21 @@ def numericrange_to_tuple(r):
 def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
     return NumericRange(t[0], t[1], '[]')
-        
-@event.listens_for(ConfigurationSetting.value, 'set')
-def configuration_setting_changed(target, value, oldvalue, initiator, timeout=1):
-    """When a new value for ConfigurationSetting.value is set,
-    modify the Timestamp that keeps track of the last time the site's
-    configuration changed.
+
+def site_configuration_has_changed(_db, timeout=1):
+    """Call this whenever you want to indicate that the site configuration
+    has changed and needs to be reloaded.
+
+    This is automatically triggered whenever a new value is set for
+    ConfigurationSetting.value, but you should call it whenever you
+    change an aspect of what you consider "site configuration".
+
+    :param _db: Either a Session or (to save time in a common case) an
+    object that can be associated with or turned into a Session.
+
+    :param timeout: Nothing will happen if it's been fewer than this
+    number of seconds since the last site configuration change was
+    recorded.
     """
     now = datetime.datetime.utcnow()
     last_update = Configuration.database_configuration_last_update()
@@ -9951,7 +9961,14 @@ def configuration_setting_changed(target, value, oldvalue, initiator, timeout=1)
         # The configuration last changed more than a second ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.
-        _db = Session.object_session(target)
+
+        # Convert something that might not be a Connection object into
+        # a Connection object.
+        if isinstance(_db, Base):
+            _db = Session.object_session(_db)
+        elif isinstance(_db, Connection):
+            _db = Session(_db)
+
         timestamp = Timestamp.stamp(
             _db, Configuration.DATABASE_CONFIGURATION_CHANGED, collection=None
         )
@@ -9964,3 +9981,39 @@ def configuration_setting_changed(target, value, oldvalue, initiator, timeout=1)
             _db, known_value=timestamp.timestamp
         )
 
+# Most of the time, we can know whether a change to the database is
+# likely to require that the application reload the portion of the
+# configuration it gets from the database. These hooks will call
+# site_configuration_has_changed() whenever such a change happens.
+#
+# This is not supposed to be a comprehensive list of changes that
+# should trigger a ConfigurationSetting reload -- that needs to be
+# handled on the application level -- but it should be good enough to
+# catch most that slip through the cracks.
+@event.listens_for(Collection.children, 'append')
+@event.listens_for(Collection.children, 'remove')
+@event.listens_for(Collection.libraries, 'append')
+@event.listens_for(Collection.libraries, 'remove')
+@event.listens_for(ExternalIntegration.settings, 'append')
+@event.listens_for(ExternalIntegration.settings, 'remove')
+@event.listens_for(Library.integrations, 'append')
+@event.listens_for(Library.integrations, 'remove')
+@event.listens_for(Library.settings, 'append')
+@event.listens_for(Library.settings, 'remove')
+def configuration_relevant_collection_change(target, value,  initiator):
+    site_configuration_has_changed(target)
+
+@event.listens_for(Library, 'after_insert')
+@event.listens_for(Library, 'after_delete')
+@event.listens_for(Library, 'after_update')
+@event.listens_for(ExternalIntegration, 'after_insert')
+@event.listens_for(ExternalIntegration, 'after_delete')
+@event.listens_for(ExternalIntegration, 'after_update')
+@event.listens_for(Collection, 'after_insert')
+@event.listens_for(Collection, 'after_delete')
+@event.listens_for(Collection, 'after_update')
+@event.listens_for(ConfigurationSetting, 'after_insert')
+@event.listens_for(ConfigurationSetting, 'after_delete')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def configuration_object_lifecycle(mapper, connection, target):
+    site_configuration_has_changed(connection)
