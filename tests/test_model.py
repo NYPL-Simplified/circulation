@@ -5888,10 +5888,16 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         new_last_update = timestamp.timestamp
 
         # Calling Configuration.check_for_site_configuration_update
-        # detects the change and returns True.
-        eq_(True, Configuration.check_for_site_configuration_update(
+        # doesn't detect the change because by default we only go to
+        # the database once a minute.
+        eq_(False, Configuration.check_for_site_configuration_update(
             self._db))
 
+        # Passing in a different timeout value forces the method to go
+        # to the database and find the correct answer.
+        eq_(True, Configuration.check_for_site_configuration_update(
+            self._db, timeout=0))
+        
         # We ran another check, which set the last update time to the
         # time in the timestamp.
         eq_(new_last_update, Configuration.site_configuration_last_update())
@@ -5916,7 +5922,9 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):
-        """When you modify a """
+        """When you create or modify a relevant item such as a
+        ConfigurationSetting.
+        """
         eq_(None, Configuration.site_configuration_last_update())
         eq_(None,
             Configuration.last_checked_for_site_configuration_update()

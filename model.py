@@ -9944,9 +9944,9 @@ def site_configuration_has_changed(_db, timeout=1):
     """Call this whenever you want to indicate that the site configuration
     has changed and needs to be reloaded.
 
-    This is automatically triggered whenever a new value is set for
-    ConfigurationSetting.value, but you should call it whenever you
-    change an aspect of what you consider "site configuration".
+    This is automatically triggered on relevant changes to the data
+    model, but you also should call it whenever you change an aspect
+    of what you consider "site configuration", just to be safe.
 
     :param _db: Either a Session or (to save time in a common case) an
     object that can be associated with or turned into a Session.
@@ -9954,6 +9954,7 @@ def site_configuration_has_changed(_db, timeout=1):
     :param timeout: Nothing will happen if it's been fewer than this
     number of seconds since the last site configuration change was
     recorded.
+
     """
     now = datetime.datetime.utcnow()
     last_update = Configuration.site_configuration_last_update()

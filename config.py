@@ -312,7 +312,8 @@ class Configuration(object):
         )
 
     @classmethod
-    def check_for_site_configuration_update(cls, _db, known_value=None):
+    def check_for_site_configuration_update(cls, _db, known_value=None,
+                                            timeout=60):
         """Check whether the site configuration has been updated.
 
         If it has, updates
@@ -323,11 +324,25 @@ class Configuration(object):
         :param known_value: Use the given timestamp instead of checking
         with the database.
 
+        :param timeout: We will only call out to the database once in
+        this number of seconds. If we are asked again before this
+        number of seconds elapses, we will assume site configuration
+        has not changed.
+
         :return: True if the site configuration was updated
         since the last time we checked; False if not.
         """
         now = datetime.datetime.utcnow()
 
+        last_check = cls.instance.get(
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
+        )
+
+        if last_check and (now - last_check).total_seconds() < timeout:
+            # We went to the database less than [timeout] seconds ago.
+            # Assume there has been no change.
+            return False
+        
         # Ask the database when was the last time the site
         # configuration changed. Specifically, this is the last time
         # site_configuration_was_changed() (defined in model.py) was

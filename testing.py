@@ -158,8 +158,8 @@ class DatabaseTest(object):
         # Also roll back any record of those changes in the
         # Configuration instance.
         for key in [
-                Configuration.DATABASE_CONFIGURATION_LAST_UPDATE,
-                Configuration.LAST_CHECKED_FOR_DATABASE_CONFIGURATION_UPDATE
+                Configuration.SITE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
         ]:
             if key in Configuration.instance:
                 del(Configuration.instance[key])
