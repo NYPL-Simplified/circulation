@@ -1019,18 +1019,101 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def collections(self):
+    def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
         protocols = []
-        for license_api in [OPDSImporter,
-                            OverdriveAPI,
-                            BibliothecaAPI,
-                            Axis360API,
-                            OneClickAPI,
-                           ]:
-            protocols.append({
-                "name": license_api.NAME,
-                "fields": license_api.FIELDS,
-            })
+        for api in provider_apis:
+            protocol = dict()
+            name = getattr(api, protocol_name_attr)
+            protocol["name"] = name
+
+            label = getattr(api, "NAME", name)
+            protocol["label"] = label
+
+            description = getattr(api, "DESCRIPTION", None)
+            if description != None:
+                protocol["description"] = description
+
+            sitewide = getattr(api, "SITEWIDE", None)
+            if sitewide != None:
+                protocol["sitewide"] = sitewide
+
+            settings = getattr(api, "SETTINGS", [])
+            protocol["settings"] = settings
+
+            library_settings = getattr(api, "LIBRARY_SETTINGS", None)
+            if library_settings != None:
+                protocol["library_settings"] = library_settings
+
+            protocols.append(protocol)
+        return protocols
+
+    def _set_integration_settings_and_libraries(self, integration, protocol):
+        settings = protocol.get("settings")
+        for setting in settings:
+            key = setting.get("key")
+            if setting.get("type") == "list" and not setting.get("options"):
+                value = [item for item in flask.request.form.getlist(key) if item]
+                if value:
+                    value = json.dumps(value)
+            else:
+                value = flask.request.form.get(key)
+            if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
+                self._db.rollback()
+                return INVALID_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(setting)s is invalid.",
+                    setting=setting.get("label"),
+                ))
+            if not value and not setting.get("optional"):
+                # Roll back any changes to the integration that have already been made.
+                self._db.rollback()
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The configuration is missing a required setting: %(setting)s",
+                      setting=setting.get("label")))
+            integration.setting(key).value = value
+
+        if not protocol.get("sitewide"):
+            integration.libraries = []
+
+            libraries = []
+            if flask.request.form.get("libraries"):
+                libraries = json.loads(flask.request.form.get("libraries"))
+
+            for library_info in libraries:
+                library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+                if not library:
+                    self._db.rollback()
+                    return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+                integration.libraries += [library]
+                for setting in protocol.get("library_settings", []):
+                    key = setting.get("key")
+                    value = library_info.get(key)
+                    if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
+                        self._db.rollback()
+                        return INVALID_CONFIGURATION_OPTION.detailed(_(
+                            "The configuration value for %(setting)s is invalid.",
+                            setting=setting.get("label"),
+                        ))
+                    if not value and not setting.get("optional"):
+                        self._db.rollback()
+                        return INCOMPLETE_CONFIGURATION.detailed(
+                            _("The configuration is missing a required setting: %(setting)s for library %(library)s",
+                              setting=setting.get("label"),
+                              library=library.short_name,
+                              ))
+                    ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
+
+        return True
+
+
+    def collections(self):
+        provider_apis = [OPDSImporter,
+                         OverdriveAPI,
+                         BibliothecaAPI,
+                         Axis360API,
+                         OneClickAPI,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
         if flask.request.method == 'GET':
             collections = []
@@ -1038,13 +1121,13 @@ class SettingsController(CirculationManagerController):
                 collection = dict(
                     name=c.name,
                     protocol=c.protocol,
-                    libraries=[library.short_name for library in c.libraries],
+                    libraries=[{ "short_name": library.short_name } for library in c.libraries],
                     external_account_id=c.external_account_id,
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
-                    for field in protocol.get("fields"):
-                        key = field.get("key")
+                    for setting in protocol.get("settings"):
+                        key = setting.get("key")
                         if key not in collection:
                             collection[key] = c.external_integration.setting(key).value
                 collections.append(collection)
@@ -1080,17 +1163,17 @@ class SettingsController(CirculationManagerController):
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        fields = protocol.get("fields")
+        settings = protocol.get("settings")
 
-        for field in fields:
-            key = field.get("key")
+        for setting in settings:
+            key = setting.get("key")
             value = flask.request.form.get(key)
-            if not value and not field.get("optional"):
+            if not value and not setting.get("optional"):
                 # Roll back any changes to the collection that have already been made.
                 self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The collection configuration is missing a required field: %(field)s",
-                      field=field.get("label")))
+                    _("The collection configuration is missing a required setting: %(setting)s",
+                      setting=setting.get("label")))
 
             if key == "external_account_id":
                 collection.external_account_id = value
@@ -1101,14 +1184,14 @@ class SettingsController(CirculationManagerController):
         if flask.request.form.get("libraries"):
             libraries = json.loads(flask.request.form.get("libraries"))
 
-        for short_name in libraries:
-            library = get_one(self._db, Library, short_name=short_name)
+        for library_info in libraries:
+            library = get_one(self._db, Library, short_name=library_info.get("short_name"))
             if not library:
-                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=short_name))
+                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
             if collection not in library.collections:
                 library.collections.append(collection)
         for library in collection.libraries:
-            if library.short_name not in libraries:
+            if library.short_name not in [l.get("short_name") for l in libraries]:
                 library.collections.remove(collection)
 
         if is_new:
@@ -1117,25 +1200,28 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def admin_auth_services(self):
+        provider_apis = [GoogleOAuthAdminAuthenticationProvider]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+
         if flask.request.method == 'GET':
             auth_services = []
             auth_service = ExternalIntegration.admin_authentication(self._db)
             if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
-                        provider=auth_service.protocol,
+                        protocol=auth_service.protocol,
                         url=auth_service.url,
                         username=auth_service.username,
                         password=auth_service.password,
-                        domains=json.loads(auth_service.setting("domains").value),
+                        domains=json.loads(auth_service.setting(GoogleOAuthAdminAuthenticationProvider.DOMAINS).value),
                     )
                 ]
             return dict(
                 admin_auth_services=auth_services,
-                providers=ExternalIntegration.ADMIN_AUTH_PROTOCOLS,
+                protocols=protocols,
             )
 
-        protocol = flask.request.form.get("provider")
+        protocol = flask.request.form.get("protocol")
         if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_PROTOCOL
 
@@ -1153,29 +1239,10 @@ class SettingsController(CirculationManagerController):
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
-        if protocol == ExternalIntegration.GOOGLE_OAUTH:
-            url = flask.request.form.get("url")
-            username = flask.request.form.get("username")
-            password = flask.request.form.get("password")
-            domains = flask.request.form.get("domains")
-        
-            if not url or not username or not password or not domains:
-                # If an admin auth service was created, make sure it
-                # isn't saved in a incomplete state.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION
-
-            # Also make sure the domain list is valid JSON.
-            try:
-                json.loads(domains)
-            except Exception:
-                self._db.rollback()
-                return INVALID_ADMIN_AUTH_DOMAIN_LIST
-
-            auth_service.url = url
-            auth_service.username = username
-            auth_service.password = password
-            auth_service.set_setting("domains", domains)
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
 
         if is_new:
             return Response(unicode(_("Success")), 201)
@@ -1213,21 +1280,13 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def patron_auth_services(self):
-        protocols = []
-
-        for provider in [SimpleAuthenticationProvider,
+        provider_apis = [SimpleAuthenticationProvider,
                          MilleniumPatronAPI,
                          SIP2AuthenticationProvider,
                          FirstBookAuthenticationAPI,
                          CleverAuthenticationAPI,
-                        ]:
-            protocols.append({
-                "name": provider.__module__,
-                "label": provider.NAME,
-                "description": provider.DESCRIPTION,
-                "fields": provider.SETTINGS,
-                "library_fields": provider.LIBRARY_SETTINGS,
-            })
+                        ]
+        protocols = self._get_integration_protocols(provider_apis)
 
         basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
                                 MilleniumPatronAPI.__module__,
@@ -1244,8 +1303,8 @@ class SettingsController(CirculationManagerController):
                 libraries = []
                 for library in auth_service.libraries:
                     library_info = dict(short_name=library.short_name)
-                    for field in protocol.get("library_fields"):
-                        key = field.get("key")
+                    for setting in protocol.get("library_settings"):
+                        key = setting.get("key")
                         value = ConfigurationSetting.for_library_and_externalintegration(
                             self._db, key, library, auth_service
                         ).value
@@ -1292,72 +1351,33 @@ class SettingsController(CirculationManagerController):
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        fields = protocol.get("fields")
+        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
 
-        for field in fields:
-            key = field.get("key")
-            value = flask.request.form.get(key)
-            if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
-                self._db.rollback()
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "The configuration value for %(field)s is invalid.",
-                    field=field.get("label"),
-                ))
-            if not value and not field.get("optional"):
-                # Roll back any changes to the integration that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The patron authentication service is missing a required field: %(field)s",
-                      field=field.get("label")))
-            auth_service.setting(key).value = value
-
-
-        auth_service.libraries = []
-
-        libraries = []
-        if flask.request.form.get("libraries"):
-            libraries = json.loads(flask.request.form.get("libraries"))
-
-        for library_info in libraries:
-            library = get_one(self._db, Library, short_name=library_info.get("short_name"))
-            if not library:
-                self._db.rollback()
-                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the patron authentication service to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
-
-            if protocol.get("name") in basic_auth_protocols:
-                # Each library can only have one basic auth service.
-                for integration in library.integrations:
-                    if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols and integration.protocol != protocol:
+        for library in auth_service.libraries:
+            # Check that the library didn't end up with multiple basic auth services.
+            basic_auth_count = 0
+            for integration in library.integrations:
+                if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols:
+                    basic_auth_count += 1
+                    if basic_auth_count > 1:
                         self._db.rollback()
                         return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
                             "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
                             library=library.short_name,
                         ))
 
-            auth_service.libraries += [library]
-            for field in protocol.get("library_fields"):
-                key = field.get("key")
-                value = library_info.get(key)
-                if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
+            # Check that the library's external type regular express is valid, if it was set.
+            value = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+                library, auth_service).value
+            if value:
+                try:
+                    re.compile(value)
+                except Exception, e:
                     self._db.rollback()
-                    return INVALID_CONFIGURATION_OPTION.detailed(_(
-                        "The configuration value for %(field)s is invalid.",
-                        field=field.get("label"),
-                    ))
-                if not value and not field.get("optional"):
-                    self._db.rollback()
-                    return INCOMPLETE_CONFIGURATION.detailed(
-                        _("The patron authentication service is missing a required field: %(field)s for library %(library)s",
-                          field=field.get("label"),
-                          library=library.short_name,
-                          ))
-                if key == AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION and value:
-                    try:
-                        re.compile(value)
-                    except Exception, e:
-                        self._db.rollback()
-                        return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
-                ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, auth_service).value = value
+                    return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
         if is_new:
             return Response(unicode(_("Success")), 201)
@@ -1374,7 +1394,7 @@ class SettingsController(CirculationManagerController):
 
             return dict(
                 settings=settings,
-                fields=Configuration.SITEWIDE_SETTINGS,
+                all_settings=Configuration.SITEWIDE_SETTINGS,
             )
 
         key = flask.request.form.get("key")
@@ -1390,18 +1410,11 @@ class SettingsController(CirculationManagerController):
         return Response(unicode(_("Success")), 200)
 
     def metadata_services(self):
-        protocols = []
-
-        for provider in [NYTBestSellerAPI,
+        provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
                          MetadataWranglerOPDSLookup,
-                        ]:
-            protocols.append({
-                "name": provider.PROTOCOL,
-                "label": provider.NAME,
-                "fields": provider.SETTINGS,
-                "sitewide": provider.SITEWIDE,
-            })
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="PROTOCOL")
 
         if flask.request.method == 'GET':
             metadata_services = [
@@ -1409,7 +1422,7 @@ class SettingsController(CirculationManagerController):
                     id=integration.id,
                     protocol=integration.protocol,
                     settings={ setting.key: setting.value for setting in integration.settings },
-                    libraries=[l.short_name for l in integration.libraries],
+                    libraries=[{ "short_name": l.short_name } for l in integration.libraries],
                 ) for integration in self._db.query(ExternalIntegration).filter(
                     ExternalIntegration.goal==ExternalIntegration.METADATA_GOAL)
             ]
@@ -1442,40 +1455,9 @@ class SettingsController(CirculationManagerController):
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        fields = protocol.get("fields")
-
-        for field in fields:
-            key = field.get("key")
-            value = flask.request.form.get(key)
-            if field.get("options") and value not in [option.get("key") for option in field.get("options")]:
-                self._db.rollback()
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "The configuration value for %(field)s is invalid.",
-                    field=field.get("label"),
-                ))
-            if not value and not field.get("optional"):
-                # Roll back any changes to the integration that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The metadata service is missing a required field: %(field)s",
-                      field=field.get("label")))
-            service.setting(key).value = value
-
-
-        if not protocol.get("sitewide"):
-            service.libraries = []
-
-            libraries = []
-            if flask.request.form.get("libraries"):
-                libraries = json.loads(flask.request.form.get("libraries"))
-
-            for short_name in libraries:
-                library = get_one(self._db, Library, short_name=short_name)
-                if not library:
-                    self._db.rollback()
-                    return NO_SUCH_LIBRARY.detailed(_("You attempted to add the metadata service to %(library_short_name)s, but it does not exist.", library_short_name=short_name))
-
-            service.libraries += [library]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
 
         if is_new:
             return Response(unicode(_("Success")), 201)

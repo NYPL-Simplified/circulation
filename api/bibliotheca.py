@@ -56,11 +56,11 @@ from core.analytics import Analytics
 class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.BIBLIOTHECA
-    FIELDS = [
+    SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-    ] + BaseCirculationAPI.FIELDS
+    ] + BaseCirculationAPI.SETTINGS
 
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False

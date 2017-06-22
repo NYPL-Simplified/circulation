@@ -56,11 +56,11 @@ from core.util.http import (
 class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.ONE_CLICK
-    FIELDS = [
+    SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("URL") },
-    ] + BaseCirculationAPI.FIELDS
+    ] + BaseCirculationAPI.SETTINGS
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
