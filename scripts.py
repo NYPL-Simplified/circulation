@@ -55,6 +55,7 @@ from model import (
     Work,
     WorkCoverageRecord,
     WorkGenre,
+    site_configuration_has_changed,
 )
 from monitor import SubjectAssignmentMonitor
 from monitor import CollectionMonitor
