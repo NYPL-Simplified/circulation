@@ -9976,12 +9976,14 @@ def site_configuration_has_changed(_db, timeout=1):
         # Update the timestamp.
         now = datetime.datetime.utcnow()
         sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
+        print "Updated timestamp to %s" % now
         _db.execute(
             text(sql),
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
                  timestamp=now)
         )
-
+        sql = "SELECT timestamp from timestamps WHERE service=:service AND collection_id IS NULL;"
+        
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
         # without requiring a trip to the database.

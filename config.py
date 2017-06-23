@@ -345,6 +345,7 @@ class Configuration(object):
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
+            print "Retrieved known value %s from database."
         if not known_value:
             # The site configuration has never changed.
             last_update = None
