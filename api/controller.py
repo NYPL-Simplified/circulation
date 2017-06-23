@@ -143,9 +143,21 @@ class CirculationManager(object):
                 sys.exit()
 
         self.testing = testing
+        self.site_configuration_last_update = (
+            Configuration.site_configuration_last_update(self._db, timeout=0)
+        )
         self.lane_descriptions = lanes
         self.setup_one_time_controllers()
         self.load_settings()
+        
+    def reload_settings_if_changed(self):
+        """If the site configuration has been updated, reload the
+        CirculationManager's configuration from the database.
+        """
+        last_update = Configuration.site_configuration_last_update(self._db)
+        if last_update > self.site_configuration_last_update:
+            self.load_settings()
+            self.site_configuration_last_update = last_update
         
     def load_settings(self):
         """Load all necessary configuration settings and external
