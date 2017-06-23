@@ -9032,8 +9032,12 @@ class ExternalIntegration(Base):
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
+    # These protocols are only used on the Content Server.
+    GUTENBERG = DataSource.GUTENBERG
+
     LICENSE_PROTOCOLS = [
-        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK,
+        GUTENBERG,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
