@@ -5885,11 +5885,13 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Now let's call site_configuration_has_changed().
         time_of_update = datetime.datetime.utcnow()
         site_configuration_has_changed(self._db)
-
+        logging.error("I WOULD NOW EXPECT TIMESTAMP TO BE DIFFERENT")
+        
         # The Timestamp has changed in the database.
         new_timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
+        logging.error("ACTUAL NEW TIMESTAMP VALUE: %s")
         assert new_timestamp_value > timestamp_value
         
         # The locally-stored last update value has been updated.

@@ -7301,7 +7301,9 @@ class Timestamp(Base):
         """
         stamp = get_one(_db, Timestamp, service=service, collection=collection)
         if not stamp:
+            logging.error("No timestamp value for %s", service)
             return None
+        logging.error("Timestamp value for %s: %s", service, stamp.timestamp)
         return stamp.timestamp
     
     @classmethod
@@ -9976,7 +9978,7 @@ def site_configuration_has_changed(_db, timeout=1):
         # Update the timestamp.
         now = datetime.datetime.utcnow()
         sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
-        print "Updated timestamp to %s" % now
+        logging.error("Updated timestamp to %s", now)
         _db.execute(
             text(sql),
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
@@ -9987,6 +9989,7 @@ def site_configuration_has_changed(_db, timeout=1):
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
         # without requiring a trip to the database.
+        logging.error("Calling site_configuration_last_update with %s", now)
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
