@@ -77,7 +77,6 @@ try:
         S3_SETTINGS = [
             S3Uploader.BOOK_COVERS_BUCKET_KEY,
             S3Uploader.OA_CONTENT_BUCKET_KEY,
-            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY,
         ]
         for k, v in s3_conf.items():
             if not k in S3_SETTINGS:
