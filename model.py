@@ -78,7 +78,7 @@ from sqlalchemy.sql.expression import (
     table,
 )
 from sqlalchemy.exc import (
-    IntegrityError,
+    IntegrityError
 )
 from sqlalchemy import (
     create_engine,
