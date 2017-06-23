@@ -5,8 +5,19 @@ from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
+from core.model import ExternalIntegration
 
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
+
+    NAME = ExternalIntegration.GOOGLE_OAUTH
+    DOMAINS = "domains"
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": DOMAINS, "label": _("Allowed Domains"), "type": "list" },
+    ]
 
     def __init__(self, integration, redirect_uri, test_mode=False):
         super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
@@ -28,8 +39,8 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     @property
     def domains(self):
-        if self.integration and self.integration.setting("domains").value:
-            return json.loads(self.integration.setting("domains").value)
+        if self.integration and self.integration.setting(self.DOMAINS).value:
+            return json.loads(self.integration.setting(self.DOMAINS).value)
         return []
 
     def auth_uri(self, redirect_url):
