@@ -707,7 +707,7 @@ class AuthdataUtility(object):
             or not library_short_name or not secret
         ):
             raise CannotLoadConfiguration(
-                "Library Registry configuration is incomplete. "
+                "Short Client Token configuration is incomplete. "
                 "vendor_id, username, password and "
                 "Library website_url must all be defined.")
         if '|' in library_short_name:

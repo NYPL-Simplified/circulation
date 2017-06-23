@@ -8,6 +8,7 @@ import re
 import time
 from flask.ext.babel import lazy_gettext as _
 
+from core.config import CannotLoadConfiguration
 from core.analytics import Analytics
 from core.cdn import cdnify
 from core.model import (
@@ -191,7 +192,7 @@ class CirculationAPI(object):
         """
         self._db = Session.object_session(library)
         self.library = library
-        self.initialization_errors = dict()
+        self.initialization_exceptions = dict()
         api_map = api_map or self.default_api_map
 
         # Each of the Library's relevant Collections is going to be
@@ -207,6 +208,7 @@ class CirculationAPI(object):
         self.log = logging.getLogger("Circulation API")
         for collection in library.collections:
             if collection.protocol in api_map:
+                api = None
                 try:
                     api = api_map[collection.protocol](collection)
                 except CannotLoadConfiguration, e:
@@ -214,9 +216,10 @@ class CirculationAPI(object):
                         "Error loading configuration for %s: %s",
                         collection.name, e.message
                     )
-                    self.initialization_errors[collection.id] = e
-                self.api_for_collection[collection] = api
-                self.collection_ids_for_sync.append(collection.id)
+                    self.initialization_exceptions[collection.id] = e
+                if api:
+                    self.api_for_collection[collection] = api
+                    self.collection_ids_for_sync.append(collection.id)
 
     @property
     def default_api_map(self):

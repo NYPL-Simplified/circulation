@@ -182,7 +182,7 @@ class CirculationManager(object):
         
         self.adobe_vendor_id = None
         self.adobe_device_management = None
-        self.short_client_token_initialization_exception = dict()
+        self.short_client_token_initialization_exceptions = dict()
         for library in self._db.query(Library):
             lanes = make_lanes(library, self.lane_descriptions)
             
@@ -348,11 +348,10 @@ class CirculationManager(object):
         if registry:
             try:
                 authdata = AuthdataUtility.from_config(library)
-                self.short_client_token_initialization_exception = None
             except CannotLoadConfiguration, e:
-                self.short_client_token_initialization_exception[library.id] = e
+                self.short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(
-                    "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s" %
+                    "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s",
                     library.name, e
                 )
         return authdata
@@ -368,7 +367,19 @@ class CirculationManager(object):
             top_level_title='All Books', *args, **kwargs
         )
 
+    def initialization_exceptions(self):
+        """Consolidate the exceptions that happened upon initialization.
 
+        These exceptions can be displayed to an administrator.
+        """
+        return dict(
+            external_search=self.external_search_initialization_exception,
+            short_client_tokens=self.short_client_token_initialization_exceptions,
+            authenticators=self.auth.initialization_exceptions,
+            collections=self.circulation.initialization_exceptions,
+        )
+        
+    
 class CirculationManagerController(BaseCirculationManagerController):
 
     @property

@@ -530,6 +530,40 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         eq_([], list(authenticator.providers))
 
+    def test_configuration_exception_during_from_config_stored(self):
+        """If the initialization of an AuthenticationProvider from config
+        raises CannotLoadConfiguration or ImportError, the exception
+        is stored with the LibraryAuthenticator rather than being
+        propagated.
+        """
+
+        # Create an integration destined to raise CannotLoadConfiguration..
+        misconfigured = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+
+        # ... and one destined to raise ImportError.
+        unknown = self._external_integration(
+            "unknown protocol", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        for integration in [misconfigured, unknown]:
+            self._default_library.integrations.append(integration)
+        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
+
+        # The LibraryAuthenticator exists but has no AuthenticationProviders.
+        eq_(None, auth.basic_auth_provider)
+        eq_({}, auth.oauth_providers_by_name)
+        
+        # Both integrations have left their trace in
+        # initialization_exceptions.
+        not_configured = auth.initialization_exceptions[misconfigured.id]
+        assert isinstance(not_found, CannotLoadConfiguration)
+        eq_('First Book server not configured.', not_found.message)
+
+        not_found = auth.initialization_exceptions[unknown.id]
+        assert isinstance(not_found, ImportError)
+        eq_('No module named unknown protocol', not_found.message)
+        
     def test_register_fails_when_integration_has_wrong_goal(self):
         integration = self._external_integration(
             "protocol", "some other goal"
