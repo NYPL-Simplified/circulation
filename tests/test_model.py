@@ -5877,11 +5877,10 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         last_update = Configuration.site_configuration_last_update(self._db)
         assert (datetime.datetime.now()-last_update).total_seconds() < 1
         
-        # That value came from a Timestamp.
         timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        eq_(last_update, timestamp_value)
+        eq_(timestamp_value, last_update)
         
         # Now let's call site_configuration_has_changed().
         now = datetime.datetime.utcnow()
@@ -5892,7 +5891,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
             self._db, timeout=0
         )
         assert last_update_2 > last_update
-        assert abs((last_update2 - now).total_seconds()) < 1
+        assert abs((last_update_2 - now).total_seconds()) < 1
                 
         # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This

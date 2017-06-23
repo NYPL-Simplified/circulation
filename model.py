@@ -41,6 +41,7 @@ from sqlalchemy import (
     func,
     MetaData,
     Table,
+    text,
 )
 from sqlalchemy.sql import select
 from sqlalchemy.orm import (
@@ -331,6 +332,11 @@ class SessionManager(object):
                 session, content_type, drm_scheme
             )
             mechanism.default_client_can_fulfill = True
+
+        # Set the timestamp which site_configuration_has_changed keeps
+        # updated.
+        Timestamp.stamp(session, Configuration.SITE_CONFIGURATION_CHANGED,
+                        collection=None)
         site_configuration_has_changed(session)
         session.commit()
 
@@ -9968,17 +9974,17 @@ def site_configuration_has_changed(_db, timeout=1):
             _db = Session.object_session(_db)
 
         # Update the timestamp.
-        sql = "UPDATE timestamps SET timestamp=now() at time zone 'utc' WHERE service='%s' AND collection_id IS NULL;" % (
-            Configuration.SITE_CONFIGURATION_CHANGED
+        now = datetime.datetime.utcnow()
+        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
+        _db.execute(
+            text(sql),
+            dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
+                 timestamp=now)
         )
-        _db.execute(sql)
 
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
-        # without requiring a trip to the database. This time won't be
-        # exactly the same as the time in the database, but they'll be close
-        # enough.
-        now = datetime.datetime.utcnow()
+        # without requiring a trip to the database.
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
