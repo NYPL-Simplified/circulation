@@ -49,12 +49,12 @@ from core.analytics import Analytics
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.OVERDRIVE
-    FIELDS = [
+    SETTINGS = [
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
         { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
-    ] + BaseCirculationAPI.FIELDS
+    ] + BaseCirculationAPI.SETTINGS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
 

@@ -1432,7 +1432,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
                 ("external_account_id", "test.com"),
-                ("libraries", json.dumps(["nosuchlibrary"])),
+                ("libraries", json.dumps([{"short_name": "nosuchlibrary"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
@@ -1501,7 +1501,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
-                ("libraries", json.dumps(["L1", "L2"])),
+                ("libraries", json.dumps([{"short_name": "L1"}, {"short_name":"L2"}])),
                 ("external_account_id", "acctid"),
                 ("username", "username"),
                 ("password", "password"),
@@ -1556,7 +1556,7 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("libraries", json.dumps(["L1"])),
+                ("libraries", json.dumps([{"short_name": "L1"}])),
                 ("default_loan_period", "14"),
                 ("default_reservation_period", "3"),
             ])
@@ -1611,7 +1611,7 @@ class TestSettingsController(AdminControllerTest):
 
             # All the protocols in ExternalIntegration.ADMIN_AUTH_PROTOCOLS
             # are supported by the admin interface.
-            eq_(sorted([p for p in response.get("providers")]),
+            eq_(sorted([p.get("name") for p in response.get("protocols")]),
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
         
     def test_admin_auth_services_get_with_google_oauth_service(self):
@@ -1629,7 +1629,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             [service] = response.get("admin_auth_services")
 
-            eq_(auth_service.protocol, service.get("provider"))
+            eq_(auth_service.protocol, service.get("protocol"))
             eq_(auth_service.url, service.get("url"))
             eq_(auth_service.username, service.get("username"))
             eq_(auth_service.password, service.get("password"))
@@ -1638,7 +1638,7 @@ class TestSettingsController(AdminControllerTest):
     def test_admin_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("provider", "Unknown"),
+                ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, UNKNOWN_PROTOCOL)
@@ -1648,7 +1648,6 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-    def test_admin_auth_services_post_errors_google_oauth(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -1662,30 +1661,20 @@ class TestSettingsController(AdminControllerTest):
         
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("provider", "Google OAuth"),
+                ("protocol", "Google OAuth"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+    def test_admin_auth_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("provider", "Google OAuth"),
+                ("protocol", "Google OAuth"),
                 ("url", "url"),
                 ("username", "username"),
                 ("password", "password"),
-                ("domains", "not json"),
-            ])
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, INVALID_ADMIN_AUTH_DOMAIN_LIST)
-
-    def test_admin_auth_services_post_google_oauth_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("provider", "Google OAuth"),
-                ("url", "url"),
-                ("username", "username"),
-                ("password", "password"),
-                ("domains", json.dumps(["nypl.org", "gmail.com"])),
+                ("domains", "nypl.org"),
+                ("domains", "gmail.com"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 201)
@@ -1714,11 +1703,11 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("provider", "Google OAuth"),
+                ("protocol", "Google OAuth"),
                 ("url", "url2"),
                 ("username", "user2"),
                 ("password", "pass2"),
-                ("domains", json.dumps(["library2.org"])),
+                ("domains", "library2.org"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 200)
@@ -1792,8 +1781,8 @@ class TestSettingsController(AdminControllerTest):
             protocols = response.get("protocols")
             eq_(5, len(protocols))
             eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
-            assert "fields" in protocols[0]
-            assert "library_fields" in protocols[0]
+            assert "settings" in protocols[0]
+            assert "library_settings" in protocols[0]
         
     def test_patron_auth_services_get_with_simple_auth_service(self):
         auth_service, ignore = create(
@@ -2153,10 +2142,10 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
             settings = response.get("settings")
-            fields = response.get("fields")
+            all_settings = response.get("all_settings")
 
             eq_([], settings)
-            keys = [f.get("key") for f in fields]
+            keys = [s.get("key") for s in all_settings]
             assert AcquisitionFeed.GROUPED_MAX_AGE_POLICY in keys
             assert AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY in keys
             assert Configuration.SECRET_KEY in keys
@@ -2167,13 +2156,13 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
             settings = response.get("settings")
-            fields = response.get("fields")
+            all_settings = response.get("all_settings")
 
             eq_(2, len(settings))
             settings_by_key = { s.get("key") : s.get("value") for s in settings }
             eq_("0", settings_by_key.get(AcquisitionFeed.GROUPED_MAX_AGE_POLICY))
             eq_("secret", settings_by_key.get(Configuration.SECRET_KEY))
-            keys = [f.get("key") for f in fields]
+            keys = [s.get("key") for s in all_settings]
             assert AcquisitionFeed.GROUPED_MAX_AGE_POLICY in keys
             assert AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY in keys
             assert Configuration.SECRET_KEY in keys
@@ -2225,7 +2214,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.get("metadata_services"), [])
             protocols = response.get("protocols")
             assert NoveListAPI.NAME in [p.get("label") for p in protocols]
-            assert "fields" in protocols[0]
+            assert "settings" in protocols[0]
         
     def test_metadata_services_get_with_one_service(self):
         novelist_service, ignore = create(
@@ -2252,7 +2241,7 @@ class TestSettingsController(AdminControllerTest):
 
             eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
             [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library)
+            eq_(self._default_library.short_name, library.get("short_name"))
         
     def test_metadata_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -2314,7 +2303,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                ("libraries", json.dumps(["not-a-library"])),
+                ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
@@ -2328,7 +2317,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                ("libraries", json.dumps(["L"])),
+                ("libraries", json.dumps([{"short_name": "L"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.status_code, 201)
@@ -2362,7 +2351,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                ("libraries", json.dumps(["L2"])),
+                ("libraries", json.dumps([{"short_name": "L2"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.status_code, 200)
