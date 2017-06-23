@@ -1119,17 +1119,18 @@ class SettingsController(CirculationManagerController):
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
                 collection = dict(
+                    id=c.id,
                     name=c.name,
                     protocol=c.protocol,
                     libraries=[{ "short_name": library.short_name } for library in c.libraries],
-                    external_account_id=c.external_account_id,
+                    settings=dict(external_account_id=c.external_account_id),
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
-                        if key not in collection:
-                            collection[key] = c.external_integration.setting(key).value
+                        if key not in collection["settings"]:
+                            collection["settings"][key] = c.external_integration.setting(key).value
                 collections.append(collection)
 
             return dict(
@@ -1137,6 +1138,8 @@ class SettingsController(CirculationManagerController):
                 protocols=protocols,
             )
 
+
+        id = flask.request.form.get("id")
 
         name = flask.request.form.get("name")
         if not name:
@@ -1147,15 +1150,30 @@ class SettingsController(CirculationManagerController):
         if protocol and protocol not in [p.get("name") for p in protocols]:
             return UNKNOWN_PROTOCOL
 
+        name = flask.request.form.get("name")
+
         is_new = False
-        collection = get_one(self._db, Collection, name=name)
+        collection = None
+        if id:
+            collection = get_one(self._db, Collection, id=id)
+            if not collection:
+                return MISSING_COLLECTION
+
         if collection:
             if protocol != collection.protocol:
                 return CANNOT_CHANGE_PROTOCOL
-
+            if name != collection.name:
+                collection_with_name = get_one(self._db, Collection, name=name)
+                if collection_with_name:
+                    return COLLECTION_NAME_ALREADY_IN_USE
+                
         else:
+            collection_with_name = get_one(self._db, Collection, name=name)
+            if collection_with_name:
+                return COLLECTION_NAME_ALREADY_IN_USE
+
             if protocol:
-                collection, is_new = get_one_or_create(
+                collection, is_new = create(
                     self._db, Collection, name=name
                 )
                 collection.create_external_integration(protocol)
@@ -1209,11 +1227,15 @@ class SettingsController(CirculationManagerController):
             if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
                 auth_services = [
                     dict(
+                        id=auth_service.id,
+                        name=auth_service.name,
                         protocol=auth_service.protocol,
-                        url=auth_service.url,
-                        username=auth_service.username,
-                        password=auth_service.password,
-                        domains=json.loads(auth_service.setting(GoogleOAuthAdminAuthenticationProvider.DOMAINS).value),
+                        settings=dict(
+                            url=auth_service.url,
+                            username=auth_service.username,
+                            password=auth_service.password,
+                            domains=json.loads(auth_service.setting(GoogleOAuthAdminAuthenticationProvider.DOMAINS).value),
+                        ),
                     )
                 ]
             return dict(
@@ -1225,12 +1247,19 @@ class SettingsController(CirculationManagerController):
         if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_PROTOCOL
 
+        id = flask.request.form.get("id")
+
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service:
+            if id and id != auth_service.id:
+                return MISSING_ADMIN_AUTH_SERVICE
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
+            if id:
+                return MISSING_ADMIN_AUTH_SERVICE
+
             if protocol:
                 auth_service, is_new = get_one_or_create(
                     self._db, ExternalIntegration, protocol=protocol,
@@ -1238,6 +1267,9 @@ class SettingsController(CirculationManagerController):
                 )
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        auth_service.name = name
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
@@ -1317,6 +1349,7 @@ class SettingsController(CirculationManagerController):
                 auth_services.append(
                     dict(
                         id=auth_service.id,
+                        name=auth_service.name,
                         protocol=auth_service.protocol,
                         settings=settings,
                         libraries=libraries,
@@ -1349,6 +1382,15 @@ class SettingsController(CirculationManagerController):
                 )
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if auth_service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            auth_service.name = name
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
@@ -1420,6 +1462,7 @@ class SettingsController(CirculationManagerController):
             metadata_services = [
                 dict(
                     id=integration.id,
+                    name=integration.name,
                     protocol=integration.protocol,
                     settings={ setting.key: setting.value for setting in integration.settings },
                     libraries=[{ "short_name": l.short_name } for l in integration.libraries],
@@ -1453,6 +1496,15 @@ class SettingsController(CirculationManagerController):
                 )
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(service, protocol)

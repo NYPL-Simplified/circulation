@@ -400,10 +400,12 @@ def admin_view(collection=None, book=None, **kwargs):
             return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
         # TODO: Design the admin interface for multiple libraries.
         # Until then, pick some library so the admin interface can run.
-        library = app.manager._db.query(Library).order_by(Library.id).all()[0]
-        home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
-    else:
-        home_url = None
+        libraries = app.manager._db.query(Library).order_by(Library.id).all()
+        if libraries:
+            library = libraries[0]
+            home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
+        else:
+            home_url = None
 
     csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
 
