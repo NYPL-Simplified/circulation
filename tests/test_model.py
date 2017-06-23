@@ -5884,14 +5884,12 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         
         # Now let's call site_configuration_has_changed().
         time_of_update = datetime.datetime.utcnow()
-        site_configuration_has_changed(self._db)
-        logging.error("I WOULD NOW EXPECT TIMESTAMP TO BE DIFFERENT")
+        site_configuration_has_changed(self._db, timeout=0)
         
         # The Timestamp has changed in the database.
         new_timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        logging.error("ACTUAL NEW TIMESTAMP VALUE: %s")
         assert new_timestamp_value > timestamp_value
         
         # The locally-stored last update value has been updated.
@@ -5909,12 +5907,13 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         timestamp = Timestamp.stamp(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        new_last_update = timestamp.timestamp
+        last_update_after_sneaky_change = timestamp.timestamp
 
         # Calling Configuration.check_for_site_configuration_update
         # doesn't detect the change because by default we only go to
         # the database once a minute.
-        eq_(last_update, Configuration.site_configuration_last_update(self._db))
+        eq_(new_last_update_time,
+            Configuration.site_configuration_last_update(self._db))
 
         # Passing in a different timeout value forces the method to go
         # to the database and find the correct answer.
