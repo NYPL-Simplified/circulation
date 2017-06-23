@@ -79,7 +79,6 @@ from sqlalchemy.sql.expression import (
 )
 from sqlalchemy.exc import (
     IntegrityError,
-    InvalidRequestError,
 )
 from sqlalchemy import (
     create_engine,
@@ -332,7 +331,7 @@ class SessionManager(object):
                 session, content_type, drm_scheme
             )
             mechanism.default_client_can_fulfill = True
-
+        site_configuration_has_changed(session)
         session.commit()
 
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
@@ -397,11 +396,7 @@ def create(db, model, create_method='',
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    try:
-        db.flush()
-    except InvalidRequestError, e:
-        if e.message != 'Session is already flushing':
-            raise e
+    db.flush()
     return created, True
 
 Base = declarative_base()

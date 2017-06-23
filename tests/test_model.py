@@ -5871,27 +5871,28 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """Test the site_configuration_has_changed() function and its
         effects on the Configuration object.
         """
-        # Starting out, the database configuration has never been updated.
-        eq_(None, Configuration.site_configuration_last_update(self._db))
-
-        # The Timestamp tracking when the ConfigurationSettings last changed
-        # is unset.
+        # The database configuration timestamp is initialized as part
+        # of the default data. In that case, it happened during the
+        # setup() method.
+        last_update = Configuration.site_configuration_last_update(self._db)
+        assert (datetime.datetime.now()-last_update).total_seconds() < 1
+        
+        # That value came from a Timestamp.
         timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        eq_(None, timestamp_value)
+        eq_(last_update, timestamp_value)
         
         # Now let's call site_configuration_has_changed().
         now = datetime.datetime.utcnow()
         site_configuration_has_changed(self._db)
         
-        # Now that we called check_for_site_configuration_update, the
-        # Configuration object knows some things about when the
-        # configuration changed, and when we last checked it.
-        last_update = Configuration.site_configuration_last_update(
+        # The last update value has been updated.
+        last_update_2 = Configuration.site_configuration_last_update(
             self._db, timeout=0
         )
-        assert abs((last_update - now).total_seconds()) < 1
+        assert last_update_2 > last_update
+        assert abs((last_update2 - now).total_seconds()) < 1
                 
         # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This
