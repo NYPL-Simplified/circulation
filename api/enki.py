@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from datetime import datetime, timedelta
+import datetime
 
 from sqlalchemy.orm import contains_eager
 
@@ -66,12 +66,29 @@ class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
 
+    def reaper_request(self, identifier):
+        print "Checking availability for " + str(identifier)
+        url = str(self.base_url) + str(self.item_endpoint)
+        args = dict()
+        args['method'] = "getItem"
+        args['recordid'] = identifier
+        args['size'] = "small"
+        args['lib'] = self.lib
+        response = self.request(url, method='head', params=args)
+        print "response: " + str(response)
+        if response.status_code != 200:
+            raise BadResponseException.bad_status_code(
+                self.full_url(url), response
+            )
+            print "This book is no longer available."
+        return response
+
 class EnkiCirculationMonitor(Monitor):
     """Maintain LicensePools for Enki titles.
     """
 
-    VERY_LONG_AGO = datetime(1970, 1, 1)
-    FIVE_MINUTES = timedelta(minutes=5)
+    VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
+    FIVE_MINUTES = datetime.timedelta(minutes=5)
 
     def __init__(self, _db, name="Enki Circulation Monitor",
                  interval_seconds=60, batch_size=50, api=None):
@@ -146,21 +163,6 @@ class EnkiCirculationMonitor(Monitor):
 
         return edition, license_pool
 
-    def reaper_request(self, identifier):
-        print "Checking availability for " + str(identifier)
-        url = str(self.base_url) + str(self.item_endpoint)
-        args = dict()
-	    args['method'] = "getItem"
-	    args['recordid'] = identifier
-        args['size'] = small
-        args['lib'] = lib
-	    response = self.request(url, method='head', params=args)
-        if response.status_code != 200:
-            raise BadResponseException.bad_status_code(
-                self.full_url(url), response
-            )
-            print "This book is no longer available."
-        return response
 
 class MockEnkiAPI(BaseMockEnkiAPI, EnkiAPI):
     #TODO
@@ -168,10 +170,9 @@ class MockEnkiAPI(BaseMockEnkiAPI, EnkiAPI):
 
 #Copied from 3M. Eventually we might want to refactor
 class EnkiCollectionReaper(IdentifierSweepMonitor):
-        """Check for books that are in the local collection but have left the Enki collection."""
+    """Check for books that are in the local collection but have left the Enki collection."""
     def __init__(self, _db, api=None, interval_seconds=3600*4):
-        super(EnkiCollectionReaper, self).__init__(
-            _db, "Enki Collection Reaper", interval_seconds)
+        super(EnkiCollectionReaper, self).__init__(_db, "Enki Collection Reaper", interval_seconds)
         self._db = _db
         if not api:
             api = EnkiAPI.from_environment(_db)
@@ -197,10 +198,12 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
         identifiers_not_mentioned_by_enki= set(identifiers)
         now = datetime.datetime.utcnow()
 
-        for circ in self.api.get_circulation_for(enki_ids):
+        for identifier in identifiers:
+            circ = self.api.reaper_request(identifier.identifier)
             if not circ:
                 continue
-            enki_id = circ[Identifier][Identifier.ENKI_ID]
+            enki_id = circ
+            print "circ: " + str(circ)
             identifier = identifiers_by_enki_id[enki_id]
             identifiers_not_mentioned_by_enki.remove(identifier)
 
