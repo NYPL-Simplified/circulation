@@ -9949,12 +9949,11 @@ def site_configuration_has_changed(_db, timeout=1):
     of what you consider "site configuration", just to be safe.
 
     :param _db: Either a Session or (to save time in a common case) an
-    object that can be associated with or turned into a Session.
+    ORM object that can turned into a Session.
 
     :param timeout: Nothing will happen if it's been fewer than this
     number of seconds since the last site configuration change was
     recorded.
-
     """
     now = datetime.datetime.utcnow()
     last_update = Configuration._site_configuration_last_update()
@@ -9962,7 +9961,7 @@ def site_configuration_has_changed(_db, timeout=1):
         # The configuration last changed more than `timeout` ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.
-        needs_commit = False
+
         # Convert something that might not be a Connection object into
         # a Connection object.
         if isinstance(_db, Base):
