@@ -223,7 +223,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
         # We have specific types that mean the patron is blocked.
         if mblock_value in block_types:
-            # The patron has one of those types.
+            # The patron has one of those types. They are blocked.
             return PatronData.UNKNOWN_BLOCK
 
         # The patron does not have one of those types, so is not blocked.
