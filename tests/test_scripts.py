@@ -795,8 +795,7 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
 
     def test_accurate_timestamp_created(self):
-        timestamps = self._db.query(Timestamp).all()
-        eq_(timestamps, [])
+        eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
 
         self.script.do_run()
         self.assert_matches_latest_migration()

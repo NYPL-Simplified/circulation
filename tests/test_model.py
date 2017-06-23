@@ -5871,27 +5871,32 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """Test the site_configuration_has_changed() function and its
         effects on the Configuration object.
         """
-        # Starting out, the database configuration has never been updated.
-        eq_(None, Configuration.site_configuration_last_update(self._db))
-
-        # The Timestamp tracking when the ConfigurationSettings last changed
-        # is unset.
+        # The database configuration timestamp is initialized as part
+        # of the default data. In that case, it happened during the
+        # package_setup() for this test run.
+        last_update = Configuration.site_configuration_last_update(self._db)
+        
         timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        eq_(None, timestamp_value)
+        eq_(timestamp_value, last_update)
         
         # Now let's call site_configuration_has_changed().
-        now = datetime.datetime.utcnow()
-        site_configuration_has_changed(self._db)
+        time_of_update = datetime.datetime.utcnow()
+        site_configuration_has_changed(self._db, timeout=0)
         
-        # Now that we called check_for_site_configuration_update, the
-        # Configuration object knows some things about when the
-        # configuration changed, and when we last checked it.
-        last_update = Configuration.site_configuration_last_update(
+        # The Timestamp has changed in the database.
+        new_timestamp_value = Timestamp.value(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        assert new_timestamp_value > timestamp_value
+        
+        # The locally-stored last update value has been updated.
+        new_last_update_time = Configuration.site_configuration_last_update(
             self._db, timeout=0
         )
-        assert abs((last_update - now).total_seconds()) < 1
+        assert new_last_update_time > last_update
+        assert (new_last_update_time - time_of_update).total_seconds() < 1
                 
         # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This
@@ -5901,12 +5906,13 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         timestamp = Timestamp.stamp(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        new_last_update = timestamp.timestamp
+        last_update_after_sneaky_change = timestamp.timestamp
 
         # Calling Configuration.check_for_site_configuration_update
         # doesn't detect the change because by default we only go to
         # the database once a minute.
-        eq_(last_update, Configuration.site_configuration_last_update(self._db))
+        eq_(new_last_update_time,
+            Configuration.site_configuration_last_update(self._db))
 
         # Passing in a different timeout value forces the method to go
         # to the database and find the correct answer.
