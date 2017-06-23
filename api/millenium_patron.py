@@ -61,6 +61,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     AUTHENTICATION_MODE = 'auth_mode'
     PIN_AUTHENTICATION_MODE = 'pin'
     FAMILY_NAME_AUTHENTICATION_MODE = 'family_name'
+
+    # The field to use when seeing which values of MBLOCK[p56] mean a patron
+    # is blocked. By default, any value other than '-' indicates a block.
+    BLOCK_TYPES = 'block_types'
     
     AUTHENTICATION_MODES = [
         PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
@@ -74,6 +78,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
               { "key": "false", "label": _("Ignore Certificate Problems (For temporary testing only)") },
           ]
         },
+        { "key": BLOCK_TYPES, "label": _("Block types"), "optional": True },
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"), "optional": True },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
           "type": "select",
@@ -118,6 +123,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 "Unrecognized Millenium Patron API authentication mode: %s." % auth_mode
             )
         self.auth_mode = auth_mode
+
+        self.block_types = integration.setting(self.BLOCK_TYPES).value or None
         
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -196,7 +203,32 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         configuration, in a testable way.
         """
         kwargs['verify'] = self.verify_certificate
-    
+
+    @classmethod
+    def _patron_block_reason(cls, block_types, mblock_value):
+        """Turn a value of the MBLOCK[56] field into a block type."""
+
+        if block_types and mblock_value in block_types:
+            # We are looking for a specific value, and we found it
+            return PatronData.UNKNOWN_BLOCK
+
+        if not block_types:        
+            # Apply the default rules.
+            if not mblock_value or mblock_value.strip() in ('', '-'):
+                # This patron is not blocked at all.
+                return PatronData.NO_VALUE
+            else:
+                # This patron is blocked for an unknown reason.
+                return PatronData.UNKNOWN_BLOCK
+
+        # We have specific types that mean the patron is blocked.
+        if mblock_value in block_types:
+            # The patron has one of those types. They are blocked.
+            return PatronData.UNKNOWN_BLOCK
+
+        # The patron does not have one of those types, so is not blocked.
+        return PatronData.NO_VALUE
+        
     def patron_dump_to_patrondata(self, current_identifier, content):
         """Convert an HTML patron dump to a PatronData object.
         
@@ -245,12 +277,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                     )
                     fines = Money("0", "USD")
             elif k == self.BLOCK_FIELD:
-                if v != '-':
-                    # '-' always seems to mean the absence of a block
-                    # on a patron's record. Any other value for this
-                    # field means the patron is blocked for a
-                    # library-specific reason.
-                    block_reason = PatronData.UNKNOWN_BLOCK
+                block_reason = self._patron_block_reason(self.block_types, v)
             elif k == self.EXPIRATION_FIELD:
                 try:
                     expires = datetime.datetime.strptime(

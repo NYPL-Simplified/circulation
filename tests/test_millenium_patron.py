@@ -45,11 +45,14 @@ class MockAPI(MilleniumPatronAPI):
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
-    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True):
+    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True, block_types=None):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
         integration.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value = json.dumps(verify_certificate)
+        if block_types:
+            integration.setting(MilleniumPatronAPI.BLOCK_TYPES).value = block_types
+
         if auth_mode:
             integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
         return MockAPI(self._default_library, integration)
@@ -86,15 +89,32 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("alice@sheldon.com", patrondata.email_address)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
-    def test_remote_patron_lookup_blocked(self):
-        """This patron has a block on their record, which shows up in 
-        PatronData.
+    def test_remote_patron_lookup_block_rules(self):
+        """This patron has a value of "m" in MBLOCK[56], which generally
+        means they are blocked.
         """
+        # Default behavior -- anything other than '-' means blocked.
         self.api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
         patrondata = self.api.remote_patron_lookup(patrondata)
         eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
-                                                   
+
+        # If we set custom block types that say 'm' doesn't really
+        # mean the patron is blocked, they're not blocked.
+        api = self.mock_api(block_types='abcde')
+        api.enqueue("dump.blocked.html")
+        patrondata = PatronData(authorization_identifier="good barcode")
+        patrondata = api.remote_patron_lookup(patrondata)
+        eq_(PatronData.NO_VALUE, patrondata.block_reason)
+
+        # If we set custom block types that include 'm', the patron
+        # is blocked.
+        api = self.mock_api(block_types='lmn')
+        api.enqueue("dump.blocked.html")
+        patrondata = PatronData(authorization_identifier="good barcode")
+        patrondata = api.remote_patron_lookup(patrondata)
+        eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
+        
     def test_parse_poorly_behaved_dump(self):
         """The HTML parser is able to handle HTML embedded in
         field values.
@@ -378,6 +398,25 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # calls _modify_request_kwargs() because request() is the
         # method we override for mock purposes.
 
+    def test_patron_block_reason(self):
+        m = MilleniumPatronAPI._patron_block_reason
+        blocked = PatronData.UNKNOWN_BLOCK
+        unblocked = PatronData.NO_VALUE
+
+        # Our default behavior.
+        eq_(blocked, m(None, "a"))
+        eq_(unblocked, m(None, None))
+        eq_(unblocked, m(None, "-"))
+        eq_(unblocked, m(None, " "))
+        
+        # Behavior with custom block values.
+        eq_(blocked, m("abcd", "b"))
+        eq_(unblocked, m("abcd", "e"))
+        eq_(unblocked, m("", "-"))
+        
+        # This is unwise but allowed.
+        eq_(blocked, m("ab-c", "-"))
+        
     def test_family_name_match(self):
         m = MilleniumPatronAPI.family_name_match
         eq_(False, m(None, None))
@@ -396,8 +435,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
             self.mock_api,
             auth_mode = 'nosuchauthmode'
         )
-            
-        
+
     def test_authorization_family_name_success(self):
         """Test authenticating against the patron's family name, given the
         correct name (case insensitive)
