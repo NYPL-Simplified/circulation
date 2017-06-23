@@ -74,12 +74,9 @@ class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
         args['recordid'] = identifier
         args['size'] = "small"
         args['lib'] = self.lib
-        response = self.request(url, method='head', params=args)
-        print "response: " + str(response)
-        if response.status_code != 200:
-            raise BadResponseException.bad_status_code(
-                self.full_url(url), response
-            )
+        response = self.request(url, method='get', params=args)
+        if not(response.content.startswith("{\"result\":{\"id\":\"")):
+            response = None
             print "This book is no longer available."
         return response
 
@@ -189,22 +186,20 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
             Identifier.type==Identifier.ENKI_ID)
 
     def process_batch(self, identifiers):
-        identifiers_by_enki_id = dict()
         enki_ids = set()
         for identifier in identifiers:
             enki_ids.add(identifier.identifier)
-            identifiers_by_enki_id[identifier.identifier] = identifier
 
         identifiers_not_mentioned_by_enki= set(identifiers)
         now = datetime.datetime.utcnow()
 
         for identifier in identifiers:
-            circ = self.api.reaper_request(identifier.identifier)
-            if not circ:
+            result = self.api.reaper_request(identifier.identifier)
+            if not result:
+                print "skipping this deleted book"
                 continue
-            enki_id = circ
-            print "circ: " + str(circ)
-            identifier = identifiers_by_enki_id[enki_id]
+            print "keeping this existing book"
+            enki_id = result
             identifiers_not_mentioned_by_enki.remove(identifier)
 
             pool = identifier.licensed_through
