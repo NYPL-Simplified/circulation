@@ -366,18 +366,6 @@ class CirculationManager(object):
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books', *args, **kwargs
         )
-
-    def initialization_exceptions(self):
-        """Consolidate the exceptions that happened upon initialization.
-
-        These exceptions can be displayed to an administrator.
-        """
-        return dict(
-            external_search=self.external_search_initialization_exception,
-            short_client_tokens=self.short_client_token_initialization_exceptions,
-            authenticators=self.auth.initialization_exceptions,
-            collections=self.circulation.initialization_exceptions,
-        )
         
     
 class CirculationManagerController(BaseCirculationManagerController):
