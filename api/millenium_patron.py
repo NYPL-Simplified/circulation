@@ -208,26 +208,26 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     def _patron_block_reason(cls, block_types, mblock_value):
         """Turn a value of the MBLOCK[56] field into a block type."""
 
-        if self.block_types and mblock_value in self.block_types:
+        if block_types and mblock_value in block_types:
             # We are looking for a specific value, and we found it
             return PatronData.UNKNOWN_BLOCK
 
-        if not self.block_types:        
+        if not block_types:        
             # Apply the default rules.
             if not mblock_value or mblock_value.strip() in ('', '-'):
                 # This patron is not blocked at all.
-                return None
+                return PatronData.NO_VALUE
             else:
                 # This patron is blocked for an unknown reason.
                 return PatronData.UNKNOWN_BLOCK
 
         # We have specific types that mean the patron is blocked.
-        if mblock_value in self.block_types:
+        if mblock_value in block_types:
             # The patron has one of those types.
             return PatronData.UNKNOWN_BLOCK
 
         # The patron does not have one of those types, so is not blocked.
-        return None
+        return PatronData.NO_VALUE
         
     def patron_dump_to_patrondata(self, current_identifier, content):
         """Convert an HTML patron dump to a PatronData object.

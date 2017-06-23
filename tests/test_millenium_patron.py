@@ -378,6 +378,25 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # calls _modify_request_kwargs() because request() is the
         # method we override for mock purposes.
 
+    def test_patron_block_reason(self):
+        m = MilleniumPatronAPI._patron_block_reason
+        blocked = PatronData.UNKNOWN_BLOCK
+        unblocked = PatronData.NO_VALUE
+
+        # Our default behavior.
+        eq_(blocked, m(None, "a"))
+        eq_(unblocked, m(None, None))
+        eq_(unblocked, m(None, "-"))
+        eq_(unblocked, m(None, " "))
+        
+        # Behavior with custom block values.
+        eq_(blocked, m("abcd", "b"))
+        eq_(unblocked, m("abcd", "e"))
+        eq_(unblocked, m("", "-"))
+        
+        # This is unwise but allowed.
+        eq_(blocked, m("ab-c", "-"))
+        
     def test_family_name_match(self):
         m = MilleniumPatronAPI.family_name_match
         eq_(False, m(None, None))
@@ -396,8 +415,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
             self.mock_api,
             auth_mode = 'nosuchauthmode'
         )
-            
-        
+
     def test_authorization_family_name_success(self):
         """Test authenticating against the patron's family name, given the
         correct name (case insensitive)
