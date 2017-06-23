@@ -5873,9 +5873,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """
         # The database configuration timestamp is initialized as part
         # of the default data. In that case, it happened during the
-        # setup() method.
+        # package_setup() for this test run.
         last_update = Configuration.site_configuration_last_update(self._db)
-        assert (datetime.datetime.now()-last_update).total_seconds() < 1
         
         timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
