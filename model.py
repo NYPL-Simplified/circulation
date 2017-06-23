@@ -78,7 +78,8 @@ from sqlalchemy.sql.expression import (
     table,
 )
 from sqlalchemy.exc import (
-    IntegrityError
+    IntegrityError,
+    InvalidRequestError,
 )
 from sqlalchemy import (
     create_engine,
@@ -396,7 +397,11 @@ def create(db, model, create_method='',
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    db.flush()
+    try:
+        db.flush()
+    except InvalidRequestError, e:
+        if e.message != 'Session is already flushing':
+            raise e
     return created, True
 
 Base = declarative_base()
