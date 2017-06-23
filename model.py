@@ -9972,7 +9972,6 @@ def site_configuration_has_changed(_db, timeout=1):
         sql = "UPDATE timestamps SET timestamp=now() at time zone 'utc' WHERE service='%s' AND collection_id IS NULL;" % (
             Configuration.SITE_CONFIGURATION_CHANGED
         )
-        print sql
         _db.execute(sql)
 
         # Update the Configuration's record of when the configuration
