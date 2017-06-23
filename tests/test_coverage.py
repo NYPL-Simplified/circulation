@@ -789,11 +789,17 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         way we'd expect.
         """
 
+        provider = TransientFailureCoverageProvider(self._db)
+
         # We start with no CoverageRecords and no Timestamp.
         eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None,
+            Timestamp.value(
+                self._db, provider.service_name, collection=None
+            )
+        )
 
-        provider = TransientFailureCoverageProvider(self._db)
+        now = datetime.datetime.utcnow()
         provider.run()
 
         # We have a CoverageRecord representing the transient failure.
@@ -801,8 +807,10 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
         # The timestamp was set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful (transient)", timestamp.service)
+        timestamp = Timestamp.value(
+            self._db, provider.service_name, collection=None
+        )
+        assert (timestamp-now).total_seconds() < 1
 
     def test_add_coverage_record_for(self):
         """TODO: We need test coverage here."""
@@ -1322,11 +1330,15 @@ class TestWorkCoverageProvider(DatabaseTest):
         qu = self._db.query(WorkCoverageRecord).filter(
             WorkCoverageRecord.operation==MockProvider.OPERATION
         )
+        provider = MockProvider(self._db)
+        
         # We start with no relevant WorkCoverageRecord and no Timestamp.
         eq_([], qu.all())
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None, Timestamp.value(
+            self._db, provider.service_name, collection=None)
+        )
 
-        provider = MockProvider(self._db)
+        now = datetime.datetime.utcnow()
         provider.run()
 
         # There is now one relevant WorkCoverageRecord, for our single work.
@@ -1335,8 +1347,8 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_(provider.operation, record.operation)
 
         # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful (works) (the_operation)", timestamp.service)
+        timestamp = Timestamp.value(self._db, provider.service_name, collection=None)
+        assert (timestamp-now).total_seconds() < 1
 
     def test_transient_failure(self):
         class MockProvider(TransientFailureWorkCoverageProvider):
