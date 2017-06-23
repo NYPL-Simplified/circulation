@@ -557,8 +557,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # Both integrations have left their trace in
         # initialization_exceptions.
         not_configured = auth.initialization_exceptions[misconfigured.id]
-        assert isinstance(not_found, CannotLoadConfiguration)
-        eq_('First Book server not configured.', not_found.message)
+        assert isinstance(not_configured, CannotLoadConfiguration)
+        eq_('First Book server not configured.', not_configured.message)
 
         not_found = auth.initialization_exceptions[unknown.id]
         assert isinstance(not_found, ImportError)
