@@ -392,8 +392,13 @@ class LibraryAuthenticator(object):
         # Turn each such ExternalIntegration into an
         # AuthenticationProvider.
         for integration in integrations:
-            authenticator.register_provider(integration)
-
+            try:
+                authenticator.register_provider(integration)
+            except (ImportError, CannotLoadConfiguration), e:
+                # These are the two types of error that might be caused
+                # by misconfiguration, as opposed to bad code.
+                authenticator.initialization_exceptions[integration.id] = e
+                
         if authenticator.oauth_providers_by_name:
             # NOTE: this will immediately commit the database session,
             # which may not be what you want during a test. To avoid
@@ -435,6 +440,7 @@ class LibraryAuthenticator(object):
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
+        self.initialization_exceptions = dict()
         if oauth_providers:
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider

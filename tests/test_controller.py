@@ -37,6 +37,7 @@ from api.authenticator import (
 from core.app_server import (
     load_lending_policy
 )
+from core.config import CannotLoadConfiguration
 from core.external_search import DummyExternalSearchIndex
 from core.metadata_layer import Metadata
 from core import model
@@ -359,6 +360,47 @@ class TestCirculationManager(CirculationControllerTest):
         # Controllers that don't depend on site configuration
         # have not been reloaded.
         eq_(index_controller, manager.index_controller)
+
+    def test_exception_during_external_search_initialization_is_stored(self):
+
+        class BadSearch(CirculationManager):
+
+            @property
+            def setup_search(self):
+                raise CannotLoadConfiguration("doomed!")
+
+        with self.default_config() as config:
+            circulation = BadSearch(self._db, lanes=None, testing=True)
+            eq_(None, circulation.external_search_initialization_exception)
+            search = circulation.external_search
+
+            # We didn't get a search object.
+            eq_(None, search)
+
+            # The reason why is stored here.
+            ex = circulation.external_search_initialization_exception
+            assert isinstance(ex, CannotLoadConfiguration)
+            eq_("doomed!", ex.message)
+
+    def test_exception_during_short_client_token_initialization_is_stored(self):
+
+        # Create an incomplete Short ClientToken integration for our
+        # library.
+        short_client_token_integration = self._external_integration(
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL, libraries=[self.library]
+        )
+        short_client_token_integration.username = "something"
+
+        # Then try to set up the Adobe Vendor ID configuration for
+        # that library.
+        self.manager.setup_adobe_vendor_id(self.library)
+
+        # The exception caused when we tried to load the incomplete
+        # configuration was stored here.
+        ex = self.manager.short_client_token_initialization_exceptions[self.library.id]
+        assert isinstance(ex, CannotLoadConfiguration)
+        assert ex.message.startswith("Short Client Token configuration is incomplete")
 
 class TestBaseController(CirculationControllerTest):
 

@@ -25,6 +25,7 @@ from api.circulation import (
 )
 
 from core.analytics import Analytics
+from core.config import CannotLoadConfiguration
 from core.model import (
     CirculationEvent,
     ConfigurationSetting,
@@ -695,3 +696,30 @@ class TestCirculationAPI(DatabaseTest):
         eq_(0, len(loans))
         eq_(0, len(holds))
         eq_(False, complete)
+
+
+class TestConfigurationFailures(DatabaseTest):
+
+    class MisconfiguredAPI(object):
+
+        def __init__(self, collection):
+            raise CannotLoadConfiguration("doomed!")
+
+    def test_configuration_exception_is_stored(self):
+        """If the initialization of an API object raises
+        CannotLoadConfiguration, the exception is stored with the
+        CirculationAPI rather than being propagated.
+        """
+        api_map = {self._default_collection.protocol : self.MisconfiguredAPI}
+        circulation = CirculationAPI(self._default_library, api_map=api_map)
+
+        # Although the CirculationAPI was created, it has no functioning
+        # APIs.
+        eq_({}, circulation.api_for_collection)
+
+        # Instead, the CannotLoadConfiguration exception raised by the
+        # constructor has been stored in initialization_exceptions.
+        e = circulation.initialization_exceptions[self._default_collection.id]
+        assert isinstance(e, CannotLoadConfiguration)
+        eq_("doomed!", e.message)
+
