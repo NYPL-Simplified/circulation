@@ -9967,10 +9967,7 @@ def site_configuration_has_changed(_db, timeout=1):
         # a Connection object.
         if isinstance(_db, Base):
             _db = Session.object_session(_db)
-        elif isinstance(_db, Connection):
-            _db = Session(_db)
-            needs_commit = True
-            
+
         # Update the timestamp.
         timestamp = Timestamp.stamp(
             _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
@@ -9982,10 +9979,6 @@ def site_configuration_has_changed(_db, timeout=1):
         Configuration.site_configuration_last_update(
             _db, known_value=timestamp.timestamp
         )
-
-        if needs_commit:
-            # We had to create a new database session. Commit it now.
-            _db.commit()
 
             
 # Most of the time, we can know whether a change to the database is
@@ -10007,7 +10000,7 @@ def site_configuration_has_changed(_db, timeout=1):
 @event.listens_for(Library.integrations, 'remove')
 @event.listens_for(Library.settings, 'append')
 @event.listens_for(Library.settings, 'remove')
-def configuration_relevant_collection_change(target, value,  initiator):
+def configuration_relevant_collection_change(target, value, initiator):
     site_configuration_has_changed(target)
 
 @event.listens_for(Library, 'after_insert')
@@ -10023,4 +10016,4 @@ def configuration_relevant_collection_change(target, value,  initiator):
 @event.listens_for(ConfigurationSetting, 'after_delete')
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
-    site_configuration_has_changed(connection)
+    site_configuration_has_changed(target)
