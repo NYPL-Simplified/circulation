@@ -9969,15 +9969,20 @@ def site_configuration_has_changed(_db, timeout=1):
             _db = Session.object_session(_db)
 
         # Update the timestamp.
-        timestamp = Timestamp.stamp(
-            _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
+        sql = "UPDATE timestamps SET timestamp=now() at time zone 'utc' WHERE service='%s' AND collection_id IS NULL;" % (
+            Configuration.SITE_CONFIGURATION_CHANGED
         )
+        print sql
+        _db.execute(sql)
 
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
-        # without requiring a trip to the database.
+        # without requiring a trip to the database. This time won't be
+        # exactly the same as the time in the database, but they'll be close
+        # enough.
+        now = datetime.datetime.utcnow()
         Configuration.site_configuration_last_update(
-            _db, known_value=timestamp.timestamp
+            _db, known_value=now
         )
 
             
