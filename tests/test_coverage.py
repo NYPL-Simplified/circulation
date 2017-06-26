@@ -197,17 +197,18 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             def run_once(self, offset, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
             
-        # We start with no timestamps.
-        eq_([], self._db.query(Timestamp).all())
+        # We start with no timestamp value.
+        service_name = "I do nothing"
+        eq_(None, Timestamp.value(self._db, service_name, collection=None))
         
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
         provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("I do nothing", timestamp.service)
+        # The timestamp is now set to a recent value.
+        value = Timestamp.value(self._db, service_name, collection=None)
+        assert (datetime.datetime.utcnow() - value).total_seconds() < 1
 
         # run_once was called twice: once to exclude items that have
         # any coverage record whatsoever (ALL_STATUSES), and again to
@@ -496,7 +497,9 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         # The coverage provider's timestamp was not updated, because
         # we're using ensure_coverage on a single record.
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None,
+            Timestamp.value(self._db, provider.service_name, collection=None)
+        )
 
     def test_ensure_coverage_works_on_edition(self):
         """Verify that ensure_coverage() works on an Edition by covering
@@ -551,7 +554,11 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         # The coverage provider's timestamp was not updated, because
         # we're using ensure_coverage.
-        eq_([], self._db.query(Timestamp).all())
+        # The coverage provider's timestamp was not updated, because
+        # we're using ensure_coverage on a single record.
+        eq_(None,
+            Timestamp.value(self._db, provider.service_name, collection=None)
+        )
 
     def test_ensure_coverage_transient_coverage_failure(self):
 
@@ -562,7 +569,9 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_("Oops!", failure.exception)
 
         # Timestamp was not updated.
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None,
+            Timestamp.value(self._db, provider.service_name, collection=None)
+        )
         
     def test_ensure_coverage_changes_status(self):
         """Verify that processing an item that has a preexisting 
@@ -753,12 +762,15 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         """Verify that NeverSuccessfulCoverageProvider works the
         way we'd expect.
         """
+
+        provider = NeverSuccessfulCoverageProvider(self._db)
         
         # We start with no CoverageRecords and no Timestamp.
         eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None,
+            Timestamp.value(self._db, provider.service_name, collection=None)
+        )
 
-        provider = NeverSuccessfulCoverageProvider(self._db)
         provider.run()
 
         # We have a CoverageRecord that signifies failure.
@@ -767,20 +779,27 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(record.data_source, provider.data_source)
         eq_("What did you expect?", record.exception)
 
-        # But the coverage provider did run, and the timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful", timestamp.service)
+        # But the coverage provider did run, and the timestamp is now set to
+        # a recent value.
+        value = Timestamp.value(self._db, provider.service_name, collection=None)
+        assert (datetime.datetime.utcnow() - value).total_seconds() < 1
 
     def test_run_transient_failure(self):
         """Verify that TransientFailureCoverageProvider works the
         way we'd expect.
         """
 
+        provider = TransientFailureCoverageProvider(self._db)
+
         # We start with no CoverageRecords and no Timestamp.
         eq_([], self._db.query(CoverageRecord).all())
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None,
+            Timestamp.value(
+                self._db, provider.service_name, collection=None
+            )
+        )
 
-        provider = TransientFailureCoverageProvider(self._db)
+        now = datetime.datetime.utcnow()
         provider.run()
 
         # We have a CoverageRecord representing the transient failure.
@@ -788,8 +807,10 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
         # The timestamp was set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful (transient)", timestamp.service)
+        timestamp = Timestamp.value(
+            self._db, provider.service_name, collection=None
+        )
+        assert (timestamp-now).total_seconds() < 1
 
     def test_add_coverage_record_for(self):
         """TODO: We need test coverage here."""
@@ -1309,11 +1330,15 @@ class TestWorkCoverageProvider(DatabaseTest):
         qu = self._db.query(WorkCoverageRecord).filter(
             WorkCoverageRecord.operation==MockProvider.OPERATION
         )
+        provider = MockProvider(self._db)
+        
         # We start with no relevant WorkCoverageRecord and no Timestamp.
         eq_([], qu.all())
-        eq_([], self._db.query(Timestamp).all())
+        eq_(None, Timestamp.value(
+            self._db, provider.service_name, collection=None)
+        )
 
-        provider = MockProvider(self._db)
+        now = datetime.datetime.utcnow()
         provider.run()
 
         # There is now one relevant WorkCoverageRecord, for our single work.
@@ -1322,8 +1347,8 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_(provider.operation, record.operation)
 
         # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Always successful (works) (the_operation)", timestamp.service)
+        timestamp = Timestamp.value(self._db, provider.service_name, collection=None)
+        assert (timestamp-now).total_seconds() < 1
 
     def test_transient_failure(self):
         class MockProvider(TransientFailureWorkCoverageProvider):
@@ -1343,10 +1368,10 @@ class TestWorkCoverageProvider(DatabaseTest):
                      x.operation==provider.operation]
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful (transient, works) (the_operation)",
-            timestamp.service)
+        # The timestamp is now set to a recent value.
+        service_name = "Never successful (transient, works) (the_operation)"
+        value = Timestamp.value(self._db, service_name, collection=None)
+        assert (datetime.datetime.now()-value).total_seconds() < 2
 
     def test_persistent_failure(self):
         class MockProvider(NeverSuccessfulWorkCoverageProvider):
@@ -1366,9 +1391,10 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_(self.work, record.work)
         eq_("What did you expect?", record.exception)
 
-        # The timestamp is now set.
-        [timestamp] = self._db.query(Timestamp).all()
-        eq_("Never successful (works) (the_operation)", timestamp.service)
+        # The timestamp is now set to a recent value.
+        service_name = "Never successful (works) (the_operation)"
+        value = Timestamp.value(self._db, service_name, collection=None)
+        assert (datetime.datetime.now()-value).total_seconds() < 2
 
     def test_items_that_need_coverage(self):
         # Here's a WorkCoverageProvider.

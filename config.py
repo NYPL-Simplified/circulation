@@ -333,6 +333,10 @@ class Configuration(object):
             and last_check and (now - last_check).total_seconds() < timeout):
             # We went to the database less than [timeout] seconds ago.
             # Assume there has been no change.
+            logging.error("Assuming that %s is still valid.", cls._site_configuration_last_update())
+            logging.error("Known value: %s", known_value)
+            logging.error("Last check: %.2f sec ago.", (now-last_check).total_seconds())
+            logging.error("Timeout: %s", timeout)
             return cls._site_configuration_last_update()
         
         # Ask the database when was the last time the site
@@ -344,12 +348,14 @@ class Configuration(object):
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
+            logging.error("Retrieved known value %s from database.", known_value)
         if not known_value:
             # The site configuration has never changed.
             last_update = None
         else:
             last_update = known_value
 
+        logging.error("Updating Configuration last update time to %s", last_update)
         # Update the Configuration object's record of the last update time.
         cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
         

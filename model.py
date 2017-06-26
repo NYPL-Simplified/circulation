@@ -41,6 +41,7 @@ from sqlalchemy import (
     func,
     MetaData,
     Table,
+    text,
 )
 from sqlalchemy.sql import select
 from sqlalchemy.orm import (
@@ -332,6 +333,11 @@ class SessionManager(object):
             )
             mechanism.default_client_can_fulfill = True
 
+        # Set the timestamp which site_configuration_has_changed keeps
+        # updated.
+        Timestamp.stamp(session, Configuration.SITE_CONFIGURATION_CHANGED,
+                        collection=None)
+        site_configuration_has_changed(session)
         session.commit()
 
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
@@ -9953,12 +9959,11 @@ def site_configuration_has_changed(_db, timeout=1):
     of what you consider "site configuration", just to be safe.
 
     :param _db: Either a Session or (to save time in a common case) an
-    object that can be associated with or turned into a Session.
+    ORM object that can turned into a Session.
 
     :param timeout: Nothing will happen if it's been fewer than this
     number of seconds since the last site configuration change was
     recorded.
-
     """
     now = datetime.datetime.utcnow()
     last_update = Configuration._site_configuration_last_update()
@@ -9966,30 +9971,27 @@ def site_configuration_has_changed(_db, timeout=1):
         # The configuration last changed more than `timeout` ago, which
         # means it's time to reset the Timestamp that says when the
         # configuration last changed.
-        needs_commit = False
+
         # Convert something that might not be a Connection object into
         # a Connection object.
         if isinstance(_db, Base):
             _db = Session.object_session(_db)
-        elif isinstance(_db, Connection):
-            _db = Session(_db)
-            needs_commit = True
-            
-        # Update the timestamp.
-        timestamp = Timestamp.stamp(
-            _db, Configuration.SITE_CONFIGURATION_CHANGED, collection=None
-        )
 
+        # Update the timestamp.
+        now = datetime.datetime.utcnow()
+        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
+        _db.execute(
+            text(sql),
+            dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
+                 timestamp=now)
+        )
+        
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
         # without requiring a trip to the database.
         Configuration.site_configuration_last_update(
-            _db, known_value=timestamp.timestamp
+            _db, known_value=now
         )
-
-        if needs_commit:
-            # We had to create a new database session. Commit it now.
-            _db.commit()
 
             
 # Most of the time, we can know whether a change to the database is
@@ -10011,7 +10013,7 @@ def site_configuration_has_changed(_db, timeout=1):
 @event.listens_for(Library.integrations, 'remove')
 @event.listens_for(Library.settings, 'append')
 @event.listens_for(Library.settings, 'remove')
-def configuration_relevant_collection_change(target, value,  initiator):
+def configuration_relevant_collection_change(target, value, initiator):
     site_configuration_has_changed(target)
 
 @event.listens_for(Library, 'after_insert')
@@ -10027,4 +10029,4 @@ def configuration_relevant_collection_change(target, value,  initiator):
 @event.listens_for(ConfigurationSetting, 'after_delete')
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
-    site_configuration_has_changed(connection)
+    site_configuration_has_changed(target)
