@@ -237,6 +237,15 @@ class OPDSCollectionMonitor(CollectionMonitor):
     def run_once(self, start, cutoff):
         self.collection.ran_with_argument = self.test_argument
 
+
+class DoomedCollectionMonitor(CollectionMonitor):
+    """Mock CollectionMonitor that always raises an exception."""
+    SERVICE_NAME = "Doomed Monitor"
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+    def run_once(self, *args, **kwargs):
+        self.collection.doomed = True
+        raise Exception("Doomed!")
+        
         
 class TestRunMonitorScript(DatabaseTest):
 
@@ -280,6 +289,22 @@ class TestRunCollectionMonitorScript(DatabaseTest):
 
         # Nothing happened to the Bibliotheca collection.
         assert not hasattr(b1, 'ran_with_argument')
+
+    def test_keep_going_on_failure(self):
+        # Here we have two Collections that are going to be run
+        # through a CollectionMonitor that always fails.
+        o1 = self._collection()
+        o2 = self._collection()
+        script = RunCollectionMonitorScript(
+            DoomedCollectionMonitor, self._db
+        )
+        script.run()
+
+        # Even though run_once() raised an exception, it didn't stop
+        # the script from calling run_once() again for the second
+        # collection.
+        assert(True, o1.doomed)
+        assert(True, o2.doomed)
         
 
 class TestPatronInputScript(DatabaseTest):
