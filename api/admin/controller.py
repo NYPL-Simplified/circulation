@@ -1166,14 +1166,11 @@ class SettingsController(CirculationManagerController):
                     return COLLECTION_NAME_ALREADY_IN_USE
                 
         else:
-            collection_with_name = get_one(self._db, Collection, name=name)
-            if collection_with_name:
-                return COLLECTION_NAME_ALREADY_IN_USE
-
             if protocol:
-                collection, is_new = create(
-                    self._db, Collection, name=name
-                )
+                collection, is_new = get_one_or_create(self._db, Collection, name=name)
+                if not is_new:
+                    self._db.rollback()
+                    return COLLECTION_NAME_ALREADY_IN_USE
                 collection.create_external_integration(protocol)
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE

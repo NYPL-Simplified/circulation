@@ -1473,7 +1473,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("name", "Collection 1"),
+                ("name", "collection1"),
                 ("protocol", "Overdrive"),
                 ("external_account_id", "1234"),
                 ("username", "user"),
