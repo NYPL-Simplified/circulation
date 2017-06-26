@@ -1150,8 +1150,6 @@ class SettingsController(CirculationManagerController):
         if protocol and protocol not in [p.get("name") for p in protocols]:
             return UNKNOWN_PROTOCOL
 
-        name = flask.request.form.get("name")
-
         is_new = False
         collection = None
         if id:
