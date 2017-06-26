@@ -9544,6 +9544,18 @@ class Collection(Base):
             ).filter(ExternalIntegration.protocol==protocol)
         return qu
 
+    @classmethod
+    def by_datasource(cls, _db, data_source):
+        if isinstance(data_source, DataSource):
+            data_source = data_source.name
+
+        qu = _db.query(cls).join(ExternalIntegration,
+                cls.external_integration_id==ExternalIntegration.id)\
+            .join(ExternalIntegration.settings)\
+            .filter(ConfigurationSetting.key==Collection.DATA_SOURCE_NAME_SETTING)\
+            .filter(ConfigurationSetting.value==data_source)
+        return qu
+
     @hybrid_property
     def protocol(self):
         """What protocol do we need to use to get licenses for this 
