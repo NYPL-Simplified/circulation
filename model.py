@@ -1004,7 +1004,7 @@ class DataSource(Base):
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
-                (cls.INTERNAL_PROCESSING, True, False, None, None),
+                (cls.INTERNAL_PROCESSING, False, False, None, None),
                 (cls.FEEDBOOKS, True, False, Identifier.URI, None),
                 (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
