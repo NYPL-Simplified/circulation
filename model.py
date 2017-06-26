@@ -9038,12 +9038,16 @@ class ExternalIntegration(Base):
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
-    # These protocols are only used on the Content Server.
+    # These protocols are only used on the Content Server when mirroring
+    # content from a given directory or directly from Project
+    # Gutenberg, respectively. These protocols aren't intended for use
+    # with LicensePools on the Circulation Manager.
+    DIRECTORY_IMPORT = u'Directory Import'
     GUTENBERG = DataSource.GUTENBERG
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK,
-        GUTENBERG,
+        DIRECTORY_IMPORT, GUTENBERG,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
