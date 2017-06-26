@@ -128,11 +128,25 @@ CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET = pd(
     detail=_("You can't overwrite an existing shared secret with a random value"),
 )
 
+MISSING_COLLECTION = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection",
+    status_code=404,
+    title=_("Missing collection."),
+    detail=_("The specified collection does not exist."),
+)
+
 MISSING_COLLECTION_NAME = pd(
     "http://librarysimplified.org/terms/problem/missing-collection-name",
     status_code=400,
     title=_("Missing collection name."),
     detail=_("You must identify the collection by its name."),
+)
+
+COLLECTION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/collection-name-already-in-use",
+    status_code=400,
+    title=_("Collection name already in use"),
+    detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
 NO_PROTOCOL_FOR_NEW_SERVICE = pd(
@@ -170,6 +184,13 @@ INCOMPLETE_CONFIGURATION = pd(
     detail=_("The configuration is missing a required field."),
 )
 
+INTEGRATION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/integration-name-already-in-use",
+    status_code=400,
+    title=_("Integration name already in use"),
+    detail=_("The integration name must be unique, and there's already an integration with the specified name."),
+)
+
 MISSING_PGCRYPTO_EXTENSION = pd(
     "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
     status_code=500,
@@ -177,11 +198,18 @@ MISSING_PGCRYPTO_EXTENSION = pd(
     detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
 )
 
+MISSING_ADMIN_AUTH_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-admin-auth-service",
+    status_code=404,
+    title=_("Missing admin authentication service"),
+    detail=_("The specified admin authentication service does not exist."),
+)
+
 MISSING_PATRON_AUTH_SERVICE = pd(
     "http://librarysimplified.org/terms/problem/missing-patron-auth-service",
     status_code=404,
     title=_("Missing patron authentication service"),
-    detail=_("The specific patron authentication service does not exist."),
+    detail=_("The specified patron authentication service does not exist."),
 )
 
 INVALID_CONFIGURATION_OPTION = pd(

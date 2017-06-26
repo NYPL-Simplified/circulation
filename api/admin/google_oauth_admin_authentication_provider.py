@@ -18,6 +18,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
         { "key": DOMAINS, "label": _("Allowed Domains"), "type": "list" },
     ]
+    SITEWIDE = True
 
     def __init__(self, integration, redirect_uri, test_mode=False):
         super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)

@@ -1378,17 +1378,20 @@ class TestSettingsController(AdminControllerTest):
             coll2, coll1 = sorted(
                 response.get("collections"), key = lambda c: c.get('name')
             )
+            eq_(c1.id, coll1.get("id"))
+            eq_(c2.id, coll2.get("id"))
+
             eq_(c1.name, coll1.get("name"))
             eq_(c2.name, coll2.get("name"))
 
             eq_(c1.protocol, coll1.get("protocol"))
             eq_(c2.protocol, coll2.get("protocol"))
 
-            eq_(c1.external_account_id, coll1.get("external_account_id"))
-            eq_(c2.external_account_id, coll2.get("external_account_id"))
+            eq_(c1.external_account_id, coll1.get("settings").get("external_account_id"))
+            eq_(c2.external_account_id, coll2.get("settings").get("external_account_id"))
 
-            eq_(c1.external_integration.password, coll1.get("password"))
-            eq_(c2.external_integration.password, coll2.get("password"))
+            eq_(c1.external_integration.password, coll1.get("settings").get("password"))
+            eq_(c2.external_integration.password, coll2.get("settings").get("password"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1413,6 +1416,15 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, UNKNOWN_PROTOCOL)
 
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123456789"),
+                ("name", "collection"),
+                ("protocol", "Bibliotheca"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, MISSING_COLLECTION)
+
         collection = self._collection(
             name="Collection 1",
             protocol=ExternalIntegration.OVERDRIVE
@@ -1420,6 +1432,20 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
+                ("name", "Collection 1"),
+                ("protocol", "Bibliotheca"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, COLLECTION_NAME_ALREADY_IN_USE)
+
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", "Bibliotheca"),
             ])
@@ -1447,7 +1473,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("name", "Collection 1"),
+                ("name", "collection1"),
                 ("protocol", "Overdrive"),
                 ("external_account_id", "1234"),
                 ("username", "user"),
@@ -1550,6 +1576,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
+                ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.OVERDRIVE),
                 ("external_account_id", "1234"),
@@ -1584,6 +1611,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
+                ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.OVERDRIVE),
                 ("external_account_id", "1234"),
@@ -1629,11 +1657,13 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             [service] = response.get("admin_auth_services")
 
+            eq_(auth_service.id, service.get("id"))
+            eq_(auth_service.name, service.get("name"))
             eq_(auth_service.protocol, service.get("protocol"))
-            eq_(auth_service.url, service.get("url"))
-            eq_(auth_service.username, service.get("username"))
-            eq_(auth_service.password, service.get("password"))
-            eq_(["nypl.org"], service.get("domains"))
+            eq_(auth_service.url, service.get("settings").get("url"))
+            eq_(auth_service.username, service.get("settings").get("username"))
+            eq_(auth_service.password, service.get("settings").get("password"))
+            eq_(["nypl.org"], service.get("settings").get("domains"))
 
     def test_admin_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1648,6 +1678,13 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.admin_auth_services()
+            eq_(response, MISSING_ADMIN_AUTH_SERVICE)
+
         auth_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.GOOGLE_OAUTH,
@@ -1655,7 +1692,9 @@ class TestSettingsController(AdminControllerTest):
         )
 
         with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([])
+            flask.request.form = MultiDict([
+                ("id", auth_service.id),
+            ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
         
@@ -1669,6 +1708,7 @@ class TestSettingsController(AdminControllerTest):
     def test_admin_auth_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
+                ("name", "oauth"),
                 ("protocol", "Google OAuth"),
                 ("url", "url"),
                 ("username", "username"),
@@ -1681,6 +1721,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The auth service was created and configured properly.
         auth_service = ExternalIntegration.admin_authentication(self._db)
+        eq_("oauth", auth_service.name)
         eq_("url", auth_service.url)
         eq_("username", auth_service.username)
         eq_("password", auth_service.password)
@@ -1703,6 +1744,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
+                ("name", "oauth"),
                 ("protocol", "Google OAuth"),
                 ("url", "url2"),
                 ("username", "user2"),
@@ -1712,6 +1754,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 200)
 
+        eq_("oauth", auth_service.name)
         eq_("url2", auth_service.url)
         eq_("user2", auth_service.username)
         setting = auth_service.setting("domains")
@@ -1788,7 +1831,8 @@ class TestSettingsController(AdminControllerTest):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=SimpleAuthenticationProvider.__module__,
-            goal=ExternalIntegration.PATRON_AUTH_GOAL
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+            name="name",
         )
         auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "user"
         auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "pass"
@@ -1798,6 +1842,7 @@ class TestSettingsController(AdminControllerTest):
             [service] = response.get("patron_auth_services")
 
             eq_(auth_service.id, service.get("id"))
+            eq_(auth_service.name, service.get("name"))
             eq_(SimpleAuthenticationProvider.__module__, service.get("protocol"))
             eq_("user", service.get("settings").get(BasicAuthenticationProvider.TEST_IDENTIFIER))
             eq_("pass", service.get("settings").get(BasicAuthenticationProvider.TEST_PASSWORD))
@@ -1970,6 +2015,21 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
+
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", auth_service.name),
+                ("protocol", SIP2AuthenticationProvider.__module__),
+            ])
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -2262,6 +2322,21 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response, MISSING_METADATA_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.NYT),
+            ])
+            response = self.manager.admin_settings_controller.metadata_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
         service, ignore = create(
             self._db, ExternalIntegration,
