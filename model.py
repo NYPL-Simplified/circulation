@@ -9599,6 +9599,7 @@ class Collection(Base):
 
     @classmethod
     def by_datasource(cls, _db, data_source):
+        """Query collections that are associated with the given DataSource."""
         if isinstance(data_source, DataSource):
             data_source = data_source.name
 
