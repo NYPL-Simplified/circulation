@@ -271,7 +271,7 @@ class CirculationManager(object):
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        return cls(library)
+        return cls(self._db, library)
         
     def setup_one_time_controllers(self):
         """Set up all the controllers that will be used by the web app.
