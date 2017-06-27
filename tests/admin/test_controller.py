@@ -57,6 +57,7 @@ from api.clever import CleverAuthenticationAPI
 from api.novelist import NoveListAPI
 
 from api.google_analytics_provider import GoogleAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -2474,6 +2475,24 @@ class TestSettingsController(AdminControllerTest):
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
         
+        self._db.delete(ga_service)
+
+        local_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+
+        local_service.libraries += [self._default_library]
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.analytics_services()
+            [service] = response.get("analytics_services")
+
+            eq_(local_service.id, service.get("id"))
+            eq_(local_service.protocol, service.get("protocol"))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+
     def test_analytics_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
