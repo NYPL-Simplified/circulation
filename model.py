@@ -8735,6 +8735,11 @@ class Library(Base):
     # for OPDS document, and it also goes to the library registry.
     uuid = Column(Unicode, unique=True)
 
+    # One, and only one, library may be the default. The default
+    # library is the one chosen when an incoming request does not
+    # designate a library.
+    is_default = Column(Boolean, index=True, default=False)
+    
     # The name of this library to use when signing short client tokens
     # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
     # This name must be unique across the library registry.
@@ -8776,15 +8781,14 @@ class Library(Base):
         )
 
     @classmethod
-    def instance(cls, _db):
-        """Find the one and only library."""
-        library, is_new = get_one_or_create(
-            _db, Library, create_method_kwargs=dict(
-                uuid=unicode(uuid.uuid4()),
-                short_name="default",
-            )
-        )
-        return library
+    def default(cls, _db):
+        """Find the default Library."""
+        # If for some reason there are multiple default libraries in
+        # the database, they're not actually interchangeable, but
+        # raising an error here might make it impossible to fix the
+        # problem.
+        return get_one(_db, Library, is_default=True,
+                       on_multiple='interchangeable')
 
     @hybrid_property
     def library_registry_short_name(self):
@@ -8942,6 +8946,15 @@ class Library(Base):
             )
             lines.append("")
         return lines
+
+    def set_as_default(self):
+        """Set this library, and only this library, as the default."""       
+        _db = Session.object_session(self)
+        for library in _db.query(Library):
+            if library == self:
+                library.is_default = True
+            else:
+                library.is_default = False
 
 
 class Admin(Base):
