@@ -659,10 +659,12 @@ class TestBaseController(CirculationControllerTest):
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
 
+        # If you don't specify a library, the default library is used.
         with self.app.test_request_context("/"):
-            assert_raises(
-                ValueError, self.controller.library_for_request, None
-            )
+            value = self.controller.library_for_request(None)
+            expect_default = Library.default(self._db)
+            eq_(expect_default, value)
+            eq_(expect_default, flask.request.library)
             
     def test_library_for_request_reloads_settings_if_necessary(self):
 
