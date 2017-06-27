@@ -152,7 +152,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
     def test_sync_bookshelf(self):
         patron = self._patron()
-        circulation = CirculationAPI(self._default_library, api_map={
+        circulation = CirculationAPI(self._db, self._default_library, api_map={
             self.collection.protocol : MockBibliothecaAPI
         })
 

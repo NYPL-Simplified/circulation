@@ -63,7 +63,7 @@ class TestCirculationAPI(DatabaseTest):
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
         self.patron = self._patron()
         self.circulation = MockCirculationAPI(
-            self._default_library, api_map = {
+            self._db, self._default_library, api_map = {
                 ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
             }
         )
@@ -650,7 +650,7 @@ class TestCirculationAPI(DatabaseTest):
                 return [], [], False
 
         circulation = IncompleteCirculationAPI(
-            self._default_library,
+            self._db, self._default_library,
             api_map={ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
@@ -667,7 +667,7 @@ class TestCirculationAPI(DatabaseTest):
                 return [], [], True
 
         circulation = CompleteCirculationAPI(
-            self._default_library,
+            self._db, self._default_library,
             api_map={ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI})
         circulation.sync_bookshelf(self.patron, "1234")
 
@@ -677,7 +677,8 @@ class TestCirculationAPI(DatabaseTest):
 
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.
-        circulation = CirculationAPI(self._default_library, api_map={
+        circulation = CirculationAPI(
+            self._db, self._default_library, api_map={
             ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
         })
         mock_bibliotheca = circulation.api_for_collection[self.collection]
@@ -711,7 +712,9 @@ class TestConfigurationFailures(DatabaseTest):
         CirculationAPI rather than being propagated.
         """
         api_map = {self._default_collection.protocol : self.MisconfiguredAPI}
-        circulation = CirculationAPI(self._default_library, api_map=api_map)
+        circulation = CirculationAPI(
+            self._db, self._default_library, api_map=api_map
+        )
 
         # Although the CirculationAPI was created, it has no functioning
         # APIs.
