@@ -9,42 +9,52 @@ from analytics import Analytics
 from mock_analytics_provider import MockAnalyticsProvider
 from local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
-from model import CirculationEvent
+from model import (
+    CirculationEvent,
+    ExternalIntegration,
+    create,
+)
 import json
 
 class TestAnalytics(DatabaseTest):
 
     def test_initialize(self):
         # supports multiple analytics providers
-        config = { "option": "value" }
-        analytics = Analytics.initialize(["mock_analytics_provider"], config)
+        mock_integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="mock_analytics_provider"
+        )
+        mock_integration.url = self._str
+        local_integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="local_analytics_provider"
+        )
+        missing_integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="missing_provider"
+        )
+
+        analytics = Analytics(self._db)
+        eq_(2, len(analytics.providers))
         assert isinstance(analytics.providers[0], MockAnalyticsProvider)
-        eq_("value", analytics.providers[0].option)
+        eq_(mock_integration.url, analytics.providers[0].url)
+        assert isinstance(analytics.providers[1], LocalAnalyticsProvider)
+        assert missing_integration.id in analytics.initialization_exceptions
 
     def test_collect_event(self):
-        config = {
-            Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["mock_analytics_provider"]
-            },
-            "option": "value"
-        }
-        with temp_config(config) as config:
-            work = self._work(title="title", with_license_pool=True)
-            [lp] = work.license_pools
-            Analytics.collect_event(self._db, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, None)
-            mock = Analytics.instance().providers[0]
-            eq_(1, mock.count)
-            
-    def test_load_providers_from_config(self):
-        config = {
-            Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["mock_analytics_provider"]
-            },
-            "option": "value"
-        }
-        providers = Analytics.load_providers_from_config(config)
-        eq_("mock_analytics_provider", providers[0])
+        mock_integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="mock_analytics_provider"
+        )
 
-    def test_load_providers_from_config_without_analytics(self):
-        providers = Analytics.load_providers_from_config({})
-        eq_("local_analytics_provider", providers[0])
+        work = self._work(title="title", with_license_pool=True)
+        [lp] = work.license_pools
+        analytics = Analytics(self._db)
+        analytics.collect_event(self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, None)
+        mock = analytics.providers[0]
+        eq_(1, mock.count)
+

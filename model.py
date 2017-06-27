@@ -136,7 +136,6 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 from s3 import S3Uploader
-from analytics import Analytics
 
 
 DEBUG = False
@@ -6357,7 +6356,8 @@ class LicensePool(Base):
 
     def update_availability(
             self, new_licenses_owned, new_licenses_available, 
-            new_licenses_reserved, new_patrons_in_hold_queue, as_of=None):
+            new_licenses_reserved, new_patrons_in_hold_queue,
+            analytics=None, as_of=None):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
@@ -6395,9 +6395,11 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            Analytics.collect_event(
-                _db, self, event_name, as_of,
-                old_value=old_value, new_value=new_value)
+            if analytics:
+                for library in self.collection.libraries:
+                    analytics.collect_event(
+                        library, self, event_name, as_of,
+                        old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
         any_data = False

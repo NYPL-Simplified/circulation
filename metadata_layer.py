@@ -43,6 +43,7 @@ from model import (
     Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
+from analytics import Analytics
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -978,11 +979,13 @@ class CirculationData(MetaToModelUtility):
         if pool and self._availability_needs_update(pool):
             # Update availabily information. This may result in
             # the issuance of additional circulation events.
+            analytics = Analytics(_db)
             changed_availability = pool.update_availability(
                 new_licenses_owned=self.licenses_owned,
                 new_licenses_available=self.licenses_available,
                 new_licenses_reserved=self.licenses_reserved,
                 new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                analytics=analytics,
                 as_of=self.last_checked
             )
                     
