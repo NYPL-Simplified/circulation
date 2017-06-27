@@ -1323,7 +1323,9 @@ class ServiceStatusController(CirculationManagerController):
 """
 
     def __call__(self):
-        service_status = ServiceStatus(self._db, flask.request.library)
+        library = flask.request.library
+        circulation = self.manager.circulation_apis[library.id]
+        service_status = ServiceStatus(circulation)
         timings = service_status.loans_status(response=True)
         statuses = []
         for k, v in sorted(timings.items()):

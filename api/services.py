@@ -25,9 +25,18 @@ class ServiceStatus(object):
 
     SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
-    def __init__(self, library, auth=None, api_map=None):
-        self._db = Session.object_session(library)
-        self.circulation = CirculationAPI(library, api_map)
+    def __init__(self, circulation, auth=None):
+        """Constructor.
+
+        :param circulation: A CirculationAPI for the library whose status
+        we're checking.
+
+        :param auth: A LibraryAuthenticator object to use when authenticating
+        the sample patron.
+        """
+        self._db = circulation._db
+        self.circulation = circulation
+        library = circulation.library
         self.auth = auth or LibraryAuthenticator.from_config(self._db, library)
 
     @property
