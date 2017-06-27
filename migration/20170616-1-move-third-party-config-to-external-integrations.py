@@ -15,8 +15,6 @@ from config import Configuration
 from external_search import ExternalSearchIndex
 from model import (
     ExternalIntegration as EI,
-    Library,
-    get_one_or_create,
     production_session,
 )
 
@@ -30,7 +28,6 @@ def log_import(integration_or_setting):
 try:
     Configuration.load()
     _db = production_session()
-    LIBRARIES = _db.query(Library).all()
 
     # Import CDN configuration.
     cdn_conf = Configuration.integration(u'CDN')
