@@ -1,4 +1,4 @@
--- Add library_id as a foreign key
+-- Add libraries.is_default
 alter table libraries add column is_default boolean default false;
 
 create index "ix_libraries_default" on libraries (is_default);
