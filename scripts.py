@@ -180,12 +180,13 @@ class RunCollectionMonitorScript(Script):
     """Run a CollectionMonitor on every Collection that comes through a
     certain protocol.
 
-    TODO: Currently the Monitors are run one at a time. It should
-    be possible to take a command-line argument that runs all the
-    Monitors in batches, each in its own thread.
-
+    Currently the Monitors are run one at a time. It should be
+    possible to take a command-line argument that runs all the
+    Monitors in batches, each in its own thread. Unfortunately, it's
+    tough to know in a given situation that the system configuration
+    and the Collection protocol are tough enough to handle this, and
+    won't be overloaded.
     """
-
     def __init__(self, monitor_class, _db=None, **kwargs):
         """Constructor.
         
@@ -204,7 +205,16 @@ class RunCollectionMonitorScript(Script):
         and run them, in order.
         """
         for monitor in self.monitor_class.all(self._db, **self.kwargs):
-            monitor.run()
+            try:
+                monitor.run()
+            except Exception, e:
+                # This is bad, but not so bad that we should give up trying
+                # to run the other Monitors.
+                self.log.error(
+                    "Error running monitor %s for collection %s: %s",
+                    self.name, monitor.collection.name,
+                    e, exc_info=e
+                )
 
 
 class RunCoverageProvidersScript(Script):
