@@ -1529,7 +1529,7 @@ class SettingsController(CirculationManagerController):
                 libraries = []
                 for library in service.libraries:
                     library_info = dict(short_name=library.short_name)
-                    for setting in protocol.get("library_settings"):
+                    for setting in protocol.get("library_settings", []):
                         key = setting.get("key")
                         value = ConfigurationSetting.for_library_and_externalintegration(
                             self._db, key, library, service
