@@ -5518,6 +5518,45 @@ class TestLibrary(DatabaseTest):
         # recommended, but it's not an error.
         library.library_registry_short_name = None
 
+    def test_default(self):
+        # We start off with no libraries.
+        eq_(None, Library.default(self._db))
+
+        # Let's make a couple libraries.
+        l1 = self._default_library
+        l2 = self._library()
+
+        # None of them are the default according to the database.
+        eq_(False, l1.is_default)
+        eq_(False, l2.is_default)
+
+        # If we call Library.default, the library with the lowest database
+        # ID is made the default.
+        eq_(l1, Library.default(self._db))
+        eq_(True, l1.is_default)
+        eq_(False, l2.is_default)
+
+        # We can set is_default to change the default library.
+        l2.is_default = True
+        eq_(False, l1.is_default)
+        eq_(True, l2.is_default)
+
+        # If ever there are multiple default libraries, calling default()
+        # will set the one with the lowest database ID to the default.
+        l1._is_default = True
+        l2._is_default = True
+        eq_(l1, Library.default(self._db))
+        eq_(True, l1.is_default)
+        eq_(False, l2.is_default)
+
+        def assign_false():
+            l1.is_default = False
+        assert_raises_regexp(
+            ValueError,
+            "You cannot stop a library from being the default library; you must designate a different library as the default.",
+            assign_false
+        )
+        
     def test_explain(self):
         """Test that Library.explain gives all relevant information
         about a Library.

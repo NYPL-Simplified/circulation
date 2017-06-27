@@ -8737,6 +8737,11 @@ class Library(Base):
     # for OPDS document, and it also goes to the library registry.
     uuid = Column(Unicode, unique=True)
 
+    # One, and only one, library may be the default. The default
+    # library is the one chosen when an incoming request does not
+    # designate a library.
+    _is_default = Column(Boolean, index=True, default=False, name='is_default')
+    
     # The name of this library to use when signing short client tokens
     # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
     # This name must be unique across the library registry.
@@ -8778,15 +8783,44 @@ class Library(Base):
         )
 
     @classmethod
-    def instance(cls, _db):
-        """Find the one and only library."""
-        library, is_new = get_one_or_create(
-            _db, Library, create_method_kwargs=dict(
-                uuid=unicode(uuid.uuid4()),
-                short_name="default",
+    def default(cls, _db):
+        """Find the default Library."""
+        # If for some reason there are multiple default libraries in
+        # the database, they're not actually interchangeable, but
+        # raising an error here might make it impossible to fix the
+        # problem.
+        defaults = _db.query(Library).filter(
+            Library._is_default==True).order_by(Library.id.asc()).all()
+        if len(defaults) == 1:
+            # This is the normal case.
+            return defaults[0]
+
+        default_library = None
+        if not defaults:
+            # There is no current default. Find the library with the
+            # lowest ID and make it the default.
+            libraries = _db.query(Library).order_by(Library.id.asc()).limit(1)
+            if not libraries.count():
+                # There are no libraries in the system, so no default.
+                return None
+            [default_library] = libraries
+            logging.warn(
+                "No default library, setting %s as default." % (
+                    default_library.short_name
+                )
             )
-        )
-        return library
+        else:
+            # There is more than one default, probably caused by a
+            # race condition. Fix it by arbitrarily designating one
+            # of the libraries as the default.
+            default_library = defaults[0]
+            logging.warn(
+                "Multiple default libraries, setting %s as default." % (
+                    default_library.short_name
+                )
+            )
+        default_library.is_default = True
+        return default_library
 
     @hybrid_property
     def library_registry_short_name(self):
@@ -8944,6 +8978,25 @@ class Library(Base):
             )
             lines.append("")
         return lines
+
+    @property
+    def is_default(self):
+        return self._is_default
+
+    @is_default.setter
+    def is_default(self, new_is_default):
+        """Set this library, and only this library, as the default."""
+        if self._is_default and not new_is_default:
+            raise ValueError(
+                "You cannot stop a library from being the default library; you must designate a different library as the default."
+            )            
+        
+        _db = Session.object_session(self)
+        for library in _db.query(Library):
+            if library == self:
+                library._is_default = True
+            else:
+                library._is_default = False
 
 
 class Admin(Base):
