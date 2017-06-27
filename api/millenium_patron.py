@@ -103,8 +103,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             data = dict(self._extract_text_nodes(response.content))
             if data.get('ERROR_MESSAGE_FIELD') is None:
               dump_name = data.get(self.PERSONAL_NAME_FIELD)
-              dump_name = dump_name.split(',')[0]
-              if dump_name.upper() == password.upper():
+              # Assume the name is stored either as "Last, First" or "First Last"
+              if dump_name.find(",") != -1:
+                dump_name = dump_name.split(',')[0]
+              else:
+                dump_name = dump_name.split(' ')[1]
+              if dump_name.strip().upper() == password.upper():
                 return PatronData(authorization_identifier=username, complete=False)
             return False
 
