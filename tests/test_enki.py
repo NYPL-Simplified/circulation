@@ -11,7 +11,7 @@ from datetime import (
 )
 from api.enki import (
     MockEnkiAPI,
-    EnkicirculationMonitor,
+    EnkiCirculationMonitor,
 )
 
 from api.circulation import (
