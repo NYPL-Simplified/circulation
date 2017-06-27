@@ -915,10 +915,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
     def test_create_authentication_document(self):
         integration = self._external_integration(self._str)
-        basic = MockBasicAuthenticationProvider(self._default_library, integration)
-        oauth = MockOAuthAuthenticationProvider(self._default_library, "oauth")
+        library = self._default_library
+        basic = MockBasicAuthenticationProvider(library, integration)
+        oauth = MockOAuthAuthenticationProvider(library, "oauth")
         oauth.URI = "http://example.org/"
-        library = Library.instance(self._db)
         expect_uuid = library.uuid
         library.name = "A Fabulous Library"
         authenticator = LibraryAuthenticator(

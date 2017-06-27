@@ -5,6 +5,7 @@ into Collection objects.
 
 import os
 import sys
+import uuid
 from pdb import set_trace
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, u"..")
@@ -132,8 +133,17 @@ def convert_content_server(_db, library):
     )
     library.collections.append(collection)
     collection.url = url
-    
-library = Library.instance(_db)
+
+# This is the point in the migration where we first create a Library
+# for this system.
+library = get_one_or_create(
+    _db, Library,
+    create_method_kwargs=dict(
+        name="Default Library",
+        short_name="default",
+        uuid=unicode(uuid.uuid4())
+    )
+)
 copy_library_registry_information(_db, library)
 convert_overdrive(_db, library)
 convert_bibliotheca(_db, library)
