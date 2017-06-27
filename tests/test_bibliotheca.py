@@ -19,12 +19,14 @@ from core.model import (
     Contributor,
     DataSource,
     Edition,
+    ExternalIntegration,
     Hold,
     Identifier,
     LicensePool,
     Loan,
     Resource,
-    Timestamp
+    Timestamp,
+    create,
 )
 from core.util.http import (
     BadResponseException,
@@ -102,6 +104,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         method defined by the CirculationAPI interface.
         """
 
+        # Create an analytics integration so we can make sure
+        # events are tracked.
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="core.local_analytics_provider",
+        )
+
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
             identifier_type=Identifier.THREEM_ID,
@@ -134,6 +144,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(1, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
 
+        circulation_events = self._db.query(CirculationEvent).join(LicensePool).filter(LicensePool.id==pool.id)
+        eq_(3, circulation_events.count())
+        types = [e.type for e in circulation_events]
+        eq_(sorted([CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
+                    CirculationEvent.DISTRIBUTOR_CHECKOUT,
+                    CirculationEvent.DISTRIBUTOR_HOLD_RELEASE]),
+            sorted(types))
+
         old_last_checked = pool.last_checked
         assert old_last_checked is not None
 
@@ -142,6 +160,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # collection.
         data = self.sample_data("empty_item_circulation.xml")
         self.api.queue_response(200, content=data)
+
         self.api.update_availability(pool)
 
         eq_(0, pool.licenses_owned)
@@ -149,6 +168,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(0, pool.patrons_in_hold_queue)
 
         assert pool.last_checked is not old_last_checked
+
+        circulation_events = self._db.query(CirculationEvent).join(LicensePool).filter(LicensePool.id==pool.id)
+        eq_(5, circulation_events.count())
 
     def test_sync_bookshelf(self):
         patron = self._patron()

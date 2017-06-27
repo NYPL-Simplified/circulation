@@ -89,8 +89,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         }
     ] + BasicAuthenticationProvider.SETTINGS
     
-    def __init__(self, library, integration):
-        super(MilleniumPatronAPI, self).__init__(library, integration)
+    def __init__(self, library, integration, analytics=None):
+        super(MilleniumPatronAPI, self).__init__(library, integration, analytics)
         url = integration.url
         if not url:
             raise CannotLoadConfiguration(

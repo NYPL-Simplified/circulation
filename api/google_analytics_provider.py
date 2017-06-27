@@ -3,24 +3,45 @@ import uuid
 import unicodedata
 import urllib
 import re
+from flask.ext.babel import lazy_gettext as _
 from core.util.http import HTTP
+from core.model import (
+    ConfigurationSetting,
+    ExternalIntegration,
+    Session,
+    get_one,
+)
 
 class GoogleAnalyticsProvider(object):
-    INTEGRATION_NAME = "Google Analytics"
+    NAME = _("Google Analytics")
+
+    TRACKING_ID = "tracking_id"
+    DEFAULT_URL = "http://www.google-analytics.com/collect"
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": DEFAULT_URL },
+    ]
+
+    LIBRARY_SETTINGS = [
+        { "key": TRACKING_ID, "label": _("Tracking ID") },
+    ]
     
-    @classmethod
-    def from_config(cls, config):
-        tracking_id = config[Configuration.INTEGRATIONS][cls.INTEGRATION_NAME]['tracking_id']
-        return cls(tracking_id)
+    def __init__(self, integration):
+        url_setting = ConfigurationSetting.for_externalintegration(ExternalIntegration.URL, integration)
+        self.url = url_setting.value or self.DEFAULT_URL
+        self.integration_id = integration.id
 
-    def __init__(self, tracking_id):
-        self.tracking_id = tracking_id
+    def collect_event(self, library, license_pool, event_type, time, **kwargs):
+        _db = Session.object_session(library)
+        integration = get_one(_db, ExternalIntegration, id=self.integration_id)
+        tracking_id = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.TRACKING_ID, library, integration,
+        ).value
 
-    def collect_event(self, _db, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
         fields = {
             'v': 1,
-            'tid': self.tracking_id,
+            'tid': tracking_id,
             'cid': client_id,
             'aip': 1, # anonymize IP
             'ds': "Circulation Manager",
@@ -54,7 +75,7 @@ class GoogleAnalyticsProvider(object):
         fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
         
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
-        self.post("http://www.google-analytics.com/collect", params)
+        self.post(self.url, params)
 
     def post(self, url, params):
         response = HTTP.post_with_timeout(url, params)

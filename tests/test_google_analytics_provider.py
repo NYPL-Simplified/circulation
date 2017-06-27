@@ -11,8 +11,11 @@ from api.google_analytics_provider import GoogleAnalyticsProvider
 from . import DatabaseTest
 from core.model import (
     get_one_or_create,
+    create,
     CirculationEvent,
+    ConfigurationSetting,
     DataSource,
+    ExternalIntegration,
     LicensePool
 )
 import unicodedata
@@ -29,19 +32,33 @@ class MockGoogleAnalyticsProvider(GoogleAnalyticsProvider):
 
 class TestGoogleAnalyticsProvider(DatabaseTest):
 
-    def test_from_config(self):        
-        config = {
-            Configuration.INTEGRATIONS: {
-                GoogleAnalyticsProvider.INTEGRATION_NAME: {
-                    "tracking_id": "faketrackingid"
-                }
-            }
-        }        
-        ga = GoogleAnalyticsProvider.from_config(config)
-        eq_("faketrackingid", ga.tracking_id)
+    def test_init(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="api.google_analytics_provider",
+        )
+        ga = GoogleAnalyticsProvider(integration)
+        eq_(GoogleAnalyticsProvider.DEFAULT_URL, ga.url)
+        eq_(integration.id, ga.integration_id)
+
+        integration.url = self._str
+        ga = GoogleAnalyticsProvider(integration)
+        eq_(integration.url, ga.url)
+        eq_(integration.id, ga.integration_id)
 
     def test_collect_event_with_work(self):
-        ga = MockGoogleAnalyticsProvider("faketrackingid")
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="api.google_analytics_provider",
+        )
+        integration.url = self._str
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
+        ).value = "faketrackingid"
+        ga = MockGoogleAnalyticsProvider(integration)
+
         work = self._work(
             title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
             audience="audience", language="lang", 
@@ -52,11 +69,11 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         work.target_age = NumericRange(10, 15)
         [lp] = work.license_pools
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._db, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
+        ga.collect_event(self._default_library, lp, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
-        eq_("http://www.google-analytics.com/collect", ga.url)
+        eq_(integration.url, ga.url)
         eq_("faketrackingid", params['tid'][0])
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])
@@ -77,7 +94,16 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_("true", params['cd12'][0])
 
     def test_collect_event_without_work(self):
-        ga = MockGoogleAnalyticsProvider("faketrackingid")
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="api.google_analytics_provider",
+        )
+        integration.url = self._str
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
+        ).value = "faketrackingid"
+        ga = MockGoogleAnalyticsProvider(integration)
 
         identifier = self._identifier()
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -88,11 +114,11 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         )
 
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._db, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
+        ga.collect_event(self._default_library, pool, CirculationEvent.DISTRIBUTOR_CHECKIN, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
-        eq_("http://www.google-analytics.com/collect", ga.url)
+        eq_(integration.url, ga.url)
         eq_("faketrackingid", params['tid'][0])
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])
@@ -111,14 +137,23 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         eq_(None, params.get('cd12'))
 
     def test_collect_event_without_license_pool(self):
-        ga = MockGoogleAnalyticsProvider('faketrackingid')
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="api.google_analytics_provider",
+        )
+        integration.url = self._str
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
+        ).value = "faketrackingid"
+        ga = MockGoogleAnalyticsProvider(integration)
 
         now = datetime.datetime.utcnow()
-        ga.collect_event(self._db, None, CirculationEvent.NEW_PATRON, now)
+        ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)
         params = urlparse.parse_qs(ga.params)
 
         eq_(1, ga.count)
-        eq_("http://www.google-analytics.com/collect", ga.url)
+        eq_(integration.url, ga.url)
         eq_("faketrackingid", params['tid'][0])
         eq_("event", params['t'][0])
         eq_("circulation", params['ec'][0])

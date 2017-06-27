@@ -168,7 +168,8 @@ class CirculationManager(object):
         configuration after changes are made in the administrative
         interface.
         """
-        self.auth = Authenticator(self._db)
+        self.analytics = Analytics(self._db)
+        self.auth = Authenticator(self._db, self.analytics)
 
         self.__external_search = None
         self.external_search_initialization_exception = None
@@ -193,7 +194,7 @@ class CirculationManager(object):
             )
 
             self.circulation_apis[library.id] = self.setup_circulation(
-                library
+                library, self.analytics
             )
             authdata = self.setup_adobe_vendor_id(library)
             if authdata and not self.adobe_device_management:
@@ -265,13 +266,13 @@ class CirculationManager(object):
                 return None
             return search
 
-    def setup_circulation(self, library):
+    def setup_circulation(self, library, analytics):
         """Set up the Circulation object."""        
         if self.testing:
             cls = MockCirculationAPI
         else:
             cls = CirculationAPI
-        return cls(self._db, library)
+        return cls(self._db, library, analytics)
         
     def setup_one_time_controllers(self):
         """Set up all the controllers that will be used by the web app.
@@ -1301,7 +1302,7 @@ class AnalyticsController(CirculationManagerController):
             pools = self.load_licensepools(library, identifier_type, identifier)
             if isinstance(pools, ProblemDetail):
                 return pools
-            Analytics.collect_event(self._db, pools[0], event_type, datetime.datetime.utcnow())
+            self.manager.analytics.collect_event(library, pools[0], event_type, datetime.datetime.utcnow())
             return Response({}, 200)
         else:
             return INVALID_ANALYTICS_EVENT_TYPE

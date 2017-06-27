@@ -37,7 +37,6 @@ from core.util.problem_detail import (
 from core.util.opds_authentication_document import (
     OPDSAuthenticationDocument,
 )
-from core.analytics import Analytics
 from core.mock_analytics_provider import MockAnalyticsProvider
 
 from api.millenium_patron import MilleniumPatronAPI
@@ -89,9 +88,9 @@ class MockBasicAuthenticationProvider(
     """A mock basic authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, library_id, integration, patron=None, patrondata=None, *args, **kwargs):
+    def __init__(self, library_id, integration, analytics=None, patron=None, patrondata=None, *args, **kwargs):
         super(MockBasicAuthenticationProvider, self).__init__(
-            library_id, integration, *args, **kwargs)
+            library_id, integration, analytics, *args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
 
@@ -109,10 +108,10 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
-    def __init__(self, library_id, integration, patrondata=None,
+    def __init__(self, library_id, integration, analytics=None, patrondata=None,
                  remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
-        super(MockBasic, self).__init__(library_id, integration, *args, **kwargs)
+        super(MockBasic, self).__init__(library_id, integration, analytics)
         self.patrondata = patrondata
         self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
         
@@ -149,10 +148,10 @@ class MockOAuth(OAuthAuthenticationProvider):
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
-    def __init__(self, library, name="Mock OAuth", integration=None):
+    def __init__(self, library, name="Mock OAuth", integration=None, analytics=None):
         _db = Session.object_session(library)
         integration = integration or self._mock_integration(_db, name)
-        super(MockOAuth, self).__init__(library, integration)
+        super(MockOAuth, self).__init__(library, integration, analytics)
 
     @classmethod
     def _mock_integration(self, _db, name):
@@ -352,37 +351,27 @@ class TestPatronData(AuthenticatorTest):
         eq_(None, patron.last_external_sync)
 
     def test_get_or_create_patron(self):
-        config = {
-            Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
-            }
-        }
-        with temp_config(config) as config:
-            provider = MockAnalyticsProvider()
-            analytics = Analytics.initialize(
-                ['core.mock_analytics_provider'], config
-            )
-            mock = Analytics.instance().providers[0]
+        analytics = MockAnalyticsProvider()
 
-            # The patron didn't exist yet, so it was created
-            # and an analytics event was sent.
-            patron, is_new = self.data.get_or_create_patron(
-                self._db, self._default_library.id
-            )
-            eq_('2', patron.authorization_identifier)
-            eq_(self._default_library, patron.library)
-            eq_(True, is_new)
-            eq_(CirculationEvent.NEW_PATRON, mock.event_type)
-            eq_(1, mock.count)
+        # The patron didn't exist yet, so it was created
+        # and an analytics event was sent.
+        patron, is_new = self.data.get_or_create_patron(
+            self._db, self._default_library.id, analytics
+        )
+        eq_('2', patron.authorization_identifier)
+        eq_(self._default_library, patron.library)
+        eq_(True, is_new)
+        eq_(CirculationEvent.NEW_PATRON, analytics.event_type)
+        eq_(1, analytics.count)
 
-            # The same patron is returned, and no analytics
-            # event was sent.
-            patron, is_new = self.data.get_or_create_patron(
-                self._db, self._default_library.id
-            )
-            eq_('2', patron.authorization_identifier)
-            eq_(False, is_new)
-            eq_(1, mock.count)
+        # The same patron is returned, and no analytics
+        # event was sent.
+        patron, is_new = self.data.get_or_create_patron(
+            self._db, self._default_library.id, analytics
+        )
+        eq_('2', patron.authorization_identifier)
+        eq_(False, is_new)
+        eq_(1, analytics.count)
 
     def test_to_response_parameters(self):
 
@@ -406,8 +395,10 @@ class TestAuthenticator(ControllerTest):
         l2.integrations.append(integration)
 
         self._db.commit()
+
+        analytics = MockAnalyticsProvider()
         
-        auth = Authenticator(self._db)
+        auth = Authenticator(self._db, analytics)
 
         # A LibraryAuthenticator has been created for each Library.
         assert 'l1' in auth.library_authenticators
@@ -426,6 +417,10 @@ class TestAuthenticator(ControllerTest):
             auth.library_authenticators['l2'].basic_auth_provider,
             MilleniumPatronAPI
         )
+
+        # Each provider has the analytics set.
+        eq_(analytics, auth.library_authenticators['l1'].basic_auth_provider.analytics)
+        eq_(analytics, auth.library_authenticators['l2'].basic_auth_provider.analytics)
 
     def test_methods_call_library_authenticators(self):
         class MockLibraryAuthenticator(LibraryAuthenticator):
@@ -505,17 +500,20 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         oauth.password = "client_secret"
         library.integrations.append(oauth)
 
-        auth = LibraryAuthenticator.from_config(self._db, library)
+        analytics = MockAnalyticsProvider()
+        auth = LibraryAuthenticator.from_config(self._db, library, analytics)
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider,
                           FirstBookAuthenticationAPI)
+        eq_(analytics, auth.basic_auth_provider.analytics)
             
         eq_(1, len(auth.oauth_providers_by_name))
         clever = auth.oauth_providers_by_name[
             CleverAuthenticationAPI.NAME
         ]
         assert isinstance(clever, CleverAuthenticationAPI)
+        eq_(analytics, clever.analytics)
             
     def test_config_succeeds_when_no_providers_configured(self):
         """You can call from_config even when there are no authentication
@@ -1439,7 +1437,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     def test_success(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = self.mock_basic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
 
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
@@ -1453,14 +1451,14 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     def test_failure_when_remote_authentication_returns_problemdetail(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = self.mock_basic(UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        provider = self.mock_basic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM,
             provider.authenticate(self._db, self.credentials))
 
     def test_failure_when_remote_authentication_returns_none(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = self.mock_basic(None)
+        provider = self.mock_basic(patrondata=None)
         eq_(None,
             provider.authenticate(self._db, self.credentials))
         
@@ -1490,7 +1488,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         authentication provider. But we handle it.
         """
         patrondata = PatronData(permanent_id=self._str)
-        provider = self.mock_basic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
 
         # When we call remote_authenticate(), we get patrondata, but
         # there is no corresponding local patron, so we call
@@ -1512,7 +1510,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         integration = self._external_integration(
             self._str, ExternalIntegration.PATRON_AUTH_GOAL
         )
-        provider = MockBasic(library, integration, patrondata, patrondata)
+        provider = MockBasic(library, integration, patrondata=patrondata, remote_patron_lookup_patrondata=patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
@@ -1548,7 +1546,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             username=new_username,
         )
 
-        provider = self.mock_basic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1577,7 +1575,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             username=username,
         )
 
-        provider = self.mock_basic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1606,7 +1604,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
             username=new_username,
         )
 
-        provider = self.mock_basic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
