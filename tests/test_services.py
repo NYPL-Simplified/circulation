@@ -15,6 +15,7 @@ from api.config import (
 from api.authenticator import (
     LibraryAuthenticator
 )
+from api.circulation import CirculationAPI
 from api.simple_authentication import (
     SimpleAuthenticationProvider
 )
@@ -60,9 +61,11 @@ class TestServiceStatusMonitor(DatabaseTest):
         integration.setting(provider.TEST_IDENTIFIER).value = "validpatron"
         integration.setting(provider.TEST_PASSWORD).value = "password"
         self._default_library.integrations.append(integration)
-        service_status = ServiceStatus(self._default_library)
+        api = CirculationAPI(self._db, self._default_library)
+        service_status = ServiceStatus(api)
         assert service_status.auth != None
         assert isinstance(service_status.auth.basic_auth_provider, provider)
+        eq_(self._default_library, service_status.auth.library)
         
     @property
     def mock_auth(self):
@@ -80,7 +83,8 @@ class TestServiceStatusMonitor(DatabaseTest):
         """
         auth = self.mock_auth
         provider = auth.basic_auth_provider
-        status = ServiceStatus(self._default_library, auth=auth)
+        api = CirculationAPI(self._db, self._default_library)
+        status = ServiceStatus(api, auth=auth)
         patron, password = status.test_patron
         eq_(provider.test_username, patron.authorization_identifier)
         eq_(provider.test_password, password)
@@ -121,9 +125,9 @@ class TestServiceStatusMonitor(DatabaseTest):
             ExternalIntegration.AXIS_360 : MockPatronActivitySuccess
         }
         
-        status = ServiceStatus(
-            self._default_library, auth=auth, api_map=everything_succeeds
-        )
+        api = CirculationAPI(self._db, self._default_library,
+                             api_map=everything_succeeds)
+        status = ServiceStatus(api, auth=auth)
         response = status.loans_status(response=True)
         for value in response.values():
             assert value.startswith('SUCCESS')
@@ -133,9 +137,9 @@ class TestServiceStatusMonitor(DatabaseTest):
             ExternalIntegration.OVERDRIVE : MockPatronActivityFailure,
             ExternalIntegration.AXIS_360 : MockPatronActivitySuccess
         }
-        status = ServiceStatus(
-            self._default_library, auth=auth, api_map=overdrive_fails
-        )
+        api = CirculationAPI(self._db, self._default_library,
+                             api_map=overdrive_fails)
+        status = ServiceStatus(api, auth=auth)
         response = status.loans_status(response=True)
         key = '%s patron account (Overdrive)' % overdrive_collection.name
         eq_("FAILURE: Doomed to fail!", response[key])
@@ -206,7 +210,8 @@ class TestServiceStatusMonitor(DatabaseTest):
         everything_succeeds = {ExternalIntegration.OVERDRIVE : CheckoutSuccess}
 
         auth = self.mock_auth
-        status = ServiceStatus(library, auth=auth, api_map=everything_succeeds)
+        api = CirculationAPI(self._db, library, api_map=everything_succeeds)
+        status = ServiceStatus(api, auth=auth)
         ConfigurationSetting.for_library(
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
         ).value = "a@b"
@@ -231,7 +236,8 @@ class TestServiceStatusMonitor(DatabaseTest):
                 "Oops! We put the book on hold instead of borrowing it."
                 return None, object(), True
         no_loan_created = {ExternalIntegration.OVERDRIVE : NoLoanCreated}
-        status = ServiceStatus(library, auth=auth, api_map=no_loan_created)
+        api = CirculationAPI(self._db, library, api_map=no_loan_created)
+        status = ServiceStatus(api, auth=auth)
         response = status.checkout_status(lp.identifier)
         assert 'FAILURE: No loan created during checkout' in response.values()
 
@@ -241,7 +247,8 @@ class TestServiceStatusMonitor(DatabaseTest):
                 "Simulate an error during loan revocation."
                 raise Exception("Doomed to fail!")
         revoke_fail = {ExternalIntegration.OVERDRIVE : RevokeFail}
-        status = ServiceStatus(library, auth=auth, api_map=revoke_fail)
+        api = CirculationAPI(self._db, library, api_map=revoke_fail)
+        status = ServiceStatus(api, auth=auth)
         response = status.checkout_status(lp.identifier)
         assert 'FAILURE: Doomed to fail!' in response.values()
 

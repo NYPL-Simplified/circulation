@@ -20,6 +20,7 @@ from core.model import (
     ExternalIntegration,
     Identifier,
     DataSource,
+    Library,
     LicensePoolDeliveryMechanism,
     LicensePool,
     Loan,
@@ -171,27 +172,26 @@ class CirculationAPI(object):
     'borrow'.
     """
 
-    def __init__(self, library, api_map=None):
+    def __init__(self, _db, library, api_map=None):
         """Constructor.
 
-        # TODO: This needs to take a database connection as well so
-        # that we can keep the scoped session. It should only store
-        # library_id or patron_id. OR, we need to make sure we create
-        # a new CirculationAPI on each request.
+        :param _db: A database session (probably a scoped session, which is
+            why we can't derive it from `library`).
 
         :param library: A Library object representing the library
-          whose circulation we're concerned with at the moment. TODO:
-          it would be better if this took a Patron, but currently
-          Patrons aren't associated with Libraries.
+          whose circulation we're concerned with.
 
         :param api_map: A dictionary mapping Collection protocols to
            API classes that should be instantiated to deal with these
            protocols. The default map will work fine unless you're a
            unit test.
 
+           Since instantiating these API classes may result in API
+           calls, we only instantiate one CirculationAPI per library,
+           and keep them around as long as possible.
         """
-        self._db = Session.object_session(library)
-        self.library = library
+        self._db = _db
+        self.library_id = library.id
         self.initialization_exceptions = dict()
         api_map = api_map or self.default_api_map
 
@@ -222,6 +222,10 @@ class CirculationAPI(object):
                     self.collection_ids_for_sync.append(collection.id)
 
     @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+                    
+    @property
     def default_api_map(self):
         """When you see a Collection that implements protocol X, instantiate
         API class Y to handle that collection.
@@ -244,7 +248,7 @@ class CirculationAPI(object):
     def can_revoke_hold(self, licensepool, hold):
         """Some circulation providers allow you to cancel a hold
         when the book is reserved to you. Others only allow you to cancel
-        a hole while you're in the hold queue.
+        a hold while you're in the hold queue.
         """
         if hold.position is None or hold.position > 0:
             return True
