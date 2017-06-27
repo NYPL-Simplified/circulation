@@ -133,7 +133,7 @@ try:
         integrations.append(integration)
         
     # Add each integration to each library.
-    library = Library.instance(_db)
+    library = Library.default(_db)
     for library in _db.query(Library):
         for integration in integrations:
             if integration not in library.integrations:

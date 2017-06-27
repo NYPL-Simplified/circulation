@@ -36,7 +36,6 @@ try:
         )
         secret_setting.value = secret_key
     
-    library = Library.instance(_db)
     libraries = _db.query(Library).all()
     
     # Copy default email address into each library.
