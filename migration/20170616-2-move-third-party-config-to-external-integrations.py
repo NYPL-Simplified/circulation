@@ -31,7 +31,7 @@ def log_import(integration_or_setting):
 try:
     Configuration.load()
     _db = production_session()
-    LIBRARIES = _db.query(Library).all() or [Library.instance(_db)]
+    LIBRARIES = _db.query(Library).all()
 
     # Import Circulation Manager base url.
     circ_manager_conf = Configuration.integration('Circulation Manager')
@@ -85,7 +85,7 @@ try:
         other_libraries = adobe_conf.get('other_libraries')
 
         if node_value:
-            node_library = Library.instance(_db)
+            node_library = Library.default(_db)
             integration = EI(protocol=EI.ADOBE_VENDOR_ID, goal=EI.DRM_GOAL)
             _db.add(integration)
 

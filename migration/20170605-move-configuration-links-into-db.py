@@ -19,7 +19,7 @@ from api.config import Configuration
 
 Configuration.load()
 _db = production_session()
-library = Library.instance(_db)
+library = Library.default(_db)
 
 for rel, value in (
         ("terms-of-service", Configuration.get('links', {}).get('terms_of_service', None)),
