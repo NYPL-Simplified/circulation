@@ -473,7 +473,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(True, provider.replacement_policy.identifiers)
         eq_(False, provider.replacement_policy.formats)
         
-        policy = ReplacementPolicy.from_license_source()
+        policy = ReplacementPolicy.from_license_source(self._db)
         provider = AlwaysSuccessfulCoverageProvider(
             self._db, replacement_policy=policy
         )
