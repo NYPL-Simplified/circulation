@@ -43,7 +43,7 @@ from model import (
     Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
-from core.analytics import Analytics
+from analytics import Analytics
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
