@@ -1,7 +1,7 @@
 class MockAnalyticsProvider(object):
     """A mock analytics provider that keeps track of how many times it's called."""
 
-    def __init__(self, integration=None):
+    def __init__(self, integration=None, library=None):
         self.count = 0
         self.event = None
         if integration:
