@@ -18,6 +18,7 @@ import traceback
 import unicodedata
 
 from collections import defaultdict
+from external_search import ExternalSearchIndex
 import json
 from nose.tools import set_trace
 from sqlalchemy import create_engine
@@ -36,6 +37,7 @@ from model import (
     get_one,
     get_one_or_create,
     production_session,
+    CachedFeed,
     Collection,
     Complaint,
     ConfigurationSetting,
@@ -50,6 +52,7 @@ from model import (
     LicensePool,
     Patron,
     PresentationCalculationPolicy,
+    SessionManager,
     Subject,
     Timestamp,
     Work,
@@ -2242,6 +2245,86 @@ class Explain(IdentifierInputScript):
             print "  %s: %r" % (active, pool.identifier)
 
 
+class FixInvisibleWorksScript(Script):
+    """Try to figure out why Works aren't showing up.
+
+    This is a common problem on a new installation.
+    """
+    def __init__(self, _db=None, output=None, search=None):
+        super(FixInvisibleWorksScript, self).__init__(_db)
+        self.output = output or sys.stdout
+        self.search = search or None # ExternalSearchIndex(_db)
+    
+    def run(self):
+        ready = self._db.query(Work).filter(Work.presentation_ready==True)
+        unready = self._db.query(Work).filter(Work.presentation_ready==False)
+        ready_count = ready.count()
+        unready_count = unready.count()
+        self.output.write("%d presentation-ready works.\n" % ready_count)
+        self.output.write("%d works not presentation-ready.\n" % unready_count)
+
+        if unready_count > 0:
+            self.output.write(
+                "Attempting to make %d works presentation-ready based on their metadata.\n" % (unready_count)
+            )
+            for work in unready:
+                work.set_presentation_ready_based_on_content(search)
+            self.output.write(
+                "%d works are now presentation-ready.\n" % ready.count()
+            )
+
+        ready_count = ready.count()
+        if ready_count == 0:
+            self.output.write(
+                "Here's your problem: there are no presentation-ready works.\n"
+            )
+            return
+
+        # See how many works are in the materialized view.
+        from model import MaterializedWork
+        mv_works = self._db.query(MaterializedWork)
+        mv_works_count = mv_works.count()
+        self.output.write(
+            "%d works in materialized view.\n" % mv_works_count
+        )
+        
+        # If the number of works in the materialized view is more than
+        # 5% off from the number of presentation-ready works, rebuild
+        # the materialized views.
+        #
+        # If the number of works is very small, such that it's not big
+        # deal to refresh the materialized views, just refresh them
+        # every time.
+        if mv_works_count < 1000 or float(mv_works_count) / ready_count < 0.995:
+            self.output.write("Refreshing the materialized views.\n")
+            SessionManager.refresh_materialized_views(self._db)
+            mv_works_count = mv_works.count()
+            self.output.write(
+                "%d works in materialized view after refresh.\n" % (
+                    mv_works_count
+                )
+            )
+
+        if mv_works_count == 0:
+            self.output.write(
+                "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
+            )
+            return
+            
+        page_feeds = self._db.query(CachedFeed).filter(
+            CachedFeed.type != CachedFeed.GROUPS_TYPE)
+        page_feeds_count = page_feeds.count()
+        self.output.write(
+            "%d page-type feeds in cachedfeeds table.\n" % page_feeds_count
+        )
+        if page_feeds_count:
+            self.output.write("Deleting them all.\n")
+            for feed in page_feeds:
+                self._db.delete(feed)
+        self._db.commit()
+        self.output.write(
+            "I would now expect you to be able to find %d works.\n" % mv_works_count
+        )
 
 class SubjectAssignmentScript(SubjectInputScript):
 
