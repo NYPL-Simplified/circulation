@@ -43,6 +43,7 @@ from model import (
     Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
+from analytics import Analytics
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -59,6 +60,7 @@ class ReplacementPolicy(object):
             link_content=False,
             mirror=None,
             content_modifier=None,
+            analytics=None,
             http_get=None,
             even_if_not_apparently_updated=False,
             presentation_calculation_policy=None
@@ -73,6 +75,7 @@ class ReplacementPolicy(object):
         self.even_if_not_apparently_updated = even_if_not_apparently_updated
         self.mirror = mirror
         self.content_modifier = content_modifier
+        self.analytics = analytics
         self.http_get = http_get
         self.presentation_calculation_policy = (
             presentation_calculation_policy or
@@ -80,11 +83,12 @@ class ReplacementPolicy(object):
         )
 
     @classmethod
-    def from_license_source(self, **args):
+    def from_license_source(self, _db, **args):
         """When gathering data from the license source, overwrite all old data
         from this source with new data from the same source. Also
         overwrite an old rights status with an updated status and update
-        the list of available formats.
+        the list of available formats. Log availability changes to the
+        configured analytics services.
         """
         return ReplacementPolicy(
             identifiers=True,
@@ -93,6 +97,7 @@ class ReplacementPolicy(object):
             links=True,
             rights=True,
             formats=True,
+            analytics=Analytics(_db),
             **args
         )
 
@@ -802,11 +807,14 @@ class CirculationData(MetaToModelUtility):
             self.primary_identifier_obj = obj
         return self.primary_identifier_obj
     
-    def license_pool(self, _db, collection):
+    def license_pool(self, _db, collection, analytics=None):
         """Find or create a LicensePool object for this CirculationData.
 
         :param collection: The LicensePool object will be associated with
             the given Collection.
+
+        :param analytics: If the LicensePool is newly created, the event
+            will be tracked with this.
         """
         if not collection:
             raise ValueError(
@@ -830,17 +838,15 @@ class CirculationData(MetaToModelUtility):
             license_pool.open_access = self.has_open_access_link
             license_pool.availability_time = self.last_checked
             # This is our first time seeing this LicensePool. Log its
-            # occurence as a separate event.
-            event = get_one_or_create(
-                _db, CirculationEvent,
-                type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                license_pool=license_pool,
-                create_method_kwargs=dict(
-                    start=self.last_checked,
-                    delta=1,
-                    end=self.last_checked,
-                )
-            )
+            # occurrence as a separate analytics event.
+            if analytics:
+                for library in collection.libraries:
+                    analytics.collect_event(
+                        library, license_pool,
+                        CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                        self.last_checked,
+                        old_value=0, new_value=1,
+                    )
             license_pool.last_checked = self.last_checked
 
         return license_pool, is_new
@@ -900,7 +906,7 @@ class CirculationData(MetaToModelUtility):
 
         pool = None
         if collection:
-            pool, ignore = self.license_pool(_db, collection)
+            pool, ignore = self.license_pool(_db, collection, replace.analytics)
             
         data_source = self.data_source(_db)
         identifier = self.primary_identifier(_db)
@@ -978,11 +984,13 @@ class CirculationData(MetaToModelUtility):
         if pool and self._availability_needs_update(pool):
             # Update availabily information. This may result in
             # the issuance of additional circulation events.
+            analytics = Analytics(_db)
             changed_availability = pool.update_availability(
                 new_licenses_owned=self.licenses_owned,
                 new_licenses_available=self.licenses_available,
                 new_licenses_reserved=self.licenses_reserved,
                 new_patrons_in_hold_queue=self.patrons_in_hold_queue,
+                analytics=replace.analytics,
                 as_of=self.last_checked
             )
                     

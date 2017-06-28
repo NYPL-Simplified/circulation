@@ -101,10 +101,6 @@ from . import (
     DummyHTTPClient,
 )
 
-from analytics import (
-    Analytics,
-    temp_analytics
-)
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDatabaseInterface(DatabaseTest):
@@ -1298,18 +1294,17 @@ class TestLicensePool(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
-        with temp_analytics("mock_analytics_provider", {}):
-            work = self._work(with_license_pool=True)
-            [pool] = work.license_pools
-            pool.update_availability(30, 20, 2, 0)
-            provider = Analytics.instance().providers[0]
-            count = provider.count
-            pool.update_availability(30, 21, 2, 0)
-            eq_(count + 1, provider.count)
-            eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
-            pool.update_availability(30, 21, 2, 1)
-            eq_(count + 2, provider.count)
-            eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        provider = MockAnalyticsProvider()
+        pool.update_availability(30, 20, 2, 0, analytics=provider)
+        count = provider.count
+        pool.update_availability(30, 21, 2, 0, analytics=provider)
+        eq_(count + 1, provider.count)
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
+        pool.update_availability(30, 21, 2, 1, analytics=provider)
+        eq_(count + 2, provider.count)
+        eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
 
     def test_update_availability_does_nothing_if_given_no_data(self):
         """Passing an empty set of data into update_availability is

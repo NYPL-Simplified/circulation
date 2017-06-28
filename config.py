@@ -130,7 +130,11 @@ class Configuration(object):
         },
         {
             "key": GROUPED_MAX_AGE_POLICY,
-            "label": _("Cache time for grouped OPDS feeds")
+            "label": _("Cache time for grouped OPDS feeds"),
+        },
+        {
+            "key": BASE_URL_KEY,
+            "label": _("Base url of the application"),
         },
     ]
 

@@ -445,7 +445,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             self.collection_id = collection.id
         self.input_identifiers = input_identifiers
         self.replacement_policy = (
-            replacement_policy or self._default_replacement_policy
+            replacement_policy or self._default_replacement_policy(_db)
         )
         
         if not self.DATA_SOURCE_NAME:
@@ -457,8 +457,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         # if INPUT_IDENTIFIER_TYPES is not set properly.
         self.input_identifier_types = self._input_identifier_types()
 
-    @property
-    def _default_replacement_policy(self):
+    def _default_replacement_policy(self, _db):
         """Unless told otherwise, assume that we are getting
         this data from a reliable metadata source.
         """
@@ -743,13 +742,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             _db, collection, **kwargs
         )
 
-    @property
-    def _default_replacement_policy(self):
+    def _default_replacement_policy(self, _db):
         """Unless told otherwise, assume that we are getting
         this data from a reliable source of both metadata and circulation
         information.
         """
-        return ReplacementPolicy.from_license_source()
+        return ReplacementPolicy.from_license_source(_db)
         
     @classmethod
     def all(cls, _db, **kwargs):
