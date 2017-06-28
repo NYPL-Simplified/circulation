@@ -1,10 +1,10 @@
 from nose.tools import (
     eq_,
-    set_trace
+    set_trace,
+    assert_raises_regexp,
 )
 from api.config import (
-    Configuration,
-    temp_config,
+    CannotLoadConfiguration,
 )
 from core.analytics import Analytics
 from api.google_analytics_provider import GoogleAnalyticsProvider
@@ -38,14 +38,30 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
             goal=ExternalIntegration.ANALYTICS_GOAL,
             protocol="api.google_analytics_provider",
         )
-        ga = GoogleAnalyticsProvider(integration)
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Google Analytics can't be configured without a library.",
+            GoogleAnalyticsProvider, integration
+        )
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Missing tracking id for library %s" % self._default_library.short_name,
+            GoogleAnalyticsProvider, integration, self._default_library
+        )
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
+        ).value = "faketrackingid"
+        ga = GoogleAnalyticsProvider(integration, self._default_library)
         eq_(GoogleAnalyticsProvider.DEFAULT_URL, ga.url)
-        eq_(integration.id, ga.integration_id)
+        eq_("faketrackingid", ga.tracking_id)
 
         integration.url = self._str
-        ga = GoogleAnalyticsProvider(integration)
+        ga = GoogleAnalyticsProvider(integration, self._default_library)
         eq_(integration.url, ga.url)
-        eq_(integration.id, ga.integration_id)
+        eq_("faketrackingid", ga.tracking_id)
 
     def test_collect_event_with_work(self):
         integration, ignore = create(
@@ -57,7 +73,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
         ).value = "faketrackingid"
-        ga = MockGoogleAnalyticsProvider(integration)
+        ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
         work = self._work(
             title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
@@ -103,7 +119,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
         ).value = "faketrackingid"
-        ga = MockGoogleAnalyticsProvider(integration)
+        ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
         identifier = self._identifier()
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -146,7 +162,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, integration
         ).value = "faketrackingid"
-        ga = MockGoogleAnalyticsProvider(integration)
+        ga = MockGoogleAnalyticsProvider(integration, self._default_library)
 
         now = datetime.datetime.utcnow()
         ga.collect_event(self._default_library, None, CirculationEvent.NEW_PATRON, now)

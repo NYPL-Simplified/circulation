@@ -1,4 +1,4 @@
-from config import Configuration
+from config import CannotLoadConfiguration
 import uuid
 import unicodedata
 import urllib
@@ -26,22 +26,24 @@ class GoogleAnalyticsProvider(object):
         { "key": TRACKING_ID, "label": _("Tracking ID") },
     ]
     
-    def __init__(self, integration):
+    def __init__(self, integration, library=None):
+        _db = Session.object_session(integration)
+        if not library:
+            raise CannotLoadConfiguration("Google Analytics can't be configured without a library.")
         url_setting = ConfigurationSetting.for_externalintegration(ExternalIntegration.URL, integration)
         self.url = url_setting.value or self.DEFAULT_URL
-        self.integration_id = integration.id
-
-    def collect_event(self, library, license_pool, event_type, time, **kwargs):
-        _db = Session.object_session(library)
-        integration = get_one(_db, ExternalIntegration, id=self.integration_id)
-        tracking_id = ConfigurationSetting.for_library_and_externalintegration(
+        self.tracking_id = ConfigurationSetting.for_library_and_externalintegration(
             _db, self.TRACKING_ID, library, integration,
         ).value
+        if not self.tracking_id:
+            raise CannotLoadConfiguration("Missing tracking id for library %s" % library.short_name)
 
+
+    def collect_event(self, library, license_pool, event_type, time, **kwargs):
         client_id = uuid.uuid4()
         fields = {
             'v': 1,
-            'tid': tracking_id,
+            'tid': self.tracking_id,
             'cid': client_id,
             'aip': 1, # anonymize IP
             'ds': "Circulation Manager",
