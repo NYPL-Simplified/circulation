@@ -2268,7 +2268,7 @@ class FixInvisibleWorksScript(Script):
                 "Attempting to make %d works presentation-ready based on their metadata.\n" % (unready_count)
             )
             for work in unready:
-                work.set_presentation_ready_based_on_content(search)
+                work.set_presentation_ready_based_on_content(self.search)
             self.output.write(
                 "%d works are now presentation-ready.\n" % ready.count()
             )

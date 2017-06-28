@@ -20,10 +20,12 @@ from config import (
     Configuration, 
     temp_config,
 )
+from external_search import DummyExternalSearchIndex
 
 from model import (
     create,
     get_one,
+    CachedFeed,
     Collection,
     Complaint, 
     ConfigurationSetting,
@@ -52,6 +54,7 @@ from scripts import (
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
+    FixInvisibleWorksScript,
     LibraryInputScript,
     MockStdin,
     OneClickDeltaScript,
@@ -1622,6 +1625,76 @@ class TestOPDSImportScript(DatabaseTest):
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
         eq_(self._default_collection, monitor.collection)
         eq_(True, monitor.kwargs['force_reimport'])
+
+
+class TestFixInvisibleWorksScript(DatabaseTest):
+
+    def test_no_presentation_ready_works(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        FixInvisibleWorksScript(self._db, output).run()
+        eq_("""0 presentation-ready works.
+0 works not presentation-ready.
+Here's your problem: there are no presentation-ready works.
+""", output.getvalue())
+
+    def test_no_materialized_view(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work is marked as presentation-ready, but it has no
+        # LicensePools, and will not show up in the materialized view.
+        work = self._work(with_license_pool=False)
+        work.presentation_ready=True
+        FixInvisibleWorksScript(self._db, output).run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+0 works in materialized view after refresh.
+Here's your problem: your presentation-ready works are not making it into the materialized view.
+""", output.getvalue())
+        
+    def test_success(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # Let's add a work that's not presentation-ready for a stupid
+        # reason.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready = False
+
+        # It's not in the materialized view.
+        from model import MaterializedWork
+        mw_query = self._db.query(MaterializedWork)
+        eq_(0, mw_query.count())
+        
+        # Let's also add a CachedFeed which might be clogging things up.
+        feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
+                      pagination="")
+        
+        FixInvisibleWorksScript(self._db, output).run()
+        eq_("""0 presentation-ready works.
+1 works not presentation-ready.
+Attempting to make 1 works presentation-ready based on their metadata.
+1 works are now presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+1 page-type feeds in cachedfeeds table.
+Deleting them all.
+I would now expect you to be able to find 1 works.
+""", output.getvalue())
+
+        # The Work was made presentation-ready
+        eq_(True, work.presentation_ready)
+
+        # The CachedFeed was deleted.
+        eq_(0, self._db.query(CachedFeed).count())
+
+        # The materialized view was refreshed.
+        eq_(1, mw_query.count())
 
 
 class TestWorkConsolidationScript(object):
