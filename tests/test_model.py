@@ -6048,6 +6048,20 @@ class TestCollection(DatabaseTest):
         eq_(set([self.collection, c1, c2]),
             set(Collection.by_protocol(self._db, None).all()))
 
+    def test_by_datasource(self):
+        """Collections can be found by their associated DataSource"""
+        c1 = self._collection(data_source_name=DataSource.GUTENBERG)
+        c2 = self._collection(data_source_name=DataSource.OVERDRIVE)
+
+        # Using the DataSource name
+        eq_(set([c1]),
+            set(Collection.by_datasource(self._db, DataSource.GUTENBERG).all()))
+
+        # Using the DataSource itself
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        eq_(set([c2]),
+            set(Collection.by_datasource(self._db, overdrive).all()))
+
     def test_create_external_integration(self):
         # A newly created Collection has no associated ExternalIntegration.
         collection, ignore = get_one_or_create(

@@ -8,7 +8,6 @@ import copy
 from util import LanguageCodes
 from flask.ext.babel import lazy_gettext as _
 
-from s3 import S3Uploader
 from facets import FacetConstants
 
 class CannotLoadConfiguration(Exception):
@@ -86,7 +85,7 @@ class Configuration(object):
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
-    # ConfigurationSEtting key for a CDN's mirror domain
+    # ConfigurationSetting key for a CDN's mirror domain
     CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
     UNINITIALIZED_CDNS = object()
@@ -391,9 +390,12 @@ class Configuration(object):
             )
         cls.instance = configuration
 
-        if _db:               
+        if _db:
             cls.load_cdns(_db)
             cls.instance[cls.LOADED_FROM_DATABASE] = True
+            for parent in cls.__bases__:
+                if parent.__name__.endswith('Configuration'):
+                    parent.load(_db)
         else:
             if not cls.integration('CDN'):
                 cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS

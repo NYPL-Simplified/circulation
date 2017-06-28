@@ -723,7 +723,7 @@ class DatabaseTest(object):
     
     def _collection(self, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
-                    password=None):
+                    password=None, data_source_name=None):
         name = name or self._str
         collection, ignore = get_one_or_create(
             self._db, Collection, name=name
@@ -733,6 +733,11 @@ class DatabaseTest(object):
         integration.url = url
         integration.username = username
         integration.password = password
+
+        if data_source_name:
+            integration.set_setting(
+                Collection.DATA_SOURCE_NAME_SETTING, data_source_name
+            )
         return collection
         
     @property

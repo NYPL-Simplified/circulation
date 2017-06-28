@@ -1552,11 +1552,14 @@ class OPDSImportScript(CollectionInputScript):
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         for collection in parsed.collections:
-            monitor = self.MONITOR_CLASS(
-                self._db, collection, import_class=self.IMPORTER_CLASS,
-                force_reimport=parsed.force
-            )
-            monitor.run()
+            self.run_monitor(collection, force=parsed.force)
+
+    def run_monitor(self, collection, force=None):
+        monitor = self.MONITOR_CLASS(
+            self._db, collection, import_class=self.IMPORTER_CLASS,
+            force_reimport=force
+        )
+        monitor.run()
 
 
 class RefreshMaterializedViewsScript(Script):

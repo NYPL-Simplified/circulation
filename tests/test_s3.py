@@ -99,7 +99,7 @@ class TestS3URLGeneration(DatabaseTest):
         # an error ir raised.
         assert_raises_regexp(
             CannotLoadConfiguration, 'No S3 bucket found', S3Uploader.get_bucket,
-            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY
+            'nonexistent_bucket_key'
         )
 
     def test_content_root(self):
