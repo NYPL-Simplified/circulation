@@ -1362,9 +1362,10 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
 
-            # All the protocols in ExternalIntegration.LICENSE_PROTOCOLS are supported by the admin interface.
-            eq_(sorted([p.get("name") for p in response.get("protocols")]),
-                sorted(ExternalIntegration.LICENSE_PROTOCOLS))
+
+            names = [p.get("name") for p in response.get("protocols")]
+            assert ExternalIntegration.OVERDRIVE in names
+            assert ExternalIntegration.OPDS_IMPORT in names
 
     def test_collections_get_with_multiple_collections(self):
 
