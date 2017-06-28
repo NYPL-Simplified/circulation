@@ -1,12 +1,13 @@
-import tinys3
+import logging
 import os
+import tinys3
 import urllib
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from urlparse import urlsplit
 from util.mirror import MirrorUploader
 
-import logging
+from config import CannotLoadConfiguration
 from requests.exceptions import (
     ConnectionError,
     HTTPError,
@@ -17,7 +18,6 @@ class S3Uploader(MirrorUploader):
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
-    STATIC_OPDS_FEED_BUCKET_KEY = u'static_feed_bucket'
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
@@ -92,7 +92,7 @@ class S3Uploader(MirrorUploader):
 
     @classmethod
     def get_bucket(cls, bucket_key, sessioned_object=None):
-        from config import CannotLoadConfiguration
+        """Gets the bucket for a particular use based on the given key"""
         if cls.__buckets__ == cls.UNINITIALIZED_BUCKETS:
             if not sessioned_object:
                 raise CannotLoadConfiguration(

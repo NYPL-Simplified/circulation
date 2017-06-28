@@ -9093,8 +9093,16 @@ class ExternalIntegration(Base):
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
 
+    # These protocols are only used on the Content Server when mirroring
+    # content from a given directory or directly from Project
+    # Gutenberg, respectively. These protocols aren't intended for use
+    # with LicensePools on the Circulation Manager.
+    DIRECTORY_IMPORT = u'Directory Import'
+    GUTENBERG = DataSource.GUTENBERG
+
     LICENSE_PROTOCOLS = [
-        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK,
+        DIRECTORY_IMPORT, GUTENBERG,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
@@ -9589,6 +9597,19 @@ class Collection(Base):
             ExternalIntegration.id==Collection.external_integration_id).filter(
                 ExternalIntegration.goal==ExternalIntegration.LICENSE_GOAL
             ).filter(ExternalIntegration.protocol==protocol)
+        return qu
+
+    @classmethod
+    def by_datasource(cls, _db, data_source):
+        """Query collections that are associated with the given DataSource."""
+        if isinstance(data_source, DataSource):
+            data_source = data_source.name
+
+        qu = _db.query(cls).join(ExternalIntegration,
+                cls.external_integration_id==ExternalIntegration.id)\
+            .join(ExternalIntegration.settings)\
+            .filter(ConfigurationSetting.key==Collection.DATA_SOURCE_NAME_SETTING)\
+            .filter(ConfigurationSetting.value==data_source)
         return qu
 
     @hybrid_property

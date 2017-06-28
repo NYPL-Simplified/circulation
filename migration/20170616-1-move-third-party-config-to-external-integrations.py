@@ -15,8 +15,6 @@ from config import Configuration
 from external_search import ExternalSearchIndex
 from model import (
     ExternalIntegration as EI,
-    Library,
-    get_one_or_create,
     production_session,
 )
 
@@ -30,7 +28,6 @@ def log_import(integration_or_setting):
 try:
     Configuration.load()
     _db = production_session()
-    LIBRARIES = _db.query(Library).all()
 
     # Import CDN configuration.
     cdn_conf = Configuration.integration(u'CDN')
@@ -77,7 +74,6 @@ try:
         S3_SETTINGS = [
             S3Uploader.BOOK_COVERS_BUCKET_KEY,
             S3Uploader.OA_CONTENT_BUCKET_KEY,
-            S3Uploader.STATIC_OPDS_FEED_BUCKET_KEY,
         ]
         for k, v in s3_conf.items():
             if not k in S3_SETTINGS:
