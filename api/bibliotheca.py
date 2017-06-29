@@ -251,7 +251,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         else:
             raise CannotReleaseHold()
 
-    def apply_circulation_information_to_licensepool(self, circ, pool):
+    def apply_circulation_information_to_licensepool(self, circ, pool, analytics=None):
         """Apply the output of CirculationParser.process_one() to a
         LicensePool.
         
@@ -271,7 +271,8 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             circ.get(LicensePool.licenses_owned, 0),
             circ.get(LicensePool.licenses_available, 0),
             circ.get(LicensePool.licenses_reserved, 0),
-            circ.get(LicensePool.patrons_in_hold_queue, 0)
+            circ.get(LicensePool.patrons_in_hold_queue, 0),
+            analytics,
         )
 
 
@@ -634,6 +635,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             self.api = api_class
         else:
             self.api = api_class(collection)
+        self.analytics = Analytics(_db)
     
     def process_batch(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
@@ -667,12 +669,12 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
 
                 # Bibliotheca books are never open-access.
                 pool.open_access = False
-                Analytics.collect_event(
+                self.analytics.collect_event(
                     self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
             else:
                 [pool] = pools
                 
-            self.api.apply_circulation_information_to_licensepool(circ, pool)
+            self.api.apply_circulation_information_to_licensepool(circ, pool, self.analytics)
 
         # At this point there may be some license pools left over
         # that Bibliotheca doesn't know about.  This is a pretty reliable
@@ -694,10 +696,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                             "Removing unknown work %s from circulation.",
                             identifier.identifier
                         )
-                pool.licenses_owned = 0
-                pool.licenses_available = 0
-                pool.licenses_reserved = 0
-                pool.patrons_in_hold_queue = 0
+                pool.update_availability(0, 0, 0, 0, self.analytics)
                 pool.last_checked = now
 
 

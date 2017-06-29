@@ -117,7 +117,7 @@ try:
 
             library_url = adobe_conf.get('library_uri')
             ConfigurationSetting.for_library(
-                Library.WEBSITE_KEY, library).value = library_url
+                Configuration.WEBSITE_URL, library).value = library_url
 
             integration.libraries.append(library)
 
@@ -145,6 +145,28 @@ try:
             _db, Configuration.PATRON_WEB_CLIENT_URL)
         setting.value = patron_web_client_url
         log_import(setting)
+
+    # Import analytics configuration.
+    policies = Configuration.get(u"policies", {})
+    analytics_modules = policies.get(u"analytics", ["core.local_analytics_provider"])
+
+    if "api.google_analytics_provider" in analytics_modules:
+        google_analytics_conf = Configuration.integration(u"Google Analytics Provider", {})
+        tracking_id = google_analytics_conf.get(u"tracking_id")
+
+        integration = EI(protocol=u"api.google_analytics_provider", goal=EI.ANALYTICS_GOAL)
+        _db.add(integration)
+        integration.url = "http://www.google-analytics.com/collect"
+
+        for library in LIBRARIES:
+            ConfigurationSetting.for_library_and_externalintegration(
+                _db, u"tracking_id", library, integration).value = tracking_id
+            library.integrations += [integration]
+
+    if "core.local_analytics_provider" in analytics_modules:
+        integration = EI(protocol=u"core.local_analytics_provider", goal=EI.ANALYTICS_GOAL)
+        _db.add(integration)
+
 finally:
     _db.commit()
     _db.close()

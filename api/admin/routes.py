@@ -351,6 +351,18 @@ def metadata_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/analytics_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def analytics_services():
+    data = app.manager.admin_settings_controller.analytics_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
@@ -383,6 +395,7 @@ def admin_sign_in_again():
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
 def admin_view(collection=None, book=None, **kwargs):
     setting_up = (app.manager.admin_sign_in_controller.auth == None)
+    home_url = None
     if not setting_up:
         admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
@@ -404,8 +417,6 @@ def admin_view(collection=None, book=None, **kwargs):
         if libraries:
             library = libraries[0]
             home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
-        else:
-            home_url = None
 
     csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
 

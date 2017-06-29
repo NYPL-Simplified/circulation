@@ -334,6 +334,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             subjects=True,
             contributions=True,
             formats=True,
+            analytics=Analytics(self._db),
         )
 
         # licenses_available can be 0 or 999, depending on whether the book is 
@@ -787,6 +788,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
                 collection=self.collection, api_class=self.api,
             )
         )
+        self.analytics = Analytics(self._db)
 
     def process_availability(self, media_type='ebook'):
         # get list of all titles, with availability info
@@ -800,8 +802,9 @@ class OneClickCirculationMonitor(CollectionMonitor):
             license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available)
             # Log a circulation event for this work.
             if is_new:
-                Analytics.collect_event(
-                    self._db, license_pool, CirculationEvent.DISTRIBUTOR_AVAILABILITY_NOTIFY, license_pool.last_checked)
+                for library in self.collection.libraries:
+                    self.analytics.collect_event(
+                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
 
             item_count += 1
             if item_count % self.batch_size == 0:

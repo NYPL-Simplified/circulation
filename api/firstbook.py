@@ -46,8 +46,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, integration):
-        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration)
+    def __init__(self, library_id, integration, analytics=None):
+        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
         url = integration.url
         key = integration.password
         if not (url and key):

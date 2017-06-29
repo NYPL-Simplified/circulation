@@ -45,7 +45,7 @@ class OverdriveAPITest(DatabaseTest):
         library = self._default_library
         self.collection = MockOverdriveAPI.mock_collection(self._db)
         self.circulation = CirculationAPI(
-            self._db, library, {ExternalIntegration.OVERDRIVE:MockOverdriveAPI}
+            self._db, library, api_map={ExternalIntegration.OVERDRIVE:MockOverdriveAPI}
         )
         self.api = self.circulation.api_for_collection[self.collection]
         

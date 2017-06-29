@@ -24,9 +24,9 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         This is useful for testing a circulation manager before connecting
         it to an ILS.""")
 
-    def __init__(self, library, integration):
+    def __init__(self, library, integration, analytics=None):
         super(SimpleAuthenticationProvider, self).__init__(
-            library, integration,
+            library, integration, analytics
         )
         self.test_identifier = integration.setting(self.TEST_IDENTIFIER).value
         self.test_password = integration.setting(self.TEST_PASSWORD).value

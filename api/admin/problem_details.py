@@ -198,18 +198,11 @@ MISSING_PGCRYPTO_EXTENSION = pd(
     detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
 )
 
-MISSING_ADMIN_AUTH_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/missing-admin-auth-service",
+MISSING_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-service",
     status_code=404,
-    title=_("Missing admin authentication service"),
-    detail=_("The specified admin authentication service does not exist."),
-)
-
-MISSING_PATRON_AUTH_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/missing-patron-auth-service",
-    status_code=404,
-    title=_("Missing patron authentication service"),
-    detail=_("The specified patron authentication service does not exist."),
+    title=_("Missing service"),
+    detail=_("The specified service does not exist."),
 )
 
 INVALID_CONFIGURATION_OPTION = pd(
@@ -245,11 +238,4 @@ MISSING_SITEWIDE_SETTING_VALUE = pd(
     status_code=400,
     title=_("Missing sitewide setting value"),
     detail=_("A value is required to change a sitewide setting."),
-)
-
-MISSING_METADATA_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/missing-metadata-service",
-    status_code=404,
-    title=_("Missing metadata service"),
-    detail=_("The specified metadata service does not exist."),
 )

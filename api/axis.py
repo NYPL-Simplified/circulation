@@ -47,6 +47,7 @@ from core.coverage import (
     BibliographicCoverageProvider,
     CoverageFailure,
 )
+from core.analytics import Analytics
 
 from authenticator import Authenticator
 from circulation import (
@@ -232,7 +233,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 licenses_reserved=0,
                 patrons_in_hold_queue=0,
             )
-            availability.apply(pool, ReplacementPolicy.from_license_source())
+            availability.apply(pool, ReplacementPolicy.from_license_source(self._db))
 
 
 class Axis360CirculationMonitor(CollectionMonitor):
@@ -281,9 +282,10 @@ class Axis360CirculationMonitor(CollectionMonitor):
                 self._db.commit()
 
     def process_book(self, bibliographic, availability):
-        
+
+        analytics = Analytics(self._db)
         license_pool, new_license_pool = availability.license_pool(
-            self._db, self.collection
+            self._db, self.collection, analytics
         )
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
@@ -292,6 +294,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
             subjects=True,
             contributions=True,
             formats=True,
+            analytics=analytics,
         )
         availability.apply(self._db, self.collection, replace=policy)
         if new_edition:

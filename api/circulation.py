@@ -9,7 +9,6 @@ import time
 from flask.ext.babel import lazy_gettext as _
 
 from core.config import CannotLoadConfiguration
-from core.analytics import Analytics
 from core.cdn import cdnify
 from core.model import (
     get_one,
@@ -172,7 +171,7 @@ class CirculationAPI(object):
     'borrow'.
     """
 
-    def __init__(self, _db, library, api_map=None):
+    def __init__(self, _db, library, analytics=None, api_map=None):
         """Constructor.
 
         :param _db: A database session (probably a scoped session, which is
@@ -180,6 +179,9 @@ class CirculationAPI(object):
 
         :param library: A Library object representing the library
           whose circulation we're concerned with.
+
+        :param analytics: An Analytics object for tracking 
+          circulation events.
 
         :param api_map: A dictionary mapping Collection protocols to
            API classes that should be instantiated to deal with these
@@ -192,6 +194,7 @@ class CirculationAPI(object):
         """
         self._db = _db
         self.library_id = library.id
+        self.analytics = analytics
         self.initialization_exceptions = dict()
         api_map = api_map or self.default_api_map
 
@@ -277,7 +280,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
-            self._collect_checkout_event(licensepool)
+            self._collect_checkout_event(patron, licensepool)
             return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
@@ -406,7 +409,7 @@ class CirculationAPI(object):
                 # Send out an analytics event to record the fact that
                 # a loan was initiated through the circulation
                 # manager.
-                self._collect_checkout_event(licensepool)
+                self._collect_checkout_event(patron, licensepool)
             return loan, None, new_loan_record
 
         # At this point we know that we neither successfully
@@ -437,12 +440,12 @@ class CirculationAPI(object):
             hold_info.hold_position
         )
 
-        if hold and is_new:
+        if hold and is_new and self.analytics:
             # Send out an analytics event to record the fact that
             # a hold was initiated through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
+            self.analytics.collect_event(
+                patron.library, licensepool,
                 CirculationEvent.CM_HOLD_PLACE,
             )
 
@@ -451,14 +454,15 @@ class CirculationAPI(object):
         __transaction.commit()
         return None, hold, is_new
 
-    def _collect_checkout_event(self, licensepool):
+    def _collect_checkout_event(self, patron, licensepool):
         """Collect an analytics event indicating the given LicensePool
         was checked out via the circulation manager.
         """
-        Analytics.collect_event(
-            self._db, licensepool,
-            CirculationEvent.CM_CHECKOUT,
-        )
+        if self.analytics:
+            self.analytics.collect_event(
+                patron.library, licensepool,
+                CirculationEvent.CM_CHECKOUT,
+            )
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
@@ -514,10 +518,11 @@ class CirculationAPI(object):
         # Send out an analytics event to record the fact that
         # a fulfillment was initiated through the circulation
         # manager.
-        Analytics.collect_event(
-            self._db, licensepool,
-            CirculationEvent.CM_FULFILL,
-        )
+        if self.analytics:
+            self.analytics.collect_event(
+                patron.library, licensepool,
+                CirculationEvent.CM_FULFILL,
+            )
 
         # Make sure the delivery mechanism we just used is associated
         # with the loan.
@@ -581,10 +586,11 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a loan was revoked through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
-                CirculationEvent.CM_CHECKIN,
-            )
+            if self.analytics:
+                self.analytics.collect_event(
+                    patron.library, licensepool,
+                    CirculationEvent.CM_CHECKIN,
+                )
 
         if not licensepool.open_access:
             api = self.api_for_license_pool(licensepool)
@@ -622,10 +628,11 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a hold was revoked through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
-                CirculationEvent.CM_HOLD_RELEASE,
-            )
+            if self.analytics:
+                self.analytics.collect_event(
+                    patron.library, licensepool,
+                    CirculationEvent.CM_HOLD_RELEASE,
+                )
 
         return True
 
