@@ -1183,14 +1183,6 @@ class TestConfigureLibraryScript(DatabaseTest):
             "Could not locate library 'foo'",
             script.do_run, self._db, ["--short-name=foo"]
         )
-        assert_raises_regexp(
-            ValueError,
-            "Cowardly refusing to overwrite an existing shared secret with a random value.",
-            script.do_run, self._db, [
-                "--short-name=L1",
-                "--random-library-registry-shared-secret"
-            ]
-        )
 
     def test_create_library(self):
         # There is no library.
@@ -1202,8 +1194,6 @@ class TestConfigureLibraryScript(DatabaseTest):
             self._db, [
                 "--short-name=L1",
                 "--name=Library 1",
-                "--library-registry-shared-secret=foo",
-                "--library-registry-short-name=nyl1",
                 '--setting=customkey=value',
             ],
             output
@@ -1213,8 +1203,6 @@ class TestConfigureLibraryScript(DatabaseTest):
         [library] = self._db.query(Library).all()
         eq_("Library 1", library.name)
         eq_("L1", library.short_name)
-        eq_("foo", library.library_registry_shared_secret)
-        eq_("NYL1", library.library_registry_short_name)
         eq_("value", library.setting("customkey").value)
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
@@ -1227,25 +1215,18 @@ class TestConfigureLibraryScript(DatabaseTest):
         script = ConfigureLibraryScript()
         output = StringIO()
 
-        # We're going to change one value and add some more.
+        # We're going to change one value and add a setting.
         script.do_run(
             self._db, [
                 "--short-name=L1",
                 "--name=Library 1 New Name",
-                "--random-library-registry-shared-secret",
-                "--library-registry-short-name=nyl1",
+                '--setting=customkey=value',
             ],
             output
         )
 
         eq_("Library 1 New Name", library.name)
-        eq_("NYL1", library.library_registry_short_name)
-
-        # The shared secret was randomly generated, so we can't test
-        # its exact value, but we do know it's a string that can be
-        # converted into a hexadecimal number.
-        assert library.library_registry_shared_secret != None
-        int(library.library_registry_shared_secret, 16)
+        eq_("value", library.setting("customkey").value)
         
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
