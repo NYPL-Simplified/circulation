@@ -114,20 +114,6 @@ LIBRARY_SHORT_NAME_ALREADY_IN_USE = pd(
     detail=_("The library short name must be unique, and there's already a library with the specified short name."),
 )
 
-CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET = pd(
-    "http://librarysimplified.org/terms/problem/cannot-set-both-random-and-specific-secret",
-    status_code=400,
-    title=_("Cannot set both random and specific secret"),
-    detail=_("You can't set the shared secret to a random value and a specific value at the same time"),
-)
-
-CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET = pd(
-    "http://librarysimplified.org/terms/problem/cannot-replace-existing-secret-with-random-secret",
-    status_code=400,
-    title=_("Cannot replace existing secret with random secret"),
-    detail=_("You can't overwrite an existing shared secret with a random value"),
-)
-
 MISSING_COLLECTION = pd(
     "http://librarysimplified.org/terms/problem/missing-collection",
     status_code=404,

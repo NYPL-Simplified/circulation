@@ -59,6 +59,8 @@ from api.novelist import NoveListAPI
 from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
+from api.adobe_vendor_id import AuthdataUtility
+
 class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
@@ -1153,8 +1155,6 @@ class TestSettingsController(AdminControllerTest):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
         )
-        l1.library_registry_short_name="L1"
-        l1.library_registry_shared_secret="a"
         l2, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
@@ -1181,12 +1181,6 @@ class TestSettingsController(AdminControllerTest):
             eq_(l1.short_name, libraries[0].get("short_name"))
             eq_(l2.short_name, libraries[1].get("short_name"))
 
-            eq_(l1.library_registry_short_name, libraries[0].get("library_registry_short_name"))
-            eq_(l2.library_registry_short_name, libraries[1].get("library_registry_short_name"))
-
-            eq_(l1.library_registry_shared_secret, libraries[0].get("library_registry_shared_secret"))
-            eq_(l2.library_registry_shared_secret, libraries[1].get("library_registry_shared_secret"))
-
             eq_({}, libraries[0].get("settings"))
             eq_(3, len(libraries[1].get("settings").keys()))
             settings = libraries[1].get("settings")
@@ -1208,7 +1202,6 @@ class TestSettingsController(AdminControllerTest):
             self._db, Library
         )
         library.short_name = "nypl"
-        library.library_registry_shared_secret = "secret"
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1239,32 +1232,11 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
         
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("short_name", "nypl"),
-                ("library_registry_shared_secret", "secret"),
-                ("random_library_registry_shared_secret", ""),
-            ])
-            response = self.manager.admin_settings_controller.libraries()
-            eq_(response, CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET)
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("short_name", library.short_name),
-                ("random_library_registry_shared_secret", ""),
-            ])
-            response = self.manager.admin_settings_controller.libraries()
-            eq_(response, CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET)
-
     def test_libraries_post_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
-                ("library_registry_short_name", "NYPL"),
-                ("library_registry_shared_secret", "secret"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                  FacetConstants.ORDER_RANDOM),
@@ -1280,8 +1252,6 @@ class TestSettingsController(AdminControllerTest):
 
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
-        eq_(library.library_registry_short_name, "NYPL")
-        eq_(library.library_registry_shared_secret, "secret")
         eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
         eq_(FacetConstants.ORDER_RANDOM,
             ConfigurationSetting.for_library(
@@ -1298,8 +1268,6 @@ class TestSettingsController(AdminControllerTest):
 
         library.name = "Nwe York Public Libary"
         library.short_name = "nypl"
-        library.library_registry_short_name = None
-        library.library_registry_shared_secret = None
 
         ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value = 5
         ConfigurationSetting.for_library(
@@ -1314,8 +1282,6 @@ class TestSettingsController(AdminControllerTest):
                 ("uuid", library.uuid),
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
-                ("library_registry_short_name", "NYPL"),
-                ("random_library_registry_shared_secret", ""),
                 (Configuration.FEATURED_LANE_SIZE, "20"),
                 (Configuration.MINIMUM_FEATURED_QUALITY, "0.9"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
@@ -1332,13 +1298,6 @@ class TestSettingsController(AdminControllerTest):
 
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
-        eq_(library.library_registry_short_name, "NYPL")
-
-        # The shared secret was randomly generated, so we can't test
-        # its exact value, but we do know it's a string that can be
-        # converted into a hexadecimal number.
-        assert library.library_registry_shared_secret != None
-        int(library.library_registry_shared_secret, 16)
 
         # The library-wide settings were updated.
         eq_("20", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
@@ -2643,4 +2602,201 @@ class TestSettingsController(AdminControllerTest):
         eq_([l2], ga_service.libraries)
         eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
+
+    def test_drm_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.get("drm_services"), [])
+            protocols = response.get("protocols")
+            assert AuthdataUtility.NAME in [p.get("name") for p in protocols]
+            assert "settings" in protocols[0]
+        
+    def test_drm_services_get_with_one_service(self):
+        drm_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+        vendor_id = self._str
+        drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value = vendor_id
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.drm_services()
+            [service] = response.get("drm_services")
+
+            eq_(drm_service.id, service.get("id"))
+            eq_(drm_service.protocol, service.get("protocol"))
+            eq_(vendor_id, service.get("settings").get(AuthdataUtility.VENDOR_ID_KEY))
+
+        drm_service.libraries += [self._default_library]
+        username = self._str
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.USERNAME, self._default_library, drm_service
+        ).value = username
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.drm_services()
+            [service] = response.get("drm_services")
+
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_(username, library.get(ExternalIntegration.USERNAME))
+
+    def test_drm_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response, MISSING_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
+                ("libraries", json.dumps([{"short_name": "not-a-library"}])),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
+                ("libraries", json.dumps([{"short_name": library.short_name}])),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
+                ("libraries", json.dumps([{"short_name": library.short_name, "username": "L|", "password": "secret"}])),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+
+    def test_drm_services_post_create(self):
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
+                ("libraries", json.dumps([{"short_name": "L", "username": "short name", "password": "secret"}])),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DRM_GOAL)
+        eq_(ExternalIntegration.SHORT_CLIENT_TOKEN, service.protocol)
+        eq_("vendor id", service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+        eq_([library], service.libraries)
+        eq_("short name", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.USERNAME, library, service).value)
+        eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.PASSWORD, library, service).value)
+
+    def test_drm_services_post_edit(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+
+        drm_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
+            goal=ExternalIntegration.DRM_GOAL,
+        )
+        drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value = "vendor id"
+        drm_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", drm_service.id),
+                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
+                (AuthdataUtility.VENDOR_ID_KEY, "new vendor id"),
+                ("libraries", json.dumps([{"short_name": "L2", "username": "l2", "password": "secret"}])),
+            ])
+            response = self.manager.admin_settings_controller.drm_services()
+            eq_(response.status_code, 200)
+
+        eq_(ExternalIntegration.SHORT_CLIENT_TOKEN, drm_service.protocol)
+        eq_("new vendor id", drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+        eq_([l2], drm_service.libraries)
+        eq_("l2", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.USERNAME, l2, drm_service).value)
+        eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.PASSWORD, l2, drm_service).value)
 

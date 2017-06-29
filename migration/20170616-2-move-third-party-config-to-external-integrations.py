@@ -98,22 +98,26 @@ try:
             integration.libraries.append(node_library)
             log_import(integration)
 
-        for library in LIBRARIES:
-            integration = EI(protocol=EI.SHORT_CLIENT_TOKEN, goal=EI.DRM_GOAL)
-            _db.add(integration)
+        # Import short client token configuration.
+        integration = EI(protocol=EI.SHORT_CLIENT_TOKEN, goal=EI.DRM_GOAL)
+        _db.add(integration)
+        integration.set_setting(
+            AuthdataUtility.VENDOR_ID_KEY, vendor_id
+        )
 
+        for library in LIBRARIES:
             short_name = library.library_registry_short_name
             short_name = short_name or adobe_conf.get('library_short_name')
             if short_name:
-                integration.username = short_name.upper()
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, EI.USERNAME, library, integration
+                ).value = short_name
 
             shared_secret = library.library_registry_shared_secret
             shared_secret = shared_secret or adobe_conf.get('authdata_secret')
-            integration.password = shared_secret
-
-            integration.set_setting(
-                AuthdataUtility.VENDOR_ID_KEY, vendor_id
-            )
+            ConfigurationSetting.for_library_and_externalintegration(
+                _db, EI.PASSWORD, library, integration
+            ).value = shared_secret
 
             library_url = adobe_conf.get('library_uri')
             ConfigurationSetting.for_library(

@@ -601,8 +601,12 @@ class TestAuthdataUtility(VendorIDTest):
             self._db, ExternalIntegration.SHORT_CLIENT_TOKEN,
             ExternalIntegration.DRM_GOAL, library=library
         )
-        eq_(library.short_name + "token", short_client_token.username)
-        eq_(library.short_name + " token secret", short_client_token.password)
+        eq_(library.short_name + "token",
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.USERNAME, library, short_client_token).value)
+        eq_(library.short_name + " token secret",
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.PASSWORD, library, short_client_token).value)
 
         eq_(self.TEST_VENDOR_ID, utility.vendor_id)
         eq_(library_url, utility.library_uri)
@@ -620,13 +624,15 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
-        old_short_name = short_client_token.username
-        short_client_token.username = None
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.USERNAME, library, short_client_token)
+        old_short_name = setting.value
+        setting.value = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config,
             library
         )
-        short_client_token.username = old_short_name
+        setting.value = old_short_name
 
         setting = library.setting(Configuration.WEBSITE_URL)
         old_value = setting.value
@@ -636,18 +642,14 @@ class TestAuthdataUtility(VendorIDTest):
         )
         setting.value = old_value
 
-        short_client_token.username = None
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.PASSWORD, library, short_client_token)
+        old_secret = setting.value
+        setting.value = None
         assert_raises(
             CannotLoadConfiguration, AuthdataUtility.from_config, library
         )
-        short_client_token.username = old_short_name
-
-        old_secret = short_client_token.password
-        short_client_token.password = None
-        assert_raises(
-            CannotLoadConfiguration, AuthdataUtility.from_config, library
-        )
-        short_client_token.password = old_secret
+        setting.value = old_secret
 
         # If other libraries are not configured, that's fine. We'll
         # only have a configuration for ourselves.

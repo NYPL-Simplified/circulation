@@ -95,6 +95,8 @@ from core.opds_import import MetadataWranglerOPDSLookup
 from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
+from api.adobe_vendor_id import AuthdataUtility
+
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
@@ -946,8 +948,6 @@ class SettingsController(CirculationManagerController):
                     uuid=library.uuid,
                     name=library.name,
                     short_name=library.short_name,
-                    library_registry_short_name=library.library_registry_short_name,
-                    library_registry_shared_secret=library.library_registry_shared_secret,
                     settings=settings,
                 )]
             return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
@@ -956,9 +956,6 @@ class SettingsController(CirculationManagerController):
         library_uuid = flask.request.form.get("uuid")
         name = flask.request.form.get("name")
         short_name = flask.request.form.get("short_name")
-        registry_short_name = flask.request.form.get("library_registry_short_name")
-        registry_shared_secret = flask.request.form.get("library_registry_shared_secret")
-        use_random_registry_shared_secret = "random_library_registry_shared_secret" in flask.request.form
 
         library = None
         is_new = False
@@ -987,24 +984,10 @@ class SettingsController(CirculationManagerController):
                 self._db, Library, short_name=short_name,
                 uuid=str(uuid.uuid4()))
 
-        if registry_shared_secret and use_random_registry_shared_secret:
-            return CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET
-
-        if use_random_registry_shared_secret:
-            if library.library_registry_shared_secret:
-                return CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET
-            registry_shared_secret = "".join(
-                [random.choice('1234567890abcdef') for x in range(32)]
-            )
-
         if name:
             library.name = name
         if short_name:
             library.short_name = short_name
-        if registry_short_name:
-            library.library_registry_short_name = registry_short_name
-        if registry_shared_secret:
-            library.library_registry_shared_secret = registry_shared_secret
 
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("type") == "list":
@@ -1590,6 +1573,97 @@ class SettingsController(CirculationManagerController):
         result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def drm_services(self):
+        provider_apis = [AuthdataUtility,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+
+        if flask.request.method == 'GET':
+            services = []
+            for service in self._db.query(ExternalIntegration).filter(
+                ExternalIntegration.goal==ExternalIntegration.DRM_GOAL):
+
+                if service.protocol in [p.get("name") for p in protocols]:
+                    [protocol] = [p for p in protocols if p.get("name") == service.protocol]
+                    libraries = []
+                    for library in service.libraries:
+                        library_info = dict(short_name=library.short_name)
+                        for setting in protocol.get("library_settings", []):
+                            key = setting.get("key")
+                            value = ConfigurationSetting.for_library_and_externalintegration(
+                                self._db, key, library, service
+                            ).value
+                            if value:
+                                library_info[key] = value
+                        libraries.append(library_info)
+
+                    settings = { setting.key: setting.value for setting in service.settings if setting.library_id == None}
+
+                    services.append(
+                        dict(
+                            id=service.id,
+                            name=service.name,
+                            protocol=service.protocol,
+                            settings=settings,
+                            libraries=libraries,
+                        )
+                    )
+
+            return dict(
+                drm_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DRM_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.DRM_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if protocol.get("name") == AuthdataUtility.NAME:
+            for library in service.libraries:
+                short_name_setting = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, service)
+                if "|" in short_name_setting.value:
+                    self._db.rollback()
+                    return INVALID_CONFIGURATION_OPTION.detailed(
+                        _("Short name for library registry must not contain the pipe character (|)."))
 
         if is_new:
             return Response(unicode(_("Success")), 201)
