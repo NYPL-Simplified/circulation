@@ -841,19 +841,6 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
             '--short-name',
             help='Short name of the library',
         )
-        parser.add_argument(
-            '--library-registry-short-name',
-            help='Short name of the library, as used on the library registry',
-        )
-        parser.add_argument(
-            '--library-registry-shared-secret',
-            help='Set the library registry shared secret to a specific value.',
-        )
-        parser.add_argument(
-            '--random-library-registry-shared-secret',
-            help='Set the library registry shared secret to a random value.',
-            action='store_true',
-        )
         cls.add_setting_argument(
             parser,
             'Set a per-library setting, such as terms-of-service. Format: --setting="terms-of-service=https://example.library/tos"',
@@ -863,12 +850,6 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
-        if (args.random_library_registry_shared_secret
-            and args.library_registry_shared_secret):
-            raise ValueError(
-                "You can't set the shared secret to a random value and a specific value at the same time."
-            )
-       
         if not args.short_name:
             raise ValueError(
                 "You must identify the library by its short name."
@@ -891,24 +872,10 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
                 )
             )
 
-        if args.random_library_registry_shared_secret:
-            if library.library_registry_shared_secret:
-                raise ValueError(
-                    "Cowardly refusing to overwrite an existing shared secret with a random value."
-                )
-            else:
-                args.library_registry_shared_secret = "".join(
-                    [random.choice('1234567890abcdef') for x in range(32)]
-                )
-            
         if args.name:
             library.name = args.name
         if args.short_name:
             library.short_name = args.short_name
-        if args.library_registry_short_name:
-            library.library_registry_short_name = args.library_registry_short_name
-        if args.library_registry_shared_secret:
-            library.library_registry_shared_secret = args.library_registry_shared_secret
         self.apply_settings(args.setting, library)
         site_configuration_has_changed(_db)
         _db.commit()
