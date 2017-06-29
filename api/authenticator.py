@@ -20,7 +20,6 @@ from core.util.problem_detail import (
     json as pd_json,
 )
 from core.util.opds_authentication_document import OPDSAuthenticationDocument
-from core.analytics import Analytics
 from sqlalchemy.ext.hybrid import hybrid_property
 from problem_details import *
 from util.patron import PatronUtility
@@ -247,7 +246,7 @@ class PatronData(object):
             value = None
         setattr(patron, field_name, value)
         
-    def get_or_create_patron(self, _db, library_id):
+    def get_or_create_patron(self, _db, library_id, analytics=None):
         """Create a Patron with this information.
 
         TODO: I'm concerned in the general case with race
@@ -272,6 +271,9 @@ class PatronData(object):
 
         :param library_id: Database ID of the Library with which this
             patron is associated.
+
+        :param analytics: Analytics instance to track the new patron
+            creation event.
         """
         
         # We must be very careful when checking whether the patron
@@ -293,10 +295,10 @@ class PatronData(object):
         __transaction = _db.begin_nested()
         patron, is_new = get_one_or_create(_db, Patron, **search_by)
 
-        if is_new:
+        if is_new and analytics:
             # Send out an analytics event to record the fact
             # that a new patron was created.
-            Analytics.collect_event(_db, None,
+            analytics.collect_event(patron.library, None,
                                     CirculationEvent.NEW_PATRON)
 
         # This makes sure the Patron is brought into sync with the
@@ -344,11 +346,11 @@ class Authenticator(object):
     """Route requests to the appropriate LibraryAuthenticator.
     """
 
-    def __init__(self, _db):
+    def __init__(self, _db, analytics=None):
         self.library_authenticators = {}
 
         for library in _db.query(Library):
-            self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library)
+            self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library, analytics)
 
     def invoke_authenticator_method(self, method_name, *args, **kwargs):
         short_name = flask.request.library.short_name
@@ -374,7 +376,7 @@ class LibraryAuthenticator(object):
     """    
 
     @classmethod
-    def from_config(cls, _db, library):
+    def from_config(cls, _db, library, analytics=None):
         """Initialize an Authenticator for the given Library based on its
         configured ExternalIntegrations.
         """
@@ -393,7 +395,7 @@ class LibraryAuthenticator(object):
         # AuthenticationProvider.
         for integration in integrations:
             try:
-                authenticator.register_provider(integration)
+                authenticator.register_provider(integration, analytics)
             except (ImportError, CannotLoadConfiguration), e:
                 # These are the two types of error that might be caused
                 # by misconfiguration, as opposed to bad code.
@@ -459,7 +461,7 @@ class LibraryAuthenticator(object):
                 "OAuth providers are configured, but secret for signing bearer tokens is not."
             )
                 
-    def register_provider(self, integration):
+    def register_provider(self, integration, analytics=None):
         """Turn an ExternalIntegration object into an AuthenticationProvider
         object, and register it.
 
@@ -489,7 +491,7 @@ class LibraryAuthenticator(object):
             raise CannotLoadConfiguration(
                 "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
             )
-        provider = provider_class(self.library, integration)
+        provider = provider_class(self.library, integration, analytics)
         if issubclass(provider_class, BasicAuthenticationProvider):
             self.register_basic_auth_provider(provider)
             # TODO: Run a self-test, or at least check that we have
@@ -742,7 +744,7 @@ class AuthenticationProvider(object):
         }
     ]
 
-    def __init__(self, library, integration):
+    def __init__(self, library, integration, analytics=None):
         """Basic constructor.
         
         :param library: Patrons authenticated through this provider
@@ -766,6 +768,7 @@ class AuthenticationProvider(object):
 
         self.library_id = library.id
         self.log = logging.getLogger(self.NAME)
+        self.analytics = analytics
         # If there's a regular expression that maps authorization
         # identifier to external type, find it now.
         _db = Session.object_session(library)
@@ -1025,7 +1028,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # indicates that no value should be used.)
     class_default = object()
     
-    def __init__(self, library, integration):
+    def __init__(self, library, integration, analytics=None):
         """Create a BasicAuthenticationProvider.
 
         :param library: Patrons authenticated through this provider
@@ -1038,7 +1041,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         object! It's associated with a scoped database session. Just
         pull normal Python objects out of it.
         """
-        super(BasicAuthenticationProvider, self).__init__(library, integration)
+        super(BasicAuthenticationProvider, self).__init__(library, integration, analytics)
         identifier_regular_expression = integration.setting(
             self.IDENTIFIER_REGULAR_EXPRESSION
         ).value or self.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION
@@ -1147,7 +1150,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             # We have a PatronData from the ILS that does not
             # correspond to any local Patron. Create the local Patron.
             patron, is_new = patrondata.get_or_create_patron(
-                _db, self.library_id
+                _db, self.library_id, analytics=self.analytics
             )
             
         # The lookup failed in the first place either because the
@@ -1358,7 +1361,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             _db, cls.BEARER_TOKEN_SIGNING_SECRET
         )
         
-    def __init__(self, library, integration):
+    def __init__(self, library, integration, analytics=None):
         """Initialize this OAuthAuthenticationProvider.
 
         :param library: Patrons authenticated through this provider
@@ -1378,7 +1381,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             process again.
         """
         super(OAuthAuthenticationProvider, self).__init__(
-            library, integration
+            library, integration, analytics
         )
         self.client_id = integration.username
         self.client_secret = integration.password
@@ -1496,7 +1499,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             
         # Convert the PatronData into a Patron object.
         patron, is_new = patrondata.get_or_create_patron(
-            _db, self.library_id
+            _db, self.library_id, analytics=self.analytics
         )
 
         # Create a credential for the Patron.

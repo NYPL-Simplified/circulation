@@ -59,6 +59,10 @@ class Configuration(CoreConfiguration):
             "key": SECRET_KEY,
             "label": _("Internal secret key for admin interface cookies"),
         },
+        {
+            "key": PATRON_WEB_CLIENT_URL,
+            "label": _("URL of the web catalog for patrons"),
+        },
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [

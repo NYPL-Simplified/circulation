@@ -659,10 +659,12 @@ class TestBaseController(CirculationControllerTest):
             eq_(self._default_library, value)
             eq_(self._default_library, flask.request.library)
 
+        # If you don't specify a library, the default library is used.
         with self.app.test_request_context("/"):
-            assert_raises(
-                ValueError, self.controller.library_for_request, None
-            )
+            value = self.controller.library_for_request(None)
+            expect_default = Library.default(self._db)
+            eq_(expect_default, value)
+            eq_(expect_default, flask.request.library)
             
     def test_library_for_request_reloads_settings_if_necessary(self):
 
@@ -2341,32 +2343,28 @@ class TestAnalyticsController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_track_event(self):
-        with temp_config() as config:
-            config = {
-                Configuration.POLICIES : {
-                    Configuration.ANALYTICS_POLICY : ["core.local_analytics_provider"],
-                }
-            }
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="core.local_analytics_provider",
+        )
+        self.manager.analytics = Analytics(self._db)
 
-            analytics = Analytics.initialize(
-                ['core.local_analytics_provider'], config
-            )            
+        with self.request_context_with_library("/"):
+            response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "invalid_type")
+            eq_(400, response.status_code)
+            eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
 
-            with self.request_context_with_library("/"):
-                response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "invalid_type")
-                eq_(400, response.status_code)
-                eq_(INVALID_ANALYTICS_EVENT_TYPE.uri, response.uri)
-
-            with self.request_context_with_library("/"):
-                response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
-                eq_(200, response.status_code)
-
-                circulation_event = get_one(
-                    self._db, CirculationEvent,
-                    type="open_book",
-                    license_pool=self.lp
-                )
-                assert circulation_event != None
+        with self.request_context_with_library("/"):
+            response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
+            eq_(200, response.status_code)
+            
+            circulation_event = get_one(
+                self._db, CirculationEvent,
+                type="open_book",
+                license_pool=self.lp
+            )
+            assert circulation_event != None
 
 
 class TestDeviceManagementProtocolController(ControllerTest):

@@ -842,6 +842,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
         self.maximum_consecutive_unchanged_books = (
             self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
         )
+        self.analytics = Analytics(_db)
         
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
@@ -863,8 +864,9 @@ class OverdriveCirculationMonitor(CollectionMonitor):
             license_pool, is_new, is_changed = self.api.update_licensepool(book)
             # Log a circulation event for this work.
             if is_new:
-                Analytics.collect_event(
-                    _db, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
+                for library in self.collection.libraries:
+                    self.analytics.collect_event(
+                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
 
             _db.commit()
 

@@ -12,10 +12,12 @@ from core.model import (
     ConfigurationSetting,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Subject,
     Contributor,
     LicensePool,
+    create,
 )
 
 from core.metadata_layer import (
@@ -179,71 +181,68 @@ class TestCirculationMonitor(Axis360Test):
     )
 
     def test_process_book(self):
-        config = {
-            Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["core.local_analytics_provider"]
-            }
-        }
-        with temp_config() as config:
-            Analytics.initialize(
-                ['core.local_analytics_provider'], config
-            )
-            monitor = Axis360CirculationMonitor(
-                self.collection, api_class=MockAxis360API,
-                metadata_client=MockMetadataWranglerOPDSLookup('url')
-            )
-            edition, license_pool = monitor.process_book(
-                self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
-            eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
-            eq_(u'eng', edition.language)
-            eq_(u'Random House Inc', edition.publisher)
-            eq_(u'Random House Inc2', edition.imprint)
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="core.local_analytics_provider",
+        )
 
-            eq_(Identifier.AXIS_360_ID, edition.primary_identifier.type)
-            eq_(u'0003642860', edition.primary_identifier.identifier)
+        monitor = Axis360CirculationMonitor(
+            self.collection, api_class=MockAxis360API,
+            metadata_client=MockMetadataWranglerOPDSLookup('url')
+        )
+        edition, license_pool = monitor.process_book(
+            self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
+        eq_(u'Faith of My Fathers : A Family Memoir', edition.title)
+        eq_(u'eng', edition.language)
+        eq_(u'Random House Inc', edition.publisher)
+        eq_(u'Random House Inc2', edition.imprint)
 
-            [isbn] = [x for x in edition.equivalent_identifiers()
-                      if x is not edition.primary_identifier]
-            eq_(Identifier.ISBN, isbn.type)
-            eq_(u'9780375504587', isbn.identifier)
+        eq_(Identifier.AXIS_360_ID, edition.primary_identifier.type)
+        eq_(u'0003642860', edition.primary_identifier.identifier)
 
-            eq_(["McCain, John", "Salter, Mark"], 
-                sorted([x.sort_name for x in edition.contributors]),
-            )
+        [isbn] = [x for x in edition.equivalent_identifiers()
+                  if x is not edition.primary_identifier]
+        eq_(Identifier.ISBN, isbn.type)
+        eq_(u'9780375504587', isbn.identifier)
 
-            subs = sorted(
-                (x.subject.type, x.subject.identifier)
-                for x in edition.primary_identifier.classifications
-            )
-            eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'), 
-                 (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
+        eq_(["McCain, John", "Salter, Mark"], 
+            sorted([x.sort_name for x in edition.contributors]),
+        )
 
-            eq_(9, license_pool.licenses_owned)
-            eq_(8, license_pool.licenses_available)
-            eq_(0, license_pool.patrons_in_hold_queue)
-            eq_(datetime.datetime(2015, 5, 20, 2, 9, 8), license_pool.last_checked)
+        subs = sorted(
+            (x.subject.type, x.subject.identifier)
+            for x in edition.primary_identifier.classifications
+        )
+        eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'), 
+             (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
 
-            # Three circulation events were created, backdated to the
-            # last_checked date of the license pool.
-            events = license_pool.circulation_events
-            eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'], 
-                [x.type for x in events])
-            for e in events:
-                eq_(e.start, license_pool.last_checked)
+        eq_(9, license_pool.licenses_owned)
+        eq_(8, license_pool.licenses_available)
+        eq_(0, license_pool.patrons_in_hold_queue)
+        eq_(datetime.datetime(2015, 5, 20, 2, 9, 8), license_pool.last_checked)
 
-            # A presentation-ready work has been created for the LicensePool.
-            work = license_pool.work
-            eq_(True, work.presentation_ready)
-            eq_("Faith of My Fathers : A Family Memoir", work.title)
+        # Three circulation events were created, backdated to the
+        # last_checked date of the license pool.
+        events = license_pool.circulation_events
+        eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'], 
+            [x.type for x in events])
+        for e in events:
+            eq_(e.start, license_pool.last_checked)
 
-            # A CoverageRecord has been provided for this book in the Axis
-            # 360 bibliographic coverage provider, so that in the future
-            # it doesn't have to make a separate API request to ask about
-            # this book.
-            records = [x for x in license_pool.identifier.coverage_records
-                       if x.data_source.name == DataSource.AXIS_360
-                       and x.operation is None]
-            eq_(1, len(records))
+        # A presentation-ready work has been created for the LicensePool.
+        work = license_pool.work
+        eq_(True, work.presentation_ready)
+        eq_("Faith of My Fathers : A Family Memoir", work.title)
+
+        # A CoverageRecord has been provided for this book in the Axis
+        # 360 bibliographic coverage provider, so that in the future
+        # it doesn't have to make a separate API request to ask about
+        # this book.
+        records = [x for x in license_pool.identifier.coverage_records
+                   if x.data_source.name == DataSource.AXIS_360
+                   and x.operation is None]
+        eq_(1, len(records))
 
     def test_process_book_updates_old_licensepool(self):
         """If the LicensePool already exists, the circulation monitor

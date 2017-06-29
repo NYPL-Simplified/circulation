@@ -56,6 +56,9 @@ from api.clever import CleverAuthenticationAPI
 
 from api.novelist import NoveListAPI
 
+from api.google_analytics_provider import GoogleAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
+
 class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
@@ -1359,9 +1362,10 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.get("collections"), [])
 
-            # All the protocols in ExternalIntegration.LICENSE_PROTOCOLS are supported by the admin interface.
-            eq_(sorted([p.get("name") for p in response.get("protocols")]),
-                sorted(ExternalIntegration.LICENSE_PROTOCOLS))
+
+            names = [p.get("name") for p in response.get("protocols")]
+            assert ExternalIntegration.OVERDRIVE in names
+            assert ExternalIntegration.OPDS_IMPORT in names
 
     def test_collections_get_with_multiple_collections(self):
 
@@ -1683,7 +1687,7 @@ class TestSettingsController(AdminControllerTest):
                 ("id", "1234"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, MISSING_ADMIN_AUTH_SERVICE)
+            eq_(response, MISSING_SERVICE)
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -2000,7 +2004,7 @@ class TestSettingsController(AdminControllerTest):
                 ("id", "123"),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response, MISSING_PATRON_AUTH_SERVICE)
+            eq_(response, MISSING_SERVICE)
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -2321,7 +2325,7 @@ class TestSettingsController(AdminControllerTest):
                 ("id", "123"),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
-            eq_(response, MISSING_METADATA_SERVICE)
+            eq_(response, MISSING_SERVICE)
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -2435,4 +2439,208 @@ class TestSettingsController(AdminControllerTest):
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
         eq_([l2], novelist_service.libraries)
+
+    def test_analytics_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.get("analytics_services"), [])
+            protocols = response.get("protocols")
+            assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
+            assert "settings" in protocols[0]
+        
+    def test_analytics_services_get_with_one_service(self):
+        ga_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        ga_service.url = self._str
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.analytics_services()
+            [service] = response.get("analytics_services")
+
+            eq_(ga_service.id, service.get("id"))
+            eq_(ga_service.protocol, service.get("protocol"))
+            eq_(ga_service.url, service.get("settings").get(ExternalIntegration.URL))
+
+        ga_service.libraries += [self._default_library]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, ga_service
+        ).value = "trackingid"
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.analytics_services()
+            [service] = response.get("analytics_services")
+
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+            eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
+        
+        self._db.delete(ga_service)
+
+        local_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+
+        local_service.libraries += [self._default_library]
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.analytics_services()
+            [service] = response.get("analytics_services")
+
+            eq_(local_service.id, service.get("id"))
+            eq_(local_service.protocol, service.get("protocol"))
+            [library] = service.get("libraries")
+            eq_(self._default_library.short_name, library.get("short_name"))
+
+    def test_analytics_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response, MISSING_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", "core.local_analytics_provider"),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response, CANNOT_CHANGE_PROTOCOL)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+                (ExternalIntegration.URL, "url"),
+                ("libraries", json.dumps([{"short_name": "not-a-library"}])),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.uri, NO_SUCH_LIBRARY.uri)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+                (ExternalIntegration.URL, "url"),
+                ("libraries", json.dumps([{"short_name": library.short_name}])),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+    def test_analytics_services_post_create(self):
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", GoogleAnalyticsProvider.__module__),
+                (ExternalIntegration.URL, "url"),
+                ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
+        eq_(GoogleAnalyticsProvider.__module__, service.protocol)
+        eq_("url", service.url)
+        eq_([library], service.libraries)
+        eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
+
+    def test_analytics_services_post_edit(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        l2, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+
+        ga_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        ga_service.url = "oldurl"
+        ga_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", ga_service.id),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+                (ExternalIntegration.URL, "url"),
+                ("libraries", json.dumps([{"short_name": "L2", "tracking_id": "l2id"}])),
+            ])
+            response = self.manager.admin_settings_controller.analytics_services()
+            eq_(response.status_code, 200)
+
+        eq_(GoogleAnalyticsProvider.__module__, ga_service.protocol)
+        eq_("url", ga_service.url)
+        eq_([l2], ga_service.libraries)
+        eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
 
