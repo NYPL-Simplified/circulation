@@ -1004,7 +1004,7 @@ class DataSource(Base):
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
-                (cls.INTERNAL_PROCESSING, True, False, None, None),
+                (cls.INTERNAL_PROCESSING, False, False, None, None),
                 (cls.FEEDBOOKS, True, False, Identifier.URI, None),
                 (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
@@ -1359,10 +1359,6 @@ class Identifier(Base):
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.output_id"),
         backref="output_identifiers",
-    )
-
-    unresolved_identifier = relationship(
-        "UnresolvedIdentifier", backref="identifier", uselist=False
     )
 
     # One Identifier may have many associated CoverageRecords.
@@ -1923,89 +1919,6 @@ class Identifier(Base):
         return AcquisitionFeed.minimal_opds_entry(
             identifier=self, cover=cover_image, 
             description=description, quality=quality)
-
-
-class UnresolvedIdentifier(Base):
-    """An identifier that the metadata wrangler has heard of but hasn't
-    yet been able to connect with a book being offered by someone.
-    """
-
-    __tablename__ = 'unresolvedidentifiers'
-    id = Column(Integer, primary_key=True)
-
-    identifier_id = Column(
-        Integer, ForeignKey('identifiers.id'), index=True)
-
-    # A numeric status code, analogous to an HTTP status code,
-    # describing the status of the process of resolving this
-    # identifier.
-    status = Column(Integer, index=True)
-
-    # Timestamp of the first time we tried to resolve this identifier.
-    first_attempt = Column(DateTime, index=True)
-
-    # Timestamp of the most recent time we tried to resolve this identifier.
-    most_recent_attempt = Column(DateTime, index=True)
-
-    # The problem that's stopping this identifier from being resolved.
-    exception = Column(Unicode, index=True)
-
-    @classmethod
-    def register(cls, _db, identifier, force=False):
-        if identifier.licensed_through and not force:
-            # There's already a license pool for this identifier, and
-            # thus no need to do anything.
-            raise ValueError(
-                "%r has already been resolved. Not creating an UnresolvedIdentifier record for it." % identifier)
-
-        # There must be some way of 'resolving' the work to be done
-        # here: either a license source or a metadata lookup.
-        has_metadata_lookup = DataSource.metadata_sources_for(_db, identifier)
-
-        if not has_metadata_lookup:
-            datasources = DataSource.license_sources_for(_db, identifier)
-            if datasources.count() == 0:
-                # This is not okay--we have no way of resolving this identifier.
-                raise Identifier.UnresolvableIdentifierException()
-
-        return get_one_or_create(
-            _db, UnresolvedIdentifier, identifier=identifier,
-            create_method_kwargs=dict(status=202), on_multiple='interchangeable'
-        )
-
-    DEFAULT_RETRY_TIME = datetime.timedelta(days=1)
-
-    @classmethod
-    def ready_to_process(cls, _db, retry_after=None, randomize=True):
-        """Find all UnresolvedIdentifiers that are ready for processing.
-
-        This is all UnresolvedIdentifiers that have never raised an
-        exception, plus all UnresolvedIdentifiers that were attempted
-        more than `retry_after` ago.
-
-        :param retry_after: a `datetime.timedelta`.
-        """
-        now = datetime.datetime.utcnow()
-        retry_after = retry_after or cls.DEFAULT_RETRY_TIME
-        cutoff = now - retry_after
-        needs_processing = or_(
-            UnresolvedIdentifier.exception==None,
-            UnresolvedIdentifier.most_recent_attempt < cutoff
-        )
-        q = _db.query(UnresolvedIdentifier).join(
-            UnresolvedIdentifier.identifier).filter(needs_processing)
-        if randomize:
-            q = q.order_by(func.random())
-        return q
-
-    def set_attempt(self, time=None):
-        """Set most_recent_attempt (and possibly first_attempt) to the given
-        time.
-        """
-        time = time or datetime.datetime.utcnow()
-        self.most_recent_attempt = time
-        if not self.first_attempt:
-            self.first_attempt = time
 
 
 class Contributor(Base):
