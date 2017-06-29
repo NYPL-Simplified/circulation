@@ -37,8 +37,8 @@ class VendorIDTest(DatabaseTest):
     TEST_VENDOR_ID = u"vendor id"
     
     def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
-        """Initialize an Adobe Vendor ID integration and a number of
-        Short Client Token integrations.
+        """Initialize an Adobe Vendor ID integration and a
+        Short Client Token integration with a number of libraries.
 
         :param vendor_id_library: The Library that should have an
         Adobe Vendor ID integration.
@@ -56,11 +56,21 @@ class VendorIDTest(DatabaseTest):
             libraries=[vendor_id_library]
         )
 
-        # Make it easy for this test to access the Short Client Token
-        # integration for a given Library.
-        self.short_client_token = {}
+        # The other libraries will share a short client token
+        # integration.
+        self.short_client_token = self._external_integration(
+            ExternalIntegration.SHORT_CLIENT_TOKEN,
+            ExternalIntegration.DRM_GOAL,
+            libraries=short_token_libraries
+        )
+        # The integration knows which Adobe Vendor ID server it
+        # gets its Adobe IDs from.
+        self.short_client_token.set_setting(
+            AuthdataUtility.VENDOR_ID_KEY,
+            self.adobe_vendor_id.username
+        )
 
-        # As we give libraries their Short Client Token integrations,
+        # As we give libraries their Short Client Token settings,
         # we build the 'other_libraries' setting we'll apply to the
         # Adobe Vendor ID integration.
         other_libraries = dict()
@@ -68,30 +78,21 @@ class VendorIDTest(DatabaseTest):
         # Every library in the system can generate Short Client
         # Tokens.
         for library in short_token_libraries:
-            short_client_token = self._external_integration(
-                ExternalIntegration.SHORT_CLIENT_TOKEN,
-                ExternalIntegration.DRM_GOAL,
-                libraries=[library]
-            )
-
             # Each library will get a slightly different short
             # name and secret for generating Short Client Tokens.
             library_uri = self._url
             short_name = library.short_name + "token"
             secret = library.short_name + " token secret"
-            short_client_token.username = short_name
-            short_client_token.password = secret
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.USERNAME, library, self.short_client_token
+            ).value = short_name
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.PASSWORD, library, self.short_client_token
+            ).value = secret
 
             library.setting(Configuration.WEBSITE_URL).value = library_uri
 
-            # Each library knows which Adobe Vendor ID server it
-            # gets its Adobe IDs from.
-            short_client_token.set_setting(
-                AuthdataUtility.VENDOR_ID_KEY,
-                self.adobe_vendor_id.username
-            )
-            self.short_client_token[library] = short_client_token
-            # Each Short Client Token integration will be registered
+            # Each library's Short Client Token configuration will be registered
             # with that Adobe Vendor ID server.
             if library != vendor_id_library:
                 other_libraries[library_uri] = (short_name, secret)

@@ -565,7 +565,9 @@ class TestOPDS(VendorIDTest):
         eq_(self.adobe_vendor_id.username,
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
-        expected = self.short_client_token[self._default_library].username.upper()
+        expected = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.USERNAME, self._default_library, self.short_client_token
+        ).value.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text
         eq_("{http://www.w3.org/2005/Atom}link",
