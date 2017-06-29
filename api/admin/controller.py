@@ -1670,3 +1670,71 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
+    def cdn_services(self):
+        protocols = [
+            {
+                "name": ExternalIntegration.CDN,
+                "sitewide": True,
+                "settings": [
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL") },
+                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain") },
+                ],
+            }
+        ]
+
+        if flask.request.method == 'GET':
+            services = [
+                dict(
+                    id=service.id,
+                    name=service.name,
+                    protocol=service.protocol,
+                    settings={ setting.key: setting.value for setting in service.settings },
+                ) for service in self._db.query(ExternalIntegration).filter(
+                    ExternalIntegration.goal==ExternalIntegration.CDN_GOAL)
+            ]
+            return dict(
+                cdn_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.CDN_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.CDN_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+

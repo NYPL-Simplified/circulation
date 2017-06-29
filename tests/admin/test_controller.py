@@ -2800,3 +2800,118 @@ class TestSettingsController(AdminControllerTest):
         eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, ExternalIntegration.PASSWORD, l2, drm_service).value)
 
+
+    def test_cdn_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response.get("cdn_services"), [])
+            protocols = response.get("protocols")
+            assert ExternalIntegration.CDN in [p.get("name") for p in protocols]
+            assert "settings" in protocols[0]
+        
+    def test_cdn_services_get_with_one_service(self):
+        cdn_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+        )
+        cdn_service.url = "cdn url"
+        cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.cdn_services()
+            [service] = response.get("cdn_services")
+
+            eq_(cdn_service.id, service.get("id"))
+            eq_(cdn_service.protocol, service.get("protocol"))
+            eq_("cdn url", service.get("settings").get(ExternalIntegration.URL))
+            eq_("mirrored domain", service.get("settings").get(Configuration.CDN_MIRRORED_DOMAIN_KEY))
+
+    def test_cdn_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response, MISSING_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.CDN),
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.CDN),
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+    def test_cdn_services_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.CDN),
+                (ExternalIntegration.URL, "cdn url"),
+                (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CDN_GOAL)
+        eq_(ExternalIntegration.CDN, service.protocol)
+        eq_("cdn url", service.url)
+        eq_("mirrored domain", service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
+
+    def test_cdn_services_post_edit(self):
+        cdn_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+        )
+        cdn_service.url = "cdn url"
+        cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", cdn_service.id),
+                ("protocol", ExternalIntegration.CDN),
+                (ExternalIntegration.URL, "new cdn url"),
+                (Configuration.CDN_MIRRORED_DOMAIN_KEY, "new mirrored domain")
+            ])
+            response = self.manager.admin_settings_controller.cdn_services()
+            eq_(response.status_code, 200)
+
+        eq_(ExternalIntegration.CDN, cdn_service.protocol)
+        eq_("new cdn url", cdn_service.url)
+        eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
+
+
