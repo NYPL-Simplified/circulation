@@ -1633,7 +1633,7 @@ class TestFixInvisibleWorksScript(DatabaseTest):
         output = StringIO()
         search = DummyExternalSearchIndex()
 
-        FixInvisibleWorksScript(self._db, output).run()
+        FixInvisibleWorksScript(self._db, output, search=search).run()
         eq_("""0 presentation-ready works.
 0 works not presentation-ready.
 Here's your problem: there are no presentation-ready works.
@@ -1647,7 +1647,7 @@ Here's your problem: there are no presentation-ready works.
         # LicensePools, and will not show up in the materialized view.
         work = self._work(with_license_pool=False)
         work.presentation_ready=True
-        FixInvisibleWorksScript(self._db, output).run()
+        FixInvisibleWorksScript(self._db, output, search=search).run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -1674,7 +1674,7 @@ Here's your problem: your presentation-ready works are not making it into the ma
         feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
                       pagination="")
         
-        FixInvisibleWorksScript(self._db, output).run()
+        FixInvisibleWorksScript(self._db, output, search=search).run()
         eq_("""0 presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.

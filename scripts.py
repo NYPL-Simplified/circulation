@@ -2253,7 +2253,7 @@ class FixInvisibleWorksScript(Script):
     def __init__(self, _db=None, output=None, search=None):
         super(FixInvisibleWorksScript, self).__init__(_db)
         self.output = output or sys.stdout
-        self.search = search or None # ExternalSearchIndex(_db)
+        self.search = search or ExternalSearchIndex(_db)
     
     def run(self):
         ready = self._db.query(Work).filter(Work.presentation_ready==True)
@@ -2269,11 +2269,14 @@ class FixInvisibleWorksScript(Script):
             )
             for work in unready:
                 work.set_presentation_ready_based_on_content(self.search)
-            self.output.write(
-                "%d works are now presentation-ready.\n" % ready.count()
-            )
 
         ready_count = ready.count()
+
+        if unready_count > 0:
+            self.output.write(
+                "%d works are now presentation-ready.\n" % ready_count
+            )
+        
         if ready_count == 0:
             self.output.write(
                 "Here's your problem: there are no presentation-ready works.\n"
@@ -2288,22 +2291,15 @@ class FixInvisibleWorksScript(Script):
             "%d works in materialized view.\n" % mv_works_count
         )
         
-        # If the number of works in the materialized view is more than
-        # 5% off from the number of presentation-ready works, rebuild
-        # the materialized views.
-        #
-        # If the number of works is very small, such that it's not big
-        # deal to refresh the materialized views, just refresh them
-        # every time.
-        if mv_works_count < 1000 or float(mv_works_count) / ready_count < 0.995:
-            self.output.write("Refreshing the materialized views.\n")
-            SessionManager.refresh_materialized_views(self._db)
-            mv_works_count = mv_works.count()
-            self.output.write(
-                "%d works in materialized view after refresh.\n" % (
-                    mv_works_count
-                )
+        # Rebuild the materialized views.
+        self.output.write("Refreshing the materialized views.\n")
+        SessionManager.refresh_materialized_views(self._db)
+        mv_works_count = mv_works.count()
+        self.output.write(
+            "%d works in materialized view after refresh.\n" % (
+                mv_works_count
             )
+        )
 
         if mv_works_count == 0:
             self.output.write(
