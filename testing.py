@@ -53,8 +53,8 @@ from coverage import (
 )
 
 from external_search import DummyExternalSearchIndex
+import external_search
 import mock
-import model
 import inspect
 
 
@@ -124,7 +124,7 @@ class DatabaseTest(object):
         if 'TESTING' in os.environ:
             del os.environ['TESTING']
 
-    def setup(self):
+    def setup(self, mock_search=True):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
@@ -134,9 +134,12 @@ class DatabaseTest(object):
 
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
-        self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
-        self.search_mock.start()
-        
+        if mock_search:
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+            self.search_mock.start()
+        else:
+            self.search_mock = None
+
         # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
         # which pops an isbn off the list and messes tests up.  so exclude 
         # _ functions from participating.
@@ -164,7 +167,8 @@ class DatabaseTest(object):
             if key in Configuration.instance:
                 del(Configuration.instance[key])
 
-        self.search_mock.stop()
+        if self.search_mock:
+            self.search_mock.stop()
 
     def shortDescription(self):
         return None # Stop nosetests displaying docstrings instead of class names when verbosity level >= 2.

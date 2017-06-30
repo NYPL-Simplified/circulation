@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
+from flask.ext.babel import lazy_gettext as _
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -10,12 +11,15 @@ from classifier import (
     GradeLevelClassifier,
     AgeClassifier,
 )
+from model import ExternalIntegration, Work
 import os
 import logging
 import re
 import time
 
 class ExternalSearchIndex(object):
+
+    NAME = ExternalIntegration.ELASTICSEARCH
 
     WORKS_INDEX_KEY = u'works_index'
     WORKS_ALIAS_KEY = u'works_alias'
@@ -27,6 +31,13 @@ class ExternalSearchIndex(object):
 
     CURRENT_ALIAS_SUFFIX = '-current'
     VERSION_RE = re.compile('-v([0-9]+)$')
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": WORKS_INDEX_KEY, "label": _("Works index"), "default": DEFAULT_WORKS_INDEX },
+    ]
+
+    SITEWIDE = True
 
     @classmethod
     def reset(cls):
@@ -46,7 +57,6 @@ class ExternalSearchIndex(object):
 
         if not ExternalSearchIndex.__client:
             if _db and (not url or not works_index):
-                from model import ExternalIntegration
                 integration = ExternalIntegration.lookup(
                     _db, ExternalIntegration.ELASTICSEARCH,
                     goal=ExternalIntegration.SEARCH_GOAL
@@ -572,8 +582,6 @@ class ExternalSearchIndex(object):
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
-
-        from model import Work
 
         time1 = time.time()
         docs = Work.to_search_documents(works)
