@@ -61,6 +61,8 @@ from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
 
+from core.external_search import ExternalSearchIndex
+
 class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
@@ -2913,5 +2915,132 @@ class TestSettingsController(AdminControllerTest):
         eq_(ExternalIntegration.CDN, cdn_service.protocol)
         eq_("new cdn url", cdn_service.url)
         eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
+
+
+    def test_search_services_get_with_no_services(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response.get("search_services"), [])
+            protocols = response.get("protocols")
+            assert ExternalIntegration.ELASTICSEARCH in [p.get("name") for p in protocols]
+            assert "settings" in protocols[0]
+        
+    def test_search_services_get_with_one_service(self):
+        search_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+        )
+        search_service.url = "search url"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.search_services()
+            [service] = response.get("search_services")
+
+            eq_(search_service.id, service.get("id"))
+            eq_(search_service.protocol, service.get("protocol"))
+            eq_("search url", service.get("settings").get(ExternalIntegration.URL))
+            eq_("works-index", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_KEY))
+
+    def test_search_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response, MISSING_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.ELASTICSEARCH),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response, MULTIPLE_SEARCH_SERVICES)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.ELASTICSEARCH),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.ELASTICSEARCH),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+    def test_search_services_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.ELASTICSEARCH),
+                (ExternalIntegration.URL, "search url"),
+                (ExternalSearchIndex.WORKS_INDEX_KEY, "works-index"),
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.SEARCH_GOAL)
+        eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
+        eq_("search url", service.url)
+        eq_("works-index", service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
+
+    def test_search_services_post_edit(self):
+        search_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+        )
+        search_service.url = "search url"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", search_service.id),
+                ("protocol", ExternalIntegration.ELASTICSEARCH),
+                (ExternalIntegration.URL, "new search url"),
+                (ExternalSearchIndex.WORKS_INDEX_KEY, "new-works-index")
+            ])
+            response = self.manager.admin_settings_controller.search_services()
+            eq_(response.status_code, 200)
+
+        eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
+        eq_("new search url", search_service.url)
+        eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
 
 

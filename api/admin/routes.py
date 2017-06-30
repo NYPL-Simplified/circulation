@@ -387,6 +387,18 @@ def cdn_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/search_services", methods=["GET", "POST"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def search_services():
+    data = app.manager.admin_settings_controller.search_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
