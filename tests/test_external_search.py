@@ -27,7 +27,7 @@ from classifier import Classifier
 class ExternalSearchTest(DatabaseTest):
 
     def setup(self):
-        super(ExternalSearchTest, self).setup()
+        super(ExternalSearchTest, self).setup(mock_search=False)
 
         self.integration = self._external_integration(
             ExternalIntegration.ELASTICSEARCH,

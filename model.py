@@ -103,7 +103,6 @@ from sqlalchemy import (
 
 import log # Make sure logging is set up properly.
 from config import Configuration
-from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
@@ -4132,6 +4131,7 @@ class Work(Base):
 
     def update_external_index(self, client, add_coverage_record=True):
         if not client:
+            from external_search import ExternalSearchIndex
             _db = Session.object_session(self)
             client = ExternalSearchIndex(_db)
         args = dict(index=client.works_index,
