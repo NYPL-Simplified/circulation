@@ -123,14 +123,14 @@ class TestRepresentationPerLane(TestLaneScript):
             )
             eq_(['fre', 'eng'], script.languages)
 
-            english_lane = Lane(self._default_library, self._str, languages=['eng'])
+            english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
             eq_(True, script.should_process_lane(english_lane))
 
-            no_english_lane = Lane(self._default_library, self._str, exclude_languages=['eng'])
+            no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
             eq_(True, script.should_process_lane(no_english_lane))
 
             no_english_or_french_lane = Lane(
-                self._default_library, self._str, exclude_languages=['eng', 'fre']
+                self._db, self._default_library, self._str, exclude_languages=['eng', 'fre']
             )
             eq_(False, script.should_process_lane(no_english_or_french_lane))
             
@@ -142,8 +142,8 @@ class TestRepresentationPerLane(TestLaneScript):
             )
             eq_(0, script.max_depth)
 
-            child = Lane(self._default_library, "sublane")
-            parent = Lane(self._default_library, "parent", sublanes=[child])
+            child = Lane(self._db, self._default_library, "sublane")
+            parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
             eq_(True, script.should_process_lane(parent))
             eq_(False, script.should_process_lane(child))
 
@@ -183,7 +183,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_process_lane(self):
         with self.temp_config() as config:
-            lane = Lane(self._default_library, self._str)
+            lane = Lane(self._db, self._default_library, self._str)
 
             script = CacheFacetListsPerLane(
                 self._db, ["--availability=all", "--availability=always",

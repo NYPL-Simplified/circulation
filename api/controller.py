@@ -185,11 +185,11 @@ class CirculationManager(object):
         self.adobe_device_management = None
         self.short_client_token_initialization_exceptions = dict()
         for library in self._db.query(Library):
-            lanes = make_lanes(library, self.lane_descriptions)
+            lanes = make_lanes(self._db, library, self.lane_descriptions)
             
             self.top_level_lanes[library.id] = (
                 self.create_top_level_lane(
-                    library, lanes
+                    self._db, library, lanes
                 )
             )
 
@@ -227,9 +227,10 @@ class CirculationManager(object):
                 self.external_search_initialization_exception = e
         return self.__external_search
 
-    def create_top_level_lane(self, library, lanelist):
+    def create_top_level_lane(self, _db, library, lanelist):
         name = 'All Books'
         return Lane(
+            _db,
             library, name,
             display_name=name,
             parent=None,
@@ -1086,7 +1087,7 @@ class WorkController(CirculationManagerController):
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            library, contributor_name, languages=languages, audiences=audiences
+            self._db, library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1143,7 +1144,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                library, work, lane_name, novelist_api=novelist_api
+                self._db, library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1178,7 +1179,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                library, work, lane_name, novelist_api=novelist_api
+                self._db, library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1235,7 +1236,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(library, series_name=series_name,
+        lane = SeriesLane(self._db, library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)
