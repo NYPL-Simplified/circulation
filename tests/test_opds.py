@@ -350,6 +350,7 @@ class TestOPDS(DatabaseTest):
         super(TestOPDS, self).setup()
 
         self.lanes = LaneList.from_description(
+            self._db,
             self._default_library,
             None,
             [dict(full_name="Fiction",
@@ -373,7 +374,7 @@ class TestOPDS(DatabaseTest):
         )
 
         mock_top_level = Lane(
-            self._default_library, '', display_name='',
+            self._db, self._default_library, '', display_name='',
             sublanes=self.lanes.lanes, include_all=False, invisible=True
         )
 
@@ -453,7 +454,7 @@ class TestOPDS(DatabaseTest):
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
-        lane = Lane(self._default_library, "lane")
+        lane = Lane(self._db, self._default_library, "lane")
         facets = Facets.default(self._default_library)
 
         cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
@@ -944,7 +945,7 @@ class TestOPDS(DatabaseTest):
         feed has no books in the groups.
         """
         library = self._default_library
-        test_lane = Lane(library, "Test Lane", genres=['Mystery'])
+        test_lane = Lane(self._db, library, "Test Lane", genres=['Mystery'])
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75

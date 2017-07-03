@@ -33,7 +33,7 @@ class TestCachedFeed(DatabaseTest):
     def test_lifecycle(self):
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         # Fetch a cached feed from the database--it's empty.
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
@@ -66,7 +66,7 @@ class TestCachedFeed(DatabaseTest):
     def test_fetch_ignores_feeds_without_content(self):
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         # Create a feed without content (i.e. don't update it)
         contentless_feed = get_one_or_create(
@@ -94,7 +94,7 @@ class TestCachedFeed(DatabaseTest):
         
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._default_library, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets,
                      pagination, None)

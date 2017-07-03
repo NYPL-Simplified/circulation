@@ -506,6 +506,7 @@ class Lane(object):
             lane.debug(level+1)
 
     def __init__(self, 
+                 _db,
                  library,
                  full_name,
                  display_name=None,
@@ -546,7 +547,7 @@ class Lane(object):
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
-        self._db = Session.object_session(library)
+        self._db = _db
         self.library_id = library.id
         self.collection_ids = [
             collection.id for collection in library.collections
@@ -782,7 +783,7 @@ class Lane(object):
                     if subgenre in full_exclude_genres:
                         continue
                     sublane = Lane(
-                            self.library, full_name=subgenre.name,
+                            self._db, self.library, full_name=subgenre.name,
                             parent=self, genres=[subgenre],
                             subgenre_behavior=self.IN_SUBLANES
                     )
@@ -800,10 +801,10 @@ class Lane(object):
                 self.sublanes.add(sl)
         elif sublanes:
             self.sublanes = LaneList.from_description(
-                self.library, self, sublanes
+                self._db, self.library, self, sublanes
             )
         else:
-            self.sublanes = LaneList.from_description(self.library, self, [])
+            self.sublanes = LaneList.from_description(self._db, self.library, self, [])
 
     def include_staff_picks(self, **base_args):
         """Includes a Staff Picks sublane to the base/top of this lane."""
@@ -811,6 +812,7 @@ class Lane(object):
         full_name = "%s - Staff Picks" % self.name
         try:
             staff_picks_lane = Lane(
+                self._db,
                 full_name=full_name, display_name="Staff Picks",
                 list_identifier="Staff Picks",
                 searchable=False,
@@ -828,6 +830,7 @@ class Lane(object):
         full_name = "%s - Best Sellers" % self.name
         try:
             best_seller_lane = Lane(
+                self._db,
                 full_name=full_name, display_name="Best Sellers",
                 list_data_source=DataSource.NYT,
                 list_seen_in_previous_days=365*2,
@@ -893,11 +896,10 @@ class Lane(object):
         return audiences      
 
     @classmethod
-    def from_description(cls, library, parent, description):
+    def from_description(cls, _db, library, parent, description):
         genre = None
         if not isinstance(library, Library):
             raise ValueError("Expected library, got %r" % library)
-        _db = Session.object_session(library)
         if isinstance(description, Lane):
             # The lane has already been created.
             description.parent = parent
@@ -906,11 +908,11 @@ class Lane(object):
             if description.get('suppress_lane'):
                 return None
             # Invoke the constructor
-            return Lane(library, parent=parent, **description)
+            return Lane(_db, library, parent=parent, **description)
         else:
             # This is a lane for a specific genre.
             genre, genredata = Lane.load_genre(_db, description)
-            return Lane(library, genre.name, parent=parent, genres=genre)
+            return Lane(_db, library, genre.name, parent=parent, genres=genre)
 
     @classmethod
     def load_genre(cls, _db, descriptor):
@@ -1563,11 +1565,11 @@ class LaneList(object):
         )       
 
     @classmethod
-    def from_description(cls, library, parent_lane, description):
+    def from_description(cls, _db, library, parent_lane, description):
         lanes = LaneList(parent_lane)
         description = description or []
         for lane_description in description:
-            lane = Lane.from_description(library, parent_lane, lane_description)
+            lane = Lane.from_description(_db, library, parent_lane, lane_description)
 
             def _add_recursively(l):
                 lanes.add(l)
@@ -1686,7 +1688,7 @@ class QueryGeneratedLane(Lane):
         """
         raise NotImplementedError()
 
-def make_lanes(library, definitions=None):
+def make_lanes(_db, library, definitions=None):
 
     definitions = definitions or Configuration.policy(
         Configuration.LANES_POLICY
@@ -1694,5 +1696,5 @@ def make_lanes(library, definitions=None):
     if not definitions:
         # A lane arrangement is required for lane making.
         return None
-    lanes = [Lane(library, **definition) for definition in definitions]
-    return LaneList.from_description(library, None, lanes)
+    lanes = [Lane(_db, library, **definition) for definition in definitions]
+    return LaneList.from_description(_db, library, None, lanes)

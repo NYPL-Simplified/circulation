@@ -10,9 +10,9 @@ from . import DatabaseTest
 class TestOpenSearchDocument(DatabaseTest):
 
     def test_search_info(self):
-        sublane = Lane(self._default_library, "Sublane")
+        sublane = Lane(self._db, self._default_library, "Sublane")
 
-        lane = Lane(self._default_library, "Lane", sublanes=[sublane])
+        lane = Lane(self._db, self._default_library, "Lane", sublanes=[sublane])
 
         # Neither lane is searchable yet.
 

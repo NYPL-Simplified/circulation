@@ -307,21 +307,21 @@ class TestFacetsApply(DatabaseTest):
 class TestLane(DatabaseTest):
 
     def test_depth(self):
-        child = Lane(self._default_library, "sublane")
-        parent = Lane(self._default_library, "parent", sublanes=[child])
+        child = Lane(self._db, self._default_library, "sublane")
+        parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
         eq_(0, parent.depth)
         eq_(1, child.depth)
 
     def test_includes_language(self):
-        english_lane = Lane(self._default_library, self._str, languages=['eng'])
+        english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
         eq_(True, english_lane.includes_language('eng'))
         eq_(False, english_lane.includes_language('fre'))
 
-        no_english_lane = Lane(self._default_library, self._str, exclude_languages=['eng'])
+        no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
         eq_(False, no_english_lane.includes_language('eng'))
         eq_(True, no_english_lane.includes_language('fre'))
 
-        all_language_lane = Lane(self._default_library, self._str)
+        all_language_lane = Lane(self._db, self._default_library, self._str)
         eq_(True, all_language_lane.includes_language('eng'))
         eq_(True, all_language_lane.includes_language('fre'))
 
@@ -333,17 +333,17 @@ class TestLane(DatabaseTest):
 
         # Because this lane has no list-related information, the
         # RuntimeError shouldn't pop up at all.
-        lane = SetCustomListErrorLane(self._default_library, self._str)
+        lane = SetCustomListErrorLane(self._db, self._default_library, self._str)
 
         # The minute we put in some list information, it does!
         assert_raises(
-            RuntimeError, SetCustomListErrorLane, self._default_library,
+            RuntimeError, SetCustomListErrorLane, self._db, self._default_library,
             self._str, list_data_source=DataSource.NYT
         )
 
         # It can be a DataSource, or a CustomList identifier. World == oyster.
         assert_raises(
-            RuntimeError, SetCustomListErrorLane, self._default_library,
+            RuntimeError, SetCustomListErrorLane, self._db, self._default_library,
             self._str, list_identifier=u"Staff Picks"
         )
 
@@ -363,7 +363,7 @@ class TestLanes(DatabaseTest):
 
     def test_nonexistent_list_raises_exception(self):
         assert_raises(
-            UndefinedLane, Lane, self._default_library, 
+            UndefinedLane, Lane, self._db, self._default_library, 
             u"This Will Fail", list_identifier=u"No Such List"
         )
 
@@ -379,7 +379,7 @@ class TestLanes(DatabaseTest):
             num_entries=0
         )
         lane = Lane(
-            self._default_library, "Everything", 
+            self._db, self._default_library, "Everything", 
             include_staff_picks=True, include_best_sellers=True
         )
 
@@ -412,7 +412,7 @@ class TestLanes(DatabaseTest):
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
-        lane = Lane(self._default_library, u'My Lane', list_identifier=my_list.foreign_identifier)
+        lane = Lane(self._db, self._default_library, u'My Lane', list_identifier=my_list.foreign_identifier)
 
         result = lane.list_featured_works_query.all()
         eq_(sorted(featured_works), sorted(result))
@@ -524,7 +524,7 @@ class TestLanes(DatabaseTest):
     def test_subgenres_become_sublanes(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         lane = Lane(
-            self._default_library, "YA Fantasy", genres=fantasy, 
+            self._db, self._default_library, "YA Fantasy", genres=fantasy, 
             languages='eng',
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             age_range=[15,16],
@@ -543,7 +543,7 @@ class TestLanes(DatabaseTest):
     def test_get_search_target(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         lane = Lane(
-            self._default_library, "YA Fantasy", genres=fantasy, 
+            self._db, self._default_library, "YA Fantasy", genres=fantasy, 
             languages='eng',
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             age_range=[15,16],
@@ -571,10 +571,10 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         urban_fantasy_lane = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         fantasy_lane = Lane(
-            self._default_library, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes=[urban_fantasy_lane]
@@ -584,7 +584,7 @@ class TestLanes(DatabaseTest):
         # You can just give the name of a genre as a sublane and it
         # will work.
         fantasy_lane = Lane(
-            self._default_library, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes="Urban Fantasy"
@@ -597,10 +597,10 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         urban_fantasy_lane = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         assert_raises(UndefinedLane, Lane,
-            self._default_library, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             subgenre_behavior=Lane.IN_SUBLANES,
@@ -611,7 +611,7 @@ class TestLanes(DatabaseTest):
         """The appropriate opds entry is deferred during querying.
         """
         original_setting = Configuration.DEFAULT_OPDS_FORMAT
-        lane = Lane(self._default_library, "Everything")
+        lane = Lane(self._db, self._default_library, "Everything")
 
         # Verbose config doesn't query simple OPDS entries.
         Configuration.DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
@@ -640,14 +640,14 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         sublane = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         invisible_parent = Lane(
-            self._default_library, "Fantasy", invisible=True, genres=fantasy, 
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy, 
             sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_grandparent = Lane(
-            self._default_library, "English", sublanes=[invisible_parent],
+            self._db, self._default_library, "English", sublanes=[invisible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(sublane.visible_parent(), visible_grandparent)
@@ -659,18 +659,18 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         lane = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         visible_parent = Lane(
-            self._default_library, "Fantasy", genres=fantasy,
+            self._db, self._default_library, "Fantasy", genres=fantasy,
             sublanes=[lane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         invisible_grandparent = Lane(
-            self._default_library, "English", invisible=True, sublanes=[visible_parent],
+            self._db, self._default_library, "English", invisible=True, sublanes=[visible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_ancestor = Lane(
-            self._default_library, "Books With Words", sublanes=[invisible_grandparent],
+            self._db, self._default_library, "Books With Words", sublanes=[invisible_grandparent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(lane.visible_ancestors(), [visible_parent, visible_ancestor])
@@ -680,15 +680,15 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         sublane = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy,
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         invisible_parent = Lane(
-            self._default_library, "Fantasy", invisible=True, genres=fantasy,
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy,
             sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_grandparent = Lane(
-            self._default_library, "English", sublanes=[invisible_parent],
+            self._db, self._default_library, "English", sublanes=[invisible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(False, visible_grandparent.has_visible_sublane())
@@ -700,17 +700,17 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
         humorous, ig = Genre.lookup(self._db, classifier.Humorous_Fiction)
 
-        visible_sublane = Lane(self._default_library, "Humorous Fiction", genres=humorous)
+        visible_sublane = Lane(self._db, self._default_library, "Humorous Fiction", genres=humorous)
 
         visible_grandchild = Lane(
-            self._default_library, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         invisible_sublane = Lane(
-            self._default_library, "Fantasy", invisible=True, genres=fantasy,
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy,
             sublanes=[visible_grandchild], subgenre_behavior=Lane.IN_SAME_LANE)
 
         lane = Lane(
-            self._default_library, "English", sublanes=[visible_sublane, invisible_sublane],
+            self._db, self._default_library, "English", sublanes=[visible_sublane, invisible_sublane],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(2, len(lane.visible_sublanes))
@@ -850,24 +850,24 @@ class TestLanesQuery(DatabaseTest):
 
         # The 'everything' lane contains 18 works -- everything except
         # the music.
-        lane = Lane(self._default_library, "Everything")
+        lane = Lane(self._db, self._default_library, "Everything")
         w, mw = _assert_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
-        lane = Lane(self._default_library, "Spanish", languages='spa')
+        lane = Lane(self._db, self._default_library, "Spanish", languages='spa')
         eq_(['spa'], lane.languages)
         w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'everything except English' lane contains that same book.
-        lane = Lane(self._default_library, "Not English", exclude_languages='eng')
+        lane = Lane(self._db, self._default_library, "Not English", exclude_languages='eng')
         eq_(None, lane.languages)
         eq_(['eng'], lane.exclude_languages)
         w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'music' lane contains 1 work of music
-        lane = Lane(self._default_library, "Music", media=Edition.MUSIC_MEDIUM)
+        lane = Lane(self._db, self._default_library, "Music", media=Edition.MUSIC_MEDIUM)
         w, mw = _assert_expectations(
             lane, 1, 
             lambda x: x.presentation_edition.medium==Edition.MUSIC_MEDIUM,
@@ -875,14 +875,14 @@ class TestLanesQuery(DatabaseTest):
         )
         
         # The 'English fiction' lane contains ten fiction books.
-        lane = Lane(self._default_library, "English Fiction", fiction=True, languages='eng')
+        lane = Lane(self._db, self._default_library, "English Fiction", fiction=True, languages='eng')
         w, mw = _assert_expectations(
             lane, 10, lambda x: x.fiction
         )
 
         # The 'nonfiction' lane contains seven nonfiction books.
         # It does not contain the music.
-        lane = Lane(self._default_library, "Nonfiction", fiction=False)
+        lane = Lane(self._db, self._default_library, "Nonfiction", fiction=False)
         w, mw = _assert_expectations(
             lane, 7, 
             lambda x: x.presentation_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
@@ -890,7 +890,7 @@ class TestLanesQuery(DatabaseTest):
         )
 
         # The 'adults' lane contains five books for adults.
-        lane = Lane(self._default_library, "Adult English",
+        lane = Lane(self._db, self._default_library, "Adult English",
                     audiences=Lane.AUDIENCE_ADULT, languages='eng')
         w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_ADULT
@@ -899,7 +899,7 @@ class TestLanesQuery(DatabaseTest):
         # This lane contains those five books plus two adults-only
         # books.
         audiences = [Lane.AUDIENCE_ADULT, Lane.AUDIENCE_ADULTS_ONLY]
-        lane = Lane(self._default_library, "Adult + Adult Only",
+        lane = Lane(self._db, self._default_library, "Adult + Adult Only",
                     audiences=audiences, languages='eng'
         )
         w, mw = _assert_expectations(
@@ -909,7 +909,7 @@ class TestLanesQuery(DatabaseTest):
         eq_(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
 
         # The 'Young Adults' lane contains five books.
-        lane = Lane(self._default_library, "Young Adults", 
+        lane = Lane(self._db, self._default_library, "Young Adults", 
                     audiences=Lane.AUDIENCE_YOUNG_ADULT)
         w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_YOUNG_ADULT
@@ -917,7 +917,7 @@ class TestLanesQuery(DatabaseTest):
 
         # There is one book suitable for seven-year-olds.
         lane = Lane(
-            self._default_library, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
+            self._db, self._default_library, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=7
         )
         w, mw = _assert_expectations(
@@ -926,7 +926,7 @@ class TestLanesQuery(DatabaseTest):
 
         # There are four books suitable for ages 10-12.
         lane = Lane(
-            self._default_library, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
+            self._db, self._default_library, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=(10,12)
         )
         w, mw = _assert_expectations(
@@ -940,7 +940,7 @@ class TestLanesQuery(DatabaseTest):
         # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
         # are kept in the same place as generic Fantasy.
         lane = Lane(
-            self._default_library, "Adult Fantasy",
+            self._db, self._default_library, "Adult Fantasy",
             genres=[self.fantasy], 
             subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
@@ -957,7 +957,7 @@ class TestLanesQuery(DatabaseTest):
         # Here's a 'YA fantasy' lane in which urban fantasy is explicitly
         # excluded (maybe because it has its own separate lane).
         lane = Lane(
-            self._default_library, full_name="Adult Fantasy",
+            self._db, self._default_library, full_name="Adult Fantasy",
             genres=[self.fantasy], 
             exclude_genres=[self.urban_fantasy],
             subgenre_behavior=Lane.IN_SAME_LANE,
@@ -981,7 +981,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Try a lane based on license source.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        lane = Lane(self._default_library, full_name="Overdrive Books",
+        lane = Lane(self._db, self._default_library, full_name="Overdrive Books",
                     license_source=overdrive)
         w, mw = _assert_expectations(
             lane, 10, lambda x: True
@@ -1016,7 +1016,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Create a lane for one specific list
         fiction_best_sellers = Lane(
-            self._default_library, full_name="Fiction Best Sellers",
+            self._db, self._default_library, full_name="Fiction Best Sellers",
             list_identifier=fic_name
         )
         w, mw = _assert_expectations(
@@ -1026,7 +1026,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Create a lane for all best-sellers.
         all_best_sellers = Lane(
-            self._default_library, full_name="All Best Sellers",
+            self._db, self._default_library, full_name="All Best Sellers",
             list_data_source=best_seller_list_1.data_source.name
         )
         w, mw = _assert_expectations(
@@ -1038,7 +1038,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Combine list membership with another criteria (nonfiction)
         all_nonfiction_best_sellers = Lane(
-            self._default_library, full_name="All Nonfiction Best Sellers",
+            self._db, self._default_library, full_name="All Nonfiction Best Sellers",
             fiction=False,
             list_data_source=best_seller_list_1.data_source.name
         )
@@ -1050,7 +1050,7 @@ class TestLanesQuery(DatabaseTest):
         # Apply a cutoff date to a best-seller list,
         # excluding the work that was last seen a year ago.
         best_sellers_past_week = Lane(
-            self._default_library, full_name="Best Sellers - The Past Week",
+            self._db, self._default_library, full_name="Best Sellers - The Past Week",
             list_data_source=best_seller_list_1.data_source.name,
             list_seen_in_previous_days=7
         )
@@ -1062,6 +1062,7 @@ class TestLanesQuery(DatabaseTest):
     def test_from_description(self):
         """Create a LaneList from a simple description."""
         lanes = LaneList.from_description(
+            self._db,
             self._default_library,
             None,
             [dict(
@@ -1186,7 +1187,7 @@ class TestFilters(DatabaseTest):
         # w1 (owned licenses), w6 (open-access), w7 (available
         # licenses), and w8 (available licenses, weird delivery mechanism).
         library = self._default_library
-        lane = Lane(library, self._str)
+        lane = Lane(self._db, library, self._str)
         q = lane.only_show_ready_deliverable_works(orig_q, Work)
         eq_(set([w1, w6, w7, w8]), set(q.all()))
 
@@ -1214,7 +1215,7 @@ class TestFilters(DatabaseTest):
         # construction.)
         library.setting(Library.ALLOW_HOLDS).value = "True"
         library.collections.append(collection2)
-        lane = Lane(library, self._str)
+        lane = Lane(self._db, library, self._str)
         q = lane.only_show_ready_deliverable_works(orig_q, Work)
         eq_(set([w1, w6, w7, w8, w9]), set(q.all()))
         
@@ -1243,7 +1244,7 @@ class TestFilters(DatabaseTest):
 
         # When the work is queried, both of the LicensePools are
         # available in the database session, despite the filtering.
-        subclass = LaneSubclass(self._default_library, "Lane Subclass")
+        subclass = LaneSubclass(self._db, self._default_library, "Lane Subclass")
         [subclass_work] = subclass.works().all()
         eq_(2, len(subclass_work.license_pools))
 
