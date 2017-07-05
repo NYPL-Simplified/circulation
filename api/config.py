@@ -53,7 +53,12 @@ class Configuration(CoreConfiguration):
     COPYRIGHT = 'copyright'
     ABOUT = 'about'
     LICENSE = 'license'
+    REGISTER = 'register'
 
+    # These are link relations that are valid in Authentication for
+    # OPDS documents but are not registered with IANA.
+    AUTHENTICATION_FOR_OPDS_LINKS = ['register']
+    
     # We support three different ways of integrating help processes.
     # All three of these will be sent out as links with rel='help'
     HELP_EMAIL = 'help-email'
@@ -121,6 +126,10 @@ class Configuration(CoreConfiguration):
         {
             "key": LICENSE,
             "label": _("License URL"),
+        },
+        {
+            "key": REGISTER,
+            "label": _("Patron registration URL"),
         },
         {
             "key": HELP_EMAIL,

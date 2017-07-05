@@ -656,10 +656,16 @@ class LibraryAuthenticator(object):
 
         links = {}
         library = get_one(self._db, Library, self.library_id)
-        for rel in CirculationManagerAnnotator.CONFIGURATION_LINKS:
-            setting = ConfigurationSetting.for_library(rel, library)
-            if setting.value:
-                links[rel] = dict(href=setting.value, type="text/html")
+        for rel in (CirculationManagerAnnotator.CONFIGURATION_LINKS +
+                    Configuration.AUTHENTICATION_FOR_OPDS_LINKS):
+            value = ConfigurationSetting.for_library(rel, library).value
+            if not value:
+                continue
+            links[rel] = dict(href=value)
+            if any(value.startswith(x) for x in ('http:', 'https:')):
+                # We assume that HTTP URLs lead to HTML, but
+                # we don't assume anything about other sorts of URLs.
+                links[rel]['type'] = "text/html"
 
         for type, uri in Configuration.help_uris(library):
             link = dict(href=uri)

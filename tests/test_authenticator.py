@@ -942,6 +942,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             CirculationManagerAnnotator.COPYRIGHT: "http://copyright",
             CirculationManagerAnnotator.ABOUT: "http://about",
             CirculationManagerAnnotator.LICENSE: "http://license/",
+            CirculationManagerAnnotator.REGISTER: "custom-registration-hook://library/",
         }
 
         for rel, value in link_config.iteritems():
@@ -990,6 +991,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://copyright", links['copyright']['href'])
             eq_("http://about", links['about']['href'])
             eq_("http://license/", links['license']['href'])
+
+            # Most of the links have type='text/html'
+            eq_("text/html", links['about']['type'])
+
+            # The registration link doesn't have a type, because it
+            # uses a non-HTTP URI scheme.
+            register = links['register']
+            eq_({'href': 'custom-registration-hook://library/'},
+                links['register'])
 
             # We have three help links.
             uri, web, email = sorted(links['help'], key=lambda x: x['href'])

@@ -51,6 +51,7 @@ class CirculationManagerAnnotator(Annotator):
     COPYRIGHT = Configuration.COPYRIGHT
     ABOUT = Configuration.ABOUT
     LICENSE = Configuration.LICENSE
+    REGISTER = Configuration.REGISTER
     
     CONFIGURATION_LINKS = [
         TERMS_OF_SERVICE,
