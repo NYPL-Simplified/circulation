@@ -5740,6 +5740,84 @@ class TestConfigurationSetting(DatabaseTest):
         # it's returned instead of the default.
         setting.value = ""
         eq_("", setting.value_or_default("default"))
+
+    def test_value_inheritance(self):
+
+        key = "SomeKey"
+
+        # Here's a sitewide configuration setting.
+        sitewide_conf = ConfigurationSetting.sitewide(self._db, key)
+
+        # Its value is not set.
+        eq_(None, sitewide_conf.value)
+
+        # Set it.
+        sitewide_conf.value = "Sitewide value"
+        eq_("Sitewide value", sitewide_conf.value)
+        
+        # Here's an integration, let's say the SIP2 authentication mechanism
+        sip, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL, protocol="SIP2"
+        )
+
+        # It happens to a ConfigurationSetting for the same key used
+        # in the sitewide configuration.
+        sip_conf = ConfigurationSetting.for_externalintegration(key, sip)
+
+        # But because the meaning of a configuration key differ so
+        # widely across integrations, the SIP2 integration does not
+        # inherit the sitewide value for the key.
+        eq_(None, sip_conf.value)
+        sip_conf.value = "SIP2 value"
+        
+        # Here's a library which has a ConfigurationSetting for the same
+        # key used in the sitewide configuration.
+        library = self._default_library
+        library_conf = ConfigurationSetting.for_library(key, library)
+        
+        # Since all libraries use a given ConfigurationSetting to mean
+        # the same thing, a library _does_ inherit the sitewide value
+        # for a configuration setting.
+        eq_("Sitewide value", library_conf.value)
+
+        # Change the site-wide configuration, and the default also changes.
+        sitewide_conf.value = "New site-wide value"
+        eq_("New site-wide value", library_conf.value)
+
+        # The per-library value takes precedence over the site-wide
+        # value.
+        library_conf.value = "Per-library value"
+        eq_("Per-library value", library_conf.value)
+        
+        # Now let's consider a setting like the patron identifier
+        # prefix.  This is set on the combination of a library and a
+        # SIP2 integration.
+        key = "patron_identifier_prefix"
+        library_patron_prefix_conf = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, sip
+        )
+        eq_(None, library_patron_prefix_conf.value)
+
+        # If the SIP2 integration has a value set for this
+        # ConfigurationSetting, that value is inherited for every
+        # individual library that uses the integration.
+        generic_patron_prefix_conf = ConfigurationSetting.for_externalintegration(
+            key, sip
+        )
+        eq_(None, generic_patron_prefix_conf.value)
+        generic_patron_prefix_conf.value = "Integration-specific value"
+        eq_("Integration-specific value", library_patron_prefix_conf.value)
+
+        # Change the value on the integration, and the default changes
+        # for each individual library.
+        generic_patron_prefix_conf.value = "New integration-specific value"
+        eq_("New integration-specific value", library_patron_prefix_conf.value)
+
+        # The library+integration setting takes precedence over the
+        # integration setting.
+        library_patron_prefix_conf.value = "Library-specific value"
+        eq_("Library-specific value", library_patron_prefix_conf.value)
         
     def test_duplicate(self):
         """You can't have two ConfigurationSettings for the same key,
