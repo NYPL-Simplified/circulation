@@ -927,14 +927,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
-        
+
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-
+        
+        # Set up configuration settings for links.
         link_config = {
             CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms",
             CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy",
@@ -943,13 +944,20 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             CirculationManagerAnnotator.LICENSE: "http://license/",
         }
 
-        # Set up configuration settings for links.
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
+        # Configure the various ways a patron can get help.
+        ConfigurationSetting.for_library(
+            Configuration.HELP_EMAIL, library).value = "help@library"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_WEB, library).value = "http://library.help/"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_URI, library).value = "custom:uri"
+        
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
-
+       
         with self.app.test_request_context("/"):
             doc = json.loads(authenticator.create_authentication_document())
             # The main thing we need to test is that the
@@ -978,6 +986,19 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", links['about']['href'])
             eq_("http://license/", links['license']['href'])
 
+            # We have three help links.
+            uri, web, email = sorted(links['help'], key=lambda x: x['href'])
+            eq_("custom:uri", uri['href'])
+            eq_("http://library.help/", web['href'])
+            eq_("text/html", web['type'])
+            eq_("mailto:help@library", email['href'])
+            
+            # Features that are enabled for this library are communicated
+            # through the 'features' item.
+            features = doc['features']
+            eq_([], features['disabled'])
+            eq_([Configuration.RESERVATIONS_FEATURE], features['enabled'])
+            
             # While we're in this context, let's also test
             # create_authentication_headers.
 
@@ -1428,7 +1449,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(provider.password_label, password)
         eq_(provider.DEFAULT_KEYBOARD, method['inputs']['login']['keyboard'])
         eq_(provider.DEFAULT_KEYBOARD, method['inputs']['password']['keyboard'])
-
+        
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
 

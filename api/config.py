@@ -208,9 +208,9 @@ class Configuration(CoreConfiguration):
             if not value:
                 continue
             type = None
-            if name == self.HELP_EMAIL:
+            if name == cls.HELP_EMAIL:
                 value = 'mailto:' + value
-            if name == self.HELP_WEB:
+            if name == cls.HELP_WEB:
                 type = 'text/html'
             yield type, value
             

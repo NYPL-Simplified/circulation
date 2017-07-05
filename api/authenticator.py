@@ -662,9 +662,10 @@ class LibraryAuthenticator(object):
                 links[rel] = dict(href=setting.value, type="text/html")
 
         for type, uri in Configuration.help_uris(library):
-            links[rel] = dict(href=uri)
+            link = dict(href=uri)
+            links.setdefault("help", []).append(link)
             if type:
-                links[rel]['type'] = type
+                link['type'] = type
                 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
