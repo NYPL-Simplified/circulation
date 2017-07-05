@@ -31,6 +31,10 @@ class Configuration(CoreConfiguration):
     # The name of the sitewide secret used to sign cookies for admin login.
     SECRET_KEY = u"secret_key"
 
+    # A short description of the library, used in its Authentication
+    # for OPDS document.
+    LIBRARY_DESCRIPTION = 'library_description'
+    
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
     MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
@@ -86,6 +90,10 @@ class Configuration(CoreConfiguration):
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
+        {
+            "key": LIBRARY_DESCRIPTION,
+            "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+        },
         {
             "key": COLOR_SCHEME,
             "label": _("Color scheme"),

@@ -686,6 +686,12 @@ class LibraryAuthenticator(object):
             _db=self._db,
         )
 
+        # Add the service description
+        description = ConfigurationSetting.for_library(
+            Configuration.LIBRARY_DESCRIPTION, library).value
+        if description:
+            doc['service_description'] = description
+        
         # Add feature flags.
         enabled = []
         disabled = []

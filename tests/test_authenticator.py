@@ -948,11 +948,14 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
+        ConfigurationSetting.for_library(
+            Configuration.LIBRARY_DESCRIPTION, library
+        ).value = "Just the best."
+            
         # Set the URL to the library's web page.
         ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value = "http://library/"
-
-            
+        
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(
             Configuration.HELP_EMAIL, library).value = "help@library"
@@ -981,6 +984,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the library's name and UUID
             # were placed in the document.
             eq_("A Fabulous Library", doc['name'])
+            eq_("Just the best.", doc['service_description'])
             eq_(expect_uuid, doc['id'])
             
             # We also need to test that the links got pulled in
