@@ -9318,7 +9318,7 @@ class ConfigurationSetting(Base):
         Integer, ForeignKey('libraries.id'), index=True
     )
     key = Column(Unicode, index=True)
-    value = Column(Unicode)
+    _value = Column(Unicode, name="value")
 
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
@@ -9396,6 +9396,32 @@ class ConfigurationSetting(Base):
         )
         return setting
 
+    @hybrid_property
+    def value(self):
+        """What's the current value of this configuration setting?
+        
+        If not present, the value may be inherited from some other
+        ConfigurationSetting.
+        """
+        if self._value:
+            # An explicitly set value always takes precedence.
+            return self._value
+        elif self.library and self.external_integration:
+            # This is a library-specific specialization of an
+            # ExternalIntegration. Treat the value set on the
+            # ExternalIntegration as a default.
+            return self.for_externalintegration(
+                self.key, self.external_integration).value
+        elif self.library:
+            # This is a library-specific setting. Treat the site-wide
+            # value as a default.
+            _db = Session.object_session(self)
+            return self.sitewide(_db, self.key).value
+        return self._value
+    
+    @value.setter
+    def set_value(self, new_value):
+        self._value = new_value
 
     @classmethod
     def _is_secret(self, key):
