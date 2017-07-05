@@ -51,15 +51,22 @@ class CirculationManagerAnnotator(Annotator):
     COPYRIGHT = Configuration.COPYRIGHT
     ABOUT = Configuration.ABOUT
     LICENSE = Configuration.LICENSE
-   
+    
     CONFIGURATION_LINKS = [
         TERMS_OF_SERVICE,
         PRIVACY_POLICY,
         COPYRIGHT,
         ABOUT,
         LICENSE,
+        HELP,
     ]
 
+    HELP_LINKS = [
+        Configuration.HELP_EMAIL,
+        Configuration.HELP_WEB,
+        Configuration.HELP_URI,
+    ]
+    
     def __init__(self, circulation, lane, library, patron=None,
                  active_loans_by_work={}, active_holds_by_work={},
                  active_fulfillments_by_work={},
@@ -446,17 +453,28 @@ class CirculationManagerAnnotator(Annotator):
         
     def add_configuration_links(self, feed):
         _db = Session.object_session(self.library)
+
+        def _add_link(l):
+            if isinstance(feed, OPDSFeed):
+                feed.add_link_to_feed(feed.feed, **l)
+            else:
+                # This is an ElementTree object.
+                link = OPDSFeed.link(**l)
+                feed.append(link)            
+        
         for rel in self.CONFIGURATION_LINKS:
             setting = ConfigurationSetting.for_library(rel, self.library)
             if setting.value:
                 d = dict(href=setting.value, type="text/html", rel=rel)
-                if isinstance(feed, OPDSFeed):
-                    feed.add_link_to_feed(feed.feed, **d)
-                else:
-                    # This is an ElementTree object.
-                    link = OPDSFeed.link(**d)
-                    feed.append(link)
+                _add_link(d)
 
+        for type, value in Configuration.help_uris(self.library):
+            d = dict(href=setting.value, rel="help")
+            if type:
+                d['type'] = type
+            _add_link(d)
+        
+                    
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):
         """Generate a number of <link> tags that enumerate all acquisition methods."""

@@ -43,6 +43,10 @@ class Configuration(CoreConfiguration):
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
 
+    # The client-side color scheme to use for this library.
+    COLOR_SCHEME = "color_scheme"
+    DEFAULT_COLOR_SCHEME = "blue"
+    
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
     PRIVACY_POLICY = 'privacy-policy'
@@ -50,6 +54,13 @@ class Configuration(CoreConfiguration):
     ABOUT = 'about'
     LICENSE = 'license'
 
+    # We support three different ways of integrating help processes.
+    # All three of these will be sent out as links with rel='help'
+    HELP_EMAIL = 'help-email'
+    HELP_WEB = 'help-web'
+    HELP_URI = 'help-uri'
+    HELP_LINKS = [HELP_EMAIL, HELP_WEB, HELP_URI]
+    
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
             "key": BEARER_TOKEN_SIGNING_SECRET,
@@ -66,6 +77,19 @@ class Configuration(CoreConfiguration):
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
+        {
+            "key": COLOR_SCHEME,
+            "label": _("Color scheme"),
+            "options": [
+                { "key": "blue", "label": _("Blue") },
+                { "key": "red", "label": _("Red") },
+                { "key": "gray", "label": _("Gray") },
+                { "key": "gold", "label": _("Gold") },
+                { "key": "green", "label": _("Green") },
+                { "key": "teal", "label": _("Teal") },
+                { "key": "purple", "label": _("Purple") },
+            ],
+        },
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
@@ -93,6 +117,18 @@ class Configuration(CoreConfiguration):
         {
             "key": LICENSE,
             "label": _("License URL"),
+        },
+        {
+            "key": HELP_EMAIL,
+            "label": _("Patron support email address"),
+        },
+        {
+            "key": HELP_WEB,
+            "label": _("Patron support web site"),
+        },
+        {
+            "key": HELP_URI,
+            "label": _("Patron support custom integration URI")
         },
     ]
     
@@ -155,6 +191,26 @@ class Configuration(CoreConfiguration):
         CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
 
+    @classmethod
+    def help_uris(cls, library):
+        """Find all the URIs that might help patrons get help from
+        this library.
+
+        :yield: A sequence of 2-tuples (media type, URL)
+        """
+        for name in self.HELP_LINKS:
+            setting = ConfigurationSetting.for_library(name, self.library)
+            value = setting.value
+            if not value:
+                continue
+            type = None
+            if name == self.HELP_EMAIL:
+                value = 'mailto:' + value
+            if name == self.HELP_WEB:
+                type = 'text/html'
+            yield type, value
+            
+        
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:

@@ -661,6 +661,11 @@ class LibraryAuthenticator(object):
             if setting.value:
                 links[rel] = dict(href=setting.value, type="text/html")
 
+        for type, uri in Configuration.help_uris(library):
+            links[rel] = dict(href=uri)
+            if type:
+                links[rel]['type'] = type
+                
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
             base_opds_document, list(self.providers), short_name=self.library_short_name,
@@ -1253,6 +1258,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         check with the ILS.
         """
         valid = True
+        if not self.patron_identifier_restriction_matches(username):
+            # Don't apply any other checks -- they have the wrong library.
+            return PATRON_OF_ANOTHER_LIBRARY
+
         if self.identifier_re:
             valid = valid and username is not None and (
                 self.identifier_re.match(username) is not None
@@ -1261,8 +1270,12 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             valid = valid and password is not None and (
                 self.password_re.match(password) is not None
             )
-        if not self.patron_identifier_restriction_matches(username):
-            valid = PATRON_OF_ANOTHER_LIBRARY
+        
+        if self.identifier_maximum_length:
+            valid = valid and (len(username) <= self.identifier_maximum_length)
+
+        if self.password_maximum_length:
+            valid = valid and (len(password) <= self.password_maximum_length)
         return valid
     
     def remote_authenticate(self, username, password):
