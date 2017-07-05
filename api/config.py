@@ -60,6 +60,10 @@ class Configuration(CoreConfiguration):
     HELP_WEB = 'help-web'
     HELP_URI = 'help-uri'
     HELP_LINKS = [HELP_EMAIL, HELP_WEB, HELP_URI]
+
+    # Features of an OPDS client which a library may want to enable or
+    # disable.
+    RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
     
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
@@ -198,8 +202,8 @@ class Configuration(CoreConfiguration):
 
         :yield: A sequence of 2-tuples (media type, URL)
         """
-        for name in self.HELP_LINKS:
-            setting = ConfigurationSetting.for_library(name, self.library)
+        for name in cls.HELP_LINKS:
+            setting = ConfigurationSetting.for_library(name, library)
             value = setting.value
             if not value:
                 continue

@@ -672,6 +672,16 @@ class LibraryAuthenticator(object):
             name=library_name, id=self.library_uuid, links=links,
             _db=self._db,
         )
+
+        # Add feature flags.
+        enabled = []
+        disabled = []
+        if library.allow_holds:
+            bucket = enabled
+        else:
+            bucket = disabled
+        bucket.append(Configuration.RESERVATIONS_FEATURE)
+        doc['features'] = dict(enabled=enabled, disabled=disabled)
         return json.dumps(doc)
 
     def create_authentication_headers(self):

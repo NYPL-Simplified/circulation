@@ -58,7 +58,6 @@ class CirculationManagerAnnotator(Annotator):
         COPYRIGHT,
         ABOUT,
         LICENSE,
-        HELP,
     ]
 
     HELP_LINKS = [
