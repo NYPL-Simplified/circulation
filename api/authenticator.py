@@ -666,6 +666,12 @@ class LibraryAuthenticator(object):
             links.setdefault("help", []).append(link)
             if type:
                 link['type'] = type
+
+        # Find the URL for the library itself.
+        library_uri = ConfigurationSetting.for_library(
+            Configuration.WEBSITE_URL, library).value
+        if library_uri:
+            links['alternate'] = dict(type="text/html", href=library_uri)
                 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(

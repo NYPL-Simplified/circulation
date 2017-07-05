@@ -947,6 +947,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
+        # Set the URL to the library's web page.
+        ConfigurationSetting.for_library(
+            Configuration.WEBSITE_URL, library).value = "http://library/"
+
+            
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(
             Configuration.HELP_EMAIL, library).value = "help@library"
@@ -992,6 +997,13 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://library.help/", web['href'])
             eq_("text/html", web['type'])
             eq_("mailto:help@library", email['href'])
+
+            # The library's web page shows up as an HTML alternate
+            # to the OPDS server.
+            eq_(
+                dict(type="text/html", href="http://library/"),
+                links['alternate']
+            )
             
             # Features that are enabled for this library are communicated
             # through the 'features' item.
