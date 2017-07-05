@@ -961,7 +961,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_(expect_basic, basic_doc)
 
             oauth_doc = providers[oauth.URI]
-            expect_oauth = oauth.authentication_provider_document(library.short_name)
+            expect_oauth = oauth.authentication_provider_document(self._db)
             eq_(expect_oauth, oauth_doc)
 
             # We also need to test that the library's name and UUID
@@ -1414,18 +1414,20 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
+        """Test the default authentication provider document."""
         provider = self.mock_basic()
         doc = provider.authentication_provider_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['name'])
         methods = doc['methods']
         eq_([provider.METHOD], methods.keys())
         method = methods[provider.METHOD]
-        eq_(['labels'], method.keys())
+        eq_(['inputs', 'labels'], sorted(method.keys()))
         login = method['labels']['login']
         password = method['labels']['password']
-        eq_(provider.LOGIN_LABEL, login)
-        eq_(provider.PASSWORD_LABEL, password)
-
+        eq_(provider.identifier_label, login)
+        eq_(provider.password_label, password)
+        eq_(provider.DEFAULT_KEYBOARD, method['inputs']['login']['keyboard'])
+        eq_(provider.DEFAULT_KEYBOARD, method['inputs']['password']['keyboard'])
 
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""

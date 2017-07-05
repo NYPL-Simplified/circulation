@@ -665,6 +665,7 @@ class LibraryAuthenticator(object):
         doc = OPDSAuthenticationDocument.fill_in(
             base_opds_document, list(self.providers), short_name=self.library_short_name,
             name=library_name, id=self.library_uuid, links=links,
+            _db=self._db,
         )
         return json.dumps(doc)
 
@@ -938,7 +939,7 @@ class AuthenticationProvider(object):
             patron_or_patrondata
         )       
     
-    def authentication_provider_document(self, library_short_name):
+    def authentication_provider_document(self, _db):
         """Create a stanza for use in an Authentication for OPDS document.
 
         :return: A dictionary that can be associated with the
@@ -968,9 +969,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # This becomes the human-readable name of the authentication
     # mechanism in the OPDS authentication document.
     #
-    # Each subclass MAY override the default values for LOGIN_LABEL
-    # and PASSWORD_LABEL. These become the human-readable labels for
-    # username and password in the OPDS authentication document
+    # Each subclass MAY override the default values for
+    # DEFAULT_LOGIN_LABEL and DEFAULT_PASSWORD_LABEL. These become the
+    # default human-readable labels for username and password in the
+    # OPDS authentication document
     #
     # Each subclass MAY override the default value for
     # AUTHENTICATION_REALM. This becomes the name of the HTTP Basic
@@ -984,8 +986,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # since the default indicates HTTP Basic Auth.
 
     DISPLAY_NAME = _("Library Barcode")
-    LOGIN_LABEL = _("Barcode")
-    PASSWORD_LABEL = _("PIN")
     AUTHENTICATION_REALM = _("Library card")
     METHOD = "http://opds-spec.org/auth/basic"
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
@@ -1010,6 +1010,27 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # expression.
     PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
 
+    # The client should prefer one keyboard over another 
+    IDENTIFIER_KEYBOARD = 'identifier_keyboard'
+    PASSWORD_KEYBOARD = 'password_keyboard'
+
+    # Constants describing different types of keyboards.
+    DEFAULT_KEYBOARD = "Default"
+    EMAIL_ADDRESS_KEYBOARD = "Email address"
+    NUMBER_PAD = "Number pad"
+
+    # The identifier and password can have a maximum
+    # supported length.
+    IDENTIFIER_MAXIMUM_LENGTH = "identifier_maximum_length"
+    PASSWORD_MAXIMUM_LENGTH = "password_maximum_length"
+    
+    # The client should use a certain string when asking for a patron's
+    # "identifier" and "password"
+    IDENTIFIER_LABEL = 'identifier_label'
+    PASSWORD_LABEL = 'password_label'
+    DEFAULT_IDENTIFIER_LABEL = "Barcode"
+    DEFAULT_PASSWORD_LABEL = "PIN"
+    
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
     # with the authenticator or with the way we have it configured.
@@ -1017,10 +1038,42 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     TEST_PASSWORD = 'test_password'
 
     SETTINGS = [
-        { "key": IDENTIFIER_REGULAR_EXPRESSION, "label": _("Identifier Regular Expression"), "optional": True },
-        { "key": PASSWORD_REGULAR_EXPRESSION, "label": _("Password Regular Expression"), "optional": True },
         { "key": TEST_IDENTIFIER, "label": _("Test Identifier") },
         { "key": TEST_PASSWORD, "label": _("Test Password") },
+        { "key": IDENTIFIER_REGULAR_EXPRESSION, "label": _("Identifier Regular Expression"), "optional": True },
+        { "key": PASSWORD_REGULAR_EXPRESSION, "label": _("Password Regular Expression"), "optional": True },
+        { "key": IDENTIFIER_KEYBOARD,
+          "label": _("Keyboard for identifier entry"),
+          "options": [
+              { "key": DEFAULT_KEYBOARD, "label": _("System default") },
+              { "key": EMAIL_ADDRESS_KEYBOARD,
+                "label": _("Email address entry") },
+              { "key": NUMBER_PAD, "label": _("Number pad") },
+          ],
+          "optional": True,
+        },
+        { "key": PASSWORD_KEYBOARD,
+          "label": _("Keyboard for password entry"),
+          "options": [
+              { "key": DEFAULT_KEYBOARD, "label": _("System default") },
+              { "key": NUMBER_PAD, "label": _("Number pad") },
+          ],
+          "optional": True,
+        },
+        { "key": IDENTIFIER_MAXIMUM_LENGTH,
+          "label": _("Maximum identifier length"),
+          "optional": True,
+        },
+        { "key": PASSWORD_MAXIMUM_LENGTH,
+          "label": _("Maximum passowrd length"),
+          "optional": True,
+        },
+        { "key": IDENTIFIER_LABEL,
+          "label": _("Label for identifier entry"),
+        },
+        { "key": PASSWORD_LABEL,
+          "label": _("Label for password entry"),
+        },
     ] + AuthenticationProvider.SETTINGS
     
     # Used in the constructor to signify that the default argument
@@ -1063,6 +1116,24 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         self.test_username = integration.setting(self.TEST_IDENTIFIER).value
         self.test_password = integration.setting(self.TEST_PASSWORD).value
+
+        self.identifier_maximum_length = integration.setting(
+            self.IDENTIFIER_MAXIMUM_LENGTH).int_value
+        self.password_maximum_length = integration.setting(
+            self.PASSWORD_MAXIMUM_LENGTH).int_value
+        self.identifier_keyboard = integration.setting(
+            self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
+        self.password_keyboard = integration.setting(
+            self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
+        
+        self.identifier_label = (
+            integration.setting(self.IDENTIFIER_LABEL).value
+            or self.DEFAULT_IDENTIFIER_LABEL
+        )
+        self.password_label = (
+            integration.setting(self.PASSWORD_LABEL).value
+            or self.DEFAULT_PASSWORD_LABEL
+        )
         
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
@@ -1273,7 +1344,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     def authentication_header(self):
         return 'Basic realm="%s"' % self.AUTHENTICATION_REALM
     
-    def authentication_provider_document(self, library_short_name):
+    def authentication_provider_document(self, _db):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1286,9 +1357,20 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             }
         }
         """
+
+        login_inputs = dict(keyboard=self.identifier_keyboard)
+        if self.identifier_maximum_length:
+            login_inputs['maximum_length'] = self.identifier_maximum_length
+
+        password_inputs = dict(keyboard=self.password_keyboard)
+        if self.password_maximum_length:
+            login_inputs['maximum_length'] = self.password_maximum_length
+
         method_doc = dict(
-            labels=dict(login=unicode(self.LOGIN_LABEL),
-                        password=unicode(self.PASSWORD_LABEL))
+            labels=dict(login=unicode(_(self.identifier_label)),
+                        password=unicode(_(self.password_label))),
+            inputs = dict(login=login_inputs,
+                          password=password_inputs)
         )
         methods = {}
         methods[self.METHOD] = method_doc
@@ -1528,15 +1610,18 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         """
         raise NotImplementedError()
     
-    def _internal_authenticate_url(self, library_short_name):
+    def _internal_authenticate_url(self, _db):
         """A patron who wants to log in should hit this URL on the circulation
         manager. They'll be redirected to the OAuth provider, which will 
         take care of it.
         """
+        library = self.library(_db)
+        
         return url_for('oauth_authenticate', _external=True,
-                       provider=self.NAME, library_short_name=library_short_name)
+                       provider=self.NAME,
+                       library_short_name=library.short_name)
 
-    def authentication_provider_document(self, library_short_name):
+    def authentication_provider_document(self, _db):
         """Create a stanza for use in an Authentication for OPDS document.
 
         Example:
@@ -1550,7 +1635,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             }
         }
         """
-        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(library_short_name)))
+        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(_db)))
         methods = {}
         methods[self.METHOD] = method_doc
         return dict(name=self.NAME, methods=methods)
