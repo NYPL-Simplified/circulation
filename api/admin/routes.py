@@ -431,7 +431,6 @@ def admin_sign_in_again():
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
 def admin_view(collection=None, book=None, **kwargs):
     setting_up = (app.manager.admin_sign_in_controller.auth == None)
-    home_url = None
     if not setting_up:
         admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
         if isinstance(admin, ProblemDetail):
@@ -447,12 +446,11 @@ def admin_view(collection=None, book=None, **kwargs):
                     quoted_book,
                     quoted_book.replace("/", "%2F"))
             return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
-        # TODO: Design the admin interface for multiple libraries.
-        # Until then, pick some library so the admin interface can run.
-        libraries = app.manager._db.query(Library).order_by(Library.id).all()
-        if libraries:
-            library = libraries[0]
-            home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
+
+    if not collection and not book:
+        library = Library.default(app.manager._db)
+        if library:
+            return redirect(app.manager.url_for('admin_view', collection=library.short_name))
 
     csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
 
@@ -462,7 +460,6 @@ def admin_view(collection=None, book=None, **kwargs):
     response = Response(flask.render_template_string(
         admin_template,
         csrf_token=csrf_token,
-        home_url=home_url,
         show_circ_events_download=show_circ_events_download,
         setting_up=setting_up,
     ))
