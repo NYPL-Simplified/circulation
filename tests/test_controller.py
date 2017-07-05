@@ -2721,6 +2721,13 @@ class TestScopedSession(ControllerTest):
             # because it's running in a different database session.
             new_session = self.app.manager._db.session_factory()
             eq_([], new_session.query(Identifier).all())
+
+            # When the index controller runs in the request context,
+            # it doesn't store anything that's associated with the
+            # scoped session.
+            flask.request.library = self._default_library
+            response = self.app.manager.index_controller()
+            eq_(302, response.status_code)
             
         # Once we exit the context of the Flask request, the
         # transaction is rolled back. The Identifier never actually
@@ -2743,6 +2750,13 @@ class TestScopedSession(ControllerTest):
             session2 = current_session()
             assert session2 != self._db
             assert session2 != self.app.manager._db
+
+            # The controller still works in the new request context -
+            # nothing it needs is associated with the previous scoped
+            # session.
+            flask.request.library = self._default_library
+            response = self.app.manager.index_controller()
+            eq_(302, response.status_code)
 
         # The two Flask requests got different sessions, neither of
         # which is the same as self._db, the unscoped database session
