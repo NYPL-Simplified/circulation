@@ -687,9 +687,8 @@ class LibraryAuthenticator(object):
                 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, list(self.providers), short_name=self.library_short_name,
-            name=library_name, id=self.library_uuid, links=links,
-            _db=self._db,
+            base_opds_document, list(self.providers),
+            _db=self._db, name=library_name, id=self.library_uuid, links=links
         )
 
         # Add the description of the library as the OPDS feed's
