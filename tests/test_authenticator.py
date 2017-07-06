@@ -992,7 +992,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_(expect_uuid, doc['id'])
 
             # The color scheme is correctly reported.
-            eq_("plain", doc['color_scheme'])
+            eq_("plaid", doc['color_scheme'])
             
             # We also need to test that the links got pulled in
             # from the configuration.

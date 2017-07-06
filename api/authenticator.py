@@ -691,6 +691,12 @@ class LibraryAuthenticator(object):
             _db=self._db, name=library_name, id=self.library_uuid, links=links
         )
 
+        # Add the library's color scheme, if it has one.
+        description = ConfigurationSetting.for_library(
+            Configuration.COLOR_SCHEME, library).value
+        if description:
+            doc['color_scheme'] = description        
+        
         # Add the description of the library as the OPDS feed's
         # service_description.
         description = ConfigurationSetting.for_library(
