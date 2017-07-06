@@ -1112,7 +1112,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
           "optional": True,
         },
         { "key": PASSWORD_MAXIMUM_LENGTH,
-          "label": _("Maximum passowrd length"),
+          "label": _("Maximum password length"),
           "optional": True,
         },
         { "key": IDENTIFIER_LABEL,
