@@ -359,7 +359,9 @@ class Configuration(object):
         else:
             last_update = known_value
 
-        logging.error("Updating Configuration last update time to %s", last_update)
+        logging.debug(
+            "Updating Configuration last update time to %s", last_update
+        )
         # Update the Configuration object's record of the last update time.
         cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
         
