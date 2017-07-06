@@ -1947,6 +1947,19 @@ class TestSettingsController(AdminControllerTest):
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 
+    def _common_basic_auth_arguments(self):
+        """We're not really testing these arguments, but a value for them
+        is required for all Basic Auth type integrations.
+        """
+        B = BasicAuthenticationProvider
+        return [
+            (B.TEST_IDENTIFIER, "user"),
+            (B.TEST_PASSWORD, "pass"),
+            (B.IDENTIFIER_KEYBOARD, B.DEFAULT_KEYBOARD),
+            (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
+        ]
+
+            
     def test_patron_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -2002,13 +2015,16 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
 
+        common_args = self._common_basic_auth_arguments()
         with self.app.test_request_context("/", method="POST"):
+            M = MilleniumPatronAPI
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
-                (MilleniumPatronAPI.AUTHENTICATION_MODE, "Invalid mode"),
-            ])
+                (M.AUTHENTICATION_MODE, "Invalid mode"),
+                (M.VERIFY_CERTIFICATE, "true"),
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
 
@@ -2026,13 +2042,12 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{ "short_name": "not-a-library" }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
 
@@ -2049,10 +2064,8 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{ "short_name": library.short_name }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
 
@@ -2062,13 +2075,11 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                 }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
@@ -2079,13 +2090,11 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                 }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 201)
 
@@ -2097,16 +2106,14 @@ class TestSettingsController(AdminControllerTest):
         eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
                 library, auth_service).value)
-
+        common_args = self._common_basic_auth_arguments()
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 201)
 

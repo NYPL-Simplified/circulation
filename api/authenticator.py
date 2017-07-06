@@ -1091,7 +1091,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 "label": _("Email address entry") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
           ],
-          "optional": True,
+          "default": DEFAULT_KEYBOARD
         },
         { "key": PASSWORD_KEYBOARD,
           "label": _("Keyboard for password entry"),
@@ -1099,7 +1099,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
               { "key": DEFAULT_KEYBOARD, "label": _("System default") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
           ],
-          "optional": True,
+          "default": DEFAULT_KEYBOARD
         },
         { "key": IDENTIFIER_MAXIMUM_LENGTH,
           "label": _("Maximum identifier length"),
@@ -1111,9 +1111,11 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         },
         { "key": IDENTIFIER_LABEL,
           "label": _("Label for identifier entry"),
+          "optional": True,
         },
         { "key": PASSWORD_LABEL,
           "label": _("Label for password entry"),
+          "optional": True,
         },
     ] + AuthenticationProvider.SETTINGS
     
