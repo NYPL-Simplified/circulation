@@ -3,7 +3,7 @@ class OPDSAuthenticationDocument(object):
     MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
 
     @classmethod
-    def fill_in(self, document, providers, name=None, id=None, links={}, _db=None):
+    def fill_in(self, document, providers, _db=None, name=None, id=None, links={}):
         """Fill in any missing fields of an OPDS Authentication Document
         with the given values.
         """
