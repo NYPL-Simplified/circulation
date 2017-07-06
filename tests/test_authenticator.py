@@ -927,29 +927,50 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
-        
+
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-
+        
+        # Set up configuration settings for links.
         link_config = {
             CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms",
             CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy",
             CirculationManagerAnnotator.COPYRIGHT: "http://copyright",
             CirculationManagerAnnotator.ABOUT: "http://about",
             CirculationManagerAnnotator.LICENSE: "http://license/",
+            CirculationManagerAnnotator.REGISTER: "custom-registration-hook://library/",
         }
 
-        # Set up configuration settings for links.
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
+        ConfigurationSetting.for_library(
+            Configuration.LIBRARY_DESCRIPTION, library
+        ).value = "Just the best."
+            
+        # Set the URL to the library's web page.
+        ConfigurationSetting.for_library(
+            Configuration.WEBSITE_URL, library).value = "http://library/"
+
+        # Set the color scheme a client should use.
+        ConfigurationSetting.for_library(
+            Configuration.COLOR_SCHEME, library).value = "plaid"
+        
+        # Configure the various ways a patron can get help.
+        ConfigurationSetting.for_library(
+            Configuration.HELP_EMAIL, library).value = "help@library"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_WEB, library).value = "http://library.help/"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_URI, library).value = "custom:uri"
+        
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
-
+       
         with self.app.test_request_context("/"):
             doc = json.loads(authenticator.create_authentication_document())
             # The main thing we need to test is that the
@@ -961,13 +982,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_(expect_basic, basic_doc)
 
             oauth_doc = providers[oauth.URI]
-            expect_oauth = oauth.authentication_provider_document(library.short_name)
+            expect_oauth = oauth.authentication_provider_document(self._db)
             eq_(expect_oauth, oauth_doc)
 
             # We also need to test that the library's name and UUID
             # were placed in the document.
             eq_("A Fabulous Library", doc['name'])
+            eq_("Just the best.", doc['service_description'])
             eq_(expect_uuid, doc['id'])
+
+            # The color scheme is correctly reported.
+            eq_("plaid", doc['color_scheme'])
             
             # We also need to test that the links got pulled in
             # from the configuration.
@@ -978,6 +1003,35 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", links['about']['href'])
             eq_("http://license/", links['license']['href'])
 
+            # Most of the links have type='text/html'
+            eq_("text/html", links['about']['type'])
+
+            # The registration link doesn't have a type, because it
+            # uses a non-HTTP URI scheme.
+            register = links['register']
+            eq_({'href': 'custom-registration-hook://library/'},
+                links['register'])
+
+            # We have three help links.
+            uri, web, email = sorted(links['help'], key=lambda x: x['href'])
+            eq_("custom:uri", uri['href'])
+            eq_("http://library.help/", web['href'])
+            eq_("text/html", web['type'])
+            eq_("mailto:help@library", email['href'])
+
+            # The library's web page shows up as an HTML alternate
+            # to the OPDS server.
+            eq_(
+                dict(type="text/html", href="http://library/"),
+                links['alternate']
+            )
+            
+            # Features that are enabled for this library are communicated
+            # through the 'features' item.
+            features = doc['features']
+            eq_([], features['disabled'])
+            eq_([Configuration.RESERVATIONS_FEATURE], features['enabled'])
+            
             # While we're in this context, let's also test
             # create_authentication_headers.
 
@@ -1318,6 +1372,25 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
 
+    def test_client_configuration(self):
+        """Test that client-side configuration settings are retrieved from
+        ConfigurationSetting objects.
+        """
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(
+            b.IDENTIFIER_KEYBOARD).value = b.EMAIL_ADDRESS_KEYBOARD
+        integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
+        integration.setting(b.IDENTIFIER_LABEL).value = "Your Library Card"
+        integration.setting(b.PASSWORD_LABEL).value = 'Password'
+        
+        provider = b(self._default_library, integration)
+
+        eq_(b.EMAIL_ADDRESS_KEYBOARD, provider.identifier_keyboard)
+        eq_(b.NUMBER_PAD, provider.password_keyboard)
+        eq_("Your Library Card", provider.identifier_label)
+        eq_("Password", provider.password_label)
+        
     def test_server_side_validation(self):
         b = BasicAuthenticationProvider
         integration = self._external_integration(self._str)
@@ -1357,6 +1430,21 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(True, provider.server_side_validation("a", None))
         eq_(False, provider.server_side_validation("!@#$", None))
+
+        # Test maximum length of identifier and password.
+        integration.setting(b.IDENTIFIER_MAXIMUM_LENGTH).value = "5"
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "10"
+        provider = b(self._default_library, integration)
+
+        eq_(True, provider.server_side_validation("a", "1234"))
+        eq_(False, provider.server_side_validation("a", "123456789012345"))
+        eq_(False, provider.server_side_validation("abcdefghijklmnop", "1234"))
+
+        # You can disable the password check altogether by setting maximum
+        # length to zero.
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "0"
+        provider = b(self._default_library, integration)
+        eq_(True, provider.server_side_validation("a", None))
         
     def test_local_patron_lookup(self):
         patron1 = self._patron("patron1_ext_id")
@@ -1414,19 +1502,23 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
+        """Test the default authentication provider document."""
         provider = self.mock_basic()
         doc = provider.authentication_provider_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['name'])
         methods = doc['methods']
         eq_([provider.METHOD], methods.keys())
         method = methods[provider.METHOD]
-        eq_(['labels'], method.keys())
+        eq_(['inputs', 'labels'], sorted(method.keys()))
         login = method['labels']['login']
         password = method['labels']['password']
-        eq_(provider.LOGIN_LABEL, login)
-        eq_(provider.PASSWORD_LABEL, password)
-
-
+        eq_(provider.identifier_label, login)
+        eq_(provider.password_label, password)
+        eq_(provider.identifier_keyboard,
+            method['inputs']['login']['keyboard'])
+        eq_(provider.password_keyboard,
+            method['inputs']['password']['keyboard'])
+        
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
 

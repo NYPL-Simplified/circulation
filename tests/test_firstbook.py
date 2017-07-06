@@ -23,14 +23,24 @@ from api.circulation_exceptions import (
 )
 
 from . import DatabaseTest
+from core.model import ExternalIntegration
 
 
 class TestFirstBook(DatabaseTest):
     
     def setup(self):
         super(TestFirstBook, self).setup()
-        self.api = MockFirstBookAuthenticationAPI(dict(ABCD="1234"))
+        self.integration = self._external_integration(
+            ExternalIntegration.PATRON_AUTH_GOAL)
+        self.api = self.mock_api(dict(ABCD="1234"))
 
+    def mock_api(self, *args, **kwargs):
+        "Create a MockFirstBookAuthenticationAPI."
+        return MockFirstBookAuthenticationAPI(
+            self._default_library, self.integration,
+            *args, **kwargs
+        )
+        
     def test_from_config(self):
         api = None
         integration = self._external_integration(self._str)
@@ -76,7 +86,7 @@ class TestFirstBook(DatabaseTest):
 
 
     def test_broken_service_remote_pin_test(self):
-        api = MockFirstBookAuthenticationAPI(failure_status_code=502)
+        api = self.mock_api(failure_status_code=502)
         assert_raises_regexp(
             RemoteInitiatedServerError, 
             "Got unexpected response code 502. Content: Error 502",
@@ -84,7 +94,7 @@ class TestFirstBook(DatabaseTest):
         )
     
     def test_bad_connection_remote_pin_test(self):
-        api = MockFirstBookAuthenticationAPI(bad_connection=True)
+        api = self.mock_api(bad_connection=True)
         assert_raises_regexp(
             RemoteInitiatedServerError, 
             "Could not connect!",

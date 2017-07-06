@@ -76,7 +76,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
           "type": "select", "options": [
               { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
               { "key": "false", "label": _("Ignore Certificate Problems (For temporary testing only)") },
-          ]
+          ],
+          "default": "true"
         },
         { "key": BLOCK_TYPES, "label": _("Block types"), "optional": True },
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"), "optional": True },
@@ -85,7 +86,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
           "options": [
               { "key": PIN_AUTHENTICATION_MODE, "label": _("PIN") },
               { "key": FAMILY_NAME_AUTHENTICATION_MODE, "label": _("Family Name") },
-          ]
+          ],
+          "default": PIN_AUTHENTICATION_MODE
         }
     ] + BasicAuthenticationProvider.SETTINGS
     

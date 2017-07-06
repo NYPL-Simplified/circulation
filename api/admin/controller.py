@@ -1099,12 +1099,16 @@ class SettingsController(CirculationManagerController):
                     value = json.dumps(value)
             else:
                 value = flask.request.form.get(key)
-            if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
-                self._db.rollback()
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "The configuration value for %(setting)s is invalid.",
-                    setting=setting.get("label"),
-                ))
+            if value and setting.get("options"):
+                # This setting can only take on values that are in its
+                # list of options.
+                allowed = [option.get("key") for option in setting.get("options")]
+                if value not in allowed:
+                    self._db.rollback()
+                    return INVALID_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(setting)s is invalid.",
+                        setting=setting.get("label"),
+                    ))
             if not value and not setting.get("optional"):
                 # Roll back any changes to the integration that have already been made.
                 self._db.rollback()
@@ -1112,7 +1116,7 @@ class SettingsController(CirculationManagerController):
                     _("The configuration is missing a required setting: %(setting)s",
                       setting=setting.get("label")))
             integration.setting(key).value = value
-
+                
         if not protocol.get("sitewide"):
             integration.libraries = []
 

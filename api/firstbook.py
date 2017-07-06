@@ -46,19 +46,21 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, library_id, integration, analytics=None):
+    def __init__(self, library_id, integration, analytics=None, root=None):
         super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
-        url = integration.url
-        key = integration.password
-        if not (url and key):
-            raise CannotLoadConfiguration(
-                "First Book server not configured."
-            )
-        if '?' in url:
-            url += '&'
-        else:
-            url += '?'
-        self.root = url + 'key=' + key
+        if not root:
+            url = integration.url
+            key = integration.password
+            if not (url and key):
+                raise CannotLoadConfiguration(
+                    "First Book server not configured."
+                )
+            if '?' in url:
+                url += '&'
+            else:
+                url += '?'
+            root = url + 'key=' + key 
+        self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -120,15 +122,17 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
     SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
-    def __init__(self, valid={}, bad_connection=False, 
+    def __init__(self, library, integration, valid={}, bad_connection=False, 
                  failure_status_code=None):
+        super(MockFirstBookAuthenticationAPI, self).__init__(
+            library, integration, root="http://example.com/"
+        )
         self.identifier_re = None
         self.password_re = None
-        self.root = "http://example.com/"
         self.valid = valid
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
-
+        
     def request(self, url):
         if self.bad_connection:
             # Simulate a bad connection.
