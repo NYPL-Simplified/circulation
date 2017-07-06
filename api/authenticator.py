@@ -1037,7 +1037,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     METHOD = "http://opds-spec.org/auth/basic"
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
     NAME = 'Generic Basic Authentication provider'
-    
+   
     # By default, patron identifiers can only contain alphanumerics and
     # a few other characters. By default, there are no restrictions on
     # passwords.
@@ -1077,6 +1077,25 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     PASSWORD_LABEL = 'password_label'
     DEFAULT_IDENTIFIER_LABEL = "Barcode"
     DEFAULT_PASSWORD_LABEL = "PIN"
+
+    # If the identifier label is one of these strings, it will be
+    # automatically localized. Otherwise, the same label will be displayed
+    # to everyone.
+    COMMON_IDENTIFIER_LABELS = {
+        "Barcode": _("Barcode"),
+        "Email Address": _("Email Address"),
+        "Username": _("Username"),
+        "Library Card": _("Library Card"),
+        "Card Number": _("Card Number"),
+    }
+
+    # If the password label is one of these strings, it will be
+    # automatically localized. Otherwise, the same label will be
+    # displayed to everyone.
+    COMMON_PASSWORD_LABELS = {
+        "Password": _("Password"),
+        "PIN": _("PIN"),
+    }
     
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
@@ -1423,9 +1442,18 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         if self.password_maximum_length:
             login_inputs['maximum_length'] = self.password_maximum_length
 
+        # Localize the labels if possible.
+        localized_identifier_label = self.COMMON_IDENTIFIER_LABELS.get(
+            self.identifier_label,
+            self.identifier_label
+        )
+        localized_password_label = self.COMMON_PASSWORD_LABELS.get(
+            self.password_label,
+            self.password_label
+        )
         method_doc = dict(
-            labels=dict(login=unicode(_(self.identifier_label)),
-                        password=unicode(_(self.password_label))),
+            labels=dict(login=unicode(localized_identifier_label),
+                        password=unicode(_(localized_password_label))),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
