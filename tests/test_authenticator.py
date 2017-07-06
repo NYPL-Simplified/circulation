@@ -955,6 +955,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # Set the URL to the library's web page.
         ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value = "http://library/"
+
+        # Set the color scheme a client should use.
+        ConfigurationSetting.for_library(
+            Configuration.COLOR_SCHEME, library).value = "plaid"
         
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(
@@ -986,6 +990,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("A Fabulous Library", doc['name'])
             eq_("Just the best.", doc['service_description'])
             eq_(expect_uuid, doc['id'])
+
+            # The color scheme is correctly reported.
+            eq_("plain", doc['color_scheme'])
             
             # We also need to test that the links got pulled in
             # from the configuration.
@@ -1365,6 +1372,25 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
 
+    def test_client_configuration(self):
+        """Test that client-side configuration settings are retrieved from
+        ConfigurationSetting objects.
+        """
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(
+            b.IDENTIFIER_KEYBOARD).value = b.EMAIL_ADDRESS_KEYBOARD
+        integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
+        integration.setting(b.IDENTIFIER_LABEL).value = "Library Card"
+        integration.setting(b.PASSWORD_LABEL).value = 'Password'
+        
+        provider = b(self._default_library, integration)
+
+        eq_(b.EMAIL_ADDRESS_KEYBOARD, provider.identifier_keyboard)
+        eq_(b.NUMBER_PAD, provider.password_keyboard)
+        eq_("Library Card", provider.identifier_label)
+        eq_("Password", provider.password_label)
+        
     def test_server_side_validation(self):
         b = BasicAuthenticationProvider
         integration = self._external_integration(self._str)
@@ -1488,8 +1514,10 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         password = method['labels']['password']
         eq_(provider.identifier_label, login)
         eq_(provider.password_label, password)
-        eq_(provider.DEFAULT_KEYBOARD, method['inputs']['login']['keyboard'])
-        eq_(provider.DEFAULT_KEYBOARD, method['inputs']['password']['keyboard'])
+        eq_(provider.identifier_keyboard,
+            method['inputs']['login']['keyboard'])
+        eq_(provider.password_keyboard,
+            method['inputs']['password']['keyboard'])
         
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""

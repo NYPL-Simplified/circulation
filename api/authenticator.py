@@ -1166,7 +1166,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         self.identifier_keyboard = integration.setting(
             self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
         self.password_keyboard = integration.setting(
-            self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
+            self.PASSWORD_KEYBOARD).value or self.DEFAULT_KEYBOARD
         
         self.identifier_label = (
             integration.setting(self.IDENTIFIER_LABEL).value
