@@ -2094,7 +2094,7 @@ class TestSettingsController(AdminControllerTest):
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                 }])),
-            ] + common_args)
+            ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 201)
 
@@ -2152,13 +2152,11 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": l2.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                 }])),
-            ])
+            ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 200)
 
