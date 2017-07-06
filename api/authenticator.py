@@ -1453,7 +1453,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         )
         method_doc = dict(
             labels=dict(login=unicode(localized_identifier_label),
-                        password=unicode(_(localized_password_label))),
+                        password=unicode(localized_password_label)),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
