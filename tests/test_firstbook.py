@@ -23,13 +23,19 @@ from api.circulation_exceptions import (
 )
 
 from . import DatabaseTest
+from core.model import ExternalIntegration
 
 
 class TestFirstBook(DatabaseTest):
     
     def setup(self):
         super(TestFirstBook, self).setup()
-        self.api = MockFirstBookAuthenticationAPI(dict(ABCD="1234"))
+        integration = self._external_integration(
+            ExternalIntegration.PATRON_AUTH_GOAL)
+        self.api = MockFirstBookAuthenticationAPI(
+            self._default_library, integration,
+            dict(ABCD="1234")
+        )
 
     def test_from_config(self):
         api = None
