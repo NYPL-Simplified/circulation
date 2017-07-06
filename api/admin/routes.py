@@ -428,8 +428,8 @@ def admin_sign_in_again():
 @app.route('/admin/web/collection/<path:collection>')
 @app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
-def admin_view(collection=None, book=None, **kwargs):
-    return app.manager.admin_view_controller(collection, book)
+def admin_view(collection=None, book=None, etc=None, **kwargs):
+    return app.manager.admin_view_controller(collection, book, path=etc)
 
 @app.route('/admin')
 @app.route('/admin/')

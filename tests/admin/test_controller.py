@@ -118,6 +118,13 @@ class TestViewController(AdminControllerTest):
             location = response.headers.get("Location")
             assert "admin/web/collection/%s" % self._default_library.short_name in location
 
+        # Only the root url redirects - a non-library specific page with another
+        # path won't.
+        with self.app.test_request_context('/admin/web/config'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller(None, None, "config")
+            eq_(200, response.status_code)
+
     def test_csrf_token(self):
         self.admin.password = None
         with self.app.test_request_context('/admin'):
@@ -1432,30 +1439,42 @@ class TestSettingsController(AdminControllerTest):
         [c1] = self._default_library.collections
 
         c2 = self._collection(
-            name="Collection 2", protocol=ExternalIntegration.BIBLIOTHECA,
+            name="Collection 2", protocol=ExternalIntegration.OVERDRIVE,
         )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
 
+        c3 = self._collection(
+            name="Collection 3", protocol=ExternalIntegration.OVERDRIVE,
+        )
+        c3.external_account_id = "5678"
+        c3.parent = c2
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
-            coll2, coll1 = sorted(
+            coll2, coll3, coll1 = sorted(
                 response.get("collections"), key = lambda c: c.get('name')
             )
             eq_(c1.id, coll1.get("id"))
             eq_(c2.id, coll2.get("id"))
+            eq_(c3.id, coll3.get("id"))
 
             eq_(c1.name, coll1.get("name"))
             eq_(c2.name, coll2.get("name"))
+            eq_(c3.name, coll3.get("name"))
 
             eq_(c1.protocol, coll1.get("protocol"))
             eq_(c2.protocol, coll2.get("protocol"))
+            eq_(c3.protocol, coll3.get("protocol"))
 
             eq_(c1.external_account_id, coll1.get("settings").get("external_account_id"))
             eq_(c2.external_account_id, coll2.get("settings").get("external_account_id"))
+            eq_(c3.external_account_id, coll3.get("settings").get("external_account_id"))
 
             eq_(c1.external_integration.password, coll1.get("settings").get("password"))
             eq_(c2.external_integration.password, coll2.get("settings").get("password"))
+
+            eq_(c2.id, coll3.get("parent_id"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1516,6 +1535,23 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
 
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Collection 2"),
+                ("protocol", "Bibliotheca"),
+                ("parent_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, PROTOCOL_DOES_NOT_SUPPORT_PARENTS)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Collection 2"),
+                ("protocol", "Overdrive"),
+                ("parent_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, MISSING_PARENT)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1627,6 +1663,32 @@ class TestSettingsController(AdminControllerTest):
         eq_("default_reservation_period", setting.key)
         eq_("3", setting.value)
 
+        # This collection will be a child of the first collection.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Child Collection"),
+                ("protocol", "Overdrive"),
+                ("parent_id", collection.id),
+                ("libraries", json.dumps([{"short_name": "L3"}])),
+                ("external_account_id", "child-acctid"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 201)
+
+        # The collection was created and configured properly.
+        child = get_one(self._db, Collection, name="Child Collection")
+        eq_("Child Collection", child.name)
+        eq_("child-acctid", child.external_account_id)
+
+        # The settings that are inherited from the parent weren't set.
+        eq_(None, child.external_integration.username)
+        eq_(None, child.external_integration.password)
+        setting = child.external_integration.setting("website_id")
+        eq_(None, setting.value)
+
+        # One library has access to the collection.
+        eq_([child], l3.collections)
+
     def test_collections_post_edit(self):
         # The collection exists.
         collection = self._collection(
@@ -1695,6 +1757,26 @@ class TestSettingsController(AdminControllerTest):
 
         # But the library has been removed.
         eq_([], l1.collections)
+
+        parent = self._collection(
+            name="Parent",
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.OVERDRIVE),
+                ("parent_id", parent.id),
+                ("external_account_id", "1234"),
+                ("libraries", json.dumps([])),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        # The collection now has a parent.
+        eq_(parent, collection.parent)
 
     def test_admin_auth_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
