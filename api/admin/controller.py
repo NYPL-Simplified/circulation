@@ -1379,7 +1379,6 @@ class SettingsController(CirculationManagerController):
                     return INTEGRATION_NAME_ALREADY_IN_USE
             auth_service.name = name
 
-        orig_protocol = protocol
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
         if isinstance(result, ProblemDetail):
