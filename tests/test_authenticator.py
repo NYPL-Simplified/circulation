@@ -1404,6 +1404,21 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(True, provider.server_side_validation("a", None))
         eq_(False, provider.server_side_validation("!@#$", None))
+
+        # Test maximum length of identifier and password.
+        integration.setting(b.IDENTIFIER_MAXIMUM_LENGTH).value = "5"
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "10"
+        provider = b(self._default_library, integration)
+
+        eq_(True, provider.server_side_validation("a", "1234"))
+        eq_(False, provider.server_side_validation("a", "123456789012345"))
+        eq_(False, provider.server_side_validation("abcdefghijklmnop", "1234"))
+
+        # You can disable the password check altogether by setting maximum
+        # length to zero.
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "0"
+        provider = b(self._default_library, integration)
+        eq_(True, provider.server_side_validation("a", None))
         
     def test_local_patron_lookup(self):
         patron1 = self._patron("patron1_ext_id")

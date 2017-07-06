@@ -1052,7 +1052,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     # expression.
     PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
 
-    # The client should prefer one keyboard over another 
+    # The client should prefer one keyboard over another.
     IDENTIFIER_KEYBOARD = 'identifier_keyboard'
     PASSWORD_KEYBOARD = 'password_keyboard'
 
@@ -1312,7 +1312,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             valid = valid and (len(username) <= self.identifier_maximum_length)
 
         if self.password_maximum_length:
-            valid = valid and (len(password) <= self.password_maximum_length)
+            valid = valid and password and (len(password) <= self.password_maximum_length)
         return valid
     
     def remote_authenticate(self, username, password):
