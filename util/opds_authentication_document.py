@@ -3,7 +3,7 @@ class OPDSAuthenticationDocument(object):
     MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
 
     @classmethod
-    def fill_in(self, document, providers, short_name, name=None, id=None, links={}):
+    def fill_in(self, document, providers, name=None, id=None, links={}, _db=None):
         """Fill in any missing fields of an OPDS Authentication Document
         with the given values.
         """
@@ -28,7 +28,7 @@ class OPDSAuthenticationDocument(object):
         for provider in providers:
             if not getattr(provider, 'URI', None):
                 raise ValueError("%r does not define .URI" % provider)
-            provider_docs[provider.URI] = provider.authentication_provider_document(short_name)
+            provider_docs[provider.URI] = provider.authentication_provider_document(_db)
         data['providers'] = provider_docs
 
         if links:
