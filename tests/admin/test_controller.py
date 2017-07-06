@@ -4,8 +4,10 @@ from nose.tools import (
 )
 import flask
 import json
+import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.http import dump_cookie
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
@@ -69,6 +71,103 @@ class AdminControllerTest(CirculationControllerTest):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
         setup_admin_controllers(self.manager)
+
+class TestViewController(AdminControllerTest):
+
+    def setup(self):
+        super(TestViewController, self).setup()
+        self.admin, ignore = create(
+            self._db, Admin, email=u'example@nypl.org',
+        )
+        self.admin.password = "password"
+
+    def test_setting_up(self):
+        # Test that the view is in setting-up mode if there's no auth service
+        # and no admin with a password.
+        self.admin.password = None
+
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'settingUp: true' in html
+
+    def test_not_setting_up(self):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'settingUp: false' in html
+
+    def test_redirect_to_sign_in(self):
+        with self.app.test_request_context('/admin/web/collection/a/(b)/book/c/(d)'):
+            response = self.manager.admin_view_controller("a/(b)", "c/(d)")
+            eq_(302, response.status_code)
+            location = response.headers.get("Location")
+            assert "sign_in" in location
+            assert "admin%2Fweb" in location
+            assert "collection%2Fa%2F%28b%29" in location
+            assert "book%2Fc%2F%28d%29" in location
+
+    def test_redirect_to_default_library(self):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller(None, None)
+            eq_(302, response.status_code)
+            location = response.headers.get("Location")
+            assert "admin/web/collection/%s" % self._default_library.short_name in location
+
+    def test_csrf_token(self):
+        self.admin.password = None
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            html = response.response[0]
+
+            # The CSRF token value is random, but the cookie and the html have the same value.
+            html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
+            match = html_csrf_re.search(html)
+            assert match != None
+            csrf = match.groups(0)[0]
+            assert csrf in response.headers.get('Set-Cookie')
+            assert 'HttpOnly' in response.headers.get("Set-Cookie")
+
+        self.admin.password = "password"
+        # If there's a CSRF token in the request cookie, the response
+        # should keep that same token.
+        token = self._str
+        cookie = dump_cookie("csrf_token", token)
+        with self.app.test_request_context('/admin', environ_base={'HTTP_COOKIE': cookie}):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'csrfToken: "%s"' % token in html
+            assert token in response.headers.get('Set-Cookie')
+            
+    def test_show_circ_events_download(self):
+        # The local analytics provider isn't configured yet.
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'showCircEventsDownload: false' in html
+
+        # Create the local analytics integration.
+        local_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'showCircEventsDownload: true' in html
+
 
 class TestWorkController(AdminControllerTest):
 
