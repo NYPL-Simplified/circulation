@@ -1381,14 +1381,14 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         integration.setting(
             b.IDENTIFIER_KEYBOARD).value = b.EMAIL_ADDRESS_KEYBOARD
         integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
-        integration.setting(b.IDENTIFIER_LABEL).value = "Library Card"
+        integration.setting(b.IDENTIFIER_LABEL).value = "Your Library Card"
         integration.setting(b.PASSWORD_LABEL).value = 'Password'
         
         provider = b(self._default_library, integration)
 
         eq_(b.EMAIL_ADDRESS_KEYBOARD, provider.identifier_keyboard)
         eq_(b.NUMBER_PAD, provider.password_keyboard)
-        eq_("Library Card", provider.identifier_label)
+        eq_("Your Library Card", provider.identifier_label)
         eq_("Password", provider.password_label)
         
     def test_server_side_validation(self):
