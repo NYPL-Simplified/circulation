@@ -656,6 +656,10 @@ class LibraryAuthenticator(object):
 
         links = {}
         library = get_one(self._db, Library, self.library_id)
+
+        # Add the same links that we would show in an OPDS feed, plus
+        # some extra like 'registration' that are specific to Authentication
+        # For OPDS.
         for rel in (CirculationManagerAnnotator.CONFIGURATION_LINKS +
                     Configuration.AUTHENTICATION_FOR_OPDS_LINKS):
             value = ConfigurationSetting.for_library(rel, library).value
@@ -663,17 +667,19 @@ class LibraryAuthenticator(object):
                 continue
             links[rel] = dict(href=value)
             if any(value.startswith(x) for x in ('http:', 'https:')):
-                # We assume that HTTP URLs lead to HTML, but
-                # we don't assume anything about other sorts of URLs.
+                # We assume that HTTP URLs lead to HTML, but we don't
+                # assume anything about other URL schemes.
                 links[rel]['type'] = "text/html"
 
+        # Add a rel="help" link for every type of URL scheme that
+        # leads to library-specific help.
         for type, uri in Configuration.help_uris(library):
             link = dict(href=uri)
             links.setdefault("help", []).append(link)
             if type:
                 link['type'] = type
 
-        # Find the URL for the library itself.
+        # Add a link to the web page of the library itself.
         library_uri = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value
         if library_uri:
@@ -686,13 +692,15 @@ class LibraryAuthenticator(object):
             _db=self._db,
         )
 
-        # Add the service description
+        # Add the description of the library as the OPDS feed's
+        # service_description.
         description = ConfigurationSetting.for_library(
             Configuration.LIBRARY_DESCRIPTION, library).value
         if description:
             doc['service_description'] = description
         
-        # Add feature flags.
+        # Add feature flags to signal to clients what features they should
+        # offer.
         enabled = []
         disabled = []
         if library.allow_holds:
