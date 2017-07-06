@@ -156,6 +156,20 @@ CANNOT_CHANGE_PROTOCOL = pd(
     detail=_("A protocol can't be changed once it has been set."),
 )
 
+PROTOCOL_DOES_NOT_SUPPORT_PARENTS = pd(
+    "http://librarysimplified.org/terms/problem/protocol-does-not-support-parents",
+    status_code=400,
+    title=_("Protocol does not support parents"),
+    detail=_("You attempted to add a parent but the protocol does not support parents."),
+)
+
+MISSING_PARENT = pd(
+    "http://librarysimplified.org/terms/problem/missing-parent",
+    status_code=400,
+    title=_("Missing parent"),
+    detail=_("You attempted to add a parent that does not exist."),
+)
+
 NO_SUCH_LIBRARY = pd(
     "http://librarysimplified.org/terms/problem/no-such-library",
     status_code=400,

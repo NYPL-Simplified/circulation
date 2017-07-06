@@ -190,7 +190,7 @@ class AdminController(object):
         
 
 class ViewController(AdminController):
-    def __call__(self, collection, book):
+    def __call__(self, collection, book, path=None):
         setting_up = (self.auth == None)
         if not setting_up:
             admin = self.authenticated_admin_from_request()
@@ -208,7 +208,7 @@ class ViewController(AdminController):
                         quoted_book.replace("/", "%2F"))
                 return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
 
-            if not collection and not book:
+            if not collection and not book and not path:
                 library = Library.default(self._db)
                 if library:
                     return redirect(self.url_for('admin_view', collection=library.short_name))
@@ -1078,6 +1078,10 @@ class SettingsController(CirculationManagerController):
             settings = getattr(api, "SETTINGS", [])
             protocol["settings"] = settings
 
+            child_settings = getattr(api, "CHILD_SETTINGS", None)
+            if child_settings != None:
+                protocol["child_settings"] = child_settings
+
             library_settings = getattr(api, "LIBRARY_SETTINGS", None)
             if library_settings != None:
                 protocol["library_settings"] = library_settings
@@ -1160,6 +1164,7 @@ class SettingsController(CirculationManagerController):
                     id=c.id,
                     name=c.name,
                     protocol=c.protocol,
+                    parent_id=c.parent_id,
                     libraries=[{ "short_name": library.short_name } for library in c.libraries],
                     settings=dict(external_account_id=c.external_account_id),
                 )
@@ -1214,7 +1219,24 @@ class SettingsController(CirculationManagerController):
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        settings = protocol.get("settings")
+
+        parent_id = flask.request.form.get("parent_id")
+
+        if parent_id and not protocol.get("child_settings"):
+            self._db.rollback()
+            return PROTOCOL_DOES_NOT_SUPPORT_PARENTS
+
+        if parent_id:
+            parent = get_one(self._db, Collection, id=parent_id)
+            if not parent:
+                self._db.rollback()
+                return MISSING_PARENT
+            collection.parent = parent
+            settings = protocol.get("child_settings")
+        else:
+            collection.parent = None
+            settings = protocol.get("settings")
+        
 
         for setting in settings:
             key = setting.get("key")

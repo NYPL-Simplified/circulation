@@ -56,6 +56,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
     ] + BaseCirculationAPI.SETTINGS
 
+    # An Overdrive Advantage collection inherits everything except the library id
+    # from its parent.
+    CHILD_SETTINGS = [
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+    ]
+
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
 
     # Create a lookup table between common DeliveryMechanism identifiers
