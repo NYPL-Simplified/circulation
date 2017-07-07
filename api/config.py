@@ -271,6 +271,13 @@ class Configuration(CoreConfiguration):
         small = []
         tiny = []
         result = [large, small, tiny]
+
+        if not works_by_language:
+            # In the absence of any information, assume we have an
+            # English collection and nothing else.
+            large.append('eng')
+            return result
+        
         # The single most common language always gets a large
         # collection.
         #
@@ -286,11 +293,6 @@ class Configuration(CoreConfiguration):
             else:
                 bucket = tiny
             bucket.append(language)
-
-        if not large:
-            # In the absence of any information, assume we have an
-            # English collection and nothing else.
-            large.append('eng')
             
         return result        
         
