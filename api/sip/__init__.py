@@ -14,6 +14,17 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
+    # Most of the time, a patron who is blocked will be blocked with
+    # the reason UNKNOWN_BLOCK. However, there are a few more specific
+    # reasons we can use. This dictionary maps the block reason
+    # reported by SIP2 to the protocol-independent block reason used
+    # by PatronData.
+    SPECIFIC_BLOCK_REASONS = {
+        SIPClient.CARD_REPORTED_LOST : PatronData.CARD_REPORTED_LOST,
+        SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
+        SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
+    }
+    
     def __init__(self, server, port, login_user_id,
                  login_password, location_code, field_separator='|',
                  client=None,
