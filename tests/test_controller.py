@@ -246,7 +246,6 @@ class ControllerTest(VendorIDTest):
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
             library.integrations.append(integration)
 
-        # Set language collection policies.
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, ['eng']),
@@ -703,20 +702,14 @@ class FullLaneSetupTest(CirculationControllerTest):
 
     This class is for the tests that do need that full set of lanes.
     """
-
-    @contextmanager
-    def default_config(self):
-        """A default lane configuration that creates a full
-        range of lanes.
-        """
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                }
-            }
-            yield config
+    def library_setup(self, library):
+        super(FullLaneSetupTest, self).library_setup(library)
+        for k, v in [
+                (Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']),
+                (Configuration.SMALL_COLLECTION_LANGUAGES, ['spa', 'chi']),
+                (Configuration.TINY_COLLECTION_LANGUAGES, [])
+        ]:
+            ConfigurationSetting.for_library(k, library).value = json.dumps(v)
     
     def test_load_lane(self):
         with self.request_context_with_library("/"):

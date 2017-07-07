@@ -296,6 +296,7 @@ class Configuration(CoreConfiguration):
             
         return result        
         
+    @classmethod
     def help_uris(cls, library):
         """Find all the URIs that might help patrons get help from
         this library.
