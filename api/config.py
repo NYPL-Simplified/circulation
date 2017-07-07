@@ -119,36 +119,36 @@ class Configuration(CoreConfiguration):
         return cls.policy(cls.ROOT_LANE_POLICY)
 
     @classmethod
-    def large_collection_languages(cls):
-        value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
+    def _collection_languages(cls, library, key):
+        """Look up a list of languages in a library configuration.
+
+        If the value is not set, estimate a value (and all related
+        values) by looking at the library's collection.
+        """
+        setting = ConfigurationSetting.for_library(
+            cls.LARGE_COLLECTION_LANGUAGES, library
+        )
+        if setting.value is None:
+            cls.estimate_language_collections_for_library()
+        return setting.json_value
+    
+    @classmethod
+    def large_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.LARGE_COLLECTION_LANGUAGES
+        )
 
     @classmethod
-    def small_collection_languages(cls):
-        import logging
-        value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
+    def small_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.SMALL_COLLECTION_LANGUAGES
+        )
 
     @classmethod
-    def tiny_collection_languages(cls):
-        import logging
-        logging.info("In tiny_collection_languages.")
-        value = cls.language_policy().get(cls.TINY_COLLECTION_LANGUAGES, '')
-        logging.info("Language policy: %r" % cls.language_policy())
-        logging.info("Tiny collections: %r" % value)
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
+    def tiny_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.TINY_COLLECTION_LANGUAGES
+        )
 
     @classmethod
     def max_outstanding_fines(cls, library):
