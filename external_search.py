@@ -55,27 +55,32 @@ class ExternalSearchIndex(object):
         self.works_alias = None
         integration = None
 
-        if not ExternalSearchIndex.__client:
-            if _db and (not url or not works_index):
-                integration = ExternalIntegration.lookup(
-                    _db, ExternalIntegration.ELASTICSEARCH,
-                    goal=ExternalIntegration.SEARCH_GOAL
-                )
+        if not _db:
+            raise CannotLoadConfiguration(
+                "Cannot load Elasticsearch configuration without a database.",
+            )
+        if not url or not works_index:
+            integration = ExternalIntegration.lookup(
+                _db, ExternalIntegration.ELASTICSEARCH,
+                goal=ExternalIntegration.SEARCH_GOAL
+            )
 
-                if not integration:
-                    raise CannotLoadConfiguration(
-                        "No Elasticsearch integration configured."
-                    )
-                url = url or integration.url
-                if not works_index:
-                    setting = integration.setting(self.WORKS_INDEX_KEY)
-                    works_index = setting.value_or_default(
-                        self.DEFAULT_WORKS_INDEX
-                    )
-            if not url:
+            if not integration:
                 raise CannotLoadConfiguration(
-                    "No URL configured to Elasticsearch server."
+                    "No Elasticsearch integration configured."
                 )
+            url = url or integration.url
+            if not works_index:
+                setting = integration.setting(self.WORKS_INDEX_KEY)
+                works_index = setting.value_or_default(
+                    self.DEFAULT_WORKS_INDEX
+                )
+        if not url:
+            raise CannotLoadConfiguration(
+                "No URL configured to Elasticsearch server."
+            )
+
+        if not ExternalSearchIndex.__client:
             use_ssl = url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
@@ -93,8 +98,9 @@ class ExternalSearchIndex(object):
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
-        self.set_works_index_and_alias(works_index)
-        self.update_integration_settings(integration)
+        if works_index and integration:
+            self.set_works_index_and_alias(works_index)
+            self.update_integration_settings(integration)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
@@ -132,8 +138,12 @@ class ExternalSearchIndex(object):
         """Finds or creates the works_index and works_alias based on
         provided configuration.
         """
-        index_details = self.indices.get_alias(name=current_alias, ignore=[404])
-        found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
+        if current_alias:
+            index_details = self.indices.get_alias(name=current_alias, ignore=[404])
+            found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
+        else:
+            found = False
+
         def _set_works_index(name):
             self.works_index = self.__client.works_index = name
 
