@@ -13,6 +13,32 @@ from api.config import Configuration
 
 class TestConfiguration(DatabaseTest):
 
+    def test_collection_language_method_performs_estimate(self):
+        C = Configuration
+        library = self._default_library
+
+        # We haven't set any of these values.
+        for key in [C.LARGE_COLLECTION_LANGUAGES,
+                    C.SMALL_COLLECTION_LANGUAGES,
+                    C.TINY_COLLECTION_LANGUAGES]:
+            eq_(None, ConfigurationSetting.for_library(key, library).value)
+
+        # So how does this happen?
+        eq_(["eng"], C.large_collection_languages(library))
+        eq_([], C.small_collection_languages(library))
+        eq_([], C.tiny_collection_languages(library))
+
+        # It happens because the first time we call one of those
+        # *_collection_languages, it estimates values for all three
+        # configuration settings, based on the library's current
+        # holdings.
+        eq_(["eng"], ConfigurationSetting.for_library(
+            C.LARGE_COLLECTION_LANGUAGES, library).json_value)
+        eq_([], ConfigurationSetting.for_library(
+            C.SMALL_COLLECTION_LANGUAGES, library).json_value)
+        eq_([], ConfigurationSetting.for_library(
+            C.TINY_COLLECTION_LANGUAGES, library).json_value)
+        
     def test_estimate_language_collection_for_library(self):
 
         library = self._default_library
