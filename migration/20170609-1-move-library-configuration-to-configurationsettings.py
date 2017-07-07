@@ -59,6 +59,17 @@ try:
         for library in libraries:
             library.setting("allow_holds").value = "False"
 
+    # Install the language policies used to configure the lanes.
+    language_policy = Configuration.policy('languages')
+    if language_policy:
+        for variable in [Configuration.LARGE_COLLECTION_LANGUAGES,
+                         Configuration.SMALL_COLLECTION_LANGUAGES,
+                         Configuration.TINY_COLLECTION_LANGUAGES]:
+            value = language_policy.get(variable)
+            if value:
+                for library in libraries:
+                    library.setting(variable).value = json.dumps(value)
+    
     # Copy facet configuration
     facet_policy = Configuration.policy("facets", default={})
     enabled = facet_policy.get("enabled", {})
