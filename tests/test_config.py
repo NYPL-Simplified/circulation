@@ -32,12 +32,26 @@ class TestConfiguration(DatabaseTest):
         # *_collection_languages, it estimates values for all three
         # configuration settings, based on the library's current
         # holdings.
-        eq_(["eng"], ConfigurationSetting.for_library(
-            C.LARGE_COLLECTION_LANGUAGES, library).json_value)
+        large_setting = ConfigurationSetting.for_library(
+            C.LARGE_COLLECTION_LANGUAGES, library
+        ) 
+        eq_(["eng"], large_setting.json_value)
         eq_([], ConfigurationSetting.for_library(
             C.SMALL_COLLECTION_LANGUAGES, library).json_value)
         eq_([], ConfigurationSetting.for_library(
             C.TINY_COLLECTION_LANGUAGES, library).json_value)
+
+        # We can change these values.
+        large_setting.value = json.dumps(["spa", "jpn"])
+        eq_(["spa", "jpn"], C.large_collection_languages(library))
+        
+        # If we enter an invalid value, or a value that's not a list,
+        # the estimate is re-calculated the next time we look.
+        large_setting.value = "this isn't json"
+        eq_(["eng"], C.large_collection_languages(library))
+
+        large_setting.value = '"this is json but it\'s not a list"'
+        eq_(["eng"], C.large_collection_languages(library))
         
     def test_estimate_language_collection_for_library(self):
 

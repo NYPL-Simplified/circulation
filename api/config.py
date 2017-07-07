@@ -193,12 +193,20 @@ class Configuration(CoreConfiguration):
         If the value is not set, estimate a value (and all related
         values) by looking at the library's collection.
         """
-        setting = ConfigurationSetting.for_library(
-            cls.LARGE_COLLECTION_LANGUAGES, library
-        )
-        if setting.value is None:
-            cls.estimate_language_collections_for_library()
-        return setting.json_value
+        setting = ConfigurationSetting.for_library(key, library)
+        value = None
+        try:
+            value = setting.json_value
+            if not isinstance(value, list):
+                value = None
+        except (TypeError, ValueError):
+            pass
+
+        if value is None:
+            # We have no value or a bad value. Estimate a better value.
+            cls.estimate_language_collections_for_library(library)
+            value = setting.json_value
+        return value
     
     @classmethod
     def large_collection_languages(cls, library):
