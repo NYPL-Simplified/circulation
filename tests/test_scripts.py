@@ -39,6 +39,7 @@ from scripts import (
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
     InstanceInitializationScript,
+    LanguageListScript,
     LoanReaperScript,
 )
 
@@ -309,3 +310,19 @@ class TestLoanReaperScript(DatabaseTest):
         # expiration date and were created relatively recently.
         eq_(2, len(current_patron.loans))
         eq_(2, len(current_patron.holds))
+
+
+class TestLanguageListScript(DatabaseTest):
+
+    def test_languages(self):
+        """Test the method that gives this script the bulk of its output."""
+        english = self._work(language='eng', with_open_access_download=True)
+        tagalog = self._work(language="tgl", with_license_pool=True)
+        [pool] = tagalog.license_pools
+        self._add_generic_delivery_mechanism(pool)
+        script = LanguageListScript(self._db)
+        output = list(script.languages(self._default_library))
+
+        # English is ignored because all its works are open-access.
+        # Tagalog shows up with the correct estimate.
+        eq_(["tgl 1 (Tagalog)", output])

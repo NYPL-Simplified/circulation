@@ -1,3 +1,4 @@
+import json
 import re
 from nose.tools import set_trace
 import contextlib
@@ -16,10 +17,6 @@ from core.model import ConfigurationSetting
 class Configuration(CoreConfiguration):
 
     LENDING_POLICY = "lending"
-    LANGUAGE_POLICY = "languages"
-    LARGE_COLLECTION_LANGUAGES = "large_collections"
-    SMALL_COLLECTION_LANGUAGES = "small_collections"
-    TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
@@ -43,6 +40,12 @@ class Configuration(CoreConfiguration):
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
 
+    # Names of per-library ConfigurationSettings that control
+    # how detailed the lane configuration gets for various languages.
+    LARGE_COLLECTION_LANGUAGES = "large_collections"
+    SMALL_COLLECTION_LANGUAGES = "small_collections"
+    TINY_COLLECTION_LANGUAGES = "tiny_collections"
+    
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
     PRIVACY_POLICY = 'privacy-policy'
@@ -50,6 +53,17 @@ class Configuration(CoreConfiguration):
     ABOUT = 'about'
     LICENSE = 'license'
 
+    # A library with this many titles in a given language will be given
+    # a large, detailed lane configuration for that language.
+    LARGE_COLLECTION_CUTOFF = 10000
+
+    # A library with this many titles in a given language will be
+    # given separate fiction and nonfiction lanes for that language.
+    SMALL_COLLECTION_CUTOFF = 500
+
+    # A library with fewer titles than that will be given a single
+    # lane containing all books in that language.
+    
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
             "key": BEARER_TOKEN_SIGNING_SECRET,
@@ -105,10 +119,6 @@ class Configuration(CoreConfiguration):
         return cls.policy(cls.ROOT_LANE_POLICY)
 
     @classmethod
-    def language_policy(cls):
-        return cls.policy(cls.LANGUAGE_POLICY, required=True)
-
-    @classmethod
     def large_collection_languages(cls):
         value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
         if not value:
@@ -120,10 +130,7 @@ class Configuration(CoreConfiguration):
     @classmethod
     def small_collection_languages(cls):
         import logging
-        logging.info("In small_collection_languages.")
         value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
-        logging.info("Language policy: %r" % cls.language_policy())
-        logging.info("Small collections: %r" % value)
         if not value:
             return []
         if isinstance(value, list):
@@ -155,6 +162,63 @@ class Configuration(CoreConfiguration):
         CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
 
+    @classmethod
+    def estimate_language_collections_for_library(cls, library):
+        """Guess at appropriate values for the given library for
+        LARGE_COLLECTION_LANGUAGES, SMALL_COLLECTION_LANGUAGES, and
+        TINY_COLLECTION_LANGUAGES. Set configuration values
+        appropriately, overriding any previous values.
+        """
+        holdings = library.estimated_holdings_by_language()
+        large, small, tiny = cls.classify_holdings(holdings)
+        for setting, value in (
+                (cls.LARGE_COLLECTION_LANGUAGES, large),
+                (cls.SMALL_COLLECTION_LANGUAGES, small),
+                (cls.TINY_COLLECTION_LANGUAGES, tiny),
+        ):
+            ConfigurationSetting.for_library(
+                setting, library).value = json.dumps(value)
+
+    @classmethod
+    def classify_holdings(cls, works_by_language):
+        """Divide languages into 'large', 'small', and 'tiny' colletions based
+        on the number of works available for each.
+
+        :param works_by_language: A Counter mapping languages to the
+        number of active works available for that language.  The
+        output of `Library.estimated_holdings_by_language` is a good
+        thing to pass in.
+
+        :return: a 3-tuple of lists (large, small, tiny).
+        """
+        large = []
+        small = []
+        tiny = []
+        result = [large, small, tiny]
+        # The single most common language always gets a large
+        # collection.
+        #
+        # Otherwise, it depends on how many works are in the
+        # collection.
+        for language, num_works in works_by_language.most_common():
+            if not large:
+                bucket = large
+            elif num_works > cls.LARGE_COLLECTION_CUTOFF:
+                bucket = large
+            elif num_works > cls.SMALL_COLLECTION_CUTOFF:
+                bucket = small
+            else:
+                bucket = tiny
+            bucket.append(language)
+
+        if not large:
+            # In the absence of any information, assume we have an
+            # English collection and nothing else.
+            large.append('eng')
+            
+        return result        
+        
+        
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:
