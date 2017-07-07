@@ -44,7 +44,6 @@ class Configuration(CoreConfiguration):
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
 
-
     # Names of per-library ConfigurationSettings that control
     # how detailed the lane configuration gets for various languages.
     LARGE_COLLECTION_LANGUAGES = "large_collections"
@@ -167,17 +166,14 @@ class Configuration(CoreConfiguration):
         {
             "key": LARGE_COLLECTION_LANGUAGES,
             "label": _("The primary languages represented in this library's collection"),
-            "type": "list",
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
             "label": _("Other major languages represented in this library's collection"),
-            "type": "list",
         },        
         {
             "key": TINY_COLLECTION_LANGUAGES,
             "label": _("Other languages in this library's collection"),
-            "type": "list",
         },        
     ]
     
