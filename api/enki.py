@@ -1,19 +1,64 @@
 from nose.tools import set_trace
+from collections import defaultdict
 import datetime
+import base64
+import os
+import json
+import logging
+import re
 
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree
-from core.enki import (
-    EnkiAPI as BaseEnkiAPI,
-    MockEnkiAPI as BaseMockEnkiAPI,
-    EnkiParser,
-    BibliographicParser,
-    EnkiBibliographicCoverageProvider
+
+from authenticator import Authenticator
+
+from config import (
+    Configuration,
+    temp_config,
+)
+
+from circulation import (
+    LoanInfo,
+    FulfillmentInfo,
+    HoldInfo,
+    BaseCirculationAPI
+)
+
+from circulation_exceptions import *
+
+from core.util import LanguageCodes
+from core.util.http import (
+    HTTP,
+    RemoteIntegrationException,
+)
+
+from core.coverage import (
+    BibliographicCoverageProvider,
+    CoverageFailure,
+)
+
+from core.model import (
+    get_one_or_create,
+    Collection,
+    Contributor,
+    DataSource,
+    DeliveryMechanism,
+    LicensePool,
+    Edition,
+    Identifier,
+    Library,
+    Representation,
+    Subject,
 )
 
 from core.metadata_layer import (
+    SubjectData,
+    ContributorData,
+    FormatData,
+    IdentifierData,
     CirculationData,
+    Metadata,
     ReplacementPolicy,
 )
 
@@ -22,42 +67,11 @@ from core.monitor import (
     IdentifierSweepMonitor,
 )
 
-from core.opds_import import (
-    SimplifiedOPDSLookup,
-)
-
-from core.model import (
-    CirculationEvent,
-    get_one_or_create,
-    Contributor,
-    DataSource,
-    DeliveryMechanism,
-    Edition,
-    Identifier,
-    LicensePool,
-    Representation,
-    Subject,
-)
-
-from core.coverage import (
-    BibliographicCoverageProvider,
-    CoverageFailure,
-)
-
-from authenticator import Authenticator
-from config import Configuration
-from circulation import (
-    LoanInfo,
-    FulfillmentInfo,
-    HoldInfo,
-    BaseCirculationAPI
-)
-from circulation_exceptions import *
+from core.opds_import import SimplifiedOPDSLookup
 
 #TODO: Remove unnecessary imports (once the classes are more or less complete)
 
-class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
-    #copied/moved from core/enki.py since the Enki API probably doesn't need to use core
+class EnkiAPI(object):
     PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
     availability_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
@@ -65,6 +79,139 @@ class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
+
+    # may or may not be useful
+    DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
+
+    log = logging.getLogger("Enki API")
+    # TODO: make sure this logger exists :-)
+
+    def __init__(self, _db, username=None, library_id=None, password=None,
+                 base_url=None):
+        self._db = _db
+        (env_library_id, env_username,
+         env_password, env_base_url) = self.environment_values()
+        self.library_id = library_id or env_library_id
+        self.username = username or env_username
+        self.password = password or env_password
+        self.base_url = base_url or env_base_url
+        if self.base_url == 'qa':
+            self.base_url = self.QA_BASE_URL
+        elif self.base_url == 'production':
+            self.base_url = self.PRODUCTION_BASE_URL
+        self.token = "mock_token"
+
+    @classmethod
+    def environment_values(cls):
+        config = Configuration.integration('Enki')
+        values = []
+        for name in [
+                'library_id',
+		'username',
+		'password',
+		'url'
+        ]:
+            value = config.get(name)
+            if value:
+                value = value.encode("utf8")
+            values.append(value)
+        return values
+
+    @classmethod
+    def from_environment(cls, _db):
+	values = cls.environment_values()
+	if len([x for x in values if not x]):
+	    cls.log.info( "No Enki client configured" )
+	    return None
+        return cls(_db)
+
+    @property
+    def source(self):
+        return DataSource.lookup(self._db, DataSource.ENKI)
+
+    @property
+    def authorization_headers(self):
+        authorization = u":".join([self.username, self.password, self.library_id])
+        authorization = authorization.encode("utf_16_le")
+        authorization = base64.standard_b64encode(authorization)
+        return dict(Authorization="Basic " + authorization)
+
+    def refresh_bearer_token(self):
+        url = self.base_url + self.access_token_endpoint
+        headers = self.authorization_headers
+        response = self._make_request(
+            url, 'post', headers, allowed_response_codes=[200]
+        )
+        return self.parse_token(response.content)
+
+    def request(self, url, method='get', extra_headers={}, data=None,
+                params=None, exception_on_401=False):
+        """Make an HTTP request, acquiring/refreshing a bearer token
+        if necessary.
+        """
+        if not self.token:
+            self.token = self.refresh_bearer_token()
+
+        headers = dict(extra_headers)
+        headers['Authorization'] = "Bearer " + self.token
+        headers['Library'] = self.library_id
+        if exception_on_401:
+            disallowed_response_codes = ["401"]
+        else:
+            disallowed_response_codes = None
+        response = self._make_request(
+            url=url, method=method, headers=headers,
+            data=data, params=params,
+            disallowed_response_codes=disallowed_response_codes
+        )
+        if response.status_code == 401:
+            # This must be our first 401, since our second 401 will
+            # make _make_request raise a RemoteIntegrationException.
+            #
+            # The token has expired. Get a new token and try again.
+            self.token = None
+            return self.request(
+                url=url, method=method, extra_headers=extra_headers,
+                data=data, params=params, exception_on_401=True
+            )
+        else:
+            return response
+
+    def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
+        print "requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt)
+        url = str(self.base_url) + str(self.availability_endpoint)
+        args = dict()
+	args['method'] = "getAllTitles"
+	args['id'] = "secontent"
+        args['strt'] = strt
+        args['qty'] = qty
+	response = self.request(url, params=args)
+        return response
+
+    @classmethod
+    def create_identifier_strings(cls, identifiers):
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                value = i.identifier
+            else:
+                value = i
+            identifier_strings.append(value)
+
+        return identifier_strings
+
+    @classmethod
+    def parse_token(cls, token):
+        data = json.loads(token)
+        return data['access_token']
+
+    def _make_request(self, url, method, headers, data=None, params=None,
+                      **kwargs):
+        """Actually make an HTTP request."""
+        return HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            params=params, **kwargs
+        )
 
     def reaper_request(self, identifier):
         print "Checking availability for " + str(identifier)
@@ -80,16 +227,266 @@ class EnkiAPI(BaseEnkiAPI, BaseCirculationAPI):
             print "This book is no longer available."
         return response
 
-class EnkiCirculationMonitor(Monitor):
+class MockEnkiAPI(EnkiAPI):
+    def __init__(self, _db, *args, **kwargs):
+        self.responses = []
+        self.requests = []
+
+        library = Library.instance(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test Enki Collection",
+            protocol=Collection.ENKI, create_method_kwargs=dict(
+                external_account_id=u'c',
+            )
+        )
+        collection.external_integration.username = u'a'
+        collection.external_integration.password = u'b'
+        collection.external_integration.url = "http://enki.test/"
+        library.collections.append(collection)
+        super(MockEnkiAPI, self).__init__(
+            _db, collection, *args, **kwargs
+        )
+
+    def queue_response(self, status_code, headers={}, content=None):
+        from core.testing import MockRequestsResponse
+        self.responses.insert(
+            0, MockRequestsResponse(status_code, headers, content)
+        )
+
+    def _make_request(self, url, *args, **kwargs):
+        self.requests.append([url, args, kwargs])
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
+
+    def _request_with_timeout(self, method, url, *args, **kwargs):
+        """Simulate HTTP.request_with_timeout."""
+        self.requests.append([method, url, args, kwargs])
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
+
+    def _simple_http_get(self, url, headers, *args, **kwargs):
+        """Simulate Representation.simple_http_get."""
+        response = self._request_with_timeout('GET', url, *args, **kwargs)
+        return response.status_code, response.headers, response.content
+
+class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
+    #TODO
+    """Fill in bibliographic metadata for Enki records.
+
+    Currently this is only used by BibliographicRefreshScript. It's
+    not normally necessary because the Enki API combines
+    bibliographic and availability data.
+    """
+    def __init__(self, _db, metadata_replacement_policy=None, enki_api=None,
+                 input_identifier_types=None, input_identifiers=None, **kwargs):
+        """
+        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
+        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
+        """
+        self.parser = BibliographicParser()
+        super(EnkiBibliographicCoverageProvider, self).__init__(
+            _db, enki_api, DataSource.ENKI,
+            batch_size=25,
+            metadata_replacement_policy=metadata_replacement_policy,
+            **kwargs
+        )
+
+    def process_batch(self, identifiers):
+        identifier_strings = self.api.create_identifier_strings(identifiers)
+        response = self.api.availability(title_ids=identifier_strings)
+        seen_identifiers = set()
+        batch_results = []
+        for metadata, availability in self.parser.process_all(response.content, "//enki:title"):
+            identifier, is_new = metadata.primary_identifier.load(self._db)
+            if not identifier in identifiers:
+                # Enki told us about a book we didn't ask
+                # for. This shouldn't happen, but if it does we should
+                # do nothing further.
+                continue
+            seen_identifiers.add(identifier.identifier)
+            result = self.set_metadata(identifier, metadata)
+            if not isinstance(result, CoverageFailure):
+                result = self.handle_success(identifier)
+            batch_results.append(result)
+
+        # Create a CoverageFailure object for each original identifier
+        # not mentioned in the results.
+        for identifier_string in identifier_strings:
+            if identifier_string not in seen_identifiers:
+                identifier, ignore = Identifier.for_foreign_id(
+                    self._db, Identifier.ENKI_ID, identifier_string
+                )
+                result = CoverageFailure(
+                    identifier, "Book not in collection", data_source=self.output_source, transient=False
+                )
+                batch_results.append(result)
+        return batch_results
+
+    def handle_success(self, identifier):
+        return self.set_presentation_ready(identifier)
+
+    def process_item(self, identifier):
+        results = self.process_batch([identifier])
+        return results[0]
+
+class BibliographicParser(object):
+
+    """Helper function to parse JSON"""
+    def process_all(self, json_data, xpath, namespaces=None, handler=None, parser=None):
+        data = json.loads(json_data)
+	returned_titles = data["result"]["titles"]
+	titles = returned_titles
+	for book in returned_titles:
+            print "A book titled '%s'" % book["title"]
+            print book
+            print "\n"
+	    data = self.process_one(book, namespaces)
+            if data:
+                yield data
+
+    DELIVERY_DATA_FOR_AXIS_FORMAT = {
+        "Blio" : None,
+        "Acoustik" : None,
+        "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+        "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+    }
+
+    log = logging.getLogger("Enki Bibliographic Parser")
+
+    @classmethod
+    def parse_list(self, l):
+        """Turn strings like this into lists:
+
+        FICTION / Thrillers; FICTION / Suspense; FICTION / General
+        Ursu, Anne ; Fortune, Eric (ILT)
+        """
+        return [x.strip() for x in l.split(";")]
+
+    def __init__(self, include_availability=True, include_bibliographic=True):
+        self.include_availability = include_availability
+        self.include_bibliographic = include_bibliographic
+
+    def extract_availability(self, circulation_data, element, ns):
+	primary_identifier = IdentifierData(Identifier.ENKI_ID, element["id"])
+        if not circulation_data:
+            circulation_data = CirculationData(
+                data_source=DataSource.ENKI,
+                primary_identifier=primary_identifier,
+            )
+        # For now, assume there is a license available for each item.
+        circulation_data.licenses_owned=1
+        circulation_data.licenses_available=1
+        circulation_data.licenses_reserved=0
+        circulation_data.patrons_in_hold_queue=0
+
+        return circulation_data
+
+
+    # Axis authors with a special role have an abbreviation after their names,
+    # e.g. "San Ruby (FRW)"
+    role_abbreviation = re.compile("\(([A-Z][A-Z][A-Z])\)$")
+    generic_author = object()
+    role_abbreviation_to_role = dict(
+        INT=Contributor.INTRODUCTION_ROLE,
+        EDT=Contributor.EDITOR_ROLE,
+        PHT=Contributor.PHOTOGRAPHER_ROLE,
+        ILT=Contributor.ILLUSTRATOR_ROLE,
+        TRN=Contributor.TRANSLATOR_ROLE,
+        FRW=Contributor.FOREWORD_ROLE,
+        ADP=generic_author, # Author of adaptation
+        COR=generic_author, # Corporate author
+    )
+
+    @classmethod
+    def parse_contributor(cls, author, primary_author_found=False):
+        if primary_author_found:
+            default_author_role = Contributor.AUTHOR_ROLE
+        else:
+            default_author_role = Contributor.PRIMARY_AUTHOR_ROLE
+        role = default_author_role
+        match = cls.role_abbreviation.search(author)
+        if match:
+            role_type = match.groups()[0]
+            role = cls.role_abbreviation_to_role.get(
+                role_type, Contributor.UNKNOWN_ROLE)
+            if role is cls.generic_author:
+                role = default_author_role
+            author = author[:-5].strip()
+        return ContributorData(
+            sort_name=author, roles=role)
+
+    def extract_bibliographic(self, element, ns):
+        identifiers = []
+        contributors = []
+        identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
+        sort_name = element["author"]
+        if not sort_name:
+            sort_name = "Unknown"
+ 	contributors.append(ContributorData(sort_name=sort_name))
+        primary_identifier = IdentifierData(Identifier.ENKI_ID, element["id"])
+	metadata = Metadata(
+        data_source=DataSource.ENKI,
+        title=element["title"],
+        language="ENGLISH",
+        medium=Edition.BOOK_MEDIUM,
+        #series=series,
+        publisher=element["publisher"],
+        #imprint=imprint,
+        #published=publication_date,
+        primary_identifier=primary_identifier,
+        identifiers=identifiers,
+        #subjects=subjects,
+        contributors=contributors,
+        )
+        #TODO: This should parse the content type and look it up in the Enki Delivery Data above. Currently,
+        # we assume everything is an ePub that uses Adobe DRM, which is a safe assumption only for now.
+        formats = []
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
+
+        circulationdata = CirculationData(
+            data_source=DataSource.ENKI,
+            primary_identifier=primary_identifier,
+            formats=formats,
+        )
+
+        metadata.circulation = circulationdata
+        return metadata
+
+
+    def process_one(self, element, ns):
+        if self.include_bibliographic:
+            bibliographic = self.extract_bibliographic(element, ns)
+        else:
+            bibliographic = None
+
+        passed_availability = None
+        if bibliographic and bibliographic.circulation:
+            passed_availability = bibliographic.circulation
+
+        if self.include_availability:
+            availability = self.extract_availability(circulation_data=passed_availability, element=element, ns=ns)
+        else:
+            availability = None
+
+        return bibliographic, availability
+
+class EnkiImport(Monitor):
     """Maintain LicensePools for Enki titles.
     """
 
     VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
     FIVE_MINUTES = datetime.timedelta(minutes=5)
 
-    def __init__(self, _db, name="Enki Circulation Monitor",
+    def __init__(self, _db, name="Enki Import",
                  interval_seconds=60, batch_size=50, api=None):
-	super(EnkiCirculationMonitor, self).__init__(
+	super(EnkiImport, self).__init__(
             _db, name, interval_seconds=interval_seconds,
             default_start_time = self.VERY_LONG_AGO
         )
@@ -109,7 +506,7 @@ class EnkiCirculationMonitor(Monitor):
         )
 
     def run(self):
-        super(EnkiCirculationMonitor, self).run()
+        super(EnkiImport, self).run()
 
     def run_once(self, start, cutoff):
         # Give us five minutes of overlap because it's very important
@@ -123,7 +520,7 @@ class EnkiCirculationMonitor(Monitor):
             content = availability.content
             count = 0
             for bibliographic, circulation in BibliographicParser().process_all(
-                    content):
+                    content, "//enki:title"):
                 self.process_book(bibliographic, circulation)
                 count += 1
                 if count % self.batch_size == 0:
@@ -159,11 +556,6 @@ class EnkiCirculationMonitor(Monitor):
             )
 
         return edition, license_pool
-
-
-class MockEnkiAPI(BaseMockEnkiAPI, EnkiAPI):
-    #TODO
-    pass
 
 #Copied from 3M. Eventually we might want to refactor
 class EnkiCollectionReaper(IdentifierSweepMonitor):
@@ -240,60 +632,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
             pool.patrons_in_hold_queue = 0
             pool.last_checked = now
 
-class ResponseParser(EnkiParser):
+class ResponseParser(BibliographicParser):
     id_type = Identifier.ENKI_ID
 
     SERVICE_NAME = "Enki"
-
-    def raise_exception_on_error(self, e, ns, custom_error_classes={}):
-        #TODO: Handle failure response here
-
-        """code = self._xpath1(e, '//axis:status/axis:code', ns)
-        message = self._xpath1(e, '//axis:status/axis:statusMessage', ns)
-        if message is None:
-            message = etree.tostring(e)
-        else:
-            message = message.text
-
-        if code is None:
-            # Something is so wrong that we don't know what to do.
-            raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        code = code.text
-        try:
-            code = int(code)
-        except ValueError:
-            # Non-numeric code? Inconcievable!
-            raise RemoteInitiatedServerError(
-                "Invalid response code from Axis 360: %s" % code,
-                self.SERVICE_NAME
-            )
-
-        for d in custom_error_classes, self.code_to_exception:
-            if (code, message) in d:
-                raise d[(code, message)]
-            elif code in d:
-                # Something went wrong and we know how to turn it into a
-                # specific exception.
-                cls = d[code]
-                if cls is RemoteInitiatedServerError:
-                    e = cls(message, self.SERVICE_NAME)
-                else:
-                    e = cls(message)
-                raise e
-        return code, message"""
-
-class CheckoutResponseParser(ResponseParser):
-    #TODO??
-    pass
-
-class HoldResponseParser(ResponseParser):
-    #TODO??
-    pass
-
-class HoldReleaseResponseParser(ResponseParser):
-    #TODO??
-    pass
-
-class AvailabilityResponseParser(ResponseParser):
-    #TODO??
-    pass
