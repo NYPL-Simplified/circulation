@@ -32,6 +32,7 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Patron,
     Representation,
     Resource,
@@ -320,6 +321,18 @@ class DatabaseTest(object):
 
         return work
 
+    def _add_generic_delivery_mechanism(self, license_pool):
+        """Give a license pool a generic non-open-access delivery mechanism."""
+        data_source = license_pool.data_source
+        identifier = license_pool.identifier
+        content_type = Representation.EPUB_MEDIA_TYPE
+        drm_scheme = DeliveryMechanism.NO_DRM
+        LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.IN_COPYRIGHT
+        )
+
+        
     def _coverage_record(self, edition, coverage_source, operation=None,
                          status=CoverageRecord.SUCCESS, collection=None):
         if isinstance(edition, Identifier):

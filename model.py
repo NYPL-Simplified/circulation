@@ -38,6 +38,7 @@ from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
     event,
+    exists,
     func,
     MetaData,
     Table,
@@ -8916,6 +8917,89 @@ class Library(Base):
     def enabled_facets_setting(self, group_name):
         key = self.ENABLED_FACETS_KEY_PREFIX + group_name
         return self.setting(key)
+
+    def restrict_to_ready_deliverable_works(
+        self, query, work_model, show_suppressed=False, collection_ids=None
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+
+        :param query: The query to restrict.
+
+        :param work_model: Either Work or one of the MaterializedWork
+        materialized view classes.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
+
+        :param collection_ids: Only include titles in the given
+        collections.
+        """
+        collection_ids = collection_ids or [x.id for x in self.collections]
+        # Only find presentation-ready works.
+        #
+        # Such works are automatically filtered out of 
+        # the materialized view, but we need to filter them out of Work.
+        if work_model == Work:
+            query = query.filter(
+                work_model.presentation_ready == True,
+            )
+
+        # Only find books that have some kind of DeliveryMechanism.
+        LPDM = LicensePoolDeliveryMechanism
+        exists_clause = exists().where(
+            and_(LicensePool.data_source_id==LPDM.data_source_id,
+                LicensePool.identifier_id==LPDM.identifier_id)
+        )
+        query = query.filter(exists_clause)
+            
+        # Only find books with unsuppressed LicensePools.
+        if not show_suppressed:
+            query = query.filter(LicensePool.suppressed==False)
+
+        # Only find books with available licenses.
+        query = query.filter(
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+
+        # Only find books in an appropriate collection.
+        query = query.filter(
+            LicensePool.collection_id.in_(collection_ids)
+        )
+        
+        # If we don't allow holds, hide any books with no available copies.
+        if not self.allow_holds:
+            query = query.filter(
+                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+            )
+        return query
+    
+    def estimated_holdings_by_language(self, include_open_access=True):
+        """Estimate how many titles this library has in various languages.
+
+        The estimate is pretty good but should not be relied upon as
+        exact.
+
+        :return: A Counter mapping languages to the estimated number
+        of titles in that language.
+        """
+        _db = Session.object_session(self)
+        qu = _db.query(
+            Edition.language, func.count(Work.id).label("work_count")
+        ).select_from(Work).join(Work.license_pools).join(
+            Work.presentation_edition
+        ).group_by(Edition.language)
+        qu = self.restrict_to_ready_deliverable_works(qu, Work)
+        if not include_open_access:
+            qu = qu.filter(LicensePool.open_access==False)
+        counter = Counter()
+        for language, count in qu:
+            counter[language] = count
+        return counter
     
     def default_facet(self, group_name):
         """Look up the default facet for a given facet group."""
