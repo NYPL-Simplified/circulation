@@ -1051,7 +1051,7 @@ class SettingsController(CirculationManagerController):
                             value += [option["key"]]
                 else:
                     # Allow any entered values.
-                    value = [item for item in flask.request.form.getlist(key) if item]
+                    value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
                 value = json.dumps(value)
             else:
                 value = flask.request.form.get(setting['key'], None)
