@@ -6,6 +6,7 @@ import json
 import logging
 import copy
 from util import LanguageCodes
+from sqlalchemy.engine.url import make_url
 from flask.ext.babel import lazy_gettext as _
 
 from facets import FacetConstants
@@ -38,7 +39,11 @@ class Configuration(object):
     log = logging.getLogger("Configuration file loader")
 
     instance = None
-    
+
+    # Environment variables that contain URLs to the database
+    DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
+    DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_PRODUCTION_DATABASE'
+
     # Logging stuff
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
@@ -190,8 +195,8 @@ class Configuration(object):
 
     @classmethod
     def get(cls, key, default=None):
-        if not cls.instance:
-            raise ValueError("No configuration file loaded!")
+        if cls.instance is None:
+            raise ValueError("No configuration object loaded!")
         return cls.instance.get(key, default)
 
     @classmethod
@@ -252,11 +257,52 @@ class Configuration(object):
 
     @classmethod
     def database_url(cls, test=False):
+        """Find the database URL configured for this site.
+
+        For compatibility with old configurations, we will look in the
+        site configuration first. 
+        
+        If it's not there, we will look in the appropriate environment
+        variable.
+        """
+        # To avoid expensive mistakes, test and production databases
+        # are always configured with separate keys.
         if test:
-            key = cls.DATABASE_TEST_URL
+            config_key = cls.DATABASE_TEST_URL
+            environment_variable = cls.DATABASE_TEST_ENVIRONMENT_VARIABLE
         else:
-            key = cls.DATABASE_PRODUCTION_URL
-        return cls.integration(cls.DATABASE_INTEGRATION)[key]
+            config_key = cls.DATABASE_PRODUCTION_URL
+            environment_variable = cls.DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE
+
+        # Check the legacy location (the config file) first.
+        url = None
+        database_integration = cls.integration(cls.DATABASE_INTEGRATION)
+        if database_integration:
+            url = database_integration.get(config_key)
+
+        # If that didn't work, check the new location (the environment
+        # variable).
+        if not url:
+            url = os.environ.get(environment_variable)
+        if not url:
+            raise CannotLoadConfiguration(
+                "Database URL was not defined in environment variable (%s) or configuration file." % environment_variable
+            )
+
+        url_obj = None
+        try:
+            url_obj = make_url(url)
+        except ArgumentError, e:
+            # Improve the error message by giving a guide as to what's
+            # likely to work.
+            raise ArgumentError(
+                "Bad format for database URL (%s). Expected something like postgres://[username]:[password]@[hostname]:[port]/[database name]" %
+                url
+            )
+
+        # Calling __to_string__ will hide the password.
+        logging.info("Connecting to database: %s" % url_obj.__to_string__())
+        return url
 
     @classmethod
     def data_directory(cls):
@@ -378,20 +424,24 @@ class Configuration(object):
     
     @classmethod
     def load(cls, _db=None):
-        cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
-        if not cfv in os.environ:
-            raise CannotLoadConfiguration(
-                "No configuration file defined in %s." % cfv)
+        """Load additional site configuration from a config file.
 
-        config_path = os.environ[cfv]
-        try:
-            cls.log.info("Loading configuration from %s", config_path)
-            configuration = cls._load(open(config_path).read())
-        except Exception, e:
-            raise CannotLoadConfiguration(
-                "Error loading configuration file %s: %s" % (
-                    config_path, e)
-            )
+        This is being phased out in favor of taking all configuration from a
+        database.
+        """
+        cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
+        config_path = os.environ.get(cfv)
+        if config_path:
+            try:
+                cls.log.info("Loading configuration from %s", config_path)
+                configuration = cls._load(open(config_path).read())
+            except Exception, e:
+                raise CannotLoadConfiguration(
+                    "Error loading configuration file %s: %s" % (
+                        config_path, e)
+                )
+        else:
+            configuration = cls._load('{}')
         cls.instance = configuration
 
         if _db:
@@ -402,7 +452,8 @@ class Configuration(object):
                     parent.load(_db)
         else:
             if not cls.integration('CDN'):
-                cls.instance[cls.INTEGRATIONS]['CDN'] = cls.UNINITIALIZED_CDNS
+                cls.instance.setdefault(cls.INTEGRATIONS, {})[
+                    'CDN'] = cls.UNINITIALIZED_CDNS
                 
         return configuration
     
