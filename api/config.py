@@ -28,6 +28,10 @@ class Configuration(CoreConfiguration):
     # The name of the sitewide secret used to sign cookies for admin login.
     SECRET_KEY = u"secret_key"
 
+    # A short description of the library, used in its Authentication
+    # for OPDS document.
+    LIBRARY_DESCRIPTION = 'library_description'
+    
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
     MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
@@ -40,29 +44,48 @@ class Configuration(CoreConfiguration):
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
 
+
     # Names of per-library ConfigurationSettings that control
     # how detailed the lane configuration gets for various languages.
     LARGE_COLLECTION_LANGUAGES = "large_collections"
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
-    
+
+    # The client-side color scheme to use for this library.
+    COLOR_SCHEME = "color_scheme"
+    DEFAULT_COLOR_SCHEME = "blue"
+   
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
     PRIVACY_POLICY = 'privacy-policy'
     COPYRIGHT = 'copyright'
     ABOUT = 'about'
     LICENSE = 'license'
+    REGISTER = 'register'
 
     # A library with this many titles in a given language will be given
     # a large, detailed lane configuration for that language.
     LARGE_COLLECTION_CUTOFF = 10000
-
     # A library with this many titles in a given language will be
     # given separate fiction and nonfiction lanes for that language.
     SMALL_COLLECTION_CUTOFF = 500
-
     # A library with fewer titles than that will be given a single
     # lane containing all books in that language.
+
+    # These are link relations that are valid in Authentication for
+    # OPDS documents but are not registered with IANA.
+    AUTHENTICATION_FOR_OPDS_LINKS = ['register']
+    
+    # We support three different ways of integrating help processes.
+    # All three of these will be sent out as links with rel='help'
+    HELP_EMAIL = 'help-email'
+    HELP_WEB = 'help-web'
+    HELP_URI = 'help-uri'
+    HELP_LINKS = [HELP_EMAIL, HELP_WEB, HELP_URI]
+
+    # Features of an OPDS client which a library may want to enable or
+    # disable.
+    RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
     
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
@@ -80,6 +103,23 @@ class Configuration(CoreConfiguration):
     ]
 
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
+        {
+            "key": LIBRARY_DESCRIPTION,
+            "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+        },
+        {
+            "key": COLOR_SCHEME,
+            "label": _("Color scheme"),
+            "options": [
+                { "key": "blue", "label": _("Blue") },
+                { "key": "red", "label": _("Red") },
+                { "key": "gray", "label": _("Gray") },
+                { "key": "gold", "label": _("Gold") },
+                { "key": "green", "label": _("Green") },
+                { "key": "teal", "label": _("Teal") },
+                { "key": "purple", "label": _("Purple") },
+            ],
+        },
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
@@ -107,6 +147,22 @@ class Configuration(CoreConfiguration):
         {
             "key": LICENSE,
             "label": _("License URL"),
+        },
+        {
+            "key": REGISTER,
+            "label": _("Patron registration URL"),
+        },
+        {
+            "key": HELP_EMAIL,
+            "label": _("Patron support email address"),
+        },
+        {
+            "key": HELP_WEB,
+            "label": _("Patron support web site"),
+        },
+        {
+            "key": HELP_URI,
+            "label": _("Patron support custom integration URI")
         },
     ]
     
@@ -218,6 +274,24 @@ class Configuration(CoreConfiguration):
             
         return result        
         
+    def help_uris(cls, library):
+        """Find all the URIs that might help patrons get help from
+        this library.
+
+        :yield: A sequence of 2-tuples (media type, URL)
+        """
+        for name in cls.HELP_LINKS:
+            setting = ConfigurationSetting.for_library(name, library)
+            value = setting.value
+            if not value:
+                continue
+            type = None
+            if name == cls.HELP_EMAIL:
+                value = 'mailto:' + value
+            if name == cls.HELP_WEB:
+                type = 'text/html'
+            yield type, value
+            
         
 @contextlib.contextmanager
 def empty_config():

@@ -7,6 +7,7 @@ import random
 import uuid
 import json
 import re
+import urllib
 
 import flask
 from flask import (
@@ -75,6 +76,8 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
+from templates import admin as admin_template
+
 from api.authenticator import AuthenticationProvider
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
@@ -108,12 +111,12 @@ def setup_admin_controllers(manager):
             self.log.error("Could not load configuration file: %s" % e)
             sys.exit()
 
-    manager.admin_work_controller = WorkController(manager)
+    manager.admin_view_controller = ViewController(manager)
     manager.admin_sign_in_controller = SignInController(manager)
+    manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
-
 
 class AdminController(object):
 
@@ -184,6 +187,53 @@ class AdminController(object):
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
         return base64.b64encode(os.urandom(24))
+        
+
+class ViewController(AdminController):
+    def __call__(self, collection, book, path=None):
+        setting_up = (self.auth == None)
+        if not setting_up:
+            admin = self.authenticated_admin_from_request()
+            if isinstance(admin, ProblemDetail):
+                redirect_url = flask.request.url
+                if (collection):
+                    quoted_collection = urllib.quote(collection)
+                    redirect_url = redirect_url.replace(
+                        quoted_collection,
+                        quoted_collection.replace("/", "%2F"))
+                if (book):
+                    quoted_book = urllib.quote(book)
+                    redirect_url = redirect_url.replace(
+                        quoted_book,
+                        quoted_book.replace("/", "%2F"))
+                return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
+
+            if not collection and not book and not path:
+                library = Library.default(self._db)
+                if library:
+                    return redirect(self.url_for('admin_view', collection=library.short_name))
+
+        csrf_token = flask.request.cookies.get("csrf_token") or self.generate_csrf_token()
+
+        local_analytics = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL)
+        show_circ_events_download = (local_analytics != None)
+
+        response = Response(flask.render_template_string(
+            admin_template,
+            csrf_token=csrf_token,
+            show_circ_events_download=show_circ_events_download,
+            setting_up=setting_up,
+        ))
+
+        # The CSRF token is in its own cookie instead of the session cookie,
+        # because if your session expires and you log in again, you should
+        # be able to submit a form you already had open. The CSRF token lasts
+        # until the user closes the browser window.
+        response.set_cookie("csrf_token", csrf_token, httponly=True)
+        return response
         
 
 class SignInController(AdminController):
@@ -1028,6 +1078,10 @@ class SettingsController(CirculationManagerController):
             settings = getattr(api, "SETTINGS", [])
             protocol["settings"] = settings
 
+            child_settings = getattr(api, "CHILD_SETTINGS", None)
+            if child_settings != None:
+                protocol["child_settings"] = child_settings
+
             library_settings = getattr(api, "LIBRARY_SETTINGS", None)
             if library_settings != None:
                 protocol["library_settings"] = library_settings
@@ -1045,12 +1099,16 @@ class SettingsController(CirculationManagerController):
                     value = json.dumps(value)
             else:
                 value = flask.request.form.get(key)
-            if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
-                self._db.rollback()
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "The configuration value for %(setting)s is invalid.",
-                    setting=setting.get("label"),
-                ))
+            if value and setting.get("options"):
+                # This setting can only take on values that are in its
+                # list of options.
+                allowed = [option.get("key") for option in setting.get("options")]
+                if value not in allowed:
+                    self._db.rollback()
+                    return INVALID_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(setting)s is invalid.",
+                        setting=setting.get("label"),
+                    ))
             if not value and not setting.get("optional"):
                 # Roll back any changes to the integration that have already been made.
                 self._db.rollback()
@@ -1058,7 +1116,7 @@ class SettingsController(CirculationManagerController):
                     _("The configuration is missing a required setting: %(setting)s",
                       setting=setting.get("label")))
             integration.setting(key).value = value
-
+                
         if not protocol.get("sitewide"):
             integration.libraries = []
 
@@ -1110,6 +1168,7 @@ class SettingsController(CirculationManagerController):
                     id=c.id,
                     name=c.name,
                     protocol=c.protocol,
+                    parent_id=c.parent_id,
                     libraries=[{ "short_name": library.short_name } for library in c.libraries],
                     settings=dict(external_account_id=c.external_account_id),
                 )
@@ -1164,7 +1223,24 @@ class SettingsController(CirculationManagerController):
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        settings = protocol.get("settings")
+
+        parent_id = flask.request.form.get("parent_id")
+
+        if parent_id and not protocol.get("child_settings"):
+            self._db.rollback()
+            return PROTOCOL_DOES_NOT_SUPPORT_PARENTS
+
+        if parent_id:
+            parent = get_one(self._db, Collection, id=parent_id)
+            if not parent:
+                self._db.rollback()
+                return MISSING_PARENT
+            collection.parent = parent
+            settings = protocol.get("child_settings")
+        else:
+            collection.parent = None
+            settings = protocol.get("settings")
+        
 
         for setting in settings:
             key = setting.get("key")

@@ -20,7 +20,6 @@ from core.model import (
 
 from controller import setup_admin_controllers
 from templates import (
-    admin as admin_template,
     admin_sign_in_again as sign_in_again_template,
 )
 from api.routes import (
@@ -429,50 +428,8 @@ def admin_sign_in_again():
 @app.route('/admin/web/collection/<path:collection>')
 @app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
-def admin_view(collection=None, book=None, **kwargs):
-    setting_up = (app.manager.admin_sign_in_controller.auth == None)
-    home_url = None
-    if not setting_up:
-        admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
-        if isinstance(admin, ProblemDetail):
-            redirect_url = flask.request.url
-            if (collection):
-                quoted_collection = urllib.quote(collection)
-                redirect_url = redirect_url.replace(
-                    quoted_collection,
-                    quoted_collection.replace("/", "%2F"))
-            if (book):
-                quoted_book = urllib.quote(book)
-                redirect_url = redirect_url.replace(
-                    quoted_book,
-                    quoted_book.replace("/", "%2F"))
-            return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
-        # TODO: Design the admin interface for multiple libraries.
-        # Until then, pick some library so the admin interface can run.
-        libraries = app.manager._db.query(Library).order_by(Library.id).all()
-        if libraries:
-            library = libraries[0]
-            home_url = app.manager.url_for('acquisition_groups', library_short_name=library.short_name)
-
-    csrf_token = flask.request.cookies.get("csrf_token") or app.manager.admin_sign_in_controller.generate_csrf_token()
-
-    show_circ_events_download = (
-        "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
-    )
-    response = Response(flask.render_template_string(
-        admin_template,
-        csrf_token=csrf_token,
-        home_url=home_url,
-        show_circ_events_download=show_circ_events_download,
-        setting_up=setting_up,
-    ))
-
-    # The CSRF token is in its own cookie instead of the session cookie,
-    # because if your session expires and you log in again, you should
-    # be able to submit a form you already had open. The CSRF token lasts
-    # until the user closes the browser window.
-    response.set_cookie("csrf_token", csrf_token, httponly=True)
-    return response
+def admin_view(collection=None, book=None, etc=None, **kwargs):
+    return app.manager.admin_view_controller(collection, book, path=etc)
 
 @app.route('/admin')
 @app.route('/admin/')

@@ -4,8 +4,10 @@ from nose.tools import (
 )
 import flask
 import json
+import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
+from werkzeug.http import dump_cookie
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
@@ -69,6 +71,110 @@ class AdminControllerTest(CirculationControllerTest):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
         setup_admin_controllers(self.manager)
+
+class TestViewController(AdminControllerTest):
+
+    def setup(self):
+        super(TestViewController, self).setup()
+        self.admin, ignore = create(
+            self._db, Admin, email=u'example@nypl.org',
+        )
+        self.admin.password = "password"
+
+    def test_setting_up(self):
+        # Test that the view is in setting-up mode if there's no auth service
+        # and no admin with a password.
+        self.admin.password = None
+
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'settingUp: true' in html
+
+    def test_not_setting_up(self):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'settingUp: false' in html
+
+    def test_redirect_to_sign_in(self):
+        with self.app.test_request_context('/admin/web/collection/a/(b)/book/c/(d)'):
+            response = self.manager.admin_view_controller("a/(b)", "c/(d)")
+            eq_(302, response.status_code)
+            location = response.headers.get("Location")
+            assert "sign_in" in location
+            assert "admin%2Fweb" in location
+            assert "collection%2Fa%2F%28b%29" in location
+            assert "book%2Fc%2F%28d%29" in location
+
+    def test_redirect_to_default_library(self):
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller(None, None)
+            eq_(302, response.status_code)
+            location = response.headers.get("Location")
+            assert "admin/web/collection/%s" % self._default_library.short_name in location
+
+        # Only the root url redirects - a non-library specific page with another
+        # path won't.
+        with self.app.test_request_context('/admin/web/config'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller(None, None, "config")
+            eq_(200, response.status_code)
+
+    def test_csrf_token(self):
+        self.admin.password = None
+        with self.app.test_request_context('/admin'):
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            html = response.response[0]
+
+            # The CSRF token value is random, but the cookie and the html have the same value.
+            html_csrf_re = re.compile('csrfToken: \"([^\"]*)\"')
+            match = html_csrf_re.search(html)
+            assert match != None
+            csrf = match.groups(0)[0]
+            assert csrf in response.headers.get('Set-Cookie')
+            assert 'HttpOnly' in response.headers.get("Set-Cookie")
+
+        self.admin.password = "password"
+        # If there's a CSRF token in the request cookie, the response
+        # should keep that same token.
+        token = self._str
+        cookie = dump_cookie("csrf_token", token)
+        with self.app.test_request_context('/admin', environ_base={'HTTP_COOKIE': cookie}):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'csrfToken: "%s"' % token in html
+            assert token in response.headers.get('Set-Cookie')
+            
+    def test_show_circ_events_download(self):
+        # The local analytics provider isn't configured yet.
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'showCircEventsDownload: false' in html
+
+        # Create the local analytics integration.
+        local_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert 'showCircEventsDownload: true' in html
+
 
 class TestWorkController(AdminControllerTest):
 
@@ -1333,30 +1439,42 @@ class TestSettingsController(AdminControllerTest):
         [c1] = self._default_library.collections
 
         c2 = self._collection(
-            name="Collection 2", protocol=ExternalIntegration.BIBLIOTHECA,
+            name="Collection 2", protocol=ExternalIntegration.OVERDRIVE,
         )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
 
+        c3 = self._collection(
+            name="Collection 3", protocol=ExternalIntegration.OVERDRIVE,
+        )
+        c3.external_account_id = "5678"
+        c3.parent = c2
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
-            coll2, coll1 = sorted(
+            coll2, coll3, coll1 = sorted(
                 response.get("collections"), key = lambda c: c.get('name')
             )
             eq_(c1.id, coll1.get("id"))
             eq_(c2.id, coll2.get("id"))
+            eq_(c3.id, coll3.get("id"))
 
             eq_(c1.name, coll1.get("name"))
             eq_(c2.name, coll2.get("name"))
+            eq_(c3.name, coll3.get("name"))
 
             eq_(c1.protocol, coll1.get("protocol"))
             eq_(c2.protocol, coll2.get("protocol"))
+            eq_(c3.protocol, coll3.get("protocol"))
 
             eq_(c1.external_account_id, coll1.get("settings").get("external_account_id"))
             eq_(c2.external_account_id, coll2.get("settings").get("external_account_id"))
+            eq_(c3.external_account_id, coll3.get("settings").get("external_account_id"))
 
             eq_(c1.external_integration.password, coll1.get("settings").get("password"))
             eq_(c2.external_integration.password, coll2.get("settings").get("password"))
+
+            eq_(c2.id, coll3.get("parent_id"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1417,6 +1535,23 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
 
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Collection 2"),
+                ("protocol", "Bibliotheca"),
+                ("parent_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, PROTOCOL_DOES_NOT_SUPPORT_PARENTS)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Collection 2"),
+                ("protocol", "Overdrive"),
+                ("parent_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, MISSING_PARENT)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1528,6 +1663,32 @@ class TestSettingsController(AdminControllerTest):
         eq_("default_reservation_period", setting.key)
         eq_("3", setting.value)
 
+        # This collection will be a child of the first collection.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Child Collection"),
+                ("protocol", "Overdrive"),
+                ("parent_id", collection.id),
+                ("libraries", json.dumps([{"short_name": "L3"}])),
+                ("external_account_id", "child-acctid"),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 201)
+
+        # The collection was created and configured properly.
+        child = get_one(self._db, Collection, name="Child Collection")
+        eq_("Child Collection", child.name)
+        eq_("child-acctid", child.external_account_id)
+
+        # The settings that are inherited from the parent weren't set.
+        eq_(None, child.external_integration.username)
+        eq_(None, child.external_integration.password)
+        setting = child.external_integration.setting("website_id")
+        eq_(None, setting.value)
+
+        # One library has access to the collection.
+        eq_([child], l3.collections)
+
     def test_collections_post_edit(self):
         # The collection exists.
         collection = self._collection(
@@ -1596,6 +1757,26 @@ class TestSettingsController(AdminControllerTest):
 
         # But the library has been removed.
         eq_([], l1.collections)
+
+        parent = self._collection(
+            name="Parent",
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.OVERDRIVE),
+                ("parent_id", parent.id),
+                ("external_account_id", "1234"),
+                ("libraries", json.dumps([])),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        # The collection now has a parent.
+        eq_(parent, collection.parent)
 
     def test_admin_auth_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
@@ -1947,6 +2128,19 @@ class TestSettingsController(AdminControllerTest):
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
 
+    def _common_basic_auth_arguments(self):
+        """We're not really testing these arguments, but a value for them
+        is required for all Basic Auth type integrations.
+        """
+        B = BasicAuthenticationProvider
+        return [
+            (B.TEST_IDENTIFIER, "user"),
+            (B.TEST_PASSWORD, "pass"),
+            (B.IDENTIFIER_KEYBOARD, B.DEFAULT_KEYBOARD),
+            (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
+        ]
+
+            
     def test_patron_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -2002,13 +2196,16 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
 
+        common_args = self._common_basic_auth_arguments()
         with self.app.test_request_context("/", method="POST"):
+            M = MilleniumPatronAPI
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
-                (MilleniumPatronAPI.AUTHENTICATION_MODE, "Invalid mode"),
-            ])
+                (M.AUTHENTICATION_MODE, "Invalid mode"),
+                (M.VERIFY_CERTIFICATE, "true"),
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
 
@@ -2026,13 +2223,12 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{ "short_name": "not-a-library" }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
 
@@ -2049,10 +2245,8 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{ "short_name": library.short_name }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
 
@@ -2062,13 +2256,11 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                 }])),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
 
@@ -2079,13 +2271,11 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                 }])),
-            ])
+            ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 201)
 
@@ -2097,16 +2287,14 @@ class TestSettingsController(AdminControllerTest):
         eq_("^(.)", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
                 library, auth_service).value)
-
+        common_args = self._common_basic_auth_arguments()
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
-            ])
+            ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 201)
 
@@ -2145,13 +2333,11 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                (BasicAuthenticationProvider.TEST_IDENTIFIER, "user"),
-                (BasicAuthenticationProvider.TEST_PASSWORD, "pass"),
                 ("libraries", json.dumps([{
                     "short_name": l2.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
                 }])),
-            ])
+            ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 200)
 
