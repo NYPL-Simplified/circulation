@@ -412,7 +412,22 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # Since we got a full patron dump, the PatronData we get back
         # is complete. 
         eq_(True, patrondata.complete)
-        
+
+    def test_authorization_alternate_family_name_success(self):
+        """Test authenticating against the patron's family name, given the
+        correct name (case insensitive), when the name is stored as "First Last"
+        """
+        self.api = self.mock_api(auth_mode = "family_name")
+        self.api.enqueue("dump.success.alt.html")
+        patrondata = self.api.remote_authenticate(
+            "44444444444447", "Sheldon"
+        )
+        eq_("44444444444447", patrondata.authorization_identifier)
+
+        # Since we got a full patron dump, the PatronData we get back
+        # is complete.
+        eq_(True, patrondata.complete)
+
     def test_authorization_family_name_failure(self):
         """Test authenticating against the patron's family name, given the
         incorrect name
