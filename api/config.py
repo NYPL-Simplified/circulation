@@ -286,9 +286,9 @@ class Configuration(CoreConfiguration):
         for language, num_works in works_by_language.most_common():
             if not large:
                 bucket = large
-            elif num_works > cls.LARGE_COLLECTION_CUTOFF:
+            elif num_works >= cls.LARGE_COLLECTION_CUTOFF:
                 bucket = large
-            elif num_works > cls.SMALL_COLLECTION_CUTOFF:
+            elif num_works >= cls.SMALL_COLLECTION_CUTOFF:
                 bucket = small
             else:
                 bucket = tiny
