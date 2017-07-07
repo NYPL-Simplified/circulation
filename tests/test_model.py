@@ -5556,6 +5556,34 @@ class TestLibrary(DatabaseTest):
             "You cannot stop a library from being the default library; you must designate a different library as the default.",
             assign_false
         )
+
+    def test_estimated_holdings_by_language(self):
+        library = self._default_library
+        
+        # Here's an open-access English book.
+        english = self._work(language="eng", with_open_access_download=True)
+
+        # Here's a non-open-access Tagalog book with a delivery mechanism.
+        tagalog = self._work(language="tgl", with_license_pool=True)
+        [pool] = tagalog.license_pools
+        self._add_generic_delivery_mechanism(pool)
+        
+        # estimated_holdings_by_language counts the English and the
+        # Tagalog works.
+        estimate = library.estimated_holdings_by_language()
+        eq_(dict(eng=1, tgl=1), estimate)
+        
+        # If we disqualify open-access works, it only counts the Tagalog.
+        estimate = library.estimated_holdings_by_language(
+            include_open_access=False)
+        eq_(dict(tgl=1), estimate)
+
+        # If we remove the default collection from the default library,
+        # it loses all its works.
+        self._default_library.collections = []
+        estimate = library.estimated_holdings_by_language(
+            include_open_access=False)
+        eq_(dict(), estimate)        
         
     def test_explain(self):
         """Test that Library.explain gives all relevant information

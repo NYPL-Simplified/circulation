@@ -18,7 +18,6 @@ from classifier import (
 
 from sqlalchemy import (
     and_,
-    exists,
     or_,
     not_,
 )
@@ -1238,43 +1237,10 @@ class Lane(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        # Only find presentation-ready works.
-        #
-        # Such works are automatically filtered out of 
-        # the materialized view.
-        if work_model == Work:
-            query = query.filter(
-                work_model.presentation_ready == True,
-            )
-
-        # Only find books that have some kind of DeliveryMechanism.
-        LPDM = LicensePoolDeliveryMechanism
-        exists_clause = exists().where(
-            and_(LicensePool.data_source_id==LPDM.data_source_id,
-                LicensePool.identifier_id==LPDM.identifier_id)
+        return self.library.restrict_to_ready_deliverable_works(
+            query, work_model, show_suppressed=show_suppressed,
+            collection_ids=self.collection_ids
         )
-        query = query.filter(exists_clause)
-            
-        # Only find books with unsuppressed LicensePools.
-        if not show_suppressed:
-            query = query.filter(LicensePool.suppressed==False)
-
-        # Only find books with available licenses.
-        query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-
-        # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(self.collection_ids)
-        )
-        
-        # If we don't allow holds, hide any books with no available copies.
-        if not self.library.allow_holds:
-            query = query.filter(
-                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
-            )
-        return query
 
     @property
     def search_target(self):
