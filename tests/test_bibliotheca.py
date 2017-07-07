@@ -178,7 +178,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.collection.protocol : MockBibliothecaAPI
         })
 
-        api = circulation.api_for_collection[self.collection]
+        api = circulation.api_for_collection[self.collection.id]
         api.queue_response(200, content=self.sample_data("checkouts.xml"))
         circulation.sync_bookshelf(patron, "dummy pin")
 

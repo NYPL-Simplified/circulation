@@ -222,7 +222,7 @@ class TestServiceStatusMonitor(DatabaseTest):
             assert value.startswith('SUCCESS')
 
         # The mock Overdrive API had all its methods called.
-        api = status.circulation.api_for_collection[overdrive_collection]
+        api = status.circulation.api_for_collection[overdrive_collection.id]
         eq_(True, api.borrowed)
         eq_(True, api.fulfilled)
         eq_(True, api.revoked)
@@ -253,7 +253,7 @@ class TestServiceStatusMonitor(DatabaseTest):
         assert 'FAILURE: Doomed to fail!' in response.values()
 
         # But at least we got through the borrow and fulfill steps.
-        api = status.circulation.api_for_collection[overdrive_collection]
+        api = status.circulation.api_for_collection[overdrive_collection.id]
         eq_(True, api.borrowed)
         eq_(True, api.fulfilled)
         eq_(False, api.revoked)

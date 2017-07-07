@@ -626,7 +626,7 @@ class TestCirculationAPI(DatabaseTest):
             self._db, self._default_library, api_map={
             ExternalIntegration.BIBLIOTHECA : MockBibliothecaAPI
         })
-        mock_bibliotheca = circulation.api_for_collection[self.collection]
+        mock_bibliotheca = circulation.api_for_collection[self.collection.id]
 
         data = sample_data("checkouts.xml", "threem")
         mock_bibliotheca.queue_response(200, content=data)

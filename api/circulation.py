@@ -221,7 +221,7 @@ class CirculationAPI(object):
                     )
                     self.initialization_exceptions[collection.id] = e
                 if api:
-                    self.api_for_collection[collection] = api
+                    self.api_for_collection[collection.id] = api
                     self.collection_ids_for_sync.append(collection.id)
 
     @property
@@ -246,7 +246,7 @@ class CirculationAPI(object):
 
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
-        return self.api_for_collection.get(licensepool.collection)
+        return self.api_for_collection.get(licensepool.collection.id)
 
     def can_revoke_hold(self, licensepool, hold):
         """Some circulation providers allow you to cancel a hold

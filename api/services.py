@@ -4,7 +4,11 @@ import logging
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 
-from core.model import ConfigurationSetting
+from core.model import (
+    Collection,
+    ConfigurationSetting,
+    get_one,
+)
 from core.scripts import (
     Script,
     IdentifierInputScript,
@@ -87,7 +91,8 @@ class ServiceStatus(object):
             self.log.error(error)
             status[service] = error
             return status
-        for collection, api in self.circulation.api_for_collection.items():
+        for collection_id, api in self.circulation.api_for_collection.items():
+            collection = get_one(self._db, Collection, id=collection_id)
             data_source_name = collection.data_source.name
             service = "%s patron account (%s)" % (
                 collection.name, collection.data_source.name
