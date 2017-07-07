@@ -166,15 +166,18 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
-            "label": _("The primary languages represented in this library's collection")
+            "label": _("The primary languages represented in this library's collection"),
+            "type": "list",
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
-            "label": _("Other major languages represented in this library's collection")
+            "label": _("Other major languages represented in this library's collection"),
+            "type": "list",
         },        
         {
             "key": TINY_COLLECTION_LANGUAGES,
-            "label": _("Other languages in this library's collection")
+            "label": _("Other languages in this library's collection"),
+            "type": "list",
         },        
     ]
     
