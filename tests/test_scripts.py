@@ -140,8 +140,6 @@ class TestRepresentationPerLane(TestLaneScript):
         eq_(True, script.should_process_lane(parent))
         eq_(False, script.should_process_lane(child))
 
-
-    def test_min_depth(self):
         script = CacheRepresentationPerLane(
             self._db, ["--min-depth=1"], testing=True
         )
@@ -176,20 +174,19 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         eq_(1, script.pages)
 
     def test_process_lane(self):
-        with self.temp_config() as config:
-            lane = Lane(self._db, self._default_library, self._str)
+        lane = Lane(self._db, self._default_library, self._str)
 
-            script = CacheFacetListsPerLane(
-                self._db, ["--availability=all", "--availability=always",
-                           "--collection=main", "--collection=full",
-                           "--order=title", "--pages=1"],
-                testing=True
-            )
-            with script.app.test_request_context("/"):
-                flask.request.library = self._default_library
-                cached_feeds = script.process_lane(lane)
-                # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
-                eq_(4, len(cached_feeds))
+        script = CacheFacetListsPerLane(
+            self._db, ["--availability=all", "--availability=always",
+                       "--collection=main", "--collection=full",
+                       "--order=title", "--pages=1"],
+            testing=True
+        )
+        with script.app.test_request_context("/"):
+            flask.request.library = self._default_library
+            cached_feeds = script.process_lane(lane)
+            # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
+            eq_(4, len(cached_feeds))
 
 
 class TestInstanceInitializationScript(DatabaseTest):
