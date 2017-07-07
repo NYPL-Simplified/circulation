@@ -164,6 +164,18 @@ class Configuration(CoreConfiguration):
             "key": HELP_URI,
             "label": _("Patron support custom integration URI")
         },
+        {
+            "key": LARGE_COLLECTION_LANGUAGES,
+            "label": _("The primary languages represented in this library's collection")
+        },
+        {
+            "key": SMALL_COLLECTION_LANGUAGES,
+            "label": _("Other major languages represented in this library's collection")
+        },        
+        {
+            "key": TINY_COLLECTION_LANGUAGES,
+            "label": _("Other languages in this library's collection")
+        },        
     ]
     
     @classmethod
