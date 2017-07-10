@@ -47,7 +47,7 @@ class OverdriveAPITest(DatabaseTest):
         self.circulation = CirculationAPI(
             self._db, library, api_map={ExternalIntegration.OVERDRIVE:MockOverdriveAPI}
         )
-        self.api = self.circulation.api_for_collection[self.collection]
+        self.api = self.circulation.api_for_collection[self.collection.id]
         
     @classmethod
     def sample_data(self, filename):
