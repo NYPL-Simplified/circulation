@@ -80,9 +80,6 @@ class EnkiAPI(object):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
 
-    # may or may not be useful
-    DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
-
     log = logging.getLogger("Enki API")
     # TODO: make sure this logger exists :-)
 
@@ -95,8 +92,6 @@ class EnkiAPI(object):
         self.username = username or env_username
         self.password = password or env_password
         self.base_url = base_url or env_base_url
-        if self.base_url == 'qa':
-            self.base_url = self.QA_BASE_URL
         elif self.base_url == 'production':
             self.base_url = self.PRODUCTION_BASE_URL
         self.token = "mock_token"
