@@ -101,7 +101,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             url = self.root + path
             response = self.request(url)
             data = dict(self._extract_text_nodes(response.content))
-            if data.get('ERROR_MESSAGE_FIELD') is None:
+            if data.get(self.ERROR_MESSAGE_FIELD) is None:
               dump_name = data.get(self.PERSONAL_NAME_FIELD)
               # Assume the name is stored either as "Last, First" or "First Last"
               if dump_name.find(",") != -1:
