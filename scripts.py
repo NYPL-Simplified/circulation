@@ -2221,6 +2221,7 @@ class FixInvisibleWorksScript(Script):
     This is a common problem on a new installation.
     """
     def __init__(self, _db=None, output=None, search=None):
+        _db = _db or self._db
         super(FixInvisibleWorksScript, self).__init__(_db)
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
