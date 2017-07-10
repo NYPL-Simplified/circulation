@@ -66,12 +66,12 @@ def make_lanes_default(_db, library):
             return x.split(',')
         return x
 
-    for language_set in Configuration.large_collection_languages():
+    for language_set in Configuration.large_collection_languages(library):
         languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.extend(lanes_for_large_collection(_db, library, language_set))
 
-    for language_set in Configuration.small_collection_languages():
+    for language_set in Configuration.small_collection_languages(library):
         languages = language_list(language_set)
         seen_languages = seen_languages.union(set(languages))
         top_level_lanes.append(lane_for_small_collection(_db, library, language_set))
@@ -360,7 +360,7 @@ def lane_for_other_languages(_db, library, exclude_languages):
     """Make a lane for all books not in one of the given languages."""
 
     language_lanes = []
-    other_languages = Configuration.tiny_collection_languages()
+    other_languages = Configuration.tiny_collection_languages(library)
 
     if not other_languages:
         return None

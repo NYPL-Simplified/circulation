@@ -128,21 +128,6 @@ class ControllerTest(VendorIDTest):
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
     )
-
-    @contextmanager
-    def default_config(self):
-        """A default lane configuration that creates a very small
-        number of lanes so that tests can run quickly.
-        """
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : '',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.TINY_COLLECTION_LANGUAGES : 'spa,chi',
-                }
-            }
-            yield config
             
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
@@ -171,7 +156,8 @@ class ControllerTest(VendorIDTest):
         # TestScopedSession to hang.
         if set_up_circulation_manager:
             app.manager = self.circulation_manager_setup(_db)
-        
+            
+            
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
         
@@ -216,20 +202,19 @@ class ControllerTest(VendorIDTest):
 
         self.authdata = AuthdataUtility.from_config(self.library)
 
-        with self.default_config() as config:
-            self.manager = CirculationManager(
-                _db, lanes=None, testing=True
-            )
+        self.manager = CirculationManager(
+            _db, lanes=None, testing=True
+        )
 
-            # Set CirculationAPI and top-level lane for the default
-            # library, for convenience in tests.
-            self.manager.d_circulation = self.manager.circulation_apis[
-                self.library.id
-            ]
-            self.manager.d_top_level_lane = self.manager.top_level_lanes[
-                self.library.id
-            ]
-            self.controller = CirculationManagerController(self.manager)
+        # Set CirculationAPI and top-level lane for the default
+        # library, for convenience in tests.
+        self.manager.d_circulation = self.manager.circulation_apis[
+            self.library.id
+        ]
+        self.manager.d_top_level_lane = self.manager.top_level_lanes[
+            self.library.id
+        ]
+        self.controller = CirculationManagerController(self.manager)
         return self.manager
 
     def library_setup(self, library):
@@ -260,7 +245,15 @@ class ControllerTest(VendorIDTest):
             integration.setting(p.TEST_IDENTIFIER).value = "unittestuser"
             integration.setting(p.TEST_PASSWORD).value = "unittestpassword"
             library.integrations.append(integration)
-    
+
+        for k, v in [
+                (Configuration.LARGE_COLLECTION_LANGUAGES, []),
+                (Configuration.SMALL_COLLECTION_LANGUAGES, ['eng']),
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi'])
+        ]:
+            ConfigurationSetting.for_library(k, library).value = json.dumps(v)
+
+            
     def make_default_libraries(self, _db):
         return [self._default_library]
 
@@ -328,8 +321,7 @@ class TestCirculationManager(CirculationControllerTest):
         self.initialize_adobe(library, [library])
         
         # Then reload the CirculationManager...
-        with self.default_config() as config:
-            self.manager.load_settings()
+        self.manager.load_settings()
         
         # Now the new library has a top-level lane.
         assert library.id in manager.top_level_lanes
@@ -369,18 +361,17 @@ class TestCirculationManager(CirculationControllerTest):
             def setup_search(self):
                 raise CannotLoadConfiguration("doomed!")
 
-        with self.default_config() as config:
-            circulation = BadSearch(self._db, lanes=None, testing=True)
-            eq_(None, circulation.external_search_initialization_exception)
-            search = circulation.external_search
+        circulation = BadSearch(self._db, lanes=None, testing=True)
+        eq_(None, circulation.external_search_initialization_exception)
+        search = circulation.external_search
 
-            # We didn't get a search object.
-            eq_(None, search)
+        # We didn't get a search object.
+        eq_(None, search)
 
-            # The reason why is stored here.
-            ex = circulation.external_search_initialization_exception
-            assert isinstance(ex, CannotLoadConfiguration)
-            eq_("doomed!", ex.message)
+        # The reason why is stored here.
+        ex = circulation.external_search_initialization_exception
+        assert isinstance(ex, CannotLoadConfiguration)
+        eq_("doomed!", ex.message)
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
 
@@ -674,10 +665,9 @@ class TestBaseController(CirculationControllerTest):
         # Before we make the change, a request to the library's new name
         # will fail.
         assert new_name not in self.manager.auth.library_authenticators
-        with self.default_config():
-            with self.app.test_request_context("/"):
-                problem = self.controller.library_for_request(new_name)
-                eq_(LIBRARY_NOT_FOUND, problem)
+        with self.app.test_request_context("/"):
+            problem = self.controller.library_for_request(new_name)
+            eq_(LIBRARY_NOT_FOUND, problem)
 
 
         # Make the change.
@@ -695,13 +685,12 @@ class TestBaseController(CirculationControllerTest):
         
         # But the first time we make a request that calls the library
         # by its new name, those settings are reloaded.
-        with self.default_config():
-            with self.app.test_request_context("/"):
-                value = self.controller.library_for_request(new_name)
-                eq_(self._default_library, value)
+        with self.app.test_request_context("/"):
+            value = self.controller.library_for_request(new_name)
+            eq_(self._default_library, value)
                 
-                # An assertion that would have failed before works now.
-                assert new_name in self.manager.auth.library_authenticators
+            # An assertion that would have failed before works now.
+            assert new_name in self.manager.auth.library_authenticators
 
 
 class FullLaneSetupTest(CirculationControllerTest):
@@ -711,20 +700,14 @@ class FullLaneSetupTest(CirculationControllerTest):
 
     This class is for the tests that do need that full set of lanes.
     """
-
-    @contextmanager
-    def default_config(self):
-        """A default lane configuration that creates a full
-        range of lanes.
-        """
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                }
-            }
-            yield config
+    def library_setup(self, library):
+        super(FullLaneSetupTest, self).library_setup(library)
+        for k, v in [
+                (Configuration.LARGE_COLLECTION_LANGUAGES, ['eng']),
+                (Configuration.SMALL_COLLECTION_LANGUAGES, ['spa', 'chi']),
+                (Configuration.TINY_COLLECTION_LANGUAGES, [])
+        ]:
+            ConfigurationSetting.for_library(k, library).value = json.dumps(v)
     
     def test_load_lane(self):
         with self.request_context_with_library("/"):
@@ -2382,8 +2365,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         # Set up the Adobe configuration for this library and
         # reload the CirculationManager configuration.
         self.manager.setup_adobe_vendor_id(self.library)
-        with self.default_config() as config:
-            self.manager.load_settings()
+        self.manager.load_settings()
 
         # Now the controller is enabled and we can use it in this
         # test.

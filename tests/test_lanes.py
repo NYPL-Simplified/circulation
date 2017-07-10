@@ -1,5 +1,6 @@
 # encoding: utf-8
 from nose.tools import set_trace, eq_, assert_raises
+import json
 
 from . import (
     DatabaseTest,
@@ -111,67 +112,80 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lane_for_other_languages(self):
 
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY: {
-                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
-                }
-            }
+        library = self._default_library
+        library.setting(
+            Configuration.TINY_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['ger','fre','ita']
+        )
 
-            exclude = ['eng', 'spa']
-            lane = lane_for_other_languages(self._db, self._default_library, exclude)
-            eq_(None, lane.languages)
-            eq_(exclude, lane.exclude_languages)
-            eq_("Other Languages", lane.name)
-            eq_(
-                ['Deutsch', u'français', 'Italiano'],
-                [x.name for x in lane.sublanes.lanes]
-            )
-            eq_([['ger'], ['fre'], ['ita']],
-                [x.languages for x in lane.sublanes.lanes]
-            )
+        exclude = ['eng', 'spa']
+        lane = lane_for_other_languages(self._db, self._default_library, exclude)
+        eq_(None, lane.languages)
+        eq_(exclude, lane.exclude_languages)
+        eq_("Other Languages", lane.name)
+        eq_(
+            ['Deutsch', u'français', 'Italiano'],
+            [x.name for x in lane.sublanes.lanes]
+        )
+        eq_([['ger'], ['fre'], ['ita']],
+            [x.languages for x in lane.sublanes.lanes]
+        )
 
         # If no tiny languages are configured, the other languages lane
         # doesn't show up.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY: {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng'
-                }
-            }
+        library.setting(Configuration.TINY_COLLECTION_LANGUAGES).value = '[]'
+        library.setting(
+            Configuration.LARGE_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['eng']
+        )
 
-            exclude = ['eng', 'spa']
-            lane = lane_for_other_languages(self._db, self._default_library, exclude)
-            eq_(None, lane)
+        exclude = ['eng', 'spa']
+        lane = lane_for_other_languages(
+            self._db, self._default_library, exclude
+        )
+        eq_(None, lane)
 
     def test_make_lanes_default(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
-                }
-            }
-            lane_list = make_lanes_default(self._db, self._default_library)
+        library = self._default_library
+        library.setting(
+            Configuration.LARGE_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['eng']
+        )
 
-            assert isinstance(lane_list, LaneList)
-            lanes = lane_list.lanes
+        library.setting(
+            Configuration.SMALL_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['spa', 'chi']
+        )
 
-            # We have a top-level lane for the large collections,
-            # a top-level lane for each small collection, and a lane
-            # for everything left over.
-            eq_(['English', u'español', 'Chinese', 'Other Languages'],
-                [x.name for x in lane_list.lanes]
-            )
+        library.setting(
+            Configuration.TINY_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['ger','fre','ita']
+        )
 
-            english_lane = lanes[0]
-            eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-                [x.name for x in english_lane.sublanes.lanes]
-            )
-            eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-                [x.display_name for x in english_lane.sublanes.lanes]
-            )
+        lane_list = make_lanes_default(self._db, self._default_library)
+
+        assert isinstance(lane_list, LaneList)
+        lanes = lane_list.lanes
+
+        # We have a top-level lane for the large collections,
+        # a top-level lane for each small collection, and a lane
+        # for everything left over.
+        eq_(['English', u'español', 'Chinese', 'Other Languages'],
+            [x.name for x in lane_list.lanes]
+        )
+
+        english_lane = lanes[0]
+        eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+            [x.name for x in english_lane.sublanes.lanes]
+        )
+        eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+            [x.display_name for x in english_lane.sublanes.lanes]
+        )
 
 
 class TestWorkBasedLane(DatabaseTest):

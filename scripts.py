@@ -702,47 +702,23 @@ class AvailabilityRefreshScript(IdentifierInputScript):
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
     
-class LanguageListScript(Script):
+class LanguageListScript(LibraryInputScript):
     """List all the languages with at least one non-open access work
     in the collection.
     """
 
-    def do_run(self):
+    def process_library(self, library):
+        print library.short_name
+        for item in self.languages(library):
+            print item
 
-        query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
-        query = query.join(Edition.primary_identifier).join(
-            Identifier.licensed_through
-        ).join(LicensePool.delivery_mechanisms).join(
-            LicensePoolDeliveryMechanism.delivery_mechanism
-        )
-
-        # TODO: It would be more reliable to use
-        # Lane.only_show_ready_deliverable_works here, but that's
-        # geared towards operating on Work. It's not a big deal since
-        # this is just to get a general count.
-
-        query = query.filter(LicensePool.open_access==False).filter(
-            LicensePool.licenses_owned > 0
-        ).filter(
-            Edition.medium==Edition.BOOK_MEDIUM
-        ).filter(
-            Edition.language != None
-        ).filter(
-            DeliveryMechanism.default_client_can_fulfill==True
-        )
-        name = LanguageCodes.name_for_languageset
-        sorted_languages = sorted(
-            query.all(), key=lambda x: (
-                -x[1], name(x[0])
-            )
-        )
-        sorted_languages = [
-            (language, count, name(language))
-            for (language, count) in sorted_languages
-        ]
-
-        print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
-        print json.dumps([l[0] for l in sorted_languages])
+    def languages(self, library):
+        ":yield: A list of output lines, one per language."
+        for abbreviation, count in library.estimated_holdings_by_language(
+            include_open_access=False
+        ).most_common():
+            display_name = LanguageCodes.name_for_languageset(abbreviation)
+            yield "%s %i (%s)" % (abbreviation, count, display_name)
 
 
 class CompileTranslationsScript(Script):

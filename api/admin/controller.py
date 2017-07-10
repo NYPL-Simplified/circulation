@@ -1043,10 +1043,15 @@ class SettingsController(CirculationManagerController):
 
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("type") == "list":
-                value = []
-                for option in setting.get("options"):
-                    if setting["key"] + "_" + option["key"] in flask.request.form:
-                        value += [option["key"]]
+                if setting.get('options'):
+                    # Restrict to the values in 'options'.
+                    value = []
+                    for option in setting.get("options"):
+                        if setting["key"] + "_" + option["key"] in flask.request.form:
+                            value += [option["key"]]
+                else:
+                    # Allow any entered values.
+                    value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
                 value = json.dumps(value)
             else:
                 value = flask.request.form.get(setting['key'], None)

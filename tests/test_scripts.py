@@ -6,6 +6,7 @@ from nose.tools import (
 import contextlib
 import datetime
 import flask
+import json
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
@@ -39,6 +40,7 @@ from scripts import (
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
     InstanceInitializationScript,
+    LanguageListScript,
     LoanReaperScript,
 )
 
@@ -97,105 +99,94 @@ class TestLaneScript(DatabaseTest):
         base_url_setting = ConfigurationSetting.sitewide(
             self._db, Configuration.BASE_URL_KEY)
         base_url_setting.value = u'http://test-circulation-manager/'
-
-    @contextlib.contextmanager
-    def temp_config(self):
-        """Create a temporary configuration with the bare-bones policies
-        and integrations necessary to start up a script.
-        """
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'fre',
-                }
-            }
-            yield config
+        for k, v in [
+                (Configuration.LARGE_COLLECTION_LANGUAGES, []),
+                (Configuration.SMALL_COLLECTION_LANGUAGES, []),
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['eng', 'fre'])
+        ]:
+            ConfigurationSetting.for_library(
+                k, self._default_library).value = json.dumps(v)
 
 
 class TestRepresentationPerLane(TestLaneScript):
    
     def test_language_filter(self):
-        with self.temp_config() as config:
-            script = CacheRepresentationPerLane(
-                self._db, ["--language=fre", "--language=English", "--language=none", "--min-depth=0"],
-                testing=True
-            )
-            eq_(['fre', 'eng'], script.languages)
+        script = CacheRepresentationPerLane(
+            self._db, ["--language=fre", "--language=English", "--language=none", "--min-depth=0"],
+            testing=True
+        )
+        eq_(['fre', 'eng'], script.languages)
 
-            english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
-            eq_(True, script.should_process_lane(english_lane))
+        english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
+        eq_(True, script.should_process_lane(english_lane))
 
-            no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
-            eq_(True, script.should_process_lane(no_english_lane))
+        no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
+        eq_(True, script.should_process_lane(no_english_lane))
 
-            no_english_or_french_lane = Lane(
-                self._db, self._default_library, self._str, exclude_languages=['eng', 'fre']
-            )
-            eq_(False, script.should_process_lane(no_english_or_french_lane))
+        no_english_or_french_lane = Lane(
+            self._db, self._default_library, self._str, exclude_languages=['eng', 'fre']
+        )
+        eq_(False, script.should_process_lane(no_english_or_french_lane))
             
     def test_max_and_min_depth(self):
-        with self.temp_config() as config:
-            script = CacheRepresentationPerLane(
-                self._db, ["--max-depth=0", "--min-depth=0"],
-                testing=True
-            )
-            eq_(0, script.max_depth)
+        script = CacheRepresentationPerLane(
+            self._db, ["--max-depth=0", "--min-depth=0"],
+            testing=True
+        )
+        eq_(0, script.max_depth)
 
-            child = Lane(self._db, self._default_library, "sublane")
-            parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
-            eq_(True, script.should_process_lane(parent))
-            eq_(False, script.should_process_lane(child))
+        child = Lane(self._db, self._default_library, "sublane")
+        parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
+        eq_(True, script.should_process_lane(parent))
+        eq_(False, script.should_process_lane(child))
 
-            script = CacheRepresentationPerLane(
-                self._db, ["--min-depth=1"], testing=True
-            )
-            eq_(1, script.min_depth)
-            eq_(False, script.should_process_lane(parent))
-            eq_(True, script.should_process_lane(child))
+        script = CacheRepresentationPerLane(
+            self._db, ["--min-depth=1"], testing=True
+        )
+        eq_(1, script.min_depth)
+        eq_(False, script.should_process_lane(parent))
+        eq_(True, script.should_process_lane(child))
 
-
+            
 class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_arguments(self):
-        with self.temp_config() as config:
-            script = CacheFacetListsPerLane(
-                self._db, ["--order=title", "--order=added"],
-                testing=True
-            )
-            eq_(['title', 'added'], script.orders)
-            script = CacheFacetListsPerLane(
-                self._db, ["--availability=all", "--availability=always"],
-                testing=True
-            )
-            eq_(['all', 'always'], script.availabilities)
+        script = CacheFacetListsPerLane(
+            self._db, ["--order=title", "--order=added"],
+            testing=True
+        )
+        eq_(['title', 'added'], script.orders)
+        script = CacheFacetListsPerLane(
+            self._db, ["--availability=all", "--availability=always"],
+            testing=True
+        )
+        eq_(['all', 'always'], script.availabilities)
 
-            script = CacheFacetListsPerLane(
-                self._db, ["--collection=main", "--collection=full"],
-                testing=True
-            )
-            eq_(['main', 'full'], script.collections)
+        script = CacheFacetListsPerLane(
+            self._db, ["--collection=main", "--collection=full"],
+            testing=True
+        )
+        eq_(['main', 'full'], script.collections)
 
-            script = CacheFacetListsPerLane(
-                self._db, ['--pages=1'], testing=True
-            )
-            eq_(1, script.pages)
+        script = CacheFacetListsPerLane(
+            self._db, ['--pages=1'], testing=True
+        )
+        eq_(1, script.pages)
 
     def test_process_lane(self):
-        with self.temp_config() as config:
-            lane = Lane(self._db, self._default_library, self._str)
+        lane = Lane(self._db, self._default_library, self._str)
 
-            script = CacheFacetListsPerLane(
-                self._db, ["--availability=all", "--availability=always",
-                           "--collection=main", "--collection=full",
-                           "--order=title", "--pages=1"],
-                testing=True
-            )
-            with script.app.test_request_context("/"):
-                flask.request.library = self._default_library
-                cached_feeds = script.process_lane(lane)
-                # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
-                eq_(4, len(cached_feeds))
+        script = CacheFacetListsPerLane(
+            self._db, ["--availability=all", "--availability=always",
+                       "--collection=main", "--collection=full",
+                       "--order=title", "--pages=1"],
+            testing=True
+        )
+        with script.app.test_request_context("/"):
+            flask.request.library = self._default_library
+            cached_feeds = script.process_lane(lane)
+            # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
+            eq_(4, len(cached_feeds))
 
 
 class TestInstanceInitializationScript(DatabaseTest):
@@ -309,3 +300,19 @@ class TestLoanReaperScript(DatabaseTest):
         # expiration date and were created relatively recently.
         eq_(2, len(current_patron.loans))
         eq_(2, len(current_patron.holds))
+
+
+class TestLanguageListScript(DatabaseTest):
+
+    def test_languages(self):
+        """Test the method that gives this script the bulk of its output."""
+        english = self._work(language='eng', with_open_access_download=True)
+        tagalog = self._work(language="tgl", with_license_pool=True)
+        [pool] = tagalog.license_pools
+        self._add_generic_delivery_mechanism(pool)
+        script = LanguageListScript(self._db)
+        output = list(script.languages(self._default_library))
+
+        # English is ignored because all its works are open-access.
+        # Tagalog shows up with the correct estimate.
+        eq_(["tgl 1 (Tagalog)"], output)
