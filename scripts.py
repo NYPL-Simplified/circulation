@@ -21,7 +21,12 @@ from collections import defaultdict
 from external_search import ExternalSearchIndex
 import json
 from nose.tools import set_trace
-from sqlalchemy import create_engine
+from sqlalchemy import (
+    create_engine,
+    exists,
+    and_,
+    or_,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -50,6 +55,7 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Patron,
     PresentationCalculationPolicy,
     SessionManager,
@@ -2291,6 +2297,39 @@ class FixInvisibleWorksScript(CollectionInputScript):
         if mv_works_count == 0:
             self.output.write(
                 "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
+            )
+            return
+
+        # Check if the works have delivery mechanisms.
+        LPDM = LicensePoolDeliveryMechanism
+        mv_works = mv_works.filter(
+            exists().where(
+                and_(MaterializedWork.data_source_id==LPDM.data_source_id,
+                     MaterializedWork.primary_identifier_id==LPDM.identifier_id)
+            )
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works don't have delivery mechanisms.\n"
+            )
+            return
+
+        # Check if the license pools are suppressed.
+        mv_works = mv_works.join(LicensePool).filter(
+            LicensePool.suppressed==False)
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works' license pools are suppressed.\n"
+            )
+            return
+
+        # Check if the pools have available licenses.
+        mv_works = mv_works.filter(
+            or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works aren't open access and have no licenses owned.\n"
             )
             return
             

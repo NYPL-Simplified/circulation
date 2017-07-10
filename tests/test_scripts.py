@@ -1636,7 +1636,62 @@ Refreshing the materialized views.
 0 works in materialized view after refresh.
 Here's your problem: your presentation-ready works are not making it into the materialized view.
 """, output.getvalue())
-        
+
+    def test_no_delivery_mechanism(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but no delivery mechanisms.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        for lpdm in work.license_pools[0].delivery_mechanisms:
+            self._db.delete(lpdm)
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works don't have delivery mechanisms.
+""", output.getvalue())
+
+    def test_suppressed_pool(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but it's suppressed.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        work.license_pools[0].suppressed = True
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works' license pools are suppressed.
+""", output.getvalue())
+
+    def test_no_licenses(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but no licenses owned.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        work.license_pools[0].licenses_owned = 0
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works aren't open access and have no licenses owned.
+""", output.getvalue())
+
     def test_success(self):
         output = StringIO()
         search = DummyExternalSearchIndex()
