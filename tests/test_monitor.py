@@ -221,7 +221,8 @@ class TestCollectionMonitor(DatabaseTest):
         # o1 just had its Monitor run.
         Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME, o1)
 
-        # o2 and b1 have never had their Monitor run.
+        # o2 and b1 have never had their Monitor run, but o2 has had some other Monitor run.
+        Timestamp.stamp(self._db, "A Different Service", o2)
 
         # o3 had its Monitor run an hour ago.
         now = datetime.datetime.utcnow()

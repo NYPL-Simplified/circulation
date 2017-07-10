@@ -7,6 +7,7 @@ import traceback
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
     or_,
+    and_,
 )
 
 import log # This sets the appropriate log format and level.
@@ -227,7 +228,12 @@ class CollectionMonitor(Monitor):
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
         collections = Collection.by_protocol(_db, cls.PROTOCOL).outerjoin(
-            Collection.timestamps).filter(service_match)
+            Timestamp,
+            and_(
+                Timestamp.collection_id==Collection.id,
+                service_match,
+            )
+        )
         collections = collections.order_by(
             Timestamp.timestamp.asc().nullsfirst()
         )
