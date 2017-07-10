@@ -2215,7 +2215,7 @@ class Explain(IdentifierInputScript):
             print "  %s: %r" % (active, pool.identifier)
 
 
-class FixInvisibleWorksScript(Script):
+class FixInvisibleWorksScript(CollectionInputScript):
     """Try to figure out why Works aren't showing up.
 
     This is a common problem on a new installation.
@@ -2226,9 +2226,21 @@ class FixInvisibleWorksScript(Script):
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
     
-    def run(self):
+    def run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        self.do_run(parsed.collections)
+
+    def do_run(self, collections=None):
+        if collections:
+            collection_ids = [c.id for c in collections]
+
         ready = self._db.query(Work).filter(Work.presentation_ready==True)
         unready = self._db.query(Work).filter(Work.presentation_ready==False)
+
+        if collections:
+            ready = ready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+            unready = unready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+
         ready_count = ready.count()
         unready_count = unready.count()
         self.output.write("%d presentation-ready works.\n" % ready_count)
@@ -2257,6 +2269,10 @@ class FixInvisibleWorksScript(Script):
         # See how many works are in the materialized view.
         from model import MaterializedWork
         mv_works = self._db.query(MaterializedWork)
+
+        if collections:
+            mv_works = mv_works.filter(MaterializedWork.collection_id.in_(collection_ids))
+
         mv_works_count = mv_works.count()
         self.output.write(
             "%d works in materialized view.\n" % mv_works_count

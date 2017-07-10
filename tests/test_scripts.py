@@ -1614,7 +1614,7 @@ class TestFixInvisibleWorksScript(DatabaseTest):
         output = StringIO()
         search = DummyExternalSearchIndex()
 
-        FixInvisibleWorksScript(self._db, output, search=search).run()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
 0 works not presentation-ready.
 Here's your problem: there are no presentation-ready works.
@@ -1628,7 +1628,7 @@ Here's your problem: there are no presentation-ready works.
         # LicensePools, and will not show up in the materialized view.
         work = self._work(with_license_pool=False)
         work.presentation_ready=True
-        FixInvisibleWorksScript(self._db, output, search=search).run()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -1655,7 +1655,7 @@ Here's your problem: your presentation-ready works are not making it into the ma
         feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
                       pagination="")
         
-        FixInvisibleWorksScript(self._db, output, search=search).run()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
@@ -1677,6 +1677,58 @@ I would now expect you to be able to find 1 works.
         # The materialized view was refreshed.
         eq_(1, mw_query.count())
 
+    def test_with_collections(self):
+        search = DummyExternalSearchIndex()
+
+        c1 = self._collection()
+        c2 = self._collection()
+
+        # One collection has a work that's not presentation-ready.
+        work = self._work(with_license_pool=True, collection=c2)
+        work.presentation_ready = False
+
+        # It's not in the materialized view.
+        from model import MaterializedWork
+        mw_query = self._db.query(MaterializedWork)
+        eq_(0, mw_query.count())
+
+        output = StringIO()
+
+        # Running the script on a different collection won't help.
+        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c1])
+        eq_("""0 presentation-ready works.
+0 works not presentation-ready.
+Here's your problem: there are no presentation-ready works.
+""", output.getvalue())
+
+        # The Work is still not presentation-ready
+        eq_(False, work.presentation_ready)
+
+        # It's still not in the materialized view.
+        eq_(0, mw_query.count())
+
+
+        output = StringIO()
+
+        # But running it with the right collection fixes the work.
+        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c2])
+        eq_("""0 presentation-ready works.
+1 works not presentation-ready.
+Attempting to make 1 works presentation-ready based on their metadata.
+1 works are now presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+0 page-type feeds in cachedfeeds table.
+I would now expect you to be able to find 1 works.
+""", output.getvalue())
+
+        # The Work was made presentation-ready
+        eq_(True, work.presentation_ready)
+
+        # The materialized view was refreshed.
+        eq_(1, mw_query.count())
+        
 
 class TestWorkConsolidationScript(object):
     """TODO"""
