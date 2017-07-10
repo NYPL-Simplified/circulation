@@ -25,6 +25,14 @@ from classifier import Classifier
 
 
 class ExternalSearchTest(DatabaseTest):
+    """
+    These tests require elasticsearch to be running locally. If it's not, or there's
+    an error creating the index, the tests will pass without doing anything.
+
+    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
+    a type of search by changing analyzers or queries, but search needs to be tested manually
+    to ensure that it works well overall, with a realistic index.
+    """
 
     def setup(self):
         super(ExternalSearchTest, self).setup(mock_search=False)
@@ -54,157 +62,6 @@ class ExternalSearchTest(DatabaseTest):
 
 
 class TestExternalSearch(ExternalSearchTest):
-    """
-    These tests require elasticsearch to be running locally. If it's not, or there's
-    an error creating the index, the tests will pass without doing anything.
-
-    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
-    a type of search by changing analyzers or queries, but search needs to be tested manually
-    to ensure that it works well overall, with a realistic index.
-    """
-
-    def setup(self):
-        super(TestExternalSearch, self).setup()
-        if self.search:
-            works = []
-
-            self.moby_dick = self._work(title="Moby Dick", authors="Herman Melville", fiction=True)
-            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
-            self.moby_dick.presentation_edition.series = "Classics"
-            self.moby_dick.summary_text = "Ishmael"
-            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.set_presentation_ready()
-            works.append(self.moby_dick)
-
-            self.moby_duck = self._work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
-            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
-            self.moby_duck.summary_text = "A compulsively readable narrative"
-            self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.set_presentation_ready()
-            works.append(self.moby_duck)
-
-            self.title_match = self._work(title="Match")
-            self.title_match.set_presentation_ready()
-            works.append(self.title_match)
-
-            self.subtitle_match = self._work()
-            self.subtitle_match.presentation_edition.subtitle = "Match"
-            self.subtitle_match.set_presentation_ready()
-            works.append(self.subtitle_match)
-
-            self.summary_match = self._work()
-            self.summary_match.summary_text = "Match"
-            self.summary_match.set_presentation_ready()
-            works.append(self.summary_match)
-        
-            self.publisher_match = self._work()
-            self.publisher_match.presentation_edition.publisher = "Match"
-            self.publisher_match.set_presentation_ready()
-            works.append(self.publisher_match)
-
-            self.tess = self._work(title="Tess of the d'Urbervilles")
-            self.tess.set_presentation_ready()
-            works.append(self.tess)
-
-            self.tiffany = self._work(title="Breakfast at Tiffany's")
-            self.tiffany.set_presentation_ready()
-            works.append(self.tiffany)
-            
-            self.les_mis = self._work()
-            self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
-            self.les_mis.set_presentation_ready()
-            works.append(self.les_mis)
-
-            self.lincoln = self._work(genre="Biography & Memoir", title="Abraham Lincoln")
-            self.lincoln.set_presentation_ready()
-            works.append(self.lincoln)
-
-            self.washington = self._work(genre="Biography", title="George Washington")
-            self.washington.set_presentation_ready()
-            works.append(self.washington)
-
-            self.lincoln_vampire = self._work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
-            self.lincoln_vampire.set_presentation_ready()
-            works.append(self.lincoln_vampire)
-
-            self.children_work = self._work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
-            self.children_work.set_presentation_ready()
-            works.append(self.children_work)
-
-            self.ya_work = self._work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
-            self.ya_work.set_presentation_ready()
-            works.append(self.ya_work)
-
-            self.adult_work = self._work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
-            self.adult_work.set_presentation_ready()
-            works.append(self.adult_work)
-
-            self.ya_romance = self._work(audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance")
-            self.ya_romance.set_presentation_ready()
-            works.append(self.ya_romance)
-
-            self.no_age = self._work()
-            self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.no_age.set_presentation_ready()
-            works.append(self.no_age)
-
-            self.age_4_5 = self._work()
-            self.age_4_5.target_age = NumericRange(4, 5, '[]')
-            self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_4_5.set_presentation_ready()
-            works.append(self.age_4_5)
-
-            self.age_5_6 = self._work(fiction=False)
-            self.age_5_6.target_age = NumericRange(5, 6, '[]')
-            self.age_5_6.set_presentation_ready()
-            works.append(self.age_5_6)
-
-            self.obama = self._work(genre="Biography & Memoir")
-            self.obama.target_age = NumericRange(8, 8, '[]')
-            self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.obama.set_presentation_ready()
-            works.append(self.obama)
-
-            self.dodger = self._work()
-            self.dodger.target_age = NumericRange(8, 8, '[]')
-            self.dodger.summary_text = "Willie finds himself running for student council president"
-            self.dodger.set_presentation_ready()
-            works.append(self.dodger)
-
-            self.age_9_10 = self._work()
-            self.age_9_10.target_age = NumericRange(9, 10, '[]')
-            self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_9_10.set_presentation_ready()
-            works.append(self.age_9_10)
-
-            self.age_2_10 = self._work()
-            self.age_2_10.target_age = NumericRange(2, 10, '[]')
-            self.age_2_10.set_presentation_ready()
-            works.append(self.age_2_10)
-
-            self.pride = self._work(title="Pride and Prejudice")
-            self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
-            self.pride.set_presentation_ready()
-            works.append(self.pride)
-
-            self.pride_audio = self._work(title="Pride and Prejudice")
-            self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
-            self.pride_audio.set_presentation_ready()
-            works.append(self.pride_audio)
-
-            self.sherlock = self._work(title="The Adventures of Sherlock Holmes")
-            self.sherlock.presentation_edition.language = "en"
-            self.sherlock.set_presentation_ready()
-            works.append(self.sherlock)
-
-            self.sherlock_spanish = self._work(title="Las Aventuras de Sherlock Holmes")
-            self.sherlock_spanish.presentation_edition.language = "es"
-            self.sherlock_spanish.set_presentation_ready()
-            works.append(self.sherlock_spanish)
-
-            self.search.bulk_update(works)
-
-            time.sleep(2)
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -303,10 +160,127 @@ class TestExternalSearch(ExternalSearchTest):
         assert_raises(
             ValueError, self.search.transfer_current_alias, 'banana-v10')
 
+class TestExternalSearchWithWorks(ExternalSearchTest):
+    """These tests run against a real search index with works in it.
+    The setup is very slow, so all the tests are in the same method.
+    Don't add new methods to this class - add more tests into test_query_works,
+    or add a new test class.
+    """
+
+    def setup(self):
+        super(TestExternalSearchWithWorks, self).setup()
+        if self.search:
+
+            self.moby_dick = self._work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
+            self.moby_dick.presentation_edition.series = "Classics"
+            self.moby_dick.summary_text = "Ishmael"
+            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+            self.moby_dick.set_presentation_ready()
+
+            self.moby_duck = self._work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
+            self.moby_duck.summary_text = "A compulsively readable narrative"
+            self.moby_duck.presentation_edition.publisher = "Penguin"
+            self.moby_duck.set_presentation_ready()
+
+            self.title_match = self._work(title="Match")
+            self.title_match.set_presentation_ready()
+
+            self.subtitle_match = self._work()
+            self.subtitle_match.presentation_edition.subtitle = "Match"
+            self.subtitle_match.set_presentation_ready()
+
+            self.summary_match = self._work()
+            self.summary_match.summary_text = "Match"
+            self.summary_match.set_presentation_ready()
+        
+            self.publisher_match = self._work()
+            self.publisher_match.presentation_edition.publisher = "Match"
+            self.publisher_match.set_presentation_ready()
+
+            self.tess = self._work(title="Tess of the d'Urbervilles")
+            self.tess.set_presentation_ready()
+
+            self.tiffany = self._work(title="Breakfast at Tiffany's")
+            self.tiffany.set_presentation_ready()
+            
+            self.les_mis = self._work()
+            self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
+            self.les_mis.set_presentation_ready()
+
+            self.lincoln = self._work(genre="Biography & Memoir", title="Abraham Lincoln")
+            self.lincoln.set_presentation_ready()
+
+            self.washington = self._work(genre="Biography", title="George Washington")
+            self.washington.set_presentation_ready()
+
+            self.lincoln_vampire = self._work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
+            self.lincoln_vampire.set_presentation_ready()
+
+            self.children_work = self._work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
+            self.children_work.set_presentation_ready()
+
+            self.ya_work = self._work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
+            self.ya_work.set_presentation_ready()
+
+            self.adult_work = self._work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
+            self.adult_work.set_presentation_ready()
+
+            self.ya_romance = self._work(audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance")
+            self.ya_romance.set_presentation_ready()
+
+            self.no_age = self._work()
+            self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
+            self.no_age.set_presentation_ready()
+
+            self.age_4_5 = self._work()
+            self.age_4_5.target_age = NumericRange(4, 5, '[]')
+            self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
+            self.age_4_5.set_presentation_ready()
+
+            self.age_5_6 = self._work(fiction=False)
+            self.age_5_6.target_age = NumericRange(5, 6, '[]')
+            self.age_5_6.set_presentation_ready()
+
+            self.obama = self._work(genre="Biography & Memoir")
+            self.obama.target_age = NumericRange(8, 8, '[]')
+            self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
+            self.obama.set_presentation_ready()
+
+            self.dodger = self._work()
+            self.dodger.target_age = NumericRange(8, 8, '[]')
+            self.dodger.summary_text = "Willie finds himself running for student council president"
+            self.dodger.set_presentation_ready()
+
+            self.age_9_10 = self._work()
+            self.age_9_10.target_age = NumericRange(9, 10, '[]')
+            self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
+            self.age_9_10.set_presentation_ready()
+
+            self.age_2_10 = self._work()
+            self.age_2_10.target_age = NumericRange(2, 10, '[]')
+            self.age_2_10.set_presentation_ready()
+
+            self.pride = self._work(title="Pride and Prejudice")
+            self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
+            self.pride.set_presentation_ready()
+
+            self.pride_audio = self._work(title="Pride and Prejudice")
+            self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
+            self.pride_audio.set_presentation_ready()
+
+            self.sherlock = self._work(title="The Adventures of Sherlock Holmes")
+            self.sherlock.presentation_edition.language = "en"
+            self.sherlock.set_presentation_ready()
+
+            self.sherlock_spanish = self._work(title="Las Aventuras de Sherlock Holmes")
+            self.sherlock_spanish.presentation_edition.language = "es"
+            self.sherlock_spanish.set_presentation_ready()
+
+            time.sleep(2)
+
     def test_query_works(self):
-        """
-        These are all in one method because the setup is expensive.
-        """
         if not self.search:
             return
 
