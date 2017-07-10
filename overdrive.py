@@ -120,6 +120,7 @@ class OverdriveAPI(object):
             )
         self._db = Session.object_session(collection)
         self.library_id = collection.external_account_id
+        self.collection_id = collection.id
         if collection.parent:
             # This is an Overdrive Advantage account.
             self.parent_library_id = collection.parent.external_account_id
@@ -131,8 +132,6 @@ class OverdriveAPI(object):
         else:
             self.parent_library_id = None
 
-        self.collection_id = collection.id
-            
         self.client_key = collection.external_integration.username.encode("utf8")
         self.client_secret = collection.external_integration.password.encode("utf8")
         self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value.encode("utf8")

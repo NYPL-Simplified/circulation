@@ -21,7 +21,12 @@ from collections import defaultdict
 from external_search import ExternalSearchIndex
 import json
 from nose.tools import set_trace
-from sqlalchemy import create_engine
+from sqlalchemy import (
+    create_engine,
+    exists,
+    and_,
+    or_,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -50,6 +55,7 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Patron,
     PresentationCalculationPolicy,
     SessionManager,
@@ -2215,19 +2221,32 @@ class Explain(IdentifierInputScript):
             print "  %s: %r" % (active, pool.identifier)
 
 
-class FixInvisibleWorksScript(Script):
+class FixInvisibleWorksScript(CollectionInputScript):
     """Try to figure out why Works aren't showing up.
 
     This is a common problem on a new installation.
     """
     def __init__(self, _db=None, output=None, search=None):
+        _db = _db or self._db
         super(FixInvisibleWorksScript, self).__init__(_db)
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
     
-    def run(self):
+    def run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        self.do_run(parsed.collections)
+
+    def do_run(self, collections=None):
+        if collections:
+            collection_ids = [c.id for c in collections]
+
         ready = self._db.query(Work).filter(Work.presentation_ready==True)
         unready = self._db.query(Work).filter(Work.presentation_ready==False)
+
+        if collections:
+            ready = ready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+            unready = unready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+
         ready_count = ready.count()
         unready_count = unready.count()
         self.output.write("%d presentation-ready works.\n" % ready_count)
@@ -2256,6 +2275,10 @@ class FixInvisibleWorksScript(Script):
         # See how many works are in the materialized view.
         from model import MaterializedWork
         mv_works = self._db.query(MaterializedWork)
+
+        if collections:
+            mv_works = mv_works.filter(MaterializedWork.collection_id.in_(collection_ids))
+
         mv_works_count = mv_works.count()
         self.output.write(
             "%d works in materialized view.\n" % mv_works_count
@@ -2274,6 +2297,39 @@ class FixInvisibleWorksScript(Script):
         if mv_works_count == 0:
             self.output.write(
                 "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
+            )
+            return
+
+        # Check if the works have delivery mechanisms.
+        LPDM = LicensePoolDeliveryMechanism
+        mv_works = mv_works.filter(
+            exists().where(
+                and_(MaterializedWork.data_source_id==LPDM.data_source_id,
+                     MaterializedWork.primary_identifier_id==LPDM.identifier_id)
+            )
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works don't have delivery mechanisms.\n"
+            )
+            return
+
+        # Check if the license pools are suppressed.
+        mv_works = mv_works.join(LicensePool).filter(
+            LicensePool.suppressed==False)
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works' license pools are suppressed.\n"
+            )
+            return
+
+        # Check if the pools have available licenses.
+        mv_works = mv_works.filter(
+            or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works aren't open access and have no licenses owned.\n"
             )
             return
             
