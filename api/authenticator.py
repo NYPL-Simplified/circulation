@@ -655,7 +655,7 @@ class LibraryAuthenticator(object):
         base_opds_document = Configuration.base_opds_authentication_document()
 
         links = {}
-        library = get_one(self._db, Library, self.library_id)
+        library = get_one(self._db, Library, id=self.library_id)
 
         # Add the same links that we would show in an OPDS feed, plus
         # some extra like 'registration' that are specific to Authentication
@@ -878,7 +878,7 @@ class AuthenticationProvider(object):
         )
     
     def library(self, _db):
-        return get_one(_db, Library, self.library_id)
+        return get_one(_db, Library, id=self.library_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
