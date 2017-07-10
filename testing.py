@@ -734,7 +734,8 @@ class DatabaseTest(object):
         name=name or self._str
         short_name = short_name or self._str
         library, ignore = get_one_or_create(
-            self._db, Library, name=name, short_name=short_name
+            self._db, Library, name=name, short_name=short_name,
+            create_method_kwargs=dict(uuid=str(uuid.uuid4())),
         )
         return library
     
