@@ -101,10 +101,15 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             url = self.root + path
             response = self.request(url)
             data = dict(self._extract_text_nodes(response.content))
-            dump_name = data.get(self.PERSONAL_NAME_FIELD)
-            dump_name = dump_name.split(',')[0]
-            if dump_name.upper() == password.upper():
-              return PatronData(authorization_identifier=username, complete=False)
+            if data.get(self.ERROR_MESSAGE_FIELD) is None:
+              dump_name = data.get(self.PERSONAL_NAME_FIELD)
+              # Assume the name is stored either as "Last, First" or "First Last"
+              if dump_name.find(",") != -1:
+                dump_name = dump_name.split(',')[0]
+              else:
+                dump_name = dump_name.split(' ')[1]
+              if dump_name.strip().upper() == password.upper():
+                return PatronData(authorization_identifier=username, complete=False)
             return False
 
     def remote_patron_lookup(self, patron_or_patrondata):
