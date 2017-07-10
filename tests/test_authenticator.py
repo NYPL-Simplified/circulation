@@ -88,9 +88,9 @@ class MockBasicAuthenticationProvider(
     """A mock basic authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, library_id, integration, analytics=None, patron=None, patrondata=None, *args, **kwargs):
+    def __init__(self, library, integration, analytics=None, patron=None, patrondata=None, *args, **kwargs):
         super(MockBasicAuthenticationProvider, self).__init__(
-            library_id, integration, analytics, *args, **kwargs)
+            library, integration, analytics, *args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
 
@@ -108,10 +108,10 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
-    def __init__(self, library_id, integration, analytics=None, patrondata=None,
+    def __init__(self, library, integration, analytics=None, patrondata=None,
                  remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
-        super(MockBasic, self).__init__(library_id, integration, analytics)
+        super(MockBasic, self).__init__(library, integration, analytics)
         self.patrondata = patrondata
         self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
         
@@ -129,8 +129,8 @@ class MockOAuthAuthenticationProvider(
     """A mock OAuth authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, library_id, provider_name, patron=None, patrondata=None):
-        self.library_id = library_id
+    def __init__(self, library, provider_name, patron=None, patrondata=None):
+        self.library_id = library.id
         self.NAME = provider_name
         self.patron = patron
         self.patrondata = patrondata
