@@ -52,7 +52,7 @@ def convert_overdrive(_db, library):
     collection.username = username
     collection.password = password
     collection.external_account_id = library_id
-    collection.set_setting("website_id", website_id)
+    collection.external_integration.set_setting("website_id", website_id)
 
 def convert_bibliotheca(_db, library):
     config = Configuration.integration('3M')
@@ -116,8 +116,8 @@ def convert_one_click(_db, library):
     collection.password = basic_token
     collection.external_account_id = library_id
     collection.url = url
-    collection.set_setting("ebook_loan_length", ebook_loan_length)
-    collection.set_setting("eaudio_loan_length", eaudio_loan_length)
+    collection.external_integration.set_setting("ebook_loan_length", ebook_loan_length)
+    collection.external_integration.set_setting("eaudio_loan_length", eaudio_loan_length)
     
 def convert_content_server(_db, library):
     config = Configuration.integration("Content Server")
