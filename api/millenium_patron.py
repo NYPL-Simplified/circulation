@@ -174,7 +174,8 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         if actual_name.find(',') != -1:
             actual_family_name = actual_name.split(',')[0]
         else:
-            actual_family_name = actual_name.split(' ')[1]
+            actual_name_split = actual_name.split(' ')
+            actual_family_name = actual_name_split[len(actual_name_split)-1]
         if actual_family_name.upper() == supposed_family_name.upper():
             return True
         return False
