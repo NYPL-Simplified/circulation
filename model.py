@@ -286,7 +286,6 @@ class SessionManager(object):
             engine, connection = cls.initialize(url)
         session = Session(connection)
         cls.initialize_data(session)
-        session.commit()
         return session
 
     @classmethod
