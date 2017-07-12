@@ -85,7 +85,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"),
           "type": "list",
           "description": _("Identifiers containing any of these strings are ignored when finding the 'correct' " +
-                           "identifier for a patron's record, even if it means they end up with no identifier at all."),
+                           "identifier for a patron's record, even if it means they end up with no identifier at all. " +
+                           "If librarians invalidate library cards by adding strings like \"EXPIRED\" or \"INVALID\" " +
+                           "on to the beginning of the card number, put those strings here so the Circulation Manager " + 
+                           "knows they do not represent real card numbers."),
           "optional": True },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
           "type": "select",
