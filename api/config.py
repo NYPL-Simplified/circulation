@@ -109,6 +109,7 @@ class Configuration(CoreConfiguration):
         {
             "key": COLOR_SCHEME,
             "label": _("Color scheme"),
+            "description": _("This tells clients what colors to use when rendering this library's OPDS feed."),
             "options": [
                 { "key": "blue", "label": _("Blue") },
                 { "key": "red", "label": _("Red") },
@@ -151,18 +152,22 @@ class Configuration(CoreConfiguration):
         {
             "key": REGISTER,
             "label": _("Patron registration URL"),
+            "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
         },
         {
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
+            "description": _("An email address a patron can use if they need help, e.g. 'mailto:simplyehelp@nypl.org'."),
         },
         {
             "key": HELP_WEB,
             "label": _("Patron support web site"),
+            "description": _("A URL for patrons to get help."),
         },
         {
             "key": HELP_URI,
-            "label": _("Patron support custom integration URI")
+            "label": _("Patron support custom integration URI"),
+            "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
