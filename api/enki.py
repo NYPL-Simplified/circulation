@@ -172,7 +172,7 @@ class EnkiAPI(object):
             return response
 
     def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
-        print "requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt)
+        self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.availability_endpoint)
         args = dict()
 	args['method'] = "getAllTitles"
@@ -209,7 +209,7 @@ class EnkiAPI(object):
         )
 
     def reaper_request(self, identifier):
-        print "Checking availability for " + str(identifier)
+        self.log.debug ("Checking availability for " + str(identifier))
         url = str(self.base_url) + str(self.item_endpoint)
         args = dict()
         args['method'] = "getItem"
@@ -219,7 +219,6 @@ class EnkiAPI(object):
         response = self.request(url, method='get', params=args)
         if not(response.content.startswith("{\"result\":{\"id\":\"")):
             response = None
-            print "This book is no longer available."
         return response
 
 class MockEnkiAPI(EnkiAPI):
@@ -319,7 +318,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
                     self._db, Identifier.ENKI_ID, identifier_string
                 )
                 result = CoverageFailure(
-                    identifier, "Book not in collection", data_source=self.output_source, transient=False
+                    identifier, "Book not found in Enki", data_source=self.output_source, transient=False
                 )
                 batch_results.append(result)
         return batch_results
@@ -339,9 +338,6 @@ class BibliographicParser(object):
 	returned_titles = data["result"]["titles"]
 	titles = returned_titles
 	for book in returned_titles:
-            print "A book titled '%s'" % book["title"]
-            print book
-            print "\n"
 	    data = self.process_one(book, namespaces)
             if data:
                 yield data
@@ -577,9 +573,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
         for identifier in identifiers:
             result = self.api.reaper_request(identifier.identifier)
             if not result:
-                print "skipping this deleted book"
                 continue
-            print "keeping this existing book"
             enki_id = result
             identifiers_not_mentioned_by_enki.remove(identifier)
 
