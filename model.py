@@ -8550,14 +8550,10 @@ class Admin(Base):
 
         :return: Admin or None
         """
-        match = None
-        matches = _db.query(Admin).filter(Admin.email==unicode(email)).all()
-
-        if matches:
-            [match] = matches
-            if not match.has_password(unicode(password)):
-                match = None
-
+        match = get_one(_db, Admin, email=unicode(email))
+        if match and not match.has_password(password):
+            # Admin with this email was found, but password is invalid.
+            match = None
         return match
 
 

@@ -5709,3 +5709,4 @@ class TestAdmin(DatabaseTest):
         other_admin.password = u"banana"
         eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
+        eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
