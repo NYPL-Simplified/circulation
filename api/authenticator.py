@@ -784,10 +784,18 @@ class AuthenticationProvider(object):
     LIBRARY_SETTINGS = [
         { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
           "label": _("External Type Regular Expression"),
+          "description": _("Derive a patron's type from their identifier."),
           "optional": True,
         },
         { "key": PATRON_IDENTIFIER_RESTRICTION,
           "label": _("Patron identifier prefix"),
+          "description": _("<p>When multiple libraries share an ILS, a person may be able to " +
+                           "authenticate with the ILS but not be considered a patron of " +
+                           "<i>this</i> library. This setting contains the rule for determining " +
+                           "whether an identifier is valid for this specific library.</p>" +
+                           "<p>Usually this is a prefix string which is compared against the " +
+                           "patron's identifiers, but if the string starts with a carat (^) " +
+                           "it will be interpreted as a regular expression."),
           "optional": True,
         }
     ]
@@ -1104,12 +1112,21 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     TEST_PASSWORD = 'test_password'
 
     SETTINGS = [
-        { "key": TEST_IDENTIFIER, "label": _("Test Identifier") },
-        { "key": TEST_PASSWORD, "label": _("Test Password") },
-        { "key": IDENTIFIER_REGULAR_EXPRESSION, "label": _("Identifier Regular Expression"), "optional": True },
-        { "key": PASSWORD_REGULAR_EXPRESSION, "label": _("Password Regular Expression"), "optional": True },
+        { "key": TEST_IDENTIFIER,
+          "label": _("Test Identifier"),
+          "description": _("A valid identifier that can be used to test that patron authentication is working.") },
+        { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier.") },
+        { "key": IDENTIFIER_REGULAR_EXPRESSION,
+          "label": _("Identifier Regular Expression"),
+          "description": _("A patron's identifier will be immediately rejected if it doesn't match this regular expression."),
+          "optional": True },
+        { "key": PASSWORD_REGULAR_EXPRESSION,
+          "label": _("Password Regular Expression"),
+          "description": _("A patron's password will be immediately rejected if it doesn't match this regular expression."),
+          "optional": True },
         { "key": IDENTIFIER_KEYBOARD,
           "label": _("Keyboard for identifier entry"),
+          "type": "select",
           "options": [
               { "key": DEFAULT_KEYBOARD, "label": _("System default") },
               { "key": EMAIL_ADDRESS_KEYBOARD,
@@ -1120,6 +1137,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         },
         { "key": PASSWORD_KEYBOARD,
           "label": _("Keyboard for password entry"),
+          "type": "select",
           "options": [
               { "key": DEFAULT_KEYBOARD, "label": _("System default") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
