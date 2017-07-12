@@ -5691,9 +5691,22 @@ class TestMaterializedViews(DatabaseTest):
 
 
 class TestAdmin(DatabaseTest):
+    def setup(self):
+        super(TestAdmin, self).setup()
+        self.admin, ignore = create(self._db, Admin, email=u"admin@nypl.org")
+        self.admin.password = u"password"
+
     def test_password_hashed(self):
-        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
-        admin.password = "password"
-        assert_raises(NotImplementedError, lambda: admin.password)
-        db_admins = self._db.query(Admin).filter(Admin.password=="password").all()
-        eq_([admin], db_admins)
+        assert_raises(NotImplementedError, lambda: self.admin.password)
+        assert self.admin.password_hashed.startswith('$2a$')
+
+    def test_has_password(self):
+        eq_(True, self.admin.has_password(u"password"))
+        eq_(False, self.admin.has_password(u"banana"))
+
+    def test_authenticate(self):
+        other_admin, ignore = create(self._db, Admin, email=u"other@nypl.org")
+        other_admin.password = u"banana"
+        eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
+        eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
+        eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
