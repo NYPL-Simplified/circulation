@@ -665,8 +665,8 @@ class AcquisitionFeed(OPDSFeed):
             url = annotator.facet_url(new_facets)
             if not url:
                 continue
-            group_title = Facets.GROUP_DISPLAY_TITLES[group]
-            facet_title = Facets.FACET_DISPLAY_TITLES[value]
+            group_title = str(Facets.GROUP_DISPLAY_TITLES[group])
+            facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
             link = dict(href=url, title=facet_title)
             link['rel'] = self.FACET_REL
             link['{%s}facetGroup' % AtomFeed.OPDS_NS] = group_title

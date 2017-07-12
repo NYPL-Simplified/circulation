@@ -1,3 +1,5 @@
+from flask.ext.babel import lazy_gettext as _
+
 class FacetConstants(object):
 
     # Subset the collection, roughly, by quality.
@@ -52,27 +54,33 @@ class FacetConstants(object):
     }
 
     GROUP_DISPLAY_TITLES = {
-        ORDER_FACET_GROUP_NAME : "Sort by",
-        AVAILABILITY_FACET_GROUP_NAME : "Availability",
-        COLLECTION_FACET_GROUP_NAME : 'Collection',
+        ORDER_FACET_GROUP_NAME : _("Sort by"),
+        AVAILABILITY_FACET_GROUP_NAME : _("Availability"),
+        COLLECTION_FACET_GROUP_NAME : _('Collection'),
+    }
+
+    GROUP_DESCRIPTIONS = {
+        ORDER_FACET_GROUP_NAME : _("Allow patrons to sort by"),
+        AVAILABILITY_FACET_GROUP_NAME : _("Allow patrons to filter availability to"),
+        COLLECTION_FACET_GROUP_NAME : _('Allow patrons to filter collection to'),
     }
 
     FACET_DISPLAY_TITLES = {
-        ORDER_TITLE : 'Title',
-        ORDER_AUTHOR : 'Author',
-        ORDER_LAST_UPDATE : 'Last Update',
-        ORDER_ADDED_TO_COLLECTION : 'Recently Added',
-        ORDER_SERIES_POSITION: 'Series Position',
-        ORDER_WORK_ID : 'Work ID',
-        ORDER_RANDOM : 'Random',
+        ORDER_TITLE : _('Title'),
+        ORDER_AUTHOR : _('Author'),
+        ORDER_LAST_UPDATE : _('Last Update'),
+        ORDER_ADDED_TO_COLLECTION : _('Recently Added'),
+        ORDER_SERIES_POSITION: _('Series Position'),
+        ORDER_WORK_ID : _('Work ID'),
+        ORDER_RANDOM : _('Random'),
 
-        AVAILABLE_NOW : "Available now",
-        AVAILABLE_ALL : "All",
-        AVAILABLE_OPEN_ACCESS : "Yours to keep",
+        AVAILABLE_NOW : _("Available now"),
+        AVAILABLE_ALL : _("All"),
+        AVAILABLE_OPEN_ACCESS : _("Yours to keep"),
 
-        COLLECTION_FULL : "Everything",
-        COLLECTION_MAIN : "Main Collection",
-        COLLECTION_FEATURED : "Popular Books",
+        COLLECTION_FULL : _("Everything"),
+        COLLECTION_MAIN : _("Main Collection"),
+        COLLECTION_FEATURED : _("Popular Books"),
     }
 
     # Unless a library offers an alternate configuration, patrons will
