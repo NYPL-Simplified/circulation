@@ -62,7 +62,6 @@ from sqlalchemy.ext.associationproxy import (
 )
 from sqlalchemy.ext.hybrid import (
     hybrid_property,
-    Comparator,
 )
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
@@ -8534,23 +8533,32 @@ class Admin(Base):
             self.credential = credential
         _db.commit()
 
-    class HashedPasswordComparator(Comparator):
-        def __init__(self, hashed_password):
-            self.hashed_password = hashed_password
-        def __eq__(self, password):
-            return self.hashed_password == func.crypt(password, self.hashed_password)
-
     @hybrid_property
     def password(self):
-        raise NotImplementedError("Password comparison is only supported in the database")
-
-    @password.comparator
-    def password(self):
-        return Admin.HashedPasswordComparator(self.password_hashed)
+        raise NotImplementedError("Password comparison is only with Admin.authenticate")
 
     @password.setter
     def password(self, value):
-        self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
+        self.password_hashed = unicode(bcrypt.hashpw(value, bcrypt.gensalt()))
+
+    def has_password(self, password):
+        return self.password_hashed == bcrypt.hashpw(password, self.password_hashed)
+
+    @classmethod
+    def authenticate(cls, _db, email, password):
+        """Finds an authenticated Admin by email and password
+
+        :return: Admin or None
+        """
+        match = None
+        matches = _db.query(Admin).filter(Admin.email==unicode(email)).all()
+
+        if matches:
+            [match] = matches
+            if not match.has_password(unicode(password)):
+                match = None
+
+        return match
 
 
 class ExternalIntegration(Base):
