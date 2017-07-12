@@ -79,7 +79,6 @@ class EnkiAPI(object):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
-
     log = logging.getLogger("Enki API")
     # TODO: make sure this logger exists :-)
 
@@ -92,7 +91,7 @@ class EnkiAPI(object):
         self.username = username or env_username
         self.password = password or env_password
         self.base_url = base_url or env_base_url
-        elif self.base_url == 'production':
+        if self.base_url == 'production':
             self.base_url = self.PRODUCTION_BASE_URL
         self.token = "mock_token"
 
@@ -154,7 +153,7 @@ class EnkiAPI(object):
             disallowed_response_codes = ["401"]
         else:
             disallowed_response_codes = None
-        response = self._make_request(
+            response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params,
             disallowed_response_codes=disallowed_response_codes
@@ -180,6 +179,7 @@ class EnkiAPI(object):
 	args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
+        args['lib'] = self.lib
 	response = self.request(url, params=args)
         return response
 
@@ -473,7 +473,7 @@ class BibliographicParser(object):
         return bibliographic, availability
 
 class EnkiImport(Monitor):
-    """Maintain LicensePools for Enki titles.
+    """Import Enki titles.
     """
 
     VERY_LONG_AGO = datetime.datetime(1970, 1, 1)
@@ -486,7 +486,6 @@ class EnkiImport(Monitor):
             default_start_time = self.VERY_LONG_AGO
         )
         self.batch_size = batch_size
-        #line 83-90 should be removable during refactoring
         metadata_wrangler_url = Configuration.integration_url(
                 Configuration.METADATA_WRANGLER_INTEGRATION
         )
@@ -500,17 +499,13 @@ class EnkiImport(Monitor):
             EnkiBibliographicCoverageProvider(self._db, enki_api=api)
         )
 
-    def run(self):
-        super(EnkiImport, self).run()
-
     def run_once(self, start, cutoff):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
         x=0
-        step=2000
         while x < 80000:
-            availability = self.api.availability(since=since, strt=x, qty=step)
+            availability = self.api.availability(since=since, strt=x, qty=self.batch_size)
 	    status_code = availability.status_code
             content = availability.content
             count = 0
@@ -520,7 +515,7 @@ class EnkiImport(Monitor):
                 count += 1
                 if count % self.batch_size == 0:
                     self._db.commit()
-            x += step
+            x += self.batch_size
 
     def process_book(self, bibliographic, availability):
 
@@ -552,7 +547,6 @@ class EnkiImport(Monitor):
 
         return edition, license_pool
 
-#Copied from 3M. Eventually we might want to refactor
 class EnkiCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left the Enki collection."""
     def __init__(self, _db, api=None, interval_seconds=3600*4):
