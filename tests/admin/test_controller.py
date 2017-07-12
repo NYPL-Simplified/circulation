@@ -1617,11 +1617,11 @@ class TestSettingsController(AdminControllerTest):
         auth_service = get_one(self._db, AdminAuthenticationService)
         eq_("new auth service", auth_service.name)
 
-        admin1_matches = self._db.query(Admin).filter(Admin.email=="admin1@nypl.org").filter(Admin.password=="pass1").all()
-        eq_(1, len(admin1_matches))
+        admin1 = Admin.authenticate(self._db, "admin1@nypl.org", "pass1")
+        assert admin1 != None
 
-        admin2_matches = self._db.query(Admin).filter(Admin.email=="admin2@nypl.org").filter(Admin.password=="pass2").all()
-        eq_(1, len(admin2_matches))
+        admin2 = Admin.authenticate(self._db, "admin2@nypl.org", "pass2")
+        assert admin2 != None
 
     def test_admin_auth_services_post_local_password_edit(self):
         # The auth service exists, with one admin.
@@ -1647,9 +1647,10 @@ class TestSettingsController(AdminControllerTest):
         # The old admin was deleted, and the new admins were created.
         admins = self._db.query(Admin).all()
         eq_(2, len(admins))
+        eq_(None, Admin.authenticate(self._db, "oldadmin@nypl.org", "password"))
 
-        admin1_matches = self._db.query(Admin).filter(Admin.email=="admin1@nypl.org").filter(Admin.password=="pass1").all()
-        eq_(1, len(admin1_matches))
+        admin1 = Admin.authenticate(self._db, "admin1@nypl.org", "pass1")
+        assert admin1 != None
 
-        admin2_matches = self._db.query(Admin).filter(Admin.email=="admin2@nypl.org").filter(Admin.password=="pass2").all()
-        eq_(1, len(admin2_matches))
+        admin2 = Admin.authenticate(self._db, "admin2@nypl.org", "pass2")
+        assert admin2 != None

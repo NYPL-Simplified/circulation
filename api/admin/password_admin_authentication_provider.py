@@ -21,8 +21,7 @@ class PasswordAdminAuthenticationProvider(AdminAuthenticationProvider):
         password = request.get("password")
         redirect_url = request.get("redirect")
 
-        match = _db.query(Admin).filter(Admin.email==email).filter(Admin.password==password).count()
-
+        match = Admin.authenticate(_db, email, password)
         if match:
             return dict(
                 email=email,
