@@ -147,31 +147,42 @@ class Configuration(object):
         {
             "key": WEBSITE_URL,
             "label": _("URL of the library's website"),
+            "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL).")
         },
         {
             "key": ALLOW_HOLDS,
             "label": _("Allow books to be put on hold"),
+            "type": "select",
+            "options": [
+                { "key": "true", "label": _("Allow holds") },
+                { "key": "false", "label": _("Disable holds") },
+            ],
+            "default": "true",
         },
         {
             "key": FEATURED_LANE_SIZE,
             "label": _("Maximum number of books in the 'featured' lanes"),
+            "type": "number",
+            "default": 15,
         },
         {
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
+            "description": _("Between 0 and 1."),
+            "default": 0.65,
         },
     ] + [
         { "key": ENABLED_FACETS_KEY_PREFIX + group,
-          "label": _("Enabled %(group)s facets", group=display_name),
+          "label": description,
           "type": "list",
           "options": [
               { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
               for facet in FacetConstants.FACETS_BY_GROUP.get(group)
           ],
-        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
+        } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
     ] + [
         { "key": DEFAULT_FACET_KEY_PREFIX + group,
-          "label": _("Default %(group)s facet", group=display_name),
+          "label": _("Default %(group)s", group=display_name),
           "type": "select",
           "options": [
               { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }

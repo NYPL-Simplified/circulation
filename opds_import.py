@@ -301,6 +301,7 @@ class OPDSImporter(object):
         "No existing license pool for this identifier and no way of creating one.")
 
     NAME = ExternalIntegration.OPDS_IMPORT
+    DESCRIPTION = _("Import books from a publicly-accessible OPDS feed.")
     SETTINGS = [
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
