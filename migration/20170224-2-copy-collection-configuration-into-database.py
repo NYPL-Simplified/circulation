@@ -131,7 +131,7 @@ def convert_content_server(_db, library):
         name="Open Access Content Server"
     )
     library.collections.append(collection)
-    collection.external_integration.url = url
+    collection.external_account_id = url
     
 library = Library.instance(_db)
 copy_library_registry_information(_db, library)
