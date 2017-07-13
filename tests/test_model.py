@@ -5557,6 +5557,16 @@ class TestLibrary(DatabaseTest):
             assign_false
         )
 
+    def test_all_collections(self):
+        library = self._default_library
+
+        parent = self._collection()
+        self._default_collection.parent_id = parent.id
+
+        eq_([self._default_collection], library.collections)
+        eq_(set([self._default_collection, parent]),
+            set(library.all_collections))
+
     def test_estimated_holdings_by_language(self):
         library = self._default_library
         
@@ -6162,6 +6172,19 @@ class TestCollection(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         eq_(set([c2]),
             set(Collection.by_datasource(self._db, overdrive).all()))
+
+    def test_parents(self):
+        # Collections can return all their parents recursively.
+        c1 = self._collection()
+        eq_([], list(c1.parents))
+
+        c2 = self._collection()
+        c2.parent_id = c1.id
+        eq_([c1], list(c2.parents))
+
+        c3 = self._collection()
+        c3.parent_id = c2.id
+        eq_([c2, c1], list(c3.parents))
 
     def test_create_external_integration(self):
         # A newly created Collection has no associated ExternalIntegration.

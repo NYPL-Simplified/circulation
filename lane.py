@@ -549,9 +549,7 @@ class Lane(object):
         self._db = _db
         self.library_id = library.id
         self.collection_ids = [
-            collection.id for collection in library.collections
-        ] + [
-            collection.parent_id for collection in library.collections if collection.parent_id
+            collection.id for collection in library.all_collections
         ]
         self.default_for_language = False
         self.searchable = searchable

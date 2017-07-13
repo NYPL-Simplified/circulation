@@ -8850,6 +8850,13 @@ class Library(Base):
             key, self
         )
 
+    @property
+    def all_collections(self):
+        for collection in self.collections:
+            yield collection
+            for parent in collection.parents:
+                yield parent
+
     # Some specific per-library configuration settings.
 
     # The name of the per-library regular expression used to derive a patron's
@@ -8939,7 +8946,7 @@ class Library(Base):
         :param collection_ids: Only include titles in the given
         collections.
         """
-        collection_ids = collection_ids or [x.id for x in self.collections]
+        collection_ids = collection_ids or [x.id for x in self.all_collections]
         # Only find presentation-ready works.
         #
         # Such works are automatically filtered out of 
@@ -9875,6 +9882,15 @@ class Collection(Base):
             data_source = DataSource.lookup(_db, name, autocreate=True)
         return data_source
     
+    @property
+    def parents(self):
+        if self.parent_id:
+            _db = Session.object_session(self)
+            parent = get_one(_db, Collection, id=self.parent_id)
+            yield parent
+            for collection in parent.parents:
+                yield collection
+
     @property
     def metadata_identifier(self):
         """Identifier based on collection details that uniquely represents
