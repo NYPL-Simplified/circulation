@@ -180,7 +180,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         """Does `supposed_family_name` match `actual_name`?"""
         if actual_name is None or supposed_family_name is None:
             return False
-        actual_family_name = actual_name.split(',')[0]
+        if actual_name.find(',') != -1:
+            actual_family_name = actual_name.split(',')[0]
+        else:
+            actual_name_split = actual_name.split(' ')
+            actual_family_name = actual_name_split[-1]
         if actual_family_name.upper() == supposed_family_name.upper():
             return True
         return False
