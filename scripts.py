@@ -293,6 +293,7 @@ class LaneSweeperScript(LibraryInputScript):
         del os.environ['AUTOINITIALIZE']
         app.manager = CirculationManager(_db, testing=testing)
         self.app = app
+        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
 
     def process_library(self, library):
         begin = time.time()
@@ -327,7 +328,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     @classmethod
     def arg_parser(cls, _db):
-        parser = argparse.ArgumentParser()
+        parser = LaneSweeperScript.arg_parser(_db)
         parser.add_argument(
             '--language', 
             help='Process only lanes that include books in this language.',
@@ -495,10 +496,10 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             languages = None
             lane_name = None
 
-        url = self.app.manager.cdn_url_for(
-            "feed", languages=lane.languages, lane_name=lane_name,
-        )
         library = lane.library
+        url = self.app.manager.cdn_url_for(
+            "feed", languages=languages, lane_name=lane_name, library_short_name=library.short_name
+        )
 
         default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
@@ -570,8 +571,9 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         else:
             languages = None
             lane_name = None
+        library = lane.library
         url = self.app.manager.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name
+            "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library.short_name
         )
         yield AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
