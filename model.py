@@ -220,22 +220,6 @@ class SessionManager(object):
         if not connection:
             connection = engine.connect()
 
-        # If the pgcrypto extension is not installed, log an error but
-        # don't prevent startup -- on some systems this won't be a problem
-        # in practice.
-        query = select(
-            [literal_column('extname')]
-        ).select_from(
-            table('pg_extension')
-        ).where(
-            literal_column('extname')=='pgcrypto'
-        )
-        result = list(connection.execute(query))
-        if not result:
-            logging.error(
-                """The Postgres pgcrypto extension is not installed. Features such as password-based admin authentication will not work. You can install the extension by running "CREATE EXTENSION IF NOT EXISTS pgcrypto;" as superuser."""
-            )
-        
         # Check if the recursive equivalents function exists already.
         query = select(
             [literal_column('proname')]
