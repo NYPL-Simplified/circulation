@@ -306,6 +306,10 @@ class OPDSImporter(object):
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
+        },
+        {
+            "key": Collection.DATA_SOURCE_NAME_SETTING,
+            "label": _("Data source name"),
         }
     ]
 

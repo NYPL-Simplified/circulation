@@ -1527,7 +1527,8 @@ class OPDSImportScript(CollectionInputScript):
     
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        for collection in parsed.collections:
+        collections = parsed.collections or Collection.by_protocol(self._db, ExternalIntegration.OPDS_IMPORT)
+        for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
     def run_monitor(self, collection, force=None):

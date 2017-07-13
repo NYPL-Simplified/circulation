@@ -1581,14 +1581,16 @@ class TestOPDSImportScript(DatabaseTest):
         script = MockOPDSImportScript(self._db)
         script.do_run([])
 
-        # Since we provided no collection, no MockOPDSImportMonitor
-        # was instantiated.
-        eq_([], MockOPDSImportMonitor.INSTANCES)
+        # Since we provided no collection, a MockOPDSImportMonitor
+        # was instantiated for each OPDS Import collection in the database.
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
 
         args = ['--collection=%s' % self._default_collection.name]
         script.do_run(args)
 
-        # Now a monitor has been instantiated and run.
+        # If we provide the collection name, a MockOPDSImportMonitor is
+        # also instantiated.
         monitor = MockOPDSImportMonitor.INSTANCES.pop()
         eq_(self._default_collection, monitor.collection)
         eq_(True, monitor.was_run)
