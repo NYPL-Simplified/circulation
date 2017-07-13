@@ -428,6 +428,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(False, m("cher", "chert"))
         eq_(True, m("cherryh, c.j.", "cherryh"))
         eq_(True, m("c.j. cherryh", "cherryh"))
+        eq_(True, m("caroline janice cherryh", "cherryh"))
 
     def test_misconfigured_authentication_mode(self):
         assert_raises_regexp(
