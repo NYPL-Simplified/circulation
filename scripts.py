@@ -1664,6 +1664,11 @@ class DatabaseMigrationScript(Script):
         # the data itself.
         return [core, server]
 
+    def load_configuration(self):
+        # TODO: Remove after 2.0.0 release, when CDNs are loaded from
+        # the database before the ExternalIntegration has been uploaded.
+        Configuration.load(None)
+
     def do_run(self):
         parsed = self.parse_command_line()
         last_run_date = parsed.last_run_date
