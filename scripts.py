@@ -1286,7 +1286,7 @@ class WorkProcessingScript(IdentifierInputScript):
         self.force = force
 
     @classmethod
-    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
+    def make_query(cls, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
             query = query.join(Work.license_pools).join(
@@ -1349,7 +1349,7 @@ class WorkConsolidationScript(WorkProcessingScript):
 
     name = "Work consolidation script"
 
-    def make_query(self, _db, identifier_type, identifiers, log=None):
+    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
         # We actually process LicensePools, not Works.
         qu = _db.query(LicensePool).join(LicensePool.identifier)
         if identifier_type:
