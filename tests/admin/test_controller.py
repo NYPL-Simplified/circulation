@@ -8,6 +8,8 @@ import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
+from StringIO import StringIO
+import base64
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
@@ -1341,6 +1343,9 @@ class TestSettingsController(AdminControllerTest):
             eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
         
     def test_libraries_post_create(self):
+        class TestFileUpload(StringIO):
+            headers = { "Content-Type": "image/png" }
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
@@ -1352,6 +1357,9 @@ class TestSettingsController(AdminControllerTest):
                  ''),
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
                  ''),
+            ])
+            flask.request.files = MultiDict([
+                (Configuration.LOGO, TestFileUpload("image data")),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 201)
@@ -1369,6 +1377,8 @@ class TestSettingsController(AdminControllerTest):
             ConfigurationSetting.for_library(
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
+        eq_("data:image/png;base64,%s" % base64.b64encode("image data"),
+            ConfigurationSetting.for_library(Configuration.LOGO, library).value)
 
     def test_libraries_post_edit(self):
         # A library already exists.
@@ -1399,6 +1409,7 @@ class TestSettingsController(AdminControllerTest):
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_RANDOM,
                  ''),
             ])
+            flask.request.files = MultiDict([])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 200)
 

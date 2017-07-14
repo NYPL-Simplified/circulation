@@ -53,6 +53,9 @@ class Configuration(CoreConfiguration):
     # The client-side color scheme to use for this library.
     COLOR_SCHEME = "color_scheme"
     DEFAULT_COLOR_SCHEME = "blue"
+
+    # The library-wide logo setting.
+    LOGO = "logo"
    
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
@@ -120,6 +123,12 @@ class Configuration(CoreConfiguration):
                 { "key": "purple", "label": _("Purple") },
             ],
             "type": "select",
+        },
+        {
+            "key": LOGO,
+            "label": _("Logo image"),
+            "type": "image",
+            "optional": True,
         },
         {
             "key": MAX_OUTSTANDING_FINES,

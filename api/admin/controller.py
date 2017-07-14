@@ -1053,6 +1053,15 @@ class SettingsController(CirculationManagerController):
                     # Allow any entered values.
                     value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
                 value = json.dumps(value)
+            elif setting.get("type") == "image":
+                image_file = flask.request.files.get(setting.get("key"))
+                if not image_file and not setting.get("optional"):
+                    return INCOMPLETE_CONFIGURATION.detailed(_(
+                            "The library is missing a required setting: %s." % setting.get("key")))
+                if image_file:
+                    type = image_file.headers.get("Content-Type")
+                    b64 = base64.b64encode(image_file.read())
+                    value = "data:%s;base64,%s" % (type, b64)
             else:
                 value = flask.request.form.get(setting['key'], None)
             ConfigurationSetting.for_library(setting['key'], library).value = value
