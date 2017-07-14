@@ -19,3 +19,21 @@ WHERE e.password is not null;
 ALTER TABLE externalintegrations DROP COLUMN url;
 ALTER TABLE externalintegrations DROP COLUMN username;
 ALTER TABLE externalintegrations DROP COLUMN password;
+
+-- Add the collection protocols to the external integrations.
+UPDATE externalintegrations as e
+SET protocol = c.protocol
+FROM collections as c
+WHERE e.id = c.external_integration_id;
+
+-- Create an externalintegration for the Open Access Content Server.
+INSERT INTO externalintegrations(protocol)
+SELECT c.protocol
+FROM collections c
+WHERE c.external_integration_id is null;
+
+-- Associate the OA Content Server collection with its integration.
+UPDATE collections c
+SET external_integration_id = e.id
+FROM externalintegrations e
+WHERE e.protocol = 'OPDS Import' and c.external_integration_id is null;

@@ -24,7 +24,7 @@ update licensepooldeliveries set
 ) as subquery where licensepooldeliveries.id=subquery.delivery_id;
 
 -- Now that we have the data, create a unique index.
-CREATE UNIQUE INDEX ix_licensepooldeliveries_datasource_identifier_mechanism on licensepools USING btree (data_source_id, identifier_id, delivery_mechanism_id, resource_id);
+CREATE UNIQUE INDEX ix_licensepooldeliveries_datasource_identifier_mechanism on licensepooldeliveries USING btree (data_source_id, identifier_id, delivery_mechanism_id, resource_id);
 
 -- Finally, remove the now-unnecessary license_pool_id.
 ALTER TABLE licensepooldeliveries DROP COLUMN license_pool_id;

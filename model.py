@@ -33,7 +33,6 @@ from PIL import (
 
 from psycopg2.extras import NumericRange
 from sqlalchemy.engine.base import Connection
-from sqlalchemy.engine.url import URL
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
@@ -66,7 +65,6 @@ from sqlalchemy.ext.associationproxy import (
 )
 from sqlalchemy.ext.hybrid import (
     hybrid_property,
-    Comparator,
 )
 from sqlalchemy.sql.functions import func
 from sqlalchemy.sql.expression import (
@@ -221,22 +219,6 @@ class SessionManager(object):
         if not connection:
             connection = engine.connect()
 
-        # If the pgcrypto extension is not installed, log an error but
-        # don't prevent startup -- on some systems this won't be a problem
-        # in practice.
-        query = select(
-            [literal_column('extname')]
-        ).select_from(
-            table('pg_extension')
-        ).where(
-            literal_column('extname')=='pgcrypto'
-        )
-        result = list(connection.execute(query))
-        if not result:
-            logging.error(
-                """The Postgres pgcrypto extension is not installed. Features such as password-based admin authentication will not work. You can install the extension by running "CREATE EXTENSION IF NOT EXISTS pgcrypto;" as superuser."""
-            )
-        
         # Check if the recursive equivalents function exists already.
         query = select(
             [literal_column('proname')]
@@ -311,12 +293,11 @@ class SessionManager(object):
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
             engine, connection = cls.initialize(url)
         session = Session(connection)
-        cls.initialize_data(session)
-        session.commit()
+        session = cls.initialize_data(session)
         return session
 
     @classmethod
-    def initialize_data(cls, session):
+    def initialize_data(cls, session, set_site_configuration=True):
         # Create initial data sources.
         list(DataSource.well_known_sources(session))
 
@@ -332,12 +313,71 @@ class SessionManager(object):
             )
             mechanism.default_client_can_fulfill = True
 
-        # Set the timestamp which site_configuration_has_changed keeps
-        # updated.
-        Timestamp.stamp(session, Configuration.SITE_CONFIGURATION_CHANGED,
-                        collection=None)
+        # TODO: Remove this exception catch after version 2.0.0. See
+        # SessionManager.update_timestamps_table for more details.
+        update_configuration_timestamp = lambda: Timestamp.stamp(
+            session, Configuration.SITE_CONFIGURATION_CHANGED,
+            collection=None
+        )
+        try:
+            # Set the timestamp to track site configuration changes.
+            update_configuration_timestamp()
+        except sa_exc.ProgrammingError as e:
+            message = str(e)
+            if ('timestamps.id does not exist' in message or
+                'timestamps.collection_id does not exist' in message
+            ):
+                session = cls.update_timestamps_table(session)
+                update_configuration_timestamp()
+            else:
+                raise e
+
         site_configuration_has_changed(session)
         session.commit()
+
+        # Return a potentially-new Session object in case
+        # it was updated by cls.update_timestamps_table
+        return session
+
+    @classmethod
+    def update_timestamps_table(cls, session):
+        """Adds required columns 'id' and 'collection_id' to the Timestamp table.
+
+        TODO: Remove this after version 2.0.0. This is a stopgap measure
+        to keep database initialization and migrations working before
+        changes to Timestamps have taken place in migration [20170713-1].
+
+        :return: updated Session object
+        """
+        logging.warning(
+            'Timestamp schema has been altered without db migration.'
+            ' Running migration [20170713-1] schema change in advance.'
+        )
+
+        # Get the SQL to run.
+        migration = '20170713-1-timestamp-has-numeric-primary-key.sql'
+        base_path = os.path.split(__file__)[0]
+        migration_filename = os.path.join(base_path, 'migration', migration)
+
+        sql_statement = 'BEGIN;\n%s\nCOMMIT;'
+        with open(migration_filename) as f:
+            sql_statement = sql_statement % f.read()
+
+        # Go back up to engine-level to make the schema change.
+        connection = session.get_bind()
+        engine = connection.engine
+
+        # Close the Session so it benefits from the changes.
+        session.close()
+        connection.close()
+
+        # Run the migration.
+        engine.execute(sql_statement)
+
+        # Create a new Session that has the changed schema.
+        session = Session(engine.connect())
+        session = cls.initialize_data(session)
+        return session
 
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
     """Gets an object from the database based on its attributes.
@@ -1019,7 +1059,7 @@ class DataSource(Base):
                 (cls.OA_CONTENT_SERVER, True, False, None, None),
                 (cls.NOVELIST, False, True, Identifier.NOVELIST_ID, None),
                 (cls.PRESENTATION_EDITION, False, False, None, None),
-                (cls.INTERNAL_PROCESSING, True, False, None, None),
+                (cls.INTERNAL_PROCESSING, False, False, None, None),
                 (cls.FEEDBOOKS, True, False, Identifier.URI, None),
                 (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
@@ -1390,10 +1430,6 @@ class Identifier(Base):
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.output_id"),
         backref="output_identifiers",
-    )
-
-    unresolved_identifier = relationship(
-        "UnresolvedIdentifier", backref="identifier", uselist=False
     )
 
     # One Identifier may have many associated CoverageRecords.
@@ -1965,89 +2001,6 @@ class Identifier(Base):
         return AcquisitionFeed.minimal_opds_entry(
             identifier=self, cover=cover_image, 
             description=description, quality=quality)
-
-
-class UnresolvedIdentifier(Base):
-    """An identifier that the metadata wrangler has heard of but hasn't
-    yet been able to connect with a book being offered by someone.
-    """
-
-    __tablename__ = 'unresolvedidentifiers'
-    id = Column(Integer, primary_key=True)
-
-    identifier_id = Column(
-        Integer, ForeignKey('identifiers.id'), index=True)
-
-    # A numeric status code, analogous to an HTTP status code,
-    # describing the status of the process of resolving this
-    # identifier.
-    status = Column(Integer, index=True)
-
-    # Timestamp of the first time we tried to resolve this identifier.
-    first_attempt = Column(DateTime, index=True)
-
-    # Timestamp of the most recent time we tried to resolve this identifier.
-    most_recent_attempt = Column(DateTime, index=True)
-
-    # The problem that's stopping this identifier from being resolved.
-    exception = Column(Unicode, index=True)
-
-    @classmethod
-    def register(cls, _db, identifier, force=False):
-        if identifier.licensed_through and not force:
-            # There's already a license pool for this identifier, and
-            # thus no need to do anything.
-            raise ValueError(
-                "%r has already been resolved. Not creating an UnresolvedIdentifier record for it." % identifier)
-
-        # There must be some way of 'resolving' the work to be done
-        # here: either a license source or a metadata lookup.
-        has_metadata_lookup = DataSource.metadata_sources_for(_db, identifier)
-
-        if not has_metadata_lookup:
-            datasources = DataSource.license_sources_for(_db, identifier)
-            if datasources.count() == 0:
-                # This is not okay--we have no way of resolving this identifier.
-                raise Identifier.UnresolvableIdentifierException()
-
-        return get_one_or_create(
-            _db, UnresolvedIdentifier, identifier=identifier,
-            create_method_kwargs=dict(status=202), on_multiple='interchangeable'
-        )
-
-    DEFAULT_RETRY_TIME = datetime.timedelta(days=1)
-
-    @classmethod
-    def ready_to_process(cls, _db, retry_after=None, randomize=True):
-        """Find all UnresolvedIdentifiers that are ready for processing.
-
-        This is all UnresolvedIdentifiers that have never raised an
-        exception, plus all UnresolvedIdentifiers that were attempted
-        more than `retry_after` ago.
-
-        :param retry_after: a `datetime.timedelta`.
-        """
-        now = datetime.datetime.utcnow()
-        retry_after = retry_after or cls.DEFAULT_RETRY_TIME
-        cutoff = now - retry_after
-        needs_processing = or_(
-            UnresolvedIdentifier.exception==None,
-            UnresolvedIdentifier.most_recent_attempt < cutoff
-        )
-        q = _db.query(UnresolvedIdentifier).join(
-            UnresolvedIdentifier.identifier).filter(needs_processing)
-        if randomize:
-            q = q.order_by(func.random())
-        return q
-
-    def set_attempt(self, time=None):
-        """Set most_recent_attempt (and possibly first_attempt) to the given
-        time.
-        """
-        time = time or datetime.datetime.utcnow()
-        self.most_recent_attempt = time
-        if not self.first_attempt:
-            self.first_attempt = time
 
 
 class Contributor(Base):
@@ -7299,7 +7252,7 @@ class Timestamp(Base):
         return message.encode("utf8")
 
     @classmethod
-    def value(self, _db, service, collection):
+    def value(cls, _db, service, collection):
         """Return the current value of the given Timestamp, if it exists.
         """
         stamp = get_one(_db, Timestamp, service=service, collection=collection)
@@ -7308,7 +7261,7 @@ class Timestamp(Base):
         return stamp.timestamp
     
     @classmethod
-    def stamp(self, _db, service, collection, date=None):
+    def stamp(cls, _db, service, collection, date=None):
         date = date or datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
@@ -9108,28 +9061,34 @@ class Admin(Base):
             self.credential = credential
         _db.commit()
 
-    class HashedPasswordComparator(Comparator):
-        def __init__(self, hashed_password):
-            self.hashed_password = hashed_password
-        def __eq__(self, password):
-            return self.hashed_password == func.crypt(password, self.hashed_password)
-
     @hybrid_property
     def password(self):
-        raise NotImplementedError("Password comparison is only supported in the database")
-
-    @password.comparator
-    def password(self):
-        return Admin.HashedPasswordComparator(self.password_hashed)
+        raise NotImplementedError("Password comparison is only with Admin.authenticate")
 
     @password.setter
     def password(self, value):
-        self.password_hashed = func.crypt(value, func.gen_salt('bf', 8))
+        self.password_hashed = unicode(bcrypt.hashpw(value, bcrypt.gensalt()))
+
+    def has_password(self, password):
+        return self.password_hashed == bcrypt.hashpw(password, self.password_hashed)
+
+    @classmethod
+    def authenticate(cls, _db, email, password):
+        """Finds an authenticated Admin by email and password
+
+        :return: Admin or None
+        """
+        match = get_one(_db, Admin, email=unicode(email))
+        if match and not match.has_password(password):
+            # Admin with this email was found, but password is invalid.
+            match = None
+        return match
 
     @classmethod
     def with_password(cls, _db):
         """Get Admins that have a password."""
         return _db.query(Admin).filter(Admin.password_hashed != None)
+
 
 class ExternalIntegration(Base):
 
