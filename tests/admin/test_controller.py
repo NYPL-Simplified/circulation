@@ -1558,6 +1558,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
                 ("external_account_id", "test.com"),
+                ("data_source", "test"),
                 ("libraries", json.dumps([{"short_name": "nosuchlibrary"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
