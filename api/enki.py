@@ -80,7 +80,7 @@ class EnkiAPI(object):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
-    # TODO: make sure this logger exists :-)
+    log.setLevel(logging.DEBUG)
 
     def __init__(self, _db, username=None, library_id=None, password=None,
                  base_url=None):
@@ -297,7 +297,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
         response = self.api.availability(title_ids=identifier_strings)
         seen_identifiers = set()
         batch_results = []
-        for metadata, availability in self.parser.process_all(response.content, "//enki:title"):
+        for metadata, availability in self.parser.process_all(response.content):
             identifier, is_new = metadata.primary_identifier.load(self._db)
             if not identifier in identifiers:
                 # Enki told us about a book we didn't ask
@@ -333,23 +333,16 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
 class BibliographicParser(object):
 
     """Helper function to parse JSON"""
-    def process_all(self, json_data, xpath, namespaces=None, handler=None, parser=None):
+    def process_all(self, json_data):
         data = json.loads(json_data)
 	returned_titles = data["result"]["titles"]
 	titles = returned_titles
 	for book in returned_titles:
-	    data = self.process_one(book, namespaces)
+	    data = self.process_one(book)
             if data:
                 yield data
-
-    DELIVERY_DATA_FOR_AXIS_FORMAT = {
-        "Blio" : None,
-        "Acoustik" : None,
-        "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
-        "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
-    }
-
     log = logging.getLogger("Enki Bibliographic Parser")
+    log.setLevel(logging.DEBUG)
 
     @classmethod
     def parse_list(self, l):
@@ -364,56 +357,7 @@ class BibliographicParser(object):
         self.include_availability = include_availability
         self.include_bibliographic = include_bibliographic
 
-    def extract_availability(self, circulation_data, element, ns):
-	primary_identifier = IdentifierData(Identifier.ENKI_ID, element["id"])
-        if not circulation_data:
-            circulation_data = CirculationData(
-                data_source=DataSource.ENKI,
-                primary_identifier=primary_identifier,
-            )
-        # For now, assume there is a license available for each item.
-        circulation_data.licenses_owned=1
-        circulation_data.licenses_available=1
-        circulation_data.licenses_reserved=0
-        circulation_data.patrons_in_hold_queue=0
-
-        return circulation_data
-
-
-    # Axis authors with a special role have an abbreviation after their names,
-    # e.g. "San Ruby (FRW)"
-    role_abbreviation = re.compile("\(([A-Z][A-Z][A-Z])\)$")
-    generic_author = object()
-    role_abbreviation_to_role = dict(
-        INT=Contributor.INTRODUCTION_ROLE,
-        EDT=Contributor.EDITOR_ROLE,
-        PHT=Contributor.PHOTOGRAPHER_ROLE,
-        ILT=Contributor.ILLUSTRATOR_ROLE,
-        TRN=Contributor.TRANSLATOR_ROLE,
-        FRW=Contributor.FOREWORD_ROLE,
-        ADP=generic_author, # Author of adaptation
-        COR=generic_author, # Corporate author
-    )
-
-    @classmethod
-    def parse_contributor(cls, author, primary_author_found=False):
-        if primary_author_found:
-            default_author_role = Contributor.AUTHOR_ROLE
-        else:
-            default_author_role = Contributor.PRIMARY_AUTHOR_ROLE
-        role = default_author_role
-        match = cls.role_abbreviation.search(author)
-        if match:
-            role_type = match.groups()[0]
-            role = cls.role_abbreviation_to_role.get(
-                role_type, Contributor.UNKNOWN_ROLE)
-            if role is cls.generic_author:
-                role = default_author_role
-            author = author[:-5].strip()
-        return ContributorData(
-            sort_name=author, roles=role)
-
-    def extract_bibliographic(self, element, ns):
+    def extract_bibliographic(self, element):
         identifiers = []
         contributors = []
         identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
@@ -451,9 +395,9 @@ class BibliographicParser(object):
         return metadata
 
 
-    def process_one(self, element, ns):
+    def process_one(self, element):
         if self.include_bibliographic:
-            bibliographic = self.extract_bibliographic(element, ns)
+            bibliographic = self.extract_bibliographic(element)
         else:
             bibliographic = None
 
@@ -461,12 +405,7 @@ class BibliographicParser(object):
         if bibliographic and bibliographic.circulation:
             passed_availability = bibliographic.circulation
 
-        if self.include_availability:
-            availability = self.extract_availability(circulation_data=passed_availability, element=element, ns=ns)
-        else:
-            availability = None
-
-        return bibliographic, availability
+        return bibliographic, passed_availability
 
 class EnkiImport(Monitor):
     """Import Enki titles.
@@ -482,14 +421,6 @@ class EnkiImport(Monitor):
             default_start_time = self.VERY_LONG_AGO
         )
         self.batch_size = batch_size
-        metadata_wrangler_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-        )
-        if metadata_wrangler_url:
-            self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
-        else:
-            # This should only happen during a test.
-            self.metadata_wrangler = None
         self.api = api or EnkiAPI.from_environment(self._db)
         self.bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(self._db, enki_api=api)
@@ -505,8 +436,7 @@ class EnkiImport(Monitor):
 	    status_code = availability.status_code
             content = availability.content
             count = 0
-            for bibliographic, circulation in BibliographicParser().process_all(
-                    content, "//enki:title"):
+            for bibliographic, circulation in BibliographicParser().process_all(content):
                 self.process_book(bibliographic, circulation)
                 count += 1
                 if count % self.batch_size == 0:
@@ -554,8 +484,6 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
         self.data_source = DataSource.lookup(self._db, DataSource.ENKI)
 
     def run(self):
-        self.api = EnkiAPI.from_environment(self._db)
-        self.data_source = DataSource.lookup(self._db, DataSource.ENKI)
         super(EnkiCollectionReaper, self).run()
 
     def identifier_query(self):
@@ -615,7 +543,3 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
             pool.patrons_in_hold_queue = 0
             pool.last_checked = now
 
-class ResponseParser(BibliographicParser):
-    id_type = Identifier.ENKI_ID
-
-    SERVICE_NAME = "Enki"
