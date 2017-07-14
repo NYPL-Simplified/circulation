@@ -1558,6 +1558,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
                 ("external_account_id", "test.com"),
+                ("data_source", "test"),
                 ("libraries", json.dumps([{"short_name": "nosuchlibrary"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -2310,7 +2311,7 @@ class TestSettingsController(AdminControllerTest):
             auth_service2.setting(MilleniumPatronAPI.VERIFY_CERTIFICATE).value)
         eq_(MilleniumPatronAPI.PIN_AUTHENTICATION_MODE,
             auth_service2.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value)
-        eq_(None, auth_service2.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value)
+        eq_(None, auth_service2.setting(MilleniumPatronAPI.BLOCK_TYPES).value)
         eq_([], auth_service2.libraries)
 
     def test_patron_auth_services_post_edit(self):

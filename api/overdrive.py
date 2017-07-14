@@ -49,6 +49,7 @@ from core.analytics import Analytics
 class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.OVERDRIVE
+    DESCRIPTION = _("Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium's Overdrive collection as the parent.")
     SETTINGS = [
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
