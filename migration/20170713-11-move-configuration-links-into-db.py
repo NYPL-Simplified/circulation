@@ -29,7 +29,7 @@ for rel, value in (
         ("license", Configuration.get('links', {}).get('license', None)),
 ):
     if value:
-        ConfigurationSetting.for_library(_db, rel, library).value = value
+        ConfigurationSetting.for_library(rel, library).value = value
 
 _db.commit()
 _db.close()

@@ -86,7 +86,7 @@ class TestViewController(AdminControllerTest):
     def test_setting_up(self):
         # Test that the view is in setting-up mode if there's no auth service
         # and no admin with a password.
-        self.admin.password = None
+        self.admin.password_hashed = None
 
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
@@ -128,7 +128,7 @@ class TestViewController(AdminControllerTest):
             eq_(200, response.status_code)
 
     def test_csrf_token(self):
-        self.admin.password = None
+        self.admin.password_hashed = None
         with self.app.test_request_context('/admin'):
             response = self.manager.admin_view_controller(None, None)
             eq_(200, response.status_code)
@@ -1950,8 +1950,9 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         # The admin was created.
-        admin_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="pass").all()
-        eq_(1, len(admin_matches))
+        admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
+        assert admin_match
+        assert admin_match.has_password("pass")
 
     def test_individual_admins_post_edit(self):
         # An admin exists.
@@ -1969,11 +1970,11 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 200)
 
         # The password was changed.
-        old_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="password").all()
-        eq_(0, len(old_password_matches))
+        old_password_match = Admin.authenticate(self._db, "admin@nypl.org", "password")
+        eq_(None, old_password_match)
 
-        new_password_matches = self._db.query(Admin).filter(Admin.email=="admin@nypl.org").filter(Admin.password=="new password").all()
-        eq_([admin], new_password_matches)
+        new_password_match = Admin.authenticate(self._db, "admin@nypl.org", "new password")
+        eq_(admin, new_password_match)
 
     def test_patron_auth_services_get_with_no_services(self):
         with self.app.test_request_context("/"):

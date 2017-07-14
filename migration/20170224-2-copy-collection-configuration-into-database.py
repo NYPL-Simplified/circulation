@@ -50,10 +50,10 @@ def convert_overdrive(_db, library):
         name="Overdrive"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
-    collection.set_setting("website_id", website_id)
+    collection.external_integration.set_setting("website_id", website_id)
 
 def convert_bibliotheca(_db, library):
     config = Configuration.integration('3M')
@@ -70,8 +70,8 @@ def convert_bibliotheca(_db, library):
         name="Bibliotheca"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
 
 def convert_axis(_db, library):
@@ -92,10 +92,10 @@ def convert_axis(_db, library):
         name="Axis 360"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
-    collection.url = url
+    collection.external_integration.url = url
 
 def convert_one_click(_db, library):
     config = Configuration.integration('OneClick')
@@ -114,11 +114,11 @@ def convert_one_click(_db, library):
         name="OneClick"
     )
     library.collections.append(collection)
-    collection.password = basic_token
+    collection.external_integration.password = basic_token
     collection.external_account_id = library_id
-    collection.url = url
-    collection.set_setting("ebook_loan_length", ebook_loan_length)
-    collection.set_setting("eaudio_loan_length", eaudio_loan_length)
+    collection.external_integration.url = url
+    collection.external_integration.set_setting("ebook_loan_length", ebook_loan_length)
+    collection.external_integration.set_setting("eaudio_loan_length", eaudio_loan_length)
     
 def convert_content_server(_db, library):
     config = Configuration.integration("Content Server")
@@ -132,7 +132,6 @@ def convert_content_server(_db, library):
         name="Open Access Content Server"
     )
     library.collections.append(collection)
-    collection.url = url
 
 # This is the point in the migration where we first create a Library
 # for this system.
@@ -144,6 +143,7 @@ library = get_one_or_create(
         uuid=unicode(uuid.uuid4())
     )
 )
+
 copy_library_registry_information(_db, library)
 convert_overdrive(_db, library)
 convert_bibliotheca(_db, library)
