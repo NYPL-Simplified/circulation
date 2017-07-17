@@ -13,11 +13,11 @@ from core.external_search import ExternalSearchIndex
 
 C.load()
 config_index = C.integration(C.ELASTICSEARCH_INTEGRATION).get(C.ELASTICSEARCH_INDEX_KEY)
+if not config_index:
+    print "No action taken. Elasticsearch not configured."
+    sys.exit()
 
 search = ExternalSearchIndex()
-if not search:
-    print "No action taken. Elasticsearch not configured."
-
 update_required_text = (
     "\n\tConfiguration update required for given alias \"%s\".\n"
     "\t============================================\n"
