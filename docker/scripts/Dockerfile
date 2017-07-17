@@ -1,6 +1,8 @@
 FROM nypl/circ-base
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
+ENV TZ=US/Eastern
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cron \
     && rm -rf /var/lib/apt/lists/*

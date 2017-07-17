@@ -30,9 +30,7 @@ RUN /bin/bash -c 'git config submodule.core.url \
         https://github.com/NYPL-Simplified/server_core.git \
         && git submodule update --init --recursive'
 
-# Copy a bit o' code that you might want if you want to deploy via git push.
-COPY post-receive.sample .git/hooks
-# add the logrotate.conf file.
+# Add the logrotate.conf file.
 COPY logrotate.conf /etc/
 COPY default_logrotate /etc/logrotate.d/
 
