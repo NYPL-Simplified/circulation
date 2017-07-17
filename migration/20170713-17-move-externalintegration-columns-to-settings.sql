@@ -37,3 +37,10 @@ UPDATE collections c
 SET external_integration_id = e.id
 FROM externalintegrations e
 WHERE e.protocol = 'OPDS Import' and c.external_integration_id is null;
+
+ALTER TABLE collections DROP COLUMN protocol;
+
+INSERT INTO configurationsettings (external_integration_id, key, value)
+SELECT eis.external_integration_id, eis.key, eis.value
+FROM externalintegrationsettings eis
+WHERE eis.value is not null;
