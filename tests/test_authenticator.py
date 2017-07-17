@@ -943,6 +943,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             CirculationManagerAnnotator.ABOUT: "http://about",
             CirculationManagerAnnotator.LICENSE: "http://license/",
             CirculationManagerAnnotator.REGISTER: "custom-registration-hook://library/",
+            Configuration.LOGO: "image data",
         }
 
         for rel, value in link_config.iteritems():
@@ -1002,6 +1003,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://copyright", links['copyright']['href'])
             eq_("http://about", links['about']['href'])
             eq_("http://license/", links['license']['href'])
+            eq_("image data", links['logo']['href'])
 
             # Most of the links have type='text/html'
             eq_("text/html", links['about']['type'])
@@ -1011,6 +1013,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             register = links['register']
             eq_({'href': 'custom-registration-hook://library/'},
                 links['register'])
+
+            # The logo link has type "image/png".
+            eq_("image/png", links["logo"]["type"])
 
             # We have three help links.
             uri, web, email = sorted(links['help'], key=lambda x: x['href'])

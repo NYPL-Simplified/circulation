@@ -16,6 +16,8 @@ from flask import (
 )
 from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
+from PIL import Image
+from StringIO import StringIO
 
 from core.model import (
     create,
@@ -39,6 +41,7 @@ from core.model import (
     Loan,
     Patron,
     PresentationCalculationPolicy,
+    Representation,
     Subject,
     Work,
     WorkGenre,
@@ -1056,12 +1059,26 @@ class SettingsController(CirculationManagerController):
             elif setting.get("type") == "image":
                 image_file = flask.request.files.get(setting.get("key"))
                 if not image_file and not setting.get("optional"):
+                    self._db.rollback()
                     return INCOMPLETE_CONFIGURATION.detailed(_(
-                            "The library is missing a required setting: %s." % setting.get("key")))
+                        "The library is missing a required setting: %s." % setting.get("key")))
                 if image_file:
+                    allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
                     type = image_file.headers.get("Content-Type")
-                    b64 = base64.b64encode(image_file.read())
-                    value = "data:%s;base64,%s" % (type, b64)
+                    if type not in allowed_types:
+                        self._db.rollback()
+                        return INVALID_CONFIGURATION_OPTION.detailed(_(
+                            "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
+                            setting=setting.get("label"),
+                            format=type))
+                    image = Image.open(image_file)
+                    width, height = image.size
+                    if width > 135 or height > 135:
+                        image.thumbnail((135, 135), Image.ANTIALIAS)
+                    buffer = StringIO()
+                    image.save(buffer, format="PNG")
+                    b64 = base64.b64encode(buffer.getvalue())
+                    value = "data:image/png;base64,%s" % b64
             else:
                 value = flask.request.form.get(setting['key'], None)
             ConfigurationSetting.for_library(setting['key'], library).value = value
