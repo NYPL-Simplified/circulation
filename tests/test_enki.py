@@ -10,7 +10,6 @@ from api.threem import (
     CirculationParser,
     EventParser,
     ErrorParser,
-    #EnkiEventMonitor,
 )
 from core.model import (
     CirculationEvent,
@@ -55,10 +54,10 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         self.api = MockEnkiAPI(self._db)
 
     def test_create_identifier_strings(self):
-        identifier = self._identifier()
+        identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
         values = EnkiAPI.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
-        eq_([identifier.type], dict)
+        eq_([identifier.type], [Identifier.ENKI_ID])
 
 
 class TestBibliographicCoverageProvider(TestEnkiAPI):
@@ -91,7 +90,7 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         # This book has no LicensePool.
         eq_(None, identifier.licensed_through)
 
-        # Run it through the ThreeMBibliographicCoverageProvider
+        # Run it through the EnkiBibliographicCoverageProvider
         provider = EnkiBibliographicCoverageProvider(
             self._db, enki_api=self.api
         )
