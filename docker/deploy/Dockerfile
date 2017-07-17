@@ -1,6 +1,4 @@
 FROM nypl/circ-base
-ENV LIBSIMPLE_DB_INIT ""
-
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,10 +16,6 @@ WORKDIR /var/www/circulation/api/admin
 RUN npm install
 WORKDIR ../..
 
-# Copy over script to initialize database
-COPY libsimple_init /usr/local/bin
-RUN chmod +x /usr/local/bin/libsimple_init
-
 # Set up supervisor to run the app
 COPY libsimple_uwsgi.conf /etc/supervisor/conf.d/
 
@@ -30,4 +24,4 @@ COPY libsimple_uwsgi.conf /etc/supervisor/conf.d/
 VOLUME /var/log
 
 EXPOSE 80
-CMD ["-c", "libsimple_init && supervisord"]
+CMD ["-c", "manage_simplified_database && supervisord"]

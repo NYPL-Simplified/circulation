@@ -1,0 +1,17 @@
+#!/bin/bash
+
+WORKDIR=/var/www/circulation
+BINDIR=${WORKDIR}/bin
+CORE_BINDIR=${WORKDIR}/core/bin
+
+if [[ -d /etc/circulation ]]; then\
+    if ! [[ ${SIMPLIFIED_DB_TASK} == "ignore" ]]; then\
+        source ${WORKDIR}/env/bin/activate;\
+        if [[ ${SIMPLIFIED_DB_TASK} == "init" ]] && [[ -f ${BINDIR}/util/initialize_instance ]]; then\
+            ${BINDIR}/util/initialize_instance;\
+        elif [[ ${SIMPLIFIED_DB_TASK} == "migrate" ]] && [[ -f ${CORE_BINDIR}/migrate_database ]]; then\
+            ${CORE_BINDIR}/migrate_database;\
+        else echo "Unknown database task '${SIMPLIFIED_DB_TASK}' requested" && exit 127;
+        fi;\
+    fi;\
+fi;\

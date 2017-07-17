@@ -3,6 +3,8 @@ MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
 
+ENV SIMPLIFIED_DB_TASK "ignore"
+
 # Development libraries we'll need on top of python:2.7
 RUN apt-get update && apt-get install -y --no-install-recommends \
         less nano \
@@ -51,6 +53,10 @@ RUN chmod 666 /var/log/
 RUN rm /etc/supervisor/supervisord.conf
 COPY supervisord.conf /etc/supervisor/
 COPY cron.conf /etc/supervisor/conf.d
+
+# Copy over script to initialize database
+COPY manage_simplified_database /usr/local/bin
+RUN chmod +x /usr/local/bin/manage_simplified_database
 
 # Pass the mounted configuration file into the environment.
 RUN virtualenv env && \
