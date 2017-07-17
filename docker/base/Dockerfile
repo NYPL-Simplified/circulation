@@ -2,6 +2,7 @@ FROM python:2.7
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
+ARG repo="NYPL-Simplified/circulation"
 
 ENV SIMPLIFIED_DB_TASK "ignore"
 
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Pull down the LS circulation manager and core submodule.
 WORKDIR /var/www
-RUN git clone https://github.com/NYPL-Simplified/circulation.git
+RUN git clone https://github.com/${repo}.git
 WORKDIR circulation
 
 # Build the requested version of the codebase.
