@@ -129,6 +129,7 @@ class Configuration(CoreConfiguration):
             "label": _("Logo image"),
             "type": "image",
             "optional": True,
+            "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
         },
         {
             "key": MAX_OUTSTANDING_FINES,
