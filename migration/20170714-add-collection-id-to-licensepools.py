@@ -44,16 +44,17 @@ try:
     threem_qu = base_query.filter(LicensePool.data_source_id.in_(old_sources))
 
     # Associate these LicensePools with the Bibliotheca Collection.
-    bibliotheca_collection = collections_by_data_source[bibliotheca]
-    result = threem_qu.update(
-        {LicensePool.collection_id : bibliotheca_collection.id},
-        synchronize_session='fetch'
-    )
+    bibliotheca_collection = collections_by_data_source.get(bibliotheca)
+    if bibliotheca_collection:
+        result = threem_qu.update(
+            {LicensePool.collection_id : bibliotheca_collection.id},
+            synchronize_session='fetch'
+        )
 
-    # If something changed, log it.
-    threem_count = fast_query_count(threem_qu)
-    if threem_count:
-        log_change(threem_count, bibliotheca_collection)
+        # If something changed, log it.
+        threem_count = fast_query_count(threem_qu)
+        if threem_count:
+            log_change(threem_count, bibliotheca_collection)
 
     remaining = fast_query_count(base_query)
     if remaining > 0:
