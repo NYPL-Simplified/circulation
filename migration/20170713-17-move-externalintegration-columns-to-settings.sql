@@ -38,7 +38,7 @@ SET external_integration_id = e.id
 FROM externalintegrations e
 WHERE e.protocol = 'OPDS Import' and c.external_integration_id is null;
 
-ALTER TABLE collections DROP COLUMN protocol;
+ALTER TABLE collections DROP COLUMN IF EXISTS protocol;
 
 INSERT INTO configurationsettings (external_integration_id, key, value)
 SELECT eis.external_integration_id, eis.key, eis.value
