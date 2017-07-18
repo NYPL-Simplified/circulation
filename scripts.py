@@ -768,6 +768,9 @@ class InstanceInitializationScript(Script):
             return
         db_init_script.run()
 
+        # Create a secret key if one doesn't already exist.
+        ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
+
 
 class UpdateSearchIndexScript(RunMonitorScript):
 

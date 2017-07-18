@@ -195,12 +195,24 @@ class TestInstanceInitializationScript(DatabaseTest):
         timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
         eq_(None, timestamp)
 
+        secret_keys = self._db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.key==Configuration.SECRET_KEY)
+
+        eq_(0, secret_keys.count())
+
         script = InstanceInitializationScript(_db=self._db)
         script.do_run(ignore_search=True)
 
         # It initializes the database.
         timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
         assert timestamp
+
+        # It creates a secret key.
+        eq_(1, secret_keys.count())
+        eq_(
+            secret_keys.one().value,
+            ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
+        )
 
 
 class TestLoanReaperScript(DatabaseTest):
