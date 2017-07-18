@@ -1345,6 +1345,7 @@ class TestSettingsController(AdminControllerTest):
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
+        image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1359,7 +1360,7 @@ class TestSettingsController(AdminControllerTest):
                  ''),
             ])
             flask.request.files = MultiDict([
-                (Configuration.LOGO, TestFileUpload("image data")),
+                (Configuration.LOGO, TestFileUpload(image_data)),
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.status_code, 201)
@@ -1377,7 +1378,7 @@ class TestSettingsController(AdminControllerTest):
             ConfigurationSetting.for_library(
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
-        eq_("data:image/png;base64,%s" % base64.b64encode("image data"),
+        eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
 
     def test_libraries_post_edit(self):

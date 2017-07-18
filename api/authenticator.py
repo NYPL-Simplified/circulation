@@ -684,6 +684,12 @@ class LibraryAuthenticator(object):
             Configuration.WEBSITE_URL, library).value
         if library_uri:
             links['alternate'] = dict(type="text/html", href=library_uri)
+
+        # Add the library's logo, if it has one.
+        logo = ConfigurationSetting.for_library(
+            Configuration.LOGO, library).value
+        if logo:
+            links["logo"] = dict(type="image/png", href=logo)
                 
         library_name = self.library_name or unicode(_("Library"))
         doc = OPDSAuthenticationDocument.fill_in(
@@ -695,8 +701,8 @@ class LibraryAuthenticator(object):
         description = ConfigurationSetting.for_library(
             Configuration.COLOR_SCHEME, library).value
         if description:
-            doc['color_scheme'] = description        
-        
+            doc['color_scheme'] = description
+
         # Add the description of the library as the OPDS feed's
         # service_description.
         description = ConfigurationSetting.for_library(
