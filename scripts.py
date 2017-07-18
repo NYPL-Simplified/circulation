@@ -1794,6 +1794,14 @@ class DatabaseMigrationScript(Script):
         """
         previous = None
 
+        def raise_error(migration_path, message, code=1):
+            print
+            print "ERROR: %s" % message
+            print "%s must be migrated manually." % migration_path
+            print "=" * 50
+            print traceback.print_exc(file=sys.stdout)
+            sys.exit(code)
+
         migrations = self.sort_migrations(migrations)
         for migration_file in migrations:
             for d in self.directories_by_priority:
@@ -1803,13 +1811,21 @@ class DatabaseMigrationScript(Script):
                         self._run_migration(full_migration_path, timestamp)
                         self._db.commit()
                         previous = migration_file
+                    except SystemExit as se:
+                        if se.code:
+                            raise_error(
+                                full_migration_path,
+                                "Migration raised error code '%d'" % se.code,
+                                code=se.code
+                            )
+
+                        # Sometimes a migration isn't relevant and it
+                        # runs sys.exit() to carry on with things.
+                        # This shouldn't end the migration script, though.
+                        self.update_timestamp(timestamp, migration_file)
+                        continue
                     except Exception:
-                        print
-                        print "ERROR: Migration has been halted."
-                        print "%s must be migrated manually." % full_migration_path
-                        print "=" * 50
-                        print traceback.print_exc(file=sys.stdout)
-                        sys.exit(1)
+                        raise_error(full_migration_path, "Migration has been halted.")
         else:
             print "All new migrations have been run."
 
