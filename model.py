@@ -9136,6 +9136,10 @@ class ExternalIntegration(Base):
     # Adobe Vendor ID, which manage access to DRM-dependent content.
     DRM_GOAL = u'drm'
 
+    # These integrations are associated with external services that
+    # help patrons find libraries.
+    DISCOVERY_GOAL = u'discovery'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9185,6 +9189,9 @@ class ExternalIntegration(Base):
     # Integrations with DRM_GOAL
     ADOBE_VENDOR_ID = u'Adobe Vendor ID'
     SHORT_CLIENT_TOKEN = u'Short Client Token'
+
+    # Integrations with DISCOVERY_GOAL
+    OPDS_REGISTRATION = u'OPDS Registration'
 
     # Integrations with ANALYTICS_GOAL
     GOOGLE_ANALYTICS = u'Google Analytics'
