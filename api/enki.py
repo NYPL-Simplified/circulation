@@ -380,8 +380,9 @@ class BibliographicParser(object):
         #subjects=subjects,
         contributors=contributors,
         )
-        #TODO: This should parse the content type and look it up in the Enki Delivery Data above. Currently,
-        # we assume everything is an ePub that uses Adobe DRM, which is a safe assumption only for now.
+        licenses_owned=element["availability"]["totalCopies"]
+        licenses_available=element["availability"]["availableCopies"]
+        hold=element["availability"]["onHold"]
         formats = []
         formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
 
@@ -389,6 +390,9 @@ class BibliographicParser(object):
             data_source=DataSource.ENKI,
             primary_identifier=primary_identifier,
             formats=formats,
+            licenses_owned = int(licenses_owned),
+            licenses_available = int(licenses_available),
+            patrons_in_hold_queue = int(hold)
         )
 
         metadata.circulation = circulationdata
@@ -405,7 +409,11 @@ class BibliographicParser(object):
         if bibliographic and bibliographic.circulation:
             passed_availability = bibliographic.circulation
 
-        return bibliographic, passed_availability
+        availability = None
+        if self.include_availability:
+            availability = bibliographic.circulation
+
+        return bibliographic, availability
 
 class EnkiImport(Monitor):
     """Import Enki titles.

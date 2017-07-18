@@ -102,7 +102,7 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         # store the information about what formats the book is
         # available in.
         pool = identifier.licensed_through
-        eq_(1, pool.licenses_owned)
+        eq_(999, pool.licenses_owned)
         # A Work was created and made presentation ready.
         eq_("1984", pool.work.title)
         eq_(True, pool.work.presentation_ready)
