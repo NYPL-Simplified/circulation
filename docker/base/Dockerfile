@@ -57,9 +57,8 @@ COPY cron.conf /etc/supervisor/conf.d
 COPY manage_simplified_database /usr/local/bin
 RUN chmod +x /usr/local/bin/manage_simplified_database
 
-# Pass the mounted configuration file into the environment.
-RUN virtualenv env && \
-    echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/etc/circulation/config.json\"" >> env/bin/activate
+# Generate a virtual environment for the app.
+RUN virtualenv env
 
 # Install required python libraries.
 RUN /bin/bash -c 'source env/bin/activate && \
