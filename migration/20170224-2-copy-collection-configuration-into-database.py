@@ -13,6 +13,7 @@ from api.config import Configuration
 from core.model import (
     get_one_or_create,
     production_session,
+    DataSource,
     Library,
     Collection,
 )
@@ -133,6 +134,7 @@ def convert_content_server(_db, library):
         protocol=Collection.OPDS_IMPORT,
         name="Open Access Content Server"
     )
+    collection.external_integration.setting("data_source").value = DataSource.OA_CONTENT_SERVER
     library.collections.append(collection)
     collection.external_account_id = url
     
