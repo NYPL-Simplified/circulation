@@ -104,8 +104,8 @@ def convert_clever(_db, integration, provider):
         integration.setting(OAuthAuthenticationProvider.TOKEN_EXPIRATION_DAYS
         ).value = expiration_days
     
-configuration = Configuration.load()
-if not configuration:
+Configuration.load()
+if not Configuration.instance:
     # No need to import configuration if there isn't any.
     sys.exit()
 
