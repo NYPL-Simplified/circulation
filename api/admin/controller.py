@@ -1120,6 +1120,53 @@ class SettingsController(CirculationManagerController):
             protocols.append(protocol)
         return protocols
 
+    def _get_integration_info(self, goal, protocols):
+        services = []
+        for service in self._db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==goal):
+
+            [protocol] = [p for p in protocols if p.get("name") == service.protocol]
+            libraries = []
+            if not protocol.get("sitewide"):
+                for library in service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    for setting in protocol.get("library_settings", []):
+                        key = setting.get("key")
+                        if setting.get("type") == "list":
+                            value = ConfigurationSetting.for_library_and_externalintegration(
+                                self._db, key, library, service
+                            ).json_value
+                        else:
+                            value = ConfigurationSetting.for_library_and_externalintegration(
+                                self._db, key, library, service
+                            ).value
+                        if value:
+                            library_info[key] = value
+                    libraries.append(library_info)
+
+            settings = dict()
+            for setting in protocol.get("settings", []):
+                key = setting.get("key")
+                if setting.get("type") == "list":
+                    value = ConfigurationSetting.for_externalintegration(
+                        key, service).json_value
+                else:
+                    value = ConfigurationSetting.for_externalintegration(
+                        key, service).value
+                settings[key] = value
+
+            services.append(
+                dict(
+                    id=service.id,
+                    name=service.name,
+                    protocol=service.protocol,
+                    settings=settings,
+                    libraries=libraries,
+                )
+            )
+
+        return services
+
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
@@ -1208,7 +1255,11 @@ class SettingsController(CirculationManagerController):
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
-                            collection["settings"][key] = c.external_integration.setting(key).value
+                            if setting.get("type") == "list":
+                                value = c.external_integration.setting(key).json_value
+                            else:
+                                value = c.external_integration.setting(key).value
+                            collection["settings"][key] = value
                 collections.append(collection)
 
             return dict(
@@ -1312,22 +1363,7 @@ class SettingsController(CirculationManagerController):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
         if flask.request.method == 'GET':
-            auth_services = []
-            auth_service = ExternalIntegration.admin_authentication(self._db)
-            if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
-                auth_services = [
-                    dict(
-                        id=auth_service.id,
-                        name=auth_service.name,
-                        protocol=auth_service.protocol,
-                        settings=dict(
-                            url=auth_service.url,
-                            username=auth_service.username,
-                            password=auth_service.password,
-                            domains=json.loads(auth_service.setting(GoogleOAuthAdminAuthenticationProvider.DOMAINS).value),
-                        ),
-                    )
-                ]
+            auth_services = self._get_integration_info(ExternalIntegration.ADMIN_AUTH_GOAL, protocols)
             return dict(
                 admin_auth_services=auth_services,
                 protocols=protocols,
@@ -1417,37 +1453,9 @@ class SettingsController(CirculationManagerController):
                                ]
 
         if flask.request.method == 'GET':
-            auth_services = []
-            for auth_service in self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL):
-
-                [protocol] = [p for p in protocols if p.get("name") == auth_service.protocol]
-                libraries = []
-                for library in auth_service.libraries:
-                    library_info = dict(short_name=library.short_name)
-                    for setting in protocol.get("library_settings"):
-                        key = setting.get("key")
-                        value = ConfigurationSetting.for_library_and_externalintegration(
-                            self._db, key, library, auth_service
-                        ).value
-                        if value:
-                            library_info[key] = value
-                    libraries.append(library_info)
-
-                settings = { setting.key: setting.value for setting in auth_service.settings if setting.library_id == None}
-
-                auth_services.append(
-                    dict(
-                        id=auth_service.id,
-                        name=auth_service.name,
-                        protocol=auth_service.protocol,
-                        settings=settings,
-                        libraries=libraries,
-                    )
-                )
-
+            services = self._get_integration_info(ExternalIntegration.PATRON_AUTH_GOAL, protocols)
             return dict(
-                patron_auth_services=auth_services,
+                patron_auth_services=services,
                 protocols=protocols,
             )
 
@@ -1549,17 +1557,7 @@ class SettingsController(CirculationManagerController):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="PROTOCOL")
 
         if flask.request.method == 'GET':
-            metadata_services = [
-                dict(
-                    id=integration.id,
-                    name=integration.name,
-                    protocol=integration.protocol,
-                    settings={ setting.key: setting.value for setting in integration.settings },
-                    libraries=[{ "short_name": l.short_name } for l in integration.libraries],
-                ) for integration in self._db.query(ExternalIntegration).filter(
-                    ExternalIntegration.goal==ExternalIntegration.METADATA_GOAL)
-            ]
-
+            metadata_services = self._get_integration_info(ExternalIntegration.METADATA_GOAL, protocols)
             return dict(
                 metadata_services=metadata_services,
                 protocols=protocols,
@@ -1613,35 +1611,7 @@ class SettingsController(CirculationManagerController):
         protocols = self._get_integration_protocols(provider_apis)
 
         if flask.request.method == 'GET':
-            services = []
-            for service in self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.ANALYTICS_GOAL):
-
-                [protocol] = [p for p in protocols if p.get("name") == service.protocol]
-                libraries = []
-                for library in service.libraries:
-                    library_info = dict(short_name=library.short_name)
-                    for setting in protocol.get("library_settings", []):
-                        key = setting.get("key")
-                        value = ConfigurationSetting.for_library_and_externalintegration(
-                            self._db, key, library, service
-                        ).value
-                        if value:
-                            library_info[key] = value
-                    libraries.append(library_info)
-
-                settings = { setting.key: setting.value for setting in service.settings if setting.library_id == None}
-
-                services.append(
-                    dict(
-                        id=service.id,
-                        name=service.name,
-                        protocol=service.protocol,
-                        settings=settings,
-                        libraries=libraries,
-                    )
-                )
-
+            services = self._get_integration_info(ExternalIntegration.ANALYTICS_GOAL, protocols)
             return dict(
                 analytics_services=services,
                 protocols=protocols,
@@ -1694,36 +1664,7 @@ class SettingsController(CirculationManagerController):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
         if flask.request.method == 'GET':
-            services = []
-            for service in self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.DRM_GOAL):
-
-                if service.protocol in [p.get("name") for p in protocols]:
-                    [protocol] = [p for p in protocols if p.get("name") == service.protocol]
-                    libraries = []
-                    for library in service.libraries:
-                        library_info = dict(short_name=library.short_name)
-                        for setting in protocol.get("library_settings", []):
-                            key = setting.get("key")
-                            value = ConfigurationSetting.for_library_and_externalintegration(
-                                self._db, key, library, service
-                            ).value
-                            if value:
-                                library_info[key] = value
-                        libraries.append(library_info)
-
-                    settings = { setting.key: setting.value for setting in service.settings if setting.library_id == None}
-
-                    services.append(
-                        dict(
-                            id=service.id,
-                            name=service.name,
-                            protocol=service.protocol,
-                            settings=settings,
-                            libraries=libraries,
-                        )
-                    )
-
+            services = self._get_integration_info(ExternalIntegration.DRM_GOAL, protocols)
             return dict(
                 drm_services=services,
                 protocols=protocols,
@@ -1792,15 +1733,7 @@ class SettingsController(CirculationManagerController):
         ]
 
         if flask.request.method == 'GET':
-            services = [
-                dict(
-                    id=service.id,
-                    name=service.name,
-                    protocol=service.protocol,
-                    settings={ setting.key: setting.value for setting in service.settings },
-                ) for service in self._db.query(ExternalIntegration).filter(
-                    ExternalIntegration.goal==ExternalIntegration.CDN_GOAL)
-            ]
+            services = self._get_integration_info(ExternalIntegration.CDN_GOAL, protocols)
             return dict(
                 cdn_services=services,
                 protocols=protocols,
@@ -1854,15 +1787,7 @@ class SettingsController(CirculationManagerController):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
         if flask.request.method == 'GET':
-            services = [
-                dict(
-                    id=service.id,
-                    name=service.name,
-                    protocol=service.protocol,
-                    settings={ setting.key: setting.value for setting in service.settings },
-                ) for service in self._db.query(ExternalIntegration).filter(
-                    ExternalIntegration.goal==ExternalIntegration.SEARCH_GOAL)
-            ]
+            services = self._get_integration_info(ExternalIntegration.SEARCH_GOAL, protocols)
             return dict(
                 search_services=services,
                 protocols=protocols,
