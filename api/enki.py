@@ -438,18 +438,21 @@ class EnkiImport(Monitor):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
-        x=0
-        while x < 80000:
-            availability = self.api.availability(since=since, strt=x, qty=self.batch_size)
-	    status_code = availability.status_code
+        id_start = 0
+        while True:
+            if availability.status_code != 200:
+                self.log.error(
+                "Could not contact Enki server for content availability. Status: %d",
+                availability.status_code
+            )
             content = availability.content
             count = 0
             for bibliographic, circulation in BibliographicParser().process_all(content):
                 self.process_book(bibliographic, circulation)
                 count += 1
-                if count % self.batch_size == 0:
+                if count == 0:
                     self._db.commit()
-            x += self.batch_size
+            id_start += self.batch_size
 
     def process_book(self, bibliographic, availability):
 
