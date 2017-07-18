@@ -3243,4 +3243,111 @@ class TestSettingsController(AdminControllerTest):
         eq_("new search url", search_service.url)
         eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
 
+    def test_discovery_services_get_with_no_services_creates_default(self):
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.discovery_services()
+            [service] = response.get("discovery_services")
+            protocols = response.get("protocols")
+            assert ExternalIntegration.OPDS_REGISTRATION in [p.get("name") for p in protocols]
+            assert "settings" in protocols[0]
+            eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
+            eq_("https://registry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
+        
+    def test_discovery_services_get_with_one_service(self):
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        discovery_service.url = self._str
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.discovery_services()
+            [service] = response.get("discovery_services")
+
+            eq_(discovery_service.id, service.get("id"))
+            eq_(discovery_service.protocol, service.get("protocol"))
+            eq_(discovery_service.url, service.get("settings").get(ExternalIntegration.URL))
+
+    def test_discovery_services_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", "Unknown"),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "123"),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response, MISSING_SERVICE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+            name="name",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", service.name),
+                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
+
+        service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
+                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+    def test_discovery_services_post_create(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
+                (ExternalIntegration.URL, "registry url"),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response.status_code, 201)
+
+        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DISCOVERY_GOAL)
+        eq_(ExternalIntegration.OPDS_REGISTRATION, service.protocol)
+        eq_("registry url", service.url)
+
+    def test_discovery_services_post_edit(self):
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        discovery_service.url = "registry url"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", discovery_service.id),
+                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
+                (ExternalIntegration.URL, "new registry url"),
+            ])
+            response = self.manager.admin_settings_controller.discovery_services()
+            eq_(response.status_code, 200)
+
+        eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
+        eq_("new registry url", discovery_service.url)
 
