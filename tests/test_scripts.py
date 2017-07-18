@@ -195,10 +195,11 @@ class TestInstanceInitializationScript(DatabaseTest):
         timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
         eq_(None, timestamp)
 
+        # Remove all secret keys, should they exist, before running the
+        # script.
         secret_keys = self._db.query(ConfigurationSetting).filter(
             ConfigurationSetting.key==Configuration.SECRET_KEY)
-
-        eq_(0, secret_keys.count())
+        [self._db.delete(secret_key) for secret_key in secret_keys]
 
         script = InstanceInitializationScript(_db=self._db)
         script.do_run(ignore_search=True)
