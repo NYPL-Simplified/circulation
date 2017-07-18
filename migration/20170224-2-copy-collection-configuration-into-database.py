@@ -13,6 +13,7 @@ from api.config import Configuration
 from core.model import (
     get_one_or_create,
     production_session,
+    DataSource,
     Library,
     Collection,
 )
@@ -28,6 +29,7 @@ def copy_library_registry_information(_db, library):
     config = Configuration.integration("Adobe Vendor ID")
     if not config:
         print u"No Adobe Vendor ID configuration, not setting short name or secret."
+        return
     library.short_name = config.get("library_short_name")
     library.library_registry_short_name = config.get("library_short_name")
     library.library_registry_shared_secret = config.get("authdata_secret")
@@ -132,6 +134,7 @@ def convert_content_server(_db, library):
         protocol=Collection.OPDS_IMPORT,
         name="Open Access Content Server"
     )
+    collection.external_integration.setting("data_source").value = DataSource.OA_CONTENT_SERVER
     library.collections.append(collection)
     collection.external_account_id = url
     
