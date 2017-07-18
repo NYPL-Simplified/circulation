@@ -440,18 +440,20 @@ class EnkiImport(Monitor):
         since = start-self.FIVE_MINUTES
         id_start = 0
         while True:
+            availability = self.api.availability(since=since, strt=id_start, qty=self.batch_size)
             if availability.status_code != 200:
                 self.log.error(
-                "Could not contact Enki server for content availability. Status: %d",
-                availability.status_code
-            )
+                    "Could not contact Enki server for content availability. Status: %d",
+                    availability.status_code
+                )
             content = availability.content
             count = 0
             for bibliographic, circulation in BibliographicParser().process_all(content):
                 self.process_book(bibliographic, circulation)
                 count += 1
-                if count == 0:
-                    self._db.commit()
+            if count == 0:
+                break
+            self._db.commit()
             id_start += self.batch_size
 
     def process_book(self, bibliographic, availability):
