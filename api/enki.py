@@ -318,7 +318,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
                     self._db, Identifier.ENKI_ID, identifier_string
                 )
                 result = CoverageFailure(
-                    identifier, "Book not found in Enki", data_source=self.output_source, transient=False
+                    identifier, "Book not found in Enki", data_source=self.output_source, transient=True
                 )
                 batch_results.append(result)
         return batch_results
