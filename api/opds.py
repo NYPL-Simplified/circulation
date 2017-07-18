@@ -407,7 +407,7 @@ class CirculationManagerAnnotator(Annotator):
     def add_series_link(self, work, feed, entry):
         series_tag = OPDSFeed.schema_('Series')
         series_entry = entry.find(series_tag)
-        if not series_entry:
+        if series_entry is None:
             # There is no <series> tag, and thus nothing to annotate.
             # This probably indicates an out-of-date OPDS entry.
             if isinstance(work, Work):
