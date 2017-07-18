@@ -28,14 +28,16 @@ try:
     Configuration.load()
     integrations = []
 
-    # If the secret key is set, make it a sitewide setting.
+    # Get or create a secret key and make it a sitewide setting.
     secret_key = Configuration.get('secret_key')
-    if secret_key:
-        secret_setting = ConfigurationSetting.sitewide(
-            _db, Configuration.SECRET_KEY
-        )
-        secret_setting.value = secret_key
-    
+    if not secret_key:
+        secret_key = os.urandom(24).encode('hex')
+
+    secret_setting = ConfigurationSetting.sitewide(
+        _db, Configuration.SECRET_KEY
+    )
+    secret_setting.value = secret_key
+
     libraries = _db.query(Library).all()
     
     # Copy default email address into each library.
