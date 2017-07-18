@@ -335,7 +335,7 @@ class BibliographicParser(object):
     """Helper function to parse JSON"""
     def process_all(self, json_data):
         data = json.loads(json_data)
-	returned_titles = data["result"]["titles"]
+        returned_titles = data["result"]["titles"]
 	titles = returned_titles
 	for book in returned_titles:
 	    data = self.process_one(book)
@@ -364,7 +364,7 @@ class BibliographicParser(object):
         sort_name = element["author"]
         if not sort_name:
             sort_name = "Unknown"
- 	contributors.append(ContributorData(sort_name=sort_name))
+        contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(Identifier.ENKI_ID, element["id"])
 	metadata = Metadata(
         data_source=DataSource.ENKI,
@@ -404,10 +404,6 @@ class BibliographicParser(object):
             bibliographic = self.extract_bibliographic(element)
         else:
             bibliographic = None
-
-        passed_availability = None
-        if bibliographic and bibliographic.circulation:
-            passed_availability = bibliographic.circulation
 
         availability = None
         if self.include_availability:
