@@ -75,9 +75,11 @@ class CirculationManagerAnnotator(Annotator):
                  test_mode=False,
                  top_level_title="All Books"
     ):
-        self.log = logging.getLogger(
-            "Circulation Manager Annotator for %s" % lane.name
-        )
+        if lane:
+            logger_name = "Circulation Manager Annotator for %s" % lane.name
+        else:
+            logger_name = "Circulation Manager Annotator"
+        self.log = logging.getLogger(logger_name)
         self.circulation = circulation
         self.lane = lane
         self.library = library
