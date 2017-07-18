@@ -29,6 +29,7 @@ def copy_library_registry_information(_db, library):
     config = Configuration.integration("Adobe Vendor ID")
     if not config:
         print u"No Adobe Vendor ID configuration, not setting short name or secret."
+        return
     library.short_name = config.get("library_short_name")
     library.library_registry_short_name = config.get("library_short_name")
     library.library_registry_shared_secret = config.get("authdata_secret")
@@ -38,6 +39,7 @@ def convert_overdrive(_db, library):
     config = Configuration.integration('Overdrive')
     if not config:
         print u"No Overdrive configuration, not creating a Collection for it."
+        return
     print u"Creating Collection object for Overdrive collection."
     username = config.get('client_key')
     password = config.get('client_secret')
@@ -101,6 +103,7 @@ def convert_one_click(_db, library):
     config = Configuration.integration('OneClick')
     if not config:
         print u"No OneClick configuration, not creating a Collection for it."
+        return
     print u"Creating Collection object for OneClick collection."
     basic_token = config.get('basic_token')
     library_id = config.get('library_id')
