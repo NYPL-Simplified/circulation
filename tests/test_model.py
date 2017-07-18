@@ -5391,6 +5391,7 @@ class TestCollection(DatabaseTest):
         """
         library = Library.instance(self._db)
         library.name = "The only library"
+        library.short_name = "only one"
         library.collections.append(self.collection)
         
         self.collection.external_account_id = "id"
@@ -5402,7 +5403,7 @@ class TestCollection(DatabaseTest):
         data = self.collection.explain()
         eq_(['Name: "test collection"',
              'Protocol: "Overdrive"',
-             'Used by library: "The only library"',
+             'Used by library: "only one"',
              'External account ID: "id"',
              'URL: "url"',
              'Username: "username"',

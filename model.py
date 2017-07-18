@@ -8464,7 +8464,9 @@ class Library(Base):
         """Find the one and only library."""
         library, is_new = get_one_or_create(
             _db, Library, create_method_kwargs=dict(
-                uuid=str(uuid.uuid4())
+                uuid=str(uuid.uuid4()),
+                name=u'Default Library',
+                short_name=u'default',
             )
         )
         return library
