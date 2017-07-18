@@ -412,7 +412,7 @@ class CirculationManagerAnnotator(Annotator):
             # This probably indicates an out-of-date OPDS entry.
             if isinstance(work, Work):
                 work_id = work.id
-                title = work.title
+                work_title = work.title
             else:
                 work_id = work.works_id
                 work_title = work.sort_title
