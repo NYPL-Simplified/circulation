@@ -80,15 +80,14 @@ try:
         for k, v in default.items():
             library.default_facet_setting(k).value = v
             
-    # Copy external type regular expression into each collection for each
-    # library.
+    # Copy external type regular expression into each authentication
+    # mechanism for each library.
     key = 'external_type_regular_expression'
     value = Configuration.policy(key)
     if value:
         for library in libraries:
-            for collection in library.collections:
-                integration = collection.external_integration
-                if not integration:
+            for integration in library.integrations:
+                if integration.goal != ExternalIntegration.PATRON_AUTH_GOAL:
                     continue
                 ConfigurationSetting.for_library_and_externalintegration(
                     _db, key, library, integration).value = value
