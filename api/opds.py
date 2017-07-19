@@ -1,5 +1,6 @@
 import urllib
 import copy
+import logging
 from nose.tools import set_trace
 from flask import url_for
 from lxml import etree
@@ -52,6 +53,11 @@ class CirculationManagerAnnotator(Annotator):
                  test_mode=False,
                  top_level_title="All Books"
     ):
+        if lane:
+            logger_name = "Circulation Manager Annotator for %s" % lane.name
+        else:
+            logger_name = "Circulation Manager Annotator"
+        self.log = logging.getLogger(logger_name)
         self.circulation = circulation
         self.lane = lane
         self.patron = patron
@@ -371,6 +377,21 @@ class CirculationManagerAnnotator(Annotator):
         series_tag = OPDSFeed.schema_('Series')
         series_entry = entry.find(series_tag)
 
+        if series_entry is None:
+            # There is no <series> tag, and thus nothing to annotate.
+            # This probably indicates an out-of-date OPDS entry.
+            if isinstance(work, Work):
+                work_id = work.id
+                work_title = work.title
+            else:
+                work_id = work.works_id
+                work_title = work.sort_title
+            self.log.error(
+                'add_series_link() called on work %s ("%s"), which has no <schema:Series> tag in its OPDS entry.',
+                work_id, work_title
+            )
+            return
+        
         series_name = work.series
         languages, audiences = self.language_and_audience_key_from_work(work)
         feed.add_link_to_entry(
