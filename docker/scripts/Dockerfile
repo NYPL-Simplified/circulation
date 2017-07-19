@@ -14,7 +14,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 RUN touch /var/log/cron.log
 COPY libsimple_crontab /etc/cron.d/circulation
 
-WORKDIR bin
+WORKDIR ./bin
 
 # Mount the logs so they can be found even if the
 # container crashes.
