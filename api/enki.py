@@ -218,8 +218,23 @@ class EnkiAPI(object):
         args['lib'] = self.lib
         response = self.request(url, method='get', params=args)
         if not(response.content.startswith("{\"result\":{\"id\":\"")):
-            response = None
-        return response
+            pool = identifier.licensed_through
+            if pool & (pool.licenses_owned > 0):
+                if pool.presentation_edition:
+                    self.log.warn("Removing %s (%s) from circulation",
+                                  pool.presentation_edition.title, pool.presentation_edition.author)
+                else:
+                    self.log.warn(
+                        "Removing unknown work %s from circulation.",
+                        identifier.identifier
+                    )
+            pool.licenses_owned = 0
+            pool.licenses_available = 0
+            pool.licenses_reserved = 0
+            pool.patrons_in_hold_queue = 0
+            pool.last_checked = now
+        else:
+            self.log.debug ("Keeping existing book: " + str(identifier))
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, *args, **kwargs):
@@ -500,55 +515,6 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
             Identifier.type==Identifier.ENKI_ID)
 
     def process_batch(self, identifiers):
-        enki_ids = set()
         for identifier in identifiers:
-            enki_ids.add(identifier.identifier)
-
-        identifiers_not_mentioned_by_enki= set(identifiers)
-        now = datetime.datetime.utcnow()
-
-        for identifier in identifiers:
-            result = self.api.reaper_request(identifier.identifier)
-            if not result:
-                continue
-            enki_id = result
-            identifiers_not_mentioned_by_enki.remove(identifier)
-
-            pool = identifier.licensed_through
-            if not pool:
-                # We don't have a license pool for this work. That
-                # shouldn't happen--how did we know about the
-                # identifier?--but it shouldn't be a big deal to
-                # create one.
-                pool, ignore = LicensePool.for_foreign_id(
-                    self._db, self.data_source, identifier.type,
-                    identifier.identifier)
-
-                # Enki books are never open-access.
-                pool.open_access = False
-                Analytics.collect_event(
-                    self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
-
-        # At this point there may be some license pools left over
-        # that Enki doesn't know about.  This is a pretty reliable
-        # indication that we no longer own any licenses to the
-        # book.
-        for identifier in identifiers_not_mentioned_by_enki:
-            pool = identifier.licensed_through
-            if not pool:
-                continue
-            if pool.licenses_owned > 0:
-                if pool.presentation_edition:
-                    self.log.warn("Removing %s (%s) from circulation",
-                                  pool.presentation_edition.title, pool.presentation_edition.author)
-                else:
-                    self.log.warn(
-                        "Removing unknown work %s from circulation.",
-                        identifier.identifier
-                    )
-            pool.licenses_owned = 0
-            pool.licenses_available = 0
-            pool.licenses_reserved = 0
-            pool.patrons_in_hold_queue = 0
-            pool.last_checked = now
+            self.api.reaper_request(identifier.identifier)
 
