@@ -1,0 +1,47 @@
+#!/bin/bash
+
+set -ev
+
+if ! [[ -z ${TRAVIS_TAG} ]] || [[ ${TRAVIS_BRANCH} == "run-docker-builds" ]]; then
+  # Create a container with test and production postgres databases.
+  docker pull postgres:9.5;
+  docker run -d --name pg postgres:9.5;
+
+  # Sleep to let PostgreSQL start up.
+  sleep 10;
+
+  # Create production and test databases.
+  docker exec -u postgres pg psql -c "create user simplified with password 'test';";
+  docker exec -u postgres pg psql -c "create database docker_prod;";
+  docker exec -u postgres pg psql -c "create database docker_test;";
+  docker exec -u postgres pg psql -c "grant all privileges on database docker_prod to simplified;";
+  docker exec -u postgres pg psql -c "grant all privileges on database docker_test to simplified;";
+
+  # Create a base and deployment container with this tag.
+  git clone "https://github.com/NYPL-Simplified/circulation-docker" && cd "circulation-docker";
+  docker build --build-arg version=${TRAVIS_BRANCH} -t nypl/circ-base base/;
+  docker build -t nypl/circ-deploy deploy/;
+  docker run -d -p 80:80 \
+    -e SIMPLIFIED_DB_TASK='init' \
+    -e SIMPLIFIED_TEST_DATABASE='postgres://simplified:test@172.17.0.2:5432/docker_test' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://simplified:test@172.17.0.2:5432/docker_prod' \
+    --name circ --rm nypl/circ-deploy;
+
+  # Run the tests in the container.
+  docker exec circ /bin/bash -c "source env/bin/activate && ./verbose-test && cd core && ./test";
+
+  # Create a library so the app will start.
+  docker exec -u postgres pg psql -U simplified -d docker_prod \
+      -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
+
+  # Check to make sure the deployed app is running.
+  healthcheck=$(curl --write-out "%{http_code}" --silent --output /dev/null http://localhost/healthcheck.html);
+  if ! [[ ${healthcheck} == '200' ]]; then exit 1; fi
+
+  feed_type=$(curl --write-out "%{content_type}" --silent --output /dev/null http://localhost/groups);
+  if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then\
+    exit 1;
+  fi
+fi
+
+exit 0;
