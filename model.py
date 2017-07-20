@@ -1350,13 +1350,13 @@ class Identifier(Base):
     equivalencies = relationship(
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.input_id"),
-        backref="input_identifiers",
+        backref="input_identifiers", cascade="all, delete, delete-orphan"
     )
 
     inbound_equivalencies = relationship(
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.output_id"),
-        backref="output_identifiers",
+        backref="output_identifiers", cascade="all, delete, delete-orphan"
     )
 
     # One Identifier may have many associated CoverageRecords.
