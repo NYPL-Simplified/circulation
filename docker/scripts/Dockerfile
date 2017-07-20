@@ -1,8 +1,7 @@
 FROM nypl/circ-base
-ENV TZ=US/Eastern
-ENV LIBSIMPLE_DB_INIT ""
-
 MAINTAINER Library Simplified <info@librarysimplified.org>
+
+ENV TZ=US/Eastern
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cron \
@@ -15,14 +14,10 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime
 RUN touch /var/log/cron.log
 COPY libsimple_crontab /etc/cron.d/circulation
 
-WORKDIR bin
-
-# Copy over script to initialize database
-COPY libsimple_init /usr/local/bin
-RUN chmod +x /usr/local/bin/libsimple_init
+WORKDIR ./bin
 
 # Mount the logs so they can be found even if the
 # container crashes.
 VOLUME /var/log
 
-CMD ["-c", "libsimple_init && supervisord"]
+CMD ["-c", "manage_simplified_database && supervisord"]

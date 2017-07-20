@@ -1,8 +1,0 @@
-#!/bin/bash
-
-WORKDIR=/var/www/circulation
-BINDIR=${WORKDIR}/bin
-
-if [ -d /etc/circulation ] && ! [ -z "$LIBSIMPLE_DB_INIT" ] && [ -f ${BINDIR}/util/initialize_instance ]; then\
-    source ${WORKDIR}/env/bin/activate && ${BINDIR}/util/initialize_instance;\
-fi;

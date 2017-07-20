@@ -2,6 +2,9 @@ FROM python:2.7
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
+ARG repo="NYPL-Simplified/circulation"
+
+ENV SIMPLIFIED_DB_TASK "ignore"
 
 # Development libraries we'll need on top of python:2.7
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Pull down the LS circulation manager and core submodule.
 WORKDIR /var/www
-RUN git clone https://github.com/NYPL-Simplified/circulation.git
+RUN git clone https://github.com/${repo}.git
 WORKDIR circulation
 
 # Build the requested version of the codebase.
@@ -27,9 +30,7 @@ RUN /bin/bash -c 'git config submodule.core.url \
         https://github.com/NYPL-Simplified/server_core.git \
         && git submodule update --init --recursive'
 
-# Copy a bit o' code that you might want if you want to deploy via git push.
-COPY post-receive.sample .git/hooks
-# add the logrotate.conf file.
+# Add the logrotate.conf file.
 COPY logrotate.conf /etc/
 COPY default_logrotate /etc/logrotate.d/
 
@@ -52,9 +53,12 @@ RUN rm /etc/supervisor/supervisord.conf
 COPY supervisord.conf /etc/supervisor/
 COPY cron.conf /etc/supervisor/conf.d
 
-# Pass the mounted configuration file into the environment.
-RUN virtualenv env && \
-    echo "export SIMPLIFIED_CONFIGURATION_FILE=\"/etc/circulation/config.json\"" >> env/bin/activate
+# Copy over script to initialize database
+COPY manage_simplified_database /usr/local/bin
+RUN chmod +x /usr/local/bin/manage_simplified_database
+
+# Generate a virtual environment for the app.
+RUN virtualenv env
 
 # Install required python libraries.
 RUN /bin/bash -c 'source env/bin/activate && \
