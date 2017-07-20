@@ -106,3 +106,39 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         # A Work was created and made presentation ready.
         eq_("1984", pool.work.title)
         eq_(True, pool.work.presentation_ready)
+
+class TestEnkiCollectionReaper(TestEnkiAPI):
+
+    def test_reaped_book_has_zero_licenses(self):
+        data = self.get_data("item_removed_from_enki.xml")
+
+        # Create a LicensePool that needs updating.
+        edition, pool = self._edition(
+            identifier_type=Identifier.ENKI_ID,
+            data_source_name=DataSource.ENKI,
+            with_license_pool=True
+        )
+
+        # This is a specific record ID that should never exist
+        nonexistent_id = "econtentRecord0"
+
+        # We have never checked the circulation information for this
+        # LicensePool. Put some random junk in the pool to verify
+        # that it gets changed.
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        pool.patrons_in_hold_queue = 3
+        pool.identifier.identifier = nonexistent_id
+        eq_(None, pool.last_checked)
+
+        # Modify the data so that it appears to be talking about the
+        # book we just created.
+
+        self.api.queue_response(200, content=data)
+
+        self.api.reaper_request(pool.identifier)
+
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)

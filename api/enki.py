@@ -210,6 +210,7 @@ class EnkiAPI(object):
 
     def reaper_request(self, identifier):
         self.log.debug ("Checking availability for " + str(identifier))
+        now = datetime.datetime.utcnow()
         url = str(self.base_url) + str(self.item_endpoint)
         args = dict()
         args['method'] = "getItem"
@@ -219,7 +220,7 @@ class EnkiAPI(object):
         response = self.request(url, method='get', params=args)
         if not(response.content.startswith("{\"result\":{\"id\":\"")):
             pool = identifier.licensed_through
-            if pool & (pool.licenses_owned > 0):
+            if pool and (pool.licenses_owned > 0):
                 if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
                                   pool.presentation_edition.title, pool.presentation_edition.author)
