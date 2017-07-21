@@ -32,19 +32,18 @@ from model import (
     Identifier,
     Patron,
 )
-from util.cdn import cdnify
+from cdn import cdnify
 from classifier import Classifier
-from config import Configuration
 from lane import (
     Facets,
     Pagination,
 )
 from problem_details import *
 
-cdns = Configuration.cdns()
+
 def cdn_url_for(*args, **kwargs):
     base_url = url_for(*args, **kwargs)
-    return cdnify(base_url, cdns)
+    return cdnify(base_url)
 
 def load_lending_policy(policy):
     if not policy:
@@ -91,10 +90,19 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request(config=Configuration):
-    """Figure out which Facets object this request is asking for."""
-    arg = flask.request.args.get
+def load_facets_from_request(facet_config=None):
+    """Figure out which Facets object this request is asking for.
 
+    The active request must have the `library` member set to a Library
+    object.
+
+    :param facet_config: An object to use instead of the request Library
+    when deciding which facets are enabled.
+    """
+    arg = flask.request.args.get
+    library = flask.request.library
+    config = facet_config or library
+    
     g = Facets.ORDER_FACET_GROUP_NAME
     order = arg(g, config.default_facet(g))
 
@@ -103,7 +111,8 @@ def load_facets_from_request(config=Configuration):
 
     g = Facets.COLLECTION_FACET_GROUP_NAME
     collection = arg(g, config.default_facet(g))
-    return load_facets(order, availability, collection, config)
+    return load_facets(library, order, availability, collection,
+                       facet_config=facet_config)
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     """Figure out which Pagination object this request is asking for."""
@@ -112,11 +121,10 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
-def load_facets(order, availability, collection, config=Configuration):
+def load_facets(library, order, availability, collection, facet_config=None):
     """Turn user input into a Facets object."""
-    order_facets = config.enabled_facets(
-        Facets.ORDER_FACET_GROUP_NAME
-    )
+    config = facet_config or library
+    order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
     if order and not order in order_facets:
         return INVALID_INPUT.detailed(
             _("I don't know how to order a feed by '%(order)s'", order=order),
@@ -136,7 +144,7 @@ def load_facets(order, availability, collection, config=Configuration):
     )
     if collection and not collection in collection_facets:
         return INVALID_INPUT.detailed(
-            _("I don't understand which collection '%(collection)s' refers to.", collection=collection),
+            _("I don't understand what '%(collection)s' refers to.", collection=collection),
             400
         )
     
@@ -147,8 +155,8 @@ def load_facets(order, availability, collection, config=Configuration):
     }
 
     return Facets(
-        collection=collection, availability=availability, order=order,
-        enabled_facets=enabled_facets
+        library=library, collection=collection, availability=availability,
+        order=order, enabled_facets=enabled_facets
     )
 
 def load_pagination(size, offset):
@@ -307,13 +315,12 @@ class URNLookupController(object):
             # Identifier that has no associated LicensePool.
             return self.add_message(urn, 404, self.UNRECOGNIZED_IDENTIFIER)
             
-        # If we get to this point, there is a LicensePool for this
-        # identifier.
-        work = identifier.licensed_through.work
+        # If we get to this point, there is at least one LicensePool
+        # for this identifier.
+        work = identifier.work
         if not work:
-            # There is a LicensePool but no Work. 
+            # There are LicensePools but no Work.
             return self.add_message(urn, 202, self.WORK_NOT_CREATED)
-            
         if not work.presentation_ready:
             # There is a work but it's not presentation ready.
             return self.add_message(urn, 202, self.WORK_NOT_PRESENTATION_READY)

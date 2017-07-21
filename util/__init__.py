@@ -6,7 +6,6 @@ from collections import (
     Counter,
     defaultdict,
 )
-import pkgutil
 import os
 import re
 import string

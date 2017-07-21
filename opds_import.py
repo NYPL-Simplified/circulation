@@ -10,16 +10,18 @@ import logging
 import traceback
 import urllib
 from urlparse import urlparse, urljoin
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
+from flask.ext.babel import lazy_gettext as _
 
 from lxml import builder, etree
 
-from monitor import Monitor
+from monitor import CollectionMonitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
 from config import (
-    Configuration,
     CannotLoadConfiguration,
+    Configuration,
 )
 from metadata_layer import (
     CirculationData,
@@ -33,9 +35,12 @@ from metadata_layer import (
 )
 from model import (
     get_one,
+    Collection,
     CoverageRecord,
     DataSource,
     Edition,
+    Equivalency,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     LicensePool,
@@ -44,12 +49,16 @@ from model import (
     RightsStatus,
 )
 from coverage import CoverageFailure
-from util.http import HTTP
+from util.http import (
+    BadResponseException,
+    HTTP,
+)
 from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
 from s3 import S3Uploader
+
 
 class AccessNotAuthenticated(Exception):
     """No authentication is configured for this service"""
@@ -60,65 +69,161 @@ class SimplifiedOPDSLookup(object):
     """Tiny integration class for the Simplified 'lookup' protocol."""
 
     LOOKUP_ENDPOINT = "lookup"
-    CANONICALIZE_ENDPOINT = "canonical-author-name"
-    UPDATES_ENDPOINT = "updates"
-    REMOVAL_ENDPOINT = "remove"
 
     @classmethod
-    def from_config(cls, integration='Metadata Wrangler'):
-        url = Configuration.integration_url(integration)
-        if not url:
+    def check_content_type(cls, response):
+        content_type = response.headers.get('content-type')
+        if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
+            raise BadResponseException.from_response(
+                response.url,
+                "Wrong media type: %s" % content_type,
+                response
+            )
+
+    @classmethod
+    def from_protocol(cls, _db, protocol,
+                      goal=ExternalIntegration.LICENSE_GOAL, library=None
+    ):
+        integration = ExternalIntegration.lookup(
+            _db, protocol, goal, library=library
+        )
+        if not integration or not integration.url:
             return None
-        return cls(url)
+        return cls(integration.url)
 
     def __init__(self, base_url):
         if not base_url.endswith('/'):
             base_url += "/"
         self.base_url = base_url
-        self._set_auth()
 
-    def _set_auth(self):
-        """Sets client authentication details for the Metadata Wrangler"""
+    @property
+    def lookup_endpoint(self):
+        return self.LOOKUP_ENDPOINT
 
-        metadata_wrangler_url = Configuration.integration_url(
-            Configuration.METADATA_WRANGLER_INTEGRATION
+    def _get(self, url, **kwargs):
+        """Make an HTTP request. This method is overridden in the mock class."""
+        kwargs['timeout'] = kwargs.get('timeout', 120)
+        kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
+        kwargs['allowed_response_codes'] += ['2xx', '3xx']
+        return HTTP.get_with_timeout(url, **kwargs)
+
+    def urn_args(self, identifiers):
+        return "&".join(set("urn=%s" % i.urn for i in identifiers))
+
+    def lookup(self, identifiers):
+        """Retrieve an OPDS feed with metadata for the given identifiers."""
+        args = self.urn_args(identifiers)
+        url = self.base_url + self.lookup_endpoint + "?" + args
+        logging.info("Lookup URL: %s", url)
+        return self._get(url)
+
+
+class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
+
+    PROTOCOL = ExternalIntegration.METADATA_WRANGLER
+    NAME = _("Library Simplified Metadata Wrangler")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ]
+
+    SITEWIDE = True
+
+    ADD_ENDPOINT = 'add'
+    REMOVE_ENDPOINT = 'remove'
+    UPDATES_ENDPOINT = 'updates'
+    CANONICALIZE_ENDPOINT = 'canonical-author-name'
+
+    @classmethod
+    def from_config(cls, _db, collection=None):
+        integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.METADATA_WRANGLER,
+            ExternalIntegration.METADATA_GOAL
         )
-        self.client_id = self.client_secret = None
-        if (metadata_wrangler_url
-            and self.base_url.startswith(metadata_wrangler_url)):
-            values = Configuration.integration(Configuration.METADATA_WRANGLER_INTEGRATION)
-            self.client_id = values.get(Configuration.METADATA_WRANGLER_CLIENT_ID)
-            self.client_secret = values.get(Configuration.METADATA_WRANGLER_CLIENT_SECRET)
 
-            details = [self.client_id, self.client_secret]
-            if len([d for d in details if not d]) == 1:
-                # Raise an error if one is set, but not the other.
-                raise CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+        if not integration:
+            raise CannotLoadConfiguration(
+                "No ExternalIntegration found for the Metadata Wrangler.")
+
+        if not integration.url:
+            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+
+        return cls(
+            integration.url, username=integration.username,
+            password=integration.password, collection=collection
+        )
+
+    def __init__(self, url, username=None, password=None, collection=None):
+        if ((username or password) and not (username and password)):
+            # We have one portion fo the authentiction details, but not both.
+            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
+
+        super(MetadataWranglerOPDSLookup, self).__init__(url)
+        self.client_id = username
+        self.client_secret = password
+        self.collection = collection
 
     @property
     def authenticated(self):
         return bool(self.client_id and self.client_secret)
 
+    @property
+    def lookup_endpoint(self):
+        if not (self.authenticated and self.collection):
+            return self.LOOKUP_ENDPOINT
+        return self.collection.metadata_identifier + '/' + self.LOOKUP_ENDPOINT
+
     def _get(self, url, **kwargs):
-        """Make an HTTP request. This method is overridden in the mock class."""
-        return HTTP.get_with_timeout(url, **kwargs)
-
-    def opds_get(self, url):
-        """Make the sort of HTTP request that's normal for an OPDS feed.
-
-        Long timeout, raise error on anything but 2xx or 3xx.
-        """
-        kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
-        if self.client_id and self.client_secret:
+        if self.authenticated:
             kwargs['auth'] = (self.client_id, self.client_secret)
-        return self._get(url, **kwargs)
+        return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
-    def lookup(self, identifiers):
-        """Retrieve an OPDS feed with metadata for the given identifiers."""
-        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
-        url = self.base_url + self.LOOKUP_ENDPOINT + "?" + args
-        logging.info("Lookup URL: %s", url)
-        return self.opds_get(url)
+    def _post(self, url, **kwargs):
+        """Make an HTTP request. This method is overridden in the mock class."""
+        kwargs['timeout'] = kwargs.get('timeout', 120)
+        kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
+        kwargs['allowed_response_codes'] += ['2xx', '3xx']
+        return HTTP.post_with_timeout(url, "", **kwargs)
+
+    def get_collection_url(self, endpoint):
+        if not self.authenticated:
+            raise AccessNotAuthenticated("Metadata Wrangler access not authenticated.")
+        if not self.collection:
+            raise ValueError("No Collection provided.")
+
+        return self.base_url + self.collection.metadata_identifier + '/' + endpoint
+
+    def add(self, identifiers):
+        """Add items to an authenticated Metadata Wrangler Collection"""
+        add_url = self.get_collection_url(self.ADD_ENDPOINT)
+        url = add_url + "?" + self.urn_args(identifiers)
+
+        logging.info("Metadata Wrangler Collection Addition URL: %s", url)
+        return self._post(url)
+
+    def remove(self, identifiers):
+        """Remove items from an authenticated Metadata Wrangler Collection"""
+        remove_url = self.get_collection_url(self.REMOVE_ENDPOINT)
+        url = remove_url + "?" + self.urn_args(identifiers)
+
+        logging.info("Metadata Wrangler Collection Removal URL: %s", url)
+        return self._post(url)
+
+    def updates(self, last_update_time):
+        """Retrieve updated items from an authenticated Metadata
+        Wrangler Collection
+
+        :param last_update_time: DateTime representing the last time
+            an update was fetched. May be None.
+        """
+        url = self.get_collection_url(self.UPDATES_ENDPOINT)
+        if last_update_time:
+            formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+            url += ('last_update_time=' + formatted_time)
+        logging.info("Metadata Wrangler Collection Updates URL: %s", url)
+        return self._get(url)
 
     def canonicalize_author_name(self, identifier, working_display_name):
         """Attempt to find the canonical name for the author of a book.
@@ -130,23 +235,12 @@ class SimplifiedOPDSLookup(object):
         that goes into library records).
         """
         args = "display_name=%s" % (
-            urllib.quote(
-                working_display_name.encode("utf8"))
+            urllib.quote(working_display_name.encode("utf8"))
         )
         if identifier:
             args += "&urn=%s" % urllib.quote(identifier.urn)
         url = self.base_url + self.CANONICALIZE_ENDPOINT + "?" + args
         logging.info("GET %s", url)
-        return self._get(url, timeout=120)
-
-    def remove(self, identifiers):
-        """Remove items from an authenticated Metadata Wrangler collection"""
-
-        if not self.authenticated:
-            raise AccessNotAuthenticated("Metadata Wrangler Collection not authenticated.")
-        args = "&".join(set(["urn=%s" % i.urn for i in identifiers]))
-        url = self.base_url + self.REMOVAL_ENDPOINT + "?" + args
-        logging.info("Metadata Wrangler Removal URL: %s", url)
         return self._get(url)
 
 
@@ -163,6 +257,16 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
         )
 
     def _get(self, url, *args, **kwargs):
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes')
+        )
+
+
+class MockMetadataWranglerOPDSLookup(MockSimplifiedOPDSLookup, MetadataWranglerOPDSLookup):
+
+    def _post(self, url, *args, **kwargs):
         response = self.responses.pop()
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
@@ -191,46 +295,88 @@ class OPDSImporter(object):
     Should be used when a circulation server asks for data from 
     our internal content server, and also when our content server asks for data 
     from external content servers. 
-
-    :param mirror: Use this MirrorUploader object to mirror all
-    incoming open-access books and cover images.
     """
 
     COULD_NOT_CREATE_LICENSE_POOL = (
         "No existing license pool for this identifier and no way of creating one.")
-   
-    def __init__(self, _db, data_source_name=DataSource.METADATA_WRANGLER,
-                 identifier_mapping=None, mirror=None, http_get=None,
-                 metadata_client=None, data_source_offers_licenses=False,
-                 content_modifier=None,
-    ):
-        """
-        :param data_source_name: Name of the source of this OPDS feed.
-        If there is no DataSource with this name, one will be created.
 
-        :param data_source_offers_licenses: Set to True if you actually
-        expect to get books (as opposed to information about books)
-        from this OPDS feed. This value is only used when it's necessary
-        to create a new DataSource.
+    NAME = ExternalIntegration.OPDS_IMPORT
+    DESCRIPTION = _("Import books from a publicly-accessible OPDS feed.")
+    SETTINGS = [
+        {
+            "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
+            "label": _("URL"),
+        },
+        {
+            "key": Collection.DATA_SOURCE_NAME_SETTING,
+            "label": _("Data source name"),
+        }
+    ]
+
+    def __init__(self, _db, collection, data_source_name=None,
+                 identifier_mapping=None, mirror=None, http_get=None,
+                 metadata_client=None, content_modifier=None,
+                 map_from_collection=None,
+    ):
+        """:param collection: LicensePools created by this OPDS import
+        will be associated with the given Collection. If this is None,
+        no LicensePools will be created -- only Editions.
+
+        :param data_source_name: Name of the source of this OPDS feed.
+        All Editions created by this import will be associated with
+        this DataSource. If there is no DataSource with this name, one
+        will be created. NOTE: If `collection` is provided, its
+        .data_source will take precedence over any value provided
+        here. This is only for use when you are importing OPDS
+        metadata without any particular Collection in mind.
+
+        :param mirror: Use this MirrorUploader object to mirror all
+        incoming open-access books and cover images.
+
+        :param http_get: Use this method to make an HTTP GET request. This
+        can be replaced with a stub method for testing purposes.
+
+        :param metadata_client: A SimplifiedOPDSLookup object that is used
+        to fill in missing metadata.
+
+        :param content_modifier: A function that may modify-in-place
+        representations (such as images and EPUB documents) as they
+        come in from the network.
+
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
+        self.collection = collection
+        if self.collection and not data_source_name:
+            # Use the Collection data_source for OPDS import.
+            data_source = self.collection.data_source
+            if data_source:
+                data_source_name = data_source.name
+            else:
+                raise ValueError(
+                    "Cannot perform an OPDS import on a Collection that has no associated DataSource!"
+                )
+        else:
+            # Use the given data_source or default to the Metadata
+            # Wrangler.
+            data_source_name = data_source_name or DataSource.METADATA_WRANGLER
         self.data_source_name = data_source_name
-        self.data_source_offers_licenses = data_source_offers_licenses
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = metadata_client or SimplifiedOPDSLookup.from_config()
+        self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
+        self.map_from_collection = map_from_collection
 
     @property
     def data_source(self):
         """Look up or create a DataSource object representing the
         source of this OPDS feed.
         """
+        offers_licenses = (self.collection is not None)
         return DataSource.lookup(
             self._db, self.data_source_name, autocreate=True,
-            offers_licenses=self.data_source_offers_licenses
+            offers_licenses = offers_licenses
         )
         
     def import_from_feed(self, feed, even_if_no_author=False, 
@@ -294,7 +440,6 @@ class OPDSImporter(object):
 
         return imported_editions.values(), pools.values(), works.values(), failures
 
-
     def import_edition_from_metadata(
             self, metadata, even_if_no_author, immediately_presentation_ready
     ):
@@ -317,7 +462,8 @@ class OPDSImporter(object):
             http_get=self.http_get,
         )
         metadata.apply(
-            edition, self.metadata_client, replace=policy
+            edition=edition, collection=self.collection,
+            metadata_client=self.metadata_client, replace=policy
         )
 
         return edition
@@ -325,10 +471,16 @@ class OPDSImporter(object):
     def update_work_for_edition(self, edition, even_if_no_author=False, immediately_presentation_ready=False):
         work = None
 
-        # Find a pool for this edition. If we have CirculationData, a pool was created
-        # when we imported the edition. If there was already a pool from a different data
-        # source, that's fine too.
-        pool = get_one(self._db, LicensePool, identifier=edition.primary_identifier)
+        # Find a pool for this edition's primary identifier. Any
+        # LicensePool will do--the collection doesn't have to match,
+        # since all LicensePools for a given identifier have the same
+        # Work. If we have CirculationData, a pool was created when we
+        # imported the edition. If there was already a pool from a
+        # different data source or a different collection, that's fine
+        # too.
+        pool = get_one(
+            self._db, LicensePool, identifier=edition.primary_identifier
+        )
 
         if pool:
             # Note: pool.calculate_work will call self.set_presentation_edition(), 
@@ -366,20 +518,46 @@ class OPDSImporter(object):
             for entry in parsed_feed['entries']
         ]
 
+    def build_identifier_mapping(self, external_urns):
+        """Uses the given Collection and a list of URNs to reverse
+        engineer an identifier mapping.
+        """
+        if self.identifier_mapping or not self.collection:
+            return
+
+        mapping = dict()
+        external_identifiers = [Identifier.parse_urn(self._db, urn)[0]
+                                for urn in external_urns]
+
+        internal_identifier = aliased(Identifier)
+        qu = self._db.query(Identifier, internal_identifier)\
+            .join(Identifier.inbound_equivalencies)\
+            .join(internal_identifier, Equivalency.input)\
+            .join(internal_identifier.licensed_through)\
+            .filter(
+                Identifier.id.in_([x.id for x in external_identifiers]),
+                LicensePool.collection==self.collection
+            )
+
+        for external_identifier, internal_identifier in qu:
+            mapping[external_identifier] = internal_identifier
+
+        self.identifier_mapping = mapping
 
     def extract_feed_data(self, feed, feed_url=None):
         """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
         with associated messages and next_links.
         """
-        # This is one of these cases where we want to create a
-        # DataSource if it doesn't already exist. This way you don't have
-        # to predefine a DataSource for every source of OPDS feeds.
         data_source = self.data_source
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
             feed, data_source=data_source, feed_url=feed_url
         )
+
+        if self.map_from_collection:
+            # Build the identifier_mapping based on the Collection.
+            self.build_identifier_mapping(fp_metadata.keys() + fp_failures.keys())
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
@@ -419,13 +597,23 @@ class OPDSImporter(object):
                 combined_meta['data_source'] = self.data_source_name
             
             combined_meta['primary_identifier'] = identifier_obj
-
+            
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
-            # form the CirculationData that would correspond to this Metadata
-            c_circulation_dict = m_data_dict.get('circulation')
-            xml_circulation_dict = xml_data_dict.get('circulation', {})
-            c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
+            # Form the CirculationData that would correspond to this Metadata,
+            # assuming there is a Collection to hold the LicensePool that
+            # would result.
+            c_data_dict = None 
+            if self.collection:
+                c_circulation_dict = m_data_dict.get('circulation')
+                xml_circulation_dict = xml_data_dict.get('circulation', {})
+                c_data_dict = self.combine(c_circulation_dict, xml_circulation_dict)
+
+            # Unless there's something useful in c_data_dict, we're
+            # not going to put anything under metadata.circulation,
+            # and any partial data that got added to
+            # metadata.circulation is going to be removed.
+            metadata[internal_identifier.urn].circulation = None
             if c_data_dict:
                 circ_links_dict = {}
                 # extract just the links to pass to CirculationData constructor
@@ -448,7 +636,7 @@ class OPDSImporter(object):
                     #
                     # TODO: This will need to be revisited when we add
                     # ODL support.
-                    metadata[internal_identifier.urn].circulation = None
+                    pass
         return metadata, identified_failures
 
     @classmethod
@@ -506,7 +694,6 @@ class OPDSImporter(object):
                 # That's bad. Can't make an item-specific error message, but write to 
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
-
         return values, failures
 
 
@@ -693,18 +880,16 @@ class OPDSImporter(object):
             # refers to when was updated in opds feed, not our db
             data_source_last_updated=last_opds_update,
         )
-            
-        # Only add circulation data if both the book's distributor *and*
-        # the source of the OPDS feed are lendable data sources.
-        if (circulation_data_source and circulation_data_source.offers_licenses
-            and metadata_data_source.offers_licenses):
-            kwargs_circ = dict(
-                data_source=circulation_data_source.name,
-                links=list(links),
-                default_rights_uri=rights_uri,
-            )
-                
-            kwargs_meta['circulation'] = kwargs_circ
+
+        # Although we always provide the CirculationData, it will only
+        # be used if the OPDSImporter has a Collection to hold the
+        # LicensePool that will result from importing it.
+        kwargs_circ = dict(
+            data_source=circulation_data_source.name,
+            links=list(links),
+            default_rights_uri=rights_uri,
+        )
+        kwargs_meta['circulation'] = kwargs_circ
         return kwargs_meta
 
     @classmethod
@@ -1108,24 +1293,46 @@ class OPDSImporter(object):
             return None
 
 
-class OPDSImportMonitor(Monitor):
+class OPDSImportMonitor(CollectionMonitor):
 
-    """Periodically monitor an OPDS archive feed and import every edition
-    it mentions.
+    """Periodically monitor a Collection's OPDS archive feed and import
+    every title it mentions.
     """
+    SERVICE_NAME = "OPDS Import Monitor"
     
-    def __init__(self, _db, feed_url, default_data_source, import_class, 
-                 interval_seconds=0, keep_timestamp=False,
-                 immediately_presentation_ready=False, force_reimport=False):
+    # This Monitor will do its work every time it's invoked.
+    INTERVAL_SECONDS = 0
 
-        self.feed_url = feed_url
-        self.importer = import_class(_db, default_data_source)
+    # The first time this Monitor is invoked we want to get the
+    # entire OPDS feed.
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
+
+    def __init__(self, _db, collection, import_class,
+                 force_reimport=False, **import_class_kwargs):
+        if not collection:
+            raise ValueError(
+                "OPDSImportMonitor can only be run in the context of a Collection."
+            )
+        
+        if collection.protocol != ExternalIntegration.OPDS_IMPORT:
+            raise ValueError(
+                "Collection %s is configured for protocol %s, not OPDS import." % (
+                    collection.name, collection.protocol
+                )
+            )
+
+        data_source = collection.data_source
+        if not data_source:
+            raise ValueError(
+                "Collection %s has no associated data source." % collection.name
+            )
+
+        self.feed_url = collection.external_account_id
         self.force_reimport = force_reimport
-        self.immediately_presentation_ready = immediately_presentation_ready
-        super(OPDSImportMonitor, self).__init__(
-            _db, "OPDS Import %s" % feed_url, interval_seconds,
-            keep_timestamp=keep_timestamp, default_start_time=Monitor.NEVER
+        self.importer = import_class(
+            _db, collection=collection, **import_class_kwargs
         )
+        super(OPDSImportMonitor, self).__init__(_db, collection)
     
     def _get(self, url, headers):
         """Make the sort of HTTP request that's normal for an OPDS feed.
@@ -1145,86 +1352,109 @@ class OPDSImportMonitor(Monitor):
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
-    def check_for_new_data(self, feed):
-        """Check if the feed contains any entries that haven't been imported
-        yet. If force_import is set, every entry in the feed is
-        treated as new.
+    def feed_contains_new_data(self, feed):
+        """Does the given feed contain any entries that haven't been imported
+        yet?
         """
-
-        # If force_reimport is set, we don't even need to check. Always
-        # treat the feed as though it contained new data.
         if self.force_reimport:
+            # We don't even need to check. Always treat the feed as
+            # though it contained new data.
             return True
 
+        # For every item in the last page of the feed, check when that
+        # item was last updated.
         last_update_dates = self.importer.extract_last_update_dates(feed)
 
         new_data = False
         for identifier, remote_updated in last_update_dates:
 
             identifier, ignore = Identifier.parse_urn(self._db, identifier)
-            data_source = self.importer.data_source
-            record = None
-
-            if identifier:
-                record = CoverageRecord.lookup(
-                    identifier, data_source, operation=CoverageRecord.IMPORT_OPERATION
-                )
-
-            # If there was a transient failure last time we tried to
-            # import this book, try again regardless of whether the
-            # feed has changed.
-            if record and record.status == CoverageRecord.TRANSIENT_FAILURE:
-                new_data = True
+            if not identifier:
+                # Maybe this is new, maybe not, but we can't associate
+                # the information with an Identifier, so we can't do
+                # anything about it.
                 self.log.info(
-                    "Counting %s as new because previous attempt resulted in transient failure: %s", 
-                    record.identifier, record.exception
-                )
-                break
+                    "Ignoring %s because unable to turn into an Identifier."
+                )                
+                continue
 
-            # If our last attempt was a success or a persistent
-            # failure, we only want to import again if something
-            # changed since then.
-
-            if record and record.timestamp:
-                # We've imported this entry before, so don't import it
-                # again unless it's changed.
-
-                if not remote_updated:
-                    # The remote isn't telling us whether the entry
-                    # has been updated. Import it again to be safe.
-                    new_data = True
-                    self.log.info(
-                        "Counting %s as new because remote has no information about when it was updated.", 
-                        record.identifier
-                    )
-                    break
-
-                if remote_updated >= record.timestamp:
-                    # This book has been updated.
-                    self.log.info(
-                        "Counting %s as new because its coverage date is %s and remote has %s.", 
-                        record.identifier, record.timestamp, remote_updated
-                    )
-
-                    new_data = True
-                    break
-
-            else:
-                # There's no record of an attempt to import this book.
-                self.log.info(
-                    "Counting %s as new because it has no CoverageRecord.", 
-                    identifier
-                )
+            if self.identifier_needs_import(identifier, remote_updated):
                 new_data = True
                 break
         return new_data
+            
+    def identifier_needs_import(self, identifier, last_updated_remote):
+        """Does the remote side have new information about this Identifier?
 
-    def follow_one_link(self, link, do_get=None):
-        self.log.info("Following next link: %s", link)
+        :param identifier: An Identifier.
+        :param last_update_remote: The last time the remote side updated
+            the OPDS entry for this Identifier.
+        """
+        if not identifier:
+            return False
+        
+        record = CoverageRecord.lookup(
+            identifier, self.importer.data_source,
+            operation=CoverageRecord.IMPORT_OPERATION
+        )
+
+        if not record:
+            # We have no record of importing this Identifier. Import
+            # it now.
+            self.log.info(
+                "Counting %s as new because it has no CoverageRecord.", 
+                identifier
+            )
+            return True
+            
+        # If there was a transient failure last time we tried to
+        # import this book, try again regardless of whether the
+        # feed has changed.
+        if record.status == CoverageRecord.TRANSIENT_FAILURE:
+            self.log.info(
+                "Counting %s as new because previous attempt resulted in transient failure: %s", 
+                identifier, record.exception
+            )
+            return True
+
+        # If our last attempt was a success or a persistent
+        # failure, we only want to import again if something
+        # changed since then.
+        
+        if record.timestamp:
+            # We've imported this entry before, so don't import it
+            # again unless it's changed.
+
+            if not last_updated_remote:
+                # The remote isn't telling us whether the entry
+                # has been updated. Import it again to be safe.
+                self.log.info(
+                    "Counting %s as new because remote has no information about when it was updated.", 
+                    identifier
+                )
+                return True
+
+            if last_updated_remote >= record.timestamp:
+                # This book has been updated.
+                self.log.info(
+                    "Counting %s as new because its coverage date is %s and remote has %s.", 
+                    identifier, record.timestamp, last_updated_remote
+                )
+                return True
+
+    def follow_one_link(self, url, do_get=None):
+        """Download a representation of a URL and extract the useful
+        information.
+
+        :return: A 2-tuple (next_links, feed). `next_links` is a list of 
+            additional links that need to be followed. `feed` is the content
+            that needs to be imported.
+        """
+        self.log.info("Following next link: %s", url)
         get = do_get or self._get
-        status_code, content_type, feed = get(link, None)
+        status_code, content_type, feed = get(url, None)
 
-        new_data = self.check_for_new_data(feed)
+        new_data = self.feed_contains_new_data(feed)
 
         if new_data:
             # There's something new on this page, so we need to check
@@ -1237,27 +1467,32 @@ class OPDSImportMonitor(Monitor):
             self.log.info("No new data.")
             return [], None
 
-    def import_one_feed(self, feed, feed_url=None):
+    def import_one_feed(self, feed):
+        """Import every book mentioned in an OPDS feed."""
+        
+        # Because we are importing into a Collection, we will immediately
+        # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
-            immediately_presentation_ready = self.immediately_presentation_ready,
-            feed_url=feed_url
+            immediately_presentation_ready = True,
+            feed_url=self.collection.external_account_id
         )
 
-        data_source = self.importer.data_source
-        
         # Create CoverageRecords for the successful imports.
         for edition in imported_editions:
             record = CoverageRecord.add_for(
-                edition, data_source, CoverageRecord.IMPORT_OPERATION,
+                edition, self.importer.data_source,
+                CoverageRecord.IMPORT_OPERATION,
                 status=CoverageRecord.SUCCESS
             )
 
         # Create CoverageRecords for the failures.
         for urn, failure in failures.items():
-            failure.to_coverage_record(operation=CoverageRecord.IMPORT_OPERATION)
+            failure.to_coverage_record(
+                operation=CoverageRecord.IMPORT_OPERATION
+            )
         
-    def run_once(self, ignore1, ignore2):
+    def run_once(self, start_ignore, cutoff_ignore):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])
@@ -1282,17 +1517,17 @@ class OPDSImportMonitor(Monitor):
         # pick up where we left off.
         for link, feed in reversed(feeds):
             self.log.info("Importing next feed: %s", link)
-            self.import_one_feed(feed, link)
+            self.import_one_feed(feed)
             self._db.commit()
 
 
 class OPDSImporterWithS3Mirror(OPDSImporter):
     """OPDS Importer that mirrors content to S3."""
 
-    def __init__(self, _db, default_data_source, **kwargs):
+    def __init__(self, _db, collection, **kwargs):
         kwargs = dict(kwargs)
         if 'mirror' not in kwargs:
-            kwargs['mirror'] = S3Uploader()
+            kwargs['mirror'] = S3Uploader.from_config(_db)
         super(OPDSImporterWithS3Mirror, self).__init__(
-            _db, default_data_source, **kwargs
+            _db, collection, **kwargs
         )

@@ -27,11 +27,13 @@ import requests
 
 from lxml import builder, etree
 
+from cdn import cdnify
 from config import Configuration
 from classifier import Classifier
 from model import (
     BaseMaterializedWork,
     CachedFeed,
+    ConfigurationSetting,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -53,7 +55,6 @@ from util.opds_writer import (
     OPDSFeed, 
     OPDSMessage,
 )
-from util.cdn import cdnify
 
 class UnfulfillableWork(Exception):
     """Raise this exception when it turns out a Work currently cannot be
@@ -115,16 +116,13 @@ class Annotator(object):
         """
         thumbnails = []
         full = []
-        cdns = Configuration.cdns()
         if work:
+            _db = Session.object_session(work)
             if work.cover_thumbnail_url:
-                thumb = work.cover_thumbnail_url
-                old_thumb = thumb
-                thumbnails = [cdnify(thumb, cdns)]
+                thumbnails = [cdnify(work.cover_thumbnail_url)]
 
             if work.cover_full_url:
-                full = work.cover_full_url
-                full = [cdnify(full, cdns)]
+                full = [cdnify(work.cover_full_url)]
         return thumbnails, full
 
     @classmethod
@@ -525,12 +523,13 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True):
+             force_refresh=False, use_materialized_works=True,
+    ):
         """Create a feed representing one page of works from a given lane.
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
-        facets = facets or Facets.default()
+        facets = facets or Facets.default(lane.library)
         pagination = pagination or Pagination.default()
 
         cached = None
@@ -666,8 +665,8 @@ class AcquisitionFeed(OPDSFeed):
             url = annotator.facet_url(new_facets)
             if not url:
                 continue
-            group_title = Facets.GROUP_DISPLAY_TITLES[group]
-            facet_title = Facets.FACET_DISPLAY_TITLES[value]
+            group_title = str(Facets.GROUP_DISPLAY_TITLES[group])
+            facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
             link = dict(href=url, title=facet_title)
             link['rel'] = self.FACET_REL
             link['{%s}facetGroup' % AtomFeed.OPDS_NS] = group_title
@@ -675,6 +674,37 @@ class AcquisitionFeed(OPDSFeed):
                 link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
             yield link
 
+    CACHE_FOREVER = 'forever'
+
+    NONGROUPED_MAX_AGE_POLICY = Configuration.NONGROUPED_MAX_AGE_POLICY
+    DEFAULT_NONGROUPED_MAX_AGE = 1200
+
+    GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
+    DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
+            
+    @classmethod
+    def grouped_max_age(cls, _db):
+        "The maximum cache time for a grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, cls.GROUPED_MAX_AGE_POLICY).int_value
+        if value is None:
+            value = cls.DEFAULT_GROUPED_MAX_AGE
+        return value
+
+    @classmethod
+    def nongrouped_max_age(cls, _db):
+        "The maximum cache time for a non-grouped acquisition feed."
+        value = ConfigurationSetting.sitewide(
+            _db, cls.NONGROUPED_MAX_AGE_POLICY).int_value
+        if value is cls.CACHE_FOREVER:
+            logging.error(
+                "Non-grouped acquisition feed cannot be cached forever."
+            )
+            value = None
+        if value is None:
+            value = cls.DEFAULT_NONGROUPED_MAX_AGE
+        return value
+            
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
@@ -1079,9 +1109,13 @@ class AcquisitionFeed(OPDSFeed):
         if license_pool.open_access:
             default_loan_period = default_reservation_period = None
         else:
-            ds = license_pool.data_source
-            default_loan_period = ds.default_loan_period
-            default_reservation_period = ds.default_reservation_period
+            collection = license_pool.collection
+            default_loan_period = datetime.timedelta(
+                collection.default_loan_period
+            )
+            default_reservation_period = datetime.timedelta(
+                collection.default_reservation_period
+            )
         if loan:
             status = 'available'
             since = loan.start
@@ -1168,11 +1202,15 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         identifier, work = work
 
         # Most of the time we can use the cached OPDS entry for the
-        # work.  However, that cached OPDS feed is designed around one
+        # Work. However, that cached OPDS feed is designed around one
         # specific LicensePool, and it's possible that the client is
-        # asking for a lookup centered around a different LicensePool.
+        # asking for a lookup centered around a different edition of the
+        # same book.
         default_licensepool = self.annotator.active_licensepool_for(work)
-        active_licensepool = identifier.licensed_through
+        if identifier.licensed_through:
+            active_licensepool = identifier.licensed_through[0]
+        else:
+            active_licensepool = default_licensepool
 
         # In that case, we can't use the cached OPDS entry. We need to
         # create a new one (and not store it in the cache).
@@ -1182,9 +1220,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         if not active_licensepool:
             error_status = 404
             error_message = "Identifier not found in collection"
-            
-        if (identifier.licensed_through and 
-            identifier.licensed_through.work != work):
+        elif identifier.work != work:
             error_status = 500
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
            

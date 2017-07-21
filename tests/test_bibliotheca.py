@@ -16,16 +16,16 @@ from model import (
     Measurement,
     Work,
 )
-from threem import (
+from bibliotheca import (
     ItemListParser,
-    MockThreeMAPI,
-    ThreeMBibliographicCoverageProvider,
+    MockBibliothecaAPI,
+    BibliothecaBibliographicCoverageProvider,
 )
-from scripts import RunCoverageProviderScript
+from scripts import RunCollectionCoverageProviderScript
 from . import DatabaseTest
 from util.http import BadResponseException
 
-class BaseThreeMTest(object):
+class BaseBibliothecaTest(object):
 
     base_path = os.path.split(__file__)[0]
     resource_path = os.path.join(base_path, "files", "3m")
@@ -36,11 +36,12 @@ class BaseThreeMTest(object):
         return open(path).read()
 
 
-class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
+class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
 
     def setup(self):
-        super(TestThreeMAPI, self).setup()
-        self.api = MockThreeMAPI(self._db)
+        super(TestBibliothecaAPI, self).setup()
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        self.api = MockBibliothecaAPI(self.collection)
 
     def test_full_path(self):
         id = self.api.library_id
@@ -116,7 +117,7 @@ class TestThreeMAPI(DatabaseTest, BaseThreeMTest):
         eq_("ok, you put something", response.content)
 
 
-class TestItemListParser(BaseThreeMTest):
+class TestItemListParser(BaseBibliothecaTest):
 
     def test_parse_author_string(cls):
         authors = list(ItemListParser.contributors_from_string(
@@ -196,40 +197,43 @@ class TestItemListParser(BaseThreeMTest):
         assert description.content.startswith("<b>Winner")
 
 
-class TestBibliographicCoverageProvider(TestThreeMAPI):
+class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
     """Test the code that looks up bibliographic information from 3M."""
-
+    
     def test_script_instantiation(self):
-        """Test that RunCoverageProviderScript can instantiate
-        the coverage provider.
+        """Test that RunCollectionCoverageProviderScript can instantiate
+        this coverage provider.
         """
-        script = RunCoverageProviderScript(
-            ThreeMBibliographicCoverageProvider, self._db, [],
-            threem_api=self.api
+        script = RunCollectionCoverageProviderScript(
+            BibliothecaBibliographicCoverageProvider, self._db,
+            api_class=MockBibliothecaAPI
         )
-        assert isinstance(script.provider, 
-                          ThreeMBibliographicCoverageProvider)
-        eq_(script.provider.api, self.api)
+        [provider] = script.providers
+        assert isinstance(provider,
+                          BibliothecaBibliographicCoverageProvider)
+        assert isinstance(provider.api, MockBibliothecaAPI)
 
     def test_process_item_creates_presentation_ready_work(self):
         """Test the normal workflow where we ask 3M for data,
         3M provides it, and we create a presentation-ready work.
         """
-
-        data = self.get_data("item_metadata_single.xml")
-        self.api.queue_response(200, content=data)
-
         identifier = self._identifier(identifier_type=Identifier.THREEM_ID)
         identifier.identifier = 'ddf4gr9'
 
-        # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        # This book has no LicensePools.
+        eq_([], identifier.licensed_through)
 
-        # Run it through the ThreeMBibliographicCoverageProvider
-        provider = ThreeMBibliographicCoverageProvider(
-            self._db, threem_api=self.api
+        # Run it through the BibliothecaBibliographicCoverageProvider
+        provider = BibliothecaBibliographicCoverageProvider(
+            self.collection, api_class=MockBibliothecaAPI
         )
+        data = self.get_data("item_metadata_single.xml")
+
+        # We can't use self.api because that's not the same object
+        # as the one created by the coverage provider.
+        provider.api.queue_response(200, content=data)
+
         [result] = provider.process_batch([identifier])
         eq_(identifier, result)
 
@@ -237,7 +241,7 @@ class TestBibliographicCoverageProvider(TestThreeMAPI):
         # about how we've licensed this book, but to have a place to
         # store the information about what formats the book is
         # available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_(

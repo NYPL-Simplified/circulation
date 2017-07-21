@@ -4,17 +4,15 @@ from PIL import Image
 from StringIO import StringIO
 from nose.tools import (
     set_trace,
+    assert_raises_regexp,
     eq_,
 )
 from . import (
     DatabaseTest
 )
-from config import (
-    Configuration,
-    temp_config as core_temp_config
-)
 from model import (
     DataSource,
+    ExternalIntegration,
     Hyperlink,
     Representation,
 )
@@ -23,37 +21,105 @@ from s3 import (
     DummyS3Uploader,
     MockS3Pool,
 )
+from config import CannotLoadConfiguration
 
 class TestS3URLGeneration(DatabaseTest):
 
-    @contextlib.contextmanager
-    def temp_config(self):
-        with core_temp_config() as tmp:
-            i = tmp['integrations']
-            S3 = Configuration.S3_INTEGRATION
-            i[S3] = {
-                Configuration.S3_OPEN_ACCESS_CONTENT_BUCKET : 'test-open-access-s3-bucket',
-                Configuration.S3_BOOK_COVERS_BUCKET : 'test-book-covers-s3-bucket'
+    def teardown(self):
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        super(TestS3URLGeneration, self).teardown()
+
+    def test_initializes_with_uninitialized_buckets(self):
+        eq_(S3Uploader.UNINITIALIZED_BUCKETS, S3Uploader.__buckets__)
+
+    def test_from_config(self):
+        # If there's no configuration for S3, S3Uploader.from_config
+        # raises an exception.
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            'Required S3 integration is not configured',
+            S3Uploader.from_config, self._db
+        )
+        
+        # If there is a configuration but it's misconfigured, an error
+        # is raised.
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL
+        )
+        assert_raises_regexp(
+            CannotLoadConfiguration, 'without both access_key and secret_key',
+            S3Uploader.from_config, self._db
+        )
+
+        # Otherwise, it builds just fine.
+        integration.username = 'your-access-key'
+        integration.password = 'your-secret-key'
+        uploader = S3Uploader.from_config(self._db)
+        eq_(True, isinstance(uploader, S3Uploader))
+
+        # Well, unless there are multiple S3 integrations, and it
+        # doesn't know which one to choose!
+        duplicate = self._external_integration(ExternalIntegration.S3)
+        duplicate.goal = ExternalIntegration.STORAGE_GOAL
+        assert_raises_regexp(
+            CannotLoadConfiguration, 'Multiple S3 ExternalIntegrations configured',
+            S3Uploader.from_config, self._db
+        )
+
+    def test_get_buckets(self):
+        # When no buckets have been set, it raises an error.
+        assert_raises_regexp(
+            CannotLoadConfiguration, 'have not been initialized and no database session',
+            S3Uploader.get_bucket, S3Uploader.OA_CONTENT_BUCKET_KEY
+        )
+
+        # So let's use an ExternalIntegration to set some buckets.
+        integration = self._external_integration(
+            ExternalIntegration.S3, goal=ExternalIntegration.STORAGE_GOAL,
+            username='access', password='secret', settings={
+                S3Uploader.OA_CONTENT_BUCKET_KEY : 'banana',
+                S3Uploader.BOOK_COVERS_BUCKET_KEY : 'bucket'
             }
-            yield tmp
+        )
+
+        # If an object from the database is given, the buckets
+        # will be initialized, even though they hadn't been yet.
+        identifier = self._identifier()
+        result = S3Uploader.get_bucket(
+            S3Uploader.OA_CONTENT_BUCKET_KEY, sessioned_object=identifier
+        )
+        eq_('banana', result)
+
+        # Generating the S3Uploader from_config also gives us S3 buckets.
+        S3Uploader.__buckets__ = S3Uploader.UNINITIALIZED_BUCKETS
+        S3Uploader.from_config(self._db)
+        eq_('bucket', S3Uploader.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
+
+        # Despite our new buckets, if a requested bucket isn't set,
+        # an error ir raised.
+        assert_raises_regexp(
+            CannotLoadConfiguration, 'No S3 bucket found', S3Uploader.get_bucket,
+            'nonexistent_bucket_key'
+        )
 
     def test_content_root(self):
-        with self.temp_config():
-            eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
-                S3Uploader.content_root())
+        bucket = u'test-open-access-s3-bucket'
+        eq_("http://s3.amazonaws.com/test-open-access-s3-bucket/",
+            S3Uploader.content_root(bucket))
 
     def test_cover_image_root(self):
-        with self.temp_config():
-            gutenberg_illustrated = DataSource.lookup(
-                self._db, DataSource.GUTENBERG_COVER_GENERATOR)
-            overdrive = DataSource.lookup(
-                self._db, DataSource.OVERDRIVE)
-            eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
-                S3Uploader.cover_image_root(gutenberg_illustrated))
-            eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
-                S3Uploader.cover_image_root(overdrive))
-            eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/", 
-                S3Uploader.cover_image_root(overdrive, 300))
+        bucket = u'test-book-covers-s3-bucket'
+
+        gutenberg_illustrated = DataSource.lookup(
+            self._db, DataSource.GUTENBERG_COVER_GENERATOR)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
+            S3Uploader.cover_image_root(bucket, gutenberg_illustrated))
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
+            S3Uploader.cover_image_root(bucket, overdrive))
+        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/",
+            S3Uploader.cover_image_root(bucket, overdrive, 300))
 
 
 class TestUpload(DatabaseTest):
@@ -76,7 +142,7 @@ class TestUpload(DatabaseTest):
 
         # 'Upload' it to S3.
         s3pool = MockS3Pool()
-        s3 = S3Uploader(pool=s3pool)
+        s3 = S3Uploader(None, None, pool=s3pool)
         s3.mirror_one(hyperlink.resource.representation)
         [[filename, data, bucket, media_type, ignore]] = s3pool.uploads
 

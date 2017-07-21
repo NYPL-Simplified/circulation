@@ -1,24 +1,43 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from config import Configuration
+from flask.ext.babel import lazy_gettext as _
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
     AgeClassifier,
 )
+from model import ExternalIntegration, Work
 import os
 import logging
 import re
 import time
 
 class ExternalSearchIndex(object):
+
+    NAME = ExternalIntegration.ELASTICSEARCH
+
+    WORKS_INDEX_KEY = u'works_index'
+    WORKS_ALIAS_KEY = u'works_alias'
+
+    DEFAULT_WORKS_INDEX = u'works'
     
     work_document_type = 'work-type'
     __client = None
 
     CURRENT_ALIAS_SUFFIX = '-current'
     VERSION_RE = re.compile('-v([0-9]+)$')
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": WORKS_INDEX_KEY, "label": _("Works index"), "default": DEFAULT_WORKS_INDEX },
+    ]
+
+    SITEWIDE = True
 
     @classmethod
     def reset(cls):
@@ -29,30 +48,39 @@ class ExternalSearchIndex(object):
         """
         cls.__client = None
 
-    def __init__(self, url=None, works_index=None):
+    def __init__(self, _db, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
+        integration = None
+
+        if not _db:
+            raise CannotLoadConfiguration(
+                "Cannot load Elasticsearch configuration without a database.",
+            )
+        if not url or not works_index:
+            integration = ExternalIntegration.lookup(
+                _db, ExternalIntegration.ELASTICSEARCH,
+                goal=ExternalIntegration.SEARCH_GOAL
+            )
+
+            if not integration:
+                raise CannotLoadConfiguration(
+                    "No Elasticsearch integration configured."
+                )
+            url = url or integration.url
+            if not works_index:
+                setting = integration.setting(self.WORKS_INDEX_KEY)
+                works_index = setting.value_or_default(
+                    self.DEFAULT_WORKS_INDEX
+                )
+        if not url:
+            raise CannotLoadConfiguration(
+                "No URL configured to Elasticsearch server."
+            )
 
         if not ExternalSearchIndex.__client:
-            if not url or not works_index:
-                integration = Configuration.integration(
-                    Configuration.ELASTICSEARCH_INTEGRATION, 
-                )
-
-                if not works_index:
-                    works_index = integration.get(
-                        Configuration.ELASTICSEARCH_INDEX_KEY
-                    )
-
-                if not url:
-                    if not integration:
-                        return
-                    url = integration[Configuration.URL]
-
-            if not url:
-                raise Exception("Cannot connect to Elasticsearch cluster.")
             use_ssl = url.startswith('https://')
             self.log.info(
                 "Connecting to index %s in Elasticsearch cluster at %s", 
@@ -70,18 +98,51 @@ class ExternalSearchIndex(object):
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
-        self.set_works_index_and_alias(works_index)
+        if works_index and integration:
+            self.set_works_index_and_alias(works_index)
+            self.update_integration_settings(integration)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
+        
+    def update_integration_settings(self, integration, force=False):
+        """Updates the integration with an appropriate index and alias
+        setting if the index and alias have been updated.
+        """
+        if not integration or not (self.works_index and self.works_alias):
+            return
+
+        if self.works_index==self.works_alias:
+            # An index is being used as the alias. There is no alias
+            # to update with.
+            return
+
+        if integration.setting(self.WORKS_ALIAS_KEY).value and not force:
+            # This integration already has an alias and we don't want to
+            # force an update.
+            return
+
+        index_or_alias = [self.works_index, self.works_alias]
+        if (integration.setting(self.WORKS_INDEX_KEY).value not in index_or_alias
+            and not force
+        ):
+            # This ExternalSearchIndex was created for a different index and
+            # alias, and we don't want to force an update.
+            return
+
+        integration.setting(self.WORKS_INDEX_KEY).value = unicode(self.works_index)
+        integration.setting(self.WORKS_ALIAS_KEY).value = unicode(self.works_alias)
 
     def set_works_index_and_alias(self, current_alias):
         """Finds or creates the works_index and works_alias based on
         provided configuration.
         """
-        index_details = self.indices.get_alias(name=current_alias, ignore=[404])
-        found = not (index_details.get('status')==404 or 'error' in index_details)
+        if current_alias:
+            index_details = self.indices.get_alias(name=current_alias, ignore=[404])
+            found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
+        else:
+            found = False
 
         def _set_works_index(name):
             self.works_index = self.__client.works_index = name
@@ -531,8 +592,6 @@ class ExternalSearchIndex(object):
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
-
-        from model import Work
 
         time1 = time.time()
         docs = Work.to_search_documents(works)

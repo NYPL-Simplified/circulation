@@ -1,10 +1,14 @@
 """Turn local URLs into CDN URLs."""
-
-from nose.tools import set_trace
+import os, sys
 import urlparse
+from nose.tools import set_trace
+
+from config import Configuration
 from s3 import S3Uploader
 
-def cdnify(url, cdns):
+def cdnify(url, cdns=None):
+    """Turn local URLs into CDN URLs"""
+    cdns = cdns or Configuration.cdns()
     if not cdns:
         # No CDNs configured
         return url
@@ -16,6 +20,7 @@ def cdnify(url, cdns):
         # i.e. treat the bucket name as the netloc.
         bucket, path = S3Uploader.bucket_and_filename(url)
         netloc = bucket
+
     if netloc not in cdns:
         # This domain name is not covered by any of our CDNs.
         return url

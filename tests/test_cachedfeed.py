@@ -22,6 +22,8 @@ from lane import (
     Facets,
 )
 
+from opds import AcquisitionFeed
+
 from . import (
     DatabaseTest
 )
@@ -29,9 +31,9 @@ from . import (
 class TestCachedFeed(DatabaseTest):
 
     def test_lifecycle(self):
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         # Fetch a cached feed from the database--it's empty.
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
@@ -62,9 +64,9 @@ class TestCachedFeed(DatabaseTest):
         eq_(True, fresh)
 
     def test_fetch_ignores_feeds_without_content(self):
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         # Create a feed without content (i.e. don't update it)
         contentless_feed = get_one_or_create(
@@ -90,17 +92,17 @@ class TestCachedFeed(DatabaseTest):
 
     def test_refusal_to_create_expensive_feed(self):
         
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination.default()
-        lane = Lane(self._db, u"My Lane", languages=['eng', 'chi'])
+        lane = Lane(self._db, self._default_library, u"My Lane", languages=['eng', 'chi'])
 
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets,
                      pagination, None)
-        
+
         # If we ask for a group feed that will be cached forever, and it's
         # not around, we'll get a page feed instead.
         feed, fresh = CachedFeed.fetch(
-            *args, max_age=Configuration.CACHE_FOREVER
+            *args, max_age=AcquisitionFeed.CACHE_FOREVER
         )
         eq_(CachedFeed.PAGE_TYPE, feed.type)
       
@@ -111,13 +113,13 @@ class TestCachedFeed(DatabaseTest):
         # Or if we explicitly demand that the feed be created, it will
         # be created.
         feed, fresh = CachedFeed.fetch(
-            *args, force_refresh=True, max_age=Configuration.CACHE_FOREVER
+            *args, force_refresh=True, max_age=AcquisitionFeed.CACHE_FOREVER
         )
         feed.update(self._db, "Cache this forever!")
 
         # Once the feed has content associated with it, we can ask for
         # it in cached-forever mode and no longer get the exception.
         feed, fresh = CachedFeed.fetch(
-            *args, max_age=Configuration.CACHE_FOREVER
+            *args, max_age=AcquisitionFeed.CACHE_FOREVER
         )
         eq_("Cache this forever!", feed.content)

@@ -39,7 +39,7 @@ from util.http import (
 )
 
 from . import DatabaseTest
-from scripts import RunCoverageProviderScript
+from scripts import RunCollectionCoverageProviderScript
 from testing import MockRequestsResponse
 
 
@@ -48,8 +48,8 @@ class OneClickTest(DatabaseTest):
     def setup(self):
         super(OneClickTest, self).setup()
         base_path = os.path.split(__file__)[0]
-        self.api = MockOneClickAPI(_db=self._db, base_path=base_path)
-
+        self.collection = MockOneClickAPI.mock_collection(self._db)
+        self.api = MockOneClickAPI(self.collection, base_path=base_path)
 
 
 class TestOneClickAPI(OneClickTest):
@@ -259,22 +259,24 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         super(TestOneClickBibliographicCoverageProvider, self).setup()
 
         self.provider = OneClickBibliographicCoverageProvider(
-            self._db, oneclick_api=self.api
+            self.collection, api_class=MockOneClickAPI,
+            api_class_kwargs=dict(base_path=os.path.split(__file__)[0])
         )
-
+        self.api = self.provider.api
 
     def test_script_instantiation(self):
-        # Test that RunCoverageProviderScript can instantiate
-        # the coverage provider.
-        
-        script = RunCoverageProviderScript(
-            OneClickBibliographicCoverageProvider, self._db, [],
-            oneclick_api=self.api
+        """Test that RunCoverageProviderScript can instantiate
+        the coverage provider.
+        """
+        script = RunCollectionCoverageProviderScript(
+            OneClickBibliographicCoverageProvider, self._db,
+            api_class=MockOneClickAPI
         )
-        assert isinstance(script.provider, 
+        [provider] = script.providers
+        assert isinstance(provider,
                           OneClickBibliographicCoverageProvider)
-        eq_(script.provider.api, self.api)
-
+        assert isinstance(provider.api, MockOneClickAPI)
+        eq_(self.collection, provider.collection)
 
     def test_invalid_or_unrecognized_guid(self):
         # A bad or malformed ISBN can't get coverage.
@@ -303,18 +305,15 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         identifier.identifier = '9780307378101'
 
         # This book has no LicensePool.
-        eq_(None, identifier.licensed_through)
+        eq_([], identifier.licensed_through)
 
         # Run it through the OneClickBibliographicCoverageProvider
-        provider = OneClickBibliographicCoverageProvider(
-            self._db, oneclick_api=self.api
-        )
-        result = provider.process_item(identifier)
+        result = self.provider.process_item(identifier)
         eq_(identifier, result)
 
         # A LicensePool was created. But we do NOT know how many copies of this
         # book are available, only what formats it's available in.
-        pool = identifier.licensed_through
+        [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_('application/epub+zip (vnd.adobe/adept+xml)', lpdm.delivery_mechanism.name)

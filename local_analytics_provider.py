@@ -1,11 +1,18 @@
-class LocalAnalyticsProvider(object):
-    @classmethod
-    def from_config(cls, config):
-        return cls()
+from flask.ext.babel import lazy_gettext as _
+from model import Session, CirculationEvent
 
-    def collect_event(self, _db, license_pool, event_type, time, 
+class LocalAnalyticsProvider(object):
+    NAME = _("Local Analytics")
+
+    DESCRIPTION = _("Store analytics events in the 'circulationevents' database table.")
+
+    def __init__(self, integration):
+        self.integration_id = integration.id
+
+    def collect_event(self, library, license_pool, event_type, time, 
         old_value=None, new_value=None, **kwargs):
-        from model import CirculationEvent
+        _db = Session.object_session(library)
+        
         CirculationEvent.log(
           _db, license_pool, event_type, old_value, new_value, start=time)
 
