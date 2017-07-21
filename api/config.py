@@ -255,7 +255,8 @@ class Configuration(CoreConfiguration):
     def load(cls, _db=None):
         CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
-
+        return cls.instance
+        
     @classmethod
     def estimate_language_collections_for_library(cls, library):
         """Guess at appropriate values for the given library for

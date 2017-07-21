@@ -20,6 +20,7 @@ git:
   submodules: false
 
 before_install:
+  # Access the submodule via https instead of default SSH
   - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
   - git submodule update --init --recursive
 
@@ -31,13 +32,13 @@ install:
   - pip install git+https://github.com/eliben/pycparser@release_v2.14
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
-  - cp config.json.sample config.json
-  - export SIMPLIFIED_CONFIGURATION_FILE="$TRAVIS_BUILD_DIR/config.json"
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
-  - psql -c 'create extension pgcrypto;' -U postgres -d simplified_circulation_test
+
+env:
+ - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
 
 script: ./test
