@@ -174,7 +174,7 @@ NO_SUCH_LIBRARY = pd(
     "http://librarysimplified.org/terms/problem/no-such-library",
     status_code=400,
     title=_("No such library"),
-    detail=_("One of the libraries you attempted to add the collection to does not exist."),
+    detail=_("A library in your request does not exist."),
 )
 
 INCOMPLETE_CONFIGURATION = pd(

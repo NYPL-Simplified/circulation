@@ -42,6 +42,7 @@ from core.model import (
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
+    MockRequestsResponse,
 )
 from core.classifier import (
     genres,
@@ -1245,6 +1246,14 @@ class TestSettingsController(AdminControllerTest):
             ConfigurationSetting.library_id==None).filter(
             ConfigurationSetting.external_integration_id==None):
             self._db.delete(setting)
+
+        self.responses = []
+        self.requests = []
+
+    def do_request(self, url, *args, **kwargs):
+        """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
+        self.requests.append(url)
+        return self.responses.pop()
 
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -3351,3 +3360,63 @@ class TestSettingsController(AdminControllerTest):
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
         eq_("new registry url", discovery_service.url)
 
+    def test_library_registrations_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("integration_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.library_registrations()
+            eq_(MISSING_SERVICE, response)
+
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        discovery_service.url = "registry url"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("integration_id", discovery_service.id),
+                ("library_short_name", "not-a-library"),
+            ])
+            response = self.manager.admin_settings_controller.library_registrations()
+            eq_(NO_SUCH_LIBRARY, response)
+
+        library = self._default_library
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("integration_id", discovery_service.id),
+                ("library_short_name", library.short_name),
+            ])
+            feed = '<feed></feed>'
+            self.responses.append(MockRequestsResponse(200, content=feed))
+
+            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
+            eq_([discovery_service.url], self.requests)
+
+    def test_library_registrations_post_success(self):
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        discovery_service.url = "registry url"
+
+        library = self._default_library
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("integration_id", discovery_service.id),
+                ("library_short_name", library.short_name),
+            ])
+            self.responses.append(MockRequestsResponse(200))
+            feed = '<feed><link rel="register" href="register url"/></feed>'
+            self.responses.append(MockRequestsResponse(200, content=feed))
+
+            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            
+            eq_(200, response.status_code)
+            eq_(["registry url", "register url"], self.requests)
