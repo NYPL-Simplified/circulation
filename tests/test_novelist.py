@@ -7,16 +7,13 @@ from nose.tools import (
 
 from . import DatabaseTest, sample_data
 
-from core.config import (
-    Configuration,
-    temp_config,
-)
 from core.metadata_layer import Metadata
 from core.model import (
     get_one,
     get_one_or_create,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Representation,
 )
@@ -32,12 +29,16 @@ class TestNoveListAPI(DatabaseTest):
 
     def setup(self):
         super(TestNoveListAPI, self).setup()
-        with temp_config() as config:
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : "library",
-                Configuration.NOVELIST_PASSWORD : "yep"
-            }
-            self.novelist = NoveListAPI.from_config(self._db)
+        self.integration = self._external_integration(
+            ExternalIntegration.NOVELIST,
+            ExternalIntegration.METADATA_GOAL, username=u'library',
+            password=u'yep', libraries=[self._default_library]
+        )
+        self.novelist = NoveListAPI.from_config(self._default_library)
+
+    def teardown(self):
+        NoveListAPI.IS_CONFIGURED = None
+        super(TestNoveListAPI, self).teardown()
 
     def sample_data(self, filename):
         return sample_data(filename, 'novelist')
@@ -50,26 +51,30 @@ class TestNoveListAPI(DatabaseTest):
 
     def test_from_config(self):
         """Confirms that NoveListAPI can be built from config successfully"""
+        novelist = NoveListAPI.from_config(self._default_library)
+        eq_(True, isinstance(novelist, NoveListAPI))
+        eq_("library", novelist.profile)
+        eq_("yep", novelist.password)
 
-        with temp_config() as config:
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : "library",
-                Configuration.NOVELIST_PASSWORD : "yep"
-            }
-            novelist = NoveListAPI.from_config(self._db)
-            eq_(True, isinstance(novelist, NoveListAPI))
-            eq_("library", novelist.profile)
-            eq_("yep", novelist.password)
+        # Without either configuration value, an error is raised.
+        self.integration.password = None
+        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
 
-            # Without either configuration value, an error is raised.
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : "library"
-            }
-            assert_raises(ValueError, NoveListAPI.from_config, self._db)
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PASSWORD : "yep"
-            }
-            assert_raises(ValueError, NoveListAPI.from_config, self._db)
+        self.integration.password = u'yep'
+        self.integration.username = None
+        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
+
+    def test_is_configured(self):
+        # If an ExternalIntegration exists, the API is_configured
+        eq_(True, NoveListAPI.is_configured(self._default_library))
+        # A class variable is set to reduce future database requests.
+        eq_(self._default_library.id, NoveListAPI._configuration_library_id)
+
+        # If an ExternalIntegration doesn't exist for the library, it is not.
+        library = self._library()
+        eq_(False, NoveListAPI.is_configured(library))
+        # And the class variable is updated.
+        eq_(library.id, NoveListAPI._configuration_library_id)
 
     def test_review_response(self):
         invalid_credential_response = (403, {}, 'HTML Access Denied page')
@@ -242,16 +247,17 @@ class TestNoveListCoverageProvider(DatabaseTest):
 
     def setup(self):
         super(TestNoveListCoverageProvider, self).setup()
-        with temp_config() as config:
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : "library",
-                Configuration.NOVELIST_PASSWORD : "yep"
-            }
-            self.novelist = NoveListCoverageProvider(self._db)
+        self.integration = self._external_integration(
+            ExternalIntegration.NOVELIST,
+            ExternalIntegration.METADATA_GOAL, username=u'library',
+            password=u'yep', libraries=[self._default_library]
+        )
+
+        self.novelist = NoveListCoverageProvider(self._db)
         self.novelist.api = MockNoveListAPI()
 
         self.metadata = Metadata(
-            data_source = self.novelist.source,
+            data_source = self.novelist.data_source,
             primary_identifier=self._identifier(
                 identifier_type=Identifier.NOVELIST_ID
             ),
@@ -283,7 +289,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         self.novelist.api.setup(self.metadata)
         eq_(identifier, self.novelist.process_item(identifier))
         novelist_edition = get_one(
-            self._db, Edition, data_source=self.novelist.source,
+            self._db, Edition, data_source=self.novelist.data_source,
             primary_identifier=identifier
         )
         eq_(None, novelist_edition)
@@ -295,7 +301,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         self.novelist.api.setup(self.metadata)
         self.novelist.process_item(identifier)
         novelist_edition = get_one(
-            self._db, Edition, data_source=self.novelist.source,
+            self._db, Edition, data_source=self.novelist.data_source,
             primary_identifier=identifier
         )
         assert novelist_edition

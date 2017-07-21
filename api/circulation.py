@@ -8,22 +8,61 @@ import re
 import time
 from flask.ext.babel import lazy_gettext as _
 
-from core.analytics import Analytics
+from core.config import CannotLoadConfiguration
+from core.cdn import cdnify
 from core.model import (
     get_one,
     CirculationEvent,
+    Collection,
+    CollectionMissing,
+    ConfigurationSetting,
+    ExternalIntegration,
     Identifier,
     DataSource,
+    Library,
     LicensePoolDeliveryMechanism,
     LicensePool,
     Loan,
     Hold,
+    Session,
 )
 from util.patron import PatronUtility
-from core.util.cdn import cdnify
 from config import Configuration
 
 class CirculationInfo(object):
+
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier):
+        """A loan, hold, or whatever.
+
+        :param collection: The Collection that gives us the right to
+        borrow this title. This does not have to be specified in the
+        constructor (the code that instantiates CirculationInfo may
+        not have access to a database connection), but it needs to be
+        present by the time the LoanInfo is connected to a
+        LicensePool.
+
+        :param data_source_name: The name of the data source that provides
+            the LicencePool.
+        :param identifier_type: The type of the Identifier associated
+            with the LicensePool.
+        :param identifier: The string identifying the LicensePool.
+        """
+        self.collection = collection
+        self.data_source_name = data_source_name
+        self.identifier_type = identifier_type
+        self.identifier = identifier
+
+    @property
+    def license_pool(self):
+        """Find the LicensePool model object corresponding to this object."""
+        _db = Session.object_session(self.collection)
+        pool, is_new = LicensePool.for_foreign_id(
+            _db, self.data_source_name, self.identifier_type, self.identifier,
+            collection=self.collection
+        )
+        return pool
+        
     def fd(self, d):
         # Stupid method to format a date
         if not d:
@@ -45,10 +84,12 @@ class FulfillmentInfo(CirculationInfo):
     :param content_expires Download link expiration datetime.
     """
 
-    def __init__(self, identifier_type, identifier, content_link, content_type, 
-                 content, content_expires):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, content_link, content_type, content,
+                 content_expires):
+        super(FulfillmentInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.content_link = content_link
         self.content_type = content_type
         self.content = content
@@ -64,21 +105,20 @@ class FulfillmentInfo(CirculationInfo):
             self.fd(self.content_expires))
 
 class LoanInfo(CirculationInfo):
+    """A record of a loan."""
 
-    """A record of a loan.
-
-    :param identifier_type Ex.: Identifier.ONECLICK_ID.
-    :param identifier Expected to be the unicode string of the isbn, etc..
-    :param start_date When the patron checked the book out.
-    :param end_date When checked-out book is due.  Expected to be passed in 
-    date, not unicode format.
-    :param fulfillment_info A FulfillmentInfo object.
-    """
-
-    def __init__(self, identifier_type, identifier, start_date, end_date,
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, start_date, end_date,
                  fulfillment_info=None):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+        """Constructor.
+
+        :param start_date: A datetime reflecting when the patron borrowed the book.
+        :param end_date: A datetime reflecting when the checked-out book is due.
+        :param fulfillment_info: A FulfillmentInfo object
+        """
+        super(LoanInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
@@ -108,10 +148,11 @@ class HoldInfo(CirculationInfo):
         When not available, default to be passed is None, which is equivalent to "first in line".
     """
 
-    def __init__(self, identifier_type, identifier, start_date, end_date, 
-                 hold_position):
-        self.identifier_type = identifier_type
-        self.identifier = identifier
+    def __init__(self, collection, data_source_name, identifier_type,
+                 identifier, start_date, end_date, hold_position):
+        super(HoldInfo, self).__init__(
+            collection, data_source_name, identifier_type, identifier
+        )
         self.start_date = start_date
         self.end_date = end_date
         self.hold_position = hold_position
@@ -124,68 +165,93 @@ class HoldInfo(CirculationInfo):
         )
 
 
-
 class CirculationAPI(object):
     """Implement basic circulation logic and abstract away the details
-    between different circulation APIs.
+    between different circulation APIs behind generic operations like
+    'borrow'.
     """
 
-    def __init__(self, _db, overdrive=None, threem=None, axis=None):
+    def __init__(self, _db, library, analytics=None, api_map=None):
+        """Constructor.
+
+        :param _db: A database session (probably a scoped session, which is
+            why we can't derive it from `library`).
+
+        :param library: A Library object representing the library
+          whose circulation we're concerned with.
+
+        :param analytics: An Analytics object for tracking 
+          circulation events.
+
+        :param api_map: A dictionary mapping Collection protocols to
+           API classes that should be instantiated to deal with these
+           protocols. The default map will work fine unless you're a
+           unit test.
+
+           Since instantiating these API classes may result in API
+           calls, we only instantiate one CirculationAPI per library,
+           and keep them around as long as possible.
+        """
         self._db = _db
-        self.overdrive = overdrive
-        self.threem = threem
-        self.axis = axis
-        self.apis = [x for x in (overdrive, threem, axis) if x]
-        self.log = logging.getLogger("Circulation API")
+        self.library_id = library.id
+        self.analytics = analytics
+        self.initialization_exceptions = dict()
+        api_map = api_map or self.default_api_map
+
+        # Each of the Library's relevant Collections is going to be
+        # associated with an API object.
+        self.api_for_collection = {}
 
         # When we get our view of a patron's loans and holds, we need
-        # to include loans from all licensed data sources.  We do not
-        # need to include loans from open-access sources because we
-        # are the authorities on those.
-        data_sources_for_sync = []
-        if self.overdrive:
-            data_sources_for_sync.append(
-                DataSource.lookup(_db, DataSource.OVERDRIVE)
-            )
-        if self.threem:
-            data_sources_for_sync.append(
-                DataSource.lookup(_db, DataSource.THREEM)
-            )
-        if self.axis:
-            data_sources_for_sync.append(
-                DataSource.lookup(_db, DataSource.AXIS_360)
-            )
+        # to include loans whose license pools are in one of the
+        # Collections we manage. We don't need to care about loans
+        # from any other Collections.
+        self.collection_ids_for_sync = []
 
+        self.log = logging.getLogger("Circulation API")
+        for collection in library.collections:
+            if collection.protocol in api_map:
+                api = None
+                try:
+                    api = api_map[collection.protocol](collection)
+                except CannotLoadConfiguration, e:
+                    self.log.error(
+                        "Error loading configuration for %s: %s",
+                        collection.name, e.message
+                    )
+                    self.initialization_exceptions[collection.id] = e
+                if api:
+                    self.api_for_collection[collection.id] = api
+                    self.collection_ids_for_sync.append(collection.id)
 
-        h = dict()
-        for ds in data_sources_for_sync:
-            type = ds.primary_identifier_type 
-            h[type] = ds.name
-            if type in Identifier.DEPRECATED_NAMES:
-                new_name = Identifier.DEPRECATED_NAMES[type]
-                h[new_name] = ds.name
-        self.identifier_type_to_data_source_name = h
-        self.data_source_ids_for_sync = [
-            x.id for x in data_sources_for_sync
-        ]
+    @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+                    
+    @property
+    def default_api_map(self):
+        """When you see a Collection that implements protocol X, instantiate
+        API class Y to handle that collection.
+        """
+        from overdrive import OverdriveAPI
+        from bibliotheca import BibliothecaAPI
+        from axis import Axis360API
+        from oneclick import OneClickAPI
+        return {
+            ExternalIntegration.OVERDRIVE : OverdriveAPI,
+            ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
+            ExternalIntegration.AXIS_360 : Axis360API,
+            ExternalIntegration.ONE_CLICK : OneClickAPI,
+        }
 
     def api_for_license_pool(self, licensepool):
         """Find the API to use for the given license pool."""
-        if licensepool.data_source.name==DataSource.OVERDRIVE:
-            api = self.overdrive
-        elif licensepool.data_source.name==DataSource.THREEM:
-            api = self.threem
-        elif licensepool.data_source.name==DataSource.AXIS_360:
-            api = self.axis
-        else:
-            return None
-
-        return api
+        return self.api_for_collection.get(licensepool.collection.id)
 
     def can_revoke_hold(self, licensepool, hold):
         """Some circulation providers allow you to cancel a hold
         when the book is reserved to you. Others only allow you to cancel
-        a hole while you're in the hold queue.
+        a hold while you're in the hold queue.
         """
         if hold.position is None or hold.position > 0:
             return True
@@ -214,7 +280,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, is_new = licensepool.loan_to(patron, start=now, end=None)
             __transaction.commit()
-            self._collect_checkout_event(licensepool)
+            self._collect_checkout_event(patron, licensepool)
             return loan, None, is_new
 
         # Okay, it's not an open-access book. This means we need to go
@@ -235,7 +301,7 @@ class CirculationAPI(object):
         internal_format = api.internal_format(delivery_mechanism)
 
         if patron.fines:
-            max_fines = Configuration.max_outstanding_fines()
+            max_fines = Configuration.max_outstanding_fines(patron.library)
             if patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 
@@ -254,6 +320,9 @@ class CirculationAPI(object):
             # certain error conditions (like NoAvailableCopies) mean
             # something different if you already have a confirmed
             # active loan.
+
+            # TODO: This would be a great place to pass in only the
+            # single API that needs to be synced.
             self.sync_bookshelf(patron, pin)
             existing_loan = get_one(
                 self._db, Loan, patron=patron, license_pool=licensepool,
@@ -280,14 +349,17 @@ class CirculationAPI(object):
             # Just fake it.
             identifier = licensepool.identifier            
             loan_info = LoanInfo(
-                identifier.type, 
-                identifier,
-                start_date=None, 
+                licensepool.collection,
+                licensepool.data_source,
+                identifier.type,
+                identifier.identifier,
+                start_date=None,
                 end_date=now + datetime.timedelta(hours=1)
             )
         except AlreadyOnHold:
             # We're trying to check out a book that we already have on hold.
             hold_info = HoldInfo(
+                licensepool.collection, licensepool.data_source,
                 licensepool.identifier.type, licensepool.identifier.identifier,
                 None, None, None
             )
@@ -337,7 +409,7 @@ class CirculationAPI(object):
                 # Send out an analytics event to record the fact that
                 # a loan was initiated through the circulation
                 # manager.
-                self._collect_checkout_event(licensepool)
+                self._collect_checkout_event(patron, licensepool)
             return loan, None, new_loan_record
 
         # At this point we know that we neither successfully
@@ -353,6 +425,7 @@ class CirculationAPI(object):
                 )
             except AlreadyOnHold, e:
                 hold_info = HoldInfo(
+                    licensepool.collection, licensepool.data_source,
                     licensepool.identifier.type, licensepool.identifier.identifier,
                     None, None, None
                 )
@@ -367,12 +440,12 @@ class CirculationAPI(object):
             hold_info.hold_position
         )
 
-        if hold and is_new:
+        if hold and is_new and self.analytics:
             # Send out an analytics event to record the fact that
             # a hold was initiated through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
+            self.analytics.collect_event(
+                patron.library, licensepool,
                 CirculationEvent.CM_HOLD_PLACE,
             )
 
@@ -381,14 +454,15 @@ class CirculationAPI(object):
         __transaction.commit()
         return None, hold, is_new
 
-    def _collect_checkout_event(self, licensepool):
+    def _collect_checkout_event(self, patron, licensepool):
         """Collect an analytics event indicating the given LicensePool
         was checked out via the circulation manager.
         """
-        Analytics.collect_event(
-            self._db, licensepool,
-            CirculationEvent.CM_CHECKOUT,
-        )
+        if self.analytics:
+            self.analytics.collect_event(
+                patron.library, licensepool,
+                CirculationEvent.CM_CHECKOUT,
+            )
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
@@ -409,6 +483,8 @@ class CirculationAPI(object):
         if not loan:
             if sync_on_failure:
                 # Sync and try again.
+                # TODO: Pass in only the single collection or LicensePool
+                # that needs to be synced.
                 self.sync_bookshelf(patron, pin)
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
@@ -442,10 +518,11 @@ class CirculationAPI(object):
         # Send out an analytics event to record the fact that
         # a fulfillment was initiated through the circulation
         # manager.
-        Analytics.collect_event(
-            self._db, licensepool,
-            CirculationEvent.CM_FULFILL,
-        )
+        if self.analytics:
+            self.analytics.collect_event(
+                patron.library, licensepool,
+                CirculationEvent.CM_FULFILL,
+            )
 
         # Make sure the delivery mechanism we just used is associated
         # with the loan.
@@ -484,10 +561,10 @@ class CirculationAPI(object):
             raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
-        cdns = Configuration.cdns()
-        content_link = cdnify(rep.url, cdns)
+        content_link = cdnify(rep.url)
         media_type = rep.media_type
         return FulfillmentInfo(
+            licensepool.collection, licensepool.data_source,
             identifier_type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
@@ -509,10 +586,11 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a loan was revoked through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
-                CirculationEvent.CM_CHECKIN,
-            )
+            if self.analytics:
+                self.analytics.collect_event(
+                    patron.library, licensepool,
+                    CirculationEvent.CM_CHECKIN,
+                )
 
         if not licensepool.open_access:
             api = self.api_for_license_pool(licensepool)
@@ -550,18 +628,19 @@ class CirculationAPI(object):
             # Send out an analytics event to record the fact that
             # a hold was revoked through the circulation
             # manager.
-            Analytics.collect_event(
-                self._db, licensepool,
-                CirculationEvent.CM_HOLD_RELEASE,
-            )
+            if self.analytics:
+                self.analytics.collect_event(
+                    patron.library, licensepool,
+                    CirculationEvent.CM_HOLD_RELEASE,
+                )
 
         return True
 
     def patron_activity(self, patron, pin):
         """Return a record of the patron's current activity
-        vis-a-vis all data sources.
+        vis-a-vis all relevant external loan sources.
 
-        We check each data source in a separate thread for speed.
+        We check each source in a separate thread for speed.
 
         :return: A 2-tuple (loans, holds) containing `HoldInfo` and
         `LoanInfo` objects.
@@ -591,7 +670,7 @@ class CirculationAPI(object):
 
         threads = []
         before = time.time()
-        for api in self.apis:
+        for api in self.api_for_collection.values():
             thread = PatronActivityThread(api, patron, pin)
             threads.append(thread)
         for thread in threads:
@@ -631,14 +710,14 @@ class CirculationAPI(object):
 
     def local_loans(self, patron):
         return self._db.query(Loan).join(Loan.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+            LicensePool.collection_id.in_(self.collection_ids_for_sync)
         ).filter(
             Loan.patron==patron
         )
 
     def local_holds(self, patron):
         return self._db.query(Hold).join(Hold.license_pool).filter(
-            LicensePool.data_source_id.in_(self.data_source_ids_for_sync)
+            LicensePool.collection_id.in_(self.collection_ids_for_sync)
         ).filter(
             Hold.patron==patron
         )
@@ -688,43 +767,31 @@ class CirculationAPI(object):
         for loan in remote_loans:
             # This is a remote loan. Find or create the corresponding
             # local loan.
-            source_name = self.identifier_type_to_data_source_name[
-                loan.identifier_type
-            ]
-            source = DataSource.lookup(self._db, source_name)
-            key = (loan.identifier_type, loan.identifier)
-            pool, ignore = LicensePool.for_foreign_id(
-                self._db, source, loan.identifier_type,
-                loan.identifier)
+            pool = loan.license_pool
             start = loan.start_date or now
             end = loan.end_date
             local_loan, new = pool.loan_to(patron, start, end)
             active_loans.append(local_loan)
 
-            # Remove the local loan from the list so that we don't
-            # delete it later.
+            # Check the local loan off the list we're keeping so we
+            # don't delete it later.
+            key = (loan.identifier_type, loan.identifier)
             if key in local_loans_by_identifier:
                 del local_loans_by_identifier[key]
 
         for hold in remote_holds:
             # This is a remote hold. Find or create the corresponding
             # local hold.
-            key = (hold.identifier_type, hold.identifier)
-            source_name = self.identifier_type_to_data_source_name[
-                hold.identifier_type
-            ]
-            source = DataSource.lookup(self._db, source_name)
-            pool, ignore = LicensePool.for_foreign_id(
-                self._db, source, hold.identifier_type,
-                hold.identifier)
+            pool = hold.license_pool
             start = hold.start_date or now
             end = hold.end_date
             position = hold.hold_position
             local_hold, new = pool.on_hold_to(patron, start, end, position)
             active_holds.append(local_hold)
 
-            # Remove the local hold from the list so that we don't
-            # delete it later.
+            # Check the local hold off the list we're keeping so that
+            # we don't delete it later.
+            key = (hold.identifier_type, hold.identifier)
             if key in local_holds_by_identifier:
                 del local_holds_by_identifier[key]
 
@@ -740,7 +807,7 @@ class CirculationAPI(object):
             # and the local loan was created after we got the remote loans.
             # If the loan's start date is less than a minute ago, we'll keep it.
             for loan in local_loans_by_identifier.values():
-                if loan.license_pool.data_source.id in self.data_source_ids_for_sync:
+                if loan.license_pool.collection_id in self.collection_ids_for_sync:
                     one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
                     if loan.start < one_minute_ago:
                         logging.info("In sync_bookshelf for patron %s, deleting loan %d (patron %s)" % (patron.authorization_identifier, loan.id, loan.patron.authorization_identifier))
@@ -752,7 +819,7 @@ class CirculationAPI(object):
             # the provider doesn't know about, which means it's expired
             # and we should get rid of it.
             for hold in local_holds_by_identifier.values():
-                if hold.license_pool.data_source.id in self.data_source_ids_for_sync:
+                if hold.license_pool.collection_id in self.collection_ids_for_sync:
                     self._db.delete(hold)
 
         __transaction.commit()
@@ -761,6 +828,14 @@ class CirculationAPI(object):
 
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
+
+    DEFAULT_LOAN_PERIOD = "default_loan_period"
+    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+
+    SETTINGS = [
+        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period (in Days)"), "optional": True, "type": "number" },
+        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period (in Days)"), "optional": True, "type": "number" },
+    ]
 
     BORROW_STEP = 'borrow'
     FULFILL_STEP = 'fulfill'
@@ -804,8 +879,9 @@ class BaseCirculationAPI(object):
         """What email address should be used to notify this patron
         of changes?
         """
-        return Configuration.default_notification_email_address()
-
+        return ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
+        ).value
 
     def checkin(self, patron, pin, licensepool):
         """  Return a book early.  

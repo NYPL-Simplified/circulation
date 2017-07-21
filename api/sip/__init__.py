@@ -1,5 +1,6 @@
 from datetime import datetime
 from nose.tools import set_trace
+from flask.ext.babel import lazy_gettext as _
 from api.authenticator import (
     BasicAuthenticationProvider,
     PatronData,
@@ -7,12 +8,28 @@ from api.authenticator import (
 from api.sip.client import SIPClient
 from core.util.http import RemoteIntegrationException
 from core.util import MoneyUtility
+from core.model import ExternalIntegration
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     NAME = "SIP2"
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
+
+    # Constants for integration configuration settings.
+    PORT = "port"
+    LOCATION_CODE = "location code"
+    FIELD_SEPARATOR = "field separator"
+    
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": PORT, "label": _("Port") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
+        { "key": LOCATION_CODE, "label": _("Location Code") },
+        { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
+    ] + BasicAuthenticationProvider.SETTINGS
+    
 
     # Most of the time, a patron who is blocked will be blocked with
     # the reason UNKNOWN_BLOCK. However, there are a few more specific
@@ -24,11 +41,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
         SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
     }
-    
-    def __init__(self, server, port, login_user_id,
-                 login_password, location_code, field_separator='|',
-                 client=None,
-                 **kwargs):
+
+    def __init__(self, library, integration, analytics=None, client=None, connect=True):
         """An object capable of communicating with a SIP server.
 
         :param server: Hostname of the SIP server.
@@ -58,17 +72,31 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         :param client: A drop-in replacement for the SIPClient
         object. Only intended for use during testing.
 
+        :param connect: If this is false, the generated SIPClient will
+        not attempt to connect to the server. Only intended for use
+        during testing.
         """
-        super(SIP2AuthenticationProvider, self).__init__(**kwargs)
+        super(SIP2AuthenticationProvider, self).__init__(
+            library, integration, analytics
+        )
         try:
+            server = None
             if client:
                 if callable(client):
                     client = client()
             else:
+                server = integration.url
+                port = integration.setting(self.PORT).int_value
+                login_user_id = integration.username
+                login_password = integration.password
+                location_code = integration.setting(self.LOCATION_CODE).value
+                field_separator = integration.setting(
+                    self.FIELD_SEPARATOR).value or '|'
                 client = SIPClient(
                     target_server=server, target_port=port,
                     login_user_id=login_user_id, login_password=login_password,
-                    location_code=location_code, separator=field_separator
+                    location_code=location_code, separator=field_separator,
+                    connect=connect
                 )
         except IOError, e:
             raise RemoteIntegrationException(

@@ -22,18 +22,31 @@ from api.circulation_exceptions import (
     RemoteInitiatedServerError
 )
 
-class TestFirstBook(object):
+from . import DatabaseTest
+from core.model import ExternalIntegration
+
+
+class TestFirstBook(DatabaseTest):
     
     def setup(self):
-        self.api = MockFirstBookAuthenticationAPI(dict(ABCD="1234"))
+        super(TestFirstBook, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.PATRON_AUTH_GOAL)
+        self.api = self.mock_api(dict(ABCD="1234"))
 
+    def mock_api(self, *args, **kwargs):
+        "Create a MockFirstBookAuthenticationAPI."
+        return MockFirstBookAuthenticationAPI(
+            self._default_library, self.integration,
+            *args, **kwargs
+        )
+        
     def test_from_config(self):
         api = None
-        config = {
-            Configuration.URL : "http://example.com/",
-            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-        }
-        api = FirstBookAuthenticationAPI.from_config(config)
+        integration = self._external_integration(self._str)
+        integration.url = "http://example.com/"
+        integration.password = "the_key"
+        api = FirstBookAuthenticationAPI(self._default_library, integration)
 
         # Verify that the configuration details were stored properly.
         eq_('http://example.com/?key=the_key', api.root)
@@ -45,11 +58,8 @@ class TestFirstBook(object):
         eq_(True, api.server_side_validation("foo@bar", "1234"))
 
         # Try another case where the root URL has multiple arguments.
-        config = {
-            Configuration.URL : "http://example.com/?foo=bar",
-            FirstBookAuthenticationAPI.SECRET_KEY : "the_key",
-        }
-        api = FirstBookAuthenticationAPI.from_config(config)
+        integration.url = "http://example.com/?foo=bar"
+        api = FirstBookAuthenticationAPI(self._default_library, integration)
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
         
     def test_authentication_success(self):
@@ -76,7 +86,7 @@ class TestFirstBook(object):
 
 
     def test_broken_service_remote_pin_test(self):
-        api = MockFirstBookAuthenticationAPI(failure_status_code=502)
+        api = self.mock_api(failure_status_code=502)
         assert_raises_regexp(
             RemoteInitiatedServerError, 
             "Got unexpected response code 502. Content: Error 502",
@@ -84,7 +94,7 @@ class TestFirstBook(object):
         )
     
     def test_bad_connection_remote_pin_test(self):
-        api = MockFirstBookAuthenticationAPI(bad_connection=True)
+        api = self.mock_api(bad_connection=True)
         assert_raises_regexp(
             RemoteInitiatedServerError, 
             "Could not connect!",
@@ -92,6 +102,6 @@ class TestFirstBook(object):
         )
     
     def test_authentication_provider_document(self):
-        doc = self.api.authentication_provider_document
+        doc = self.api.authentication_provider_document(self._db)
         eq_(self.api.DISPLAY_NAME, doc['name'])
         assert self.api.METHOD in doc['methods']

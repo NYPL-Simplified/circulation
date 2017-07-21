@@ -11,17 +11,21 @@ from api.admin.google_oauth_admin_authentication_provider import (
     GoogleOAuthAdminAuthenticationProvider,
     DummyGoogleClient,
 )
-from core.model import AdminAuthenticationService, create
+from core.model import (
+    ExternalIntegration,
+    create,
+)
 
 class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
     def test_callback(self):
         super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
-        auth_service, ignore = create(
-            self._db, AdminAuthenticationService,
-            name="Google", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        auth_integration, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
-        self.google = GoogleOAuthAdminAuthenticationProvider(auth_service, "", test_mode=True)
+        self.google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
         # Returns a problem detail when Google returns an error.
         error_response, redirect = self.google.callback({'error' : 'access_denied'})
@@ -38,12 +42,13 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
 
     def test_domains(self):
         super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
-        auth_service, ignore = create(
-            self._db, AdminAuthenticationService,
-            name="Google", provider=AdminAuthenticationService.GOOGLE_OAUTH,
+        auth_integration, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
-        auth_service.external_integration.set_setting("domains", json.dumps(["nypl.org"]))
+        auth_integration.set_setting("domains", json.dumps(["nypl.org"]))
         
-        google = GoogleOAuthAdminAuthenticationProvider(auth_service, "", test_mode=True)
+        google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
         eq_(["nypl.org"], google.domains)

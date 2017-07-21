@@ -5,11 +5,32 @@ from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
 from flask.ext.babel import lazy_gettext as _
+from core.model import ExternalIntegration
 
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
-    def __init__(self, auth_service, redirect_uri, test_mode=False):
-        super(GoogleOAuthAdminAuthenticationProvider, self).__init__(auth_service)
+    NAME = ExternalIntegration.GOOGLE_OAUTH
+    DESCRIPTION = _("<p>Allow admins to sign in with their Google accounts.</p>" +
+                    "<p>To use this integration, visit <a target='_blank' href='https://console.developers.google.com/apis/dashboard'>the Google developer console.</a> " +
+                    "Create a project, click 'Create Credentials' in the left sidebar, and select 'OAuth client ID'. " +
+                    "If you get a warning about the consent screen, click 'Configure consent screen' and enter your library name as the product name. Save the consent screen information.</p>" +
+                    "<p>Leave 'Authorized JavaScript origins' blank, but under 'Authorized redirect URIs', add the url of your circulation manager followed by '/admin/GoogleAuth/callback', e.g. 'http://mycircmanager.org/admin/GoogleAuth/callback'.</p>" +
+                    "<p>Click create, and you'll get a popup with your new client ID and secret. Copy these values and enter them in the form below.</p>"),
+    DOMAINS = "domains"
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": DOMAINS,
+          "label": _("Allowed Domains"),
+          "description": _("Admins must have an email address from one of these domains to sign in."),
+          "type": "list" },
+    ]
+    SITEWIDE = True
+
+    def __init__(self, integration, redirect_uri, test_mode=False):
+        super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
         self.redirect_uri = redirect_uri
         self.test_mode = test_mode
 
@@ -18,21 +39,18 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         if self.test_mode:
             return DummyGoogleClient()
 
-        integration = self.auth_service.external_integration
         config = dict()
-        config["auth_uri"] = integration.url
-        config["client_id"] = integration.username
-        config["client_secret"] = integration.password
+        config["auth_uri"] = self.integration.url
+        config["client_id"] = self.integration.username
+        config["client_secret"] = self.integration.password
         config['redirect_uri'] = self.redirect_uri
         config['scope'] = "https://www.googleapis.com/auth/userinfo.email"
         return GoogleClient.OAuth2WebServerFlow(**config)
 
     @property
     def domains(self):
-        if self.auth_service:
-            integration = self.auth_service.external_integration
-            if integration.setting("domains").value:
-                return json.loads(integration.setting("domains").value)
+        if self.integration and self.integration.setting(self.DOMAINS).value:
+            return json.loads(self.integration.setting(self.DOMAINS).value)
         return []
 
     def auth_uri(self, redirect_url):

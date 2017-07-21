@@ -2,13 +2,17 @@ from nose.tools import set_trace
 
 from api.opds import CirculationManagerAnnotator
 from core.lane import Facets, Pagination
-from core.model import BaseMaterializedWork, LicensePool
+from core.model import (
+    BaseMaterializedWork,
+    LicensePool,
+    Session,
+)
 from core.opds import AcquisitionFeed
 
 class AdminAnnotator(CirculationManagerAnnotator):
 
-    def __init__(self, circulation, test_mode=False):
-        super(AdminAnnotator, self).__init__(circulation, None, test_mode=test_mode)
+    def __init__(self, circulation, library, test_mode=False):
+        super(AdminAnnotator, self).__init__(circulation, None, library, test_mode=test_mode)
         self.opds_cache_field = None
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
@@ -83,11 +87,12 @@ class AdminAnnotator(CirculationManagerAnnotator):
 class AdminFeed(AcquisitionFeed):
 
     @classmethod
-    def complaints(cls, _db, title, url, annotator, pagination=None):
-        facets = Facets.default()
+    def complaints(cls, library, title, url, annotator, pagination=None):
+        _db = Session.object_session(library)
+        facets = Facets.default(library)
         pagination = pagination or Pagination.default()
 
-        q = LicensePool.with_complaint(_db)
+        q = LicensePool.with_complaint(library)
         results = pagination.apply(q).all()
 
         if len(results) > 0:

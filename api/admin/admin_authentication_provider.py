@@ -1,8 +1,8 @@
 from nose.tools import set_trace
 
 class AdminAuthenticationProvider(object):
-    def __init__(self, auth_service):
-        self.auth_service = auth_service
+    def __init__(self, integration):
+        self.integration = integration
 
     def auth_uri(self, redirect_url):
         # Returns a URI that an admin can use to log in with this

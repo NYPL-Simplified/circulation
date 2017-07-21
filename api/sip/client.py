@@ -220,8 +220,11 @@ class SIPClient(Constants):
     ]
     
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, location_code=None, separator=None):
+                 login_password=None, location_code=None, separator=None,
+                 connect=True):
         self.target_server = target_server
+        if not target_port:
+            target_port = 6001
         if target_port:
             self.target_port = int(target_port)
         self.location_code = location_code
@@ -246,14 +249,17 @@ class SIPClient(Constants):
             self.logged_in = True
             self.must_log_in = False
 
-        # socket_lock controls access to the socket connection to the
-        # SIP2 server.
-        #
-        # We need to use an RLock here because both connect() and
-        # make_request() require the lock, and make_request() will end
-        # up calling connect() if there's an error.
-        self.socket_lock = threading.RLock()
-        self.connect()
+        # The only reason connect would be false is that we're running
+        # a unit test and don't actually want to use a server.
+        if connect:
+            # socket_lock controls access to the socket connection to the
+            # SIP2 server.
+            #
+            # We need to use an RLock here because both connect() and
+            # make_request() require the lock, and make_request() will end
+            # up calling connect() if there's an error.
+            self.socket_lock = threading.RLock()
+            self.connect()
         
     def login(self, *args, **kwargs):
         """Log in to the SIP server."""

@@ -6,5 +6,8 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 from api.coverage import MetadataWranglerCoverageProvider
-from core.scripts import RunCoverageProviderScript
-RunCoverageProviderScript(MetadataWranglerCoverageProvider).run()
+from core.scripts import RunCollectionCoverageProviderScript
+
+RunCollectionCoverageProviderScript(
+    MetadataWranglerCoverageProvider
+).run()

@@ -6,6 +6,8 @@ import base64
 import random
 import uuid
 import json
+import re
+import urllib
 
 import flask
 from flask import (
@@ -13,24 +15,33 @@ from flask import (
     redirect,
 )
 from flask.ext.babel import lazy_gettext as _
+from sqlalchemy.exc import ProgrammingError
+from PIL import Image
+from StringIO import StringIO
 
 from core.model import (
+    create,
     get_one,
     get_one_or_create,
     Admin,
-    AdminAuthenticationService,
     CirculationEvent,
     Classification,
+    Collection,
+    Complaint,
+    ConfigurationSetting,
     DataSource,
     Edition,
+    ExternalIntegration,
     Genre,
     Hold,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
     Loan,
     Patron,
     PresentationCalculationPolicy,
+    Representation,
     Subject,
     Work,
     WorkGenre,
@@ -54,10 +65,6 @@ from core.app_server import (
     feed_response,
     load_pagination_from_request
 )
-from core.model import (
-    Collection,
-    Library,
-)
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
 from collections import Counter
@@ -72,22 +79,47 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
+from templates import admin as admin_template
+
+from api.authenticator import AuthenticationProvider
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.millenium_patron import MilleniumPatronAPI
+from api.sip import SIP2AuthenticationProvider
+from api.firstbook import FirstBookAuthenticationAPI
+from api.clever import CleverAuthenticationAPI
+
+from core.opds_import import OPDSImporter
+from api.overdrive import OverdriveAPI
+from api.bibliotheca import BibliothecaAPI
+from api.axis import Axis360API
+from api.oneclick import OneClickAPI
+
+from api.nyt import NYTBestSellerAPI
+from api.novelist import NoveListAPI
+from core.opds_import import MetadataWranglerOPDSLookup
+
+from api.google_analytics_provider import GoogleAnalyticsProvider
+from core.local_analytics_provider import LocalAnalyticsProvider
+
+from api.adobe_vendor_id import AuthdataUtility
+
+from core.external_search import ExternalSearchIndex
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
         try:
-            manager.config = Configuration.load()
+            manager.config = Configuration.load(manager._db)
         except CannotLoadConfiguration, e:
             self.log.error("Could not load configuration file: %s" % e)
             sys.exit()
 
-    manager.admin_work_controller = WorkController(manager)
+    manager.admin_view_controller = ViewController(manager)
     manager.admin_sign_in_controller = SignInController(manager)
+    manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
-
 
 class AdminController(object):
 
@@ -99,18 +131,17 @@ class AdminController(object):
 
     @property
     def auth(self):
-        auth_service = get_one(self._db, AdminAuthenticationService)
-        if auth_service:
-            if auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
-                return GoogleOAuthAdminAuthenticationProvider(
-                    auth_service,
-                    self.url_for('google_auth_callback'),
-                    test_mode=self.manager.testing,
-                )
-            elif auth_service.provider == AdminAuthenticationService.LOCAL_PASSWORD:
-                return PasswordAdminAuthenticationProvider(
-                    auth_service,
-                )
+        auth_service = ExternalIntegration.admin_authentication(self._db)
+        if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
+            return GoogleOAuthAdminAuthenticationProvider(
+                auth_service,
+                self.url_for('google_auth_callback'),
+                test_mode=self.manager.testing,
+            )
+        elif Admin.with_password(self._db).count() != 0:
+            return PasswordAdminAuthenticationProvider(
+                auth_service,
+            )
         return None
 
     def authenticated_admin_from_request(self):
@@ -159,6 +190,53 @@ class AdminController(object):
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
         return base64.b64encode(os.urandom(24))
+        
+
+class ViewController(AdminController):
+    def __call__(self, collection, book, path=None):
+        setting_up = (self.auth == None)
+        if not setting_up:
+            admin = self.authenticated_admin_from_request()
+            if isinstance(admin, ProblemDetail):
+                redirect_url = flask.request.url
+                if (collection):
+                    quoted_collection = urllib.quote(collection)
+                    redirect_url = redirect_url.replace(
+                        quoted_collection,
+                        quoted_collection.replace("/", "%2F"))
+                if (book):
+                    quoted_book = urllib.quote(book)
+                    redirect_url = redirect_url.replace(
+                        quoted_book,
+                        quoted_book.replace("/", "%2F"))
+                return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
+
+            if not collection and not book and not path:
+                library = Library.default(self._db)
+                if library:
+                    return redirect(self.url_for('admin_view', collection=library.short_name))
+
+        csrf_token = flask.request.cookies.get("csrf_token") or self.generate_csrf_token()
+
+        local_analytics = get_one(
+            self._db, ExternalIntegration,
+            protocol=LocalAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL)
+        show_circ_events_download = (local_analytics != None)
+
+        response = Response(flask.render_template_string(
+            admin_template,
+            csrf_token=csrf_token,
+            show_circ_events_download=show_circ_events_download,
+            setting_up=setting_up,
+        ))
+
+        # The CSRF token is in its own cookie instead of the session cookie,
+        # because if your session expires and you log in again, you should
+        # be able to submit a form you already had open. The CSRF token lasts
+        # until the user closes the browser window.
+        response.set_cookie("csrf_token", csrf_token, httponly=True)
+        return response
         
 
 class SignInController(AdminController):
@@ -244,7 +322,7 @@ class SignInController(AdminController):
             headers['Content-Type'] = "text/html"
             return Response(html, 200, headers)
 
-        admin_details, redirect_url = self.auth.sign_in(flask.request.form)
+        admin_details, redirect_url = self.auth.sign_in(self._db, flask.request.form)
         if isinstance(admin_details, ProblemDetail):
             return self.error_response(INVALID_ADMIN_CREDENTIALS)
 
@@ -264,32 +342,32 @@ class WorkController(CirculationManagerController):
 
     STAFF_WEIGHT = 1
 
-    def details(self, data_source, identifier_type, identifier):
+    def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
         
         This includes relevant links for editing the book.
         """
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
         
-    def complaints(self, data_source, identifier_type, identifier):
+    def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
         
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        counter = self._count_complaints_for_licensepool(pool)
+        
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        counter = self._count_complaints_for_work(work)
         response = dict({
-            "book": { 
-                "data_source": data_source,
+            "book": {
                 "identifier_type": identifier_type,
                 "identifier": identifier
             },
@@ -298,13 +376,13 @@ class WorkController(CirculationManagerController):
         
         return response
 
-    def edit(self, data_source, identifier_type, identifier):
+    def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         changed = False
 
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -381,40 +459,51 @@ class WorkController(CirculationManagerController):
             work.calculate_presentation(policy=policy)
         return Response("", 200)
 
-    def suppress(self, data_source, identifier_type, identifier):
+    def suppress(self, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
-        
         # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
             # Something went wrong.
-            return pool
-    
-        pool.suppressed = True
+            return pools
+
+        # Assume that the Work is being suppressed from the catalog, and
+        # not just the LicensePool.
+        # TODO: Suppress individual LicensePools when it's not that deep.
+        for pool in pools:
+            pool.suppressed = True
         return Response("", 200)
 
-    def unsuppress(self, data_source, identifier_type, identifier):
-        """Unsuppress the license pool associated with a book."""
-        
-        # Turn source + identifier into a LicensePool
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
+    def unsuppress(self, identifier_type, identifier):
+        """Unsuppress all license pools associated with a book.
+
+        TODO: This will need to be revisited when we distinguish
+        between complaints about a work and complaints about a
+        LicensePoool.
+        """
+        # Turn source + identifier into a group of LicensePools
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
             # Something went wrong.
-            return pool
-    
-        pool.suppressed = False
+            return pools
+
+        # Unsuppress each pool.
+        for pool in pools:
+            pool.suppressed = False
         return Response("", 200)
 
-    def refresh_metadata(self, data_source, identifier_type, identifier, provider=None):
+    def refresh_metadata(self, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
         if not provider:
             provider = MetadataWranglerCoverageProvider(self._db)
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        identifier = work.presentation_edition.primary_identifier
         try:
-            record = provider.ensure_coverage(pool.identifier, force=True)
+            record = provider.ensure_coverage(identifier, force=True)
         except Exception:
             # The coverage provider may raise an HTTPIntegrationException.
             return REMOTE_INTEGRATION_FAILED
@@ -431,20 +520,20 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def resolve_complaints(self, data_source, identifier_type, identifier):
+    def resolve_complaints(self, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         resolved = False
         found = False
 
-        type = flask.request.form.get("type")
-        if type:
-            for complaint in pool.complaints:
-                if complaint.type == type:
+        requested_type = flask.request.form.get("type")
+        if requested_type:
+            for complaint in work.complaints:
+                if complaint.type == requested_type:
                     found = True
                     if complaint.resolved == None:
                         complaint.resolve()
@@ -456,14 +545,14 @@ class WorkController(CirculationManagerController):
             return COMPLAINT_ALREADY_RESOLVED
         return Response("", 200)
 
-    def classifications(self, data_source, identifier_type, identifier):
+    def classifications(self, identifier_type, identifier):
         """Return list of this work's classifications."""
 
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
 
-        identifier_id = pool.work.presentation_edition.primary_identifier.id
+        identifier_id = work.presentation_edition.primary_identifier.id
         results = self._db \
             .query(Classification) \
             .join(Subject) \
@@ -483,20 +572,19 @@ class WorkController(CirculationManagerController):
 
         return dict({
             "book": {
-                "data_source": data_source,
                 "identifier_type": identifier_type,
                 "identifier": identifier
             },
             "classifications": data
         })
 
-    def edit_classifications(self, data_source, identifier_type, identifier):
+    def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
         
-        pool = self.load_licensepool(data_source, identifier_type, identifier)
-        if isinstance(pool, ProblemDetail):
-            return pool
-        work = pool.work
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         # Previous staff classifications
@@ -648,8 +736,8 @@ class WorkController(CirculationManagerController):
 
         return Response("", 200)
 
-    def _count_complaints_for_licensepool(self, pool):
-        complaint_types = [complaint.type for complaint in pool.complaints if complaint.resolved == None]
+    def _count_complaints_for_work(self, work):
+        complaint_types = [complaint.type for complaint in work.complaints]
         return Counter(complaint_types)
 
     
@@ -657,12 +745,12 @@ class FeedController(CirculationManagerController):
 
     def complaints(self):
         this_url = self.url_for('complaints')
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
         opds_feed = AdminFeed.complaints(
-            _db=self._db, title="Complaints",
+            library=flask.request.library, title="Complaints",
             url=this_url, annotator=annotator,
             pagination=pagination
         )
@@ -670,7 +758,7 @@ class FeedController(CirculationManagerController):
 
     def suppressed(self):
         this_url = self.url_for('suppressed')
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -814,7 +902,7 @@ class DashboardController(CirculationManagerController):
         )
 
     def circulation_events(self):
-        annotator = AdminAnnotator(self.circulation)
+        annotator = AdminAnnotator(self.circulation, flask.request.library)
         num = min(int(flask.request.args.get("num", "100")), 500)
 
         results = self._db.query(CirculationEvent) \
@@ -901,134 +989,277 @@ class SettingsController(CirculationManagerController):
 
     def libraries(self):
         if flask.request.method == 'GET':
-            libraries = [
-                dict(
+            libraries = []
+            for library in self._db.query(Library).order_by(Library.name):
+                settings = dict()
+                for setting in Configuration.LIBRARY_SETTINGS:
+                    if setting.get("type") == "list":
+                        value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    else:
+                        value = ConfigurationSetting.for_library(setting.get("key"), library).value
+                    if value:
+                        settings[setting.get("key")] = value
+                libraries += [dict(
                     uuid=library.uuid,
                     name=library.name,
                     short_name=library.short_name,
-                    library_registry_short_name=library.library_registry_short_name,
-                    library_registry_shared_secret=library.library_registry_shared_secret
-                )
-                for library in self._db.query(Library).order_by(Library.name).all()
-            ]
-        
-            return dict(libraries=libraries)
+                    settings=settings,
+                )]
+            return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
 
         library_uuid = flask.request.form.get("uuid")
         name = flask.request.form.get("name")
         short_name = flask.request.form.get("short_name")
-        registry_short_name = flask.request.form.get("library_registry_short_name")
-        registry_shared_secret = flask.request.form.get("library_registry_shared_secret")
-        use_random_registry_shared_secret = "random_library_registry_shared_secret" in flask.request.form
 
-        libraries = self._db.query(Library).all()
+        library = None
         is_new = False
 
-        if libraries:
-            # Currently there can only be one library, and one already exists.
-            [library] = libraries
-            if library.uuid != library_uuid:
-                return LIBRARY_NOT_FOUND
-        else:
-            library, is_new = get_one_or_create(
-                self._db, Library, create_method_kwargs=dict(
-                    uuid=str(uuid.uuid4())
-                )
-            )
+        if not short_name:
+            return MISSING_LIBRARY_SHORT_NAME
 
-        if registry_shared_secret and use_random_registry_shared_secret:
-            return CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET
-
-        if use_random_registry_shared_secret:
-            if library.library_registry_shared_secret:
-                return CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET
-            registry_shared_secret = "".join(
-                [random.choice('1234567890abcdef') for x in range(32)]
+        if library_uuid:
+            # Library UUID is required when editing an existing library
+            # from the admin interface, and isn't present for new libraries.
+            library = get_one(
+                self._db, Library, uuid=library_uuid,
             )
+            if not library:
+                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
+
+        if not library or short_name != library.short_name:
+            # If you're adding a new short_name, either by editing an
+            # existing library or creating a new library, it must be unique.
+            library_with_short_name = get_one(self._db, Library, short_name=short_name)
+            if library_with_short_name:
+                return LIBRARY_SHORT_NAME_ALREADY_IN_USE
+
+        if not library:
+            library, is_new = create(
+                self._db, Library, short_name=short_name,
+                uuid=str(uuid.uuid4()))
 
         if name:
             library.name = name
         if short_name:
             library.short_name = short_name
-        if registry_short_name:
-            library.library_registry_short_name = registry_short_name
-        if registry_shared_secret:
-            library.library_registry_shared_secret = registry_shared_secret
+
+        for setting in Configuration.LIBRARY_SETTINGS:
+            if setting.get("type") == "list":
+                if setting.get('options'):
+                    # Restrict to the values in 'options'.
+                    value = []
+                    for option in setting.get("options"):
+                        if setting["key"] + "_" + option["key"] in flask.request.form:
+                            value += [option["key"]]
+                else:
+                    # Allow any entered values.
+                    value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
+                value = json.dumps(value)
+            elif setting.get("type") == "image":
+                image_file = flask.request.files.get(setting.get("key"))
+                if not image_file and not setting.get("optional"):
+                    self._db.rollback()
+                    return INCOMPLETE_CONFIGURATION.detailed(_(
+                        "The library is missing a required setting: %s." % setting.get("key")))
+                if image_file:
+                    allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
+                    type = image_file.headers.get("Content-Type")
+                    if type not in allowed_types:
+                        self._db.rollback()
+                        return INVALID_CONFIGURATION_OPTION.detailed(_(
+                            "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
+                            setting=setting.get("label"),
+                            format=type))
+                    image = Image.open(image_file)
+                    width, height = image.size
+                    if width > 135 or height > 135:
+                        image.thumbnail((135, 135), Image.ANTIALIAS)
+                    buffer = StringIO()
+                    image.save(buffer, format="PNG")
+                    b64 = base64.b64encode(buffer.getvalue())
+                    value = "data:image/png;base64,%s" % b64
+            else:
+                value = flask.request.form.get(setting['key'], None)
+            ConfigurationSetting.for_library(setting['key'], library).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)
         else:
             return Response(unicode(_("Success")), 200)
 
-    def collections(self):
+    def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
         protocols = []
-        
-        protocols.append({
-            "name": Collection.OPDS_IMPORT,
-            "fields": [
-                { "key": "external_account_id", "label": _("URL") },
-            ],
-        })
+        for api in provider_apis:
+            protocol = dict()
+            name = getattr(api, protocol_name_attr)
+            protocol["name"] = name
 
-        protocols.append({
-            "name": Collection.OVERDRIVE,
-            "fields": [
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "website_id", "label": _("Website ID") },
-                { "key": "username", "label": _("Client Key") },
-                { "key": "password", "label": _("Client Secret") },
-            ],
-        })
+            label = getattr(api, "NAME", name)
+            protocol["label"] = label
 
-        protocols.append({
-            "name": Collection.BIBLIOTHECA,
-            "fields": [
-                { "key": "username", "label": _("Account ID") },
-                { "key": "password", "label": _("Account Key") },
-                { "key": "external_account_id", "label": _("Library ID") },
-            ],
-        })
+            description = getattr(api, "DESCRIPTION", None)
+            if description != None:
+                protocol["description"] = description
 
-        protocols.append({
-            "name": Collection.AXIS_360,
-            "fields": [
-                { "key": "username", "label": _("Username") },
-                { "key": "password", "label": _("Password") },
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("Server") },
-            ],
-        })
+            sitewide = getattr(api, "SITEWIDE", None)
+            if sitewide != None:
+                protocol["sitewide"] = sitewide
 
-        protocols.append({
-            "name": Collection.ONE_CLICK,
-            "fields": [
-                { "key": "password", "label": _("Basic Token") },
-                { "key": "external_account_id", "label": _("Library ID") },
-                { "key": "url", "label": _("URL") },
-                { "key": "ebook_loan_length", "label": _("eBook Loan Length") },
-                { "key": "eaudio_loan_length", "label": _("eAudio Loan Length") },
-            ],
-        })
+            settings = getattr(api, "SETTINGS", [])
+            protocol["settings"] = settings
+
+            child_settings = getattr(api, "CHILD_SETTINGS", None)
+            if child_settings != None:
+                protocol["child_settings"] = child_settings
+
+            library_settings = getattr(api, "LIBRARY_SETTINGS", None)
+            if library_settings != None:
+                protocol["library_settings"] = library_settings
+
+            protocols.append(protocol)
+        return protocols
+
+    def _get_integration_info(self, goal, protocols):
+        services = []
+        for service in self._db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==goal):
+
+            [protocol] = [p for p in protocols if p.get("name") == service.protocol]
+            libraries = []
+            if not protocol.get("sitewide"):
+                for library in service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    for setting in protocol.get("library_settings", []):
+                        key = setting.get("key")
+                        if setting.get("type") == "list":
+                            value = ConfigurationSetting.for_library_and_externalintegration(
+                                self._db, key, library, service
+                            ).json_value
+                        else:
+                            value = ConfigurationSetting.for_library_and_externalintegration(
+                                self._db, key, library, service
+                            ).value
+                        if value:
+                            library_info[key] = value
+                    libraries.append(library_info)
+
+            settings = dict()
+            for setting in protocol.get("settings", []):
+                key = setting.get("key")
+                if setting.get("type") == "list":
+                    value = ConfigurationSetting.for_externalintegration(
+                        key, service).json_value
+                else:
+                    value = ConfigurationSetting.for_externalintegration(
+                        key, service).value
+                settings[key] = value
+
+            services.append(
+                dict(
+                    id=service.id,
+                    name=service.name,
+                    protocol=service.protocol,
+                    settings=settings,
+                    libraries=libraries,
+                )
+            )
+
+        return services
+
+    def _set_integration_settings_and_libraries(self, integration, protocol):
+        settings = protocol.get("settings")
+        for setting in settings:
+            key = setting.get("key")
+            if setting.get("type") == "list" and not setting.get("options"):
+                value = [item for item in flask.request.form.getlist(key) if item]
+                if value:
+                    value = json.dumps(value)
+            else:
+                value = flask.request.form.get(key)
+            if value and setting.get("options"):
+                # This setting can only take on values that are in its
+                # list of options.
+                allowed = [option.get("key") for option in setting.get("options")]
+                if value not in allowed:
+                    self._db.rollback()
+                    return INVALID_CONFIGURATION_OPTION.detailed(_(
+                        "The configuration value for %(setting)s is invalid.",
+                        setting=setting.get("label"),
+                    ))
+            if not value and not setting.get("optional"):
+                # Roll back any changes to the integration that have already been made.
+                self._db.rollback()
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The configuration is missing a required setting: %(setting)s",
+                      setting=setting.get("label")))
+            integration.setting(key).value = value
+                
+        if not protocol.get("sitewide"):
+            integration.libraries = []
+
+            libraries = []
+            if flask.request.form.get("libraries"):
+                libraries = json.loads(flask.request.form.get("libraries"))
+
+            for library_info in libraries:
+                library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+                if not library:
+                    self._db.rollback()
+                    return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+                integration.libraries += [library]
+                for setting in protocol.get("library_settings", []):
+                    key = setting.get("key")
+                    value = library_info.get(key)
+                    if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
+                        self._db.rollback()
+                        return INVALID_CONFIGURATION_OPTION.detailed(_(
+                            "The configuration value for %(setting)s is invalid.",
+                            setting=setting.get("label"),
+                        ))
+                    if not value and not setting.get("optional"):
+                        self._db.rollback()
+                        return INCOMPLETE_CONFIGURATION.detailed(
+                            _("The configuration is missing a required setting: %(setting)s for library %(library)s",
+                              setting=setting.get("label"),
+                              library=library.short_name,
+                              ))
+                    ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
+
+        return True
+
+
+    def collections(self):
+        provider_apis = [OPDSImporter,
+                         OverdriveAPI,
+                         BibliothecaAPI,
+                         Axis360API,
+                         OneClickAPI,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
                 collection = dict(
+                    id=c.id,
                     name=c.name,
                     protocol=c.protocol,
-                    libraries=[library.short_name for library in c.libraries],
-                    external_account_id=c.external_account_id,
-                    url=c.external_integration.url,
-                    username=c.external_integration.username,
-                    password=c.external_integration.password,
+                    parent_id=c.parent_id,
+                    libraries=[{ "short_name": library.short_name } for library in c.libraries],
+                    settings=dict(external_account_id=c.external_account_id),
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
-                    for field in protocol.get("fields"):
-                        key = field.get("key")
-                        if key not in collection:
-                            collection[key] = c.external_integration.setting(key).value
+                    for setting in protocol.get("settings"):
+                        key = setting.get("key")
+                        if key not in collection["settings"]:
+                            if setting.get("type") == "list":
+                                value = c.external_integration.setting(key).json_value
+                            else:
+                                value = c.external_integration.setting(key).value
+                            collection["settings"][key] = value
                 collections.append(collection)
 
             return dict(
@@ -1037,6 +1268,8 @@ class SettingsController(CirculationManagerController):
             )
 
 
+        id = flask.request.form.get("id")
+
         name = flask.request.form.get("name")
         if not name:
             return MISSING_COLLECTION_NAME
@@ -1044,43 +1277,65 @@ class SettingsController(CirculationManagerController):
         protocol = flask.request.form.get("protocol")
 
         if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_COLLECTION_PROTOCOL
+            return UNKNOWN_PROTOCOL
 
         is_new = False
-        collection = get_one(self._db, Collection, name=name)
+        collection = None
+        if id:
+            collection = get_one(self._db, Collection, id=id)
+            if not collection:
+                return MISSING_COLLECTION
+
         if collection:
             if protocol != collection.protocol:
-                return CANNOT_CHANGE_COLLECTION_PROTOCOL
-
+                return CANNOT_CHANGE_PROTOCOL
+            if name != collection.name:
+                collection_with_name = get_one(self._db, Collection, name=name)
+                if collection_with_name:
+                    return COLLECTION_NAME_ALREADY_IN_USE
+                
         else:
             if protocol:
-                collection, is_new = get_one_or_create(
-                    self._db, Collection, name=name, protocol=protocol
-                )
+                collection, is_new = get_one_or_create(self._db, Collection, name=name)
+                if not is_new:
+                    self._db.rollback()
+                    return COLLECTION_NAME_ALREADY_IN_USE
+                collection.create_external_integration(protocol)
             else:
-                return NO_PROTOCOL_FOR_NEW_COLLECTION
+                return NO_PROTOCOL_FOR_NEW_SERVICE
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        fields = protocol.get("fields")
 
-        for field in fields:
-            key = field.get("key")
+        parent_id = flask.request.form.get("parent_id")
+
+        if parent_id and not protocol.get("child_settings"):
+            self._db.rollback()
+            return PROTOCOL_DOES_NOT_SUPPORT_PARENTS
+
+        if parent_id:
+            parent = get_one(self._db, Collection, id=parent_id)
+            if not parent:
+                self._db.rollback()
+                return MISSING_PARENT
+            collection.parent = parent
+            settings = protocol.get("child_settings")
+        else:
+            collection.parent = None
+            settings = protocol.get("settings")
+        
+
+        for setting in settings:
+            key = setting.get("key")
             value = flask.request.form.get(key)
-            if not value:
+            if not value and not setting.get("optional"):
                 # Roll back any changes to the collection that have already been made.
                 self._db.rollback()
-                return INCOMPLETE_COLLECTION_CONFIGURATION.detailed(
-                    _("The collection configuration is missing a required field: %(field)s",
-                      field=field.get("label")))
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The collection configuration is missing a required setting: %(setting)s",
+                      setting=setting.get("label")))
 
             if key == "external_account_id":
                 collection.external_account_id = value
-            elif key == "username":
-                collection.external_integration.username = value
-            elif key == "password":
-                collection.external_integration.password = value
-            elif key == "url":
-                collection.external_integration.url = value
             else:
                 collection.external_integration.setting(key).value = value
 
@@ -1088,14 +1343,14 @@ class SettingsController(CirculationManagerController):
         if flask.request.form.get("libraries"):
             libraries = json.loads(flask.request.form.get("libraries"))
 
-        for short_name in libraries:
-            library = get_one(self._db, Library, short_name=short_name)
+        for library_info in libraries:
+            library = get_one(self._db, Library, short_name=library_info.get("short_name"))
             if not library:
-                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=short_name))
+                return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
             if collection not in library.collections:
                 library.collections.append(collection)
         for library in collection.libraries:
-            if library.short_name not in libraries:
+            if library.short_name not in [l.get("short_name") for l in libraries]:
                 library.collections.remove(collection)
 
         if is_new:
@@ -1104,112 +1359,551 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def admin_auth_services(self):
-        if flask.request.method == 'GET':
-            auth_services = []
-            auth_service = get_one(self._db, AdminAuthenticationService)
-            if auth_service and auth_service.provider == AdminAuthenticationService.GOOGLE_OAUTH:
-                auth_services = [
-                    dict(
-                        name=auth_service.name,
-                        provider=auth_service.provider,
-                        url=auth_service.external_integration.url,
-                        username=auth_service.external_integration.username,
-                        password=auth_service.external_integration.password,
-                        domains=json.loads(auth_service.external_integration.setting("domains").value),
-                    )
-                ]
-            elif auth_service and auth_service.provider == AdminAuthenticationService.LOCAL_PASSWORD:
-                admins = self._db.query(Admin).filter(Admin.password_hashed != None)
-                auth_services = [
-                    dict(
-                        name=auth_service.name,
-                        provider=auth_service.provider,
-                        admins=[dict(email=admin.email) for admin in admins],
-                    )
-                ]
+        provider_apis = [GoogleOAuthAdminAuthenticationProvider]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
+        if flask.request.method == 'GET':
+            auth_services = self._get_integration_info(ExternalIntegration.ADMIN_AUTH_GOAL, protocols)
             return dict(
                 admin_auth_services=auth_services,
-                providers=AdminAuthenticationService.PROVIDERS,
+                protocols=protocols,
             )
 
-        name = flask.request.form.get("name")
-        if not name:
-            return MISSING_ADMIN_AUTH_SERVICE_NAME
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
+            return UNKNOWN_PROTOCOL
 
-        provider = flask.request.form.get("provider")
-
-        if provider and provider not in AdminAuthenticationService.PROVIDERS:
-            return UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER
+        id = flask.request.form.get("id")
 
         is_new = False
-        auth_service = get_one(self._db, AdminAuthenticationService)
+        auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service:
-            # Currently there can only be one admin auth service, and one already exists.
-            if name != auth_service.name:
-                return ADMIN_AUTH_SERVICE_NOT_FOUND
-
-            if provider != auth_service.provider:
-                return CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER
-
+            if id and id != auth_service.id:
+                return MISSING_SERVICE
+            if protocol != auth_service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
         else:
-            if provider:
+            if id:
+                return MISSING_SERVICE
+
+            if protocol:
                 auth_service, is_new = get_one_or_create(
-                    self._db, AdminAuthenticationService, name=name, provider=provider
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
                 )
             else:
-                return NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE
+                return NO_PROTOCOL_FOR_NEW_SERVICE
 
-        if provider == AdminAuthenticationService.GOOGLE_OAUTH:
-            url = flask.request.form.get("url")
-            username = flask.request.form.get("username")
-            password = flask.request.form.get("password")
-            domains = flask.request.form.get("domains")
-        
-            if not url or not username or not password or not domains:
-                # If an admin auth service was created, make sure it
-                # isn't saved in a incomplete state.
-                self._db.rollback()
-                return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
+        name = flask.request.form.get("name")
+        auth_service.name = name
 
-            # Also make sure the domain list is valid JSON.
-            try:
-                json.loads(domains)
-            except Exception:
-                self._db.rollback()
-                return INVALID_ADMIN_AUTH_DOMAIN_LIST
-
-            integration = auth_service.external_integration
-            integration.url = url
-            integration.username = username
-            integration.password = password
-            integration.set_setting("domains", domains)
-
-        elif provider == AdminAuthenticationService.LOCAL_PASSWORD:
-            admins = flask.request.form.get("admins")
-
-            if not admins:
-                self._db.rollback()
-                return INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION
-
-            # Also make sure admins is valid JSON.
-            try:
-                admins = json.loads(admins)
-            except Exception:
-                self._db.rollback()
-                return INVALID_ADMIN_AUTH_ADMINS_LIST
-
-            for admin_details in admins:
-                admin, ignore = get_one_or_create(self._db, Admin, email=admin_details.get("email"))
-                if (admin_details.get("password")):
-                    admin.password = admin_details.get("password")
-
-            admin_emails = [a.get("email") for a in admins]
-            for admin in self._db.query(Admin).filter(Admin.password_hashed!=None):
-                if admin.email not in admin_emails:
-                    self._db.delete(admin)
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
 
         if is_new:
             return Response(unicode(_("Success")), 201)
         else:
             return Response(unicode(_("Success")), 200)
+
+    def individual_admins(self):
+        if flask.request.method == 'GET':
+            admins = []
+            admins_with_password = Admin.with_password(self._db)
+            if admins_with_password.count() != 0:
+                admins=[dict(email=admin.email) for admin in admins_with_password]
+
+            return dict(
+                individualAdmins=admins,
+            )
+
+        email = flask.request.form.get("email")
+        password = flask.request.form.get("password")
+
+        if not email or not password:
+            return INCOMPLETE_CONFIGURATION
+
+        admin, is_new = get_one_or_create(self._db, Admin, email=email)
+        admin.password = password
+        try:
+            self._db.flush()
+        except ProgrammingError as e:
+            self._db.rollback()
+            return MISSING_PGCRYPTO_EXTENSION
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def patron_auth_services(self):
+        provider_apis = [SimpleAuthenticationProvider,
+                         MilleniumPatronAPI,
+                         SIP2AuthenticationProvider,
+                         FirstBookAuthenticationAPI,
+                         CleverAuthenticationAPI,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis)
+
+        basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
+                                MilleniumPatronAPI.__module__,
+                                SIP2AuthenticationProvider.__module__,
+                                FirstBookAuthenticationAPI.__module__,
+                               ]
+
+        if flask.request.method == 'GET':
+            services = self._get_integration_info(ExternalIntegration.PATRON_AUTH_GOAL, protocols)
+            return dict(
+                patron_auth_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            auth_service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+            if not auth_service:
+                return MISSING_SERVICE
+            if protocol != auth_service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                auth_service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.PATRON_AUTH_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if auth_service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            auth_service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        for library in auth_service.libraries:
+            # Check that the library didn't end up with multiple basic auth services.
+            basic_auth_count = 0
+            for integration in library.integrations:
+                if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols:
+                    basic_auth_count += 1
+                    if basic_auth_count > 1:
+                        self._db.rollback()
+                        return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
+                            "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
+                            library=library.short_name,
+                        ))
+
+            # Check that the library's external type regular express is valid, if it was set.
+            value = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+                library, auth_service).value
+            if value:
+                try:
+                    re.compile(value)
+                except Exception, e:
+                    self._db.rollback()
+                    return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def sitewide_settings(self):
+        if flask.request.method == 'GET':
+            settings = []
+            for s in Configuration.SITEWIDE_SETTINGS:
+                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
+                if setting.value:
+                    settings += [{ "key": setting.key, "value": setting.value }]
+
+            return dict(
+                settings=settings,
+                all_settings=Configuration.SITEWIDE_SETTINGS,
+            )
+
+        key = flask.request.form.get("key")
+        if not key:
+            return MISSING_SITEWIDE_SETTING_KEY
+
+        value = flask.request.form.get("value")
+        if not value:
+            return MISSING_SITEWIDE_SETTING_VALUE
+
+        setting = ConfigurationSetting.sitewide(self._db, key)
+        setting.value = value
+        return Response(unicode(_("Success")), 200)
+
+    def metadata_services(self):
+        provider_apis = [NYTBestSellerAPI,
+                         NoveListAPI,
+                         MetadataWranglerOPDSLookup,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="PROTOCOL")
+
+        if flask.request.method == 'GET':
+            metadata_services = self._get_integration_info(ExternalIntegration.METADATA_GOAL, protocols)
+            return dict(
+                metadata_services=metadata_services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.METADATA_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.METADATA_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def analytics_services(self):
+        provider_apis = [GoogleAnalyticsProvider,
+                         LocalAnalyticsProvider,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis)
+
+        if flask.request.method == 'GET':
+            services = self._get_integration_info(ExternalIntegration.ANALYTICS_GOAL, protocols)
+            return dict(
+                analytics_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.ANALYTICS_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.ANALYTICS_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def drm_services(self):
+        provider_apis = [AuthdataUtility,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+
+        if flask.request.method == 'GET':
+            services = self._get_integration_info(ExternalIntegration.DRM_GOAL, protocols)
+            return dict(
+                drm_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DRM_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.DRM_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if protocol.get("name") == AuthdataUtility.NAME:
+            for library in service.libraries:
+                short_name_setting = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, service)
+                if "|" in short_name_setting.value:
+                    self._db.rollback()
+                    return INVALID_CONFIGURATION_OPTION.detailed(
+                        _("Short name for library registry must not contain the pipe character (|)."))
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def cdn_services(self):
+        protocols = [
+            {
+                "name": ExternalIntegration.CDN,
+                "sitewide": True,
+                "settings": [
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL") },
+                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain") },
+                ],
+            }
+        ]
+
+        if flask.request.method == 'GET':
+            services = self._get_integration_info(ExternalIntegration.CDN_GOAL, protocols)
+            return dict(
+                cdn_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.CDN_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.CDN_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+
+    def search_services(self):
+        provider_apis = [ExternalSearchIndex,
+                        ]
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+
+        if flask.request.method == 'GET':
+            services = self._get_integration_info(ExternalIntegration.SEARCH_GOAL, protocols)
+            return dict(
+                search_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.SEARCH_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = get_one_or_create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.SEARCH_GOAL
+                )
+                if not is_new:
+                    self._db.rollback()
+                    return MULTIPLE_SEARCH_SERVICES
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+    def discovery_services(self):
+        protocols = [
+            {
+                "name": ExternalIntegration.OPDS_REGISTRATION,
+                "sitewide": True,
+                "settings": [
+                    { "key": ExternalIntegration.URL, "label": _("URL") },
+                ],
+            }
+        ]
+
+        if flask.request.method == 'GET':
+            registries = self._db.query(ExternalIntegration).filter(ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL)
+            if registries.count() == 0:
+                # Set up the default library registry if one doesn't exist yet.
+                default, ignore = get_one_or_create(
+                    self._db, ExternalIntegration,
+                    goal=ExternalIntegration.DISCOVERY_GOAL,
+                    protocol=ExternalIntegration.OPDS_REGISTRATION,
+                    name="Library Simplified Registry")
+                default.url = "https://registry.librarysimplified.org"
+
+            services = self._get_integration_info(ExternalIntegration.DISCOVERY_GOAL, protocols)
+            return dict(
+                discovery_services=services,
+                protocols=protocols,
+            )
+
+        id = flask.request.form.get("id")
+
+        protocol = flask.request.form.get("protocol")
+        if protocol and protocol not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+        is_new = False
+        if id:
+            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DISCOVERY_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            if protocol != service.protocol:
+                return CANNOT_CHANGE_PROTOCOL
+        else:
+            if protocol:
+                service, is_new = create(
+                    self._db, ExternalIntegration, protocol=protocol,
+                    goal=ExternalIntegration.DISCOVERY_GOAL
+                )
+            else:
+                return NO_PROTOCOL_FOR_NEW_SERVICE
+
+        name = flask.request.form.get("name")
+        if name:
+            if service.name != name:
+                service_with_name = get_one(self._db, ExternalIntegration, name=name)
+                if service_with_name:
+                    self._db.rollback()
+                    return INTEGRATION_NAME_ALREADY_IN_USE
+            service.name = name
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        if is_new:
+            return Response(unicode(_("Success")), 201)
+        else:
+            return Response(unicode(_("Success")), 200)
+
+

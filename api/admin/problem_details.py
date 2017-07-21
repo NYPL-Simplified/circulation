@@ -100,25 +100,25 @@ INVALID_SERIES_POSITION = pd(
     detail=_("The series position must be a number or blank."),
 )
 
-LIBRARY_NOT_FOUND = pd(
-    "http://librarysimplified.org/terms/problem/library-not-found",
+MISSING_LIBRARY_SHORT_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-library-short-name",
     status_code=400,
-    title=_("Library not found."),
-    detail=_("Currently there can only be one library, and the request does not match the existing library."),
+    title=_("Missing library short name"),
+    detail=_("You must set a short name for the library."),
 )
 
-CANNOT_SET_BOTH_RANDOM_AND_SPECIFIC_SECRET = pd(
-    "http://librarysimplified.org/terms/problem/cannot-set-both-random-and-specific-secret",
+LIBRARY_SHORT_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/library-short-name-already-in-use",
     status_code=400,
-    title=_("Cannot set both random and specific secret"),
-    detail=_("You can't set the shared secret to a random value and a specific value at the same time"),
+    title=_("Library short name already in use"),
+    detail=_("The library short name must be unique, and there's already a library with the specified short name."),
 )
 
-CANNOT_REPLACE_EXISTING_SECRET_WITH_RANDOM_SECRET = pd(
-    "http://librarysimplified.org/terms/problem/cannot-replace-existing-secret-with-random-secret",
-    status_code=400,
-    title=_("Cannot replace existing secret with random secret"),
-    detail=_("You can't overwrite an existing shared secret with a random value"),
+MISSING_COLLECTION = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection",
+    status_code=404,
+    title=_("Missing collection."),
+    detail=_("The specified collection does not exist."),
 )
 
 MISSING_COLLECTION_NAME = pd(
@@ -128,25 +128,46 @@ MISSING_COLLECTION_NAME = pd(
     detail=_("You must identify the collection by its name."),
 )
 
-NO_PROTOCOL_FOR_NEW_COLLECTION = pd(
-    "http://librarysimplified.org/terms/problem/no-protocol-for-new-collection",
+COLLECTION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/collection-name-already-in-use",
     status_code=400,
-    title=_("No protocol for new collection"),
-    detail=_("The specified collection doesn't exist. You can create it, but you must specify a protocol."),
+    title=_("Collection name already in use"),
+    detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
-UNKNOWN_COLLECTION_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/unknown-collection-protocol",
+NO_PROTOCOL_FOR_NEW_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-protocol-for-new-service",
     status_code=400,
-    title=_("Unknown collection protocol"),
+    title=_("No protocol for new service"),
+    detail=_("The specified service doesn't exist. You can create it, but you must specify a protocol."),
+)
+
+UNKNOWN_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/unknown-protocol",
+    status_code=400,
+    title=_("Unknown protocol"),
     detail=_("The protocol is not one of the known protocols."),
 )
 
-CANNOT_CHANGE_COLLECTION_PROTOCOL = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-collection-protocol",
+CANNOT_CHANGE_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-protocol",
     status_code=400,
-    title=_("Cannot change collection protocol"),
-    detail=_("A collection's protocol can't be changed once it has been set."),
+    title=_("Cannot change protocol"),
+    detail=_("A protocol can't be changed once it has been set."),
+)
+
+PROTOCOL_DOES_NOT_SUPPORT_PARENTS = pd(
+    "http://librarysimplified.org/terms/problem/protocol-does-not-support-parents",
+    status_code=400,
+    title=_("Protocol does not support parents"),
+    detail=_("You attempted to add a parent but the protocol does not support parents."),
+)
+
+MISSING_PARENT = pd(
+    "http://librarysimplified.org/terms/problem/missing-parent",
+    status_code=400,
+    title=_("Missing parent"),
+    detail=_("You attempted to add a parent that does not exist."),
 )
 
 NO_SUCH_LIBRARY = pd(
@@ -156,65 +177,72 @@ NO_SUCH_LIBRARY = pd(
     detail=_("One of the libraries you attempted to add the collection to does not exist."),
 )
 
-INCOMPLETE_COLLECTION_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/incomplete-collection-configuration",
+INCOMPLETE_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-configuration",
     status_code=400,
-    title=_("Incomplete collection configuration"),
-    detail=_("The collection's configuration is missing a required field."),
+    title=_("Incomplete configuration"),
+    detail=_("The configuration is missing a required field."),
 )
 
-MISSING_ADMIN_AUTH_SERVICE_NAME = pd(
-    "http://librarysimplified.org/terms/problem/missing-admin-auth-service-name",
+INTEGRATION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/integration-name-already-in-use",
     status_code=400,
-    title=_("Missing admin authentication service name."),
-    detail=_("You must identify the admin authentication service by its name."),
+    title=_("Integration name already in use"),
+    detail=_("The integration name must be unique, and there's already an integration with the specified name."),
 )
 
-UNKNOWN_ADMIN_AUTH_SERVICE_PROVIDER = pd(
-    "http://librarysimplified.org/terms/problem/unknown-admin-auth-service-provider",
-    status_code=400,
-    title=_("Unknown admin authentication service provider"),
-    detail=_("The provider is not one of the known admin authentication service providers."),
+MISSING_PGCRYPTO_EXTENSION = pd(
+    "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
+    status_code=500,
+    title=_("Missing pgcrypto database extension"),
+    detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
 )
 
-ADMIN_AUTH_SERVICE_NOT_FOUND = pd(
-    "http://librarysimplified.org/terms/problem/admin-auth-service-not-found",
-    status_code=400,
-    title=_("Admin authentication service not found."),
-    detail=_("Currently there can only be one admin authentication service, and the request does not match the existing one."),
+MISSING_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-service",
+    status_code=404,
+    title=_("Missing service"),
+    detail=_("The specified service does not exist."),
 )
 
-NO_PROVIDER_FOR_NEW_ADMIN_AUTH_SERVICE = pd(
-    "http://librarysimplified.org/terms/problem/no-provider-for-new-admin-auth-service",
+INVALID_CONFIGURATION_OPTION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-configuration-option",
     status_code=400,
-    title=_("No provider for new admin authentication service"),
-    detail=_("The specified admin authentication service doesn't exist. You can create it, but you must specify a provider."),
+    title=_("Invalid configuration option"),
+    detail=_("The configuration has an invalid value."),
 )
 
-CANNOT_CHANGE_ADMIN_AUTH_SERVICE_PROVIDER = pd(
-    "http://librarysimplified.org/terms/problem/cannot-change-admin-auth-service-provider",
+INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-external-type-regular-expression",
     status_code=400,
-    title=_("Cannot change admin authentication service provider"),
-    detail=_("An admin authentication service's provider can't be changed once it has been set."),
+    title=_("Invalid external type regular expression"),
+    detail=_("The specified external type regular expression does not compile."),
 )
 
-INCOMPLETE_ADMIN_AUTH_SERVICE_CONFIGURATION = pd(
-    "http://librarysimplified.org/terms/problem/incomplete-admin-auth-service-configuration",
+MULTIPLE_BASIC_AUTH_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-basic-auth-services",
     status_code=400,
-    title=_("Incomplete admin authentication service configuration"),
-    detail=_("The admin authentication service's configuration is missing a required field."),
+    title=_("Multiple basic authentication services"),
+    detail=_("Each library can only have one patron authentication service using basic auth."),
 )
 
-INVALID_ADMIN_AUTH_DOMAIN_LIST = pd(
-    "http://librarysimplified.org/terms/problem/invalid-admin-auth-domain-list",
+MISSING_SITEWIDE_SETTING_KEY = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-key",
     status_code=400,
-    title=_("Invalid admin authentication domain list"),
-    detail=_("The admin authentication domain list isn't in a valid format."),
+    title=_("Missing sitewide setting key"),
+    detail=_("A key is required to change a sitewide setting."),
 )
 
-INVALID_ADMIN_AUTH_ADMINS_LIST = pd(
-    "http://librarysimplified.org/terms/problem/invalid-admin-auth-admins-list",
+MISSING_SITEWIDE_SETTING_VALUE = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-value",
     status_code=400,
-    title=_("Invalid admin authentication list of admins"),
-    detail=_("The admin authentication list of admins isn't in a valid format."),
+    title=_("Missing sitewide setting value"),
+    detail=_("A value is required to change a sitewide setting."),
+)
+
+MULTIPLE_SEARCH_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-search-services",
+    status_code=400,
+    title=_("Multiple search services"),
+    detail=_("You tried to create a new search service, but a search service is already configured."),
 )

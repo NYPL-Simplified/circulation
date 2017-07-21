@@ -2,7 +2,13 @@ import time
 import re
 import logging
 from nose.tools import set_trace
+from sqlalchemy.orm.session import Session
 
+from core.model import (
+    Collection,
+    ConfigurationSetting,
+    get_one,
+)
 from core.scripts import (
     Script,
     IdentifierInputScript,
@@ -10,9 +16,9 @@ from core.scripts import (
 from core.util.problem_detail import ProblemDetail
 
 from config import Configuration
-from authenticator import Authenticator
+from authenticator import LibraryAuthenticator
 from overdrive import OverdriveAPI
-from threem import ThreeMAPI
+from bibliotheca import BibliothecaAPI
 from axis import Axis360API
 from circulation import CirculationAPI
 
@@ -23,13 +29,30 @@ class ServiceStatus(object):
 
     SUCCESS_MSG = re.compile('^SUCCESS: ([0-9]+.[0-9]+)sec')
 
-    def __init__(self, _db, auth=None, overdrive=None, threem=None, axis=None):
-        self._db = _db
-        self.auth = auth or Authenticator.from_config(self._db)
-        self.overdrive = overdrive or OverdriveAPI.from_environment(self._db)
-        self.threem = threem or ThreeMAPI.from_environment(self._db)
-        self.axis = axis or Axis360API.from_environment(self._db)
+    def __init__(self, circulation, auth=None):
+        """Constructor.
 
+        :param circulation: A CirculationAPI for the library whose status
+        we're checking.
+
+        :param auth: A LibraryAuthenticator object to use when authenticating
+        the sample patron.
+        """
+        self._db = circulation._db
+        self.circulation = circulation
+        library = circulation.library
+        self.auth = auth or LibraryAuthenticator.from_config(self._db, library)
+
+    @property
+    def test_patron(self):
+        """Get the test patron we'll be sending to the service
+        providers.
+        """
+        patron, password = self.auth.basic_auth_provider.testing_patron(
+            self._db
+        )
+        return patron, password
+        
     def loans_status(self, response=False):
         """Checks the length of request times for patron activity.
 
@@ -44,10 +67,8 @@ class ServiceStatus(object):
 
         patron_info = []
         def do_patron():
-            patron, password = self.auth.basic_auth_provider.testing_patron(
-                self._db
-            )
             # Stick it in a list so we can use it once we leave the function.
+            patron, password = self.test_patron
             patron_info.append((patron, password))
 
         # Look up the test patron and verify their credentials. If
@@ -70,17 +91,18 @@ class ServiceStatus(object):
             self.log.error(error)
             status[service] = error
             return status
-        for api in [self.overdrive, self.threem, self.axis]:
-            if not api:
-                continue
-            name = api.source.name
-            service = "%s patron account" % name
-            def do_patron_activity(api, name, patron):
+        for collection_id, api in self.circulation.api_for_collection.items():
+            collection = get_one(self._db, Collection, id=collection_id)
+            data_source_name = collection.data_source.name
+            service = "%s patron account (%s)" % (
+                collection.name, collection.data_source.name
+            )
+            def do_patron_activity(api, patron):
                 return api.patron_activity(patron, password)
 
             self._add_timing(
                 status, service, do_patron_activity,
-                api, name, patron
+                api, patron
             )
 
         if response:
@@ -93,34 +115,36 @@ class ServiceStatus(object):
         Intended to be run with an identifier without license restrictions.
         """
         status = dict()
-        patron, password = self.get_patron()
-        api = CirculationAPI(
-            self._db, overdrive=self.overdrive, threem=self.threem,
-            axis=self.axis
-        )
+        patron, password = self.test_patron
+        license_pools = identifier.licensed_through
+        if not license_pools:
+            raise ValueError("No license pools for this identifier")
+        for license_pool in license_pools:
+            delivery_mechanism = None
+            if license_pool.delivery_mechanisms:
+                delivery_mechanism = license_pool.delivery_mechanisms[0]
+            loans = []
 
-        license_pool = identifier.licensed_through
-        if not license_pool:
-            raise ValueError("No license pool for this identifier")
-        delivery_mechanism = None
-        if license_pool.delivery_mechanisms:
-            delivery_mechanism = license_pool.delivery_mechanisms[0]
-        loans = []
-
-        service = "Checkout IDENTIFIER: %r" % identifier
-        def do_checkout():
-            loan, hold, is_new = api.borrow(
-                patron, password, license_pool, delivery_mechanism,
-                Configuration.default_notification_email_address()
+            service = "Checkout COLLECTION=%s IDENTIFIER=%r" % (
+                license_pool.collection.name, identifier
             )
-            loans.append(loan)
-        self._add_timing(status, service, do_checkout)
+            api = self.circulation.api_for_license_pool(license_pool)
 
-        # There's no reason to continue checking without a loan.
-        if not loans:
-            self.log.error("No loan created during checkout")
-            self.log_status(status)
-            return
+            address = ConfigurationSetting.for_library(
+                Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+                patron.library
+            )
+            
+            def do_checkout():
+                loan, hold, is_new = api.borrow(
+                    patron, password, license_pool, delivery_mechanism,
+                    address,
+                )
+                if loan:
+                    loans.append(loan)
+                else:
+                    raise Exception("No loan created during checkout")
+            self._add_timing(status, service, do_checkout)
 
         service = "Fulfill IDENTIFIER: %r" % identifier
         def do_fulfillment():
@@ -135,7 +159,8 @@ class ServiceStatus(object):
         self._add_timing(status, service, do_checkin)
 
         self.log_status(status)
-
+        return status
+        
     def _add_timing(self, status, service, service_action, *args):
         try:
             start_time = time.time()

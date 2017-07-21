@@ -13,15 +13,22 @@ import datetime
 import json
 import os
 from money import Money
+import re
 import urllib
 import urlparse
+import flask
+from flask import url_for
 
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     Credential,
     DataSource,
+    ExternalIntegration,
     Library,
-    Patron
+    Patron,
+    create,
+    Session,
 )
 
 from core.util.problem_detail import (
@@ -30,7 +37,6 @@ from core.util.problem_detail import (
 from core.util.opds_authentication_document import (
     OPDSAuthenticationDocument,
 )
-from core.analytics import Analytics
 from core.mock_analytics_provider import MockAnalyticsProvider
 
 from api.millenium_patron import MilleniumPatronAPI
@@ -40,12 +46,16 @@ from api.util.patron import PatronUtility
 
 from api.authenticator import (
     Authenticator,
+    LibraryAuthenticator,
     AuthenticationProvider,
     BasicAuthenticationProvider,
     OAuthController,
     OAuthAuthenticationProvider,
     PatronData,
 )
+from api.simple_authentication import SimpleAuthenticationProvider
+from api.millenium_patron import MilleniumPatronAPI
+from api.opds import CirculationManagerAnnotator
 
 from api.config import (
     CannotLoadConfiguration,
@@ -56,6 +66,7 @@ from api.config import (
 from api.problem_details import *
 
 from . import DatabaseTest
+from test_controller import ControllerTest
 
 class MockAuthenticationProvider(object):
     """An AuthenticationProvider that always authenticates requests for
@@ -77,8 +88,9 @@ class MockBasicAuthenticationProvider(
     """A mock basic authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, patron=None, patrondata=None, *args, **kwargs):
-        super(MockBasicAuthenticationProvider, self).__init__(*args, **kwargs)
+    def __init__(self, library, integration, analytics=None, patron=None, patrondata=None, *args, **kwargs):
+        super(MockBasicAuthenticationProvider, self).__init__(
+            library, integration, analytics, *args, **kwargs)
         self.patron = patron
         self.patrondata = patrondata
 
@@ -96,9 +108,10 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
-    def __init__(self, patrondata=None, remote_patron_lookup_patrondata=None,
+    def __init__(self, library, integration, analytics=None, patrondata=None,
+                 remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
-        super(MockBasic, self).__init__(*args, **kwargs)
+        super(MockBasic, self).__init__(library, integration, analytics)
         self.patrondata = patrondata
         self.remote_patron_lookup_patrondata = remote_patron_lookup_patrondata
         
@@ -116,7 +129,8 @@ class MockOAuthAuthenticationProvider(
     """A mock OAuth authentication provider for use in testing the overall
     authentication process.
     """
-    def __init__(self, provider_name, patron=None, patrondata=None):
+    def __init__(self, library, provider_name, patron=None, patrondata=None):
+        self.library_id = library.id
         self.NAME = provider_name
         self.patron = patron
         self.patrondata = patrondata
@@ -134,10 +148,38 @@ class MockOAuth(OAuthAuthenticationProvider):
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
 
-    def __init__(self):
-        super(MockOAuth, self).__init__("", "", 20)
+    def __init__(self, library, name="Mock OAuth", integration=None, analytics=None):
+        _db = Session.object_session(library)
+        integration = integration or self._mock_integration(_db, name)
+        super(MockOAuth, self).__init__(library, integration, analytics)
 
-class TestPatronData(DatabaseTest):
+    @classmethod
+    def _mock_integration(self, _db, name):
+        integration, ignore = create(
+            _db, ExternalIntegration, protocol="OAuth",
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        integration.username = name
+        integration.password = ""
+        integration.setting(self.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
+        return integration
+
+
+class AuthenticatorTest(DatabaseTest):
+
+    def mock_basic(self, *args, **kwargs):
+        """Convenience method to instantiate a MockBasic object with the 
+        default library.
+        """
+        integration = self._external_integration(
+            self._str, ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        return MockBasic(
+            self._default_library, integration, *args, **kwargs
+        )
+
+        
+class TestPatronData(AuthenticatorTest):
 
     def setup(self):
         super(TestPatronData, self).setup()
@@ -309,160 +351,274 @@ class TestPatronData(DatabaseTest):
         eq_(None, patron.last_external_sync)
 
     def test_get_or_create_patron(self):
-        config = {
-            Configuration.POLICIES: {
-                Configuration.ANALYTICS_POLICY: ["core.mock_analytics_provider"]
-            }
-        }
-        with temp_config(config) as config:
-            provider = MockAnalyticsProvider()
-            analytics = Analytics.initialize(
-                ['core.mock_analytics_provider'], config
-            )
-            mock = Analytics.instance().providers[0]
+        analytics = MockAnalyticsProvider()
 
-            # The patron didn't exist yet, so it was created
-            # and an analytics event was sent.
-            patron, is_new = self.data.get_or_create_patron(self._db)
-            eq_('2', patron.authorization_identifier)
-            eq_(True, is_new)
-            eq_(CirculationEvent.NEW_PATRON, mock.event_type)
-            eq_(1, mock.count)
+        # The patron didn't exist yet, so it was created
+        # and an analytics event was sent.
+        patron, is_new = self.data.get_or_create_patron(
+            self._db, self._default_library.id, analytics
+        )
+        eq_('2', patron.authorization_identifier)
+        eq_(self._default_library, patron.library)
+        eq_(True, is_new)
+        eq_(CirculationEvent.NEW_PATRON, analytics.event_type)
+        eq_(1, analytics.count)
 
-            # The same patron is returned, and no analytics
-            # event was sent.
-            patron, is_new = self.data.get_or_create_patron(self._db)
-            eq_('2', patron.authorization_identifier)
-            eq_(False, is_new)
-            eq_(1, mock.count)
+        # The same patron is returned, and no analytics
+        # event was sent.
+        patron, is_new = self.data.get_or_create_patron(
+            self._db, self._default_library.id, analytics
+        )
+        eq_('2', patron.authorization_identifier)
+        eq_(False, is_new)
+        eq_(1, analytics.count)
 
     def test_to_response_parameters(self):
 
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
-class TestAuthenticator(DatabaseTest):
+class TestAuthenticator(ControllerTest):
 
-    def test_from_config(self):
+    def test_init(self):
+        # The default library has already been configured to use the
+        # SimpleAuthenticationProvider for its basic auth.
+        l1 = self._default_library
+        l1.short_name = 'l1'
+
+        # This library uses Millenium Patron.
+        l2, ignore = create(self._db, Library, short_name="l2")
+        integration = self._external_integration(
+            "api.millenium_patron", goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        integration.url = "http://url/"
+        l2.integrations.append(integration)
+
+        self._db.commit()
+
+        analytics = MockAnalyticsProvider()
+        
+        auth = Authenticator(self._db, analytics)
+
+        # A LibraryAuthenticator has been created for each Library.
+        assert 'l1' in auth.library_authenticators
+        assert 'l2' in auth.library_authenticators
+        assert isinstance(auth.library_authenticators['l1'], LibraryAuthenticator)
+        assert isinstance(auth.library_authenticators['l2'], LibraryAuthenticator)
+
+        # Each LibraryAuthenticator has been associated with an
+        # appropriate AuthenticationProvider.
+
+        assert isinstance(
+            auth.library_authenticators['l1'].basic_auth_provider,
+            SimpleAuthenticationProvider
+        )
+        assert isinstance(
+            auth.library_authenticators['l2'].basic_auth_provider,
+            MilleniumPatronAPI
+        )
+
+        # Each provider has the analytics set.
+        eq_(analytics, auth.library_authenticators['l1'].basic_auth_provider.analytics)
+        eq_(analytics, auth.library_authenticators['l2'].basic_auth_provider.analytics)
+
+    def test_methods_call_library_authenticators(self):
+        class MockLibraryAuthenticator(LibraryAuthenticator):
+            def __init__(self, name):
+                self.name = name
+            def authenticated_patron(self, _db, header):
+                return "authenticated patron for %s" % self.name
+            def create_authentication_document(self):
+                return "authentication document for %s" % self.name
+            def create_authentication_headers(self):
+                return "authentication headers for %s" % self.name
+            def get_credential_from_header(self, header):
+                return "credential for %s" % self.name
+
+        l1, ignore = create(self._db, Library, short_name="l1")
+        l2, ignore = create(self._db, Library, short_name="l2")
+
+        auth = Authenticator(self._db)
+        auth.library_authenticators['l1'] = MockLibraryAuthenticator("l1")
+        auth.library_authenticators['l2'] = MockLibraryAuthenticator("l2")
+
+        # This new library isn't in the authenticator.
+        l3, ignore = create(self._db, Library, short_name="l3")
+
+        with self.app.test_request_context("/"):
+            flask.request.library = l3
+            eq_(LIBRARY_NOT_FOUND, auth.authenticated_patron(self._db, {}))
+            eq_(LIBRARY_NOT_FOUND, auth.create_authentication_document())
+            eq_(LIBRARY_NOT_FOUND, auth.create_authentication_headers())
+            eq_(LIBRARY_NOT_FOUND, auth.get_credential_from_header({}))
+
+        # The other libraries are in the authenticator.
+        with self.app.test_request_context("/"):
+            flask.request.library = l1
+            eq_("authenticated patron for l1", auth.authenticated_patron(self._db, {}))
+            eq_("authentication document for l1", auth.create_authentication_document())
+            eq_("authentication headers for l1", auth.create_authentication_headers())
+            eq_("credential for l1", auth.get_credential_from_header({}))
+
+        with self.app.test_request_context("/"):
+            flask.request.library = l2
+            eq_("authenticated patron for l2", auth.authenticated_patron(self._db, {}))
+            eq_("authentication document for l2", auth.create_authentication_document())
+            eq_("authentication headers for l2", auth.create_authentication_headers())
+            eq_("credential for l2", auth.get_credential_from_header({}))
+
+class TestLibraryAuthenticator(AuthenticatorTest):
+
+    def test_from_config_basic_auth_only(self):
         # Only a basic auth provider.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"module": 'api.millenium_patron',
-                         Configuration.URL: "http://url"}
-                    ]
-                }
-            }
-            auth = Authenticator.from_config(self._db)
+        millenium = self._external_integration(
+            "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        millenium.url = "http://url/"
+        self._default_library.integrations.append(millenium)
 
-            assert auth.basic_auth_provider != None
-            assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
+        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
 
-            eq_({}, auth.oauth_providers_by_name)
+        assert auth.basic_auth_provider != None
+        assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
+        eq_({}, auth.oauth_providers_by_name)
 
+    def test_from_config_basic_auth_and_oauth(self):
+        library = self._default_library
         # A basic auth provider and an oauth provider.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: dict(
-                    providers=[
-                        { "module": 'api.firstbook',
-                          Configuration.URL: "http://url",
-                          FirstBookAuthenticationAPI.SECRET_KEY: "secret",
-                        },
-                        {"module": 'api.clever',
-                         Configuration.OAUTH_CLIENT_ID: 'client_id',
-                         Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
-                        },
-                    ],
-                    bearer_token_signing_secret="signing secret"
-                )
-            }
-            config[Configuration.INTEGRATIONS] = {
-                FirstBookAuthenticationAPI.NAME: {
-                },
-                CleverAuthenticationAPI.NAME: {
-                }
-            }
+        firstbook = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        firstbook.url = "http://url/"
+        firstbook.password = "secret"
+        library.integrations.append(firstbook)
+        
+        oauth = self._external_integration(
+            "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        oauth.username = "client_id"
+        oauth.password = "client_secret"
+        library.integrations.append(oauth)
 
-            auth = Authenticator.from_config(self._db)
+        analytics = MockAnalyticsProvider()
+        auth = LibraryAuthenticator.from_config(self._db, library, analytics)
 
-            assert auth.basic_auth_provider != None
-            assert isinstance(auth.basic_auth_provider,
-                              FirstBookAuthenticationAPI)
+        assert auth.basic_auth_provider != None
+        assert isinstance(auth.basic_auth_provider,
+                          FirstBookAuthenticationAPI)
+        eq_(analytics, auth.basic_auth_provider.analytics)
             
-            eq_(1, len(auth.oauth_providers_by_name))
-            clever = auth.oauth_providers_by_name[
-                CleverAuthenticationAPI.NAME
-            ]
-            assert isinstance(clever, CleverAuthenticationAPI)
+        eq_(1, len(auth.oauth_providers_by_name))
+        clever = auth.oauth_providers_by_name[
+            CleverAuthenticationAPI.NAME
+        ]
+        assert isinstance(clever, CleverAuthenticationAPI)
+        eq_(analytics, clever.analytics)
             
-    def test_config_fails_when_no_providers_specified(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {}
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "No authentication policy given.",
-                Authenticator.from_config, self._db
-            )
+    def test_config_succeeds_when_no_providers_configured(self):
+        """You can call from_config even when there are no authentication
+        providers configured.
 
-    def test_config_fails_when_providers_is_not_a_dictionary(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: "api.millenium_patron"
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Authentication policy must be a dictionary with key 'providers'.",
-                Authenticator.from_config, self._db                
-            )        
+        This should not happen in normal usage, but there will be an
+        interim period immediately after a library is created where
+        this will be its configuration.
+        """
+        authenticator = LibraryAuthenticator.from_config(
+            self._db, self._default_library
+        )
+        eq_([], list(authenticator.providers))
 
-    def test_config_fails_when_provider_is_not_a_dictionary(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": ["api.millenium_patron"]
-                }
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Provider 'api.millenium_patron' is invalid; must be a dictionary.",
-                Authenticator.from_config, self._db                
-            )        
+    def test_configuration_exception_during_from_config_stored(self):
+        """If the initialization of an AuthenticationProvider from config
+        raises CannotLoadConfiguration or ImportError, the exception
+        is stored with the LibraryAuthenticator rather than being
+        propagated.
+        """
 
-    def test_config_fails_when_provider_dictionary_does_not_define_module(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY: {
-                    "providers": [
-                        {"config": "value"}
-                    ]
-                }
-            }
-            assert_raises_regexp(
-                CannotLoadConfiguration, "Provider configuration does not define 'module':",
-                Authenticator.from_config, self._db                
-            )        
-            
+        # Create an integration destined to raise CannotLoadConfiguration..
+        misconfigured = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+
+        # ... and one destined to raise ImportError.
+        unknown = self._external_integration(
+            "unknown protocol", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        for integration in [misconfigured, unknown]:
+            self._default_library.integrations.append(integration)
+        auth = LibraryAuthenticator.from_config(self._db, self._default_library)
+
+        # The LibraryAuthenticator exists but has no AuthenticationProviders.
+        eq_(None, auth.basic_auth_provider)
+        eq_({}, auth.oauth_providers_by_name)
+        
+        # Both integrations have left their trace in
+        # initialization_exceptions.
+        not_configured = auth.initialization_exceptions[misconfigured.id]
+        assert isinstance(not_configured, CannotLoadConfiguration)
+        eq_('First Book server not configured.', not_configured.message)
+
+        not_found = auth.initialization_exceptions[unknown.id]
+        assert isinstance(not_found, ImportError)
+        eq_('No module named unknown protocol', not_found.message)
+        
+    def test_register_fails_when_integration_has_wrong_goal(self):
+        integration = self._external_integration(
+            "protocol", "some other goal"
+        )
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Was asked to register an integration with goal=some other goal as though it were a way of authenticating patrons.",
+            auth.register_provider, integration
+        )
+
+    def test_register_fails_when_integration_not_associated_with_library(self):
+        integration = self._external_integration(
+            "protocol", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Was asked to register an integration with library .*, which doesn't use it.",
+            auth.register_provider, integration
+        )
+
+    def test_register_fails_when_integration_module_does_not_contain_provider_class(self):
+        library = self._default_library
+        integration = self._external_integration(
+            "api.lanes", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        library.integrations.append(integration)
+        auth = LibraryAuthenticator(_db=self._db, library=library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Loaded module api.lanes but could not find a class called AuthenticationProvider inside.",
+            auth.register_provider, integration
+        )        
+        
     def test_register_provider_basic_auth(self):
-        config = {
-            "module": "api.firstbook",
-            Configuration.URL: "http://url",
-            FirstBookAuthenticationAPI.SECRET_KEY: "secret",
-        }
-        auth = Authenticator(library=Library.instance(self._db))
-        auth.register_provider(config)
+        firstbook = self._external_integration(
+            "api.firstbook", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        firstbook.url = "http://url/"
+        firstbook.password = "secret"
+        self._default_library.integrations.append(firstbook)
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        auth.register_provider(firstbook)
         assert isinstance(
             auth.basic_auth_provider, FirstBookAuthenticationAPI
         )
         
     def test_register_oauth_provider(self):
-        config = {
-            "module": "api.clever",
-            Configuration.OAUTH_CLIENT_ID: 'client_id',
-            Configuration.OAUTH_CLIENT_SECRET: 'client_secret',
-        }
-        auth = Authenticator(library=Library.instance(self._db))
-        auth.register_provider(config)
+        oauth = self._external_integration(
+            "api.clever", ExternalIntegration.PATRON_AUTH_GOAL,
+        )
+        oauth.username = "client_id"
+        oauth.password = "client_secret"
+        self._default_library.integrations.append(oauth)
+        auth = LibraryAuthenticator(_db=self._db, library=self._default_library)
+        auth.register_provider(oauth)
         eq_(1, len(auth.oauth_providers_by_name))
         clever = auth.oauth_providers_by_name[
             CleverAuthenticationAPI.NAME
@@ -470,39 +626,51 @@ class TestAuthenticator(DatabaseTest):
         assert isinstance(clever, CleverAuthenticationAPI)
             
     def test_oauth_provider_requires_secret(self):
-        basic = MockBasicAuthenticationProvider()
-        oauth = MockOAuthAuthenticationProvider("provider1")
+        integration = self._external_integration(self._str)
+
+        basic = MockBasicAuthenticationProvider(
+            self._default_library, integration
+        )
+        oauth = MockOAuthAuthenticationProvider(
+            self._default_library, "provider1"
+        )
 
         # You can create an Authenticator that only uses Basic Auth
         # without providing a secret.
-        Authenticator(
-            library=Library.instance(self._db),
+        LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=basic
         )
 
         # You can create an Authenticator that uses OAuth if you
         # provide a secret.
-        Authenticator(
-            library=Library.instance(self._db),
+        LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             oauth_providers=[oauth], bearer_token_signing_secret="foo"
         )
         
         # But you can't create an Authenticator that uses OAuth
         # without providing a secret.
         assert_raises_regexp(
-            Authenticator,
+            LibraryAuthenticator,
             "OAuth providers are configured, but secret for signing bearer tokens is not.",
-            library=Library.instance(self._db),
+            library=self._default_library,
             oauth_providers=[oauth]
         )
         
     def test_providers(self):
-        basic = MockBasicAuthenticationProvider()
-        oauth1 = MockOAuthAuthenticationProvider("provider1")
-        oauth2 = MockOAuthAuthenticationProvider("provider2")
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library, integration
+        )
+        oauth1 = MockOAuthAuthenticationProvider(self._default_library, "provider1")
+        oauth2 = MockOAuthAuthenticationProvider(self._default_library, "provider2")
 
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=basic, oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -514,15 +682,21 @@ class TestAuthenticator(DatabaseTest):
         and you can't register two different OAuth providers
         with the same .NAME.
         """
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             bearer_token_signing_secret='foo'
         )
-        basic1 = MockBasicAuthenticationProvider()
-        basic2 = MockBasicAuthenticationProvider()
-        oauth1 = MockOAuthAuthenticationProvider("provider1")
-        oauth2 = MockOAuthAuthenticationProvider("provider2")
-        oauth1_dupe = MockOAuthAuthenticationProvider("provider1")
+        integration = self._external_integration(self._str)
+        basic1 = MockBasicAuthenticationProvider(
+            self._default_library, integration
+        )
+        basic2 = MockBasicAuthenticationProvider(
+            self._default_library, integration
+        )
+        oauth1 = MockOAuthAuthenticationProvider(self._default_library, "provider1")
+        oauth2 = MockOAuthAuthenticationProvider(self._default_library, "provider2")
+        oauth1_dupe = MockOAuthAuthenticationProvider(self._default_library, "provider1")
 
         authenticator.register_basic_auth_provider(basic1)
         authenticator.register_basic_auth_provider(basic1)
@@ -546,9 +720,13 @@ class TestAuthenticator(DatabaseTest):
     def test_oauth_provider_lookup(self):
 
         # If there are no OAuth providers we cannot look one up.
-        basic = MockBasicAuthenticationProvider()
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(
+            self._default_library, integration
+        )
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=basic
         )
         problem = authenticator.oauth_provider_lookup("provider1")
@@ -556,11 +734,12 @@ class TestAuthenticator(DatabaseTest):
         eq_(_("No OAuth providers are configured."), problem.detail)
         
         # We can look up registered providers but not unregistered providers.
-        oauth1 = MockOAuthAuthenticationProvider("provider1")
-        oauth2 = MockOAuthAuthenticationProvider("provider2")
-        oauth3 = MockOAuthAuthenticationProvider("provider3")
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        oauth1 = MockOAuthAuthenticationProvider(self._default_library, "provider1")
+        oauth2 = MockOAuthAuthenticationProvider(self._default_library, "provider2")
+        oauth3 = MockOAuthAuthenticationProvider(self._default_library, "provider3")
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -582,11 +761,14 @@ class TestAuthenticator(DatabaseTest):
             authorization_identifier=patron.authorization_identifier,
             username=patron.username
         )
+        integration = self._external_integration(self._str)
         basic = MockBasicAuthenticationProvider(
-            patron=patron, patrondata=patrondata
+            self._default_library, integration, patron=patron,
+            patrondata=patrondata
         )
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=basic
         )
         eq_(
@@ -605,10 +787,11 @@ class TestAuthenticator(DatabaseTest):
     def test_authenticated_patron_oauth(self):
         patron1 = self._patron()
         patron2 = self._patron()
-        oauth1 = MockOAuthAuthenticationProvider("oauth1", patron=patron1)
-        oauth2 = MockOAuthAuthenticationProvider("oauth2", patron=patron2)
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        oauth1 = MockOAuthAuthenticationProvider(self._default_library, "oauth1", patron=patron1)
+        oauth2 = MockOAuthAuthenticationProvider(self._default_library, "oauth2", patron=patron2)
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -636,20 +819,25 @@ class TestAuthenticator(DatabaseTest):
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
 
     def test_authenticated_patron_unsupported_mechanism(self):
-        authenticator = Authenticator(library=Library.instance(self._db))
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
+        )
         problem = authenticator.authenticated_patron(
             self._db, object()
         )
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM, problem)
 
     def test_get_credential_from_header(self):
-        basic = MockBasicAuthenticationProvider()
-        oauth = MockOAuthAuthenticationProvider("oauth1")
+        integration = self._external_integration(self._str)
+        basic = MockBasicAuthenticationProvider(self._default_library, integration)
+        oauth = MockOAuthAuthenticationProvider(self._default_library, "oauth1")
 
         # We can pull the password out of a Basic Auth credential
         # if a Basic Auth authentication provider is configured.
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret="secret"
         )
@@ -660,8 +848,9 @@ class TestAuthenticator(DatabaseTest):
 
         # We can't pull the password out if only OAuth authentication
         # providers are configured.
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=None, oauth_providers=[oauth],
             bearer_token_signing_secret="secret"
         )
@@ -671,10 +860,11 @@ class TestAuthenticator(DatabaseTest):
 
         
     def test_create_bearer_token(self):
-        oauth1 = MockOAuthAuthenticationProvider("oauth1")
-        oauth2 = MockOAuthAuthenticationProvider("oauth2")
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        oauth1 = MockOAuthAuthenticationProvider(self._default_library, "oauth1")
+        oauth2 = MockOAuthAuthenticationProvider(self._default_library, "oauth2")
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             oauth_providers=[oauth1, oauth2],
             bearer_token_signing_secret='foo'
         )
@@ -704,9 +894,10 @@ class TestAuthenticator(DatabaseTest):
         assert token4 != token1
         
     def test_decode_bearer_token(self):
-        oauth = MockOAuthAuthenticationProvider("oauth")
-        authenticator = Authenticator(
-            library=Library.instance(self._db),
+        oauth = MockOAuthAuthenticationProvider(self._default_library, "oauth")
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
@@ -723,98 +914,165 @@ class TestAuthenticator(DatabaseTest):
         eq_(token_value, decoded)
 
     def test_create_authentication_document(self):
-        basic = MockBasicAuthenticationProvider()
-        oauth = MockOAuthAuthenticationProvider("oauth")
+        integration = self._external_integration(self._str)
+        library = self._default_library
+        basic = MockBasicAuthenticationProvider(library, integration)
+        oauth = MockOAuthAuthenticationProvider(library, "oauth")
         oauth.URI = "http://example.org/"
-        library = Library.instance(self._db)
         expect_uuid = library.uuid
         library.name = "A Fabulous Library"
-        authenticator = Authenticator(
+        authenticator = LibraryAuthenticator(
+            _db=self._db,
             library = library,
             basic_auth_provider=basic, oauth_providers=[oauth],
             bearer_token_signing_secret='secret'
         )
-        
+
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
+        
+        # Set up configuration settings for links.
+        link_config = {
+            CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms",
+            CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy",
+            CirculationManagerAnnotator.COPYRIGHT: "http://copyright",
+            CirculationManagerAnnotator.ABOUT: "http://about",
+            CirculationManagerAnnotator.LICENSE: "http://license/",
+            CirculationManagerAnnotator.REGISTER: "custom-registration-hook://library/",
+            Configuration.LOGO: "image data",
+        }
 
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS][
-                Configuration.CIRCULATION_MANAGER_INTEGRATION
-            ] = dict(url="http://circulation-manager/")
-            config[Configuration.LINKS] = {
-                Configuration.TERMS_OF_SERVICE: "http://terms",
-                Configuration.PRIVACY_POLICY: "http://privacy",
-                Configuration.COPYRIGHT: "http://copyright",
-                Configuration.ABOUT: "http://about",
-                Configuration.LICENSE: "http://license/",
-            }
+        for rel, value in link_config.iteritems():
+            ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-            with self.app.test_request_context("/"):        
-                doc = json.loads(authenticator.create_authentication_document())
-                # The main thing we need to test is that the
-                # sub-documents are assembled properly and placed in the
-                # right position.
-                providers = doc['providers']
-                basic_doc = providers[basic.URI]
-                expect_basic = basic.authentication_provider_document
-                eq_(expect_basic, basic_doc)
+        ConfigurationSetting.for_library(
+            Configuration.LIBRARY_DESCRIPTION, library
+        ).value = "Just the best."
             
-                oauth_doc = providers[oauth.URI]
-                expect_oauth = oauth.authentication_provider_document
-                eq_(expect_oauth, oauth_doc)
+        # Set the URL to the library's web page.
+        ConfigurationSetting.for_library(
+            Configuration.WEBSITE_URL, library).value = "http://library/"
 
-                # We also need to test that the library's name and UUID
-                # were placed in the document.
-                eq_("A Fabulous Library", doc['name'])
-                eq_(expect_uuid, doc['id'])
-                
-                # We also need to test that the links got pulled in
-                # from the configuration.
-                links = doc['links']
-                eq_("http://terms", links['terms-of-service']['href'])
-                eq_("http://privacy", links['privacy-policy']['href'])
-                eq_("http://copyright", links['copyright']['href'])
-                eq_("http://about", links['about']['href'])
-                eq_("http://license/", links['license']['href'])
-                
-                # While we're in this context, let's also test
-                # create_authentication_headers.
+        # Set the color scheme a client should use.
+        ConfigurationSetting.for_library(
+            Configuration.COLOR_SCHEME, library).value = "plaid"
+        
+        # Configure the various ways a patron can get help.
+        ConfigurationSetting.for_library(
+            Configuration.HELP_EMAIL, library).value = "help@library"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_WEB, library).value = "http://library.help/"
+        ConfigurationSetting.for_library(
+            Configuration.HELP_URI, library).value = "custom:uri"
+        
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
+        base_url.value = u'http://circulation-manager/'
+       
+        with self.app.test_request_context("/"):
+            doc = json.loads(authenticator.create_authentication_document())
+            # The main thing we need to test is that the
+            # sub-documents are assembled properly and placed in the
+            # right position.
+            providers = doc['providers']
+            basic_doc = providers[basic.URI]
+            expect_basic = basic.authentication_provider_document(library.short_name)
+            eq_(expect_basic, basic_doc)
 
-                # So long as the authenticator includes a basic auth
-                # provider, that provider's .authentication_header is used
-                # for WWW-Authenticate.
-                headers = authenticator.create_authentication_headers()
-                eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
-                eq_(basic.authentication_header, headers['WWW-Authenticate'])
+            oauth_doc = providers[oauth.URI]
+            expect_oauth = oauth.authentication_provider_document(self._db)
+            eq_(expect_oauth, oauth_doc)
 
-                # If the authenticator does not include a basic auth provider,
-                # no WWW-Authenticate header is provided. 
-                authenticator = Authenticator(
-                    library=library,
-                    oauth_providers=[oauth],
-                    bearer_token_signing_secret='secret'
-                )
-                headers = authenticator.create_authentication_headers()
-                assert 'WWW-Authenticate' not in headers
+            # We also need to test that the library's name and UUID
+            # were placed in the document.
+            eq_("A Fabulous Library", doc['name'])
+            eq_("Just the best.", doc['service_description'])
+            eq_(expect_uuid, doc['id'])
 
-class TestAuthenticationProvider(DatabaseTest):
+            # The color scheme is correctly reported.
+            eq_("plaid", doc['color_scheme'])
+            
+            # We also need to test that the links got pulled in
+            # from the configuration.
+            links = doc['links']
+            eq_("http://terms", links['terms-of-service']['href'])
+            eq_("http://privacy", links['privacy-policy']['href'])
+            eq_("http://copyright", links['copyright']['href'])
+            eq_("http://about", links['about']['href'])
+            eq_("http://license/", links['license']['href'])
+            eq_("image data", links['logo']['href'])
+
+            # Most of the links have type='text/html'
+            eq_("text/html", links['about']['type'])
+
+            # The registration link doesn't have a type, because it
+            # uses a non-HTTP URI scheme.
+            register = links['register']
+            eq_({'href': 'custom-registration-hook://library/'},
+                links['register'])
+
+            # The logo link has type "image/png".
+            eq_("image/png", links["logo"]["type"])
+
+            # We have three help links.
+            uri, web, email = sorted(links['help'], key=lambda x: x['href'])
+            eq_("custom:uri", uri['href'])
+            eq_("http://library.help/", web['href'])
+            eq_("text/html", web['type'])
+            eq_("mailto:help@library", email['href'])
+
+            # The library's web page shows up as an HTML alternate
+            # to the OPDS server.
+            eq_(
+                dict(type="text/html", href="http://library/"),
+                links['alternate']
+            )
+            
+            # Features that are enabled for this library are communicated
+            # through the 'features' item.
+            features = doc['features']
+            eq_([], features['disabled'])
+            eq_([Configuration.RESERVATIONS_FEATURE], features['enabled'])
+            
+            # While we're in this context, let's also test
+            # create_authentication_headers.
+
+            # So long as the authenticator includes a basic auth
+            # provider, that provider's .authentication_header is used
+            # for WWW-Authenticate.
+            headers = authenticator.create_authentication_headers()
+            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+            eq_(basic.authentication_header, headers['WWW-Authenticate'])
+
+            # If the authenticator does not include a basic auth provider,
+            # no WWW-Authenticate header is provided.
+            authenticator = LibraryAuthenticator(
+                _db=self._db,
+                library=library,
+                oauth_providers=[oauth],
+                bearer_token_signing_secret='secret'
+            )
+            headers = authenticator.create_authentication_headers()
+            assert 'WWW-Authenticate' not in headers
+
+class TestAuthenticationProvider(AuthenticatorTest):
 
     credentials = dict(username='user', password='')
     
     def test_authenticated_patron_passes_on_none(self):
-        provider = MockBasic(patrondata=None)
+        provider = self.mock_basic(patrondata=None)
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
         eq_(None, patron)
     
     def test_authenticated_patron_passes_on_problem_detail(self):
-        provider = MockBasic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        provider = self.mock_basic(
+            patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM
+        )
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
@@ -828,8 +1086,10 @@ class TestAuthenticationProvider(DatabaseTest):
 
         expired = PatronData(permanent_id="1", authorization_identifier="2",
                              authorization_expires=yesterday)
-        provider = MockBasic(patrondata=expired,
-                             remote_patron_lookup_patrondata=expired)
+        provider = self.mock_basic(
+                             patrondata=expired,
+                             remote_patron_lookup_patrondata=expired
+        )
         patron = provider.authenticated_patron(
             self._db, self.credentials
         )
@@ -858,7 +1118,7 @@ class TestAuthenticationProvider(DatabaseTest):
             username=username, complete=True
         )
         
-        provider = MockBasic(
+        provider = self.mock_basic(
             patrondata=incomplete_data,
             remote_patron_lookup_patrondata=complete_data
         )
@@ -913,11 +1173,13 @@ class TestAuthenticationProvider(DatabaseTest):
         
     def test_update_patron_metadata(self):
         patron = self._patron()
+        patron.authorization_identifier="2345"
         eq_(None, patron.last_external_sync)
         eq_(None, patron.username)
         
         patrondata = PatronData(username="user")
-        provider = MockBasicAuthenticationProvider(patrondata=patrondata)
+        provider = self.mock_basic(remote_patron_lookup_patrondata=patrondata)
+        provider.external_type_regular_expression = re.compile("^(.)")
         provider.update_patron_metadata(patron)
 
         # The patron's username has been changed.
@@ -925,11 +1187,14 @@ class TestAuthenticationProvider(DatabaseTest):
         
         # last_external_sync has been updated.
         assert patron.last_external_sync != None
-    
+
+        # external_type was updated based on the regular expression
+        eq_("2", patron.external_type)
+        
     def test_update_patron_metadata_noop_if_no_remote_metadata(self):
 
         patron = self._patron()
-        provider = MockBasicAuthenticationProvider(patrondata=None)
+        provider = self.mock_basic(patrondata=None)
         provider.update_patron_metadata(patron)
 
         # We can tell that update_patron_metadata was a no-op because
@@ -938,50 +1203,166 @@ class TestAuthenticationProvider(DatabaseTest):
 
     def test_remote_patron_lookup_is_noop(self):
         """The default implementation of remote_patron_lookup is a no-op."""
-        provider = BasicAuthenticationProvider()
+        provider = BasicAuthenticationProvider(
+            self._default_library, self._external_integration(self._str)
+        )
         eq_(None, provider.remote_patron_lookup(None))
         patron = self._patron()
         eq_(patron, provider.remote_patron_lookup(patron))
         patrondata = PatronData()
         eq_(patrondata, provider.remote_patron_lookup(patrondata))
 
+    def test_update_patron_external_type(self):
+        patron = self._patron()
+        patron.authorization_identifier = "A123"
+        patron.external_type = "old value"
+        library = patron.library
+        integration = self._external_integration(self._str)
 
-class TestBasicAuthenticationProvider(DatabaseTest):
-
-    def test_from_config(self):
-
-        class ConfigAuthenticationProvider(BasicAuthenticationProvider):
-            NAME = "Config loading test"
+        class MockProvider(AuthenticationProvider):
+            NAME = "Just a mock"
         
-        config = {
-            Configuration.IDENTIFIER_REGULAR_EXPRESSION : "idre",
-            Configuration.PASSWORD_REGULAR_EXPRESSION : "pwre",
-            Configuration.AUTHENTICATION_TEST_USERNAME : "username",
-            Configuration.AUTHENTICATION_TEST_PASSWORD : "pw",
-        }
-        provider = ConfigAuthenticationProvider.from_config(config)
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MockProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
+            library, integration
+        )
+        setting.value = None
+
+        # If there is no EXTERNAL_TYPE_REGULAR_EXPRESSION, calling
+        # update_patron_external_type does nothing.
+        MockProvider(library, integration).update_patron_external_type(
+            patron
+        )
+        eq_("old value", patron.external_type)
+        
+        setting.value = "([A-Z])"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("A", patron.external_type)
+        
+        setting.value = "([0-9]$)"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("3", patron.external_type)
+
+        # These regexp has no groups, so it has no power to change
+        # external_type.
+        setting.value = "A"
+        MockProvider(library, integration).update_patron_external_type(patron)
+        eq_("3", patron.external_type)
+
+        # This regexp is invalid, so it isn't used.
+        setting.value = "(not a valid regexp"
+        provider = MockProvider(library, integration)
+        eq_(None, provider.external_type_regular_expression)
+
+    def test_restriction_matches(self):
+        """Test the behavior of the patron identifier restriction 
+        algorithm.
+        """
+        m = AuthenticationProvider._restriction_matches
+        eq_(True, m(None, None))
+        eq_(True, m("12345a", "1234"))
+        eq_(True, m("a1234", re.compile("1234")))
+        eq_(True, m("123", re.compile("^(12|34)")))
+        eq_(True, m("345", re.compile("^(12|34)")))
+        
+        eq_(False, m(None, "1234"))
+        eq_(False, m(None, re.compile(".*")))
+        eq_(False, m("a1234", "1234"))
+        eq_(False, m("abc", re.compile("^bc")))
+        
+    def test_patron_identifier_restriction_matches(self):
+        """Test the patron_identifier_restriction_matches method."""
+        provider = self.mock_basic()
+        provider.patron_identifier_restriction = re.compile("23[46]5")
+        m = provider.patron_identifier_restriction_matches
+        eq_(True, m("23456"))
+        eq_(True, m("2365"))
+        eq_(False, m("2375"))
+
+        provider.patron_identifier_restriction = "2345"
+        eq_(True, m("23456"))
+        eq_(False, m("123456"))
+
+    def test_patron_identifier_restriction(self):
+        library = self._default_library
+        integration = self._external_integration(self._str)
+
+        class MockProvider(AuthenticationProvider):
+            NAME = "Just a mock"
+        
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MockProvider.PATRON_IDENTIFIER_RESTRICTION,
+            library, integration
+        )
+
+        # If the setting value starts with a carat, it's turned into a
+        # regular expression.
+        setting.value = "^abcd"
+        provider = MockProvider(library, integration)
+        eq_("^abcd", provider.patron_identifier_restriction.pattern)
+
+        # Otherwise, it's a regular string that is used as a prefix.
+        setting.value = "abcd"
+        provider = MockProvider(library, integration)
+        eq_("abcd", provider.patron_identifier_restriction)
+
+
+class TestBasicAuthenticationProvider(AuthenticatorTest):
+
+    def test_constructor(self):
+
+        b = BasicAuthenticationProvider
+        
+        class ConfigAuthenticationProvider(b):
+            NAME = "Config loading test"
+
+        
+        integration = self._external_integration(
+            self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        self._default_library.integrations.append(integration)
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = "idre"
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = "pwre"
+        integration.setting(b.TEST_IDENTIFIER).value = "username"
+        integration.setting(b.TEST_PASSWORD).value = "pw"
+
+        provider = ConfigAuthenticationProvider(
+            self._default_library, integration
+        )
         eq_("idre", provider.identifier_re.pattern)
         eq_("pwre", provider.password_re.pattern)
         eq_("username", provider.test_username)
         eq_("pw", provider.test_password)
 
         # Test the defaults.
-        provider = ConfigAuthenticationProvider.from_config({})
-        eq_(BasicAuthenticationProvider.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
+        integration = self._external_integration(
+            self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        provider = ConfigAuthenticationProvider(
+            self._default_library, integration
+        )
+        eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION,
             provider.identifier_re)
         eq_(None, provider.password_re)
         
     
     def test_testing_patron(self):
         # You don't have to have a testing patron.
-        no_testing_patron = BasicAuthenticationProvider()
+        integration = self._external_integration(self._str)
+        no_testing_patron = BasicAuthenticationProvider(
+            self._default_library, integration
+        )
         eq_((None, None), no_testing_patron.testing_patron(self._db))
 
         # We configure a testing patron but their username and
         # password don't actually authenticate anyone. We don't crash,
         # but we can't look up the testing patron either.
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(b.TEST_IDENTIFIER).value = '1'
+        integration.setting(b.TEST_PASSWORD).value = '2'
         missing_patron = MockBasicAuthenticationProvider(
-            patron=None, test_username="1", test_password="2"
+            self._default_library, integration, patron=None
         )
         value = missing_patron.testing_patron(self._db)
         eq_((None, "2"), value)
@@ -990,29 +1371,85 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         # their username and password.
         patron = self._patron()
         present_patron = MockBasicAuthenticationProvider(
-            patron=patron, test_username="1", test_password="2"
+            self._default_library, integration,
+            patron=patron
         )
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
 
+    def test_client_configuration(self):
+        """Test that client-side configuration settings are retrieved from
+        ConfigurationSetting objects.
+        """
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(
+            b.IDENTIFIER_KEYBOARD).value = b.EMAIL_ADDRESS_KEYBOARD
+        integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
+        integration.setting(b.IDENTIFIER_LABEL).value = "Your Library Card"
+        integration.setting(b.PASSWORD_LABEL).value = 'Password'
+        
+        provider = b(self._default_library, integration)
+
+        eq_(b.EMAIL_ADDRESS_KEYBOARD, provider.identifier_keyboard)
+        eq_(b.NUMBER_PAD, provider.password_keyboard)
+        eq_("Your Library Card", provider.identifier_label)
+        eq_("Password", provider.password_label)
+        
     def test_server_side_validation(self):
-        provider = BasicAuthenticationProvider(
-            identifier_regular_expression="foo",
-            password_regular_expression="bar"
-        )
+        b = BasicAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = 'foo'
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = 'bar'
+
+        provider = b(self._default_library, integration)
+        
         eq_(True, provider.server_side_validation("food", "barbecue"))
         eq_(False, provider.server_side_validation("food", "arbecue"))
         eq_(False, provider.server_side_validation("ood", "barbecue"))
         eq_(False, provider.server_side_validation(None, None))
 
-        # It's okay not to provide anything for server side validation.
-        # Everything will be considered valid.
-        provider = BasicAuthenticationProvider(
-            identifier_regular_expression=None,
-            password_regular_expression=None
+        # Now test the identifier restriction for a specific library.
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, b.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
         )
+        identifier_restriction.value = "food"
+        provider = b(self._default_library, integration)
         eq_(True, provider.server_side_validation("food", "barbecue"))
-        eq_(True, provider.server_side_validation(None, None))
+        eq_(True, provider.server_side_validation("foodie", "barbecue"))
+        eq_(PATRON_OF_ANOTHER_LIBRARY,
+            provider.server_side_validation("foo", "bar"))
+        
+        # It's okay not to provide anything for server side validation.
+        # The default settings will be used.
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = None
+        identifier_restriction.value = None
+        provider = b(self._default_library, integration)
+        eq_(b.DEFAULT_IDENTIFIER_REGULAR_EXPRESSION.pattern,
+            provider.identifier_re.pattern)
+        eq_(None, provider.password_re)
+        eq_(True, provider.server_side_validation("food", "barbecue"))
+        eq_(True, provider.server_side_validation("a", None))
+        eq_(False, provider.server_side_validation("!@#$", None))
+
+        # Test maximum length of identifier and password.
+        integration.setting(b.IDENTIFIER_MAXIMUM_LENGTH).value = "5"
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "10"
+        provider = b(self._default_library, integration)
+
+        eq_(True, provider.server_side_validation("a", "1234"))
+        eq_(False, provider.server_side_validation("a", "123456789012345"))
+        eq_(False, provider.server_side_validation("abcdefghijklmnop", "1234"))
+
+        # You can disable the password check altogether by setting maximum
+        # length to zero.
+        integration.setting(b.PASSWORD_MAXIMUM_LENGTH).value = "0"
+        provider = b(self._default_library, integration)
+        eq_(True, provider.server_side_validation("a", None))
         
     def test_local_patron_lookup(self):
         patron1 = self._patron("patron1_ext_id")
@@ -1024,7 +1461,7 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         patron2.username = "patron2"
         self._db.commit()
         
-        provider = BasicAuthenticationProvider()
+        provider = self.mock_basic()
 
         # If we provide PatronData associated with patron1, we look up
         # patron1, even though we provided the username associated
@@ -1064,26 +1501,30 @@ class TestBasicAuthenticationProvider(DatabaseTest):
         )        
 
     def test_get_credential_from_header(self):
-        provider = BasicAuthenticationProvider()
+        provider = self.mock_basic()
         eq_(None, provider.get_credential_from_header("Bearer [some token]"))
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
     def test_authentication_provider_document(self):
-        provider = BasicAuthenticationProvider()
-        doc = provider.authentication_provider_document
+        """Test the default authentication provider document."""
+        provider = self.mock_basic()
+        doc = provider.authentication_provider_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['name'])
         methods = doc['methods']
         eq_([provider.METHOD], methods.keys())
         method = methods[provider.METHOD]
-        eq_(['labels'], method.keys())
+        eq_(['inputs', 'labels'], sorted(method.keys()))
         login = method['labels']['login']
         password = method['labels']['password']
-        eq_(provider.LOGIN_LABEL, login)
-        eq_(provider.PASSWORD_LABEL, password)
-
-
-class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
+        eq_(provider.identifier_label, login)
+        eq_(provider.password_label, password)
+        eq_(provider.identifier_keyboard,
+            method['inputs']['login']['keyboard'])
+        eq_(provider.password_keyboard,
+            method['inputs']['password']['keyboard'])
+        
+class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
 
     # A dummy set of credentials, for use when the exact details of
@@ -1093,7 +1534,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_success(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
 
         # authenticate() calls remote_authenticate(), which returns the
         # queued up PatronData object. The corresponding Patron is then
@@ -1107,23 +1548,27 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     def test_failure_when_remote_authentication_returns_problemdetail(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(UNSUPPORTED_AUTHENTICATION_MECHANISM)
+        provider = self.mock_basic(patrondata=UNSUPPORTED_AUTHENTICATION_MECHANISM)
         eq_(UNSUPPORTED_AUTHENTICATION_MECHANISM,
             provider.authenticate(self._db, self.credentials))
 
     def test_failure_when_remote_authentication_returns_none(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(None)
+        provider = self.mock_basic(patrondata=None)
         eq_(None,
             provider.authenticate(self._db, self.credentials))
         
     def test_server_side_validation_runs(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
-        provider = MockBasic(
-            patrondata, identifier_regular_expression="foo",
-            password_regular_expression="bar"
+
+        b = MockBasic
+        integration = self._external_integration(self._str)
+        integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = 'foo'
+        integration.setting(b.PASSWORD_REGULAR_EXPRESSION).value = 'bar'
+        provider = b(
+            self._default_library, integration, patrondata=patrondata
         )
 
         # This would succeed, but we don't get to remote_authenticate()
@@ -1140,7 +1585,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
         authentication provider. But we handle it.
         """
         patrondata = PatronData(permanent_id=self._str)
-        provider = MockBasic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
 
         # When we call remote_authenticate(), we get patrondata, but
         # there is no corresponding local patron, so we call
@@ -1157,11 +1602,17 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             authorization_identifier=self._str,
             fines=Money(1, "USD"),
         )
-        provider = MockBasic(patrondata, patrondata)
+
+        library = self._library()
+        integration = self._external_integration(
+            self._str, ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        provider = MockBasic(library, integration, patrondata=patrondata, remote_patron_lookup_patrondata=patrondata)
         patron = provider.authenticate(self._db, self.credentials)
 
         # A server side Patron was created from the PatronData.
         assert isinstance(patron, Patron)
+        eq_(library, patron.library)
         eq_(patrondata.permanent_id, patron.external_identifier)
         eq_(patrondata.authorization_identifier,
             patron.authorization_identifier)
@@ -1192,7 +1643,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1221,7 +1672,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1250,7 +1701,7 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
             username=new_username,
         )
 
-        provider = MockBasic(patrondata)
+        provider = self.mock_basic(patrondata=patrondata)
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1267,18 +1718,23 @@ class TestBasicAuthenticationProviderAuthenticate(DatabaseTest):
     # appear no different to us than a patron who has never used the
     # circulation manager before.
 
-class TestOAuthAuthenticationProvider(DatabaseTest):
+class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
     def test_from_config(self):
         class ConfigAuthenticationProvider(OAuthAuthenticationProvider):
             NAME = "Config loading test"
 
-        config = {
-            Configuration.OAUTH_CLIENT_ID : "client_id",
-            Configuration.OAUTH_CLIENT_SECRET : "client_secret",
-            Configuration.OAUTH_TOKEN_EXPIRATION_DAYS : 20,
-        }
-        provider = ConfigAuthenticationProvider.from_config(config)
+        integration = self._external_integration(
+            self._str, goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        integration.username = 'client_id'
+        integration.password = 'client_secret'
+        integration.setting(
+            ConfigAuthenticationProvider.OAUTH_TOKEN_EXPIRATION_DAYS
+        ).value = 20
+        provider = ConfigAuthenticationProvider(
+            self._default_library, integration
+        )
         eq_("client_id", provider.client_id)
         eq_("client_secret", provider.client_secret)
         eq_(20, provider.token_expiration_days)
@@ -1287,12 +1743,12 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         """There is no way to get a credential from a bearer token that can 
         be passed on to a content provider like Overdrive.
         """
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         eq_(None, provider.get_credential_from_header("Bearer abcd"))
             
     def test_create_token(self):
         patron = self._patron()
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         in_twenty_days = (
             datetime.datetime.utcnow() + datetime.timedelta(
                 days=provider.token_expiration_days
@@ -1310,7 +1766,7 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
             
     def test_authenticated_patron_success(self):
         patron = self._patron()
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         data_source = provider.token_data_source(self._db)
 
         # Until we call create_token, this won't work.
@@ -1332,14 +1788,25 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         )
 
         class CallbackImplementation(MockOAuth):
-            def remote_exchange_code_for_access_token(self, access_code):
+            def remote_exchange_code_for_access_token(self, _db, access_code):
                 self.used_code = access_code
                 return "a token"
 
             def remote_patron_lookup(self, bearer_token):
                 return mock_patrondata
-            
-        oauth = CallbackImplementation()
+
+        integration = CallbackImplementation._mock_integration(
+            self._db, "Mock OAuth"
+        )
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, CallbackImplementation.PATRON_IDENTIFIER_RESTRICTION,
+            self._default_library, integration
+        )
+        setting.value="123"
+
+        oauth = CallbackImplementation(
+            self._default_library, integration=integration
+        )
         credential, patron, patrondata = oauth.oauth_callback(
             self._db, "a code"
         )
@@ -1361,6 +1828,12 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         # has been passed along.
         eq_(mock_patrondata, patrondata)
         eq_("The User", patrondata.personal_name)
+
+        # A patron whose identifier doesn't match the patron
+        # identifier restriction is treated as a patron of a different
+        # library.
+        mock_patrondata.set_authorization_identifier("abcd")
+        eq_(PATRON_OF_ANOTHER_LIBRARY, oauth.oauth_callback(self._db, "a code"))
         
     def test_authentication_provider_document(self):
         # We're about to call url_for, so we must create an
@@ -1369,9 +1842,9 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         from api.app import app
         self.app = app
         del os.environ['AUTOINITIALIZE']
-        provider = MockOAuth()
+        provider = MockOAuth(self._default_library)
         with self.app.test_request_context("/"):
-            doc = provider.authentication_provider_document
+            doc = provider.authentication_provider_document(self._db)
 
             # There is only one way to authenticate with this type
             # of authentication.
@@ -1380,12 +1853,12 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
 
             # And it involves following the 'authenticate' link.
             link = method['links']['authenticate']
-            eq_(link, provider._internal_authenticate_url())
+            eq_(link, provider._internal_authenticate_url(self._db))
 
     def test_token_data_source_can_create_new_data_source(self):
         class OAuthWithUnusualDataSource(MockOAuth):
             TOKEN_DATA_SOURCE_NAME = "Unusual data source"
-        oauth = OAuthWithUnusualDataSource()
+        oauth = OAuthWithUnusualDataSource(self._default_library)
         source, is_new = oauth.token_data_source(self._db)
         eq_(True, is_new)
         eq_(oauth.TOKEN_DATA_SOURCE_NAME, source.name)
@@ -1400,26 +1873,28 @@ class TestOAuthAuthenticationProvider(DatabaseTest):
         """
         # We're about to call url_for, so we must create an
         # application context.
-        my_api = MockOAuth()
+        my_api = MockOAuth(self._default_library)
         my_api.client_id = "clientid"
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
 
         with app.test_request_context("/"):        
-            params = my_api.external_authenticate_url_parameters("state")
+            params = my_api.external_authenticate_url_parameters("state", self._db)
             eq_("state", params['state'])
             eq_("clientid", params['client_id'])
-            eq_("http://localhost/oauth_callback",
-                params['oauth_callback_url'])
+            expected_url = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
+            eq_(expected_url, params['oauth_callback_url'])
         
-class TestOAuthController(DatabaseTest):
+class TestOAuthController(AuthenticatorTest):
 
     def setup(self):
         super(TestOAuthController, self).setup()
         class MockOAuthWithExternalAuthenticateURL(MockOAuth):
-            def __init__(self, _db, external_authenticate_url, patron):
-                super(MockOAuthWithExternalAuthenticateURL, self).__init__()
+            def __init__(self, library, _db, external_authenticate_url, patron):
+                super(MockOAuthWithExternalAuthenticateURL, self).__init__(
+                    library,
+                )
                 self.url = external_authenticate_url
                 self.patron = patron
                 self.token, ignore = self.create_token(
@@ -1427,24 +1902,25 @@ class TestOAuthController(DatabaseTest):
                 )
                 self.patrondata = PatronData(personal_name="Abcd")
                 
-            def external_authenticate_url(self, state):
+            def external_authenticate_url(self, state, _db):
                 return self.url + "?state=" + state
 
             def oauth_callback(self, _db, params):
                 return self.token, self.patron, self.patrondata
             
         patron = self._patron()
-        self.basic = MockBasic()           
+        self.basic = self.mock_basic()
         self.oauth1 = MockOAuthWithExternalAuthenticateURL(
-            self._db, "http://oauth1.com/", patron
+            self._default_library, self._db, "http://oauth1.com/", patron
         )
         self.oauth1.NAME = "Mock OAuth 1"
         self.oauth2 = MockOAuthWithExternalAuthenticateURL(
-            self._db, "http://oauth2.org/", patron
+            self._default_library, self._db, "http://oauth2.org/", patron
         )
         self.oauth2.NAME = "Mock OAuth 2"
-        self.auth = Authenticator(
-            library = Library.instance(self._db),
+        self.auth = LibraryAuthenticator(
+            _db=self._db,
+            library=self._default_library,
             basic_auth_provider=self.basic,
             oauth_providers=[self.oauth1, self.oauth2],
             bearer_token_signing_secret="a secret"
@@ -1456,14 +1932,14 @@ class TestOAuthController(DatabaseTest):
         provider, where they're supposed to log in.
         """
         params = dict(provider=self.oauth1.NAME)
-        response = self.controller.oauth_authentication_redirect(params)
+        response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         expected_state = dict(redirect_uri="", provider=self.oauth1.NAME)
         expected_state = urllib.quote(json.dumps(expected_state))
         eq_("http://oauth1.com/?state=" + expected_state, response.location)
 
         params = dict(provider=self.oauth2.NAME, redirect_uri="http://foo.com/")
-        response = self.controller.oauth_authentication_redirect(params)
+        response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         expected_state = urllib.quote(json.dumps(params))
         eq_("http://oauth2.org/?state=" + expected_state, response.location)
@@ -1473,7 +1949,7 @@ class TestOAuthController(DatabaseTest):
         # problem detail document.
         params = dict(redirect_uri="http://foo.com/",
                       provider="not an oauth provider")
-        response = self.controller.oauth_authentication_redirect(params)
+        response = self.controller.oauth_authentication_redirect(params, self._db)
         eq_(302, response.status_code)
         assert response.location.startswith("http://foo.com/#")
         fragments = urlparse.parse_qs(
@@ -1526,4 +2002,3 @@ class TestOAuthController(DatabaseTest):
         eq_(None, fragments.get('access_token'))
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
-

@@ -4,7 +4,6 @@ import base64
 import json
 import os
 import datetime
-from flask import url_for
 from flask.ext.babel import lazy_gettext as _
 
 from core.util.problem_detail import ProblemDetail
@@ -20,6 +19,7 @@ from core.model import (
     get_one_or_create,
     Credential,
     DataSource,
+    ExternalIntegration,
     Patron,
 )
 from core.util.http import HTTP
@@ -55,6 +55,21 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     URI = "http://librarysimplified.org/terms/auth/clever"
 
     NAME = 'Clever'
+
+    DESCRIPTION = _("""
+        An authentication service for Open eBooks that uses Clever as an
+        OAuth provider.""")
+
+    SETTINGS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ] + OAuthAuthenticationProvider.SETTINGS
+
+    # Unlike other authentication providers, external type regular expression
+    # doesn't make sense for Clever. This removes the LIBRARY_SETTINGS from the
+    # parent class.
+    LIBRARY_SETTINGS = []
+
     TOKEN_TYPE = "Clever token"
     TOKEN_DATA_SOURCE_NAME = 'Clever'
 
@@ -93,7 +108,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         # Ask the OAuth provider to verify the code that was passed
         # in.  This will give us a bearer token we can use to look up
         # detailed patron information.
-        token = self.remote_exchange_code_for_bearer_token(code)
+        token = self.remote_exchange_code_for_bearer_token(_db, code)
         if isinstance(token, ProblemDetail):
             return token
         
@@ -104,7 +119,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             return patrondata
         
         # Convert the PatronData into a Patron object.
-        patron, is_new = patrondata.get_or_create_patron(_db)
+        patron, is_new = patrondata.get_or_create_patron(_db, self.library_id)
 
         # Create a credential for the Patron.
         credential, is_new = self.create_token(_db, patron, token)
@@ -113,7 +128,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     # End implementations of OAuthAuthenticationProvider abstract
     # methods.
 
-    def remote_exchange_code_for_bearer_token(self, code):
+    def remote_exchange_code_for_bearer_token(self, _db, code):
         """Ask the OAuth provider to convert a code (passed in to the OAuth
         callback) into a bearer token.
 
@@ -127,7 +142,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         payload = dict(
             code=code,
             grant_type='authorization_code',
-            redirect_uri=OAuthController.oauth_authentication_callback_url()
+            redirect_uri=OAuthController.oauth_authentication_callback_url(_db)
         )
         authorization = base64.b64encode(
             self.client_id + ":" + self.client_secret

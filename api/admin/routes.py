@@ -8,16 +8,23 @@ from flask import (
 )
 import os
 
-from api.app import app
+from api.app import app, _db
 from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
 from core.app_server import returns_problem_detail
+from core.model import (
+    ConfigurationSetting,
+    Library,
+)
 
 from controller import setup_admin_controllers
 from templates import (
-    admin as admin_template,
     admin_sign_in_again as sign_in_again_template,
+)
+from api.routes import (
+    has_library,
+    library_route,
 )
 
 import csv, codecs, cStringIO
@@ -26,7 +33,9 @@ import urllib
 from datetime import timedelta
 
 # The secret key is used for signing cookies for admin login
-app.secret_key = Configuration.get(Configuration.SECRET_KEY)
+app.secret_key = ConfigurationSetting.sitewide_secret(
+    _db, Configuration.SECRET_KEY
+)
 
 # An admin's session will expire after this amount of time and
 # the admin will have to log in again.
@@ -99,78 +108,90 @@ def password_auth():
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
-def work_details(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.details(data_source, identifier_type, identifier)
+def work_details(identifier_type, identifier):
+    return app.manager.admin_work_controller.details(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
-def work_classifications(data_source, identifier_type, identifier):
-    data = app.manager.admin_work_controller.classifications(data_source, identifier_type, identifier)
+def work_classifications(identifier_type, identifier):
+    data = app.manager.admin_work_controller.classifications(identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
+@has_library
 @returns_problem_detail
 @requires_admin
-def work_complaints(data_source, identifier_type, identifier):
-    data = app.manager.admin_work_controller.complaints(data_source, identifier_type, identifier)
+def work_complaints(identifier_type, identifier):
+    data = app.manager.admin_work_controller.complaints(identifier_type, identifier)
     if isinstance(data, ProblemDetail):
         return data
     return flask.jsonify(**data)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit', methods=['POST'])
-@returns_problem_detail
-@requires_admin
-def edit(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.edit(data_source, identifier_type, identifier)
-
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def suppress(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.suppress(data_source, identifier_type, identifier)
+def edit(identifier_type, identifier):
+    return app.manager.admin_work_controller.edit(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def unsuppress(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.unsuppress(data_source, identifier_type, identifier)
+def suppress(identifier_type, identifier):
+    return app.manager.admin_work_controller.suppress(identifier_type, identifier)
 
-@app.route('/works/<data_source>/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def refresh(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.refresh_metadata(data_source, identifier_type, identifier)
+def unsuppress(identifier_type, identifier):
+    return app.manager.admin_work_controller.unsuppress(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
+@library_route('/works/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def resolve_complaints(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.resolve_complaints(data_source, identifier_type, identifier)
+def refresh(identifier_type, identifier):
+    return app.manager.admin_work_controller.refresh_metadata(identifier_type, identifier)
 
-@app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
+@library_route('/admin/works/<identifier_type>/<path:identifier>/resolve_complaints', methods=['POST'])
+@has_library
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
-def edit_classifications(data_source, identifier_type, identifier):
-    return app.manager.admin_work_controller.edit_classifications(data_source, identifier_type, identifier)
+def resolve_complaints(identifier_type, identifier):
+    return app.manager.admin_work_controller.resolve_complaints(identifier_type, identifier)
 
-@app.route('/admin/complaints')
+@library_route('/admin/works/<identifier_type>/<path:identifier>/edit_classifications', methods=['POST'])
+@has_library
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def edit_classifications(identifier_type, identifier):
+    return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
+
+@library_route('/admin/complaints')
+@has_library
 @returns_problem_detail
 @requires_admin
 def complaints():
     return app.manager.admin_feed_controller.complaints()
 
-@app.route('/admin/suppressed')
+@library_route('/admin/suppressed')
+@has_library
 @returns_problem_detail
 @requires_admin
 def suppressed():
@@ -235,7 +256,8 @@ def bulk_circulation_events():
     response.headers["Content-type"] = "text/csv"
     return response
 
-@app.route('/admin/circulation_events')
+@library_route('/admin/circulation_events')
+@has_library
 @returns_problem_detail
 @requires_admin
 def circulation_events():
@@ -291,6 +313,115 @@ def admin_auth_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/individual_admins", methods=['GET', 'POST'])
+@returns_problem_detail
+@allows_admin_auth_setup
+@requires_admin
+@requires_csrf_token
+def individual_admins():
+    data = app.manager.admin_settings_controller.individual_admins()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def patron_auth_services():
+    data = app.manager.admin_settings_controller.patron_auth_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/metadata_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def metadata_services():
+    data = app.manager.admin_settings_controller.metadata_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/analytics_services", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def analytics_services():
+    data = app.manager.admin_settings_controller.analytics_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/drm_services", methods=["GET", "POST"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def drm_services():
+    data = app.manager.admin_settings_controller.drm_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/cdn_services", methods=["GET", "POST"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def cdn_services():
+    data = app.manager.admin_settings_controller.cdn_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/search_services", methods=["GET", "POST"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def search_services():
+    data = app.manager.admin_settings_controller.search_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/discovery_services", methods=["GET", "POST"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def discovery_services():
+    data = app.manager.admin_settings_controller.discovery_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def sitewide_settings():
+    data = app.manager.admin_settings_controller.sitewide_settings()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -309,43 +440,8 @@ def admin_sign_in_again():
 @app.route('/admin/web/collection/<path:collection>')
 @app.route('/admin/web/book/<path:book>')
 @app.route('/admin/web/<path:etc>') # catchall for single-page URLs
-def admin_view(collection=None, book=None, **kwargs):
-    setting_up = (app.manager.admin_sign_in_controller.auth == None)
-    if not setting_up:
-        admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
-        if isinstance(admin, ProblemDetail):
-            redirect_url = flask.request.url
-            if (collection):
-                quoted_collection = urllib.quote(collection)
-                redirect_url = redirect_url.replace(
-                    quoted_collection,
-                    quoted_collection.replace("/", "%2F"))
-            if (book):
-                quoted_book = urllib.quote(book)
-                redirect_url = redirect_url.replace(
-                    quoted_book,
-                    quoted_book.replace("/", "%2F"))
-            return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
-
-    csrf_token = app.manager.admin_sign_in_controller.generate_csrf_token()
-
-    show_circ_events_download = (
-        "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
-    )
-    response = Response(flask.render_template_string(
-        admin_template,
-        csrf_token=csrf_token,
-        home_url=app.manager.url_for('acquisition_groups'),
-        show_circ_events_download=show_circ_events_download,
-        setting_up=setting_up,
-    ))
-
-    # The CSRF token is in its own cookie instead of the session cookie,
-    # because if your session expires and you log in again, you should
-    # be able to submit a form you already had open. The CSRF token lasts
-    # until the user closes the browser window.
-    response.set_cookie("csrf_token", csrf_token, httponly=True)
-    return response
+def admin_view(collection=None, book=None, etc=None, **kwargs):
+    return app.manager.admin_view_controller(collection, book, path=etc)
 
 @app.route('/admin')
 @app.route('/admin/')

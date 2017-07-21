@@ -1,7 +1,9 @@
+import json
 import re
 from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
+from flask.ext.babel import lazy_gettext as _
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -9,53 +11,191 @@ from core.config import (
     temp_config as core_temp_config,
 )
 from core.util import MoneyUtility
+from core.lane import Facets
+from core.model import ConfigurationSetting
 
 class Configuration(CoreConfiguration):
 
-    INCLUDE_ADMIN_INTERFACE = "include_admin_interface"
     LENDING_POLICY = "lending"
-    AUTHENTICATION_POLICY = "authentication"
-    LANGUAGE_POLICY = "languages"
-    LANGUAGE_FORCE = "force"
-    LARGE_COLLECTION_LANGUAGES = "large_collections"
-    SMALL_COLLECTION_LANGUAGES = "small_collections"
-    TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     ROOT_LANE_POLICY = "root_lane"
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = "external_type_regular_expression"
 
-    MAX_OUTSTANDING_FINES = "max_outstanding_fines"
+    # The name of the sitewide url that points to the patron web catalog.
+    PATRON_WEB_CLIENT_URL = u"Patron Web Client"
 
-    PRELOADED_CONTENT = "preloaded_content"
+    # The name of the sitewide secret used to sign cookies for admin login.
+    SECRET_KEY = u"secret_key"
 
-    ADOBE_VENDOR_ID_INTEGRATION = "Adobe Vendor ID"
-    ADOBE_VENDOR_ID = "vendor_id"
-    ADOBE_VENDOR_ID_NODE_VALUE = "node_value"
+    # A short description of the library, used in its Authentication
+    # for OPDS document.
+    LIBRARY_DESCRIPTION = 'library_description'
+    
+    # The name of the per-library setting that sets the maximum amount
+    # of fines a patron can have before losing lending privileges.
+    MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
 
-    AUTHENTICATION = "authentication"
-    AUTHENTICATION_TEST_USERNAME = "test_username"
-    AUTHENTICATION_TEST_PASSWORD = "test_password"
+    # The name of the per-library setting that sets the default email
+    # address to use when notifying patrons of changes.
+    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
 
-    OAUTH_CLIENT_ID = 'client_id'
-    OAUTH_CLIENT_SECRET = 'client_secret'
-    OAUTH_TOKEN_EXPIRATION_DAYS = 'token_expiration_days'
-    SECRET_KEY = "secret_key"
+    # Name of the site-wide ConfigurationSetting containing the secret
+    # used to sign bearer tokens.
+    BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
 
-    MILLENIUM_INTEGRATION = "Millenium"
-    MILLENIUM_MODE = "auth_mode"
-    AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
-    STAFF_PICKS_INTEGRATION = "Staff Picks"
-    PATRON_WEB_CLIENT_INTEGRATION = "Patron Web Client"
+    # Names of per-library ConfigurationSettings that control
+    # how detailed the lane configuration gets for various languages.
+    LARGE_COLLECTION_LANGUAGES = "large_collections"
+    SMALL_COLLECTION_LANGUAGES = "small_collections"
+    TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
-    LIST_FIELDS = "fields"
+    # The client-side color scheme to use for this library.
+    COLOR_SCHEME = "color_scheme"
+    DEFAULT_COLOR_SCHEME = "blue"
+
+    # The library-wide logo setting.
+    LOGO = "logo"
    
-    DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
+    # Names of the library-wide link settings.
+    TERMS_OF_SERVICE = 'terms-of-service'
+    PRIVACY_POLICY = 'privacy-policy'
+    COPYRIGHT = 'copyright'
+    ABOUT = 'about'
+    LICENSE = 'license'
+    REGISTER = 'register'
 
-    IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
-    PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
+    # A library with this many titles in a given language will be given
+    # a large, detailed lane configuration for that language.
+    LARGE_COLLECTION_CUTOFF = 10000
+    # A library with this many titles in a given language will be
+    # given separate fiction and nonfiction lanes for that language.
+    SMALL_COLLECTION_CUTOFF = 500
+    # A library with fewer titles than that will be given a single
+    # lane containing all books in that language.
 
+    # These are link relations that are valid in Authentication for
+    # OPDS documents but are not registered with IANA.
+    AUTHENTICATION_FOR_OPDS_LINKS = ['register']
+    
+    # We support three different ways of integrating help processes.
+    # All three of these will be sent out as links with rel='help'
+    HELP_EMAIL = 'help-email'
+    HELP_WEB = 'help-web'
+    HELP_URI = 'help-uri'
+    HELP_LINKS = [HELP_EMAIL, HELP_WEB, HELP_URI]
+
+    # Features of an OPDS client which a library may want to enable or
+    # disable.
+    RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
+    
+    SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
+        {
+            "key": BEARER_TOKEN_SIGNING_SECRET,
+            "label": _("Internal signing secret for OAuth bearer tokens"),
+        },
+        {
+            "key": SECRET_KEY,
+            "label": _("Internal secret key for admin interface cookies"),
+        },
+        {
+            "key": PATRON_WEB_CLIENT_URL,
+            "label": _("URL of the web catalog for patrons"),
+        },
+    ]
+
+    LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
+        {
+            "key": LIBRARY_DESCRIPTION,
+            "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+        },
+        {
+            "key": COLOR_SCHEME,
+            "label": _("Color scheme"),
+            "description": _("This tells clients what colors to use when rendering this library's OPDS feed."),
+            "options": [
+                { "key": "blue", "label": _("Blue") },
+                { "key": "red", "label": _("Red") },
+                { "key": "gray", "label": _("Gray") },
+                { "key": "gold", "label": _("Gold") },
+                { "key": "green", "label": _("Green") },
+                { "key": "teal", "label": _("Teal") },
+                { "key": "purple", "label": _("Purple") },
+            ],
+            "type": "select",
+        },
+        {
+            "key": LOGO,
+            "label": _("Logo image"),
+            "type": "image",
+            "optional": True,
+            "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
+        },
+        {
+            "key": MAX_OUTSTANDING_FINES,
+            "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
+        },
+        {
+            "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            "label": _("Default email address to use when notifying patrons of changes"),
+        },
+        {
+            "key": TERMS_OF_SERVICE,
+            "label": _("Terms of Service URL"),
+        },
+        {
+            "key": PRIVACY_POLICY,
+            "label": _("Privacy Policy URL"),
+        },
+        {
+            "key": COPYRIGHT,
+            "label": _("Copyright URL"),
+        },
+        {
+            "key": ABOUT,
+            "label": _("About URL"),
+        },
+        {
+            "key": LICENSE,
+            "label": _("License URL"),
+        },
+        {
+            "key": REGISTER,
+            "label": _("Patron registration URL"),
+            "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
+        },
+        {
+            "key": HELP_EMAIL,
+            "label": _("Patron support email address"),
+            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@nypl.org'."),
+        },
+        {
+            "key": HELP_WEB,
+            "label": _("Patron support web site"),
+            "description": _("A URL for patrons to get help."),
+        },
+        {
+            "key": HELP_URI,
+            "label": _("Patron support custom integration URI"),
+            "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
+        },
+        {
+            "key": LARGE_COLLECTION_LANGUAGES,
+            "label": _("The primary languages represented in this library's collection"),
+            "type": "list",
+        },
+        {
+            "key": SMALL_COLLECTION_LANGUAGES,
+            "label": _("Other major languages represented in this library's collection"),
+            "type": "list",
+        },        
+        {
+            "key": TINY_COLLECTION_LANGUAGES,
+            "label": _("Other languages in this library's collection"),
+            "type": "list",
+        },        
+    ]
+    
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
@@ -65,68 +205,136 @@ class Configuration(CoreConfiguration):
         return cls.policy(cls.ROOT_LANE_POLICY)
 
     @classmethod
-    def language_policy(cls):
-        return cls.policy(cls.LANGUAGE_POLICY, required=True)
+    def _collection_languages(cls, library, key):
+        """Look up a list of languages in a library configuration.
 
-    @classmethod
-    def large_collection_languages(cls):
-        value = cls.language_policy().get(cls.LARGE_COLLECTION_LANGUAGES, 'eng')
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
-
-    @classmethod
-    def small_collection_languages(cls):
-        import logging
-        logging.info("In small_collection_languages.")
-        value = cls.language_policy().get(cls.SMALL_COLLECTION_LANGUAGES, '')
-        logging.info("Language policy: %r" % cls.language_policy())
-        logging.info("Small collections: %r" % value)
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
-
-    @classmethod
-    def tiny_collection_languages(cls):
-        import logging
-        logging.info("In tiny_collection_languages.")
-        value = cls.language_policy().get(cls.TINY_COLLECTION_LANGUAGES, '')
-        logging.info("Language policy: %r" % cls.language_policy())
-        logging.info("Tiny collections: %r" % value)
-        if not value:
-            return []
-        if isinstance(value, list):
-            return value
-        return [[x] for x in value.split(',')]
-
-    @classmethod
-    def force_language(cls, language):
-        """Override normal language settings to deliver a particular
-        collection no matter what.
+        If the value is not set, estimate a value (and all related
+        values) by looking at the library's collection.
         """
-        policy = cls.language_policy()
-        return policy.get(cls.LANGUAGE_FORCE, language)
+        setting = ConfigurationSetting.for_library(key, library)
+        value = None
+        try:
+            value = setting.json_value
+            if not isinstance(value, list):
+                value = None
+        except (TypeError, ValueError):
+            pass
 
+        if value is None:
+            # We have no value or a bad value. Estimate a better value.
+            cls.estimate_language_collections_for_library(library)
+            value = setting.json_value
+        return value
+    
     @classmethod
-    def default_notification_email_address(cls):
-        return cls.required(cls.DEFAULT_NOTIFICATION_EMAIL_ADDRESS)
-
-    @classmethod
-    def max_outstanding_fines(cls):
-        max_fines = Configuration.policy(
-            Configuration.MAX_OUTSTANDING_FINES
+    def large_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.LARGE_COLLECTION_LANGUAGES
         )
+
+    @classmethod
+    def small_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.SMALL_COLLECTION_LANGUAGES
+        )
+
+    @classmethod
+    def tiny_collection_languages(cls, library):
+        return cls._collection_languages(
+            library, cls.TINY_COLLECTION_LANGUAGES
+        )
+
+    @classmethod
+    def max_outstanding_fines(cls, library):
+        max_fines = ConfigurationSetting.for_library(
+            cls.MAX_OUTSTANDING_FINES, library
+        ).value
         return MoneyUtility.parse(max_fines)
     
     @classmethod
-    def load(cls):
-        CoreConfiguration.load()
+    def load(cls, _db=None):
+        CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
+        return cls.instance
+        
+    @classmethod
+    def estimate_language_collections_for_library(cls, library):
+        """Guess at appropriate values for the given library for
+        LARGE_COLLECTION_LANGUAGES, SMALL_COLLECTION_LANGUAGES, and
+        TINY_COLLECTION_LANGUAGES. Set configuration values
+        appropriately, overriding any previous values.
+        """
+        holdings = library.estimated_holdings_by_language()
+        large, small, tiny = cls.classify_holdings(holdings)
+        for setting, value in (
+                (cls.LARGE_COLLECTION_LANGUAGES, large),
+                (cls.SMALL_COLLECTION_LANGUAGES, small),
+                (cls.TINY_COLLECTION_LANGUAGES, tiny),
+        ):
+            ConfigurationSetting.for_library(
+                setting, library).value = json.dumps(value)
 
+    @classmethod
+    def classify_holdings(cls, works_by_language):
+        """Divide languages into 'large', 'small', and 'tiny' colletions based
+        on the number of works available for each.
+
+        :param works_by_language: A Counter mapping languages to the
+        number of active works available for that language.  The
+        output of `Library.estimated_holdings_by_language` is a good
+        thing to pass in.
+
+        :return: a 3-tuple of lists (large, small, tiny).
+        """
+        large = []
+        small = []
+        tiny = []
+        result = [large, small, tiny]
+
+        if not works_by_language:
+            # In the absence of any information, assume we have an
+            # English collection and nothing else.
+            large.append('eng')
+            return result
+        
+        # The single most common language always gets a large
+        # collection.
+        #
+        # Otherwise, it depends on how many works are in the
+        # collection.
+        for language, num_works in works_by_language.most_common():
+            if not large:
+                bucket = large
+            elif num_works >= cls.LARGE_COLLECTION_CUTOFF:
+                bucket = large
+            elif num_works >= cls.SMALL_COLLECTION_CUTOFF:
+                bucket = small
+            else:
+                bucket = tiny
+            bucket.append(language)
+            
+        return result        
+        
+    @classmethod
+    def help_uris(cls, library):
+        """Find all the URIs that might help patrons get help from
+        this library.
+
+        :yield: A sequence of 2-tuples (media type, URL)
+        """
+        for name in cls.HELP_LINKS:
+            setting = ConfigurationSetting.for_library(name, library)
+            value = setting.value
+            if not value:
+                continue
+            type = None
+            if name == cls.HELP_EMAIL:
+                value = 'mailto:' + value
+            if name == cls.HELP_WEB:
+                type = 'text/html'
+            yield type, value
+            
+        
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:
@@ -139,40 +347,3 @@ def temp_config(new_config=None, replacement_classes=None):
         all_replacement_classes.extend(replacement_classes)
     with core_temp_config(new_config, all_replacement_classes) as i:
         yield i
-
-class FacetConfig(object):
-    """A class that implements the facet-related methods of
-    Configuration, and allows modifications to the enabled
-    and default facets. For use when a controller needs to
-    use a facet configuration different from the site-wide
-    facets. 
-    """
-    @classmethod
-    def from_config(cls):
-        facet_policy = Configuration.policy(Configuration.FACET_POLICY, default=dict())
-        enabled_facets = deepcopy(facet_policy.get(Configuration.ENABLED_FACETS_KEY,
-                                               Configuration.DEFAULT_ENABLED_FACETS))
-        default_facets = deepcopy(facet_policy.get(Configuration.DEFAULT_FACET_KEY,
-                                               Configuration.DEFAULT_FACET))
-        return FacetConfig(enabled_facets, default_facets)
-
-    def __init__(self, enabled_facets, default_facets):
-        self._enabled_facets = enabled_facets
-        self._default_facets = default_facets
-
-    def enabled_facets(self, group_name):
-        return self._enabled_facets.get(group_name)
-
-    def default_facet(self, group_name):
-        return self._default_facets.get(group_name)
-
-    def enable_facet(self, group_name, facet):
-        self._enabled_facets.setdefault(group_name, [])
-        if facet not in self._enabled_facets[group_name]:
-            self._enabled_facets[group_name] += [facet]
-
-    def set_default_facet(self, group_name, facet):
-        self.enable_facet(group_name, facet)
-        self._default_facets[group_name] = facet
-
-
